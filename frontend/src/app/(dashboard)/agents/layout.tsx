@@ -1,11 +1,11 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Agent Conversation | Kortix Manus",
-  description: "Interactive agent conversation powered by Kortix Manus",
+  title: "Agent Conversation | Kortix Suna",
+  description: "Interactive agent conversation powered by Kortix Suna",
   openGraph: {
-    title: "Agent Conversation | Kortix Manus",
-    description: "Interactive agent conversation powered by Kortix Manus",
+    title: "Agent Conversation | Kortix Suna",
+    description: "Interactive agent conversation powered by Kortix Suna",
     type: "website",
   },
 };
