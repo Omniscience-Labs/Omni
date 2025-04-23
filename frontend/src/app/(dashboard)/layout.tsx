@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Clock } from "lucide-react"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -40,15 +41,20 @@ export default function DashboardLayout({
       </SidebarInset>
       
       <AlertDialog open={showMaintenanceAlert} onOpenChange={setShowMaintenanceAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>System Issues</AlertDialogTitle>
+        <AlertDialogContent className="border border-muted">
+          <AlertDialogHeader className="gap-3">
+            <div className="flex items-center justify-center">
+              <Clock className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <AlertDialogTitle className="text-lg font-medium">High Demand Notice</AlertDialogTitle>
             <AlertDialogDescription>
-              We're currently experiencing technical issues with our service. We apologize for the inconvenience.
+              Due to exceptionally high demand, our service is currently experiencing slower response times.
+              We recommend returning tomorrow when our systems will be operating at normal capacity.
+              <p className="mt-2">Thank you for your understanding.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>Understood</AlertDialogAction>
+            <AlertDialogAction>I'll Return Tomorrow</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

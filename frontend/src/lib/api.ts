@@ -1039,3 +1039,38 @@ export const getPublicProjects = async (): Promise<Project[]> => {
   }
 };
 
+export async function createProjectAndStartAgent(data: {
+  name: string;
+  description: string;
+  message: string;
+  model_name?: string;
+  enable_thinking?: boolean;
+  reasoning_effort?: string;
+  stream?: boolean;
+  enable_context_manager?: boolean;
+}) {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session?.access_token) {
+    throw new Error('No access token available');
+  }
+
+  const response = await fetch(`${API_URL}/agent/create-and-start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Error creating project and starting agent:", error);
+    throw new Error(`Failed to create project and start agent (${response.status}): ${error}`);
+  }
+
+  return await response.json();
+}
+
