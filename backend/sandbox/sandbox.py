@@ -83,15 +83,21 @@ def start_supervisord_session(sandbox: Sandbox):
         logger.error(f"Error starting supervisord session: {str(e)}")
         raise e
 
-def create_sandbox(password: str):
+def create_sandbox(password: str, sandbox_id: str = None):
     """Create a new sandbox with all required services configured and running."""
     
-    logger.info("Creating new Daytona sandbox environment")
+    logger.debug("Creating new Daytona sandbox environment")
     logger.debug("Configuring sandbox with browser-use image and environment variables")
+    
+    labels = None
+    if sandbox_id:
+        logger.debug(f"Using sandbox_id as label: {sandbox_id}")
+        labels = {'id': sandbox_id}
         
-    sandbox = daytona.create(CreateSandboxParams(
+    params = CreateSandboxParams(
         image="adamcohenhillel/kortix-suna:0.0.20",
         public=True,
+        labels=labels,
         env_vars={
             "CHROME_PERSISTENT_SESSION": "true",
             "RESOLUTION": "1024x768x24",
@@ -118,13 +124,16 @@ def create_sandbox(password: str):
             "memory": 4,
             "disk": 5,
         }
-    ))
-    logger.info(f"Sandbox created with ID: {sandbox.id}")
+    )
+    
+    # Create the sandbox
+    sandbox = daytona.create(params)
+    logger.debug(f"Sandbox created with ID: {sandbox.id}")
     
     # Start supervisord in a session for new sandbox
     start_supervisord_session(sandbox)
     
-    logger.info(f"Sandbox environment successfully initialized")
+    logger.debug(f"Sandbox environment successfully initialized")
     return sandbox
 
 
@@ -160,15 +169,15 @@ class SandboxToolsBase(Tool):
         website_url = website_link.url if hasattr(website_link, 'url') else str(website_link)
         
         # Log the actual URLs
-        logger.info(f"Sandbox VNC URL: {vnc_url}")
-        logger.info(f"Sandbox Website URL: {website_url}")
+        # logger.info(f"Sandbox VNC URL: {vnc_url}")
+        # logger.info(f"Sandbox Website URL: {website_url}")
         
-        if not SandboxToolsBase._urls_printed:
-            print("\033[95m***")
-            print(vnc_url)
-            print(website_url)
-            print("***\033[0m")
-            SandboxToolsBase._urls_printed = True
+        # if not SandboxToolsBase._urls_printed:
+        #     print("\033[95m***")
+        #     print(vnc_url)
+        #     print(website_url)
+        #     print("***\033[0m")
+        #     SandboxToolsBase._urls_printed = True
 
     def clean_path(self, path: str) -> str:
         cleaned_path = clean_path(path, self.workspace_path)

@@ -208,7 +208,7 @@ class ResponseProcessor:
                                         tool_index += 1
 
                                     if config.max_xml_tool_calls > 0 and xml_tool_call_count >= config.max_xml_tool_calls:
-                                        logger.info(f"Reached XML tool call limit ({config.max_xml_tool_calls})")
+                                        logger.debug(f"Reached XML tool call limit ({config.max_xml_tool_calls})")
                                         finish_reason = "xml_tool_limit_reached"
                                         break # Stop processing more XML chunks in this delta
 
@@ -1001,7 +1001,7 @@ class ResponseProcessor:
                 "arguments": params              # The extracted parameters
             }
             
-            logger.info(f"Created tool call: {tool_call}")
+            logger.debug(f"Created tool call: {tool_call}")
             return tool_call, parsing_details # Return both dicts
             
         except Exception as e:

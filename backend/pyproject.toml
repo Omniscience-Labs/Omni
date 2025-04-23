@@ -57,6 +57,10 @@ agentpress = "agentpress.cli:main"
 [[tool.poetry.packages]]
 include = "agentpress"
 
+
+[tool.poetry.group.dev.dependencies]
+daytona-sdk = "^0.14.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

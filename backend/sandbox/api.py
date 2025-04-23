@@ -11,7 +11,6 @@ from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agent.api import get_or_create_project_sandbox
 
-# TODO: ADD AUTHORIZATION TO ONLY HAVE ACCESS TO SANDBOXES OF PROJECTS U HAVE ACCESS TO
 
 # Initialize shared resources
 router = APIRouter(tags=["sandbox"])

@@ -19,7 +19,6 @@ from agent.run import run_agent
 from utils.auth_utils import get_current_user_id, get_user_id_from_stream_auth, verify_thread_access
 from utils.logger import logger
 from utils.billing import check_billing_status, get_account_id_from_thread
-from utils.db import update_agent_run_status
 from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 
@@ -95,8 +94,7 @@ async def update_agent_run_status(
     client,
     agent_run_id: str,
     status: str,
-    error: Optional[str] = None,
-    responses: Optional[List[Any]] = None
+    error: Optional[str] = None
 ) -> bool:
     """
     Centralized function to update agent run status.
@@ -110,9 +108,6 @@ async def update_agent_run_status(
         
         if error:
             update_data["error"] = error
-            
-        if responses:
-            update_data["responses"] = responses
             
         # Retry up to 3 times
         for retry in range(3):
@@ -134,18 +129,16 @@ async def update_agent_run_status(
                     if retry == 2:  # Last retry
                         logger.error(f"Failed to update agent run status after all retries: {agent_run_id}")
                         return False
-            except Exception as db_error:
-                logger.error(f"Database error on retry {retry} updating status: {str(db_error)}")
-                if retry < 2:  # Not the last retry yet
-                    await asyncio.sleep(0.5 * (2 ** retry))  # Exponential backoff
-                else:
-                    logger.error(f"Failed to update agent run status after all retries: {agent_run_id}", exc_info=True)
-                    return False
+            except Exception as e:
+                logger.error(f"Error updating agent run status on retry {retry}: {str(e)}")
+                if retry == 2:  # Last retry
+                    raise
+                
     except Exception as e:
-        logger.error(f"Unexpected error updating agent run status: {str(e)}", exc_info=True)
+        logger.error(f"Failed to update agent run status: {str(e)}")
         return False
-    
-    return False
+        
+    return False 
 
 async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None):
     """Update database and publish stop signal to Redis."""
@@ -348,7 +341,7 @@ async def get_or_create_project_sandbox(client, project_id: str, sandbox_cache={
         try:
             logger.info(f"Creating new sandbox for project {project_id}")
             sandbox_pass = str(uuid.uuid4())
-            sandbox = create_sandbox(sandbox_pass)
+            sandbox = create_sandbox(sandbox_pass, sandbox_id=project_id)
             sandbox_id = sandbox.id
             
             logger.info(f"Created new sandbox {sandbox_id} with preview: {sandbox.get_preview_link(6080)}/vnc_lite.html?password={sandbox_pass}")
@@ -751,27 +744,23 @@ async def run_agent_background(
             enable_context_manager=enable_context_manager
         )
         
-        # Collect all responses to save to database
-        all_responses = []
-        
         async for response in agent_gen:
             # Check if stop signal received
             if stop_signal_received:
                 logger.info(f"Agent run stopped due to stop signal: {agent_run_id} (instance: {instance_id})")
-                await update_agent_run_status(client, agent_run_id, "stopped", responses=all_responses)
+                await update_agent_run_status(client, agent_run_id, "stopped")
                 break
                 
             # Check for billing error status
             if response.get('type') == 'status' and response.get('status') == 'error':
                 error_msg = response.get('message', '')
                 logger.info(f"Agent run failed with error: {error_msg} (instance: {instance_id})")
-                await update_agent_run_status(client, agent_run_id, "failed", error=error_msg, responses=all_responses)
+                await update_agent_run_status(client, agent_run_id, "failed", error=error_msg)
                 break
                 
             # Store response in memory
             if agent_run_id in active_agent_runs:
                 active_agent_runs[agent_run_id].append(response)
-                all_responses.append(response)
                 total_responses += 1
         
         # Signal all done if we weren't stopped
@@ -787,10 +776,9 @@ async def run_agent_background(
             }
             if agent_run_id in active_agent_runs:
                 active_agent_runs[agent_run_id].append(completion_message)
-                all_responses.append(completion_message)
             
             # Update the agent run status
-            await update_agent_run_status(client, agent_run_id, "completed", responses=all_responses)
+            await update_agent_run_status(client, agent_run_id, "completed")
             
             # Notify any clients monitoring the control channels that we're done
             try:
@@ -816,18 +804,13 @@ async def run_agent_background(
         }
         if agent_run_id in active_agent_runs:
             active_agent_runs[agent_run_id].append(error_response)
-            if 'all_responses' in locals():
-                all_responses.append(error_response)
-            else:
-                all_responses = [error_response]
         
         # Update the agent run with the error
         await update_agent_run_status(
             client, 
             agent_run_id, 
             "failed", 
-            error=f"{error_message}\n{traceback_str}",
-            responses=all_responses
+            error=f"{error_message}\n{traceback_str}"
         )
         
         # Notify any clients of the error
@@ -908,8 +891,6 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         else:
             logger.warning(f"Failed to get valid response from LLM for project {project_id} naming. Response: {response}")
 
-        print(f"\n\n\nGenerated name: {generated_name}\n\n\n")
-        # Update database if name was generated
         if generated_name:
             update_result = await client.table('projects') \
                 .update({"name": generated_name}) \

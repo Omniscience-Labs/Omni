@@ -86,8 +86,6 @@ class ThreadManager:
             # Add returning='representation' to get the inserted row data including the id
             result = await client.table('messages').insert(data_to_insert, returning='representation').execute()
             logger.info(f"Successfully added message to thread {thread_id}")
-
-            print(f"MESSAGE RESULT: {result}")
             
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'message_id' in result.data[0]:
                 return result.data[0]
