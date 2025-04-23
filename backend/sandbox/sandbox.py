@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from agentpress.tool import Tool
 from utils.logger import logger
 from utils.files_utils import clean_path
-from utils.thread_manager import ThreadManager
+from agentpress.thread_manager import ThreadManager
 
 load_dotenv()
 

@@ -21,16 +21,11 @@ class ToolRegistry:
         get_xml_examples: Get examples of XML tool usage
     """
     
-    _instance = None
-    
-    def __new__(cls):
-        """Create or return singleton instance."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.tools = {}
-            cls._instance.xml_tools = {}
-            logger.debug("Initialized new ToolRegistry instance")
-        return cls._instance
+    def __init__(self):
+        """Initialize a new ToolRegistry instance."""
+        self.tools = {}
+        self.xml_tools = {}
+        logger.debug("Initialized new ToolRegistry instance")
     
     def register_tool(self, tool_class: Type[Tool], function_names: Optional[List[str]] = None, **kwargs):
         """Register a tool with optional function filtering.

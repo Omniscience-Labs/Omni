@@ -38,8 +38,8 @@ async def run_agent(
 ):
     """Run the development agent with specified configuration."""
     
-    if not thread_manager:
-        thread_manager = ThreadManager()
+    thread_manager = ThreadManager()
+    
     client = await thread_manager.db.client
 
     # Get account ID from thread for billing checks
