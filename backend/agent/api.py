@@ -854,6 +854,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
             logger.warning(f"Failed to get valid response from LLM for project {project_id} naming. Response: {response}")
 
         # Update database if name was generated
+
         if generated_name:
             update_result = await client.table('projects') \
                 .update({"name": generated_name}) \
