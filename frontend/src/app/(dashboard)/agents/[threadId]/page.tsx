@@ -103,70 +103,26 @@ function renderMarkdownContent(content: string, handleToolClick: (assistantMessa
     if (toolName === 'ask') {
       // Extract attachments from the XML attributes
       const attachmentsMatch = rawXml.match(/attachments=["']([^"']*)["']/i);
-      const attachments = attachmentsMatch 
+      const attachments = attachmentsMatch
         ? attachmentsMatch[1].split(',').map(a => a.trim())
         : [];
-      
+
       // Extract content from the ask tag
       const contentMatch = rawXml.match(/<ask[^>]*>([\s\S]*?)<\/ask>/i);
       const askContent = contentMatch ? contentMatch[1] : '';
 
-      // Render <ask> tag content with attachment UI
+      // Render <ask> tag content with attachment UI (using the helper)
       contentParts.push(
         <div key={`ask-${match.index}`} className="space-y-3">
           <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askContent}</Markdown>
-          
-          {attachments.length > 0 && (
-            <div className="mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {attachments.map((attachment, idx) => {
-                  const extension = attachment.split('.').pop()?.toLowerCase();
-                  const filename = attachment.split('/').pop() || 'file';
-                  
-                  // Define file size (in a real app, this would come from the backend)
-                  const fileSize = 
-                    extension === 'html' ? '52.68 KB' : 
-                    attachment.includes('itinerary') ? '4.14 KB' :
-                    attachment.includes('proposal') ? '6.20 KB' :
-                    attachment.includes('todo') ? '1.89 KB' :
-                    attachment.includes('research') ? '3.75 KB' :
-                    `${(Math.random() * 5 + 1).toFixed(2)} KB`;
-                  
-                  // Get file type display
-                  const fileType = extension === 'html' ? 'Code' : 'Text';
-                  
-                  return (
-                    <button
-                      key={`attachment-${idx}`}
-                      onClick={() => fileViewerHandler?.(attachment)}
-                      className="group flex items-center gap-3 p-4 rounded-md bg-muted/10 hover:bg-muted/20 transition-colors"
-                    >
-                      <div className="flex items-center justify-center">
-                        <File className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="text-sm font-medium text-foreground truncate">
-                          {filename}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <span>{fileType}</span>
-                          <span>·</span>
-                          <span>{fileSize}</span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {renderAttachments(attachments, fileViewerHandler)}
         </div>
       );
     } else {
       // Render tool button as a clickable element
       contentParts.push(
-        <button                                                  
-          key={toolCallKey} 
+        <button
+          key={toolCallKey}
           onClick={() => handleToolClick(messageId, toolName)}
           className="inline-flex items-center gap-1.5 py-1 px-2.5 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-border"
         >
@@ -187,6 +143,59 @@ function renderMarkdownContent(content: string, handleToolClick: (assistantMessa
   }
 
   return contentParts;
+}
+
+// Helper function to render attachments (now deduplicated)
+function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void) {
+  if (!attachments || attachments.length === 0) return null;
+
+  // Deduplicate attachments using Set for simplicity
+  const uniqueAttachments = [...new Set(attachments)];
+
+  return (
+    <div className="mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {uniqueAttachments.map((attachment, idx) => {
+          const extension = attachment.split('.').pop()?.toLowerCase();
+          const filename = attachment.split('/').pop() || 'file';
+
+          // Define file size (placeholder logic)
+          const fileSize =
+            extension === 'html' ? '52.68 KB' :
+            attachment.includes('itinerary') ? '4.14 KB' :
+            attachment.includes('proposal') ? '6.20 KB' :
+            attachment.includes('todo') ? '1.89 KB' :
+            attachment.includes('research') ? '3.75 KB' :
+            `${(attachment.length % 5 + 1).toFixed(2)} KB`; // Use length for pseudo-stable size
+
+          // Get file type display
+          const fileType = extension === 'html' ? 'Code' : 'Text';
+
+          return (
+            <button
+              key={`attachment-${idx}`}
+              onClick={() => fileViewerHandler?.(attachment)}
+              className="group flex items-center gap-3 p-4 rounded-md bg-muted/10 hover:bg-muted/20 transition-colors"
+            >
+              <div className="flex items-center justify-center">
+                <File className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-sm font-medium text-foreground truncate">
+                  {filename}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span>{fileType}</span>
+                  <span>·</span>
+                  <span>{fileSize}</span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function ThreadPage({ params }: { params: Promise<ThreadParams> }) {
@@ -1353,50 +1362,8 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
                                 <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">{cleanContent}</Markdown>
                               )}
                               
-                              {attachments.length > 0 && (
-                                <div className="mt-6">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {attachments.map((attachment, idx) => {
-                                      const extension = attachment.split('.').pop()?.toLowerCase();
-                                      const filename = attachment.split('/').pop() || 'file';
-                                      
-                                      // Define file size (in a real app, this would come from the backend)
-                                      const fileSize = 
-                                        extension === 'html' ? '52.68 KB' : 
-                                        attachment.includes('itinerary') ? '4.14 KB' :
-                                        attachment.includes('proposal') ? '6.20 KB' :
-                                        attachment.includes('todo') ? '1.89 KB' :
-                                        attachment.includes('research') ? '3.75 KB' :
-                                        `${(Math.random() * 5 + 1).toFixed(2)} KB`;
-                                      
-                                      // Get file type display
-                                      const fileType = extension === 'html' ? 'Code' : 'Text';
-                                      
-                                      return (
-                                        <button
-                                          key={`attachment-${idx}`}
-                                          onClick={() => handleOpenFileViewer(attachment)}
-                                          className="group flex items-center gap-3 p-4 rounded-md bg-muted/10 hover:bg-muted/20 transition-colors"
-                                        >
-                                          <div className="flex items-center justify-center">
-                                            <File className="h-5 w-5 text-muted-foreground" />
-                                          </div>
-                                          <div className="flex-1 min-w-0 text-left">
-                                            <div className="text-sm font-medium text-foreground truncate">
-                                              {filename}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                              <span>{fileType}</span>
-                                              <span>·</span>
-                                              <span>{fileSize}</span>
-                                            </div>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
+                              {/* Use the helper function to render user attachments */}
+                              {renderAttachments(attachments as string[], handleOpenFileViewer)}
                             </div>
                           </div>
                         </div>
