@@ -42,9 +42,9 @@ export default function DashboardLayout({
       <AlertDialog open={showMaintenanceAlert} onOpenChange={setShowMaintenanceAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Scheduled Maintenance</AlertDialogTitle>
+            <AlertDialogTitle>System Issues</AlertDialogTitle>
             <AlertDialogDescription>
-              We'll be back to working in a couple of hours. Thank you for your patience.
+              We're currently experiencing technical issues with our service. Please come back in a couple of hours when the system will be operational again. We apologize for the inconvenience.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
