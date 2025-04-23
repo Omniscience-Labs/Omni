@@ -82,20 +82,20 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     #         'plan_name': 'Free'
     #     }
 
-    if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
-        return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
+    # if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
+    #     return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
     
-    # Get tier info
-    tier_info = SUBSCRIPTION_TIERS.get(subscription['price_id'])
-    if not tier_info:
-        return False, "Invalid subscription tier", subscription
+    # # Get tier info
+    # tier_info = SUBSCRIPTION_TIERS.get(subscription['price_id'])
+    # if not tier_info:
+    #     return False, "Invalid subscription tier", subscription
     
-    # Calculate current month's usage
-    current_usage = await calculate_monthly_usage(client, account_id)
+    # # Calculate current month's usage
+    # current_usage = await calculate_monthly_usage(client, account_id)
     
-    # Check if within limits
-    if current_usage >= tier_info['minutes']:
-        return False, f"Monthly limit of {tier_info['minutes']} minutes reached. Please upgrade your plan or wait until next month.", subscription
+    # # Check if within limits
+    # if current_usage >= tier_info['minutes']:
+    #     return False, f"Monthly limit of {tier_info['minutes']} minutes reached. Please upgrade your plan or wait until next month.", subscription
     
     return True, "OK", subscription
 
