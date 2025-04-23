@@ -99,7 +99,7 @@ CREATE POLICY project_select_policy ON projects
     FOR SELECT
     USING (
         is_public = TRUE OR
-        basejump.has_role_on_account(account_id) = true OR
+        basejump.has_role_on_account(account_id) = true
     );
 
 CREATE POLICY project_insert_policy ON projects
