@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Square, Loader2, X, Paperclip, Settings, ChevronDown } from "lucide-react";
@@ -51,7 +51,13 @@ interface UploadedFile {
   size: number;
 }
 
-export function ChatInput({
+// Define interface for the ref
+export interface ChatInputHandles {
+  getPendingFiles: () => File[];
+  clearPendingFiles: () => void;
+}
+
+export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(({
   onSubmit,
   placeholder = "Describe what you need help with...",
   loading = false,
@@ -64,7 +70,7 @@ export function ChatInput({
   onFileBrowse,
   sandboxId,
   hideAttachments = false
-}: ChatInputProps) {
+}, ref) => {
   const isControlled = controlledValue !== undefined && controlledOnChange !== undefined;
   
   const [uncontrolledValue, setUncontrolledValue] = useState('');
@@ -74,9 +80,16 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   
+  // Expose methods through the ref
+  useImperativeHandle(ref, () => ({
+    getPendingFiles: () => pendingFiles,
+    clearPendingFiles: () => setPendingFiles([])
+  }));
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -199,19 +212,59 @@ export function ChatInput({
     e.stopPropagation();
     setIsDraggingOver(false);
     
-    if (!sandboxId || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
     
     const files = Array.from(e.dataTransfer.files);
-    await uploadFiles(files);
+    
+    if (sandboxId) {
+      // If we have a sandboxId, upload files directly
+      await uploadFiles(files);
+    } else {
+      // Otherwise, store files locally
+      handleLocalFiles(files);
+    }
   };
 
   const processFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!sandboxId || !event.target.files || event.target.files.length === 0) return;
+    if (!event.target.files || event.target.files.length === 0) return;
     
     const files = Array.from(event.target.files);
-    await uploadFiles(files);
+    
+    if (sandboxId) {
+      // If we have a sandboxId, upload files directly
+      await uploadFiles(files);
+    } else {
+      // Otherwise, store files locally
+      handleLocalFiles(files);
+    }
     
     event.target.value = '';
+  };
+
+  // New function to handle files locally when there's no sandboxId
+  const handleLocalFiles = (files: File[]) => {
+    const filteredFiles = files.filter(file => {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`File size exceeds 50MB limit: ${file.name}`);
+        return false;
+      }
+      return true;
+    });
+    
+    // Store the files in pendingFiles state
+    setPendingFiles(prevFiles => [...prevFiles, ...filteredFiles]);
+    
+    // Also add to uploadedFiles for UI display
+    const newUploadedFiles: UploadedFile[] = filteredFiles.map(file => ({
+      name: file.name,
+      path: `/workspace/${file.name}`, // This is just for display purposes
+      size: file.size
+    }));
+    
+    setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
+    filteredFiles.forEach(file => {
+      toast.success(`File attached: ${file.name} (pending upload)`);
+    });
   };
 
   const uploadFiles = async (files: File[]) => {
@@ -305,18 +358,28 @@ export function ChatInput({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.15 }}
-                  className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md flex items-center gap-1.5 group text-sm"
+                  className={cn(
+                    "px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md flex items-center gap-1.5 group text-sm",
+                    !sandboxId ? "border border-blue-200 dark:border-blue-800" : "" // Add special styling for pending files
+                  )}
                 >
                   <span className="truncate max-w-[120px] text-gray-700 dark:text-gray-300">{file.name}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                     ({formatFileSize(file.size)})
+                    {!sandboxId && <span className="ml-1 text-blue-500">(pending)</span>}
                   </span>
                   <Button 
                     type="button" 
                     variant="ghost" 
                     size="icon" 
                     className="h-4 w-4 rounded-full p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => removeUploadedFile(index)}
+                    onClick={() => {
+                      removeUploadedFile(index);
+                      // Also remove from pendingFiles if needed
+                      if (!sandboxId && pendingFiles.length > index) {
+                        setPendingFiles(prev => prev.filter((_, i) => i !== index));
+                      }
+                    }}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -484,4 +547,7 @@ export function ChatInput({
       )}
     </div>
   );
-} 
+});
+
+// Set display name for the component
+ChatInput.displayName = 'ChatInput'; 

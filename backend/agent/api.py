@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, Body
+from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
@@ -8,6 +8,8 @@ import uuid
 from typing import Optional, List, Dict, Any
 import jwt
 from pydantic import BaseModel
+import tempfile
+import os
 
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
@@ -39,6 +41,10 @@ class AgentStartRequest(BaseModel):
     reasoning_effort: Optional[str] = 'low'
     stream: Optional[bool] = True
     enable_context_manager: Optional[bool] = False
+
+class InitiateAgentResponse(BaseModel):
+    thread_id: str
+    agent_run_id: Optional[str] = None
 
 def initialize(
     _thread_manager: ThreadManager,
@@ -742,3 +748,249 @@ async def run_agent_background(
             logger.warning(f"Error deleting active run key: {str(e)}")
                 
         logger.info(f"Agent run background task fully completed for: {agent_run_id} (instance: {instance_id})")
+
+@router.post("/agent/initiate", response_model=InitiateAgentResponse)
+async def initiate_agent_with_files(
+    prompt: str = Form(...),
+    model_name: Optional[str] = Form("anthropic/claude-3-7-sonnet-latest"),
+    enable_thinking: Optional[bool] = Form(False),
+    reasoning_effort: Optional[str] = Form("low"),
+    stream: Optional[bool] = Form(True),
+    enable_context_manager: Optional[bool] = Form(False),
+    files: List[UploadFile] = File(default=[]),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Initiate a new agent session with optional file attachments.
+    Creates project, thread, and sandbox, then uploads files and starts the agent run.
+    """
+    logger.info(f"Initiating new agent with prompt and {len(files)} files")
+    client = await db.client
+    
+    # In Basejump, personal account_id is the same as user_id
+    account_id = user_id
+    
+    # Check billing status
+    can_run, message, subscription = await check_billing_status(client, account_id)
+    if not can_run:
+        raise HTTPException(status_code=402, detail={
+            "message": message,
+            "subscription": subscription
+        })
+    
+    try:
+        # 1. Create Project
+        project_name = f"Chat initiated on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+        project = await client.table('projects').insert({
+            "project_id": str(uuid.uuid4()),
+            "account_id": account_id,
+            "name": project_name,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        
+        project_id = project.data[0]['project_id']
+        logger.info(f"Created new project: {project_id}")
+        
+        # 2. Create Thread
+        thread = await client.table('threads').insert({
+            "thread_id": str(uuid.uuid4()),
+            "project_id": project_id,
+            "account_id": account_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        
+        thread_id = thread.data[0]['thread_id']
+        logger.info(f"Created new thread: {thread_id}")
+        
+        # 3. Create Sandbox
+        sandbox_pass = str(uuid.uuid4())
+        sandbox = create_sandbox(sandbox_pass)
+        logger.info(f"Created new sandbox with preview: {sandbox.get_preview_link(6080)}/vnc_lite.html?password={sandbox_pass}")
+        sandbox_id = sandbox.id
+        
+        # Get preview links
+        vnc_link = sandbox.get_preview_link(6080)
+        website_link = sandbox.get_preview_link(8099)
+        
+        # Extract the actual URLs and token from the preview link objects
+        vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+        website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+        
+        # Extract token if available
+        token = None
+        if hasattr(vnc_link, 'token'):
+            token = vnc_link.token
+        elif "token='" in str(vnc_link):
+            token = str(vnc_link).split("token='")[1].split("'")[0]
+        
+        await client.table('projects').update({
+            'sandbox': {
+                'id': sandbox_id,
+                'pass': sandbox_pass,
+                'vnc_preview': vnc_url,
+                'sandbox_url': website_url,
+                'token': token
+            }
+        }).eq('project_id', project_id).execute()
+        
+        # 4. Upload Files to Sandbox (if any)
+        message_content = prompt
+        if files:
+            successful_uploads = []
+            failed_uploads = []
+
+            for file in files:
+                if file.filename:
+                    try:
+                        # Sanitize filename
+                        safe_filename = file.filename.replace('/', '_').replace('\\', '_')
+                        # Ensure path is relative to /workspace and cleaned
+                        # Using clean_path from utils.files_utils might be safer here
+                        # target_path = clean_path(safe_filename, "/workspace") # Assuming clean_path handles prepending /workspace if needed by upload
+                        # For now, stick to the original target path format used by tools
+                        target_path = f"/workspace/{safe_filename}"
+
+                        logger.info(f"Attempting to upload {safe_filename} to {target_path} in sandbox {sandbox_id}")
+
+                        # Read file content
+                        content = await file.read()
+
+                        # --- Simplified Upload Attempt ---
+                        upload_successful = False
+                        try:
+                            # Assume sandbox.fs.upload_file is the primary method
+                            # Ensure it's awaited if it's async (Daytona SDK methods often are)
+                            if hasattr(sandbox, 'fs') and hasattr(sandbox.fs, 'upload_file'):
+                                import inspect
+                                if inspect.iscoroutinefunction(sandbox.fs.upload_file):
+                                    await sandbox.fs.upload_file(target_path, content)
+                                else:
+                                    # If sync, run in executor? For now, assume async is standard
+                                    # Or handle potential blocking if called directly
+                                    sandbox.fs.upload_file(target_path, content) # Or run_in_executor if needed
+                                logger.debug(f"Called sandbox.fs.upload_file for {target_path}")
+                                upload_successful = True # Mark as attempted
+                            else:
+                                logger.error(f"Sandbox object missing 'fs.upload_file' method for {sandbox_id}")
+                                raise NotImplementedError("Suitable upload method not found on sandbox object.")
+
+                        except Exception as upload_error:
+                            logger.error(f"Error during sandbox upload call for {safe_filename}: {str(upload_error)}", exc_info=True)
+                            # Keep upload_successful as False
+
+                        # --- Verification Step ---
+                        if upload_successful:
+                            try:
+                                # Short delay to allow filesystem changes to propagate if needed
+                                await asyncio.sleep(0.2)
+                                # Verify by listing the directory containing the file
+                                parent_dir = os.path.dirname(target_path)
+                                files_in_dir = sandbox.fs.list_files(parent_dir)
+                                file_names_in_dir = [f.name for f in files_in_dir]
+
+                                if safe_filename in file_names_in_dir:
+                                    successful_uploads.append(target_path)
+                                    logger.info(f"Successfully uploaded and verified file {safe_filename} to sandbox path {target_path}")
+                                else:
+                                    logger.error(f"Verification failed for {safe_filename}: File not found in {parent_dir} after upload attempt.")
+                                    failed_uploads.append(safe_filename)
+                            except Exception as verify_error:
+                                logger.error(f"Error verifying file {safe_filename} after upload: {str(verify_error)}", exc_info=True)
+                                failed_uploads.append(safe_filename)
+                        else:
+                            # If the upload call itself failed
+                            failed_uploads.append(safe_filename)
+
+                    except Exception as file_error:
+                        logger.error(f"Error processing file {file.filename}: {str(file_error)}", exc_info=True)
+                        failed_uploads.append(file.filename)
+                    finally:
+                        # Ensure file is closed
+                        await file.close()
+
+            # Append file references to message content
+            if successful_uploads:
+                message_content += "\n\n" if message_content else ""
+                for file_path in successful_uploads:
+                    message_content += f"[Uploaded File: {file_path}]\n"
+            
+            # Also mention failed uploads if any
+            if failed_uploads:
+                message_content += "\n\nThe following files failed to upload:\n"
+                for failed_file in failed_uploads:
+                    message_content += f"- {failed_file}\n"
+        
+        # 5. Add initial user message to thread
+        message_id = str(uuid.uuid4())
+        # Prepare the message content in the standard format expected by the LLM/database
+        message_payload = {
+            "role": "user",
+            "content": message_content # This already contains the prompt + file references
+        }
+        await client.table('messages').insert({
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "type": "user",             # Use the 'type' column
+            "is_llm_message": True,    # Indicate it's part of the conversation flow
+            "content": json.dumps(message_payload), # Store the structured message in the content column
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        
+        # 6. Start Agent Run
+        agent_run = await client.table('agent_runs').insert({
+            "thread_id": thread_id,
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        
+        agent_run_id = agent_run.data[0]['id']
+        logger.info(f"Created new agent run: {agent_run_id}")
+        
+        # Initialize in-memory storage for this agent run
+        active_agent_runs[agent_run_id] = []
+        
+        # Register this run in Redis with TTL
+        try:
+            await redis.set(
+                f"active_run:{instance_id}:{agent_run_id}", 
+                "running", 
+                ex=redis.REDIS_KEY_TTL
+            )
+        except Exception as e:
+            logger.warning(f"Failed to register agent run in Redis, continuing without Redis tracking: {str(e)}")
+        
+        # Run the agent in the background
+        task = asyncio.create_task(
+            run_agent_background(
+                agent_run_id=agent_run_id,
+                thread_id=thread_id,
+                instance_id=instance_id,
+                project_id=project_id,
+                sandbox=sandbox,
+                model_name=MODEL_NAME_ALIASES.get(model_name, model_name), 
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+                stream=stream,
+                enable_context_manager=enable_context_manager
+            )
+        )
+        
+        # Set a callback to clean up when task is done
+        task.add_done_callback(
+            lambda _: asyncio.create_task(
+                _cleanup_agent_run(agent_run_id)
+            )
+        )
+        
+        return {"thread_id": thread_id, "agent_run_id": agent_run_id}
+        
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error in agent initiation: {str(e)}\n{traceback.format_exc()}")
+        
+        # Todo: Clean up resources if needed (project, thread, sandbox)
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to initiate agent session: {str(e)}"
+        )
