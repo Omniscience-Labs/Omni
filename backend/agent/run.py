@@ -18,7 +18,6 @@ from agent.tools.sb_files_tool import SandboxFilesTool
 from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.prompt import get_system_prompt
-from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from utils import logger
 from utils.billing import check_billing_status, get_account_id_from_thread
 
@@ -39,7 +38,7 @@ async def run_agent(
     """Run the development agent with specified configuration."""
     
     thread_manager = ThreadManager()
-    
+
     client = await thread_manager.db.client
 
     # Get account ID from thread for billing checks
