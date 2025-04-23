@@ -1,10 +1,20 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { SidebarLeft } from "@/components/sidebar/sidebar-left"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -13,6 +23,13 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
+  const [showMaintenanceAlert, setShowMaintenanceAlert] = useState(false)
+  
+  useEffect(() => {
+    // Show the maintenance alert when component mounts
+    setShowMaintenanceAlert(true)
+  }, [])
+
   return (
     <SidebarProvider>
       <SidebarLeft />
@@ -21,6 +38,20 @@ export default function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
+      
+      <AlertDialog open={showMaintenanceAlert} onOpenChange={setShowMaintenanceAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Scheduled Maintenance</AlertDialogTitle>
+            <AlertDialogDescription>
+              We'll be back to working in a couple of hours. Thank you for your patience.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Understood</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   )
 } 
