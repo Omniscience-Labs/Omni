@@ -44,7 +44,7 @@ export default function DashboardLayout({
           <AlertDialogHeader>
             <AlertDialogTitle>System Issues</AlertDialogTitle>
             <AlertDialogDescription>
-              We're currently experiencing technical issues with our service. Please come back in a couple of hours when the system will be operational again. We apologize for the inconvenience.
+              We're currently experiencing technical issues with our service. We apologize for the inconvenience.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

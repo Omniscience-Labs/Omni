@@ -56,6 +56,7 @@
     "color-bits": "^1.1.0",
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
+    "flags": "^3.2.0",
     "framer-motion": "^12.6.5",
     "geist": "^1.2.1",
     "html2pdf.js": "^0.10.3",
