@@ -141,10 +141,29 @@ async def get_client():
 
 # Centralized Redis operation functions with built-in retry logic
 
-async def set(key, value, ex=None):
-    """Set a Redis key with automatic retry."""
+async def set(key, value, ex=None, nx=None, xx=None):
+    """
+    Set a Redis key with automatic retry.
+    
+    Args:
+        key: The key to set
+        value: The value to set
+        ex: Expiration time in seconds
+        nx: Only set the key if it does not already exist
+        xx: Only set the key if it already exists
+    """
     redis_client = await get_client()
-    return await with_retry(redis_client.set, key, value, ex=ex)
+    
+    # Build the kwargs based on which parameters are provided
+    kwargs = {}
+    if ex is not None:
+        kwargs['ex'] = ex
+    if nx is not None:
+        kwargs['nx'] = nx
+    if xx is not None:
+        kwargs['xx'] = xx
+        
+    return await with_retry(redis_client.set, key, value, **kwargs)
 
 async def get(key, default=None):
     """Get a Redis key with automatic retry."""

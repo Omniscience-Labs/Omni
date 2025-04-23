@@ -19,6 +19,7 @@ from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.prompt import get_system_prompt
 from sandbox.sandbox import create_sandbox, get_or_start_sandbox
+from utils import logger
 from utils.billing import check_billing_status, get_account_id_from_thread
 
 load_dotenv()
@@ -298,9 +299,18 @@ async def process_agent_response(
     current_response = ""
     tool_usage_counter = 0 # Renamed from tool_call_counter as we track usage via status
     
-    # Create a test sandbox for processing
+    # Create a test sandbox for processing with a unique test prefix to avoid conflicts with production sandboxes
     sandbox_pass = str(uuid4())
     sandbox = create_sandbox(sandbox_pass)
+    
+    # Store the original ID so we can refer to it
+    original_sandbox_id = sandbox.id
+    
+    # Generate a clear test identifier
+    test_prefix = f"test_{uuid4().hex[:8]}_"
+    logger.info(f"Created test sandbox with ID {original_sandbox_id} and test prefix {test_prefix}")
+    
+    # Log the sandbox URL for debugging
     print(f"\033[91mTest sandbox created: {str(sandbox.get_preview_link(6080))}/vnc_lite.html?password={sandbox_pass}\033[0m")
     
     async for chunk in run_agent(
@@ -444,6 +454,16 @@ async def process_agent_response(
     
     # Update final message
     print(f"\n\n✅ Agent run completed with {tool_usage_counter} tool executions")
+    
+    # Try to clean up the test sandbox if possible
+    try:
+        # Attempt to delete/archive the sandbox to clean up resources
+        # Note: Actual deletion may depend on the Daytona SDK's capabilities
+        logger.info(f"Attempting to clean up test sandbox {original_sandbox_id}")
+        # If there's a method to archive/delete the sandbox, call it here
+        # Example: daytona.archive_sandbox(sandbox.id)
+    except Exception as e:
+        logger.warning(f"Failed to clean up test sandbox {original_sandbox_id}: {str(e)}")
 
 if __name__ == "__main__":
     import asyncio

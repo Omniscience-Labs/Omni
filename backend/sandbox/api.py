@@ -9,6 +9,7 @@ from utils.logger import logger
 from utils.auth_utils import get_current_user_id, get_user_id_from_stream_auth, get_optional_user_id
 from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
+from agent.api import get_or_create_project_sandbox
 
 # TODO: ADD AUTHORIZATION TO ONLY HAVE ACCESS TO SANDBOXES OF PROJECTS U HAVE ACCESS TO
 
@@ -71,6 +72,46 @@ async def verify_sandbox_access(client, sandbox_id: str, user_id: Optional[str] 
     
     raise HTTPException(status_code=403, detail="Not authorized to access this sandbox")
 
+async def get_sandbox_by_id_safely(client, sandbox_id: str):
+    """
+    Safely retrieve a sandbox object by its ID, using the project that owns it.
+    This prevents race conditions by leveraging the distributed locking mechanism.
+    
+    Args:
+        client: The Supabase client
+        sandbox_id: The sandbox ID to retrieve
+    
+    Returns:
+        Sandbox: The sandbox object
+        
+    Raises:
+        HTTPException: If the sandbox doesn't exist or can't be retrieved
+    """
+    # Find the project that owns this sandbox
+    project_result = await client.table('projects').select('project_id').filter('sandbox->>id', 'eq', sandbox_id).execute()
+    
+    if not project_result.data or len(project_result.data) == 0:
+        logger.error(f"No project found for sandbox ID: {sandbox_id}")
+        raise HTTPException(status_code=404, detail="Sandbox not found - no project owns this sandbox ID")
+    
+    project_id = project_result.data[0]['project_id']
+    logger.debug(f"Found project {project_id} for sandbox {sandbox_id}")
+    
+    try:
+        # Use the race-condition-safe function to get the sandbox
+        sandbox, retrieved_sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
+        
+        # Verify we got the right sandbox
+        if retrieved_sandbox_id != sandbox_id:
+            logger.warning(f"Retrieved sandbox ID {retrieved_sandbox_id} doesn't match requested ID {sandbox_id} for project {project_id}")
+            # Fall back to the direct method if IDs don't match (shouldn't happen but just in case)
+            sandbox = await get_or_start_sandbox(sandbox_id)
+        
+        return sandbox
+    except Exception as e:
+        logger.error(f"Error retrieving sandbox {sandbox_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve sandbox: {str(e)}")
+
 @router.post("/sandboxes/{sandbox_id}/files")
 async def create_file(
     sandbox_id: str, 
@@ -86,8 +127,8 @@ async def create_file(
     await verify_sandbox_access(client, sandbox_id, user_id)
     
     try:
-        # Get or start sandbox instance
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Get sandbox using the safer method
+        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
         
         # Read file content directly from the uploaded file
         content = await file.read()
@@ -116,8 +157,8 @@ async def create_file_json(
     await verify_sandbox_access(client, sandbox_id, user_id)
     
     try:
-        # Get or start sandbox instance
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Get sandbox using the safer method
+        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
         
         # Get file path and content
         path = file_request.get("path")
@@ -153,8 +194,8 @@ async def list_files(
     await verify_sandbox_access(client, sandbox_id, user_id)
     
     try:
-        # Get or start sandbox instance using the async function
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Get sandbox using the safer method
+        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
         
         # List files
         files = sandbox.fs.list_files(path)
@@ -193,8 +234,8 @@ async def read_file(
     await verify_sandbox_access(client, sandbox_id, user_id)
     
     try:
-        # Get or start sandbox instance using the async function
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Get sandbox using the safer method
+        sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
         
         # Read file
         content = sandbox.fs.download_file(path)
@@ -219,6 +260,7 @@ async def ensure_project_sandbox_active(
     """
     Ensure that a project's sandbox is active and running.
     Checks the sandbox status and starts it if it's not running.
+    Uses distributed locking to prevent race conditions.
     """
     client = await db.client
     
@@ -244,15 +286,12 @@ async def ensure_project_sandbox_active(
             if not (account_user_result.data and len(account_user_result.data) > 0):
                 raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
-    # Check if project has a sandbox
-    sandbox_id = project_data.get('sandbox', {}).get('id')
-    if not sandbox_id:
-        raise HTTPException(status_code=404, detail="No sandbox found for this project")
-    
     try:
-        # Get or start sandbox instance
-        logger.info(f"Ensuring sandbox {sandbox_id} is active for project {project_id}")
-        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Use the safer function that handles race conditions with distributed locking
+        logger.info(f"Ensuring sandbox is active for project {project_id} using distributed locking")
+        sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
+        
+        logger.info(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
         
         return {
             "status": "success", 
