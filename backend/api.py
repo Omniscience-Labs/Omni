@@ -46,9 +46,9 @@ async def lifespan(app: FastAPI):
     # Initialize the sandbox API with shared resources
     sandbox_api.initialize(db)
     
-    # Initialize Redis before restoring agent runs
-    from services import redis
-    await redis.initialize_async()
+    # Redis is no longer needed for a single-server setup
+    # from services import redis
+    # await redis.initialize_async()
     
     asyncio.create_task(agent_api.restore_running_agent_runs())
     

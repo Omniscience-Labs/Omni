@@ -256,23 +256,17 @@ async def _cleanup_agent_run(agent_run_id: str):
         logger.warning(f"Failed to clean up Redis keys for agent run {agent_run_id}: {str(e)}")
         # Non-fatal error, can continue
 
-async def get_or_create_project_sandbox(client, project_id: str, sandbox_cache={}):
+async def get_or_create_project_sandbox(client, project_id: str):
     """
-    Safely get or create a sandbox for a project using distributed locking to avoid race conditions.
+    Get or create a sandbox for a project without distributed locking.
     
     Args:
         client: The Supabase client
         project_id: The project ID to get or create a sandbox for
-        sandbox_cache: Optional in-memory cache to avoid repeated lookups in the same process
         
     Returns:
         Tuple of (sandbox object, sandbox_id, sandbox_pass)
     """
-    # Check in-memory cache first (optimization for repeated calls within same process)
-    if project_id in sandbox_cache:
-        logger.debug(f"Using cached sandbox for project {project_id}")
-        return sandbox_cache[project_id]
-    
     # First get the current project data to check if a sandbox already exists
     project = await client.table('projects').select('*').eq('project_id', project_id).execute()
     if not project.data or len(project.data) == 0:
@@ -288,133 +282,55 @@ async def get_or_create_project_sandbox(client, project_id: str, sandbox_cache={
         
         try:
             sandbox = await get_or_start_sandbox(sandbox_id)
-            # Cache the result
-            sandbox_cache[project_id] = (sandbox, sandbox_id, sandbox_pass)
             return (sandbox, sandbox_id, sandbox_pass)
         except Exception as e:
             logger.error(f"Failed to retrieve existing sandbox {sandbox_id} for project {project_id}: {str(e)}")
             # Fall through to create a new sandbox if retrieval fails
     
-    # Need to create a new sandbox - use Redis for distributed locking
-    lock_key = f"project_sandbox_lock:{project_id}"
-    lock_value = str(uuid.uuid4())  # Unique identifier for this lock acquisition
-    lock_timeout = 60  # seconds
-    
-    # Try to acquire a lock
+    # Create a new sandbox
     try:
-        # Attempt to get a lock with a timeout - this is atomic in Redis
-        acquired = await redis.set(
-            lock_key, 
-            lock_value, 
-            nx=True,  # Only set if key doesn't exist (NX = not exists)
-            ex=lock_timeout  # Auto-expire the lock
-        )
+        logger.info(f"Creating new sandbox for project {project_id}")
+        sandbox_pass = str(uuid.uuid4())
+        sandbox = create_sandbox(sandbox_pass)
+        sandbox_id = sandbox.id
         
-        if not acquired:
-            # Someone else is creating a sandbox for this project
-            logger.info(f"Waiting for another process to create sandbox for project {project_id}")
-            
-            # Wait and retry a few times
-            max_retries = 5
-            retry_delay = 2  # seconds
-            
-            for retry in range(max_retries):
-                await asyncio.sleep(retry_delay)
-                
-                # Check if the other process completed
-                fresh_project = await client.table('projects').select('*').eq('project_id', project_id).execute()
-                if fresh_project.data and fresh_project.data[0].get('sandbox', {}).get('id'):
-                    sandbox_id = fresh_project.data[0]['sandbox']['id']
-                    sandbox_pass = fresh_project.data[0]['sandbox']['pass']
-                    logger.info(f"Another process created sandbox {sandbox_id} for project {project_id}")
-                    
-                    sandbox = await get_or_start_sandbox(sandbox_id)
-                    # Cache the result
-                    sandbox_cache[project_id] = (sandbox, sandbox_id, sandbox_pass)
-                    return (sandbox, sandbox_id, sandbox_pass)
-            
-            # If we got here, the other process didn't complete in time
-            # Force-acquire the lock by deleting and recreating it
-            logger.warning(f"Timeout waiting for sandbox creation for project {project_id}, acquiring lock forcefully")
-            await redis.delete(lock_key)
-            await redis.set(lock_key, lock_value, ex=lock_timeout)
+        logger.info(f"Created new sandbox {sandbox_id} with preview: {sandbox.get_preview_link(6080)}/vnc_lite.html?password={sandbox_pass}")
         
-        # We have the lock now - check one more time to avoid race conditions
-        fresh_project = await client.table('projects').select('*').eq('project_id', project_id).execute()
-        if fresh_project.data and fresh_project.data[0].get('sandbox', {}).get('id'):
-            sandbox_id = fresh_project.data[0]['sandbox']['id']
-            sandbox_pass = fresh_project.data[0]['sandbox']['pass']
-            logger.info(f"Sandbox {sandbox_id} was created by another process while acquiring lock for project {project_id}")
-            
-            # Release the lock
-            await redis.delete(lock_key)
-            
-            sandbox = await get_or_start_sandbox(sandbox_id)
-            # Cache the result
-            sandbox_cache[project_id] = (sandbox, sandbox_id, sandbox_pass)
-            return (sandbox, sandbox_id, sandbox_pass)
+        # Get preview links
+        vnc_link = sandbox.get_preview_link(6080)
+        website_link = sandbox.get_preview_link(8080)
         
-        # Create a new sandbox
-        try:
-            logger.info(f"Creating new sandbox for project {project_id}")
-            sandbox_pass = str(uuid.uuid4())
-            sandbox = create_sandbox(sandbox_pass)
-            sandbox_id = sandbox.id
-            
-            logger.info(f"Created new sandbox {sandbox_id} with preview: {sandbox.get_preview_link(6080)}/vnc_lite.html?password={sandbox_pass}")
-            
-            # Get preview links
-            vnc_link = sandbox.get_preview_link(6080)
-            website_link = sandbox.get_preview_link(8080)
-            
-            # Extract the actual URLs and token from the preview link objects
-            vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
-            website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
-            
-            # Extract token if available
-            token = None
-            if hasattr(vnc_link, 'token'):
-                token = vnc_link.token
-            elif "token='" in str(vnc_link):
-                token = str(vnc_link).split("token='")[1].split("'")[0]
-            
-            # Update the project with the new sandbox info
-            update_result = await client.table('projects').update({
-                'sandbox': {
-                    'id': sandbox_id,
-                    'pass': sandbox_pass,
-                    'vnc_preview': vnc_url,
-                    'sandbox_url': website_url,
-                    'token': token
-                }
-            }).eq('project_id', project_id).execute()
-            
-            if not update_result.data:
-                logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
-                raise Exception("Database update failed")
-            
-            # Cache the result
-            sandbox_cache[project_id] = (sandbox, sandbox_id, sandbox_pass)
-            return (sandbox, sandbox_id, sandbox_pass)
-            
-        except Exception as e:
-            logger.error(f"Error creating sandbox for project {project_id}: {str(e)}")
-            raise e
-            
+        # Extract the actual URLs and token from the preview link objects
+        vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+        website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+        
+        # Extract token if available
+        token = None
+        if hasattr(vnc_link, 'token'):
+            token = vnc_link.token
+        elif "token='" in str(vnc_link):
+            token = str(vnc_link).split("token='")[1].split("'")[0]
+        
+        # Update the project with the new sandbox info
+        update_result = await client.table('projects').update({
+            'sandbox': {
+                'id': sandbox_id,
+                'pass': sandbox_pass,
+                'vnc_preview': vnc_url,
+                'sandbox_url': website_url,
+                'token': token
+            }
+        }).eq('project_id', project_id).execute()
+        
+        if not update_result.data:
+            logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
+            raise Exception("Database update failed")
+        
+        return (sandbox, sandbox_id, sandbox_pass)
+        
     except Exception as e:
-        logger.error(f"Error in sandbox creation process for project {project_id}: {str(e)}")
+        logger.error(f"Error creating sandbox for project {project_id}: {str(e)}")
         raise e
-    
-    finally:
-        # Always try to release the lock if we have it
-        try:
-            # Only delete the lock if it's still ours
-            current_value = await redis.get(lock_key)
-            if current_value == lock_value:
-                await redis.delete(lock_key)
-                logger.debug(f"Released lock for project {project_id} sandbox creation")
-        except Exception as lock_error:
-            logger.warning(f"Error releasing sandbox creation lock for project {project_id}: {str(lock_error)}")
 
 @router.post("/thread/{thread_id}/agent/start")
 async def start_agent(
@@ -894,7 +810,6 @@ async def run_agent_background(
                 
         logger.info(f"Agent run background task fully completed for: {agent_run_id} (instance: {instance_id})")
 
-# New background task function
 async def generate_and_update_project_name(project_id: str, prompt: str):
     """Generates a project name using an LLM and updates the database."""
     logger.info(f"Starting background task to generate name for project: {project_id}")
@@ -937,6 +852,8 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
                 logger.warning(f"LLM returned an empty name for project {project_id}.")
         else:
             logger.warning(f"Failed to get valid response from LLM for project {project_id} naming. Response: {response}")
+
+        # Update database if name was generated
 
         if generated_name:
             update_result = await client.table('projects') \
@@ -1024,7 +941,7 @@ async def initiate_agent_with_files(
         )
         # -----------------------------------------
 
-        # 3. Create Sandbox - Using safe method with distributed locking
+        # 3. Create Sandbox 
         try:
             sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
             logger.info(f"Using sandbox {sandbox_id} for new project {project_id}")

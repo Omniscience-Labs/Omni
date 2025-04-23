@@ -80,7 +80,7 @@ def initialize():
         socket_connect_timeout=5.0,  # Connection timeout
         retry_on_timeout=True,       # Auto-retry on timeout
         health_check_interval=30,    # Check connection health every 30 seconds
-        max_connections=100           # Limit connections to prevent overloading
+        max_connections=10           # Limit connections to prevent overloading
     )
     
     return client
@@ -141,29 +141,10 @@ async def get_client():
 
 # Centralized Redis operation functions with built-in retry logic
 
-async def set(key, value, ex=None, nx=None, xx=None):
-    """
-    Set a Redis key with automatic retry.
-    
-    Args:
-        key: The key to set
-        value: The value to set
-        ex: Expiration time in seconds
-        nx: Only set the key if it does not already exist
-        xx: Only set the key if it already exists
-    """
+async def set(key, value, ex=None):
+    """Set a Redis key with automatic retry."""
     redis_client = await get_client()
-    
-    # Build the kwargs based on which parameters are provided
-    kwargs = {}
-    if ex is not None:
-        kwargs['ex'] = ex
-    if nx is not None:
-        kwargs['nx'] = nx
-    if xx is not None:
-        kwargs['xx'] = xx
-        
-    return await with_retry(redis_client.set, key, value, **kwargs)
+    return await with_retry(redis_client.set, key, value, ex=ex)
 
 async def get(key, default=None):
     """Get a Redis key with automatic retry."""

@@ -247,9 +247,9 @@ class WebSearchTool(Tool):
                 )
                 response.raise_for_status()
                 data = response.json()
-                print(f"--- Raw Tavily Response ---")
-                print(data)
-                print(f"--------------------------")
+                # print(f"--- Raw Tavily Response ---")
+                # print(data)
+                # print(f"--------------------------")
 
             # Normalise Tavily extract output to a list of dicts
             extracted = []
