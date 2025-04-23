@@ -4,6 +4,7 @@ from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.sandbox import SandboxToolsBase, Sandbox
 from utils.files_utils import clean_path
 from agent.tools.sb_shell_tool import SandboxShellTool
+from agentpress.thread_manager import ThreadManager
 
 # Load environment variables
 load_dotenv()
@@ -11,11 +12,11 @@ load_dotenv()
 class SandboxDeployTool(SandboxToolsBase):
     """Tool for deploying static websites from a Daytona sandbox to Cloudflare Pages."""
 
-    def __init__(self, sandbox: Sandbox):
-        super().__init__(sandbox)
+    def __init__(self, project_id: str, thread_manager: ThreadManager):
+        super().__init__(project_id, thread_manager)
         self.workspace_path = "/workspace"  # Ensure we're always operating in /workspace
         self.cloudflare_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        self.shell_tool = SandboxShellTool(sandbox)
+        self.shell_tool = SandboxShellTool(project_id, thread_manager)
 
     def clean_path(self, path: str) -> str:
         """Clean and normalize a path to be relative to /workspace"""
@@ -76,6 +77,9 @@ class SandboxDeployTool(SandboxToolsBase):
             - Failure: Error message if deployment fails
         """
         try:
+            # Ensure sandbox is initialized
+            await self._ensure_sandbox()
+            
             directory_path = self.clean_path(directory_path)
             full_path = f"{self.workspace_path}/{directory_path}"
             

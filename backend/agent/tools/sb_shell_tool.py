@@ -2,13 +2,14 @@ from typing import Optional, Dict, List
 from uuid import uuid4
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.sandbox import SandboxToolsBase, Sandbox
+from agentpress.thread_manager import ThreadManager
 
 class SandboxShellTool(SandboxToolsBase):
     """Tool for executing tasks in a Daytona sandbox with browser-use capabilities. 
     Uses sessions for maintaining state between commands and provides comprehensive process management."""
 
-    def __init__(self, sandbox: Sandbox):
-        super().__init__(sandbox)
+    def __init__(self, project_id: str, thread_manager: ThreadManager):
+        super().__init__(project_id, thread_manager)
         self._sessions: Dict[str, str] = {}  # Maps session names to session IDs
         self.workspace_path = "/workspace"  # Ensure we're always operating in /workspace
 
@@ -17,6 +18,7 @@ class SandboxShellTool(SandboxToolsBase):
         if session_name not in self._sessions:
             session_id = str(uuid4())
             try:
+                await self._ensure_sandbox()  # Ensure sandbox is initialized
                 self.sandbox.process.create_session(session_id)
                 self._sessions[session_name] = session_id
             except Exception as e:
@@ -27,6 +29,7 @@ class SandboxShellTool(SandboxToolsBase):
         """Clean up a session if it exists."""
         if session_name in self._sessions:
             try:
+                await self._ensure_sandbox()  # Ensure sandbox is initialized
                 self.sandbox.process.delete_session(self._sessions[session_name])
                 del self._sessions[session_name]
             except Exception as e:
@@ -135,6 +138,9 @@ class SandboxShellTool(SandboxToolsBase):
         timeout: int = 60
     ) -> ToolResult:
         try:
+            # Ensure sandbox is initialized
+            await self._ensure_sandbox()
+            
             # Ensure session exists
             session_id = await self._ensure_session(session_name)
             
