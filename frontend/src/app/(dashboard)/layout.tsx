@@ -50,7 +50,7 @@ export default function DashboardLayout({
             <AlertDialogDescription>
               Due to exceptionally high demand, our service is currently experiencing slower response times.
               We recommend returning tomorrow when our systems will be operating at normal capacity.
-              <p className="mt-2">Thank you for your understanding.</p>
+              <span className="mt-2 block">Thank you for your understanding.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
