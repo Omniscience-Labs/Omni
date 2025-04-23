@@ -57,16 +57,13 @@ async def run_agent(
     if not sandbox_info.get('id'):
         raise ValueError(f"No sandbox found for project {project_id}")
     
-    # Get or start the sandbox
-    sandbox = await get_or_start_sandbox(sandbox_info['id'])
-    
-    # Note: Billing checks are now done in api.py before this function is called
-    
-    thread_manager.add_tool(SandboxShellTool, sandbox=sandbox)
-    thread_manager.add_tool(SandboxFilesTool, sandbox=sandbox)
-    thread_manager.add_tool(SandboxBrowserTool, sandbox=sandbox, thread_id=thread_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxDeployTool, sandbox=sandbox)
-    thread_manager.add_tool(SandboxExposeTool, sandbox=sandbox)
+    # Initialize tools with project_id instead of sandbox object
+    # This ensures each tool independently verifies it's operating on the correct project
+    thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
+    thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
+    thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
+    thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
+    thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
     thread_manager.add_tool(MessageTool) # we are just doing this via prompt as there is no need to call it as a tool
  
     if os.getenv("TAVILY_API_KEY"):
