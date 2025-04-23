@@ -127,7 +127,7 @@ You'll need the following components:
    - Go to [Images](https://app.daytona.io/dashboard/images)
    - Click "Add Image"
    - Enter `adamcohenhillel/kortix-suna:0.0.20` as the image name
-   - Set `exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf` as the Entrypoint
+   - Set `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf` as the Entrypoint
 
 4. **LLM API Keys**:
    - Obtain an API key from [OpenAI](https://platform.openai.com/) or [Anthropic](https://www.anthropic.com/)
