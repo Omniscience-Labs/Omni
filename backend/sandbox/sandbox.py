@@ -179,19 +179,19 @@ class SandboxToolsBase(Tool):
                 # Get or start the sandbox
                 self._sandbox = await get_or_start_sandbox(self._sandbox_id)
                 
-                # Log URLs if not already printed
-                if not SandboxToolsBase._urls_printed:
-                    vnc_link = self._sandbox.get_preview_link(6080)
-                    website_link = self._sandbox.get_preview_link(8080)
+                # # Log URLs if not already printed
+                # if not SandboxToolsBase._urls_printed:
+                #     vnc_link = self._sandbox.get_preview_link(6080)
+                #     website_link = self._sandbox.get_preview_link(8080)
                     
-                    vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link)
-                    website_url = website_link.url if hasattr(website_link, 'url') else str(website_link)
+                #     vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link)
+                #     website_url = website_link.url if hasattr(website_link, 'url') else str(website_link)
                     
-                    print("\033[95m***")
-                    print(f"VNC URL: {vnc_url}")
-                    print(f"Website URL: {website_url}")
-                    print("***\033[0m")
-                    SandboxToolsBase._urls_printed = True
+                #     print("\033[95m***")
+                #     print(f"VNC URL: {vnc_url}")
+                #     print(f"Website URL: {website_url}")
+                #     print("***\033[0m")
+                #     SandboxToolsBase._urls_printed = True
                 
             except Exception as e:
                 logger.error(f"Error retrieving sandbox for project {self.project_id}: {str(e)}", exc_info=True)

@@ -68,7 +68,7 @@ async def run_agent(
     if os.getenv("TAVILY_API_KEY"):
         thread_manager.add_tool(WebSearchTool)
     else:
-        print("TAVILY_API_KEY not found, WebSearchTool will not be available.")
+        logger.warning("TAVILY_API_KEY not found, WebSearchTool will not be available.")
     
     if os.getenv("RAPID_API_KEY"):
         thread_manager.add_tool(DataProvidersTool)
@@ -80,7 +80,7 @@ async def run_agent(
     
     while continue_execution and iteration_count < max_iterations:
         iteration_count += 1
-        print(f"Running iteration {iteration_count}...")
+        # logger.debug(f"Running iteration {iteration_count}...")
 
         # Billing check on each iteration - still needed within the iterations
         can_run, message, subscription = await check_billing_status(client, account_id)

@@ -42,8 +42,8 @@ class SandboxBrowserTool(SandboxToolsBase):
                     json_data = json.dumps(params)
                     curl_cmd += f" -d '{json_data}'"
             
-            print(f"\033[95mExecuting curl command:\033[0m")
-            print(f"{curl_cmd}")
+            logger.debug("\033[95mExecuting curl command:\033[0m")
+            logger.debug(f"{curl_cmd}")
             
             response = self.sandbox.process.exec(curl_cmd, timeout=30)
             
@@ -101,7 +101,7 @@ class SandboxBrowserTool(SandboxToolsBase):
 
         except Exception as e:
             logger.error(f"Error executing browser action: {e}")
-            print(traceback.format_exc())
+            logger.debug(traceback.format_exc())
             return self.fail_response(f"Error executing browser action: {e}")
 
     @openapi_schema({
@@ -141,7 +141,6 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mNavigating to: {url}\033[0m")
         return await self._execute_browser_action("navigate_to", {"url": url})
 
     # @openapi_schema({
@@ -181,7 +180,7 @@ class SandboxBrowserTool(SandboxToolsBase):
     #     Returns:
     #         dict: Result of the execution
     #     """
-    #     print(f"\033[95mSearching Google for: {query}\033[0m")
+    #     logger.debug(f"\033[95mSearching Google for: {query}\033[0m")
     #     return await self._execute_browser_action("search_google", {"query": query})
 
     @openapi_schema({
@@ -208,7 +207,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mNavigating back in browser history\033[0m")
+        logger.debug(f"\033[95mNavigating back in browser history\033[0m")
         return await self._execute_browser_action("go_back", {})
 
     @openapi_schema({
@@ -247,7 +246,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mWaiting for {seconds} seconds\033[0m")
+        logger.debug(f"\033[95mWaiting for {seconds} seconds\033[0m")
         return await self._execute_browser_action("wait", {"seconds": seconds})
 
     @openapi_schema({
@@ -287,7 +286,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mClicking element with index: {index}\033[0m")
+        logger.debug(f"\033[95mClicking element with index: {index}\033[0m")
         return await self._execute_browser_action("click_element", {"index": index})
 
     @openapi_schema({
@@ -333,7 +332,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mInputting text into element {index}: {text}\033[0m")
+        logger.debug(f"\033[95mInputting text into element {index}: {text}\033[0m")
         return await self._execute_browser_action("input_text", {"index": index, "text": text})
 
     @openapi_schema({
@@ -373,7 +372,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mSending keys: {keys}\033[0m")
+        logger.debug(f"\033[95mSending keys: {keys}\033[0m")
         return await self._execute_browser_action("send_keys", {"keys": keys})
 
     @openapi_schema({
@@ -413,7 +412,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mSwitching to tab: {page_id}\033[0m")
+        logger.debug(f"\033[95mSwitching to tab: {page_id}\033[0m")
         return await self._execute_browser_action("switch_tab", {"page_id": page_id})
 
     # @openapi_schema({
@@ -453,7 +452,7 @@ class SandboxBrowserTool(SandboxToolsBase):
     #     Returns:
     #         dict: Result of the execution
     #     """
-    #     print(f"\033[95mOpening new tab with URL: {url}\033[0m")
+    #     logger.debug(f"\033[95mOpening new tab with URL: {url}\033[0m")
     #     return await self._execute_browser_action("open_tab", {"url": url})
 
     @openapi_schema({
@@ -493,7 +492,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mClosing tab: {page_id}\033[0m")
+        logger.debug(f"\033[95mClosing tab: {page_id}\033[0m")
         return await self._execute_browser_action("close_tab", {"page_id": page_id})
 
     # @openapi_schema({
@@ -533,25 +532,25 @@ class SandboxBrowserTool(SandboxToolsBase):
     #     Returns:
     #         dict: Result of the execution
     #     """
-    #     print(f"\033[95mExtracting content with goal: {goal}\033[0m")
+    #     logger.debug(f"\033[95mExtracting content with goal: {goal}\033[0m")
     #     result = await self._execute_browser_action("extract_content", {"goal": goal})
         
     #     # Format content for better readability
     #     if result.get("success"):
-    #         print(f"\033[92mContent extraction successful\033[0m")
+    #         logger.debug(f"\033[92mContent extraction successful\033[0m")
     #         content = result.data.get("content", "")
     #         url = result.data.get("url", "")
     #         title = result.data.get("title", "")
             
     #         if content:
     #             content_preview = content[:200] + "..." if len(content) > 200 else content
-    #             print(f"\033[95mExtracted content from {title} ({url}):\033[0m")
-    #             print(f"\033[96m{content_preview}\033[0m")
-    #             print(f"\033[95mTotal content length: {len(content)} characters\033[0m")
+    #             logger.debug(f"\033[95mExtracted content from {title} ({url}):\033[0m")
+    #             logger.debug(f"\033[96m{content_preview}\033[0m")
+    #             logger.debug(f"\033[95mTotal content length: {len(content)} characters\033[0m")
     #         else:
-    #             print(f"\033[93mNo content extracted from {url}\033[0m")
+    #             logger.debug(f"\033[93mNo content extracted from {url}\033[0m")
     #     else:
-    #         print(f"\033[91mFailed to extract content: {result.data.get('error', 'Unknown error')}\033[0m")
+    #         logger.debug(f"\033[91mFailed to extract content: {result.data.get('error', 'Unknown error')}\033[0m")
         
     #     return result
 
@@ -594,9 +593,9 @@ class SandboxBrowserTool(SandboxToolsBase):
         params = {}
         if amount is not None:
             params["amount"] = amount
-            print(f"\033[95mScrolling down by {amount} pixels\033[0m")
+            logger.debug(f"\033[95mScrolling down by {amount} pixels\033[0m")
         else:
-            print(f"\033[95mScrolling down one page\033[0m")
+            logger.debug(f"\033[95mScrolling down one page\033[0m")
         
         return await self._execute_browser_action("scroll_down", params)
 
@@ -639,9 +638,9 @@ class SandboxBrowserTool(SandboxToolsBase):
         params = {}
         if amount is not None:
             params["amount"] = amount
-            print(f"\033[95mScrolling up by {amount} pixels\033[0m")
+            logger.debug(f"\033[95mScrolling up by {amount} pixels\033[0m")
         else:
-            print(f"\033[95mScrolling up one page\033[0m")
+            logger.debug(f"\033[95mScrolling up one page\033[0m")
         
         return await self._execute_browser_action("scroll_up", params)
 
@@ -682,7 +681,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mScrolling to text: {text}\033[0m")
+        logger.debug(f"\033[95mScrolling to text: {text}\033[0m")
         return await self._execute_browser_action("scroll_to_text", {"text": text})
 
     @openapi_schema({
@@ -722,7 +721,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution with the dropdown options
         """
-        print(f"\033[95mGetting options from dropdown with index: {index}\033[0m")
+        logger.debug(f"\033[95mGetting options from dropdown with index: {index}\033[0m")
         return await self._execute_browser_action("get_dropdown_options", {"index": index})
 
     @openapi_schema({
@@ -768,7 +767,7 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mSelecting option '{text}' from dropdown with index: {index}\033[0m")
+        logger.debug(f"\033[95mSelecting option '{text}' from dropdown with index: {index}\033[0m")
         return await self._execute_browser_action("select_dropdown_option", {"index": index, "text": text})
 
     @openapi_schema({
@@ -842,13 +841,13 @@ class SandboxBrowserTool(SandboxToolsBase):
         if element_source and element_target:
             params["element_source"] = element_source
             params["element_target"] = element_target
-            print(f"\033[95mDragging from element '{element_source}' to '{element_target}'\033[0m")
+            logger.debug(f"\033[95mDragging from element '{element_source}' to '{element_target}'\033[0m")
         elif all(coord is not None for coord in [coord_source_x, coord_source_y, coord_target_x, coord_target_y]):
             params["coord_source_x"] = coord_source_x
             params["coord_source_y"] = coord_source_y
             params["coord_target_x"] = coord_target_x
             params["coord_target_y"] = coord_target_y
-            print(f"\033[95mDragging from coordinates ({coord_source_x}, {coord_source_y}) to ({coord_target_x}, {coord_target_y})\033[0m")
+            logger.debug(f"\033[95mDragging from coordinates ({coord_source_x}, {coord_source_y}) to ({coord_target_x}, {coord_target_y})\033[0m")
         else:
             return self.fail_response("Must provide either element selectors or coordinates for drag and drop")
         
@@ -895,5 +894,5 @@ class SandboxBrowserTool(SandboxToolsBase):
         Returns:
             dict: Result of the execution
         """
-        print(f"\033[95mClicking at coordinates: ({x}, {y})\033[0m")
+        logger.debug(f"\033[95mClicking at coordinates: ({x}, {y})\033[0m")
         return await self._execute_browser_action("click_coordinates", {"x": x, "y": y})

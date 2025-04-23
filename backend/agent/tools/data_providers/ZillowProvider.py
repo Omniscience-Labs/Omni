@@ -1,6 +1,9 @@
 from typing import Dict
+import logging
 
 from agent.tools.data_providers.RapidDataProviderBase import RapidDataProviderBase, EndpointSchema
+
+logger = logging.getLogger(__name__)
 
 
 class ZillowProvider(RapidDataProviderBase):
@@ -112,10 +115,10 @@ if __name__ == "__main__":
             "doz": "any"
         }
     )
-    print("Search Result:", search_result)
-    print("***")
-    print("***")
-    print("***")
+    logger.debug("Search Result: %s", search_result)
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
     sleep(1)
     # Example for searching by address
     address_result = tool.call_endpoint(
@@ -124,10 +127,10 @@ if __name__ == "__main__":
             "address": "1161 Natchez Dr College Station Texas 77845"
         }
     )
-    print("Address Search Result:", address_result)
-    print("***")
-    print("***")
-    print("***")
+    logger.debug("Address Search Result: %s", address_result)
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
     sleep(1)
     # Example for getting property details
     property_result = tool.call_endpoint(
@@ -136,11 +139,11 @@ if __name__ == "__main__":
             "zpid": "7594920"
         }
     )
-    print("Property Details Result:", property_result)
+    logger.debug("Property Details Result: %s", property_result)
     sleep(1)
-    print("***")
-    print("***")
-    print("***")
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
 
     # Example for getting zestimate history
     zestimate_result = tool.call_endpoint(
@@ -149,11 +152,11 @@ if __name__ == "__main__":
             "zpid": "20476226"
         }
     )
-    print("Zestimate History Result:", zestimate_result)
+    logger.debug("Zestimate History Result: %s", zestimate_result)
     sleep(1)
-    print("***")
-    print("***")
-    print("***")
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
     # Example for getting similar properties
     similar_result = tool.call_endpoint(
         route="similar_properties",
@@ -161,11 +164,11 @@ if __name__ == "__main__":
             "zpid": "28253016"
         }
     )
-    print("Similar Properties Result:", similar_result)
+    logger.debug("Similar Properties Result: %s", similar_result)
     sleep(1)
-    print("***")
-    print("***")
-    print("***")
+    logger.debug("***")
+    logger.debug("***")
+    logger.debug("***")
     # Example for getting mortgage rates
     mortgage_result = tool.call_endpoint(
         route="mortgage_rates",
@@ -180,5 +183,5 @@ if __name__ == "__main__":
             "duration": "30"
         }
     )
-    print("Mortgage Rates Result:", mortgage_result)
+    logger.debug("Mortgage Rates Result: %s", mortgage_result)
   

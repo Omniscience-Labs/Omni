@@ -80,7 +80,7 @@ def initialize():
         socket_connect_timeout=5.0,  # Connection timeout
         retry_on_timeout=True,       # Auto-retry on timeout
         health_check_interval=30,    # Check connection health every 30 seconds
-        max_connections=10           # Limit connections to prevent overloading
+        max_connections=100           # Limit connections to prevent overloading
     )
     
     return client
