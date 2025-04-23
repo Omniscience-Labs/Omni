@@ -27,7 +27,6 @@ load_dotenv()
 async def run_agent(
     thread_id: str,
     project_id: str,
-    sandbox,
     stream: bool,
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
@@ -48,6 +47,19 @@ async def run_agent(
     if not account_id:
         raise ValueError("Could not determine account ID for thread")
 
+    # Get sandbox info from project
+    project = await client.table('projects').select('*').eq('project_id', project_id).execute()
+    if not project.data or len(project.data) == 0:
+        raise ValueError(f"Project {project_id} not found")
+    
+    project_data = project.data[0]
+    sandbox_info = project_data.get('sandbox', {})
+    if not sandbox_info.get('id'):
+        raise ValueError(f"No sandbox found for project {project_id}")
+    
+    # Get or start the sandbox
+    sandbox = await get_or_start_sandbox(sandbox_info['id'])
+    
     # Note: Billing checks are now done in api.py before this function is called
     
     thread_manager.add_tool(SandboxShellTool, sandbox=sandbox)
