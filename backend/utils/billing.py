@@ -3,7 +3,7 @@ from typing import Dict, Optional, Tuple
 
 # Define subscription tiers and their monthly limits (in minutes)
 SUBSCRIPTION_TIERS = {
-    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 10},
+    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 0},
     'price_1RGJ9LG6l1KZGqIrd9pwzeNW': {'name': 'base', 'minutes': 300},  # 100 hours = 6000 minutes
     'price_1RGJ9JG6l1KZGqIrVUU4ZRv6': {'name': 'extra', 'minutes': 2400}  # 100 hours = 6000 minutes
 }
@@ -76,11 +76,14 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     subscription = await get_account_subscription(client, account_id)
     
     # If no subscription, they can use free tier
-    if not subscription:
-        subscription = {
-            'price_id': 'price_1RGJ9GG6l1KZGqIroxSqgphC',  # Free tier
-            'plan_name': 'Free'
-        }
+    # if not subscription:
+    #     subscription = {
+    #         'price_id': 'price_1RGJ9GG6l1KZGqIroxSqgphC',  # Free tier
+    #         'plan_name': 'Free'
+    #     }
+
+    if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
+        return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
     
     # Get tier info
     tier_info = SUBSCRIPTION_TIERS.get(subscription['price_id'])
