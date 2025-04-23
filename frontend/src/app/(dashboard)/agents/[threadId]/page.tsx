@@ -243,7 +243,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // POLLING FOR MESSAGES
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -969,6 +969,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     }
   }, [projectName]);
 
+  // POLLING FOR MESSAGES
   // Set up polling for messages
   useEffect(() => {
     // Function to fetch messages
@@ -1024,6 +1025,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
       }
     };
   }, [threadId, userHasScrolled, initialLoadCompleted]);
+  // POLLING FOR MESSAGES
 
   // Add another useEffect to ensure messages are refreshed when agent status changes to idle
   useEffect(() => {
