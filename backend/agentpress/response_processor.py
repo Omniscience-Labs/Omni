@@ -158,16 +158,16 @@ class ResponseProcessor:
                     # Check for and log Anthropic thinking content
                     if delta and hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         if not has_printed_thinking_prefix:
-                            print("[THINKING]: ", end='', flush=True)
+                            # print("[THINKING]: ", end='', flush=True)
                             has_printed_thinking_prefix = True
-                        print(delta.reasoning_content, end='', flush=True)
+                        # print(delta.reasoning_content, end='', flush=True)
                         # Append reasoning to main content to be saved in the final message
                         accumulated_content += delta.reasoning_content
 
                     # Process content chunk
                     if delta and hasattr(delta, 'content') and delta.content:
                         chunk_content = delta.content
-                        print(chunk_content, end='', flush=True)
+                        # print(chunk_content, end='', flush=True)
                         accumulated_content += chunk_content
                         current_xml_content += chunk_content
 
@@ -286,7 +286,7 @@ class ResponseProcessor:
                     logger.info("Stopping stream processing after loop due to XML tool call limit")
                     break
 
-            print() # Add a final newline after the streaming loop finishes
+            # print() # Add a final newline after the streaming loop finishes
 
             # --- After Streaming Loop ---
 
