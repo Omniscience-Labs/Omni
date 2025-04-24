@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the .env file first
 # COPY .env . # ATTENTION. We shouldn't copy secrets to the image
 
+
 # Copy the backend code
 COPY . .
 
