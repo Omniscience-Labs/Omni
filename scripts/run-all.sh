@@ -10,44 +10,51 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}Starting AgentPress Development Environment${NC}"
 
 # Load environment variables from .env file
-if [ -f .env ]; then
+# Check if script is being run from the project root or from the scripts directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$SCRIPT_DIR"
+if [[ "$SCRIPT_DIR" == */scripts ]]; then
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
+
+if [ -f "$PROJECT_ROOT/.env" ]; then
     echo -e "${BLUE}Loading environment variables from .env file...${NC}"
     set -a
-    source .env
+    source "$PROJECT_ROOT/.env"
     set +a
 else
-    echo -e "${RED}Error: .env file not found in project root${NC}"
+    echo -e "${RED}Error: .env file not found in project root: $PROJECT_ROOT${NC}"
     exit 1
 fi
 
 # Run cleanup script to ensure all previous services are stopped
-if [ -f "./cleanup.sh" ]; then
+if [ -f "$SCRIPT_DIR/cleanup.sh" ]; then
     echo -e "${BLUE}Running cleanup script...${NC}"
-    bash ./cleanup.sh
+    bash "$SCRIPT_DIR/cleanup.sh"
 fi
 
 # Check if init-dev.sh exists and run it if it does
-if [ -f "./init-dev.sh" ]; then
+if [ -f "$SCRIPT_DIR/init-dev.sh" ]; then
     echo -e "${BLUE}Running initialization script...${NC}"
-    bash ./init-dev.sh
+    bash "$SCRIPT_DIR/init-dev.sh"
 fi
 
 # Create a trap to handle ctrl+c and clean up processes
-trap 'echo -e "${RED}Shutting down services...${NC}"; kill $(jobs -p) 2>/dev/null; cd backend/supabase && supabase stop; docker stop agentpress-redis 2>/dev/null; docker rm agentpress-redis 2>/dev/null; exit' INT TERM
+trap 'echo -e "${RED}Shutting down services...${NC}"; kill $(jobs -p) 2>/dev/null; cd "$PROJECT_ROOT/backend/supabase" && supabase stop; docker stop agentpress-redis 2>/dev/null; docker rm agentpress-redis 2>/dev/null; exit' INT TERM
 
 # Start Supabase and ensure it starts properly
 echo -e "${GREEN}Starting Supabase and extracting credentials...${NC}"
-cd backend/supabase
+cd "$PROJECT_ROOT/backend/supabase"
 # Start Supabase and store the output
 supabase start > supabase_output.txt
-cd ../..
+cd "$SCRIPT_DIR"
 
 # Wait to ensure Supabase is fully started
 echo -e "${YELLOW}Waiting for Supabase to start...${NC}"
 sleep 5
 
 # Read output file
-SUPABASE_OUTPUT=$(cat backend/supabase/supabase_output.txt)
+SUPABASE_OUTPUT=$(cat "$PROJECT_ROOT/backend/supabase/supabase_output.txt")
 echo -e "${YELLOW}Supabase Output:${NC}"
 echo "$SUPABASE_OUTPUT"
 
@@ -57,7 +64,7 @@ SUPABASE_ANON_KEY=$(echo "$SUPABASE_OUTPUT" | grep "anon key" | awk '{print $3}'
 SUPABASE_SERVICE_ROLE_KEY=$(echo "$SUPABASE_OUTPUT" | grep "service_role key" | awk '{print $3}')
 
 # Remove temp file
-rm -f backend/supabase/supabase_output.txt
+rm -f "$PROJECT_ROOT/backend/supabase/supabase_output.txt"
 
 # Check if extraction was successful
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
@@ -65,9 +72,9 @@ if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERV
     echo -e "${YELLOW}Manual check - trying to get current Supabase status...${NC}"
     
     # Try to get the status
-    cd backend/supabase
+    cd "$PROJECT_ROOT/backend/supabase"
     SUPABASE_STATUS=$(supabase status)
-    cd ../..
+    cd "$SCRIPT_DIR"
     
     echo "$SUPABASE_STATUS"
     
@@ -79,7 +86,7 @@ if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERV
     # Still failed?
     if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
         echo -e "${RED}ERROR: Unable to extract Supabase credentials and cannot proceed without them.${NC}"
-        echo -e "${RED}Please start Supabase manually with 'cd backend/supabase && supabase start'${NC}"
+        echo -e "${RED}Please start Supabase manually with 'cd $PROJECT_ROOT/backend/supabase && supabase start'${NC}"
         echo -e "${RED}Then extract the credentials from the output and update environment files manually.${NC}"
         exit 1
     else
@@ -107,25 +114,25 @@ echo -e "${YELLOW}Updating environment variables with extracted Supabase credent
 
 # Update the root .env file
 echo -e "${YELLOW}Updating root .env file...${NC}"
-sed -i '' "s|^SUPABASE_URL=.*|SUPABASE_URL=\"${SUPABASE_URL}\"|g" .env
-sed -i '' "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" .env
-sed -i '' "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=\"${SUPABASE_SERVICE_ROLE_KEY}\"|g" .env
-sed -i '' "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=\"${SUPABASE_URL}\"|g" .env
-sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" .env
+sed -i '' "s|^SUPABASE_URL=.*|SUPABASE_URL=\"${SUPABASE_URL}\"|g" "$PROJECT_ROOT/.env"
+sed -i '' "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" "$PROJECT_ROOT/.env"
+sed -i '' "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=\"${SUPABASE_SERVICE_ROLE_KEY}\"|g" "$PROJECT_ROOT/.env"
+sed -i '' "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=\"${SUPABASE_URL}\"|g" "$PROJECT_ROOT/.env"
+sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" "$PROJECT_ROOT/.env"
 
 # Update the frontend .env.local file
 echo -e "${YELLOW}Updating frontend/.env.local file...${NC}"
-sed -i '' "s|^SUPABASE_URL=.*|SUPABASE_URL=\"${SUPABASE_URL}\"|g" frontend/.env.local
-sed -i '' "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" frontend/.env.local
-sed -i '' "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=\"${SUPABASE_SERVICE_ROLE_KEY}\"|g" frontend/.env.local
-sed -i '' "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=\"${SUPABASE_URL}\"|g" frontend/.env.local
-sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" frontend/.env.local
+sed -i '' "s|^SUPABASE_URL=.*|SUPABASE_URL=\"${SUPABASE_URL}\"|g" "$PROJECT_ROOT/frontend/.env.local"
+sed -i '' "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" "$PROJECT_ROOT/frontend/.env.local"
+sed -i '' "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=\"${SUPABASE_SERVICE_ROLE_KEY}\"|g" "$PROJECT_ROOT/frontend/.env.local"
+sed -i '' "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=\"${SUPABASE_URL}\"|g" "$PROJECT_ROOT/frontend/.env.local"
+sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=\"${SUPABASE_ANON_KEY}\"|g" "$PROJECT_ROOT/frontend/.env.local"
 
 # Update the backend .env file with correct Redis and Supabase settings
 echo -e "${YELLOW}Updating backend/.env file with local Redis and Supabase settings...${NC}"
 
 # Create or update backend/.env with correct local dev settings
-cat > backend/.env << EOL
+cat > "$PROJECT_ROOT/backend/.env" << EOL
 # API Keys (loaded from root .env)
 GROQ_API_KEY="${GROQ_API_KEY}"
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY}"
@@ -194,14 +201,14 @@ fi
 
 # Apply Supabase migrations
 echo -e "${YELLOW}Applying Supabase migrations...${NC}"
-cd backend/supabase
+cd "$PROJECT_ROOT/backend/supabase"
 MIGRATION_OUTPUT=$(supabase db reset --debug)
 echo "$MIGRATION_OUTPUT"
-cd ../..
+cd "$SCRIPT_DIR"
 
 # Uncomment test authentication code in auth/page.tsx
 echo -e "${YELLOW}Enabling test authentication code...${NC}"
-sed -i '' -e 's|\/\*|\/\* Test login enabled: |g' -e 's|\*\/| \*\/|g' frontend/src/app/auth/page.tsx
+sed -i '' -e 's|\/\*|\/\* Test login enabled: |g' -e 's|\*\/| \*\/|g' "$PROJECT_ROOT/frontend/src/app/auth/page.tsx"
 
 # Create default user in Supabase
 echo -e "${YELLOW}Creating default user...${NC}"
@@ -221,14 +228,9 @@ curl -X GET "${SUPABASE_URL}/auth/v1/admin/users" \
   -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" | grep -o '"email":"[^"]*"'
 
-# Start Redis
-echo -e "${GREEN}Starting Redis...${NC}"
-docker run --name agentpress-redis -p 6379:6379 -d redis:latest &
-sleep 2 # Give Redis time to start
-
 # Start Backend
 echo -e "${GREEN}Starting Backend...${NC}"
-cd backend
+cd "$PROJECT_ROOT/backend"
 # Check for Python or Python3 command
 if command -v python3 &>/dev/null; then
     python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
@@ -237,14 +239,19 @@ elif command -v python &>/dev/null; then
 else
     echo -e "${RED}Python not found. Cannot start backend.${NC}"
 fi
-cd ..
+cd "$SCRIPT_DIR"
 sleep 2 # Give backend time to start
 
 # Start Frontend
 echo -e "${GREEN}Starting Frontend...${NC}"
-cd frontend
+cd "$PROJECT_ROOT/frontend"
 npm run dev &
-cd ..
+cd "$SCRIPT_DIR"
+
+# Start Redis
+echo -e "${GREEN}Starting Redis...${NC}"
+docker run --name agentpress-redis -p 6379:6379 -d redis:latest &
+sleep 2 # Give Redis time to start
 
 echo -e "${GREEN}All services are starting!${NC}"
 echo -e "${BLUE}Frontend will be available at:${NC} http://localhost:3000"
@@ -309,13 +316,13 @@ while [ $attempt -lt $max_attempts ]; do
             else
                 echo -e "${RED}Backend process is not running!${NC}"
                 echo -e "${YELLOW}Attempting to restart backend...${NC}"
-                cd backend
+                cd "$PROJECT_ROOT/backend"
                 if command -v python3 &>/dev/null; then
                     python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
                 elif command -v python &>/dev/null; then
                     python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
                 fi
-                cd ..
+                cd "$SCRIPT_DIR"
             fi
         fi
     fi
