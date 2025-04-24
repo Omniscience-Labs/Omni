@@ -6,6 +6,7 @@ from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from utils.config import config
 import asyncio
 from utils.logger import logger
 import uuid
@@ -16,7 +17,7 @@ from collections import OrderedDict
 from agent import api as agent_api
 from sandbox import api as sandbox_api
 
-# Load environment variables
+# Load environment variables (these will be available through config)
 load_dotenv()
 
 # Initialize managers
@@ -32,7 +33,7 @@ MAX_CONCURRENT_IPS = 25
 async def lifespan(app: FastAPI):
     # Startup
     global thread_manager
-    logger.info(f"Starting up FastAPI application with instance ID: {instance_id}")
+    logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
     await db.initialize()
     thread_manager = ThreadManager()
     

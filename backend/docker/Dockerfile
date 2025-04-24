@@ -13,6 +13,9 @@ COPY . .
 # Set environment variable
 ENV PYTHONPATH=/app
 
+# Environment mode (local, staging, production)
+ENV ENV_MODE="production"
+
 # Default environment variables
 ENV DAYTONA_API_KEY=""
 ENV DAYTONA_SERVER_URL=""

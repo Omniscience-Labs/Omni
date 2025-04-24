@@ -17,6 +17,7 @@ import asyncio
 from openai import OpenAIError
 import litellm
 from utils.logger import logger
+from utils.config import config
 from datetime import datetime
 import traceback
 
@@ -40,21 +41,21 @@ def setup_api_keys() -> None:
     """Set up API keys from environment variables."""
     providers = ['OPENAI', 'ANTHROPIC', 'GROQ', 'OPENROUTER']
     for provider in providers:
-        key = os.environ.get(f'{provider}_API_KEY')
+        key = getattr(config, f'{provider}_API_KEY')
         if key:
             logger.debug(f"API key set for provider: {provider}")
         else:
             logger.warning(f"No API key found for provider: {provider}")
     
     # Set up OpenRouter API base if not already set
-    if os.environ.get('OPENROUTER_API_KEY') and not os.environ.get('OPENROUTER_API_BASE'):
-        os.environ['OPENROUTER_API_BASE'] = 'https://openrouter.ai/api/v1'
-        logger.debug("Set default OPENROUTER_API_BASE to https://openrouter.ai/api/v1")
+    if config.OPENROUTER_API_KEY and config.OPENROUTER_API_BASE:
+        os.environ['OPENROUTER_API_BASE'] = config.OPENROUTER_API_BASE
+        logger.debug(f"Set OPENROUTER_API_BASE to {config.OPENROUTER_API_BASE}")
     
     # Set up AWS Bedrock credentials
-    aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
-    aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.environ.get('AWS_REGION_NAME')
+    aws_access_key = config.AWS_ACCESS_KEY_ID
+    aws_secret_key = config.AWS_SECRET_ACCESS_KEY
+    aws_region = config.AWS_REGION_NAME
     
     if aws_access_key and aws_secret_key and aws_region:
         logger.debug(f"AWS credentials set for Bedrock in region: {aws_region}")
@@ -136,9 +137,9 @@ def prepare_params(
     if model_name.startswith("openrouter/"):
         logger.debug(f"Preparing OpenRouter parameters for model: {model_name}")
         
-        # Add optional site URL and app name if set in environment
-        site_url = os.environ.get("OR_SITE_URL")
-        app_name = os.environ.get("OR_APP_NAME")
+        # Add optional site URL and app name from config
+        site_url = config.OR_SITE_URL
+        app_name = config.OR_APP_NAME
         if site_url or app_name:
             extra_headers = params.get("extra_headers", {})
             if site_url:

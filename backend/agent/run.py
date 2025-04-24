@@ -10,6 +10,7 @@ from agent.tools.sb_deploy_tool import SandboxDeployTool
 from agent.tools.sb_expose_tool import SandboxExposeTool
 from agent.tools.web_search_tool import WebSearchTool
 from dotenv import load_dotenv
+from utils.config import config
 
 from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
@@ -65,12 +66,12 @@ async def run_agent(
     thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
     thread_manager.add_tool(MessageTool) # we are just doing this via prompt as there is no need to call it as a tool
  
-    if os.getenv("TAVILY_API_KEY"):
+    # Add more tools if API keys are available
+    if config.TAVILY_API_KEY:
         thread_manager.add_tool(WebSearchTool)
-    else:
-        logger.warning("TAVILY_API_KEY not found, WebSearchTool will not be available.")
-    
-    if os.getenv("RAPID_API_KEY"):
+        
+    # Add data providers tool if RapidAPI key is available
+    if config.RAPID_API_KEY:
         thread_manager.add_tool(DataProvidersTool)
 
     system_message = { "role": "system", "content": get_system_prompt() }

@@ -7,34 +7,35 @@ from dotenv import load_dotenv
 
 from agentpress.tool import Tool
 from utils.logger import logger
+from utils.config import config
 from utils.files_utils import clean_path
 from agentpress.thread_manager import ThreadManager
 
 load_dotenv()
 
 logger.debug("Initializing Daytona sandbox configuration")
-config = DaytonaConfig(
-    api_key=os.getenv("DAYTONA_API_KEY"),
-    server_url=os.getenv("DAYTONA_SERVER_URL"),
-    target=os.getenv("DAYTONA_TARGET")
+daytona_config = DaytonaConfig(
+    api_key=config.DAYTONA_API_KEY,
+    server_url=config.DAYTONA_SERVER_URL,
+    target=config.DAYTONA_TARGET
 )
 
-if config.api_key:
+if daytona_config.api_key:
     logger.debug("Daytona API key configured successfully")
 else:
     logger.warning("No Daytona API key found in environment variables")
 
-if config.server_url:
-    logger.debug(f"Daytona server URL set to: {config.server_url}")
+if daytona_config.server_url:
+    logger.debug(f"Daytona server URL set to: {daytona_config.server_url}")
 else:
     logger.warning("No Daytona server URL found in environment variables")
 
-if config.target:
-    logger.debug(f"Daytona target set to: {config.target}")
+if daytona_config.target:
+    logger.debug(f"Daytona target set to: {daytona_config.target}")
 else:
     logger.warning("No Daytona target found in environment variables")
 
-daytona = Daytona(config)
+daytona = Daytona(daytona_config)
 logger.debug("Daytona client initialized")
 
 async def get_or_start_sandbox(sandbox_id: str):

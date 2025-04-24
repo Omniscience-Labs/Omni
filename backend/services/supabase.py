@@ -6,6 +6,7 @@ import os
 from typing import Optional
 from supabase import create_async_client, AsyncClient
 from utils.logger import logger
+from utils.config import config
 
 class DBConnection:
     """Singleton database connection manager using Supabase."""
@@ -29,9 +30,9 @@ class DBConnection:
             return
                 
         try:
-            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_url = config.SUPABASE_URL
             # Use service role key preferentially for backend operations
-            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', os.getenv('SUPABASE_ANON_KEY'))
+            supabase_key = config.SUPABASE_SERVICE_ROLE_KEY or config.SUPABASE_ANON_KEY
             
             if not supabase_url or not supabase_key:
                 logger.error("Missing required environment variables for Supabase connection")
@@ -40,7 +41,7 @@ class DBConnection:
             logger.debug("Initializing Supabase connection")
             self._client = await create_async_client(supabase_url, supabase_key)
             self._initialized = True
-            key_type = "SERVICE_ROLE_KEY" if os.getenv('SUPABASE_SERVICE_ROLE_KEY') else "ANON_KEY"
+            key_type = "SERVICE_ROLE_KEY" if config.SUPABASE_SERVICE_ROLE_KEY else "ANON_KEY"
             logger.debug(f"Database connection initialized with Supabase using {key_type}")
         except Exception as e:
             logger.error(f"Database initialization error: {e}")

@@ -5,6 +5,7 @@ import asyncio
 import certifi
 import ssl
 from utils.logger import logger
+from utils.config import config
 import random
 from functools import wraps
 
@@ -70,10 +71,10 @@ def initialize():
     
     # Create Redis client with more robust retry configuration
     client = redis.Redis(
-        host=os.getenv('REDIS_HOST'),
-        port=int(os.getenv('REDIS_PORT', '6379')),
-        password=os.getenv('REDIS_PASSWORD'),
-        ssl=os.getenv('REDIS_SSL', 'True').lower() == 'true',
+        host=config.REDIS_HOST,
+        port=config.REDIS_PORT,
+        password=config.REDIS_PASSWORD,
+        ssl=config.REDIS_SSL,
         ssl_ca_certs=certifi.where(),
         decode_responses=True,
         socket_timeout=5.0,          # Socket timeout

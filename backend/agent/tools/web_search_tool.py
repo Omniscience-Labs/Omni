@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from utils.config import config
 import json
 
 # TODO: add subpages, etc... in filters as sometimes its necessary 
@@ -17,9 +18,9 @@ class WebSearchTool(Tool):
         # Load environment variables
         load_dotenv()
         # Use the provided API key or get it from environment variables
-        self.api_key = api_key or os.getenv("TAVILY_API_KEY")
+        self.api_key = api_key or config.TAVILY_API_KEY
         if not self.api_key:
-            raise ValueError("TAVILY_API_KEY not found in environment variables")
+            raise ValueError("TAVILY_API_KEY not found in configuration")
 
         # Tavily asynchronous search client
         self.tavily_client = AsyncTavilyClient(api_key=self.api_key)
