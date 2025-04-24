@@ -58,8 +58,8 @@ class SandboxShellTool(SandboxToolsBase):
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "Optional timeout in seconds. Increase for long-running commands. Defaults to 60. For commands that might exceed this timeout, use background execution with & operator instead.",
-                        "default": 60
+                        "description": "Optional timeout in seconds. Increase for long-running commands. Defaults to 180. For commands that might exceed this timeout, use background execution with & operator instead.",
+                        "default": 180
                     }
                 },
                 "required": ["command"]
@@ -135,7 +135,7 @@ class SandboxShellTool(SandboxToolsBase):
         command: str, 
         folder: Optional[str] = None,
         session_name: str = "default",
-        timeout: int = 60
+        timeout: int = 180
     ) -> ToolResult:
         try:
             # Ensure sandbox is initialized
