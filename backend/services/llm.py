@@ -17,6 +17,7 @@ import asyncio
 from openai import OpenAIError
 import litellm
 from utils.logger import logger
+from utils.config import config
 from datetime import datetime
 import traceback
 
@@ -40,21 +41,21 @@ def setup_api_keys() -> None:
     """Set up API keys from environment variables."""
     providers = ['OPENAI', 'ANTHROPIC', 'GROQ', 'OPENROUTER']
     for provider in providers:
-        key = os.environ.get(f'{provider}_API_KEY')
+        key = getattr(config, f'{provider}_API_KEY')
         if key:
             logger.debug(f"API key set for provider: {provider}")
         else:
             logger.warning(f"No API key found for provider: {provider}")
     
     # Set up OpenRouter API base if not already set
-    if os.environ.get('OPENROUTER_API_KEY') and not os.environ.get('OPENROUTER_API_BASE'):
-        os.environ['OPENROUTER_API_BASE'] = 'https://openrouter.ai/api/v1'
-        logger.debug("Set default OPENROUTER_API_BASE to https://openrouter.ai/api/v1")
+    if config.OPENROUTER_API_KEY and config.OPENROUTER_API_BASE:
+        os.environ['OPENROUTER_API_BASE'] = config.OPENROUTER_API_BASE
+        logger.debug(f"Set OPENROUTER_API_BASE to {config.OPENROUTER_API_BASE}")
     
     # Set up AWS Bedrock credentials
-    aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
-    aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.environ.get('AWS_REGION_NAME')
+    aws_access_key = config.AWS_ACCESS_KEY_ID
+    aws_secret_key = config.AWS_SECRET_ACCESS_KEY
+    aws_region = config.AWS_REGION_NAME
     
     if aws_access_key and aws_secret_key and aws_region:
         logger.debug(f"AWS credentials set for Bedrock in region: {aws_region}")
@@ -136,9 +137,9 @@ def prepare_params(
     if model_name.startswith("openrouter/"):
         logger.debug(f"Preparing OpenRouter parameters for model: {model_name}")
         
-        # Add optional site URL and app name if set in environment
-        site_url = os.environ.get("OR_SITE_URL")
-        app_name = os.environ.get("OR_APP_NAME")
+        # Add optional site URL and app name from config
+        site_url = config.OR_SITE_URL
+        app_name = config.OR_APP_NAME
         if site_url or app_name:
             extra_headers = params.get("extra_headers", {})
             if site_url:
@@ -160,12 +161,10 @@ def prepare_params(
     # Check model name *after* potential modifications (like adding bedrock/ prefix)
     effective_model_name = params.get("model", model_name) # Use model from params if set, else original
     if "claude" in effective_model_name.lower() or "anthropic" in effective_model_name.lower():
-        logger.debug("Applying minimal Anthropic prompt caching.")
         messages = params["messages"] # Direct reference, modification affects params
 
         # Ensure messages is a list
         if not isinstance(messages, list):
-            logger.warning(f"Messages is not a list ({type(messages)}), skipping Anthropic cache control.")
             return params # Return early if messages format is unexpected
 
         # 1. Process the first message if it's a system prompt with string content
@@ -176,7 +175,6 @@ def prepare_params(
                 messages[0]["content"] = [
                     {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
                 ]
-                logger.debug("Applied cache_control to system message (converted from string).")
             elif isinstance(content, list):
                  # If content is already a list, check if the first text block needs cache_control
                  for item in content:
@@ -184,36 +182,49 @@ def prepare_params(
                          if "cache_control" not in item:
                              item["cache_control"] = {"type": "ephemeral"}
                              break # Apply to the first text block only for system prompt
-            else:
-                 logger.warning("System message content is not a string or list, skipping cache_control.")
 
-        # 2. Find and process the last user message
+        # 2. Find and process relevant user and assistant messages
         last_user_idx = -1
-        for i in range(len(messages) - 1, -1, -1):
-            if messages[i].get("role") == "user":
-                last_user_idx = i
-                break
+        second_last_user_idx = -1
+        last_assistant_idx = -1
 
-        if last_user_idx != -1:
-            last_user_message = messages[last_user_idx]
-            content = last_user_message.get("content")
+        for i in range(len(messages) - 1, -1, -1):
+            role = messages[i].get("role")
+            if role == "user":
+                if last_user_idx == -1:
+                    last_user_idx = i
+                elif second_last_user_idx == -1:
+                    second_last_user_idx = i
+            elif role == "assistant":
+                if last_assistant_idx == -1:
+                    last_assistant_idx = i
+
+            # Stop searching if we've found all needed messages
+            if last_user_idx != -1 and second_last_user_idx != -1 and last_assistant_idx != -1:
+                 break
+
+        # Helper function to apply cache control
+        def apply_cache_control(message_idx: int, message_role: str):
+            if message_idx == -1:
+                return
+
+            message = messages[message_idx]
+            content = message.get("content")
 
             if isinstance(content, str):
-                # Wrap the string content in the required list structure
-                last_user_message["content"] = [
+                message["content"] = [
                     {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
                 ]
-                logger.debug(f"Applied cache_control to last user message (string content, index {last_user_idx}).")
             elif isinstance(content, list):
-                # Modify text blocks within the list directly
                 for item in content:
                     if isinstance(item, dict) and item.get("type") == "text":
-                        # Add cache_control if not already present
                         if "cache_control" not in item:
                            item["cache_control"] = {"type": "ephemeral"}
 
-            else:
-                logger.warning(f"Last user message (index {last_user_idx}) content is not a string or list ({type(content)}), skipping cache_control.")
+        # Apply cache control to the identified messages
+        apply_cache_control(last_user_idx, "last user")
+        apply_cache_control(second_last_user_idx, "second last user")
+        apply_cache_control(last_assistant_idx, "last assistant")
 
     # Add reasoning_effort for Anthropic models if enabled
     use_thinking = enable_thinking if enable_thinking is not None else False
@@ -269,6 +280,7 @@ async def make_llm_api_call(
         LLMRetryError: If API call fails after retries
         LLMError: For other API-related errors
     """
+    # debug <timestamp>.json messages 
     logger.debug(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
     params = prepare_params(
         messages=messages,
@@ -286,7 +298,6 @@ async def make_llm_api_call(
         enable_thinking=enable_thinking,
         reasoning_effort=reasoning_effort
     )
-    
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:

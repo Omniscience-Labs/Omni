@@ -11,7 +11,6 @@ from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agent.api import get_or_create_project_sandbox
 
-# TODO: ADD AUTHORIZATION TO ONLY HAVE ACCESS TO SANDBOXES OF PROJECTS U HAVE ACCESS TO
 
 # Initialize shared resources
 router = APIRouter(tags=["sandbox"])
@@ -75,7 +74,6 @@ async def verify_sandbox_access(client, sandbox_id: str, user_id: Optional[str] 
 async def get_sandbox_by_id_safely(client, sandbox_id: str):
     """
     Safely retrieve a sandbox object by its ID, using the project that owns it.
-    This prevents race conditions by leveraging the distributed locking mechanism.
     
     Args:
         client: The Supabase client
@@ -98,7 +96,7 @@ async def get_sandbox_by_id_safely(client, sandbox_id: str):
     logger.debug(f"Found project {project_id} for sandbox {sandbox_id}")
     
     try:
-        # Use the race-condition-safe function to get the sandbox
+        # Get the sandbox
         sandbox, retrieved_sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
         
         # Verify we got the right sandbox
@@ -260,7 +258,6 @@ async def ensure_project_sandbox_active(
     """
     Ensure that a project's sandbox is active and running.
     Checks the sandbox status and starts it if it's not running.
-    Uses distributed locking to prevent race conditions.
     """
     client = await db.client
     
@@ -287,8 +284,8 @@ async def ensure_project_sandbox_active(
                 raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     try:
-        # Use the safer function that handles race conditions with distributed locking
-        logger.info(f"Ensuring sandbox is active for project {project_id} using distributed locking")
+        # Get or create the sandbox
+        logger.info(f"Ensuring sandbox is active for project {project_id}")
         sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
         
         logger.info(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")

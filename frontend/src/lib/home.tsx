@@ -83,9 +83,9 @@ export const siteConfig = {
       buttonText: "Hire Suna",
       buttonColor: "bg-secondary text-white",
       isPopular: false,
-      hours: "10 minutes",
+      hours: "no free usage at this time",
       features: [
-        "10 minutes usage per month",
+        "no free usage",
         // "Community support",
         // "Single user",
         // "Standard response time",
@@ -1089,25 +1089,9 @@ export const siteConfig = {
   ],
   useCases: [
     {
-      id: "lead-enrichment",
-      title: "Enrich company leads with LinkedIn data",
-      description: "Enriched a list of company leads by automatically finding LinkedIn profiles, identifying CEOs and Heads of Sales/Marketing, and generating clear one-line company descriptions.",
-      category: "research",
-      featured: true,
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 6.75H7.75C6.64543 6.75 5.75 7.64543 5.75 8.75V17.25C5.75 18.3546 6.64543 19.25 7.75 19.25H16.25C17.3546 19.25 18.25 18.3546 18.25 17.25V8.75C18.25 7.64543 17.3546 6.75 16.25 6.75H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M14 8.25H10C9.44772 8.25 9 7.80228 9 7.25V5.75C9 5.19772 9.44772 4.75 10 4.75H14C14.5523 4.75 15 5.19772 15 5.75V7.25C15 7.80228 14.5523 8.25 14 8.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M9 12H12M9 15H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-      image: "https://images.unsplash.com/photo-1522204523234-8729aa6e3d5f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/b289e34f-68af-40aa-8b46-62c2dcefa58a"
-    },
-    {
       id: "competitor-analysis",
-      title: "Healthcare market competitor analysis",
-      description: "Analyze the UK healthcare industry market, identifying major players with their market size, strengths, weaknesses, and website URLs, compiled into a comprehensive PDF report.",
+      title: "Competitor Analysis",
+      description: "Analyze the market for my next company in the healthcare industry, located in the UK. Give me the major players, their market size, strengths, and weaknesses, and add their website URLs. Once done, generate a PDF report.",
       category: "research",
       featured: true,
       icon: (
@@ -1118,12 +1102,12 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/792ab3ea-ab8e-4b26-b7b5-a19e2ea4c96b"
+      url: "https://www.suna.so/share/5ee791ac-e19c-4986-a61c-6d0659d0e5bc"
     },
     {
       id: "vc-list",
-      title: "Top US VC funds by AUM",
-      description: "Comprehensive listing of the most significant venture capital funds in the United States ranked by Assets Under Management, including website URLs and contact information.",
+      title: "VC List",
+      description: "Give me the list of the most important VC Funds in the United States based on Assets Under Management. Give me website URLs, and if possible an email to reach them out.",
       category: "finance",
       featured: true,
       icon: (
@@ -1133,29 +1117,14 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/5645e4ea-3989-4977-8898-30a7e1d3c449"
-    },
-    {
-      id: "insurance-policy",
-      title: "Best home insurance in Milan",
-      description: "Research and comparison of the most cost-effective home insurance policies in Milan, Italy, by comprehensively analyzing offerings from multiple Italian insurance providers.",
-      category: "research",
-      featured: false,
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M19.25 5.75C19.25 5.19772 18.8023 4.75 18.25 4.75H14C12.8954 4.75 12 5.64543 12 6.75V19.25L12.8284 18.4216C13.5786 17.6714 14.596 17.25 15.6569 17.25H18.25C18.8023 17.25 19.25 16.8023 19.25 16.25V5.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4.75 5.75C4.75 5.19772 5.19772 4.75 5.75 4.75H10C11.1046 4.75 12 5.64543 12 6.75V19.25L11.1716 18.4216C10.4214 17.6714 9.40401 17.25 8.34315 17.25H5.75C5.19772 17.25 4.75 16.8023 4.75 16.25V5.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/1cf18fc9-3b74-4a76-a654-2d20d48c35ce"
+      url: "https://www.suna.so/share/804d20a3-cf1c-4adb-83bb-0e77cc6adeac"
     },
     {
       id: "candidate-search",
-      title: "Find available software engineers",
-      description: "Search for 10 available junior software engineers in Munich with Computer Science degrees and at least 1 year of experience by scanning LinkedIn profiles.",
+      title: "Looking for Candidates",
+      description: "Go on LinkedIn, and find me 10 profiles available - they are not working right now - for a junior software engineer position, who are located in Munich, Germany. They should have at least one bachelor's degree in Computer Science or anything related to it, and 1-year of experience in any field/role.",
       category: "recruitment",
-      featured: false,
+      featured: true,
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M17.25 10C17.25 12.8995 14.8995 15.25 12 15.25C9.10051 15.25 6.75 12.8995 6.75 10C6.75 7.10051 9.10051 4.75 12 4.75C14.8995 4.75 17.25 7.10051 17.25 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1164,29 +1133,12 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/2d76dff7-d7fa-4504-b685-befb0b11dd68"
-    },
-    {
-      id: "stock-market-report",
-      title: "US stock market analysis report",
-      description: "Detailed report on US stock market performance over the past two weeks, including S&P 500 trend analysis and market predictions for a Bank CFO.",
-      category: "finance",
-      featured: true,
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4.75 11.75L10.25 6.25L14.75 10.75L19.25 6.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M19.25 6.25V19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4.75 6.25V19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4.75 19.25H19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/e343e2fb-55d5-4fe2-a6e3-f9e1655eb8e6"
+      url: "https://www.suna.so/share/3ae581b0-2db8-4c63-b324-3b8d29762e74"
     },
     {
       id: "company-trip",
-      title: "Plan company trip to California",
-      description: "Comprehensive 7-day itinerary for 8 people traveling from Paris to California, including weather-dependent indoor and outdoor activities from April 21-28, 2025.",
+      title: "Planning Company Trip",
+      description: "Generate me a route plan for my company. We should go to California. We'll be in 8 people. Compose the trip from the departure (Paris, France) to the activities we can do considering that the trip will be 7 days long - departure on the 21st of Apr 2025.",
       category: "travel",
       featured: true,
       icon: (
@@ -1198,12 +1150,28 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/da71b44e-cd20-42d2-8084-f03861376eab"
+      url: "https://www.suna.so/share/725e64a0-f1e2-4bb6-8a1f-703c2833fd72"
+    },
+    {
+      id: "excel-spreadsheet",
+      title: "Working on Excel",
+      description: "My company asked me to set up an Excel spreadsheet with all the information about Italian lottery games (Lotto, 10eLotto, and Million Day). Based on that, generate and send me a spreadsheet with all the basic information (public ones).",
+      category: "data",
+      featured: true,
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4.75 6.75C4.75 5.64543 5.64543 4.75 6.75 4.75H17.25C18.3546 4.75 19.25 5.64543 19.25 6.75V17.25C19.25 18.3546 18.3546 19.25 17.25 19.25H6.75C5.64543 19.25 4.75 18.3546 4.75 17.25V6.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.75 8.75V19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M5 8.25H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      image: "https://images.unsplash.com/photo-1532153975070-2e9ab71f1b14?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
+      url: "https://www.suna.so/share/128f23a4-51cd-42a6-97a0-0b458b32010e"
     },
     {
       id: "speaker-prospecting",
-      title: "Find AI ethics conference speakers",
-      description: "Discover 20 AI ethics speakers from Europe who have presented at conferences in the past year by scraping event sites and cross-referencing with LinkedIn and YouTube.",
+      title: "Automate Event Speaker Prospecting",
+      description: "Find 20 AI ethics speakers from Europe who've spoken at conferences in the past year. Scrapes conference sites, cross-references LinkedIn and YouTube, and outputs contact info + talk summaries.",
       category: "research",
       featured: true,
       icon: (
@@ -1214,12 +1182,12 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/08a65777-41d8-44a7-95a1-ebd979ebb16e"
+      url: "https://www.suna.so/share/7a7592ea-ed44-4c69-bcb5-5f9bb88c188c"
     },
     {
       id: "scientific-papers",
-      title: "Research alcohol effects scientific papers",
-      description: "Comprehensive analysis and comparison of scientific research papers from the last 5 years on alcohol's effects on the human body, presented as a detailed report.",
+      title: "Summarize and Cross-Reference Scientific Papers",
+      description: "Research and compare scientific papers talking about Alcohol effects on our bodies during the last 5 years. Generate a report about the most important scientific papers talking about the topic I wrote before.",
       category: "research",
       featured: true,
       icon: (
@@ -1230,12 +1198,12 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1532153975070-2e9ab71f1b14?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/aa414558-bfdf-4d7c-9b56-37dee72e4610"
+      url: "https://www.suna.so/share/c2081b3c-786e-4e7c-9bf4-46e9b23bb662"
     },
     {
       id: "lead-generation",
-      title: "Generate B2B leads in Barcelona",
-      description: "Identify at least 20 potential B2B leads for an AI customer support tool, specifically targeting companies in Barcelona with 10-50 employees, including company names, websites, size, and contact information.",
+      title: "Research + First Contact Draft",
+      description: "Research my potential customers (B2B) on LinkedIn. They should be in the clean tech industry. Find their websites and their email addresses. After that, based on the company profile, generate a personalized first contact email.",
       category: "sales",
       featured: true,
       icon: (
@@ -1246,7 +1214,72 @@ export const siteConfig = {
         </svg>
       ),
       image: "https://images.unsplash.com/photo-1552581234-26160f608093?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
-      url: "https://www.suna.so/share/cfd491ea-f3cd-42a9-a775-baff938edcef"
+      url: "https://www.suna.so/share/6b6296a6-8683-49e5-9ad0-a32952d12c44"
+    },
+    {
+      id: "seo-analysis",
+      title: "SEO Analysis",
+      description: "Based on my website suna.so, generate an SEO report analysis, find top-ranking pages by keyword clusters, and identify topics I'm missing.",
+      category: "marketing",
+      featured: true,
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4.75 11.75L10.25 6.25L14.75 10.75L19.25 6.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M19.25 6.25V19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4.75 6.25V19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4.75 19.25H19.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
+      url: "https://www.suna.so/share/43491cb0-cd6c-45f0-880c-66ddc8c4b842"
+    },
+    {
+      id: "personal-trip",
+      title: "Generate a Personal Trip",
+      description: "Generate a personal trip to London, with departure from Bangkok on the 1st of May. The trip will last 10 days. Find an accommodation in the center of London, with a rating on Google reviews of at least 4.5.",
+      category: "travel",
+      featured: true,
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4.75 8.75C4.75 7.64543 5.64543 6.75 6.75 6.75H17.25C18.3546 6.75 19.25 7.64543 19.25 8.75V17.25C19.25 18.3546 18.3546 19.25 17.25 19.25H6.75C5.64543 19.25 4.75 18.3546 4.75 17.25V8.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 4.75V8.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M16 4.75V8.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M7.75 10.75H16.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
+      url: "https://www.suna.so/share/37b31907-8349-4f63-b0e5-27ca597ed02a"
+    },
+    {
+      id: "funded-startups",
+      title: "Recently Funded Startups",
+      description: "Go on Crunchbase, Dealroom, and TechCrunch, filter by Series A funding rounds in the SaaS Finance Space, and build a report with company data, founders, and contact info for outbound sales.",
+      category: "finance",
+      featured: true,
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 4.75L19.25 9L12 13.25L4.75 9L12 4.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.25 11.5L4.75 14L12 18.25L19.25 14L14.6722 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      image: "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
+      url: "https://www.suna.so/share/8b2a897e-985a-4d5e-867b-15239274f764"
+    },
+    {
+      id: "scrape-forums",
+      title: "Scrape Forum Discussions",
+      description: "I need to find the best beauty centers in Rome, but I want to find them by using open forums that speak about this topic. Go on Google, and scrape the forums by looking for beauty center discussions located in Rome.",
+      category: "research",
+      featured: true,
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5.75 19.2502H18.25C18.8023 19.2502 19.25 18.8025 19.25 18.2502V5.75C19.25 5.19772 18.8023 4.75 18.25 4.75H5.75C5.19772 4.75 4.75 5.19772 4.75 5.75V18.2502C4.75 18.8025 5.19772 19.2502 5.75 19.2502Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.75 8.75C9.75 9.44036 9.19036 10 8.5 10C7.80964 10 7.25 9.44036 7.25 8.75C7.25 8.05964 7.80964 7.5 8.5 7.5C9.19036 7.5 9.75 8.05964 9.75 8.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M19.25 13.75L14.75 9.25L7.25 16.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      image: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80",
+      url: "https://www.suna.so/share/7d7a5d93-a20d-48b0-82cc-e9a876e9fd04"
     }
   ],
 };

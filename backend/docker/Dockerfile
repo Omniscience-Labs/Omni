@@ -13,14 +13,20 @@ COPY . .
 # Set environment variable
 ENV PYTHONPATH=/app
 
+# Environment mode (local, staging, production)
+ENV ENV_MODE="production"
+
 # Default environment variables
-# These should be overridden at runtime with actual values
 ENV DAYTONA_API_KEY=""
 ENV DAYTONA_SERVER_URL=""
 ENV DAYTONA_TARGET=""
 ENV ANTHROPIC_API_KEY=""
 ENV OPENAI_API_KEY=""
 ENV MODEL_TO_USE=""
+ENV TAVILY_API_KEY=""
+ENV RAPID_API_KEY=""
+ENV CLOUDFLARE_API_TOKEN=""
+
 
 ENV SUPABASE_URL=""
 ENV SUPABASE_ANON_KEY=""
@@ -35,4 +41,4 @@ ENV REDIS_SSL=""
 EXPOSE 8000
 
 # Command to run the application with Uvicorn directly
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "32", "--log-level", "info", "--timeout-keep-alive", "500", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["gunicorn", "api:app", "--workers", "24", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "600", "--graceful-timeout", "300", "--keep-alive", "250", "--max-requests", "1000", "--max-requests-jitter", "50", "--log-level", "info", "--forwarded-allow-ips", "*", "--worker-connections", "1000", "--worker-tmp-dir", "/dev/shm", "--preload"]

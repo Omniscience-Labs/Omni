@@ -19,6 +19,8 @@ from functools import wraps
 import traceback
 from logging.handlers import RotatingFileHandler
 
+from utils.config import config, EnvMode
+
 # Context variable for request correlation ID
 request_id: ContextVar[str] = ContextVar('request_id', default='')
 
@@ -64,7 +66,6 @@ def setup_logger(name: str = 'agentpress') -> logging.Logger:
         logging.Logger: Configured logger instance
     """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
     
     # Create logs directory if it doesn't exist
     log_dir = 'logs'
@@ -83,7 +84,11 @@ def setup_logger(name: str = 'agentpress') -> logging.Logger:
     
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG)
+    
+    if config.ENV_MODE == EnvMode.PRODUCTION:
+        console_handler.setLevel(logging.WARNING)
+    else:
+        console_handler.setLevel(logging.DEBUG)
     
     # Create formatters
     file_formatter = logging.Formatter(

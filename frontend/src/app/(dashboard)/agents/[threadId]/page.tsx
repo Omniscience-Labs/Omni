@@ -19,9 +19,10 @@ import { useAgentStream } from '@/hooks/useAgentStream';
 import { Markdown } from '@/components/ui/markdown';
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { BillingErrorAlert } from '@/components/billing/BillingErrorAlert';
-import { SUBSCRIPTION_PLANS } from '@/components/billing/PlanComparison';
+import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
+import { SUBSCRIPTION_PLANS } from '@/components/billing/plan-comparison';
 import { createClient } from '@/lib/supabase/client';
+import { isLocalMode } from "@/lib/config";
 
 import { UnifiedMessage, ParsedContent, ParsedMetadata, ThreadParams } from '@/components/thread/types';
 import { getToolIcon, extractPrimaryParam, safeJsonParse } from '@/components/thread/utils';
@@ -243,6 +244,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // POLLING FOR MESSAGES
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -578,7 +580,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     };
   }, [threadId]);
 
-  const handleSubmitMessage = useCallback(async (message: string) => {
+  const handleSubmitMessage = useCallback(async (message: string, options?: { model_name?: string; enable_thinking?: boolean }) => {
     if (!message.trim()) return;
     setIsSending(true);
 
@@ -600,7 +602,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     try {
       const results = await Promise.allSettled([
         addUserMessage(threadId, message),
-        startAgent(threadId)
+        startAgent(threadId, options)
       ]);
 
       if (results[0].status === 'rejected') {
@@ -968,6 +970,64 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     }
   }, [projectName]);
 
+  // POLLING FOR MESSAGES
+  // Set up polling for messages
+  useEffect(() => {
+    // Function to fetch messages
+    const fetchMessages = async () => {
+      if (!threadId) return;
+      
+      try {
+        console.log('[POLLING] Refetching messages...');
+        const messagesData = await getMessages(threadId);
+        
+        if (messagesData) {
+          console.log(`[POLLING] Refetch completed with ${messagesData.length} messages`);
+          // Map API message type to UnifiedMessage type
+          const unifiedMessages = (messagesData || [])
+            .filter(msg => msg.type !== 'status') 
+            .map((msg: ApiMessageType) => ({
+              message_id: msg.message_id || null, 
+              thread_id: msg.thread_id || threadId,
+              type: (msg.type || 'system') as UnifiedMessage['type'], 
+              is_llm_message: Boolean(msg.is_llm_message),
+              content: msg.content || '',
+              metadata: msg.metadata || '{}',
+              created_at: msg.created_at || new Date().toISOString(),
+              updated_at: msg.updated_at || new Date().toISOString()
+            }));
+          
+          setMessages(unifiedMessages);
+          
+          // Only auto-scroll if not manually scrolled up
+          if (!userHasScrolled) {
+            scrollToBottom('smooth');
+          }
+        }
+      } catch (error) {
+        console.error('[POLLING] Error fetching messages:', error);
+      }
+    };
+
+    // Start polling once initial load is complete
+    if (initialLoadCompleted.current && !pollingIntervalRef.current) {
+      // Initial fetch
+      fetchMessages();
+      
+      // Set up interval (every 2 seconds)
+      pollingIntervalRef.current = setInterval(fetchMessages, 2000);
+    }
+
+    // Clean up interval when component unmounts
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [threadId, userHasScrolled, initialLoadCompleted]);
+  // POLLING FOR MESSAGES
+
   // Add another useEffect to ensure messages are refreshed when agent status changes to idle
   useEffect(() => {
     if (agentStatus === 'idle' && streamHookStatus !== 'streaming' && streamHookStatus !== 'connecting') {
@@ -1010,6 +1070,12 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
   // Check billing status when agent completes
   const checkBillingStatus = useCallback(async () => {
+    // Skip billing checks in local development mode
+    if (isLocalMode()) {
+      console.log("Running in local development mode - billing checks are disabled");
+      return false;
+    }
+
     if (!project?.account_id) return;
     
     const supabase = createClient();

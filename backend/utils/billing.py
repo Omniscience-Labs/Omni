@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
+from utils.logger import logger
+from utils.config import config, EnvMode
 
 # Define subscription tiers and their monthly limits (in minutes)
 SUBSCRIPTION_TIERS = {
-    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 10},
-    'price_1RGJ9LG6l1KZGqIrd9pwzeNW': {'name': 'base', 'minutes': 300},  # 100 hours = 6000 minutes
-    'price_1RGJ9JG6l1KZGqIrVUU4ZRv6': {'name': 'extra', 'minutes': 2400}  # 100 hours = 6000 minutes
+    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 8},
+    'price_1RGJ9LG6l1KZGqIrd9pwzeNW': {'name': 'base', 'minutes': 300},
+    'price_1RGJ9JG6l1KZGqIrVUU4ZRv6': {'name': 'extra', 'minutes': 2400}
 }
 
 async def get_account_subscription(client, account_id: str) -> Optional[Dict]:
@@ -72,6 +74,16 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     Returns:
         Tuple[bool, str, Optional[Dict]]: (can_run, message, subscription_info)
     """
+    if config.ENV_MODE == EnvMode.LOCAL:
+        logger.info("Running in local development mode - billing checks are disabled")
+        return True, "Local development mode - billing disabled", {
+            "price_id": "local_dev",
+            "plan_name": "Local Development",
+            "minutes_limit": "no limit"
+        }
+    
+    # For staging/production, check subscription status
+    
     # Get current subscription
     subscription = await get_account_subscription(client, account_id)
     
@@ -79,8 +91,11 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     if not subscription:
         subscription = {
             'price_id': 'price_1RGJ9GG6l1KZGqIroxSqgphC',  # Free tier
-            'plan_name': 'Free'
+            'plan_name': 'free'
         }
+
+    # if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
+    #     return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
     
     # Get tier info
     tier_info = SUBSCRIPTION_TIERS.get(subscription['price_id'])

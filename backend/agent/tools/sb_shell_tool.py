@@ -2,13 +2,14 @@ from typing import Optional, Dict, List
 from uuid import uuid4
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.sandbox import SandboxToolsBase, Sandbox
+from agentpress.thread_manager import ThreadManager
 
 class SandboxShellTool(SandboxToolsBase):
     """Tool for executing tasks in a Daytona sandbox with browser-use capabilities. 
     Uses sessions for maintaining state between commands and provides comprehensive process management."""
 
-    def __init__(self, sandbox: Sandbox):
-        super().__init__(sandbox)
+    def __init__(self, project_id: str, thread_manager: ThreadManager):
+        super().__init__(project_id, thread_manager)
         self._sessions: Dict[str, str] = {}  # Maps session names to session IDs
         self.workspace_path = "/workspace"  # Ensure we're always operating in /workspace
 
@@ -17,6 +18,7 @@ class SandboxShellTool(SandboxToolsBase):
         if session_name not in self._sessions:
             session_id = str(uuid4())
             try:
+                await self._ensure_sandbox()  # Ensure sandbox is initialized
                 self.sandbox.process.create_session(session_id)
                 self._sessions[session_name] = session_id
             except Exception as e:
@@ -27,6 +29,7 @@ class SandboxShellTool(SandboxToolsBase):
         """Clean up a session if it exists."""
         if session_name in self._sessions:
             try:
+                await self._ensure_sandbox()  # Ensure sandbox is initialized
                 self.sandbox.process.delete_session(self._sessions[session_name])
                 del self._sessions[session_name]
             except Exception as e:
@@ -55,8 +58,8 @@ class SandboxShellTool(SandboxToolsBase):
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "Optional timeout in seconds. Increase for long-running commands. Defaults to 60. For commands that might exceed this timeout, use background execution with & operator instead.",
-                        "default": 60
+                        "description": "Optional timeout in seconds. Increase for long-running commands. Defaults to 180. For commands that might exceed this timeout, use background execution with & operator instead.",
+                        "default": 180
                     }
                 },
                 "required": ["command"]
@@ -99,29 +102,39 @@ class SandboxShellTool(SandboxToolsBase):
         pdftotext input.pdf -layout 2>&1 || echo "Error processing PDF" && ls -la output.txt
         </execute-command>
 
+        <!-- Example 6: Command with custom timeout (3 minutes) -->
+        <execute-command timeout="180">
+        python long_running_script.py
+        </execute-command>
+
+        <!-- Example 7: Command with custom timeout and folder -->
+        <execute-command folder="scripts" timeout="180">
+        python data_processing.py
+        </execute-command>
+
         <!-- NON-BLOCKING COMMANDS: Use these for long-running operations to prevent timeouts -->
 
-        <!-- Example 6: Basic non-blocking command with & operator -->
+        <!-- Example 8: Basic non-blocking command with & operator -->
         <execute-command>
         python scraper.py --large-dataset > scraper_output.log 2>&1 &
         </execute-command>
 
-        <!-- Example 7: Run a process with nohup for immunity to hangups -->
+        <!-- Example 9: Run a process with nohup for immunity to hangups -->
         <execute-command>
         nohup python processor.py --heavy-computation > processor.log 2>&1 &
         </execute-command>
 
-        <!-- Example 8: Starting a background process and storing its PID -->
+        <!-- Example 10: Starting a background process and storing its PID -->
         <execute-command>
         python long_task.py & echo $! > task.pid
         </execute-command>
 
-        <!-- Example 9: Checking if a process is still running -->
+        <!-- Example 11: Checking if a process is still running -->
         <execute-command>
         ps -p $(cat task.pid)
         </execute-command>
 
-        <!-- Example 10: Killing a background process -->
+        <!-- Example 12: Killing a background process -->
         <execute-command>
         kill $(cat task.pid)
         </execute-command>
@@ -132,9 +145,12 @@ class SandboxShellTool(SandboxToolsBase):
         command: str, 
         folder: Optional[str] = None,
         session_name: str = "default",
-        timeout: int = 60
+        timeout: int = 180
     ) -> ToolResult:
         try:
+            # Ensure sandbox is initialized
+            await self._ensure_sandbox()
+            
             # Ensure session exists
             session_id = await self._ensure_session(session_name)
             

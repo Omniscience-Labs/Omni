@@ -1,9 +1,10 @@
 import { AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
-import { PlanComparison } from "./PlanComparison";
+import { PlanComparison } from "./plan-comparison";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { isLocalMode } from "@/lib/config";
 
 interface BillingErrorAlertProps {
   message?: string;
@@ -25,8 +26,9 @@ export function BillingErrorAlert({
   isOpen
 }: BillingErrorAlertProps) {
   const returnUrl = typeof window !== 'undefined' ? window.location.href : '';
-
-  if (!isOpen) return null;
+  
+  // Skip rendering in local development mode
+  if (isLocalMode() || !isOpen) return null;
 
   return (
     <Portal>

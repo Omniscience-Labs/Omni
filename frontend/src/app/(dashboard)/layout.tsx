@@ -6,16 +6,12 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Clock } from "lucide-react"
+import { PricingAlert } from "@/components/billing/pricing-alert"
+import { MaintenanceAlert } from "@/components/maintenance-alert"
+import { useAccounts } from "@/hooks/use-accounts"
+import { useAuth } from "@/components/AuthProvider"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -24,12 +20,38 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
+  const [showPricingAlert, setShowPricingAlert] = useState(false)
   const [showMaintenanceAlert, setShowMaintenanceAlert] = useState(false)
+  const { data: accounts } = useAccounts()
+  const personalAccount = accounts?.find(account => account.personal_account)
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
   
   useEffect(() => {
-    // Show the maintenance alert when component mounts
-    setShowMaintenanceAlert(true)
+    setShowPricingAlert(false)
+    setShowMaintenanceAlert(false)
   }, [])
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, isLoading, router])
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Don't render anything if not authenticated
+  if (!user) {
+    return null
+  }
 
   return (
     <SidebarProvider>
@@ -40,24 +62,18 @@ export default function DashboardLayout({
         </div>
       </SidebarInset>
       
-      <AlertDialog open={showMaintenanceAlert} onOpenChange={setShowMaintenanceAlert}>
-        <AlertDialogContent className="border border-muted">
-          <AlertDialogHeader className="gap-3">
-            <div className="flex items-center justify-center">
-              <Clock className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <AlertDialogTitle className="text-lg font-medium">High Demand Notice</AlertDialogTitle>
-            <AlertDialogDescription>
-              Due to exceptionally high demand, our service is currently experiencing slower response times.
-              We recommend returning tomorrow when our systems will be operating at normal capacity.
-              <span className="mt-2 block">Thank you for your understanding.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction>I'll Return Tomorrow</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PricingAlert 
+        open={showPricingAlert} 
+        onOpenChange={setShowPricingAlert}
+        closeable={false}
+        accountId={personalAccount?.account_id}
+      />
+      
+      <MaintenanceAlert
+        open={showMaintenanceAlert}
+        onOpenChange={setShowMaintenanceAlert}
+        closeable={true}
+      />
     </SidebarProvider>
   )
-} 
+}

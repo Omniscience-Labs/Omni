@@ -7,8 +7,8 @@ import { usePathname } from "next/navigation";
 export default function PersonalAccountSettingsPage({children}: {children: React.ReactNode}) {
     const pathname = usePathname();
     const items = [
-        { name: "Profile", href: "/settings" },
-        { name: "Teams", href: "/settings/teams" },
+        // { name: "Profile", href: "/settings" },
+        // { name: "Teams", href: "/settings/teams" },
         { name: "Billing", href: "/settings/billing" },
     ]
     return (
