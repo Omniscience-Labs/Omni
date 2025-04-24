@@ -86,16 +86,16 @@ def start_supervisord_session(sandbox: Sandbox):
         logger.error(f"Error starting supervisord session: {str(e)}")
         raise e
 
-def create_sandbox(password: str, sandbox_id: str = None):
+def create_sandbox(password: str, project_id: str = None):
     """Create a new sandbox with all required services configured and running."""
     
     logger.debug("Creating new Daytona sandbox environment")
     logger.debug("Configuring sandbox with browser-use image and environment variables")
     
     labels = None
-    if sandbox_id:
-        logger.debug(f"Using sandbox_id as label: {sandbox_id}")
-        labels = {'id': sandbox_id}
+    if project_id:
+        logger.debug(f"Using sandbox_id as label: {project_id}")
+        labels = {'id': project_id}
         
     params = CreateSandboxParams(
         image="adamcohenhillel/kortix-suna:0.0.20",
@@ -114,14 +114,6 @@ def create_sandbox(password: str, sandbox_id: str = None):
             "CHROME_DEBUGGING_HOST": "localhost",
             "CHROME_CDP": ""
         },
-        ports=[
-            6080,  # noVNC web interface
-            5900,  # VNC port
-            5901,  # VNC port
-            9222,  # Chrome remote debugging port
-            8080,   # HTTP website port
-            8002,  # The browser api port
-        ],
         resources={
             "cpu": 2,
             "memory": 4,

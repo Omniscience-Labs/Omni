@@ -296,7 +296,7 @@ async def get_or_create_project_sandbox(client, project_id: str):
 
     logger.info(f"Creating new sandbox for project {project_id}")
     sandbox_pass = str(uuid.uuid4())
-    sandbox = create_sandbox(sandbox_pass)
+    sandbox = create_sandbox(sandbox_pass, project_id)
     sandbox_id = sandbox.id
     logger.info(f"Created new sandbox {sandbox_id}")
 
