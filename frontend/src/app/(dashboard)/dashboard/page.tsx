@@ -5,7 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from 'next/navigation';
 import { Menu } from "lucide-react";
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input';
-import { initiateAgent, createThread, addUserMessage, startAgent } from "@/lib/api";
+import { initiateAgent, createThread, addUserMessage, startAgent, createProject } from "@/lib/api";
+import { generateThreadName } from "@/lib/actions/threads";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -32,58 +33,70 @@ function DashboardContent() {
   const chatInputRef = useRef<ChatInputHandles>(null);
 
   const handleSubmit = async (message: string, options?: { model_name?: string; enable_thinking?: boolean }) => {
-    if (!message.trim() && !chatInputRef.current?.getPendingFiles().length || isSubmitting) return;
-    
+    if ((!message.trim() && !(chatInputRef.current?.getPendingFiles().length)) || isSubmitting) return;
+
     setIsSubmitting(true);
-    
+
     try {
       // Check if any files are attached
       const files = chatInputRef.current?.getPendingFiles() || [];
-      
+
       // Clear localStorage if this is a successful submission
       localStorage.removeItem(PENDING_PROMPT_KEY);
-      
+
       if (files.length > 0) {
         // Create a FormData instance
         const formData = new FormData();
-        
+
         // Append the message
         formData.append('message', message);
-        
+
         // Append all files
         files.forEach(file => {
           formData.append('files', file);
         });
-        
+
         // Add any additional options
         if (options) {
           formData.append('options', JSON.stringify(options));
         }
-        
+
         // Call initiateAgent API
         const result = await initiateAgent(formData);
-        console.log('Agent initiated:', result);
-        
+        console.log('Agent initiated with files:', result);
+
         // Navigate to the thread
         if (result.thread_id) {
           router.push(`/agents/${result.thread_id}`);
         }
       } else {
-        // For text-only messages, first create a thread
-        const thread = await createThread("");
-        
-        // Then add the user message
+        // ---- Text-only messages ----
+        // 1. Generate a project name
+        const projectName = await generateThreadName(message);
+
+        // 2. Create the project
+        // Assuming createProject gets the account_id from the logged-in user
+        const newProject = await createProject({
+          name: projectName,
+          description: "", // Or derive a description if desired
+        });
+
+        // 3. Create the thread using the new project ID
+        const thread = await createThread(newProject.id); // <-- Pass the actual project ID
+
+        // 4. Then add the user message
         await addUserMessage(thread.thread_id, message);
-        
-        // Start the agent on this thread with the options
+
+        // 5. Start the agent on this thread with the options
         await startAgent(thread.thread_id, options);
-        
-        // Navigate to thread
+
+        // 6. Navigate to thread
         router.push(`/agents/${thread.thread_id}`);
       }
     } catch (error: any) {
+      // Log line 85 might be here if createThread or initiateAgent fails
       console.error('Error creating thread or initiating agent:', error);
-      
+
       // Skip billing error checks in local development mode
       if (isLocalMode()) {
         console.log("Running in local development mode - billing checks are disabled");
@@ -91,17 +104,17 @@ function DashboardContent() {
         // Check specifically for billing errors (402 Payment Required)
         if (error.message?.includes('(402)') || error?.status === 402) {
           console.log("Billing error detected:", error);
-          
+
           // Try to extract the error details from the error object
           try {
             // Try to parse the error.response or the error itself
             let errorDetails;
-            
+
             // First attempt: check if error.data exists and has a detail property
             if (error.data?.detail) {
               errorDetails = error.data.detail;
               console.log("Extracted billing error details from error.data.detail:", errorDetails);
-            } 
+            }
             // Second attempt: check if error.detail exists directly
             else if (error.detail) {
               errorDetails = error.detail;
@@ -120,7 +133,7 @@ function DashboardContent() {
                 console.log("Error text is not valid JSON");
               }
             }
-            
+
             // If we still don't have details, try to extract from the error message
             if (!errorDetails && error.message) {
               const match = error.message.match(/Monthly limit of (\d+) minutes reached/);
@@ -138,7 +151,7 @@ function DashboardContent() {
                 console.log("Extracted billing error details from error message:", errorDetails);
               }
             }
-            
+
             // Handle the billing error with the details we extracted
             if (errorDetails) {
               console.log("Handling billing error with extracted details:", errorDetails);
@@ -161,19 +174,20 @@ function DashboardContent() {
               message: "You've reached your monthly usage limit. Please upgrade your plan."
             });
           }
-          
+
           // Don't rethrow - we've handled this error with the billing alert
-          setIsSubmitting(false);
+          setIsSubmitting(false); // Stop submission process on billing error
           return; // Exit handleSubmit
         }
       }
-      
+
       // Handle other errors or rethrow
+      // The second log (line 174) might happen here if startAgent fails, for example
       toast.error(error.message || "An error occurred");
-      
       console.error("Error creating agent:", error);
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Reset submitting state on other errors too
     }
+    // Removed finally block as catch now handles resetting isSubmitting
   };
 
   // Check for pending prompt in localStorage on mount
