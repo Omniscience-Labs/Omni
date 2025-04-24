@@ -8,6 +8,7 @@ import { setupNewSubscription } from "@/lib/actions/billing";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/home";
+import { isLocalMode } from "@/lib/config";
 
 // Create SUBSCRIPTION_PLANS using stripePriceId from siteConfig
 export const SUBSCRIPTION_PLANS = {
@@ -15,15 +16,6 @@ export const SUBSCRIPTION_PLANS = {
   PRO: siteConfig.cloudPricingItems.find(item => item.name === 'Pro')?.stripePriceId || '',
   ENTERPRISE: siteConfig.cloudPricingItems.find(item => item.name === 'Enterprise')?.stripePriceId || '',
 };
-
-interface PlanComparisonProps {
-  accountId?: string | null;
-  returnUrl?: string;
-  isManaged?: boolean;
-  onPlanSelect?: (planId: string) => void;
-  className?: string;
-  isCompact?: boolean; // When true, uses vertical stacked layout for modals
-}
 
 // Price display animation component
 const PriceDisplay = ({ tier, isCompact }: { tier: typeof siteConfig.cloudPricingItems[number]; isCompact?: boolean }) => {
@@ -43,6 +35,15 @@ const PriceDisplay = ({ tier, isCompact }: { tier: typeof siteConfig.cloudPricin
     </motion.span>
   );
 };
+
+interface PlanComparisonProps {
+  accountId?: string | null;
+  returnUrl?: string;
+  isManaged?: boolean;
+  onPlanSelect?: (planId: string) => void;
+  className?: string;
+  isCompact?: boolean; // When true, uses vertical stacked layout for modals
+}
 
 export function PlanComparison({
   accountId,
@@ -74,6 +75,17 @@ export function PlanComparison({
     
     fetchCurrentPlan();
   }, [accountId]);
+
+  // For local development mode, show a message instead
+  if (isLocalMode()) {
+    return (
+      <div className={cn("p-4 bg-muted/30 border border-border rounded-lg text-center", className)}>
+        <p className="text-sm text-muted-foreground">
+          Running in local development mode - billing features are disabled
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div 

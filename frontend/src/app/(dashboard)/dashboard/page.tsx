@@ -5,14 +5,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from 'next/navigation';
 import { Menu } from "lucide-react";
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input';
-import { initiateAgent } from "@/lib/api";
+import { initiateAgent, createThread, addUserMessage, startAgent } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBillingError } from "@/hooks/useBillingError";
-import { BillingErrorAlert } from "@/components/billing/BillingErrorAlert";
+import { BillingErrorAlert } from "@/components/billing/usage-limit-alert";
 import { useAccounts } from "@/hooks/use-accounts";
+import { isLocalMode } from "@/lib/config";
+import { toast } from "sonner";
 
 // Constant for localStorage key to ensure consistency
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
@@ -35,113 +37,139 @@ function DashboardContent() {
     setIsSubmitting(true);
     
     try {
-      // Get any pending files
-      const pendingFiles = chatInputRef.current?.getPendingFiles() || [];
+      // Check if any files are attached
+      const files = chatInputRef.current?.getPendingFiles() || [];
       
-      // Create FormData for the request
-      const formData = new FormData();
-      formData.append('prompt', message.trim());
-      
-      // Add model options
-      formData.append('model_name', options?.model_name || 'anthropic/claude-3-7-sonnet-latest');
-      formData.append('enable_thinking', options?.enable_thinking ? 'true' : 'false');
-      
-      // Add files if any
-      pendingFiles.forEach(file => {
-        formData.append('files', file, file.name);
-      });
-      
-      // Single API call to initialize everything
-      const response = await initiateAgent(formData);
-      
-      // Clear pendingFiles
-      chatInputRef.current?.clearPendingFiles();
-      
-      // Clear pending prompt from localStorage
+      // Clear localStorage if this is a successful submission
       localStorage.removeItem(PENDING_PROMPT_KEY);
       
-      // Navigate to the new thread
-      router.push(`/agents/${response.thread_id}`);
-      
-    } catch (error: any) {
-      // Check specifically for billing errors (402 Payment Required)
-      if (error.message?.includes('(402)') || error?.status === 402) {
-        console.log("Billing error detected:", error);
+      if (files.length > 0) {
+        // Create a FormData instance
+        const formData = new FormData();
         
-        // Try to extract the error details from the error object
-        try {
-          // Try to parse the error.response or the error itself
-          let errorDetails;
-          
-          // First attempt: check if error.data exists and has a detail property
-          if (error.data?.detail) {
-            errorDetails = error.data.detail;
-            console.log("Extracted billing error details from error.data.detail:", errorDetails);
-          } 
-          // Second attempt: check if error.detail exists directly
-          else if (error.detail) {
-            errorDetails = error.detail;
-            console.log("Extracted billing error details from error.detail:", errorDetails);
-          }
-          // Third attempt: try to parse the error text if it's JSON
-          else if (typeof error.text === 'function') {
-            const text = await error.text();
-            console.log("Extracted error text:", text);
-            try {
-              const parsed = JSON.parse(text);
-              errorDetails = parsed.detail || parsed;
-              console.log("Parsed error text as JSON:", errorDetails);
-            } catch (e) {
-              // Not JSON, use regex to extract info
-              console.log("Error text is not valid JSON");
-            }
-          }
-          
-          // If we still don't have details, try to extract from the error message
-          if (!errorDetails && error.message) {
-            const match = error.message.match(/Monthly limit of (\d+) minutes reached/);
-            if (match) {
-              const minutes = parseInt(match[1]);
-              errorDetails = {
-                message: error.message,
-                subscription: {
-                  price_id: "price_1RGJ9GG6l1KZGqIroxSqgphC", // Free tier by default
-                  plan_name: "Free",
-                  current_usage: minutes / 60, // Convert to hours
-                  limit: minutes / 60 // Convert to hours
-                }
-              };
-              console.log("Extracted billing error details from error message:", errorDetails);
-            }
-          }
-          
-          // Handle the billing error with the details we extracted
-          if (errorDetails) {
-            console.log("Handling billing error with extracted details:", errorDetails);
-            handleBillingError(errorDetails);
-          } else {
-            // Fallback with generic billing error
-            console.log("Using fallback generic billing error");
-            handleBillingError({
-              message: "You've reached your monthly usage limit. Please upgrade your plan.",
-              subscription: {
-                price_id: "price_1RGJ9GG6l1KZGqIroxSqgphC", // Free tier
-                plan_name: "Free"
-              }
-            });
-          }
-        } catch (parseError) {
-          console.error("Error parsing billing error details:", parseError);
-          // Fallback with generic error
-          handleBillingError({
-            message: "You've reached your monthly usage limit. Please upgrade your plan."
-          });
+        // Append the message
+        formData.append('message', message);
+        
+        // Append all files
+        files.forEach(file => {
+          formData.append('files', file);
+        });
+        
+        // Add any additional options
+        if (options) {
+          formData.append('options', JSON.stringify(options));
         }
         
-        // Don't rethrow - we've handled this error with the billing alert
-        setIsSubmitting(false);
-        return; // Exit handleSubmit
+        // Call initiateAgent API
+        const result = await initiateAgent(formData);
+        console.log('Agent initiated:', result);
+        
+        // Navigate to the thread
+        if (result.thread_id) {
+          router.push(`/agents/${result.thread_id}`);
+        }
+      } else {
+        // For text-only messages, first create a thread
+        const thread = await createThread("");
+        
+        // Then add the user message
+        await addUserMessage(thread.thread_id, message);
+        
+        // Start the agent on this thread with the options
+        await startAgent(thread.thread_id, options);
+        
+        // Navigate to thread
+        router.push(`/agents/${thread.thread_id}`);
       }
+    } catch (error: any) {
+      console.error('Error creating thread or initiating agent:', error);
+      
+      // Skip billing error checks in local development mode
+      if (isLocalMode()) {
+        console.log("Running in local development mode - billing checks are disabled");
+      } else {
+        // Check specifically for billing errors (402 Payment Required)
+        if (error.message?.includes('(402)') || error?.status === 402) {
+          console.log("Billing error detected:", error);
+          
+          // Try to extract the error details from the error object
+          try {
+            // Try to parse the error.response or the error itself
+            let errorDetails;
+            
+            // First attempt: check if error.data exists and has a detail property
+            if (error.data?.detail) {
+              errorDetails = error.data.detail;
+              console.log("Extracted billing error details from error.data.detail:", errorDetails);
+            } 
+            // Second attempt: check if error.detail exists directly
+            else if (error.detail) {
+              errorDetails = error.detail;
+              console.log("Extracted billing error details from error.detail:", errorDetails);
+            }
+            // Third attempt: try to parse the error text if it's JSON
+            else if (typeof error.text === 'function') {
+              const text = await error.text();
+              console.log("Extracted error text:", text);
+              try {
+                const parsed = JSON.parse(text);
+                errorDetails = parsed.detail || parsed;
+                console.log("Parsed error text as JSON:", errorDetails);
+              } catch (e) {
+                // Not JSON, use regex to extract info
+                console.log("Error text is not valid JSON");
+              }
+            }
+            
+            // If we still don't have details, try to extract from the error message
+            if (!errorDetails && error.message) {
+              const match = error.message.match(/Monthly limit of (\d+) minutes reached/);
+              if (match) {
+                const minutes = parseInt(match[1]);
+                errorDetails = {
+                  message: error.message,
+                  subscription: {
+                    price_id: "price_1RGJ9GG6l1KZGqIroxSqgphC", // Free tier by default
+                    plan_name: "Free",
+                    current_usage: minutes / 60, // Convert to hours
+                    limit: minutes / 60 // Convert to hours
+                  }
+                };
+                console.log("Extracted billing error details from error message:", errorDetails);
+              }
+            }
+            
+            // Handle the billing error with the details we extracted
+            if (errorDetails) {
+              console.log("Handling billing error with extracted details:", errorDetails);
+              handleBillingError(errorDetails);
+            } else {
+              // Fallback with generic billing error
+              console.log("Using fallback generic billing error");
+              handleBillingError({
+                message: "You've reached your monthly usage limit. Please upgrade your plan.",
+                subscription: {
+                  price_id: "price_1RGJ9GG6l1KZGqIroxSqgphC", // Free tier
+                  plan_name: "Free"
+                }
+              });
+            }
+          } catch (parseError) {
+            console.error("Error parsing billing error details:", parseError);
+            // Fallback with generic error
+            handleBillingError({
+              message: "You've reached your monthly usage limit. Please upgrade your plan."
+            });
+          }
+          
+          // Don't rethrow - we've handled this error with the billing alert
+          setIsSubmitting(false);
+          return; // Exit handleSubmit
+        }
+      }
+      
+      // Handle other errors or rethrow
+      toast.error(error.message || "An error occurred");
       
       console.error("Error creating agent:", error);
       setIsSubmitting(false);

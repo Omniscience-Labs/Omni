@@ -19,9 +19,10 @@ import { useAgentStream } from '@/hooks/useAgentStream';
 import { Markdown } from '@/components/ui/markdown';
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { BillingErrorAlert } from '@/components/billing/BillingErrorAlert';
-import { SUBSCRIPTION_PLANS } from '@/components/billing/PlanComparison';
+import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
+import { SUBSCRIPTION_PLANS } from '@/components/billing/plan-comparison';
 import { createClient } from '@/lib/supabase/client';
+import { isLocalMode } from "@/lib/config";
 
 import { UnifiedMessage, ParsedContent, ParsedMetadata, ThreadParams } from '@/components/thread/types';
 import { getToolIcon, extractPrimaryParam, safeJsonParse } from '@/components/thread/utils';
@@ -1069,6 +1070,12 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
   // Check billing status when agent completes
   const checkBillingStatus = useCallback(async () => {
+    // Skip billing checks in local development mode
+    if (isLocalMode()) {
+      console.log("Running in local development mode - billing checks are disabled");
+      return false;
+    }
+
     if (!project?.account_id) return;
     
     const supabase = createClient();

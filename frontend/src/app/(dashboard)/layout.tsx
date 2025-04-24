@@ -6,6 +6,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { PricingAlert } from "@/components/billing/pricing-alert"
 import { MaintenanceAlert } from "@/components/maintenance-alert"
 import { useAccounts } from "@/hooks/use-accounts"
 
@@ -16,13 +17,14 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
+  const [showPricingAlert, setShowPricingAlert] = useState(false)
   const [showMaintenanceAlert, setShowMaintenanceAlert] = useState(false)
   const { data: accounts } = useAccounts()
   const personalAccount = accounts?.find(account => account.personal_account)
   
   useEffect(() => {
-    // Show the maintenance alert when component mounts
-    setShowMaintenanceAlert(true)
+    setShowPricingAlert(true)
+    setShowMaintenanceAlert(false)
   }, [])
 
   return (
@@ -34,11 +36,17 @@ export default function DashboardLayout({
         </div>
       </SidebarInset>
       
-      <MaintenanceAlert 
-        open={showMaintenanceAlert} 
-        onOpenChange={setShowMaintenanceAlert}
+      <PricingAlert 
+        open={showPricingAlert} 
+        onOpenChange={setShowPricingAlert}
         closeable={true}
         accountId={personalAccount?.account_id}
+      />
+      
+      <MaintenanceAlert
+        open={showMaintenanceAlert}
+        onOpenChange={setShowMaintenanceAlert}
+        closeable={true}
       />
     </SidebarProvider>
   )

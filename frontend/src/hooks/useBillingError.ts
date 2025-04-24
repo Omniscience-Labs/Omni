@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { isLocalMode } from '@/lib/config';
 
 interface BillingErrorState {
   message: string;
@@ -16,6 +17,12 @@ export function useBillingError() {
   const [billingError, setBillingError] = useState<BillingErrorState | null>(null);
 
   const handleBillingError = useCallback((error: any) => {
+    // In local mode, don't process billing errors
+    if (isLocalMode()) {
+      console.log('Running in local development mode - billing checks are disabled');
+      return false;
+    }
+    
     // Case 1: Error is already a formatted billing error detail object
     if (error && (error.message || error.subscription)) {
       setBillingError({
