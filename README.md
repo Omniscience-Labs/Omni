@@ -204,6 +204,8 @@ supabase link --project-ref your_project_reference_id
 supabase db push
 ```
 
+Then, go to the Supabase web platform again -> choose your project -> Project Settings -> Data API -> And in the "Exposed Schema" ass "basejump" if not already there
+
 4. **Configure frontend environment**:
 ```bash
 cd ../frontend
