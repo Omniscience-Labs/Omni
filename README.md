@@ -230,6 +230,12 @@ cd backend
 python api.py
 ```
 
+5-6. ** Docker-compose-alternative**:
+```bash
+export GITHUB_REPOSITORY="your-github-username/repo-name"
+docker compose -f docker-compose.ghcr.yaml up
+````
+
 7. **Access Suna**:
    - Open your browser and navigate to `http://localhost:3000`
    - Sign up for an account using the Supabase authentication
