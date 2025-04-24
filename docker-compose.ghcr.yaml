@@ -38,7 +38,7 @@ services:
       - ./frontend/.env.local:/app/.env.local:ro
     environment:
       - NODE_ENV=production
-    command: ["npm", "run", "start"]
+    command: ["npm", "run", "dev"]
     depends_on:
       - backend
 
