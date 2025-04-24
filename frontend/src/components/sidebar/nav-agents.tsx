@@ -72,6 +72,12 @@ export function NavAgents() {
       const projects = await getProjects() as Project[]
       console.log("Projects loaded:", projects.length, projects.map(p => ({ id: p.id, name: p.name })));
       
+      // If no projects are found, the user might not be logged in
+      if (projects.length === 0) {
+        setThreads([])
+        return
+      }
+      
       // Create a map of projects by ID for faster lookups
       const projectsById = new Map<string, Project>();
       projects.forEach(project => {
@@ -113,6 +119,8 @@ export function NavAgents() {
       setThreads(sortThreads(threadsWithProjects))
     } catch (err) {
       console.error("Error loading threads with projects:", err)
+      // Set empty threads array on error
+      setThreads([])
     } finally {
       if (showLoading) {
         setIsLoading(false)

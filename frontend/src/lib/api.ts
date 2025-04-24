@@ -294,7 +294,24 @@ export const deleteProject = async (projectId: string): Promise<void> => {
 // Thread APIs
 export const getThreads = async (projectId?: string): Promise<Thread[]> => {
   const supabase = createClient();
+  
+  // Get the current user's ID to filter threads
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.error('Error getting current user:', userError);
+    return [];
+  }
+  
+  // If no user is logged in, return an empty array
+  if (!userData.user) {
+    console.log('[API] No user logged in, returning empty threads array');
+    return [];
+  }
+  
   let query = supabase.from('threads').select('*');
+  
+  // Always filter by the current user's account ID
+  query = query.eq('account_id', userData.user.id);
   
   if (projectId) {
     console.log('[API] Filtering threads by project_id:', projectId);
