@@ -94,7 +94,7 @@ You'll need the following components:
 
 ### Prerequisites
 
-1. **Supabase**: 
+1. **Supabase**:
    - Create a new [Supabase project](https://supabase.com/dashboard/projects)
    - Save your project's API URL, anon key, and service role key for later use
    - Install the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
@@ -107,7 +107,7 @@ You'll need the following components:
      - [Windows](https://redis.io/docs/getting-started/installation/install-redis-on-windows/): Use WSL2 or Docker
    - Save your Redis connection details for later use
 
-3. **Daytona**: 
+3. **Daytona**:
    - Create an account on [Daytona](https://app.daytona.io/)
    - Generate an API key from your account settings
    - Go to [Images](https://app.daytona.io/dashboard/images)
@@ -123,6 +123,7 @@ You'll need the following components:
    - For enhanced search capabilities, obtain an [Tavily API key](https://tavily.com/)
    - For web scraping capabilities, obtain a [Firecrawl API key](https://firecrawl.dev/)
   
+
 6. **RapidAPI API Key** (Optional):
    - To enable API services like LinkedIn, and others, you'll need a RapidAPI key
    - Each service requires individual activation in your RapidAPI account:
@@ -201,8 +202,13 @@ cp .env.example .env.local  # Create from example if available, or use the follo
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_BACKEND_URL="http://localhost:8000/api"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:8000/api"  # Use this for local development
 NEXT_PUBLIC_URL="http://localhost:3000"
+```
+
+   Note: If you're using Docker Compose, use the container name instead of localhost:
+```
+NEXT_PUBLIC_BACKEND_URL="http://backend:8000/api"  # Use this when running with Docker Compose
 ```
 
 5. **Install dependencies**:
@@ -230,11 +236,23 @@ cd backend
 python api.py
 ```
 
-5-6. ** Docker-compose-alternative**:
+5-6. **Docker Compose Alternative**:
+
+Before running with Docker Compose, make sure your environment files are properly configured:
+- In `backend/.env`, set all the required environment variables as described above
+- In `frontend/.env.local`, make sure to set `NEXT_PUBLIC_BACKEND_URL="http://backend:8000/api"` to use the container name
+
+Then run:
 ```bash
 export GITHUB_REPOSITORY="your-github-username/repo-name"
 docker compose -f docker-compose.ghcr.yaml up
-````
+```
+
+If you're building the images locally instead of using pre-built ones:
+```bash
+docker compose up
+```
+
 
 7. **Access Suna**:
    - Open your browser and navigate to `http://localhost:3000`
