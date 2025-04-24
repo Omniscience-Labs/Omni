@@ -579,7 +579,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     };
   }, [threadId]);
 
-  const handleSubmitMessage = useCallback(async (message: string) => {
+  const handleSubmitMessage = useCallback(async (message: string, options?: { model_name?: string; enable_thinking?: boolean }) => {
     if (!message.trim()) return;
     setIsSending(true);
 
@@ -601,7 +601,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     try {
       const results = await Promise.allSettled([
         addUserMessage(threadId, message),
-        startAgent(threadId)
+        startAgent(threadId, options)
       ]);
 
       if (results[0].status === 'rejected') {

@@ -8,6 +8,7 @@ from utils.logger import logger
 from utils.config import config
 import random
 from functools import wraps
+from typing import List # Added for type hinting
 
 # Redis client
 client = None
@@ -77,11 +78,11 @@ def initialize():
         ssl=config.REDIS_SSL,
         ssl_ca_certs=certifi.where(),
         decode_responses=True,
-        socket_timeout=5.0,          # Socket timeout
+        socket_timeout=5.0,        
         socket_connect_timeout=5.0,  # Connection timeout
         retry_on_timeout=True,       # Auto-retry on timeout
         health_check_interval=30,    # Check connection health every 30 seconds
-        max_connections=10           # Limit connections to prevent overloading
+        max_connections=200           # Limit connections to prevent overloading
     )
     
     return client
@@ -168,7 +169,31 @@ async def keys(pattern):
     redis_client = await get_client()
     return await with_retry(redis_client.keys, pattern)
 
+async def rpush(key, *values):
+    """Append one or more values to a list with automatic retry."""
+    redis_client = await get_client()
+    return await with_retry(redis_client.rpush, key, *values)
+
+async def lrange(key, start, end):
+    """Get a range of elements from a list with automatic retry."""
+    redis_client = await get_client()
+    # Note: lrange returns bytes if decode_responses=False, but we set it to True
+    # Ensure the return type is List[str]
+    result: List[str] = await with_retry(redis_client.lrange, key, start, end)
+    return result
+
+async def llen(key):
+    """Get the length of a list with automatic retry."""
+    redis_client = await get_client()
+    return await with_retry(redis_client.llen, key)
+
+async def expire(key, time):
+    """Set a key's time to live in seconds with automatic retry."""
+    redis_client = await get_client()
+    return await with_retry(redis_client.expire, key, time)
+
 async def create_pubsub():
     """Create a Redis pubsub object."""
     redis_client = await get_client()
+    # decode_responses=True in client init applies to pubsub messages too
     return redis_client.pubsub() 
