@@ -179,3 +179,5 @@ state.json
 .DS_Store
 **/.DS_Store
 .aider*
+**/.prompts/
+**/__pycache__/
