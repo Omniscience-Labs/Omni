@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   backend:
     build:
       context: ./backend
@@ -11,6 +24,13 @@ services:
       - ./backend/.env:/app/.env:ro
     environment:
       - ENV_MODE=local
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_SSL=False
+    depends_on:
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
@@ -21,6 +41,10 @@ services:
     volumes:
       - ./frontend/.env.local:/app/.env.local:ro
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+    command: ["npm", "run", "start"]
     depends_on:
       - backend
+
+volumes:
+  redis-data:

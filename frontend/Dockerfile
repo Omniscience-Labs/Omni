@@ -9,6 +9,10 @@ RUN npm install
 # Copy the frontend code
 COPY . .
 
+# Build the application
+RUN npm run build
+
 EXPOSE 3000
 
+# Default command is dev, but can be overridden in docker-compose
 CMD ["npm", "run", "dev"]

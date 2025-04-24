@@ -105,7 +105,10 @@ You'll need the following components:
      - [Mac](https://formulae.brew.sh/formula/redis): `brew install redis`
      - [Linux](https://redis.io/docs/getting-started/installation/install-redis-on-linux/): Follow distribution-specific instructions
      - [Windows](https://redis.io/docs/getting-started/installation/install-redis-on-windows/): Use WSL2 or Docker
-   - Save your Redis connection details for later use
+   - Docker Compose (included in our setup):
+     - If you're using our Docker Compose setup, Redis is included and configured automatically
+     - No additional installation is needed
+   - Save your Redis connection details for later use (not needed if using Docker Compose)
 
 3. **Daytona**:
    - Create an account on [Daytona](https://app.daytona.io/)
@@ -240,6 +243,14 @@ python api.py
 
 Before running with Docker Compose, make sure your environment files are properly configured:
 - In `backend/.env`, set all the required environment variables as described above
+  - For Redis configuration, use `REDIS_HOST=redis` instead of localhost
+  - The Docker Compose setup will automatically set these Redis environment variables:
+    ```
+    REDIS_HOST=redis
+    REDIS_PORT=6379
+    REDIS_PASSWORD=
+    REDIS_SSL=False
+    ```
 - In `frontend/.env.local`, make sure to set `NEXT_PUBLIC_BACKEND_URL="http://backend:8000/api"` to use the container name
 
 Then run:
@@ -252,6 +263,8 @@ If you're building the images locally instead of using pre-built ones:
 ```bash
 docker compose up
 ```
+
+The Docker Compose setup includes a Redis service that will be used by the backend automatically.
 
 
 7. **Access Suna**:
