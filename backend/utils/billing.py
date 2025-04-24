@@ -5,7 +5,7 @@ from utils.config import config, EnvMode
 
 # Define subscription tiers and their monthly limits (in minutes)
 SUBSCRIPTION_TIERS = {
-    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 0},
+    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 8},
     'price_1RGJ9LG6l1KZGqIrd9pwzeNW': {'name': 'base', 'minutes': 300},
     'price_1RGJ9JG6l1KZGqIrVUU4ZRv6': {'name': 'extra', 'minutes': 2400}
 }
@@ -91,11 +91,11 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     if not subscription:
         subscription = {
             'price_id': 'price_1RGJ9GG6l1KZGqIroxSqgphC',  # Free tier
-            'plan_name': 'Free'
+            'plan_name': 'free'
         }
 
-    if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
-        return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
+    # if not subscription or subscription.get('price_id') is None or subscription.get('price_id') == 'price_1RGJ9GG6l1KZGqIroxSqgphC':
+    #     return False, "You are not subscribed to any plan. Please upgrade your plan to continue.", subscription
     
     # Get tier info
     tier_info = SUBSCRIPTION_TIERS.get(subscription['price_id'])
