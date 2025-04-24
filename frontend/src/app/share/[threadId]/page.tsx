@@ -221,6 +221,8 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
 
+  const [streamingTextContent, setStreamingTextContent] = useState("");
+
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
   }, []);
@@ -569,7 +571,6 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
   const {
     status: streamHookStatus,
-    textContent: streamingTextContent,
     toolCall: streamingToolCall,
     error: streamError,
     agentRunId: currentHookRunId,
@@ -577,6 +578,10 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     stopStreaming,
   } = useAgentStream({
     onMessage: handleNewMessageFromStream,
+    onAssistantStart: () => {},
+    onAssistantChunk: ({ content }) => {
+      setStreamingTextContent(prev => prev + content);
+    },
     onStatusChange: handleStreamStatusChange,
     onError: handleStreamError,
     onClose: handleStreamClose,
