@@ -1,5 +1,5 @@
 """
-Configuration management for AgentPress backend.
+Configuration management.
 
 This module provides a centralized way to access configuration settings and
 environment variables across the application. It supports different environment
@@ -52,7 +52,7 @@ class Configuration:
     AWS_REGION_NAME: Optional[str] = None
     
     # Model configuration
-    MODEL_TO_USE: str = "claude-3-haiku-20240307"
+    MODEL_TO_USE: str = "anthropic/claude-3-7-sonnet-latest"
     
     # Supabase configuration
     SUPABASE_URL: Optional[str] = None
@@ -82,7 +82,7 @@ class Configuration:
     
     # Open Router configuration
     OR_SITE_URL: Optional[str] = None
-    OR_APP_NAME: Optional[str] = "AgentPress"
+    OR_APP_NAME: Optional[str] = "Suna.so"
     
     def __init__(self):
         """Initialize configuration by loading from environment variables."""

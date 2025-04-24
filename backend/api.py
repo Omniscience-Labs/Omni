@@ -6,7 +6,7 @@ from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-from utils.config import config
+from utils.config import config, EnvMode
 import asyncio
 from utils.logger import logger
 import uuid
@@ -112,9 +112,20 @@ app = FastAPI(lifespan=lifespan)
 #     logger.info(f"New connection from IP {client_ip}. Total connections: {len(ip_tracker)}")
 #     return await call_next(request)
 
+# Define allowed origins based on environment
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://staging.suna.so"]
+
+# Add staging-specific origins
+if config.ENV_MODE == EnvMode.STAGING:
+    allowed_origins.append("http://localhost:3000")
+    
+# Add local-specific origins
+if config.ENV_MODE == EnvMode.LOCAL:
+    allowed_origins.append("http://localhost:3000")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.suna.so", "https://suna.so", "https://staging.suna.so", "http://localhost:3000"], #http://localhost:3000
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
@@ -126,7 +137,7 @@ app.include_router(agent_api.router, prefix="/api")
 # Include the sandbox router with a prefix
 app.include_router(sandbox_api.router, prefix="/api")
 
-@app.get("/api/health-check")
+@app.get("/api/")
 async def health_check():
     """Health check endpoint to verify API is working."""
     logger.info("Health check endpoint called")
