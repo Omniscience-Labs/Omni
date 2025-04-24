@@ -10,6 +10,9 @@ import { setupNewSubscription } from "@/lib/actions/billing"
 import { SubmitButton } from "@/components/ui/submit-button"
 import { siteConfig } from "@/lib/home"
 import { isLocalMode } from "@/lib/config"
+import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState } from "react"
+import { SUBSCRIPTION_PLANS } from "./plan-comparison"
 
 interface PricingAlertProps {
   open: boolean
@@ -20,9 +23,46 @@ interface PricingAlertProps {
 
 export function PricingAlert({ open, onOpenChange, closeable = true, accountId }: PricingAlertProps) {
   const returnUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Skip rendering in local development mode
-  if (isLocalMode() || !open) return null;
+  // Check if user has an active subscription
+  useEffect(() => {
+    async function checkSubscription() {
+      if (!accountId) {
+        setHasActiveSubscription(false);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .schema('basejump')
+          .from('billing_subscriptions')
+          .select('price_id')
+          .eq('account_id', accountId)
+          .eq('status', 'active')
+          .single();
+        
+        // Check if the user has a paid subscription (not free tier)
+        const isPaidSubscription = data?.price_id && 
+          data.price_id !== SUBSCRIPTION_PLANS.FREE;
+        
+        setHasActiveSubscription(isPaidSubscription);
+      } catch (error) {
+        console.error("Error checking subscription:", error);
+        setHasActiveSubscription(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    checkSubscription();
+  }, [accountId]);
+
+  // Skip rendering in local development mode or if user has an active subscription
+  if (isLocalMode() || !open || hasActiveSubscription || isLoading) return null;
 
   // Filter plans to show only Pro and Enterprise
   const premiumPlans = siteConfig.cloudPricingItems.filter(plan => 

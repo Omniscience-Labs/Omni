@@ -39,7 +39,7 @@ export default function DashboardLayout({
       <PricingAlert 
         open={showPricingAlert} 
         onOpenChange={setShowPricingAlert}
-        closeable={true}
+        closeable={false}
         accountId={personalAccount?.account_id}
       />
       
