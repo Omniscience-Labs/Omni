@@ -20,8 +20,7 @@ interface UseCase {
 export function UseCasesSection() {
   // Get featured use cases from siteConfig and limit to 8
   const featuredUseCases: UseCase[] = (siteConfig.useCases || [])
-    .filter((useCase: UseCase) => useCase.featured)
-    .slice(0, 8);
+    .filter((useCase: UseCase) => useCase.featured);
 
   return (
     <section
