@@ -879,7 +879,6 @@ async def initiate_agent_with_files(
         logger.info(f"Using sandbox {sandbox_id} for new project {project_id}")
 
         # 4. Upload Files to Sandbox (if any)
-        # ... (File upload logic remains the same as in original file) ...
         message_content = prompt
         if files:
             successful_uploads = []
@@ -935,7 +934,6 @@ async def initiate_agent_with_files(
             if failed_uploads:
                 message_content += "\n\nThe following files failed to upload:\n"
                 for failed_file in failed_uploads: message_content += f"- {failed_file}\n"
-        # ... (End of file upload logic) ...
 
 
         # 5. Add initial user message to thread

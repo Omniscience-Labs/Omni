@@ -66,6 +66,42 @@ class SandboxFilesTool(SandboxToolsBase):
             print(f"Error getting workspace state: {str(e)}")
             return {}
 
+    async def _ensure_sandbox(self) -> Sandbox:
+        """Ensure we have a valid sandbox instance, retrieving it from the project if needed."""
+        if self._sandbox is None:
+            try:
+                # Get database client
+                client = await self.thread_manager.db.client
+                
+                # Get project data
+                project = await client.table('projects').select('*').eq('project_id', self.project_id).execute()
+                if not project.data or len(project.data) == 0:
+                    raise ValueError(f"Project {self.project_id} not found")
+                
+                project_data = project.data[0]
+                sandbox_info = project_data.get('sandbox', {})
+                
+                if not sandbox_info.get('id'):
+                    raise ValueError(f"No sandbox found for project {self.project_id}")
+                
+                # Store sandbox info
+                self._sandbox_id = sandbox_info['id']
+                self._sandbox_pass = sandbox_info.get('pass')
+                self._sandbox_url = sandbox_info.get('sandbox_url')
+                
+                # Get or start the sandbox
+                self._sandbox = await get_or_start_sandbox(self._sandbox_id)
+                
+            except Exception as e:
+                logger.error(f"Error retrieving sandbox for project {self.project_id}: {str(e)}", exc_info=True)
+                raise e
+
+    def _get_preview_url(self, file_path: str) -> Optional[str]:
+        """Get the preview URL for a file if it's an HTML file."""
+        if file_path.lower().endswith('.html') and self._sandbox_url:
+            return f"{self._sandbox_url}/{encodeURIComponent(file_path.replace('/workspace/', ''))}"
+        return None
+
     @openapi_schema({
         "type": "function",
         "function": {
@@ -123,7 +159,13 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.upload_file(full_path, file_contents.encode())
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
-            return self.success_response(f"File '{file_path}' created successfully.")
+            # Get preview URL if it's an HTML file
+            preview_url = self._get_preview_url(file_path)
+            message = f"File '{file_path}' created successfully."
+            if preview_url:
+                message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            
+            return self.success_response(message)
         except Exception as e:
             return self.fail_response(f"Error creating file: {str(e)}")
 
@@ -197,7 +239,13 @@ class SandboxFilesTool(SandboxToolsBase):
             end_line = replacement_line + self.SNIPPET_LINES + new_str.count('\n')
             snippet = '\n'.join(new_content.split('\n')[start_line:end_line + 1])
             
-            return self.success_response(f"Replacement successful.")
+            # Get preview URL if it's an HTML file
+            preview_url = self._get_preview_url(file_path)
+            message = f"Replacement successful."
+            if preview_url:
+                message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            
+            return self.success_response(message)
             
         except Exception as e:
             return self.fail_response(f"Error replacing string: {str(e)}")
@@ -256,7 +304,13 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.upload_file(full_path, file_contents.encode())
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
-            return self.success_response(f"File '{file_path}' completely rewritten successfully.")
+            # Get preview URL if it's an HTML file
+            preview_url = self._get_preview_url(file_path)
+            message = f"File '{file_path}' completely rewritten successfully."
+            if preview_url:
+                message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            
+            return self.success_response(message)
         except Exception as e:
             return self.fail_response(f"Error rewriting file: {str(e)}")
 

@@ -34,34 +34,52 @@ async def lifespan(app: FastAPI):
     # Startup
     global thread_manager
     logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
-    await db.initialize()
-    thread_manager = ThreadManager()
     
-    # Initialize the agent API with shared resources
-    agent_api.initialize(
-        thread_manager,
-        db,
-        instance_id  # Pass the instance_id to agent_api
-    )
-    
-    # Initialize the sandbox API with shared resources
-    sandbox_api.initialize(db)
-    
-    # Redis is no longer needed for a single-server setup
-    # from services import redis
-    # await redis.initialize_async()
-    
-    asyncio.create_task(agent_api.restore_running_agent_runs())
-    
-    yield
-    
-    # Clean up agent resources (including Redis)
-    logger.info("Cleaning up agent resources")
-    await agent_api.cleanup()
-    
-    # Clean up database connection
-    logger.info("Disconnecting from database")
-    await db.disconnect()
+    try:
+        # Initialize database
+        await db.initialize()
+        thread_manager = ThreadManager()
+        
+        # Initialize the agent API with shared resources
+        agent_api.initialize(
+            thread_manager,
+            db,
+            instance_id
+        )
+        
+        # Initialize the sandbox API with shared resources
+        sandbox_api.initialize(db)
+        
+        # Initialize Redis connection
+        from services import redis
+        try:
+            await redis.initialize_async()
+            logger.info("Redis connection initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis connection: {e}")
+            # Continue without Redis - the application will handle Redis failures gracefully
+        
+        # Start background tasks
+        asyncio.create_task(agent_api.restore_running_agent_runs())
+        
+        yield
+        
+        # Clean up agent resources
+        logger.info("Cleaning up agent resources")
+        await agent_api.cleanup()
+        
+        # Clean up Redis connection
+        try:
+            await redis.close()
+        except Exception as e:
+            logger.error(f"Error closing Redis connection: {e}")
+        
+        # Clean up database connection
+        logger.info("Disconnecting from database")
+        await db.disconnect()
+    except Exception as e:
+        logger.error(f"Error during application startup: {e}")
+        raise
 
 app = FastAPI(lifespan=lifespan)
 
@@ -113,7 +131,7 @@ app = FastAPI(lifespan=lifespan)
 #     return await call_next(request)
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://staging.suna.so", "http://localhost:3000"] #"http://localhost:3000"
+allowed_origins = ["https://www.suna.so", "https://suna.so", "https://staging.suna.so", "http://localhost:3000"]
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:

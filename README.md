@@ -30,6 +30,7 @@ Suna's powerful toolkit includes seamless browser automation to navigate the web
   - [Requirements](#requirements)
   - [Prerequisites](#prerequisites)
   - [Installation Steps](#installation-steps)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Project Architecture
@@ -233,6 +234,23 @@ python api.py
    - Open your browser and navigate to `http://localhost:3000`
    - Sign up for an account using the Supabase authentication
    - Start using your self-hosted Suna instance!
+
+## Acknowledgements
+
+### Main Contributors
+- [Adam Cohen Hillel](https://x.com/adamcohenhillel)
+- [Dat-lequoc](https://x.com/datlqqq)
+- [Marko Kraemer](https://twitter.com/markokraemer)
+
+### Technologies
+- [Daytona](https://daytona.io/) - Secure agent execution environment
+- [Supabase](https://supabase.com/) -
+- [Playwright](https://playwright.dev/) - Browser automation
+- [OpenAI](https://openai.com/) - LLM provider
+- [Anthropic](https://www.anthropic.com/) - LLM provider
+- [Tavily](https://tavily.com/) - Search capabilities
+- [RapidAPI](https://rapidapi.com/) - API services
+
 
 ## License
 
