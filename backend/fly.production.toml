@@ -7,7 +7,7 @@ app = 'backend-production-ogog'
 primary_region = 'bos'
 
 [build]
-  dockerfile = 'docker/Dockerfile'
+  dockerfile = 'Dockerfile'
 
 [http_service]
   internal_port = 8000

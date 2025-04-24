@@ -83,12 +83,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# @app.middleware("http")
-# async def log_requests_middleware(request: Request, call_next):
-#     client_ip = request.client.host
-#     logger.info(f"Request from IP {client_ip} to {request.method} {request.url.path}")
-#     response = await call_next(request)
-#     return response
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    start_time = time.time()
+    client_ip = request.client.host
+    method = request.method
+    url = str(request.url)
+    path = request.url.path
+    query_params = str(request.query_params)
+    
+    # Log the incoming request
+    logger.info(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
+    
+    try:
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        logger.debug(f"Request completed: {method} {path} | Status: {response.status_code} | Time: {process_time:.2f}s")
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Request failed: {method} {path} | Error: {str(e)} | Time: {process_time:.2f}s")
+        raise
 
 # @app.middleware("http")
 # async def throw_error_middleware(request: Request, call_next):
@@ -167,5 +182,13 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting server on 0.0.0.0:8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    
+    workers = 2
+    
+    logger.info(f"Starting server on 0.0.0.0:8000 with {workers} workers")
+    uvicorn.run(
+        "api:app", 
+        host="0.0.0.0", 
+        port=8000,
+        workers=workers
+    )
