@@ -9,8 +9,6 @@ RUN npm install
 # Copy the frontend code
 COPY . .
 
-# Build the application
-RUN npm run build
 
 EXPOSE 3000
 
