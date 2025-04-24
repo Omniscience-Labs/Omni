@@ -77,11 +77,11 @@ def initialize():
         ssl=os.getenv('REDIS_SSL', 'True').lower() == 'true',
         ssl_ca_certs=certifi.where(),
         decode_responses=True,
-        socket_timeout=None,          # Changed from 5.0 to None to let listen() block indefinitely
+        socket_timeout=5.0,        
         socket_connect_timeout=5.0,  # Connection timeout
         retry_on_timeout=True,       # Auto-retry on timeout
         health_check_interval=30,    # Check connection health every 30 seconds
-        max_connections=1000           # Limit connections to prevent overloading
+        max_connections=200           # Limit connections to prevent overloading
     )
     
     return client
