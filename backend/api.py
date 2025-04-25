@@ -132,7 +132,7 @@ app.include_router(agent_api.router, prefix="/api")
 # Include the sandbox router with a prefix
 app.include_router(sandbox_api.router, prefix="/api")
 
-@app.get("/api/")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint to verify API is working."""
     logger.info("Health check endpoint called")
