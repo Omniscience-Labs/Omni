@@ -61,6 +61,12 @@ export interface InitiateAgentResponse {
   agent_run_id: string;
 }
 
+export interface HealthCheckResponse {
+  status: string;
+  timestamp: string;
+  instance_id: string;
+}
+
 // Project APIs
 export const getProjects = async (): Promise<Project[]> => {
   try {
@@ -1108,6 +1114,23 @@ export const initiateAgent = async (formData: FormData): Promise<InitiateAgentRe
       throw new Error(`Cannot connect to backend server. Please check your internet connection and make sure the backend is running.`);
     }
     
+    throw error;
+  }
+};
+
+export const checkApiHealth = async (): Promise<HealthCheckResponse> => {
+  try {
+    const response = await fetch(`${API_URL}/api/`, {
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API health check failed: ${response.statusText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('API health check failed:', error);
     throw error;
   }
 };
