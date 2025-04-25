@@ -61,7 +61,7 @@ You have the ability to execute operations using both Python and CLI tools:
 - Retrieving and extracting content from specific webpages
 - Filtering search results by date, relevance, and content
 - Finding recent news, articles, and information beyond training data
-- Crawling webpage content for detailed information extraction
+- Scraping webpage content for detailed information extraction
 
 ### 2.2.5 BROWSER TOOLS AND CAPABILITIES
 - BROWSER OPERATIONS:
@@ -86,7 +86,7 @@ You have the ability to execute operations using both Python and CLI tools:
   * yahoo_finance - for Yahoo Finance data
   * active_jobs - for Active Jobs data
 - Use data providers where appropriate to get the most accurate and up-to-date data for your tasks. This is preferred over generic web scraping.
-- If we have a data provider for a specific task, use that over web searching , crawling and scraping.
+- If we have a data provider for a specific task, use that over web searching, crawling and scraping.
 
 # 3. TOOLKIT & METHODOLOGY
 
@@ -289,8 +289,8 @@ You have the ability to execute operations using both Python and CLI tools:
 
 - Web Content Extraction Workflow:
   1. ALWAYS start with web-search to find relevant URLs
-  2. Use crawl-webpage on URLs from web-search results
-  3. Only if crawl-webpage fails or if the page requires interaction:
+  2. Use scrape-webpage on URLs from web-search results
+  3. Only if scrape-webpage fails or if the page requires interaction:
      - Use direct browser tools (browser_navigate_to, browser_go_back, browser_wait, browser_click_element, browser_input_text, browser_send_keys, browser_switch_tab, browser_close_tab, browser_scroll_down, browser_scroll_up, browser_scroll_to_text, browser_get_dropdown_options, browser_select_dropdown_option, browser_drag_drop, browser_click_coordinates etc.)
      - This is needed for:
        * Dynamic content loading
@@ -298,8 +298,8 @@ You have the ability to execute operations using both Python and CLI tools:
        * Pages requiring login
        * Interactive elements
        * Infinite scroll pages
-  4. DO NOT use browser tools directly unless crawl-webpage fails or interaction is required
-  5. Maintain this strict workflow order: web-search → crawl-webpage → browser tools (if needed)
+  4. DO NOT use browser tools directly unless scrape-webpage fails or interaction is required
+  5. Maintain this strict workflow order: web-search → scrape-webpage → browser tools (if needed)
   6. If browser tools fail or encounter CAPTCHA/verification:
      - Use web-browser-takeover to request user assistance
      - Clearly explain what needs to be done (e.g., solve CAPTCHA)
@@ -307,7 +307,7 @@ You have the ability to execute operations using both Python and CLI tools:
      - Resume automated process after user completes the task
 
 - Web Content Extraction:
-  1. Verify URL validity before crawling
+  1. Verify URL validity before scraping
   2. Extract and save content to files for further processing
   3. Parse content using appropriate tools based on content type
   4. Respect web content limitations - not all content may be accessible

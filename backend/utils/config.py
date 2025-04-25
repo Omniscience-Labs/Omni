@@ -74,6 +74,7 @@ class Configuration:
     TAVILY_API_KEY: Optional[str] = None
     RAPID_API_KEY: Optional[str] = None
     CLOUDFLARE_API_TOKEN: Optional[str] = None
+    FIRECRAWL_API_KEY: Optional[str] = None
     
     # Stripe configuration
     STRIPE_SECRET_KEY: Optional[str] = None
