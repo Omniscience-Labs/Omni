@@ -11,8 +11,8 @@ export const createClient = () => {
     supabaseUrl = `http://${supabaseUrl}`;
   }
   
-  console.log('Supabase URL:', supabaseUrl);
-  console.log('Supabase Anon Key:', supabaseAnonKey);
+  // console.log('Supabase URL:', supabaseUrl);
+  // console.log('Supabase Anon Key:', supabaseAnonKey);
   
   return createBrowserClient(
     supabaseUrl,

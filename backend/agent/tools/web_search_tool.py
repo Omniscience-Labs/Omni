@@ -41,11 +41,11 @@ class WebSearchTool(Tool):
                         "type": "string",
                         "description": "The search query to find relevant web pages. Be specific and include key terms to improve search accuracy. For best results, use natural language questions or keyword combinations that precisely describe what you're looking for."
                     },
-                    "summary": {
-                        "type": "boolean",
-                        "description": "Whether to include a summary of each search result. Summaries provide key context about each page without requiring full content extraction. Set to true to get concise descriptions of each result.",
-                        "default": True
-                    },
+                    # "summary": {
+                    #     "type": "boolean",
+                    #     "description": "Whether to include a summary of each search result. Summaries provide key context about each page without requiring full content extraction. Set to true to get concise descriptions of each result.",
+                    #     "default": True
+                    # },
                     "num_results": {
                         "type": "integer",
                         "description": "The number of search results to return. Increase for more comprehensive research or decrease for focused, high-relevance results.",
@@ -60,7 +60,7 @@ class WebSearchTool(Tool):
         tag_name="web-search",
         mappings=[
             {"param_name": "query", "node_type": "attribute", "path": "."},
-            {"param_name": "summary", "node_type": "attribute", "path": "."},
+            # {"param_name": "summary", "node_type": "attribute", "path": "."},
             {"param_name": "num_results", "node_type": "attribute", "path": "."}
         ],
         example='''
@@ -71,21 +71,18 @@ class WebSearchTool(Tool):
         The tool returns information including:
         - Titles of relevant web pages
         - URLs for accessing the pages
-        - Summaries of page content (if summary=true)
         - Published dates (when available)
         -->
         
         <!-- Simple search example -->
         <web-search 
             query="current weather in New York City" 
-            summary="true"
             num_results="20">
         </web-search>
         
         <!-- Another search example -->
         <web-search 
             query="healthy breakfast recipes" 
-            summary="true"
             num_results="20">
         </web-search>
         '''
@@ -93,7 +90,7 @@ class WebSearchTool(Tool):
     async def web_search(
         self, 
         query: str, 
-        summary: bool = True,
+        # summary: bool = True,
         num_results: int = 20
     ) -> ToolResult:
         """
@@ -140,13 +137,13 @@ class WebSearchTool(Tool):
                     "url": result.get("url", ""),
                 }
 
-                if summary:
-                    # Prefer full content; fall back to description
-                    formatted_result["snippet"] = (
-                        result.get("content") or 
-                        result.get("description") or 
-                        ""
-                    )
+                # if summary:
+                #     # Prefer full content; fall back to description
+                #     formatted_result["snippet"] = (
+                #         result.get("content") or 
+                #         result.get("description") or 
+                #         ""
+                #     )
 
                 formatted_results.append(formatted_result)
             
@@ -207,7 +204,7 @@ class WebSearchTool(Tool):
         <!-- 1. First search for relevant content -->
         <web-search 
             query="latest AI research papers" 
-            summary="true"
+            # summary="true"
             num_results="5">
         </web-search>
         
@@ -311,7 +308,7 @@ if __name__ == "__main__":
         search_tool = WebSearchTool()
         result = await search_tool.web_search(
             query="rubber gym mats best prices comparison",
-            summary=True,
+            # summary=True,
             num_results=20
         )
         print(result)
