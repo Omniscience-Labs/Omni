@@ -184,13 +184,35 @@ class WebSearchTool(Tool):
         example='''
         <!-- 
         The crawl-webpage tool extracts the complete text content from web pages.
-        Use this tool when you need detailed information from specific web pages.
+        IMPORTANT WORKFLOW RULES:
+        1. ALWAYS use web-search first to find relevant URLs
+        2. Then use crawl-webpage on URLs from web-search results
+        3. Only if crawl-webpage fails or if the page requires interaction:
+           - Use direct browser tools (browser_navigate_to, browser_click_element, etc.)
+           - This is needed for dynamic content, JavaScript-heavy sites, or pages requiring interaction
         -->
         
-        <!-- Basic webpage crawl example -->
+        <!-- Example workflow: -->
+        <!-- 1. First search for relevant content -->
+        <web-search 
+            query="latest AI research papers" 
+            summary="true"
+            num_results="5">
+        </web-search>
+        
+        <!-- 2. Then crawl specific URLs from search results -->
         <crawl-webpage 
-            url="https://example.com/article/technology-trends">
+            url="https://example.com/research/ai-paper-2024">
         </crawl-webpage>
+        
+        <!-- 3. Only if crawl fails or interaction needed, use browser tools -->
+        <!-- Example of when to use browser tools:
+             - Dynamic content loading
+             - JavaScript-heavy sites
+             - Pages requiring login
+             - Interactive elements
+             - Infinite scroll pages
+        -->
         '''
     )
     async def crawl_webpage(
