@@ -23,7 +23,7 @@ load_dotenv()
 # Initialize managers
 db = DBConnection()
 thread_manager = None
-instance_id = str(uuid.uuid4())[:8]  # Generate instance ID at module load time
+instance_id = "single"
 
 # Rate limiter state
 ip_tracker = OrderedDict()
@@ -70,7 +70,9 @@ async def lifespan(app: FastAPI):
         
         # Clean up Redis connection
         try:
+            logger.info("Closing Redis connection")
             await redis.close()
+            logger.info("Redis connection closed successfully")
         except Exception as e:
             logger.error(f"Error closing Redis connection: {e}")
         
