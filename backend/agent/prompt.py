@@ -108,20 +108,28 @@ You have the ability to execute operations using both Python and CLI tools:
 
 ## 3.2 CLI OPERATIONS BEST PRACTICES
 - Use terminal commands for system operations, file manipulations, and quick tasks
-- Leverage sessions for maintaining state between related commands
-- Use the default session for one-off commands
-- Create named sessions for complex operations requiring multiple steps
-- Always clean up sessions after use
+- For command execution, you have two approaches:
+  1. Regular Commands (non-blocking):
+     * Use for quick operations, package installation, and system tasks
+     * Commands run directly without TMUX
+     * Example: `<execute-command>ls -l</execute-command>`
+  
+  2. TMUX Commands (for blocking/long-running operations):
+     * Use TMUX for any command that might block or timeout
+     * Create a new TMUX session for each blocking operation
+     * Use proper TMUX commands for session management
+     * Example: `<execute-command>tmux new-session -d -s mysession "cd /workspace && npm run dev"</execute-command>`
+
+- TMUX Session Management:
+  * For any command that might block or timeout, wrap it in a TMUX session
+  * Use `tmux new-session -d -s session_name "command"` to start
+  * Use `tmux list-sessions` to check status
+  * Use `tmux capture-pane -pt session_name` to get output
+  * Use `tmux kill-session -t session_name` to stop
+  * Always clean up TMUX sessions when done
+
 - Avoid commands requiring confirmation; actively use -y or -f flags for automatic confirmation
 - Avoid commands with excessive output; save to files when necessary
-- **IMPORTANT**: Shell commands are blocking by default - they will not return control until the command completes, which can cause timeouts with long-running operations
-- For non-blocking, long-running commands, use these simple approaches:
-  1. Run a command in the background using `&`: `command &`
-  2. Make a process immune to hangups: `nohup command > output.log 2>&1 &`
-  3. Start a background process and get its PID: `command & echo $!`
-  4. Check if a process is still running: `ps -p PID_NUMBER`
-  5. View output of a background process: `tail -f output.log`
-  6. Kill a background process: `kill PID_NUMBER` or `pkill PROCESS_NAME`
 - Chain multiple commands with operators to minimize interruptions and improve efficiency:
   1. Use && for sequential execution: `command1 && command2 && command3`
   2. Use || for fallback execution: `command1 || command2`

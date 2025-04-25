@@ -244,7 +244,6 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // POLLING FOR MESSAGES
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -970,63 +969,6 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     }
   }, [projectName]);
 
-  // POLLING FOR MESSAGES
-  // Set up polling for messages
-  useEffect(() => {
-    // Function to fetch messages
-    const fetchMessages = async () => {
-      if (!threadId) return;
-      
-      try {
-        console.log('[POLLING] Refetching messages...');
-        const messagesData = await getMessages(threadId);
-        
-        if (messagesData) {
-          console.log(`[POLLING] Refetch completed with ${messagesData.length} messages`);
-          // Map API message type to UnifiedMessage type
-          const unifiedMessages = (messagesData || [])
-            .filter(msg => msg.type !== 'status') 
-            .map((msg: ApiMessageType) => ({
-              message_id: msg.message_id || null, 
-              thread_id: msg.thread_id || threadId,
-              type: (msg.type || 'system') as UnifiedMessage['type'], 
-              is_llm_message: Boolean(msg.is_llm_message),
-              content: msg.content || '',
-              metadata: msg.metadata || '{}',
-              created_at: msg.created_at || new Date().toISOString(),
-              updated_at: msg.updated_at || new Date().toISOString()
-            }));
-          
-          setMessages(unifiedMessages);
-          
-          // Only auto-scroll if not manually scrolled up
-          if (!userHasScrolled) {
-            scrollToBottom('smooth');
-          }
-        }
-      } catch (error) {
-        console.error('[POLLING] Error fetching messages:', error);
-      }
-    };
-
-    // Start polling once initial load is complete
-    if (initialLoadCompleted.current && !pollingIntervalRef.current) {
-      // Initial fetch
-      fetchMessages();
-      
-      // Set up interval (every 2 seconds)
-      pollingIntervalRef.current = setInterval(fetchMessages, 2000);
-    }
-
-    // Clean up interval when component unmounts
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [threadId, userHasScrolled, initialLoadCompleted]);
-  // POLLING FOR MESSAGES
 
   // Add another useEffect to ensure messages are refreshed when agent status changes to idle
   useEffect(() => {

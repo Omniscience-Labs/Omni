@@ -578,10 +578,6 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     stopStreaming,
   } = useAgentStream({
     onMessage: handleNewMessageFromStream,
-    onAssistantStart: () => {},
-    onAssistantChunk: ({ content }) => {
-      setStreamingTextContent(prev => prev + content);
-    },
     onStatusChange: handleStreamStatusChange,
     onError: handleStreamError,
     onClose: handleStreamClose,
