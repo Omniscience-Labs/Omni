@@ -28,7 +28,7 @@ export default function DashboardLayout({
   const router = useRouter()
   
   useEffect(() => {
-    setShowPricingAlert(true)
+    setShowPricingAlert(false)
     setShowMaintenanceAlert(false)
   }, [])
 

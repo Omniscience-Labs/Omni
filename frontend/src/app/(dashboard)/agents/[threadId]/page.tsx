@@ -611,7 +611,40 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
       if (results[1].status === 'rejected') {
         console.error("Failed to start agent:", results[1].reason);
-        throw new Error(`Failed to start agent: ${results[1].reason?.message || results[1].reason}`);
+        const error = results[1].reason;
+        
+        // Check if it's a 402 Payment Required error
+        if (error instanceof Error && error.message.includes('402')) {
+          try {
+            // Try to parse the error details from the console error
+            const errorText = error.message;
+            const errorDetailsMatch = errorText.match(/\{.*\}/);
+            if (errorDetailsMatch) {
+              const errorDetails = JSON.parse(errorDetailsMatch[0]);
+              if (errorDetails.detail?.message) {
+                // Extract usage information from the error message
+                const usageMatch = errorDetails.detail.message.match(/(\d+)\s+minutes/);
+                const limitMatch = errorDetails.detail.message.match(/limit of (\d+)\s+minutes/);
+                
+                setBillingData({
+                  currentUsage: usageMatch ? parseInt(usageMatch[1]) / 60 : undefined,
+                  limit: limitMatch ? parseInt(limitMatch[1]) / 60 : undefined,
+                  message: errorDetails.detail.message,
+                  accountId: project?.account_id
+                });
+                setShowBillingAlert(true);
+                
+                // Remove the optimistic message since the agent couldn't start
+                setMessages(prev => prev.filter(m => m.message_id !== optimisticUserMessage.message_id));
+                return;
+              }
+            }
+          } catch (parseError) {
+            console.error("Error parsing billing error details:", parseError);
+          }
+        }
+        
+        throw new Error(`Failed to start agent: ${error.message || error}`);
       }
 
       const agentResult = results[1].value;
@@ -624,7 +657,7 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
     } finally {
       setIsSending(false);
     }
-  }, [threadId]);
+  }, [threadId, project?.account_id]);
 
   const handleStopAgent = useCallback(async () => {
     console.log(`[PAGE] Requesting agent stop via hook.`);
