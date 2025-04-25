@@ -179,5 +179,14 @@ state.json
 .DS_Store
 **/.DS_Store
 .aider*
+supabase/.temp/cli-latest
+supabase/.temp/gotrue-version
+supabase/.temp/pooler-url
+supabase/.temp/postgres-version
+supabase/.temp/project-ref
+supabase/.temp/rest-version
+supabase/.temp/storage-version
+
 **/.prompts/
 **/__pycache__/
+
