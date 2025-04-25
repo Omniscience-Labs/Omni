@@ -83,9 +83,9 @@ export const siteConfig = {
       buttonText: "Hire Suna",
       buttonColor: "bg-secondary text-white",
       isPopular: false,
-      hours: "no free usage at this time",
+      hours: "10 min",
       features: [
-        "no free usage",
+        "10 minutes",
         // "Community support",
         // "Single user",
         // "Standard response time",

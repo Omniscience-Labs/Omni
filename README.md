@@ -30,6 +30,7 @@ Suna's powerful toolkit includes seamless browser automation to navigate the web
   - [Requirements](#requirements)
   - [Prerequisites](#prerequisites)
   - [Installation Steps](#installation-steps)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Project Architecture
@@ -39,7 +40,7 @@ Suna's powerful toolkit includes seamless browser automation to navigate the web
 Suna consists of four main components:
 
 ### Backend API
-Python/FastAPI service that handles REST endpoints, thread management, and LLM integration with OpenAI, Anthropic, and others via LiteLLM.
+Python/FastAPI service that handles REST endpoints, thread management, and LLM integration with Anthropic, and others via LiteLLM.
 
 ### Frontend
 Next.js/React application providing a responsive UI with chat interface, dashboard, etc.
@@ -87,8 +88,9 @@ You'll need the following components:
 - Redis database for caching and session management
 - Daytona sandbox for secure agent execution
 - Python 3.11 for the API backend
-- API keys for LLM providers (OpenAI or Anthropic)
-- (Optional but recommended) Tavily API key for enhanced search capabilities
+- API keys for LLM providers (Anthropic)
+- Tavily API key for enhanced search capabilities
+- Firecrawl API key for web scraping capabilities
 
 ### Prerequisites
 
@@ -114,11 +116,12 @@ You'll need the following components:
    - Set `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf` as the Entrypoint
 
 4. **LLM API Keys**:
-   - Obtain an API key from [OpenAI](https://platform.openai.com/) or [Anthropic](https://www.anthropic.com/)
-   - While other providers should work via [LiteLLM](https://github.com/BerriAI/litellm), OpenAI and Anthropic are recommended
+   - Obtain an API key [Anthropic](https://www.anthropic.com/)
+   - While other providers should work via [LiteLLM](https://github.com/BerriAI/litellm), Anthropic is recommended – the prompt needs to be adjusted for other providers to output correct XML for tool calls.
 
 5. **Search API Key** (Optional):
    - For enhanced search capabilities, obtain an [Tavily API key](https://tavily.com/)
+   - For web scraping capabilities, obtain a [Firecrawl API key](https://firecrawl.dev/)
   
 6. **RapidAPI API Key** (Optional):
    - To enable API services like LinkedIn, and others, you'll need a RapidAPI key
@@ -162,17 +165,15 @@ DAYTONA_API_KEY=your_daytona_api_key
 DAYTONA_SERVER_URL="https://app.daytona.io/api"
 DAYTONA_TARGET="us"
 
-# Anthropic or OpenAI: 
 # Anthropic
 ANTHROPIC_API_KEY=
-MODEL_TO_USE="anthropic/claude-3-7-sonnet-latest"
 
-# OR OpenAI API:
+# OpenAI API:
 OPENAI_API_KEY=your_openai_api_key
-MODEL_TO_USE="gpt-4o"
 
 # Optional but recommended
-TAVILY_API_KEY=your_tavily_api_key  # Optional
+TAVILY_API_KEY=your_tavily_api_key  # For enhanced search capabilities
+FIRECRAWL_API_KEY=your_firecrawl_api_key  # For web scraping capabilities
 RAPID_API_KEY=
 ```
 
@@ -233,6 +234,24 @@ python api.py
    - Open your browser and navigate to `http://localhost:3000`
    - Sign up for an account using the Supabase authentication
    - Start using your self-hosted Suna instance!
+
+## Acknowledgements
+
+### Main Contributors
+- [Adam Cohen Hillel](https://x.com/adamcohenhillel)
+- [Dat-lequoc](https://x.com/datlqqq)
+- [Marko Kraemer](https://twitter.com/markokraemer)
+
+### Technologies
+- [Daytona](https://daytona.io/) - Secure agent execution environment
+- [Supabase](https://supabase.com/) -
+- [Playwright](https://playwright.dev/) - Browser automation
+- [OpenAI](https://openai.com/) - LLM provider
+- [Anthropic](https://www.anthropic.com/) - LLM provider
+- [Tavily](https://tavily.com/) - Search capabilities
+- [Firecrawl](https://firecrawl.dev/) - Web scraping capabilities
+- [RapidAPI](https://rapidapi.com/) - API services
+
 
 ## License
 

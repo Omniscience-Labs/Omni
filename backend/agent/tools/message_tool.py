@@ -86,6 +86,72 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
         except Exception as e:
             return self.fail_response(f"Error asking user: {str(e)}")
 
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "web_browser_takeover",
+            "description": "Request user takeover of browser interaction. Use this tool when: 1) The page requires complex human interaction that automated tools cannot handle, 2) Authentication or verification steps require human input, 3) The page has anti-bot measures that prevent automated access, 4) Complex form filling or navigation is needed, 5) The page requires human verification (CAPTCHA, etc.). IMPORTANT: This tool should be used as a last resort after web-search and crawl-webpage have failed, and when direct browser tools are insufficient. Always provide clear context about why takeover is needed and what actions the user should take.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Instructions for the user about what actions to take in the browser. Include: 1) Clear explanation of why takeover is needed, 2) Specific steps the user should take, 3) What information to look for or extract, 4) How to indicate when they're done, 5) Any important context about the current page state."
+                    },
+                    "attachments": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {"items": {"type": "string"}, "type": "array"}
+                        ],
+                        "description": "(Optional) List of files or URLs to attach to the takeover request. Include when: 1) Screenshots or visual references are needed, 2) Previous search results or crawled content is relevant, 3) Supporting documentation is required. Always use relative paths to /workspace directory."
+                    }
+                },
+                "required": ["text"]
+            }
+        }
+    })
+    @xml_schema(
+        tag_name="web-browser-takeover",
+        mappings=[
+            {"param_name": "text", "node_type": "content", "path": "."},
+            {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
+        ],
+        example='''
+        <!-- Use web-browser-takeover when automated tools cannot handle the page interaction -->
+        <!-- Examples of when takeover is needed: -->
+        <!-- 1. CAPTCHA or human verification required -->
+        <!-- 2. Anti-bot measures preventing access -->
+        <!-- 3. Authentication requiring human input -->
+        
+        <web-browser-takeover>
+            I've encountered a CAPTCHA verification on the page. Please:
+            1. Solve the CAPTCHA puzzle
+            2. Let me know once you've completed it
+            3. I'll then continue with the automated process
+            
+            If you encounter any issues or need to take additional steps, please let me know.
+        </web-browser-takeover>
+        '''
+    )
+    async def web_browser_takeover(self, text: str, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
+        """Request user takeover of browser interaction.
+        
+        Args:
+            text: Instructions for the user about what actions to take
+            attachments: Optional file paths or URLs to attach to the request
+            
+        Returns:
+            ToolResult indicating the takeover request was successfully sent
+        """
+        try:
+            # Convert single attachment to list for consistent handling
+            if attachments and isinstance(attachments, str):
+                attachments = [attachments]
+                
+            return self.success_response({"status": "Awaiting user browser takeover..."})
+        except Exception as e:
+            return self.fail_response(f"Error requesting browser takeover: {str(e)}")
+
 #     @openapi_schema({
 #         "type": "function",
 #         "function": {

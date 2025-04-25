@@ -7,7 +7,7 @@ app = 'backend-staging-icy-mountain-363'
 primary_region = 'cdg'
 
 [build]
-  dockerfile = 'docker/Dockerfile'
+  dockerfile = 'Dockerfile'
 
 [http_service]
   internal_port = 8000

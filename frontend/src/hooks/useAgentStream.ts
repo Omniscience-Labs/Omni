@@ -38,6 +38,8 @@ export interface AgentStreamCallbacks {
   onStatusChange?: (status: string) => void; // Optional: Notify on internal status changes
   onError?: (error: string) => void; // Optional: Notify on errors
   onClose?: (finalStatus: string) => void; // Optional: Notify when streaming definitively ends
+  onAssistantStart?: () => void; // Optional: Notify when assistant starts streaming
+  onAssistantChunk?: (chunk: { content: string }) => void; // Optional: Notify on each assistant message chunk
 }
 
 // Helper function to map API messages to UnifiedMessages
@@ -196,12 +198,14 @@ export function useAgentStream(callbacks: AgentStreamCallbacks, threadId: string
       case 'assistant':
         if (parsedMetadata.stream_status === 'chunk' && parsedContent.content) {
           setTextContent(prev => prev + parsedContent.content);
+          callbacks.onAssistantChunk?.({ content: parsedContent.content });
         } else if (parsedMetadata.stream_status === 'complete') {
           setTextContent('');
           setToolCall(null);
           if (message.message_id) callbacks.onMessage(message);
         } else if (!parsedMetadata.stream_status) {
            // Handle non-chunked assistant messages if needed
+           callbacks.onAssistantStart?.();
            if (message.message_id) callbacks.onMessage(message);
         }
         break;

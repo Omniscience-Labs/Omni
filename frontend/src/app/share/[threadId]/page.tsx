@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowDown, CircleDashed, Info, File, ChevronRight, Play, Pause
 } from 'lucide-react';
-import { getMessages, getProject, getThread, Project, Message as BaseApiMessageType } from '@/lib/api';
+import { getMessages, getProject, getThread, Project, Message as BaseApiMessageType, getAgentRuns } from '@/lib/api';
 import { toast } from 'sonner';
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileViewerModal } from '@/components/thread/file-viewer-modal';
@@ -220,6 +220,8 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
   const initialLoadCompleted = useRef<boolean>(false);
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
+
+  const [streamingTextContent, setStreamingTextContent] = useState("");
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -569,7 +571,6 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
   const {
     status: streamHookStatus,
-    textContent: streamingTextContent,
     toolCall: streamingToolCall,
     error: streamError,
     agentRunId: currentHookRunId,
@@ -599,11 +600,20 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
       try {
         if (!threadId) throw new Error('Thread ID is required');
 
-        // Fetch the thread to check if it's public
-        const threadData = await getThread(threadId).catch(err => { 
-          // If it fails with 404, we'll catch it here
-          throw new Error('Failed to load thread data: ' + err.message); 
-        });
+        // Start loading all data in parallel
+        const [threadData, agentRuns, messagesData] = await Promise.all([
+          getThread(threadId).catch(err => { 
+            throw new Error('Failed to load thread data: ' + err.message); 
+          }),
+          getAgentRuns(threadId).catch(err => {
+            console.warn('Failed to load agent runs:', err);
+            return [];
+          }),
+          getMessages(threadId).catch(err => {
+            console.warn('Failed to load messages:', err);
+            return [];
+          })
+        ]);
         
         if (!isMounted) return;
         
@@ -612,37 +622,42 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
         //   throw new Error('This thread is not available for public viewing.');
         // }
         
-        if (threadData?.project_id) {
-          try {
-            const projectData = await getProject(threadData.project_id);
-            if (isMounted && projectData) {
-              console.log('[SHARE] Project data loaded:', projectData);
-              
-              // Set project data
-              setProject(projectData);
-              
-              // Make sure sandbox ID is set correctly
-              if (typeof projectData.sandbox === 'string') {
-                setSandboxId(projectData.sandbox);
-              } else if (projectData.sandbox?.id) {
-                setSandboxId(projectData.sandbox.id);
-              }
-              
-              setProjectName(projectData.name || '');
+        // Load project data if we have a project ID
+        const projectData = threadData?.project_id ? 
+          await getProject(threadData.project_id).catch(err => {
+            console.warn('[SHARE] Could not load project data:', err);
+            return null;
+          }) : null;
+
+        if (isMounted) {
+          if (projectData) {
+            console.log('[SHARE] Project data loaded:', projectData);
+            
+            // Set project data
+            setProject(projectData);
+            
+            // Make sure sandbox ID is set correctly
+            if (typeof projectData.sandbox === 'string') {
+              setSandboxId(projectData.sandbox);
+            } else if (projectData.sandbox?.id) {
+              setSandboxId(projectData.sandbox.id);
             }
-          } catch (projectError) {
-            // Don't throw an error if project can't be loaded
-            // Just log it and continue with the thread
-            console.warn('[SHARE] Could not load project data:', projectError);
+            
+            setProjectName(projectData.name || '');
+          } else {
             // Set a generic name if we couldn't load the project
             setProjectName('Shared Conversation');
           }
-        }
 
-        // Fetch all messages for the thread
-        const messagesData = await getMessages(threadId);
-        if (isMounted) {
-          // Log raw messages fetched from API
+          // Set agent run ID if available
+          if (agentRuns && agentRuns.length > 0) {
+            const latestRun = agentRuns[0];
+            if (latestRun.status === 'running') {
+              setAgentRunId(latestRun.id);
+            }
+          }
+
+          // Process messages data
           console.log('[SHARE] Raw messages fetched:', messagesData);
           
           // Map API message type to UnifiedMessage type

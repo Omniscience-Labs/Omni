@@ -8,6 +8,8 @@ import { CsvRenderer } from "@/components/file-renderers/csv-renderer";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { CodeBlockCode } from "@/components/ui/code-block";
+import { constructHtmlPreviewUrl } from "@/lib/utils/url";
+
 
 // Type for operation type
 type FileOperation = "create" | "rewrite" | "delete";
@@ -139,8 +141,8 @@ export function FileOperationToolView({
   const language = getLanguageFromFileName(fileName);
   const hasHighlighting = language !== 'text';
   // Construct HTML file preview URL if we have a sandbox and the file is HTML
-  const htmlPreviewUrl = (isHtml && project?.sandbox?.sandbox_url && processedFilePath)
-    ? `${project.sandbox.sandbox_url}/${encodeURIComponent(processedFilePath)}`
+  const htmlPreviewUrl = (isHtml && project?.sandbox?.sandbox_url && processedFilePath) 
+    ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, processedFilePath)
     : undefined;
 
   console.log('HTML Preview URL:', htmlPreviewUrl);
