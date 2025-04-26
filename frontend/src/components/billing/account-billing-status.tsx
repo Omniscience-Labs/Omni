@@ -65,14 +65,7 @@ export default async function AccountBillingStatus({ accountId, returnUrl }: Pro
             {subscriptionData ? (
                 <>
                     <div className="mb-6">
-                        <div className="rounded-lg border bg-background p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-foreground/90">Current Plan</span>
-                                    <span className="text-sm font-medium text-card-title">{planName}</span>
-                                </div>
-                            </div>
-                            
+                        <div className="rounded-lg border bg-background p-4 grid grid-cols-1 md:grid-cols-2 gap-4">                            
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-foreground/90">Agent Usage This Month</span>
                                 <span className="text-sm font-medium text-card-title">{usage.display}</span>
