@@ -84,7 +84,7 @@ export async function getAccountSubscription(accountId: string) {
     const supabaseClient = await createClient();
     
     // Get account subscription data
-    const { data: subscriptionData, error: subscriptionError } = await supabaseClient
+    let { data: subscriptionData, error: subscriptionError } = await supabaseClient
         .schema('basejump')
         .from('billing_subscriptions')
         .select('*')
@@ -94,9 +94,16 @@ export async function getAccountSubscription(accountId: string) {
         .order('created', { ascending: false })
         .single();
     
-    if (subscriptionError) {
-        console.error("Error fetching subscription data:", subscriptionError);
-        return { message: subscriptionError.message };
+    // If no subscription found or error, return default FREE tier
+    if (subscriptionError || !subscriptionData) {
+        console.log("No active subscription found, defaulting to FREE tier");
+        subscriptionData = {
+            plan_id: 'free',
+            status: 'active',
+            price_id: null,
+            customer_id: null,
+            subscription_id: null
+        };
     }
 
     console.log("Subscription data:", subscriptionData);

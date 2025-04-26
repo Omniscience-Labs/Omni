@@ -101,6 +101,8 @@ function LoginContent() {
   const handleSignIn = async (prevState: any, formData: FormData) => {
     if (returnUrl) {
       formData.append("returnUrl", returnUrl);
+    } else {
+      formData.append("returnUrl", "/dashboard");
     }
     return signIn(prevState, formData);
   };
@@ -166,9 +168,10 @@ function LoginContent() {
 
   const resetRegistrationSuccess = () => {
     setRegistrationSuccess(false);
-    // Remove message from URL
+    // Remove message from URL and set mode to signin
     const params = new URLSearchParams(window.location.search);
     params.delete('message');
+    params.set('mode', 'signin');
     
     const newUrl = 
       window.location.pathname + 
