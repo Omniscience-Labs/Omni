@@ -25,7 +25,9 @@ def initialize():
     redis_host = os.getenv('REDIS_HOST', 'redis')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_password = os.getenv('REDIS_PASSWORD', '')
-    redis_ssl = os.getenv('REDIS_SSL', False)
+    # Convert string 'True'/'False' to boolean
+    redis_ssl_str = os.getenv('REDIS_SSL', 'False')
+    redis_ssl = redis_ssl_str.lower() == 'true'
 
     logger.info(f"Initializing Redis connection to {redis_host}:{redis_port}")
 
@@ -146,4 +148,4 @@ async def expire(key: str, time: int):
 async def keys(pattern: str) -> List[str]:
     """Get keys matching a pattern."""
     redis_client = await get_client()
-    return await redis_client.keys(pattern) 
+    return await redis_client.keys(pattern)
