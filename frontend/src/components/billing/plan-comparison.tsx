@@ -4,20 +4,19 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
-import { setupNewSubscription } from "@/lib/actions/billing";
+import { setupNewSubscription, getAccountSubscription } from "@/lib/actions/billing";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/home";
 import { isLocalMode } from "@/lib/config";
+import { SUBSCRIPTION_TIERS } from "@/components/billing/subscription";
 
-// Create SUBSCRIPTION_PLANS using stripePriceId from siteConfig
 export const SUBSCRIPTION_PLANS = {
-  FREE: siteConfig.cloudPricingItems.find(item => item.name === 'Free')?.stripePriceId || '',
-  PRO: siteConfig.cloudPricingItems.find(item => item.name === 'Pro')?.stripePriceId || '',
-  ENTERPRISE: siteConfig.cloudPricingItems.find(item => item.name === 'Enterprise')?.stripePriceId || '',
+  FREE: SUBSCRIPTION_TIERS.FREE.priceId,
+  PRO: SUBSCRIPTION_TIERS.BASE.priceId,
+  ENTERPRISE: SUBSCRIPTION_TIERS.EXTRA.priceId,
 };
 
-// Price display animation component
 const PriceDisplay = ({ tier, isCompact }: { tier: typeof siteConfig.cloudPricingItems[number]; isCompact?: boolean }) => {
   return (
     <motion.span
@@ -58,23 +57,17 @@ export function PlanComparison({
   useEffect(() => {
     async function fetchCurrentPlan() {
       if (accountId) {
-        const supabase = createClient();
-        const { data, error } = await supabase.functions.invoke('billing-functions', {
-          body: {
-            action: "get_billing_status",
-            args: {
-              account_id: accountId
-            }
+        try {
+          const result = await getAccountSubscription(accountId);
+          if (result && !('message' in result)) {
+            setCurrentPlanId(result.subscription?.price_id || SUBSCRIPTION_PLANS.FREE);
+          } else {
+            setCurrentPlanId(SUBSCRIPTION_PLANS.FREE);
           }
-        });
-        
-        if (error) {
-          console.error("Error fetching billing status:", error);
+        } catch (error) {
+          console.error('Error fetching subscription:', error);
           setCurrentPlanId(SUBSCRIPTION_PLANS.FREE);
-          return;
         }
-        
-        setCurrentPlanId(data?.subscription_id || SUBSCRIPTION_PLANS.FREE);
       } else {
         setCurrentPlanId(SUBSCRIPTION_PLANS.FREE);
       }
@@ -83,7 +76,6 @@ export function PlanComparison({
     fetchCurrentPlan();
   }, [accountId]);
 
-  // For local development mode, show a message instead
   if (isLocalMode()) {
     return (
       <div className={cn("p-4 bg-muted/30 border border-border rounded-lg text-center", className)}>
@@ -226,11 +218,12 @@ export function PlanComparison({
             <form>
               <input type="hidden" name="accountId" value={accountId} />
               <input type="hidden" name="returnUrl" value={returnUrl} />
-              <input type="hidden" name="planId" value={SUBSCRIPTION_PLANS[tier.name.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS]} />
+              <input type="hidden" name="planId" value={tier.stripePriceId} />
               {isManaged ? (
                 <SubmitButton
                   pendingText="..."
                   formAction={setupNewSubscription}
+                  // disabled={isCurrentPlan}
                   className={cn(
                     "w-full font-medium transition-colors",
                     isCompact 
@@ -255,7 +248,7 @@ export function PlanComparison({
                       : tier.buttonColor
                   )}
                   disabled={isCurrentPlan}
-                  onClick={() => onPlanSelect?.(SUBSCRIPTION_PLANS[tier.name.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS])}
+                  onClick={() => onPlanSelect?.(tier.stripePriceId)}
                 >
                   {isCurrentPlan ? "Current Plan" : (tier.name === "Free" ? tier.buttonText : "Upgrade")}
                 </Button>

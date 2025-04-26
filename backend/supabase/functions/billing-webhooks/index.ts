@@ -1,8 +1,7 @@
-import {serve} from "https://deno.land/std@0.168.0/http/server.ts";
-import {billingWebhooksWrapper, stripeWebhookHandler} from "https://deno.land/x/basejump@v2.0.3/billing-functions/mod.ts";
+import {serve} from "https://deno.land/std@0.177.0/http/server.ts";
+import {billingWebhooksWrapper, stripeWebhookHandler} from "./basejump-stripe-utils/mod.ts";
 
-
-import Stripe from "https://esm.sh/stripe@11.1.0?target=deno";
+import Stripe from "https://esm.sh/stripe@12.0.0?target=deno";
 
 const stripeClient = new Stripe(Deno.env.get("STRIPE_API_KEY") as string, {
     // This is needed to use the Fetch API rather than relying on the Node http
@@ -19,6 +18,19 @@ const stripeResponse = stripeWebhookHandler({
 const webhookEndpoint = billingWebhooksWrapper(stripeResponse);
 
 serve(async (req) => {
-    const response = await webhookEndpoint(req);
-    return response;
+    try {
+        const response = await webhookEndpoint(req);
+        return response;
+    } catch (error) {
+        console.error("Webhook error:", error);
+        return new Response(
+            JSON.stringify({ error: "Internal server error" }),
+            {
+                status: 500,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+    }
 });

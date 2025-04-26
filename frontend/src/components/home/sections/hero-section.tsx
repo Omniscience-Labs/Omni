@@ -27,7 +27,7 @@ import { useBillingError } from "@/hooks/useBillingError";
 import { useAccounts } from "@/hooks/use-accounts";
 import { isLocalMode } from "@/lib/config";
 import { toast } from "sonner";
-import { SUBSCRIPTION_TIERS } from '@/config/subscription';
+import { SUBSCRIPTION_TIERS } from '@/components/billing/subscription';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (

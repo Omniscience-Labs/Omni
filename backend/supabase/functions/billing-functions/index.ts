@@ -1,11 +1,11 @@
-import {serve} from "https://deno.land/std@0.168.0/http/server.ts";
-import {stripeFunctionHandler} from "./billing-functions/mod.ts";
-import { requireAuthorizedBillingUser } from "./billing-functions/src/require-authorized-billing-user.ts";
-import getBillingStatus from "./billing-functions/src/wrappers/get-billing-status.ts";
-import createSupabaseServiceClient from "./billing-functions/lib/create-supabase-service-client.ts";
-import validateUrl from "./billing-functions/lib/validate-url.ts";
+import {serve} from "https://deno.land/std@0.177.0/http/server.ts";
+import {stripeFunctionHandler} from "./basejump-stripe-utils/mod.ts";
+import { requireAuthorizedBillingUser } from "./basejump-stripe-utils/src/require-authorized-billing-user.ts";
+import getBillingStatus from "./basejump-stripe-utils/src/wrappers/get-billing-status.ts";
+import createSupabaseServiceClient from "./basejump-stripe-utils/lib/create-supabase-service-client.ts";
+import validateUrl from "./basejump-stripe-utils/lib/validate-url.ts";
 
-import Stripe from "https://esm.sh/stripe@11.1.0?target=deno";
+import Stripe from "https://esm.sh/stripe@12.0.0?target=deno";
 
 console.log("Starting billing functions...");
 

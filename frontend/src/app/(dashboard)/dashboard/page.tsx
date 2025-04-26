@@ -16,7 +16,7 @@ import { BillingErrorAlert } from "@/components/billing/usage-limit-alert";
 import { useAccounts } from "@/hooks/use-accounts";
 import { isLocalMode } from "@/lib/config";
 import { toast } from "sonner";
-import { SUBSCRIPTION_TIERS } from '@/config/subscription';
+import { SUBSCRIPTION_TIERS } from '@/components/billing/subscription';
 
 // Constant for localStorage key to ensure consistency
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';

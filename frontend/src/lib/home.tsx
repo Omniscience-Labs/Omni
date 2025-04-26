@@ -6,7 +6,7 @@ import { FlickeringGrid } from "@/components/home/ui/flickering-grid";
 import { Globe } from "@/components/home/ui/globe";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
-import { SUBSCRIPTION_TIERS } from '@/config/subscription';
+import { SUBSCRIPTION_TIERS } from '@/components/billing/subscription';
 
 export const Highlight = ({
   children,

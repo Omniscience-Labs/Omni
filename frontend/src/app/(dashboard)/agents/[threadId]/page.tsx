@@ -23,6 +23,7 @@ import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { SUBSCRIPTION_PLANS } from '@/components/billing/plan-comparison';
 import { createClient } from '@/lib/supabase/client';
 import { isLocalMode } from "@/lib/config";
+import { getAccountSubscription } from '@/lib/actions/billing';
 
 import { UnifiedMessage, ParsedContent, ParsedMetadata, ThreadParams } from '@/components/thread/types';
 import { getToolIcon, extractPrimaryParam, safeJsonParse } from '@/components/thread/utils';
@@ -1050,59 +1051,27 @@ export default function ThreadPage({ params }: { params: Promise<ThreadParams> }
 
     if (!project?.account_id) return;
     
-    const supabase = createClient();
-    
     try {
-      // Check subscription status
-      const { data: subscriptionData } = await supabase
-        .schema('basejump')
-        .from('billing_subscriptions')
-        .select('price_id')
-        .eq('account_id', project.account_id)
-        .eq('status', 'active')
-        .single();
+      const result = await getAccountSubscription(project.account_id);
       
-      const currentPlanId = subscriptionData?.price_id || SUBSCRIPTION_PLANS.FREE;
+      // Handle error case
+      if (!result || 'message' in result) {
+        console.error('Error checking billing status:', result?.message || 'Unknown error');
+        return false;
+      }
+
+      const { subscription, usage } = result;
+      const currentPlanId = subscription?.price_id || SUBSCRIPTION_PLANS.FREE;
       
       // Only check usage limits for free tier users
       if (currentPlanId === SUBSCRIPTION_PLANS.FREE) {
-        // Calculate usage
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        
-        // Get threads for this account
-        const { data: threadsData } = await supabase
-          .from('threads')
-          .select('thread_id')
-          .eq('account_id', project.account_id);
-        
-        const threadIds = threadsData?.map(t => t.thread_id) || [];
-        
-        // Get agent runs for those threads
-        const { data: agentRunData } = await supabase
-          .from('agent_runs')
-          .select('started_at, completed_at')
-          .in('thread_id', threadIds)
-          .gte('started_at', startOfMonth.toISOString());
-        
-        let totalSeconds = 0;
-        if (agentRunData) {
-          totalSeconds = agentRunData.reduce((acc, run) => {
-            const start = new Date(run.started_at);
-            const end = run.completed_at ? new Date(run.completed_at) : new Date();
-            const seconds = (end.getTime() - start.getTime()) / 1000;
-            return acc + seconds;
-          }, 0);
-        }
-        
-        // Convert to hours for display
-        const hours = totalSeconds / 3600;
-        const minutesUsed = totalSeconds / 60;
-        
         // The free plan has a 10 minute limit as defined in backend/utils/billing.py
         const FREE_PLAN_LIMIT_MINUTES = 10;
         const FREE_PLAN_LIMIT_HOURS = FREE_PLAN_LIMIT_MINUTES / 60;
+        
+        // Convert totalAgentTime from seconds to minutes
+        const minutesUsed = usage.totalAgentTime / 60;
+        const hours = usage.totalAgentTime / 3600;
         
         // Show alert if over limit
         if (minutesUsed > FREE_PLAN_LIMIT_MINUTES) {
