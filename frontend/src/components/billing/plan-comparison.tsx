@@ -59,15 +59,22 @@ export function PlanComparison({
     async function fetchCurrentPlan() {
       if (accountId) {
         const supabase = createClient();
-        const { data } = await supabase
-          .schema('basejump')
-          .from('billing_subscriptions')
-          .select('price_id')
-          .eq('account_id', accountId)
-          .eq('status', 'active')
-          .single();
+        const { data, error } = await supabase.functions.invoke('billing-functions', {
+          body: {
+            action: "get_billing_status",
+            args: {
+              account_id: accountId
+            }
+          }
+        });
         
-        setCurrentPlanId(data?.price_id || SUBSCRIPTION_PLANS.FREE);
+        if (error) {
+          console.error("Error fetching billing status:", error);
+          setCurrentPlanId(SUBSCRIPTION_PLANS.FREE);
+          return;
+        }
+        
+        setCurrentPlanId(data?.subscription_id || SUBSCRIPTION_PLANS.FREE);
       } else {
         setCurrentPlanId(SUBSCRIPTION_PLANS.FREE);
       }
@@ -224,7 +231,6 @@ export function PlanComparison({
                 <SubmitButton
                   pendingText="..."
                   formAction={setupNewSubscription}
-                  // disabled={isCurrentPlan}
                   className={cn(
                     "w-full font-medium transition-colors",
                     isCompact 

@@ -3,11 +3,10 @@ from typing import Dict, Optional, Tuple
 from utils.logger import logger
 from utils.config import config, EnvMode
 
-# Define subscription tiers and their monthly limits (in minutes)
 SUBSCRIPTION_TIERS = {
-    'price_1RGJ9GG6l1KZGqIroxSqgphC': {'name': 'free', 'minutes': 8},
-    'price_1RGJ9LG6l1KZGqIrd9pwzeNW': {'name': 'base', 'minutes': 300},
-    'price_1RGJ9JG6l1KZGqIrVUU4ZRv6': {'name': 'extra', 'minutes': 2400}
+    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 8},
+    config.STRIPE_BASE_TIER_ID: {'name': 'base', 'minutes': 300},
+    config.STRIPE_EXTRA_TIER_ID: {'name': 'extra', 'minutes': 2400}
 }
 
 async def get_account_subscription(client, account_id: str) -> Optional[Dict]:
@@ -90,7 +89,7 @@ async def check_billing_status(client, account_id: str) -> Tuple[bool, str, Opti
     # If no subscription, they can use free tier
     if not subscription:
         subscription = {
-            'price_id': 'price_1RGJ9GG6l1KZGqIroxSqgphC',  # Free tier
+            'price_id': config.STRIPE_FREE_TIER_ID,  # Free tier
             'plan_name': 'free'
         }
 

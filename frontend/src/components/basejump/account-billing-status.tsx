@@ -29,19 +29,31 @@ export default async function AccountBillingStatus({ accountId, returnUrl }: Pro
 
     const supabaseClient = await createClient();
     
-    // Get account subscription and usage data
-    const { data: subscriptionData } = await supabaseClient
-        .schema('basejump')
-        .from('billing_subscriptions')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('status', 'active')
-        .limit(1)
-        .order('created_at', { ascending: false })
-        .single();
-    
+    // Get billing status using the new billing functions
+    const { data: billingStatus, error: billingError } = await supabaseClient.functions.invoke('billing-functions', {
+        body: {
+            action: "get_billing_status",
+            args: {
+                account_id: accountId
+            }
+        }
+    });
+
+    if (billingError) {
+        console.error("Error fetching billing status:", billingError);
+        return (
+            <div className="rounded-xl border shadow-sm bg-card p-6">
+                <h2 className="text-xl font-semibold mb-4">Billing Status</h2>
+                <div className="p-4 mb-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+                    <p className="text-sm text-destructive">
+                        Error loading billing information. Please try again later.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     // Get agent runs for this account
-    // Get the account's threads
     const { data: threads } = await supabaseClient
         .from('threads')
         .select('thread_id')
@@ -83,7 +95,7 @@ export default async function AccountBillingStatus({ accountId, returnUrl }: Pro
     }
     
     const isPlan = (planId?: string) => {
-        return subscriptionData?.price_id === planId;
+        return billingStatus?.subscription_id === planId;
     };
     
     const planName = isPlan(SUBSCRIPTION_PLANS.FREE) 
@@ -98,7 +110,7 @@ export default async function AccountBillingStatus({ accountId, returnUrl }: Pro
         <div className="rounded-xl border shadow-sm bg-card p-6">
             <h2 className="text-xl font-semibold mb-4">Billing Status</h2>
             
-            {subscriptionData ? (
+            {billingStatus?.subscription_active ? (
                 <>
                     <div className="mb-6">
                         <div className="rounded-lg border bg-background p-4 grid grid-cols-1 md:grid-cols-2 gap-4">

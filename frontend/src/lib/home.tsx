@@ -6,6 +6,7 @@ import { FlickeringGrid } from "@/components/home/ui/flickering-grid";
 import { Globe } from "@/components/home/ui/globe";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import { SUBSCRIPTION_TIERS } from '@/config/subscription';
 
 export const Highlight = ({
   children,
@@ -90,7 +91,7 @@ export const siteConfig = {
         // "Single user",
         // "Standard response time",
       ],
-      stripePriceId: 'price_1RGJ9GG6l1KZGqIroxSqgphC',
+      stripePriceId: SUBSCRIPTION_TIERS.FREE.priceId,
     },
     {
       name: "Pro",
@@ -107,7 +108,7 @@ export const siteConfig = {
         // "5 team members",
         // "Custom integrations",
       ],
-      stripePriceId: 'price_1RGJ9LG6l1KZGqIrd9pwzeNW',
+      stripePriceId: SUBSCRIPTION_TIERS.BASE.priceId,
     },
     {
       name: "Enterprise",
@@ -126,7 +127,7 @@ export const siteConfig = {
         // "Custom AI model training",
       ],
       showContactSales: true,
-      stripePriceId: 'price_1RGJ9JG6l1KZGqIrVUU4ZRv6',
+      stripePriceId: SUBSCRIPTION_TIERS.EXTRA.priceId,
     },
   ],
   companyShowcase: {

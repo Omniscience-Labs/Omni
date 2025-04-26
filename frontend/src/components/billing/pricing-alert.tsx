@@ -37,17 +37,24 @@ export function PricingAlert({ open, onOpenChange, closeable = true, accountId }
 
       try {
         const supabase = createClient();
-        const { data } = await supabase
-          .schema('basejump')
-          .from('billing_subscriptions')
-          .select('price_id')
-          .eq('account_id', accountId)
-          .eq('status', 'active')
-          .single();
+        const { data, error } = await supabase.functions.invoke('billing-functions', {
+          body: {
+            action: "get_billing_status",
+            args: {
+              account_id: accountId
+            }
+          }
+        });
+        
+        if (error) {
+          console.error("Error checking subscription:", error);
+          setHasActiveSubscription(false);
+          return;
+        }
         
         // Check if the user has a paid subscription (not free tier)
-        const isPaidSubscription = data?.price_id && 
-          data.price_id !== SUBSCRIPTION_PLANS.FREE;
+        const isPaidSubscription = data?.subscription_active && 
+          data.subscription_id !== SUBSCRIPTION_PLANS.FREE;
         
         setHasActiveSubscription(isPaidSubscription);
       } catch (error) {

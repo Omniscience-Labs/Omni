@@ -16,6 +16,7 @@ import { BillingErrorAlert } from "@/components/billing/usage-limit-alert";
 import { useAccounts } from "@/hooks/use-accounts";
 import { isLocalMode } from "@/lib/config";
 import { toast } from "sonner";
+import { SUBSCRIPTION_TIERS } from '@/config/subscription';
 
 // Constant for localStorage key to ensure consistency
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
@@ -103,7 +104,7 @@ function DashboardContent() {
           limit: error.detail.limit as number | undefined,
           // Include subscription details if available in the error, otherwise provide defaults
           subscription: error.detail.subscription || {
-            price_id: "price_1RGJ9GG6l1KZGqIroxSqgphC", // Default to Free tier
+            price_id: SUBSCRIPTION_TIERS.FREE.priceId, // Default to Free tier
             plan_name: "Free"
           }
         });

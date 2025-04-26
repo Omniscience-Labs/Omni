@@ -39,6 +39,35 @@ class Configuration:
     # Environment mode
     ENV_MODE: EnvMode = EnvMode.LOCAL
     
+    # Subscription tier IDs - Production
+    STRIPE_FREE_TIER_ID_PROD: str = 'price_1RGJ9GG6l1KZGqIroxSqgphC'
+    STRIPE_BASE_TIER_ID_PROD: str = 'price_1RGJ9LG6l1KZGqIrd9pwzeNW'
+    STRIPE_EXTRA_TIER_ID_PROD: str = 'price_1RGJ9JG6l1KZGqIrVUU4ZRv6'
+    
+    # Subscription tier IDs - Staging
+    STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RDQbOG6l1KZGqIrgrYzMbnL'
+    STRIPE_BASE_TIER_ID_STAGING: str = 'price_1RC2PYG6l1KZGqIrpbzFB9Lp'
+    STRIPE_EXTRA_TIER_ID_STAGING: str = 'price_1RDQWqG6l1KZGqIrChli4Ys4'
+    
+    # Computed subscription tier IDs based on environment
+    @property
+    def STRIPE_FREE_TIER_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_FREE_TIER_ID_STAGING
+        return self.STRIPE_FREE_TIER_ID_PROD
+    
+    @property
+    def STRIPE_BASE_TIER_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_BASE_TIER_ID_STAGING
+        return self.STRIPE_BASE_TIER_ID_PROD
+    
+    @property
+    def STRIPE_EXTRA_TIER_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_EXTRA_TIER_ID_STAGING
+        return self.STRIPE_EXTRA_TIER_ID_PROD
+    
     # LLM API keys
     ANTHROPIC_API_KEY: str = None
     OPENAI_API_KEY: Optional[str] = None

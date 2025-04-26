@@ -7,7 +7,6 @@ import handleEdgeFunctionError from "../supabase/handle-edge-error";
 export async function setupNewSubscription(prevState: any, formData: FormData) {
     const accountId = formData.get("accountId") as string;
     const returnUrl = formData.get("returnUrl") as string;
-    const planId = formData.get("planId") as string;
     const supabaseClient = await createClient();
 
     const { data, error } = await supabaseClient.functions.invoke('billing-functions', {
@@ -16,8 +15,7 @@ export async function setupNewSubscription(prevState: any, formData: FormData) {
             args: {
                 account_id: accountId,
                 success_url: returnUrl,
-                cancel_url: returnUrl,
-                plan_id: planId
+                cancel_url: returnUrl
             }
         }
     });
@@ -30,6 +28,7 @@ export async function setupNewSubscription(prevState: any, formData: FormData) {
 };
 
 export async function manageSubscription(prevState: any, formData: FormData) {
+
     const accountId = formData.get("accountId") as string;
     const returnUrl = formData.get("returnUrl") as string;
     const supabaseClient = await createClient();
