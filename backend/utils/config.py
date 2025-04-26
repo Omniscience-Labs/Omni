@@ -45,9 +45,9 @@ class Configuration:
     STRIPE_EXTRA_TIER_ID_PROD: str = 'price_1RGJ9JG6l1KZGqIrVUU4ZRv6'
     
     # Subscription tier IDs - Staging
-    STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RDQbOG6l1KZGqIrgrYzMbnL'
-    STRIPE_BASE_TIER_ID_STAGING: str = 'price_1RC2PYG6l1KZGqIrpbzFB9Lp'
-    STRIPE_EXTRA_TIER_ID_STAGING: str = 'price_1RDQWqG6l1KZGqIrChli4Ys4'
+    STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrw14abxeL'
+    STRIPE_BASE_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrCRu0E4Gi'
+    STRIPE_EXTRA_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrvjlz5p5V'
     
     # Computed subscription tier IDs based on environment
     @property
@@ -109,9 +109,19 @@ class Configuration:
     
     # Stripe configuration
     STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_DEFAULT_PLAN_ID: Optional[str] = None
     STRIPE_DEFAULT_TRIAL_DAYS: int = 14
     
+    # Stripe Product IDs
+    STRIPE_PRODUCT_ID_PROD: str = 'prod_'  # Production product ID
+    STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'  # Staging product ID
+    
+    @property
+    def STRIPE_PRODUCT_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_PRODUCT_ID_STAGING
+        return self.STRIPE_PRODUCT_ID_PROD
     
     def __init__(self):
         """Initialize configuration by loading from environment variables."""

@@ -95,7 +95,7 @@ export const siteConfig = {
     },
     {
       name: "Pro",
-      price: "$29",
+      price: "$20",
       description: "For professionals and small teams",
       buttonText: "Hire Suna",
       buttonColor: "bg-primary text-white dark:text-black",
@@ -112,7 +112,7 @@ export const siteConfig = {
     },
     {
       name: "Enterprise",
-      price: "$199",
+      price: "$50",
       description: "For organizations with complex needs",
       buttonText: "Hire Suna",
       buttonColor: "bg-secondary text-white",
