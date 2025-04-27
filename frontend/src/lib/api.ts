@@ -1215,13 +1215,25 @@ export interface BillingStatusResponse {
 }
 
 export interface CreateCheckoutSessionResponse {
-  status: 'upgraded' | 'downgrade_scheduled' | 'checkout_created' | 'no_change';
+  status: 'upgraded' | 'downgrade_scheduled' | 'checkout_created' | 'no_change' | 'new' | 'updated' | 'scheduled';
   subscription_id?: string;
   schedule_id?: string;
   session_id?: string;
   url?: string;
   effective_date?: string;
   message?: string;
+  details?: {
+    is_upgrade?: boolean;
+    effective_date?: string;
+    current_price?: number;
+    new_price?: number;
+    invoice?: {
+      id: string;
+      status: string;
+      amount_due: number;
+      amount_paid: number;
+    };
+  };
 }
 
 // Billing API Functions
@@ -1252,13 +1264,24 @@ export const createCheckoutSession = async (request: CreateCheckoutSessionReques
     const data = await response.json();
     console.log('Checkout session response:', data);
     
-    // If it's a subscription update, we don't need to redirect
-    if (data.status === 'updated') {
-      return data;
+    // Handle all possible statuses
+    switch (data.status) {
+      case 'upgraded':
+      case 'updated':
+      case 'downgrade_scheduled':
+      case 'scheduled':
+      case 'no_change':
+        return data;
+      case 'new':
+      case 'checkout_created':
+        if (!data.url) {
+          throw new Error('No checkout URL provided');
+        }
+        return data;
+      default:
+        console.warn('Unexpected status from createCheckoutSession:', data.status);
+        return data;
     }
-    
-    // For new subscriptions, return the URL for redirect
-    return data;
   } catch (error) {
     console.error('Failed to create checkout session:', error);
     throw error;

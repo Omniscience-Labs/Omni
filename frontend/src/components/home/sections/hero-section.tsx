@@ -25,9 +25,8 @@ import {
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useBillingError } from "@/hooks/useBillingError";
 import { useAccounts } from "@/hooks/use-accounts";
-import { isLocalMode } from "@/lib/config";
+import { isLocalMode, config } from "@/lib/config";
 import { toast } from "sonner";
-import { SUBSCRIPTION_TIERS } from '@/components/billing/subscription';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -141,7 +140,7 @@ export function HeroSection() {
           currentUsage: error.detail.currentUsage as number | undefined,
           limit: error.detail.limit as number | undefined,
           subscription: error.detail.subscription || {
-            price_id: SUBSCRIPTION_TIERS.FREE.priceId, // Default Free
+            price_id: config.SUBSCRIPTION_TIERS.FREE.priceId, // Default Free
             plan_name: "Free"
           }
         });

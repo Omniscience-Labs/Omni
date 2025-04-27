@@ -20,11 +20,15 @@ stripe.api_key = config.STRIPE_SECRET_KEY
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-# Subscription tiers configuration
 SUBSCRIPTION_TIERS = {
     config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 10},
-    config.STRIPE_BASE_TIER_ID: {'name': 'base', 'minutes': 300},
-    config.STRIPE_EXTRA_TIER_ID: {'name': 'extra', 'minutes': 2400}
+    config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120},  # 2 hours
+    config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360},  # 6 hours
+    config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720},  # 12 hours
+    config.STRIPE_TIER_25_200_ID: {'name': 'tier_25_200', 'minutes': 1500},  # 25 hours
+    config.STRIPE_TIER_50_400_ID: {'name': 'tier_50_400', 'minutes': 3000},  # 50 hours
+    config.STRIPE_TIER_125_800_ID: {'name': 'tier_125_800', 'minutes': 7500},  # 125 hours
+    config.STRIPE_TIER_200_1000_ID: {'name': 'tier_200_1000', 'minutes': 12000},  # 200 hours
 }
 
 # Pydantic models for request/response validation
@@ -97,7 +101,7 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
             customer=customer_id,
             status='active'
         )
-        print("Found subscriptions:", subscriptions)
+        # print("Found subscriptions:", subscriptions)
         
         # Check if we have any subscriptions
         if not subscriptions or not subscriptions.get('data'):
@@ -111,8 +115,8 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
                 item = sub['items']['data'][0]
                 if item.get('price') and item['price'].get('id') in [
                     config.STRIPE_FREE_TIER_ID,
-                    config.STRIPE_BASE_TIER_ID,
-                    config.STRIPE_EXTRA_TIER_ID
+                    config.STRIPE_TIER_2_20_ID,
+                    config.STRIPE_TIER_6_50_ID
                 ]:
                     our_subscriptions.append(sub)
         
@@ -206,7 +210,7 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     
     # Get current subscription
     subscription = await get_user_subscription(user_id)
-    print("Current subscription:", subscription)
+    # print("Current subscription:", subscription)
     
     # If no subscription, they can use free tier
     if not subscription:
@@ -264,7 +268,7 @@ async def create_checkout_session(
             
         # Check for existing subscription for our product
         existing_subscription = await get_user_subscription(current_user_id)
-        print("Existing subscription for product:", existing_subscription)
+        # print("Existing subscription for product:", existing_subscription)
         
         if existing_subscription:
             # --- Handle Subscription Change (Upgrade or Downgrade) ---
@@ -398,24 +402,63 @@ async def create_checkout_session(
                         # Update or Create Schedule
                         if schedule_id:
                              # Update existing schedule, replacing all future phases
-                            print(f"Updating existing schedule {schedule_id}")
+                            # print(f"Updating existing schedule {schedule_id}")
+                            logger.info(f"Updating existing schedule {schedule_id} for subscription {subscription_id}")
+                            logger.debug(f"Current phase data: {current_phase_update_data}")
+                            logger.debug(f"New phase data: {new_downgrade_phase_data}")
                             updated_schedule = stripe.SubscriptionSchedule.modify(
                                 schedule_id,
                                 phases=[current_phase_update_data, new_downgrade_phase_data],
                                 end_behavior='release' 
                             )
+                            logger.info(f"Successfully updated schedule {updated_schedule['id']}")
                         else:
                              # Create a new schedule using the defined phases
                             print(f"Creating new schedule for subscription {subscription_id}")
-                            updated_schedule = stripe.SubscriptionSchedule.create(
-                                customer=customer_id, # Required for new schedule
-                                start_date=current_phase_update_data['start_date'], # Start with the current phase
-                                phases=[current_phase_update_data, new_downgrade_phase_data],
-                                end_behavior='release'
-                            )
-                            # Link the new schedule to the subscription
-                            stripe.Subscription.modify(subscription_id, schedule=updated_schedule['id'])
-                            print(f"Linked new schedule {updated_schedule['id']} to subscription {subscription_id}")
+                            logger.info(f"Creating new schedule for subscription {subscription_id}")
+                            # Deep debug logging - write subscription details to help diagnose issues
+                            logger.debug(f"Subscription details: {subscription_id}, current_period_end_ts: {current_period_end_ts}")
+                            logger.debug(f"Current price: {current_price_id}, New price: {request.price_id}")
+                            
+                            try:
+                                updated_schedule = stripe.SubscriptionSchedule.create(
+                                    from_subscription=subscription_id,
+                                    phases=[
+                                        {
+                                            'start_date': current_phase['start_date'],
+                                            'end_date': current_period_end_ts,
+                                            'proration_behavior': 'none',
+                                            'items': [
+                                                {
+                                                    'price': current_price_id,
+                                                    'quantity': 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'start_date': current_period_end_ts,
+                                            'proration_behavior': 'none',
+                                            'items': [
+                                                {
+                                                    'price': request.price_id,
+                                                    'quantity': 1
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    end_behavior='release'
+                                )
+                                # Don't try to link the schedule - that's handled by from_subscription
+                                logger.info(f"Created new schedule {updated_schedule['id']} from subscription {subscription_id}")
+                                # print(f"Created new schedule {updated_schedule['id']} from subscription {subscription_id}")
+                                
+                                # Verify the schedule was created correctly
+                                fetched_schedule = stripe.SubscriptionSchedule.retrieve(updated_schedule['id'])
+                                logger.info(f"Schedule verification - Status: {fetched_schedule.get('status')}, Phase Count: {len(fetched_schedule.get('phases', []))}")
+                                logger.debug(f"Schedule details: {fetched_schedule}")
+                            except Exception as schedule_error:
+                                logger.exception(f"Failed to create schedule: {str(schedule_error)}")
+                                raise schedule_error  # Re-raise to be caught by the outer try-except
                         
                         return {
                             "subscription_id": subscription_id,
@@ -477,11 +520,84 @@ async def create_portal_session(
         if not customer_id:
             raise HTTPException(status_code=404, detail="No billing customer found")
         
-        # Create portal session
-        session = stripe.billing_portal.Session.create(
-            customer=customer_id,
-            return_url=request.return_url
-        )
+        # Ensure the portal configuration has subscription_update enabled
+        try:
+            # First, check if we have a configuration that already enables subscription update
+            configurations = stripe.billing_portal.Configuration.list(limit=100)
+            active_config = None
+            
+            # Look for a configuration with subscription_update enabled
+            for config in configurations.get('data', []):
+                features = config.get('features', {})
+                subscription_update = features.get('subscription_update', {})
+                if subscription_update.get('enabled', False):
+                    active_config = config
+                    logger.info(f"Found existing portal configuration with subscription_update enabled: {config['id']}")
+                    break
+            
+            # If no config with subscription_update found, create one or update the active one
+            if not active_config:
+                # Find the active configuration or create a new one
+                if configurations.get('data', []):
+                    default_config = configurations['data'][0]
+                    logger.info(f"Updating default portal configuration: {default_config['id']} to enable subscription_update")
+                    
+                    active_config = stripe.billing_portal.Configuration.update(
+                        default_config['id'],
+                        features={
+                            'subscription_update': {
+                                'enabled': True,
+                                'proration_behavior': 'create_prorations',
+                                'default_allowed_updates': ['price']
+                            },
+                            # Preserve other features that may already be enabled
+                            'customer_update': default_config.get('features', {}).get('customer_update', {'enabled': True, 'allowed_updates': ['email', 'address']}),
+                            'invoice_history': {'enabled': True},
+                            'payment_method_update': {'enabled': True}
+                        }
+                    )
+                else:
+                    # Create a new configuration with subscription_update enabled
+                    logger.info("Creating new portal configuration with subscription_update enabled")
+                    active_config = stripe.billing_portal.Configuration.create(
+                        business_profile={
+                            'headline': 'Subscription Management',
+                            'privacy_policy_url': config.FRONTEND_URL + '/privacy',
+                            'terms_of_service_url': config.FRONTEND_URL + '/terms'
+                        },
+                        features={
+                            'subscription_update': {
+                                'enabled': True,
+                                'proration_behavior': 'create_prorations',
+                                'default_allowed_updates': ['price']
+                            },
+                            'customer_update': {
+                                'enabled': True,
+                                'allowed_updates': ['email', 'address']
+                            },
+                            'invoice_history': {'enabled': True},
+                            'payment_method_update': {'enabled': True}
+                        }
+                    )
+            
+            # Log the active configuration for debugging
+            logger.info(f"Using portal configuration: {active_config['id']} with subscription_update: {active_config.get('features', {}).get('subscription_update', {}).get('enabled', False)}")
+        
+        except Exception as config_error:
+            logger.warning(f"Error configuring portal: {config_error}. Continuing with default configuration.")
+        
+        # Create portal session using the proper configuration if available
+        portal_params = {
+            "customer": customer_id,
+            "return_url": request.return_url
+        }
+        
+        # Add configuration_id if we found or created one with subscription_update enabled
+        if active_config:
+            portal_params["configuration"] = active_config['id']
+        
+        # Create the session
+        session = stripe.billing_portal.Session.create(**portal_params)
         
         return {"url": session.url}
         
@@ -497,7 +613,7 @@ async def get_subscription(
     try:
         # Get subscription from Stripe (this helper already handles filtering/cleanup)
         subscription = await get_user_subscription(current_user_id)
-        print("Subscription data for status:", subscription)
+        # print("Subscription data for status:", subscription)
         
         if not subscription:
             # Default to free tier status if no active subscription for our product

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { PlanComparison, SUBSCRIPTION_PLANS } from "@/components/billing/plan-comparison";
+import { PlanComparison } from "@/components/billing/plan-comparison";
 import { isLocalMode } from "@/lib/config";
 import { getSubscription, createPortalSession, SubscriptionStatus } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
