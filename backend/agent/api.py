@@ -15,9 +15,9 @@ from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from services import redis
 from agent.run import run_agent
-from utils.auth_utils import get_current_user_id, get_user_id_from_stream_auth, verify_thread_access
+from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
 from utils.logger import logger
-from utils.billing import check_billing_status, get_account_id_from_thread
+from services.billing import check_billing_status
 from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 
@@ -348,7 +348,7 @@ async def get_or_create_project_sandbox(client, project_id: str):
 async def start_agent(
     thread_id: str,
     body: AgentStartRequest = Body(...),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Start an agent for a specific thread in the background."""
     global instance_id # Ensure instance_id is accessible
@@ -412,7 +412,7 @@ async def start_agent(
     return {"agent_run_id": agent_run_id, "status": "running"}
 
 @router.post("/agent-run/{agent_run_id}/stop")
-async def stop_agent(agent_run_id: str, user_id: str = Depends(get_current_user_id)):
+async def stop_agent(agent_run_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Stop a running agent."""
     logger.info(f"Received request to stop agent run: {agent_run_id}")
     client = await db.client
@@ -421,7 +421,7 @@ async def stop_agent(agent_run_id: str, user_id: str = Depends(get_current_user_
     return {"status": "stopped"}
 
 @router.get("/thread/{thread_id}/agent-runs")
-async def get_agent_runs(thread_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_agent_runs(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get all agent runs for a thread."""
     logger.info(f"Fetching agent runs for thread: {thread_id}")
     client = await db.client
@@ -431,7 +431,7 @@ async def get_agent_runs(thread_id: str, user_id: str = Depends(get_current_user
     return {"agent_runs": agent_runs.data}
 
 @router.get("/agent-run/{agent_run_id}")
-async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get agent run status and responses."""
     logger.info(f"Fetching agent run details: {agent_run_id}")
     client = await db.client
@@ -859,7 +859,7 @@ async def initiate_agent_with_files(
     stream: Optional[bool] = Form(True),
     enable_context_manager: Optional[bool] = Form(False),
     files: List[UploadFile] = File(default=[]),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Initiate a new agent session with optional file attachments."""
     global instance_id # Ensure instance_id is accessible
