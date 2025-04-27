@@ -40,14 +40,14 @@ class Configuration:
     ENV_MODE: EnvMode = EnvMode.LOCAL
     
     # Subscription tier IDs - Production
-    STRIPE_FREE_TIER_ID_PROD: str = 'price_1RGJ9GG6l1KZGqIroxSqgphC'
-    STRIPE_TIER_2_20_ID_PROD: str = ''
-    STRIPE_TIER_6_50_ID_PROD: str = ''
-    STRIPE_TIER_12_100_ID_PROD: str = ''
-    STRIPE_TIER_25_200_ID_PROD: str = ''
-    STRIPE_TIER_50_400_ID_PROD: str = ''
-    STRIPE_TIER_125_800_ID_PROD: str = ''
-    STRIPE_TIER_200_1000_ID_PROD: str = ''
+    STRIPE_FREE_TIER_ID_PROD: str = 'price_1RILb4G6l1KZGqIrK4QLrx9i'
+    STRIPE_TIER_2_20_ID_PROD: str = 'price_1RILb4G6l1KZGqIrhomjgDnO'
+    STRIPE_TIER_6_50_ID_PROD: str = 'price_1RILb4G6l1KZGqIr5q0sybWn'
+    STRIPE_TIER_12_100_ID_PROD: str = 'price_1RILb4G6l1KZGqIr5Y20ZLHm'
+    STRIPE_TIER_25_200_ID_PROD: str = 'price_1RILb4G6l1KZGqIrGAD8rNjb'
+    STRIPE_TIER_50_400_ID_PROD: str = 'price_1RILb4G6l1KZGqIruNBUMTF1'
+    STRIPE_TIER_125_800_ID_PROD: str = 'price_1RILb3G6l1KZGqIrbJA766tN'
+    STRIPE_TIER_200_1000_ID_PROD: str = 'price_1RILb3G6l1KZGqIrmauYPOiN'
     
     # Subscription tier IDs - Staging
     STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrw14abxeL'
@@ -154,7 +154,7 @@ class Configuration:
     STRIPE_DEFAULT_TRIAL_DAYS: int = 14
     
     # Stripe Product IDs
-    STRIPE_PRODUCT_ID_PROD: str = 'prod_'  # Production product ID
+    STRIPE_PRODUCT_ID_PROD: str = 'prod_SCl7AQ2C8kK1CD'  # Production product ID
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'  # Staging product ID
     
     @property
