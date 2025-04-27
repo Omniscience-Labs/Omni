@@ -33,35 +33,35 @@ interface Config {
 // Production tier IDs
 const PROD_TIERS: SubscriptionTiers = {
   FREE: {
-    priceId: 'price_1RGJ9GG6l1KZGqIroxSqgphC',
+    priceId: 'price_1RILb4G6l1KZGqIrK4QLrx9i',
     name: 'Free',
   },
   TIER_2_20: {
-    priceId: 'price_1RGJ9LG6l1KZGqIrd9pwzeNW',
+    priceId: 'price_1RILb4G6l1KZGqIrhomjgDnO',
     name: '2h/$20',
   },
   TIER_6_50: {
-    priceId: 'price_1RGJ9JG6l1KZGqIrVUU4ZRv6',
+    priceId: 'price_1RILb4G6l1KZGqIr5q0sybWn',
     name: '6h/$50',
   },
   TIER_12_100: {
-    priceId: 'price_1RIGvuG6l1KZGqIrT6UfgblC',
+    priceId: 'price_1RILb4G6l1KZGqIr5Y20ZLHm',
     name: '12h/$100',
   },
   TIER_25_200: {
-    priceId: 'price_1RIGvuG6l1KZGqIrOVLKlOMj',
+    priceId: 'price_1RILb4G6l1KZGqIrGAD8rNjb',
     name: '25h/$200',
   },
   TIER_50_400: {
-    priceId: 'price_1RIKNgG6l1KZGqIrvsat5PW7',
+    priceId: 'price_1RILb4G6l1KZGqIruNBUMTF1',
     name: '50h/$400',
   },
   TIER_125_800: {
-    priceId: 'price_1RIKNrG6l1KZGqIrjKT0yGvI',
+    priceId: 'price_1RILb3G6l1KZGqIrbJA766tN',
     name: '125h/$800',
   },
   TIER_200_1000: {
-    priceId: 'price_1RIKQ2G6l1KZGqIrum9n8SI7',
+    priceId: 'price_1RILb3G6l1KZGqIrmauYPOiN',
     name: '200h/$1000',
   }
 } as const;
