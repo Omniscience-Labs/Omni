@@ -1201,7 +1201,8 @@ export interface SubscriptionStatus {
   has_schedule: boolean;
   scheduled_plan_name?: string;
   scheduled_price_id?: string; // Added
-  scheduled_change_date?: string; // ISO Date string
+  scheduled_change_date?: string; // ISO Date string - Deprecate? Check backend usage
+  schedule_effective_date?: string; // ISO Date string - Added for consistency
 }
 
 export interface BillingStatusResponse {

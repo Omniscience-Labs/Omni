@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { PlanComparison } from "@/components/billing/plan-comparison";
+import { PricingSection } from "@/components/home/sections/pricing-section";
 import { isLocalMode } from "@/lib/config";
 import { getSubscription, createPortalSession, SubscriptionStatus } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
@@ -127,10 +127,9 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
                     </div>
 
                     {/* Plans Comparison */}
-                    <PlanComparison
-                        accountId={accountId}
+                    <PricingSection
                         returnUrl={returnUrl}
-                        className="mb-6"
+                        showTitleAndTabs={false}
                     />
 
                     {/* Manage Subscription Button */}
@@ -161,10 +160,9 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
                     </div>
 
                     {/* Plans Comparison */}
-                    <PlanComparison
-                        accountId={accountId}
+                    <PricingSection
                         returnUrl={returnUrl}
-                        className="mb-6"
+                        showTitleAndTabs={false}
                     />
 
                     {/* Manage Subscription Button */}

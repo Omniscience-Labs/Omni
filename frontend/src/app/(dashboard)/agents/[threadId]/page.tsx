@@ -20,8 +20,6 @@ import { Markdown } from '@/components/ui/markdown';
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
-import { SUBSCRIPTION_PLANS } from '@/components/billing/plan-comparison';
-import { createClient } from '@/lib/supabase/client';
 import { isLocalMode } from "@/lib/config";
 
 

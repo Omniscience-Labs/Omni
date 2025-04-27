@@ -116,7 +116,12 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
                 if item.get('price') and item['price'].get('id') in [
                     config.STRIPE_FREE_TIER_ID,
                     config.STRIPE_TIER_2_20_ID,
-                    config.STRIPE_TIER_6_50_ID
+                    config.STRIPE_TIER_6_50_ID,
+                    config.STRIPE_TIER_12_100_ID,
+                    config.STRIPE_TIER_25_200_ID,
+                    config.STRIPE_TIER_50_400_ID,
+                    config.STRIPE_TIER_125_800_ID,
+                    config.STRIPE_TIER_200_1000_ID
                 ]:
                     our_subscriptions.append(sub)
         

@@ -5,7 +5,7 @@ import type { PricingTier } from "@/lib/home";
 import { siteConfig } from "@/lib/home";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckIcon } from "lucide-react";
 import Link from "next/link";
 import {
@@ -62,6 +62,7 @@ interface PricingTierProps {
   onPlanSelect?: (planId: string) => void;
   onSubscriptionUpdate?: () => void;
   isAuthenticated?: boolean;
+  returnUrl: string;
 }
 
 // Components
@@ -156,9 +157,22 @@ function PricingTier({
   selectedPlan,
   onPlanSelect,
   onSubscriptionUpdate,
-  isAuthenticated = false
+  isAuthenticated = false,
+  returnUrl
 }: PricingTierProps) {
   const [localSelectedPlan, setLocalSelectedPlan] = useState(selectedPlan || DEFAULT_SELECTED_PLAN);
+  const hasInitialized = useRef(false);
+
+  // Auto-select the correct plan only on initial load
+  useEffect(() => {
+    if (!hasInitialized.current && tier.name === "Custom" && tier.upgradePlans && currentSubscription?.price_id) {
+      const matchingPlan = tier.upgradePlans.find(plan => plan.stripePriceId === currentSubscription.price_id);
+      if (matchingPlan) {
+        setLocalSelectedPlan(matchingPlan.hours);
+      }
+      hasInitialized.current = true;
+    }
+  }, [currentSubscription, tier.name, tier.upgradePlans]);
 
   // Only refetch when plan is selected
   const handlePlanSelect = (value: string) => {
@@ -192,8 +206,8 @@ function PricingTier({
       
       const response: CreateCheckoutSessionResponse = await createCheckoutSession({
         price_id: finalPriceId,
-        success_url: window.location.href,
-        cancel_url: window.location.href
+        success_url: returnUrl,
+        cancel_url: returnUrl
       });
       
       console.log('Subscription action response:', response);
@@ -311,6 +325,7 @@ function PricingTier({
   let buttonVariant: ButtonVariant = null;
   let ringClass = "";
   let statusBadge = null;
+  let buttonClassName = "";
 
   if (isAuthenticated) {
     if (isCurrentActivePlan) {
@@ -318,8 +333,9 @@ function PricingTier({
       buttonDisabled = true;
       buttonVariant = "secondary";
       ringClass = isCompact ? "ring-1 ring-primary" : "ring-2 ring-primary";
+      buttonClassName = "bg-primary/5 hover:bg-primary/10 text-primary";
       statusBadge = (
-        <span className="bg-secondary/10 text-secondary text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+        <span className="bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5 rounded-full">
           Current
         </span>
       );
@@ -328,6 +344,7 @@ function PricingTier({
       buttonDisabled = true;
       buttonVariant = "outline";
       ringClass = isCompact ? "ring-1 ring-yellow-500" : "ring-2 ring-yellow-500";
+      buttonClassName = "bg-yellow-500/5 hover:bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
       statusBadge = (
         <span className="bg-yellow-500/10 text-yellow-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
           Scheduled
@@ -337,6 +354,7 @@ function PricingTier({
       buttonText = "Change Scheduled";
       buttonVariant = "secondary";
       ringClass = isCompact ? "ring-1 ring-primary" : "ring-2 ring-primary";
+      buttonClassName = "bg-primary/5 hover:bg-primary/10 text-primary";
       statusBadge = (
         <span className="bg-yellow-500/10 text-yellow-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
           Downgrade Pending
@@ -348,7 +366,20 @@ function PricingTier({
         ? tier.upgradePlans.find(p => p.stripePriceId === currentSubscription?.price_id)
         : siteConfig.cloudPricingItems.find(p => p.stripePriceId === currentSubscription?.price_id);
       
-      const currentPriceString = currentSubscription ? (currentTier?.price || '$0') : '$0';
+      // Find the highest active plan from upgradePlans
+      const highestActivePlan = siteConfig.cloudPricingItems.reduce((highest, item) => {
+        if (item.upgradePlans) {
+          const activePlan = item.upgradePlans.find(p => p.stripePriceId === currentSubscription?.price_id);
+          if (activePlan) {
+            const activeAmount = parseFloat(activePlan.price.replace(/[^\d.]/g, '') || '0') * 100;
+            const highestAmount = parseFloat(highest?.price?.replace(/[^\d.]/g, '') || '0') * 100;
+            return activeAmount > highestAmount ? activePlan : highest;
+          }
+        }
+        return highest;
+      }, null as { price: string; hours: string; stripePriceId: string } | null);
+
+      const currentPriceString = currentSubscription ? (highestActivePlan?.price || currentTier?.price || '$0') : '$0';
       const selectedPriceString = getSelectedPlanPrice(tier);
       const currentAmount = currentPriceString === '$0' ? 0 : parseFloat(currentPriceString.replace(/[^\d.]/g, '') || '0') * 100;
       const targetAmount = selectedPriceString === '$0' ? 0 : parseFloat(selectedPriceString.replace(/[^\d.]/g, '') || '0') * 100;
@@ -357,14 +388,29 @@ function PricingTier({
         buttonText = "Select Plan";
         buttonDisabled = true;
         buttonVariant = "secondary";
+        buttonClassName = "bg-primary/5 hover:bg-primary/10 text-primary";
       } else {
         buttonText = targetAmount > currentAmount ? "Upgrade" : "Downgrade";
         buttonVariant = tier.buttonColor as ButtonVariant;
+        buttonClassName = targetAmount > currentAmount 
+          ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
+          : "bg-primary/5 hover:bg-primary/10 text-primary";
       }
     }
 
-    if (isPlanLoading) buttonText = "Loading...";
+    if (isPlanLoading) {
+      buttonText = "Loading...";
+      buttonClassName = "opacity-70 cursor-not-allowed";
+    }
+  } else {
+    // Non-authenticated state styling
+    buttonVariant = tier.buttonColor as ButtonVariant;
+    buttonClassName = tier.buttonColor === "default" 
+      ? "bg-primary hover:bg-primary/90 text-white" 
+      : "bg-secondary hover:bg-secondary/90 text-white";
   }
+
+
 
   return (
     <div
@@ -452,11 +498,12 @@ function PricingTier({
           disabled={buttonDisabled}
           variant={buttonVariant || "default"}
           className={cn(
-            "w-full font-medium transition-colors",
+            "w-full font-medium transition-all duration-200",
             isCompact 
               ? "h-7 rounded-md text-xs" 
               : "h-10 rounded-full text-sm",
-            !isAuthenticated && tier.buttonColor
+            buttonClassName,
+            isPlanLoading && "animate-pulse"
           )}
         >
           {buttonText}
@@ -466,7 +513,15 @@ function PricingTier({
   );
 }
 
-export function PricingSection() {
+interface PricingSectionProps {
+  returnUrl?: string;
+  showTitleAndTabs?: boolean;
+}
+
+export function PricingSection({ 
+  returnUrl = typeof window !== 'undefined' ? window.location.href : '/', 
+  showTitleAndTabs = true 
+}: PricingSectionProps) {
   const [deploymentType, setDeploymentType] = useState<"cloud" | "self-hosted">("cloud");
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
@@ -537,40 +592,45 @@ export function PricingSection() {
       id="pricing"
       className="flex flex-col items-center justify-center gap-10 pb-20 w-full relative"
     >
-      <SectionHeader>
-        <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
-          Choose the right plan for your needs
-        </h2>
-        <p className="text-muted-foreground text-center text-balance font-medium">
-          Start with our free plan or upgrade to a premium plan for more usage hours
-        </p>
-      </SectionHeader>
-      <div className="relative w-full h-full">
-        <div className="absolute -top-14 left-1/2 -translate-x-1/2">
-          <PricingTabs
-            activeTab={deploymentType}
-            setActiveTab={handleTabChange}
-            className="mx-auto"
-          />
-        </div>
-
-        {deploymentType === "cloud" && (
-          <div className="grid min-[650px]:grid-cols-2 min-[900px]:grid-cols-3 gap-4 w-full max-w-6xl mx-auto px-6">
-            {siteConfig.cloudPricingItems.map((tier) => (
-              <PricingTier
-                key={tier.name}
-                tier={tier}
-                currentSubscription={currentSubscription}
-                isLoading={isLoading}
-                isFetchingPlan={isFetchingPlan}
-                onPlanSelect={handlePlanSelect}
-                onSubscriptionUpdate={handleSubscriptionUpdate}
-                isAuthenticated={isAuthenticated}
+      {showTitleAndTabs && (
+        <>
+          <SectionHeader>
+            <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
+              Choose the right plan for your needs
+            </h2>
+            <p className="text-muted-foreground text-center text-balance font-medium">
+              Start with our free plan or upgrade to a premium plan for more usage hours
+            </p>
+          </SectionHeader>
+          <div className="relative w-full h-full">
+            <div className="absolute -top-14 left-1/2 -translate-x-1/2">
+              <PricingTabs
+                activeTab={deploymentType}
+                setActiveTab={handleTabChange}
+                className="mx-auto"
               />
-            ))}
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
+
+      {deploymentType === "cloud" && (
+        <div className="grid min-[650px]:grid-cols-2 min-[900px]:grid-cols-3 gap-4 w-full max-w-6xl mx-auto px-6">
+          {siteConfig.cloudPricingItems.map((tier) => (
+            <PricingTier
+              key={tier.name}
+              tier={tier}
+              currentSubscription={currentSubscription}
+              isLoading={isLoading}
+              isFetchingPlan={isFetchingPlan}
+              onPlanSelect={handlePlanSelect}
+              onSubscriptionUpdate={handleSubscriptionUpdate}
+              isAuthenticated={isAuthenticated}
+              returnUrl={returnUrl}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
