@@ -1,26 +1,60 @@
 FROM python:3.11-slim
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ENV_MODE="production" \
+    PYTHONPATH=/app
+
 WORKDIR /app
-RUN pip install --no-cache-dir gunicorn
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user and set up directories
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appuser /app
 
-# Copy the .env file first
-# COPY .env . # ATTENTION. We shouldn't copy secrets to the image
+# Install Python dependencies
+COPY --chown=appuser:appuser requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Copy the backend code
-COPY . .
+# Switch to non-root user
+USER appuser
 
-# Set environment variable
-ENV PYTHONPATH=/app
-
-
-ENV ENV_MODE="production"
+# Copy application code
+COPY --chown=appuser:appuser . .
 
 # Expose the port the app runs on
 EXPOSE 8000
 
-# 24 workers
-CMD ["gunicorn", "api:app", "--workers", "24", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "600", "--graceful-timeout", "300", "--keep-alive", "250", "--max-requests", "0", "--max-requests-jitter", "0", "--forwarded-allow-ips", "*", "--worker-connections", "5000", "--worker-tmp-dir", "/dev/shm", "--preload"]
+# Calculate optimal worker count based on 16 vCPUs
+# Using (2*CPU)+1 formula for CPU-bound applications
+ENV WORKERS=33
+ENV THREADS=2
+ENV WORKER_CONNECTIONS=2000
+
+# Gunicorn configuration
+CMD ["sh", "-c", "gunicorn api:app \
+     --workers $WORKERS \
+     --worker-class uvicorn.workers.UvicornWorker \
+     --bind 0.0.0.0:8000 \
+     --timeout 600 \
+     --graceful-timeout 300 \
+     --keep-alive 250 \
+     --max-requests 2000 \
+     --max-requests-jitter 400 \
+     --forwarded-allow-ips '*' \
+     --worker-connections $WORKER_CONNECTIONS \
+     --worker-tmp-dir /dev/shm \
+     --preload \
+     --log-level info \
+     --access-logfile - \
+     --error-logfile - \
+     --capture-output \
+     --enable-stdio-inheritance \
+     --threads $THREADS"]
