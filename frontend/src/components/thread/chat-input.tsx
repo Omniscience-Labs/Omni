@@ -29,6 +29,7 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 // Local storage keys
 const STORAGE_KEY_MODEL = 'suna-preferred-model';
+const DEFAULT_MODEL_ID = "sonnet-3.7"; // Define default model ID
 
 interface ChatInputProps {
   onSubmit: (message: string, options?: { model_name?: string; enable_thinking?: boolean }) => void;
@@ -76,7 +77,16 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(({
   const [uncontrolledValue, setUncontrolledValue] = useState('');
   const value = isControlled ? controlledValue : uncontrolledValue;
 
-  const [selectedModel, setSelectedModel] = useState("sonnet-3.7");
+  // Define model options array earlier so it can be used in useEffect
+  const modelOptions = [
+    { id: "sonnet-3.7", label: "Sonnet 3.7" },
+    { id: "sonnet-3.7-thinking", label: "Sonnet 3.7 (Thinking)" },
+    { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "gemini-flash-2.5", label: "Gemini Flash 2.5" }
+  ];
+
+  // Initialize state with the default model
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -94,8 +104,13 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(({
     if (typeof window !== 'undefined') {
       try {
         const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
-        if (savedModel) {
+        // Check if the saved model exists and is one of the valid options
+        if (savedModel && modelOptions.some(option => option.id === savedModel)) {
           setSelectedModel(savedModel);
+        } else if (savedModel) {
+          // If invalid model found in storage, clear it
+          localStorage.removeItem(STORAGE_KEY_MODEL);
+          console.log(`Removed invalid model '${savedModel}' from localStorage. Using default: ${DEFAULT_MODEL_ID}`);
         }
       } catch (error) {
         console.warn('Failed to load preferences from localStorage:', error);
@@ -154,8 +169,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(({
     
     let baseModelName = selectedModel;
     let thinkingEnabled = false;
-    if (selectedModel === "sonnet-3.7-thinking") {
-      baseModelName = "sonnet-3.7";
+    if (selectedModel.endsWith("-thinking")) {
+      baseModelName = selectedModel.replace(/-thinking$/, "");
       thinkingEnabled = true;
     }
     
@@ -332,13 +347,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(({
   const removeUploadedFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
-
-  const modelOptions = [
-    { id: "sonnet-3.7", label: "Sonnet 3.7" },
-    { id: "sonnet-3.7-thinking", label: "Sonnet 3.7 (Thinking)" },
-    { id: "gpt-4.1", label: "GPT-4.1" },
-    { id: "gemini-flash-2.5", label: "Gemini Flash 2.5" }
-  ];
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-4">

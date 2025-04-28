@@ -32,7 +32,7 @@ function DashboardContent() {
   const personalAccount = accounts?.find(account => account.personal_account);
   const chatInputRef = useRef<ChatInputHandles>(null);
 
-  const handleSubmit = async (message: string, options?: { model_name?: string; enable_thinking?: boolean }) => {
+  const handleSubmit = async (message: string, options?: { model_name?: string; enable_thinking?: boolean; reasoning_effort?: string; stream?: boolean; enable_context_manager?: boolean }) => {
     if ((!message.trim() && !(chatInputRef.current?.getPendingFiles().length)) || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -42,85 +42,73 @@ function DashboardContent() {
       localStorage.removeItem(PENDING_PROMPT_KEY);
 
       if (files.length > 0) {
-        // Create a FormData instance
+        // ---- Handle submission WITH files ----
+        console.log(`Submitting with message: "${message}" and ${files.length} files.`);
         const formData = new FormData();
 
-        // Append the message
-        formData.append('message', message);
+        // Use 'prompt' key instead of 'message'
+        formData.append('prompt', message);
 
-        // Append all files
-        files.forEach(file => {
-          formData.append('files', file);
+        // Append files
+        files.forEach((file, index) => {
+          formData.append('files', file, file.name);
         });
 
-        // Add any additional options
-        if (options) {
-          formData.append('options', JSON.stringify(options));
-        }
+        // Append options individually instead of bundled 'options' field
+        if (options?.model_name) formData.append('model_name', options.model_name);
+        // Default values from backend signature if not provided in options:
+        formData.append('enable_thinking', String(options?.enable_thinking ?? false));
+        formData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
+        formData.append('stream', String(options?.stream ?? true));
+        formData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 
-        // Call initiateAgent API
+        console.log('FormData content:', Array.from(formData.entries()));
+
         const result = await initiateAgent(formData);
         console.log('Agent initiated with files:', result);
 
-        // Navigate to the thread
         if (result.thread_id) {
           router.push(`/agents/${result.thread_id}`);
+        } else {
+          throw new Error("Agent initiation did not return a thread_id.");
         }
+        chatInputRef.current?.clearPendingFiles();
+
       } else {
-        // ---- Text-only messages ----
-        // 1. Generate a project name
+        // ---- Handle text-only messages (NO CHANGES NEEDED HERE) ----
+        console.log(`Submitting text-only message: "${message}"`);
         const projectName = await generateThreadName(message);
-
-        // 2. Create the project
-        // Assuming createProject gets the account_id from the logged-in user
-        const newProject = await createProject({
-          name: projectName,
-          description: "", // Or derive a description if desired
-        });
-
-        // 3. Create the thread using the new project ID
-        const thread = await createThread(newProject.id); // <-- Pass the actual project ID
-
-        // 4. Then add the user message
+        const newProject = await createProject({ name: projectName, description: "" });
+        const thread = await createThread(newProject.id);
         await addUserMessage(thread.thread_id, message);
-
-        // 5. Start the agent on this thread with the options
-        await startAgent(thread.thread_id, options);
-
-        // 6. Navigate to thread
+        await startAgent(thread.thread_id, options); // Pass original options here
         router.push(`/agents/${thread.thread_id}`);
       }
     } catch (error: any) {
-      console.error('Error during submission process:', error);
+        console.error('Error during submission process:', error);
+        if (error instanceof BillingError) {
+             // Delegate billing error handling
+             console.log("Handling BillingError:", error.detail);
+             handleBillingError({
+                message: error.detail.message || 'Monthly usage limit reached. Please upgrade your plan.',
+                currentUsage: error.detail.currentUsage as number | undefined,
+                limit: error.detail.limit as number | undefined,
+                subscription: error.detail.subscription || {
+                    price_id: config.SUBSCRIPTION_TIERS.FREE.priceId,
+                    plan_name: "Free"
+                }
+             });
+             setIsSubmitting(false);
+             return; // Stop further processing for billing errors
+        }
 
-      // Check specifically for BillingError (402)
-      if (error instanceof BillingError) {
-        console.log("Handling BillingError:", error.detail);
-        handleBillingError({
-          // Pass details from the BillingError instance
-          message: error.detail.message || 'Monthly usage limit reached. Please upgrade your plan.',
-          currentUsage: error.detail.currentUsage as number | undefined, // Attempt to get usage/limit if backend adds them
-          limit: error.detail.limit as number | undefined,
-          // Include subscription details if available in the error, otherwise provide defaults
-          subscription: error.detail.subscription || {
-            price_id: config.SUBSCRIPTION_TIERS.FREE.priceId, // Default to Free tier
-            plan_name: "Free"
-          }
-        });
-        // Don't show toast for billing errors, the modal handles it
-        setIsSubmitting(false);
-        return; // Stop execution
-      }
-      
-      // Handle other types of errors (e.g., network, other API errors)
-      // Skip toast in local mode unless it's a connection error
-      const isConnectionError = error instanceof TypeError && error.message.includes('Failed to fetch');
-      if (!isLocalMode() || isConnectionError) {
-         toast.error(error.message || "An unexpected error occurred");
-      }
-       setIsSubmitting(false); // Reset submitting state on other errors too
+        // Handle other errors
+        const isConnectionError = error instanceof TypeError && error.message.includes('Failed to fetch');
+        if (!isLocalMode() || isConnectionError) {
+           toast.error(error.message || "An unexpected error occurred");
+        }
+        setIsSubmitting(false); // Reset submitting state on all errors
     }
-    // No finally block needed, state is reset in catch blocks
   };
 
   // Check for pending prompt in localStorage on mount
