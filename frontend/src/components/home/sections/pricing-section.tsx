@@ -236,13 +236,11 @@ function PricingTier({
             ? new Date(response.effective_date).toLocaleDateString() 
             : 'the end of your billing period';
           
-          const downgradeMessage = response.details?.is_upgrade === false
-            ? `Subscription downgrade scheduled from $${response.details.current_price} to $${response.details.new_price}`
-            : 'Subscription change scheduled';
+          const statusChangeMessage = 'Subscription change scheduled';
           
           toast.success(
             <div>
-              <p>{downgradeMessage}</p>
+              <p>{statusChangeMessage}</p>
               <p className="text-sm mt-1">
                 Your plan will change on {effectiveDate}.
               </p>
@@ -390,11 +388,20 @@ function PricingTier({
         buttonVariant = "secondary";
         buttonClassName = "bg-primary/5 hover:bg-primary/10 text-primary";
       } else {
-        buttonText = targetAmount > currentAmount ? "Upgrade" : "Downgrade";
-        buttonVariant = tier.buttonColor as ButtonVariant;
-        buttonClassName = targetAmount > currentAmount 
-          ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
-          : "bg-primary/5 hover:bg-primary/10 text-primary";
+        if (targetAmount > currentAmount) {
+          buttonText = "Upgrade";
+          buttonVariant = tier.buttonColor as ButtonVariant;
+          buttonClassName = "bg-primary hover:bg-primary/90 text-primary-foreground";
+        } else if (targetAmount < currentAmount) {
+          buttonText = "-";
+          buttonDisabled = true;
+          buttonVariant = "secondary";
+          buttonClassName = "opacity-50 cursor-not-allowed bg-muted text-muted-foreground";
+        } else {
+          buttonText = "Select Plan";
+          buttonVariant = tier.buttonColor as ButtonVariant;
+          buttonClassName = "bg-primary hover:bg-primary/90 text-primary-foreground";
+        }
       }
     }
 
@@ -409,8 +416,6 @@ function PricingTier({
       ? "bg-primary hover:bg-primary/90 text-white" 
       : "bg-secondary hover:bg-secondary/90 text-white";
   }
-
-
 
   return (
     <div
