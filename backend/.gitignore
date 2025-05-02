@@ -173,3 +173,5 @@ state.json
 
 # SQLite
 *.db
+
+.env.scripts
