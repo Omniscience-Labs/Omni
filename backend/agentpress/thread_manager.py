@@ -260,24 +260,24 @@ Here are the XML tools available with examples:
                     token_threshold = self.context_manager.token_threshold
                     logger.info(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
                     
-                    if token_count >= token_threshold and enable_context_manager:
-                        logger.info(f"Thread token count ({token_count}) exceeds threshold ({token_threshold}), summarizing...")
-                        summarized = await self.context_manager.check_and_summarize_if_needed(
-                            thread_id=thread_id,
-                            add_message_callback=self.add_message,
-                            model=llm_model,
-                            force=True
-                        )
-                        if summarized:
-                            logger.info("Summarization complete, fetching updated messages with summary")
-                            messages = await self.get_llm_messages(thread_id)
-                            # Recount tokens after summarization, using the modified prompt
-                            new_token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages) 
-                            logger.info(f"After summarization: token count reduced from {token_count} to {new_token_count}")
-                        else:
-                            logger.warning("Summarization failed or wasn't needed - proceeding with original messages")
-                    elif not enable_context_manager: # Added condition for clarity
-                        logger.info("Automatic summarization disabled. Skipping token count check and summarization.")
+                    # if token_count >= token_threshold and enable_context_manager:
+                    #     logger.info(f"Thread token count ({token_count}) exceeds threshold ({token_threshold}), summarizing...")
+                    #     summarized = await self.context_manager.check_and_summarize_if_needed(
+                    #         thread_id=thread_id,
+                    #         add_message_callback=self.add_message,
+                    #         model=llm_model,
+                    #         force=True
+                    #     )
+                    #     if summarized:
+                    #         logger.info("Summarization complete, fetching updated messages with summary")
+                    #         messages = await self.get_llm_messages(thread_id)
+                    #         # Recount tokens after summarization, using the modified prompt
+                    #         new_token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages) 
+                    #         logger.info(f"After summarization: token count reduced from {token_count} to {new_token_count}")
+                    #     else:
+                    #         logger.warning("Summarization failed or wasn't needed - proceeding with original messages")
+                    # elif not enable_context_manager: 
+                    #     logger.info("Automatic summarization disabled. Skipping token count check and summarization.")
 
                 except Exception as e:
                     logger.error(f"Error counting tokens or summarizing: {str(e)}")
@@ -305,19 +305,13 @@ Here are the XML tools available with examples:
                         prepared_messages.append(temp_msg)
                         logger.debug("Added temporary message to the end of prepared messages")
 
-                # 4. Create or use processor config - this is now redundant since we handle it above
-                # but kept for consistency and clarity
-                logger.debug(f"Processor config: XML={processor_config.xml_tool_calling}, Native={processor_config.native_tool_calling}, " 
-                       f"Execute tools={processor_config.execute_tools}, Strategy={processor_config.tool_execution_strategy}, "
-                       f"XML limit={processor_config.max_xml_tool_calls}")
-
-                # 5. Prepare tools for LLM call
+                # 4. Prepare tools for LLM call
                 openapi_tool_schemas = None
                 if processor_config.native_tool_calling:
                     openapi_tool_schemas = self.tool_registry.get_openapi_schemas()
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
-                # 6. Make LLM API call
+                # 5. Make LLM API call
                 logger.debug("Making LLM API call")
                 try:
                     llm_response = await make_llm_api_call(
@@ -337,7 +331,7 @@ Here are the XML tools available with examples:
                     logger.error(f"Failed to make LLM API call: {str(e)}", exc_info=True)
                     raise
 
-                # 7. Process LLM response using the ResponseProcessor
+                # 6. Process LLM response using the ResponseProcessor
                 if stream:
                     logger.debug("Processing streaming response")
                     response_generator = self.response_processor.process_streaming_response(
