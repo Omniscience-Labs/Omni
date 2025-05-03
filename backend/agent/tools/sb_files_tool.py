@@ -68,11 +68,11 @@ class SandboxFilesTool(SandboxToolsBase):
             return {}
 
 
-    def _get_preview_url(self, file_path: str) -> Optional[str]:
-        """Get the preview URL for a file if it's an HTML file."""
-        if file_path.lower().endswith('.html') and self._sandbox_url:
-            return f"{self._sandbox_url}/{(file_path.replace('/workspace/', ''))}"
-        return None
+    # def _get_preview_url(self, file_path: str) -> Optional[str]:
+    #     """Get the preview URL for a file if it's an HTML file."""
+    #     if file_path.lower().endswith('.html') and self._sandbox_url:
+    #         return f"{self._sandbox_url}/{(file_path.replace('/workspace/', ''))}"
+    #     return None
 
     @openapi_schema({
         "type": "function",
@@ -132,10 +132,10 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
             # Get preview URL if it's an HTML file
-            preview_url = self._get_preview_url(file_path)
+            # preview_url = self._get_preview_url(file_path)
             message = f"File '{file_path}' created successfully."
-            if preview_url:
-                message += f"\n\nYou can preview this HTML file at the automatically served HTTP server: {preview_url}"
+            # if preview_url:
+            #     message += f"\n\nYou can preview this HTML file at the automatically served HTTP server: {preview_url}"
             
             return self.success_response(message)
         except Exception as e:
@@ -212,10 +212,10 @@ class SandboxFilesTool(SandboxToolsBase):
             snippet = '\n'.join(new_content.split('\n')[start_line:end_line + 1])
             
             # Get preview URL if it's an HTML file
-            preview_url = self._get_preview_url(file_path)
+            # preview_url = self._get_preview_url(file_path)
             message = f"Replacement successful."
-            if preview_url:
-                message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            # if preview_url:
+            #     message += f"\n\nYou can preview this HTML file at: {preview_url}"
             
             return self.success_response(message)
             
@@ -277,10 +277,10 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
             # Get preview URL if it's an HTML file
-            preview_url = self._get_preview_url(file_path)
+            # preview_url = self._get_preview_url(file_path)
             message = f"File '{file_path}' completely rewritten successfully."
-            if preview_url:
-                message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            # if preview_url:
+            #     message += f"\n\nYou can preview this HTML file at: {preview_url}"
             
             return self.success_response(message)
         except Exception as e:
