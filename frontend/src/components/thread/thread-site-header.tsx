@@ -237,6 +237,7 @@ export function SiteHeader({
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         threadId={threadId}
+        projectId={projectId}
       />
     </>
   )

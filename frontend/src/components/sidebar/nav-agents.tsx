@@ -54,7 +54,7 @@ export function NavAgents() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
+  const [selectedItem, setSelectedItem] = useState<{ threadId: string, projectId: string } | null>(null)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -284,11 +284,11 @@ export function NavAgents() {
                         align={isMobile ? "end" : "start"}
                       >
                         <DropdownMenuItem onClick={() => {
-                          setSelectedThreadId(thread?.threadId)
+                          setSelectedItem({ threadId: thread?.threadId, projectId: thread?.projectId })
                           setShowShareModal(true)
                         }}>
                           <Share2 className="text-muted-foreground" />
-                          <span>Share</span>
+                          <span>Share Chat</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <a href={thread.url} target="_blank" rel="noopener noreferrer">
@@ -321,7 +321,8 @@ export function NavAgents() {
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        threadId={selectedThreadId}
+        threadId={selectedItem?.threadId}
+        projectId={selectedItem?.projectId}
       />
     </SidebarGroup>
   )

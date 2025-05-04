@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { X, Copy, Share2, Link, Link2Off, Check } from "lucide-react";
 import { toast } from "sonner";
-import { getThread, toggleThreadPublicStatus } from "@/lib/api";
+import { getThread, updateProject, updateThread } from "@/lib/api";
 
 interface SocialShareOption {
     name: string;
@@ -19,9 +19,10 @@ interface ShareModalProps {
     isOpen: boolean;
     onClose: () => void;
     threadId?: string;
+    projectId?: string;
 }
 
-export function ShareModal({ isOpen, onClose, threadId }: ShareModalProps) {
+export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalProps) {
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
@@ -67,7 +68,7 @@ export function ShareModal({ isOpen, onClose, threadId }: ShareModalProps) {
 
         try {
             // Use the API to mark the thread as public
-            await toggleThreadPublicStatus(threadId, true);
+            await updatePublicStatus(true);
             const generatedLink = generateShareLink();
             setShareLink(generatedLink);
             toast.success("Shareable link created successfully");
@@ -86,7 +87,7 @@ export function ShareModal({ isOpen, onClose, threadId }: ShareModalProps) {
 
         try {
             // Use the API to mark the thread as private
-            await toggleThreadPublicStatus(threadId, false);
+            await updatePublicStatus(false);
             setShareLink(null);
             toast.success("Shareable link removed");
         } catch (error) {
@@ -95,6 +96,13 @@ export function ShareModal({ isOpen, onClose, threadId }: ShareModalProps) {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const updatePublicStatus = async (isPublic: boolean) => {
+        console.log("Updating public status for thread:", threadId, "and project:", projectId, "to", isPublic);
+        if (!threadId) return;
+        await updateProject(projectId, { is_public: isPublic });
+        await updateThread(threadId, { is_public: isPublic });
     };
 
     const copyToClipboard = () => {

@@ -1048,10 +1048,6 @@ export const updateThread = async (threadId: string, data: Partial<Thread>): Pro
   return updatedThread;
 };
 
-export const toggleThreadPublicStatus = async (threadId: string, isPublic: boolean): Promise<Thread> => {
-  return updateThread(threadId, { is_public: isPublic });
-};
-
 // Function to get public projects
 export const getPublicProjects = async (): Promise<Project[]> => {
   try {
