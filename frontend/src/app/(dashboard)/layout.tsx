@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { checkApiHealth } from "@/lib/api"
 import { MaintenancePage } from "@/components/maintenance/maintenance-page"
+import { DeleteOperationProvider } from "@/contexts/DeleteOperationContext"
+import { StatusOverlay } from "@/components/ui/status-overlay"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -83,26 +85,31 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <SidebarLeft />
-      <SidebarInset>
-        <div className="bg-background">
-          {children}
-        </div>
-      </SidebarInset>
-      
-      {/* <PricingAlert 
-        open={showPricingAlert} 
-        onOpenChange={setShowPricingAlert}
-        closeable={false}
-        accountId={personalAccount?.account_id}
-        /> */}
-      
-      <MaintenanceAlert
-        open={showMaintenanceAlert}
-        onOpenChange={setShowMaintenanceAlert}
-        closeable={true}
-      />
-    </SidebarProvider>
+    <DeleteOperationProvider>
+      <SidebarProvider>
+        <SidebarLeft />
+        <SidebarInset>
+          <div className="bg-background">
+            {children}
+          </div>
+        </SidebarInset>
+        
+        {/* <PricingAlert 
+          open={showPricingAlert} 
+          onOpenChange={setShowPricingAlert}
+          closeable={false}
+          accountId={personalAccount?.account_id}
+          /> */}
+        
+        <MaintenanceAlert
+          open={showMaintenanceAlert}
+          onOpenChange={setShowMaintenanceAlert}
+          closeable={true}
+        />
+        
+        {/* Status overlay for deletion operations */}
+        <StatusOverlay />
+      </SidebarProvider>
+    </DeleteOperationProvider>
   )
 }
