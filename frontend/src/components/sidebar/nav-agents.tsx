@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef } from 'react';
 import {
   ArrowUpRight,
   Link as LinkIcon,
@@ -32,12 +32,12 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-import { getProjects, getThreads, Project, deleteThread } from "@/lib/api"
-import Link from "next/link"
-import { DeleteConfirmationDialog } from "@/components/thread/DeleteConfirmationDialog"
-import { useDeleteOperation } from '@/contexts/DeleteOperationContext'
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { getProjects, getThreads, Project, deleteThread } from '@/lib/api';
+import Link from 'next/link';
+import { DeleteConfirmationDialog } from '@/components/thread/DeleteConfirmationDialog';
+import { useDeleteOperation } from '@/contexts/DeleteOperationContext';
 
 // Thread with associated project info for display in sidebar
 type ThreadWithProject = {
@@ -49,16 +49,19 @@ type ThreadWithProject = {
 };
 
 export function NavAgents() {
-  const { isMobile, state } = useSidebar()
-  const [threads, setThreads] = useState<ThreadWithProject[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null)
-  const pathname = usePathname()
-  const router = useRouter()
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [threadToDelete, setThreadToDelete] = useState<{ id: string; name: string } | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const isNavigatingRef = useRef(false)
+  const { isMobile, state } = useSidebar();
+  const [threads, setThreads] = useState<ThreadWithProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [threadToDelete, setThreadToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isNavigatingRef = useRef(false);
   const { performDelete, isOperationInProgress } = useDeleteOperation();
   const isPerformingActionRef = useRef(false);
 
@@ -209,33 +212,37 @@ export function NavAgents() {
   // Add event handler for completed navigation
   useEffect(() => {
     const handleNavigationComplete = () => {
-      console.log("NAVIGATION - Navigation event completed");
-      document.body.style.pointerEvents = "auto";
+      console.log('NAVIGATION - Navigation event completed');
+      document.body.style.pointerEvents = 'auto';
       isNavigatingRef.current = false;
     };
-    
-    window.addEventListener("popstate", handleNavigationComplete);
-    
+
+    window.addEventListener('popstate', handleNavigationComplete);
+
     return () => {
-      window.removeEventListener("popstate", handleNavigationComplete);
+      window.removeEventListener('popstate', handleNavigationComplete);
       // Ensure we clean up any leftover styles
-      document.body.style.pointerEvents = "auto"; 
+      document.body.style.pointerEvents = 'auto';
     };
   }, []);
-  
+
   // Reset isNavigatingRef when pathname changes
   useEffect(() => {
     isNavigatingRef.current = false;
-    document.body.style.pointerEvents = "auto";
+    document.body.style.pointerEvents = 'auto';
   }, [pathname]);
 
   // Function to handle thread click with loading state
-  const handleThreadClick = (e: React.MouseEvent<HTMLAnchorElement>, threadId: string, url: string) => {
-    e.preventDefault()
-    setLoadingThreadId(threadId)
-    router.push(url)
-  }
-  
+  const handleThreadClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    threadId: string,
+    url: string,
+  ) => {
+    e.preventDefault();
+    setLoadingThreadId(threadId);
+    router.push(url);
+  };
+
   // Function to handle thread deletion
   const handleDeleteThread = async (threadId: string, threadName: string) => {
     setThreadToDelete({ id: threadId, name: threadName });
@@ -244,25 +251,25 @@ export function NavAgents() {
 
   const confirmDelete = async () => {
     if (!threadToDelete || isPerformingActionRef.current) return;
-    
+
     // Mark action in progress
     isPerformingActionRef.current = true;
-    
+
     // Close dialog first for immediate feedback
     setIsDeleteDialogOpen(false);
-    
+
     const threadId = threadToDelete.id;
     const isActive = pathname?.includes(threadId);
-    
+
     // Store threadToDelete in a local variable since it might be cleared
     const deletedThread = { ...threadToDelete };
-    
+
     // Log operation start
-    console.log("DELETION - Starting thread deletion process", {
+    console.log('DELETION - Starting thread deletion process', {
       threadId: deletedThread.id,
-      isCurrentThread: isActive
+      isCurrentThread: isActive,
     });
-    
+
     // Use the centralized deletion system with completion callback
     await performDelete(
       threadId,
@@ -270,19 +277,19 @@ export function NavAgents() {
       async () => {
         // Delete the thread
         await deleteThread(threadId);
-        
+
         // Update the thread list
-        setThreads(prev => prev.filter(t => t.threadId !== threadId));
-        
+        setThreads((prev) => prev.filter((t) => t.threadId !== threadId));
+
         // Show success message
-        toast.success("Conversation deleted successfully");
+        toast.success('Conversation deleted successfully');
       },
       // Completion callback to reset local state
       () => {
         setThreadToDelete(null);
         setIsDeleting(false);
         isPerformingActionRef.current = false;
-      }
+      },
     );
   };
 
@@ -428,7 +435,14 @@ export function NavAgents() {
                           </a>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteThread(thread.threadId, thread.projectName)}>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleDeleteThread(
+                              thread.threadId,
+                              thread.projectName,
+                            )
+                          }
+                        >
                           <Trash2 className="text-muted-foreground" />
                           <span>Delete</span>
                         </DropdownMenuItem>

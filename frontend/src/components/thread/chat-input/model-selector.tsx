@@ -46,7 +46,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       case 'base-only':
         return {
           icon: <Crown className="h-3 w-3 text-blue-500" />,
-          tooltip: 'Requires Base plan or higher',
+          tooltip: 'Requires Pro plan or higher',
         };
       case 'extra-only':
         return {

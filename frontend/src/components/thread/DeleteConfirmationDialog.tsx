@@ -1,7 +1,7 @@
-"use client"
+'use client';
 
-import React from "react"
-import { Loader2 } from "lucide-react"
+import React from 'react';
+import { Loader2 } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -12,14 +12,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 
 interface DeleteConfirmationDialogProps {
-  isOpen: boolean
-  onClose: () => void
-  onConfirm: () => void
-  threadName: string
-  isDeleting: boolean
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  threadName: string;
+  isDeleting: boolean;
 }
 
 /**
@@ -38,7 +38,7 @@ export function DeleteConfirmationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete conversation</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the conversation{" "}
+            Are you sure you want to delete the conversation{' '}
             <span className="font-semibold">"{threadName}"</span>?
             <br />
             This action cannot be undone.
@@ -48,8 +48,8 @@ export function DeleteConfirmationDialog({
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
-              e.preventDefault()
-              onConfirm()
+              e.preventDefault();
+              onConfirm();
             }}
             disabled={isDeleting}
             className="bg-destructive text-white hover:bg-destructive/90"
@@ -60,11 +60,11 @@ export function DeleteConfirmationDialog({
                 Deleting...
               </>
             ) : (
-              "Delete"
+              'Delete'
             )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
-} 
+  );
+}
