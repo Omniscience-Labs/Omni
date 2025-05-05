@@ -236,6 +236,7 @@ export const getProject = async (projectId: string): Promise<Project> => {
       name: data.name || '',
       description: data.description || '',
       account_id: data.account_id,
+      is_public: data.is_public || false,
       created_at: data.created_at,
       sandbox: data.sandbox || {
         id: '',

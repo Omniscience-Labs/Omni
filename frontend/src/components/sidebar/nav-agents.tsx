@@ -9,9 +9,10 @@ import {
   Plus,
   MessagesSquare,
   Loader2,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { usePathname, useRouter } from 'next/navigation';
+  Share2
+} from "lucide-react"
+import { toast } from "sonner"
+import { usePathname, useRouter } from "next/navigation"
 
 import {
   DropdownMenu,
@@ -32,12 +33,13 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { getProjects, getThreads, Project, deleteThread } from '@/lib/api';
-import Link from 'next/link';
-import { DeleteConfirmationDialog } from '@/components/thread/DeleteConfirmationDialog';
-import { useDeleteOperation } from '@/contexts/DeleteOperationContext';
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import { getProjects, getThreads, Project, deleteThread } from "@/lib/api"
+import Link from "next/link"
+import { ShareModal } from "./share-modal"
+import { DeleteConfirmationDialog } from "@/components/thread/DeleteConfirmationDialog"
+import { useDeleteOperation } from '@/contexts/DeleteOperationContext'
 
 // Thread with associated project info for display in sidebar
 type ThreadWithProject = {
@@ -49,19 +51,18 @@ type ThreadWithProject = {
 };
 
 export function NavAgents() {
-  const { isMobile, state } = useSidebar();
-  const [threads, setThreads] = useState<ThreadWithProject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null);
-  const pathname = usePathname();
-  const router = useRouter();
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [threadToDelete, setThreadToDelete] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const isNavigatingRef = useRef(false);
+  const { isMobile, state } = useSidebar()
+  const [threads, setThreads] = useState<ThreadWithProject[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<{ threadId: string, projectId: string } | null>(null)
+  const pathname = usePathname()
+  const router = useRouter()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [threadToDelete, setThreadToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const isNavigatingRef = useRef(false)
   const { performDelete, isOperationInProgress } = useDeleteOperation();
   const isPerformingActionRef = useRef(false);
 
@@ -82,12 +83,8 @@ export function NavAgents() {
       }
 
       // Get all projects
-      const projects = (await getProjects()) as Project[];
-      console.log(
-        'Projects loaded:',
-        projects.length,
-        projects.map((p) => ({ id: p.id, name: p.name })),
-      );
+      const projects = await getProjects() as Project[]
+      console.log("Projects loaded:", projects.length, projects.map(p => ({ id: p.id, name: p.name })));
 
       // If no projects are found, the user might not be logged in
       if (projects.length === 0) {
@@ -102,15 +99,8 @@ export function NavAgents() {
       });
 
       // Get all threads at once
-      const allThreads = await getThreads();
-      console.log(
-        'Threads loaded:',
-        allThreads.length,
-        allThreads.map((t) => ({
-          thread_id: t.thread_id,
-          project_id: t.project_id,
-        })),
-      );
+      const allThreads = await getThreads()
+      console.log("Threads loaded:", allThreads.length, allThreads.map(t => ({ thread_id: t.thread_id, project_id: t.project_id })));
 
       // Create display objects for threads with their project info
       const threadsWithProjects: ThreadWithProject[] = [];
@@ -129,9 +119,7 @@ export function NavAgents() {
           continue;
         }
 
-        console.log(
-          `✅ Thread ${thread.thread_id} matched with project "${project.name}" (${projectId})`,
-        );
+        console.log(`✅ Thread ${thread.thread_id} matched with project "${project.name}" (${projectId})`);
 
         // Add to our list
         threadsWithProjects.push({
@@ -170,14 +158,14 @@ export function NavAgents() {
         const { projectId, updatedData } = customEvent.detail;
 
         // Update just the name for the threads with the matching project ID
-        setThreads((prevThreads) => {
-          const updatedThreads = prevThreads.map((thread) =>
+        setThreads(prevThreads => {
+          const updatedThreads = prevThreads.map(thread =>
             thread.projectId === projectId
               ? {
-                  ...thread,
-                  projectName: updatedData.name,
-                }
-              : thread,
+                ...thread,
+                projectName: updatedData.name,
+              }
+              : thread
           );
 
           // Return the threads without re-sorting immediately
@@ -190,10 +178,7 @@ export function NavAgents() {
     };
 
     // Add event listener
-    window.addEventListener(
-      'project-updated',
-      handleProjectUpdate as EventListener,
-    );
+    window.addEventListener('project-updated', handleProjectUpdate as EventListener);
 
     // Cleanup
     return () => {
@@ -217,12 +202,12 @@ export function NavAgents() {
       isNavigatingRef.current = false;
     };
 
-    window.addEventListener('popstate', handleNavigationComplete);
+    window.addEventListener("popstate", handleNavigationComplete);
 
     return () => {
       window.removeEventListener('popstate', handleNavigationComplete);
       // Ensure we clean up any leftover styles
-      document.body.style.pointerEvents = 'auto';
+      document.body.style.pointerEvents = "auto";
     };
   }, []);
 
@@ -233,15 +218,11 @@ export function NavAgents() {
   }, [pathname]);
 
   // Function to handle thread click with loading state
-  const handleThreadClick = (
-    e: React.MouseEvent<HTMLAnchorElement>,
-    threadId: string,
-    url: string,
-  ) => {
-    e.preventDefault();
-    setLoadingThreadId(threadId);
-    router.push(url);
-  };
+  const handleThreadClick = (e: React.MouseEvent<HTMLAnchorElement>, threadId: string, url: string) => {
+    e.preventDefault()
+    setLoadingThreadId(threadId)
+    router.push(url)
+  }
 
   // Function to handle thread deletion
   const handleDeleteThread = async (threadId: string, threadName: string) => {
@@ -279,7 +260,7 @@ export function NavAgents() {
         await deleteThread(threadId);
 
         // Update the thread list
-        setThreads((prev) => prev.filter((t) => t.threadId !== threadId));
+        setThreads(prev => prev.filter(t => t.threadId !== threadId));
 
         // Show success message
         toast.success('Conversation deleted successfully');
@@ -413,16 +394,12 @@ export function NavAgents() {
                         side={isMobile ? 'bottom' : 'right'}
                         align={isMobile ? 'end' : 'start'}
                       >
-                        <DropdownMenuItem
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              window.location.origin + thread.url,
-                            );
-                            toast.success('Link copied to clipboard');
-                          }}
-                        >
-                          <LinkIcon className="text-muted-foreground" />
-                          <span>Copy Link</span>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedItem({ threadId: thread?.threadId, projectId: thread?.projectId })
+                          setShowShareModal(true)
+                        }}>
+                          <Share2 className="text-muted-foreground" />
+                          <span>Share Chat</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <a
@@ -463,6 +440,12 @@ export function NavAgents() {
           </SidebarMenuItem>
         )}
       </SidebarMenu>
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        threadId={selectedItem?.threadId}
+        projectId={selectedItem?.projectId}
+      />
 
       {threadToDelete && (
         <DeleteConfirmationDialog
