@@ -18,6 +18,7 @@ from agent.run import run_agent
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
 from utils.logger import logger
 from services.billing import check_billing_status
+from utils.config import config
 from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 
@@ -31,17 +32,32 @@ instance_id = None # Global instance ID for this backend instance
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
 MODEL_NAME_ALIASES = {
+    # Short names to full names
     "sonnet-3.7": "anthropic/claude-3-7-sonnet-latest",
     "gpt-4.1": "openai/gpt-4.1-2025-04-14",
+    "gpt-4o": "openai/gpt-4o",
+    "gpt-4-turbo": "openai/gpt-4-turbo",
+    "gpt-4": "openai/gpt-4",
     "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview",
     "grok-3": "xai/grok-3-fast-latest",
     "deepseek": "deepseek/deepseek-chat",
     "grok-3-mini": "xai/grok-3-mini-fast-beta",
     "qwen3-4b": "openrouter/qwen/qwen3-4b:free", 
+
+    # Also include full names as keys to ensure they map to themselves
+    "anthropic/claude-3-7-sonnet-latest": "anthropic/claude-3-7-sonnet-latest",
+    "openai/gpt-4.1-2025-04-14": "openai/gpt-4.1-2025-04-14",
+    "openai/gpt-4o": "openai/gpt-4o",
+    "openai/gpt-4-turbo": "openai/gpt-4-turbo",
+    "openai/gpt-4": "openai/gpt-4",
+    "openrouter/google/gemini-2.5-flash-preview": "openrouter/google/gemini-2.5-flash-preview",
+    "xai/grok-3-fast-latest": "xai/grok-3-fast-latest",
+    "deepseek/deepseek-chat": "deepseek/deepseek-chat",
+    "xai/grok-3-mini-fast-beta": "xai/grok-3-mini-fast-beta",
 }
 
 class AgentStartRequest(BaseModel):
-    model_name: Optional[str] = "anthropic/claude-3-7-sonnet-latest"
+    model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     stream: Optional[bool] = True
@@ -236,27 +252,27 @@ async def restore_running_agent_runs():
     for run in running_agent_runs.data:
         agent_run_id = run['id']
         logger.warning(f"Found running agent run {agent_run_id} from before server restart")
-        
+
         # Clean up Redis resources for this run
         try:
             # Clean up active run key
             active_run_key = f"active_run:{instance_id}:{agent_run_id}"
             await redis.delete(active_run_key)
-            
+
             # Clean up response list
             response_list_key = f"agent_run:{agent_run_id}:responses"
             await redis.delete(response_list_key)
-            
+
             # Clean up control channels
             control_channel = f"agent_run:{agent_run_id}:control"
             instance_control_channel = f"agent_run:{agent_run_id}:control:{instance_id}"
             await redis.delete(control_channel)
             await redis.delete(instance_control_channel)
-            
+
             logger.info(f"Cleaned up Redis resources for agent run {agent_run_id}")
         except Exception as e:
             logger.error(f"Error cleaning up Redis resources for agent run {agent_run_id}: {e}")
-        
+
         # Call stop_agent_run to handle status update and cleanup
         await stop_agent_run(agent_run_id, error_message="Server restarted while agent was running")
 
@@ -356,7 +372,22 @@ async def start_agent(
     if not instance_id:
         raise HTTPException(status_code=500, detail="Agent API not initialized with instance ID")
 
-    logger.info(f"Starting new agent for thread: {thread_id} with config: model={body.model_name}, thinking={body.enable_thinking}, effort={body.reasoning_effort}, stream={body.stream}, context_manager={body.enable_context_manager} (Instance: {instance_id})")
+    # Use model from config if not specified in the request
+    model_name = body.model_name
+    logger.info(f"Original model_name from request: {model_name}")
+
+    if model_name is None:
+        model_name = config.MODEL_TO_USE
+        logger.info(f"Using model from config: {model_name}")
+
+    # Log the model name after alias resolution
+    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    logger.info(f"Resolved model name: {resolved_model}")
+
+    # Update model_name to use the resolved version
+    model_name = resolved_model
+
+    logger.info(f"Starting new agent for thread: {thread_id} with config: model={model_name}, thinking={body.enable_thinking}, effort={body.reasoning_effort}, stream={body.stream}, context_manager={body.enable_context_manager} (Instance: {instance_id})")
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
@@ -401,7 +432,7 @@ async def start_agent(
         run_agent_background(
             agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
             project_id=project_id, sandbox=sandbox,
-            model_name=MODEL_NAME_ALIASES.get(body.model_name, body.model_name),
+            model_name=model_name,  # Already resolved above
             enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
             stream=body.stream, enable_context_manager=body.enable_context_manager
         )
@@ -643,7 +674,9 @@ async def run_agent_background(
     enable_context_manager: bool
 ):
     """Run the agent in the background using Redis for state."""
-    logger.debug(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
+    logger.info(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
+    logger.info(f"🚀 Using model: {model_name} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
+
     client = await db.client
     start_time = datetime.now(timezone.utc)
     total_responses = 0
@@ -854,7 +887,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
 @router.post("/agent/initiate", response_model=InitiateAgentResponse)
 async def initiate_agent_with_files(
     prompt: str = Form(...),
-    model_name: Optional[str] = Form("anthropic/claude-3-7-sonnet-latest"),
+    model_name: Optional[str] = Form(None),  # Default to None to use config.MODEL_TO_USE
     enable_thinking: Optional[bool] = Form(False),
     reasoning_effort: Optional[str] = Form("low"),
     stream: Optional[bool] = Form(True),
@@ -866,6 +899,20 @@ async def initiate_agent_with_files(
     global instance_id # Ensure instance_id is accessible
     if not instance_id:
         raise HTTPException(status_code=500, detail="Agent API not initialized with instance ID")
+
+    # Use model from config if not specified in the request
+    logger.info(f"Original model_name from request: {model_name}")
+
+    if model_name is None:
+        model_name = config.MODEL_TO_USE
+        logger.info(f"Using model from config: {model_name}")
+
+    # Log the model name after alias resolution
+    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    logger.info(f"Resolved model name: {resolved_model}")
+
+    # Update model_name to use the resolved version
+    model_name = resolved_model
 
     logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
@@ -987,7 +1034,7 @@ async def initiate_agent_with_files(
             run_agent_background(
                 agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
                 project_id=project_id, sandbox=sandbox,
-                model_name=MODEL_NAME_ALIASES.get(model_name, model_name),
+                model_name=model_name,  # Already resolved above
                 enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
                 stream=stream, enable_context_manager=enable_context_manager
             )
