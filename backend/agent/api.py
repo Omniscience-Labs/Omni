@@ -37,6 +37,7 @@ MODEL_NAME_ALIASES = {
     "grok-3": "xai/grok-3-fast-latest",
     "deepseek": "deepseek/deepseek-chat",
     "grok-3-mini": "xai/grok-3-mini-fast-beta",
+    "qwen3-4b": "openrouter/qwen/qwen3-4b:free", 
 }
 
 class AgentStartRequest(BaseModel):

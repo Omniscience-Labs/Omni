@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import React, { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 // Import styles for annotations and text layer
@@ -29,7 +29,7 @@ export function PdfRenderer({ url, className }: PdfRendererProps) {
   }
 
   function changePage(offset: number) {
-    setPageNumber(prevPageNumber => {
+    setPageNumber((prevPageNumber) => {
       const newPageNumber = prevPageNumber + offset;
       return newPageNumber >= 1 && newPageNumber <= (numPages || 1)
         ? newPageNumber
@@ -46,15 +46,15 @@ export function PdfRenderer({ url, className }: PdfRendererProps) {
   }
 
   function zoomIn() {
-    setScale(prevScale => Math.min(prevScale + 0.2, 3.0));
+    setScale((prevScale) => Math.min(prevScale + 0.2, 3.0));
   }
 
   function zoomOut() {
-    setScale(prevScale => Math.max(prevScale - 0.2, 0.5));
+    setScale((prevScale) => Math.max(prevScale - 0.2, 0.5));
   }
 
   return (
-    <div className={cn("flex flex-col w-full h-full", className)}>
+    <div className={cn('flex flex-col w-full h-full', className)}>
       <div className="flex-1 overflow-auto rounded-md">
         <Document
           file={url}

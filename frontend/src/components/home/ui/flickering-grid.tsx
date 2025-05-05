@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { cn, colorWithOpacity, getRGBA } from "@/lib/utils";
+import { cn, colorWithOpacity, getRGBA } from '@/lib/utils';
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from "react";
+} from 'react';
 
 interface FlickeringGridProps extends React.HTMLAttributes<HTMLDivElement> {
   squareSize?: number;
@@ -28,12 +28,12 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
   squareSize = 3,
   gridGap = 3,
   flickerChance = 0.2,
-  color = "#B4B4B4",
+  color = '#B4B4B4',
   width,
   height,
   className,
   maxOpacity = 0.15,
-  text = "",
+  text = '',
   fontSize = 140,
   fontWeight = 600,
   ...props
@@ -46,7 +46,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
   const gridParamsRef = useRef<any>(null);
   const [isInView, setIsInView] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  
+
   // Throttle rendering to improve performance - adjust ms as needed
   const FRAME_THROTTLE = 50; // Only render every ~50ms (20fps instead of 60fps)
   const RESIZE_THROTTLE = 200; // Throttle resize events
@@ -71,29 +71,29 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
       // Create a separate canvas for the text mask if needed
       let maskCanvas: HTMLCanvasElement | null = null;
       let maskCtx: CanvasRenderingContext2D | null = null;
-      
+
       if (text) {
-        maskCanvas = document.createElement("canvas");
+        maskCanvas = document.createElement('canvas');
         maskCanvas.width = width;
         maskCanvas.height = height;
-        maskCtx = maskCanvas.getContext("2d", { willReadFrequently: true });
-        
+        maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+
         if (maskCtx) {
           // Draw text on mask canvas
           maskCtx.save();
           maskCtx.scale(dpr, dpr);
-          maskCtx.fillStyle = "white";
+          maskCtx.fillStyle = 'white';
           maskCtx.font = `${fontWeight} ${fontSize}px "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          maskCtx.textAlign = "center";
-          maskCtx.textBaseline = "middle";
+          maskCtx.textAlign = 'center';
+          maskCtx.textBaseline = 'middle';
           maskCtx.fillText(text, width / (2 * dpr), height / (2 * dpr));
           maskCtx.restore();
         }
       }
 
       // Batch squares by opacity for better performance
-      const opacityMap = new Map<number, { x: number, y: number }[]>();
-      
+      const opacityMap = new Map<number, { x: number; y: number }[]>();
+
       for (let i = 0; i < cols; i++) {
         for (let j = 0; j < rows; j++) {
           const x = i * (squareSize + gridGap) * dpr;
@@ -102,7 +102,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
           const squareHeight = squareSize * dpr;
 
           let hasText = false;
-          
+
           if (maskCtx && maskCanvas) {
             const maskData = maskCtx.getImageData(
               x,
@@ -110,7 +110,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
               squareWidth,
               squareHeight,
             ).data;
-            
+
             hasText = maskData.some(
               (value, index) => index % 4 === 0 && value > 0,
             );
@@ -120,22 +120,22 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
           const finalOpacity = hasText
             ? Math.min(1, opacity * 3 + 0.4)
             : opacity;
-            
+
           // Round opacity to 2 decimal places for batching
           const roundedOpacity = Math.round(finalOpacity * 100) / 100;
-          
+
           if (!opacityMap.has(roundedOpacity)) {
             opacityMap.set(roundedOpacity, []);
           }
-          
+
           opacityMap.get(roundedOpacity)?.push({ x, y });
         }
       }
-      
+
       // Draw squares by opacity batch
       for (const [opacity, squares] of opacityMap.entries()) {
         ctx.fillStyle = colorWithOpacity(memoizedColor, opacity);
-        
+
         for (const { x, y } of squares) {
           ctx.fillRect(x, y, squareSize * dpr, squareSize * dpr);
         }
@@ -155,15 +155,17 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
       const rows = Math.ceil(height / (squareSize + gridGap));
 
       // Check if we should preserve the existing grid state
-      if (gridParamsRef.current && 
-          gridParamsRef.current.cols === cols && 
-          gridParamsRef.current.rows === rows) {
+      if (
+        gridParamsRef.current &&
+        gridParamsRef.current.cols === cols &&
+        gridParamsRef.current.rows === rows
+      ) {
         // Use existing squares array to maintain state
-        return { 
-          cols, 
-          rows, 
-          squares: gridParamsRef.current.squares, 
-          dpr 
+        return {
+          cols,
+          rows,
+          squares: gridParamsRef.current.squares,
+          dpr,
         };
       }
 
@@ -182,7 +184,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
     (squares: Float32Array, deltaTime: number) => {
       // Only update if flickerChance is greater than 0
       if (flickerChance <= 0) return;
-      
+
       for (let i = 0; i < squares.length; i++) {
         if (Math.random() < flickerChance * deltaTime) {
           squares[i] = Math.random() * maxOpacity;
@@ -197,26 +199,31 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const ctx = canvas.getContext("2d", { alpha: true });
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     const updateCanvasSize = () => {
       const now = performance.now();
       if (now - lastResizeTimeRef.current < RESIZE_THROTTLE) return;
-      
+
       lastResizeTimeRef.current = now;
       const newWidth = width || container.clientWidth;
       const newHeight = height || container.clientHeight;
-      
+
       // Only update if size changed to prevent unnecessary redraws
       if (canvasSize.width !== newWidth || canvasSize.height !== newHeight) {
         setCanvasSize({ width: newWidth, height: newHeight });
-        
+
         // Don't recreate grid if sizes are similar (within 10px)
-        const shouldPreserveGrid = gridParamsRef.current && 
-          Math.abs(gridParamsRef.current.cols * (squareSize + gridGap) - newWidth) < 10 &&
-          Math.abs(gridParamsRef.current.rows * (squareSize + gridGap) - newHeight) < 10;
-          
+        const shouldPreserveGrid =
+          gridParamsRef.current &&
+          Math.abs(
+            gridParamsRef.current.cols * (squareSize + gridGap) - newWidth,
+          ) < 10 &&
+          Math.abs(
+            gridParamsRef.current.rows * (squareSize + gridGap) - newHeight,
+          ) < 10;
+
         if (!shouldPreserveGrid) {
           gridParamsRef.current = setupCanvas(canvas, newWidth, newHeight);
         } else {
@@ -247,14 +254,14 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
         animationRef.current = requestAnimationFrame(animate);
         return;
       }
-      
+
       // Safety check
       if (!gridParamsRef.current || !gridParamsRef.current.squares) {
         updateCanvasSize();
         animationRef.current = requestAnimationFrame(animate);
         return;
       }
-      
+
       lastRenderTimeRef.current = time;
       const deltaTime = (time - lastTime) / 1000;
       lastTime = time;
@@ -276,12 +283,15 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
     const resizeObserver = new ResizeObserver(() => {
       const now = performance.now();
       if (now - lastResizeTimeRef.current < RESIZE_THROTTLE) return;
-      
+
       const newWidth = width || container.clientWidth;
       const newHeight = height || container.clientHeight;
-      
+
       // Only update if dimensions actually changed significantly (at least 5px difference)
-      if (Math.abs(canvasSize.width - newWidth) > 5 || Math.abs(canvasSize.height - newHeight) > 5) {
+      if (
+        Math.abs(canvasSize.width - newWidth) > 5 ||
+        Math.abs(canvasSize.height - newHeight) > 5
+      ) {
         updateCanvasSize();
       }
     });
@@ -292,7 +302,7 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
       ([entry]) => {
         setIsInView(entry.isIntersecting);
       },
-      { threshold: 0.1, rootMargin: "50px" },  // Only activate when 10% visible with margin
+      { threshold: 0.1, rootMargin: '50px' }, // Only activate when 10% visible with margin
     );
 
     intersectionObserver.observe(canvas);
@@ -307,7 +317,16 @@ export const FlickeringGrid: React.FC<FlickeringGridProps> = ({
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
     };
-  }, [setupCanvas, updateSquares, drawGrid, width, height, isInView, squareSize, gridGap]);
+  }, [
+    setupCanvas,
+    updateSquares,
+    drawGrid,
+    width,
+    height,
+    isInView,
+    squareSize,
+    gridGap,
+  ]);
 
   return (
     <div

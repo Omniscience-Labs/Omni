@@ -4,4 +4,4 @@ export default function ThreadLayout({
   children: React.ReactNode;
 }) {
   return <>{children}</>;
-} 
+}

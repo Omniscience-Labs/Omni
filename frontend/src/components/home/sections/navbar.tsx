@@ -1,22 +1,21 @@
-"use client";
+'use client';
 
-import { Icons } from "@/components/home/icons";
-import { NavMenu } from "@/components/home/nav-menu";
-import { ThemeToggle } from "@/components/home/theme-toggle";
-import { siteConfig } from "@/lib/home";
-import { cn } from "@/lib/utils";
-import { Menu, X, Github } from "lucide-react";
-import { AnimatePresence, motion, useScroll } from "motion/react";
-import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import { useTheme } from "next-themes";
-import { useAuth } from "@/components/AuthProvider";
+import { Icons } from '@/components/home/icons';
+import { NavMenu } from '@/components/home/nav-menu';
+import { ThemeToggle } from '@/components/home/theme-toggle';
+import { siteConfig } from '@/lib/home';
+import { cn } from '@/lib/utils';
+import { Menu, X, Github } from 'lucide-react';
+import { AnimatePresence, motion, useScroll } from 'motion/react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { useAuth } from '@/components/AuthProvider';
 
-const INITIAL_WIDTH = "70rem";
-const MAX_WIDTH = "800px";
+const INITIAL_WIDTH = '70rem';
+const MAX_WIDTH = '800px';
 
-// Animation variants
 const overlayVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
@@ -30,7 +29,7 @@ const drawerVariants = {
     y: 0,
     rotate: 0,
     transition: {
-      type: "spring",
+      type: 'spring',
       damping: 15,
       stiffness: 200,
       staggerChildren: 0.03,
@@ -57,7 +56,7 @@ export function Navbar() {
   const { scrollY } = useScroll();
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("hero");
+  const [activeSection, setActiveSection] = useState('hero');
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
@@ -84,14 +83,14 @@ export function Navbar() {
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener('scroll', handleScroll);
     handleScroll();
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", (latest) => {
+    const unsubscribe = scrollY.on('change', (latest) => {
       setHasScrolled(latest > 10);
     });
     return unsubscribe;
@@ -100,14 +99,17 @@ export function Navbar() {
   const toggleDrawer = () => setIsDrawerOpen((prev) => !prev);
   const handleOverlayClick = () => setIsDrawerOpen(false);
 
-  const logoSrc = !mounted ? "/kortix-logo.svg" : 
-    (resolvedTheme === "dark" ? "/kortix-logo-white.svg" : "/kortix-logo.svg");
+  const logoSrc = !mounted
+    ? '/kortix-logo.svg'
+    : resolvedTheme === 'dark'
+      ? '/kortix-logo-white.svg'
+      : '/kortix-logo.svg';
 
   return (
     <header
       className={cn(
-        "sticky z-50 mx-4 flex justify-center transition-all duration-300 md:mx-0",
-        hasScrolled ? "top-6" : "top-4 mx-0",
+        'sticky z-50 mx-4 flex justify-center transition-all duration-300 md:mx-0',
+        hasScrolled ? 'top-6' : 'top-4 mx-0',
       )}
     >
       <motion.div
@@ -117,19 +119,19 @@ export function Navbar() {
       >
         <div
           className={cn(
-            "mx-auto max-w-7xl rounded-2xl transition-all duration-300  xl:px-0",
+            'mx-auto max-w-7xl rounded-2xl transition-all duration-300  xl:px-0',
             hasScrolled
-              ? "px-2 border border-border backdrop-blur-lg bg-background/75"
-              : "shadow-none px-7",
+              ? 'px-2 border border-border backdrop-blur-lg bg-background/75'
+              : 'shadow-none px-7',
           )}
         >
           <div className="flex h-[56px] items-center justify-between p-4">
             <Link href="/" className="flex items-center gap-3">
-              <Image 
-                src={logoSrc} 
-                alt="Kortix Logo" 
-                width={140} 
-                height={22} 
+              <Image
+                src={logoSrc}
+                alt="Kortix Logo"
+                width={140}
+                height={22}
                 priority
               />
             </Link>
@@ -138,7 +140,6 @@ export function Navbar() {
 
             <div className="flex flex-row items-center gap-1 md:gap-3 shrink-0">
               <div className="flex items-center space-x-3">
-
                 {/* <Link
                   href="https://github.com/kortix-ai/suna"
                   target="_blank"
@@ -205,14 +206,16 @@ export function Navbar() {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="flex items-center gap-3">
-                    <Image 
-                      src={logoSrc} 
-                      alt="Kortix Logo" 
-                      width={120} 
-                      height={22} 
+                    <Image
+                      src={logoSrc}
+                      alt="Kortix Logo"
+                      width={120}
+                      height={22}
                       priority
                     />
-                    <span className="font-medium text-primary text-sm">/ Suna</span>
+                    <span className="font-medium text-primary text-sm">
+                      / Suna
+                    </span>
                   </Link>
                   <button
                     onClick={toggleDrawer}
@@ -240,13 +243,13 @@ export function Navbar() {
                             const element = document.getElementById(
                               item.href.substring(1),
                             );
-                            element?.scrollIntoView({ behavior: "smooth" });
+                            element?.scrollIntoView({ behavior: 'smooth' });
                             setIsDrawerOpen(false);
                           }}
                           className={`underline-offset-4 hover:text-primary/80 transition-colors ${
                             activeSection === item.href.substring(1)
-                              ? "text-primary font-medium"
-                              : "text-primary/60"
+                              ? 'text-primary font-medium'
+                              : 'text-primary/60'
                           }`}
                         >
                           {item.name}

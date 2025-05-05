@@ -63,7 +63,7 @@ const PROD_TIERS: SubscriptionTiers = {
   TIER_200_1000: {
     priceId: 'price_1RILb3G6l1KZGqIrmauYPOiN',
     name: '200h/$1000',
-  }
+  },
 } as const;
 
 // Staging tier IDs
@@ -99,14 +99,14 @@ const STAGING_TIERS: SubscriptionTiers = {
   TIER_200_1000: {
     priceId: 'price_1RIKQ2G6l1KZGqIrum9n8SI7',
     name: '200h/$1000',
-  }
+  },
 } as const;
 
 // Determine the environment mode from environment variables
 const getEnvironmentMode = (): EnvMode => {
   // Get the environment mode from the environment variable, if set
   const envMode = process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase();
-  
+
   // First check if the environment variable is explicitly set
   if (envMode) {
     if (envMode === EnvMode.LOCAL) {
@@ -120,7 +120,7 @@ const getEnvironmentMode = (): EnvMode => {
       return EnvMode.PRODUCTION;
     }
   }
-  
+
   // If no valid environment mode is set, fall back to defaults based on NODE_ENV
   if (process.env.NODE_ENV === 'development') {
     console.log('Defaulting to LOCAL environment mode in development');
@@ -138,7 +138,8 @@ const currentEnvMode = getEnvironmentMode();
 export const config: Config = {
   ENV_MODE: currentEnvMode,
   IS_LOCAL: currentEnvMode === EnvMode.LOCAL,
-  SUBSCRIPTION_TIERS: currentEnvMode === EnvMode.STAGING ? STAGING_TIERS : PROD_TIERS,
+  SUBSCRIPTION_TIERS:
+    currentEnvMode === EnvMode.STAGING ? STAGING_TIERS : PROD_TIERS,
 };
 
 // Helper function to check if we're in local mode (for component conditionals)
@@ -147,4 +148,4 @@ export const isLocalMode = (): boolean => {
 };
 
 // Export subscription tier type for typing elsewhere
-export type SubscriptionTier = keyof typeof PROD_TIERS; 
+export type SubscriptionTier = keyof typeof PROD_TIERS;

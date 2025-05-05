@@ -1,6 +1,12 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -23,7 +29,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setIsLoading(false);
@@ -38,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // No need to set loading state here as initial load is done
         // and subsequent changes shouldn't show a loading state for the whole app
         if (isLoading) setIsLoading(false);
-      }
+      },
     );
 
     return () => {
@@ -59,11 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signOut,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
@@ -72,4 +76,4 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Download, File } from "lucide-react";
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Download, File } from 'lucide-react';
 
 interface BinaryRendererProps {
   url: string;
@@ -11,9 +11,13 @@ interface BinaryRendererProps {
   className?: string;
 }
 
-export function BinaryRenderer({ url, fileName, className }: BinaryRendererProps) {
+export function BinaryRenderer({
+  url,
+  fileName,
+  className,
+}: BinaryRendererProps) {
   const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-  
+
   // Handle download
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -23,9 +27,14 @@ export function BinaryRenderer({ url, fileName, className }: BinaryRendererProps
     link.click();
     document.body.removeChild(link);
   };
-  
+
   return (
-    <div className={cn("flex flex-col items-center justify-center p-10", className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center p-10',
+        className,
+      )}
+    >
       <div className="flex flex-col items-center text-center max-w-md">
         <div className="relative mb-6">
           <File className="h-24 w-24 text-muted-foreground/50" />
@@ -33,12 +42,12 @@ export function BinaryRenderer({ url, fileName, className }: BinaryRendererProps
             {fileExtension.toUpperCase()}
           </div>
         </div>
-        
+
         <h3 className="text-lg font-semibold mb-2">{fileName}</h3>
         <p className="text-sm text-muted-foreground mb-6">
           This binary file cannot be previewed in the browser
         </p>
-        
+
         <Button
           variant="default"
           className="min-w-[150px]"
@@ -50,4 +59,4 @@ export function BinaryRenderer({ url, fileName, className }: BinaryRendererProps
       </div>
     </div>
   );
-} 
+}

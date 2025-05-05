@@ -1,116 +1,121 @@
-"use client"
+'use client';
 
-import { Button } from "@/components/ui/button"
-import { FolderOpen, Link, PanelRightOpen, Check, X, Menu } from "lucide-react"
-import { usePathname } from "next/navigation"
-import { toast } from "sonner"
+import { Button } from '@/components/ui/button';
+import { FolderOpen, Link, PanelRightOpen, Check, X, Menu } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { useState, useRef, KeyboardEvent } from "react"
-import { Input } from "@/components/ui/input"
-import { updateProject } from "@/lib/api"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
-import { useSidebar } from "@/components/ui/sidebar"
+} from '@/components/ui/tooltip';
+import { useState, useRef, KeyboardEvent } from 'react';
+import { Input } from '@/components/ui/input';
+import { updateProject } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
+import { useSidebar } from '@/components/ui/sidebar';
 
 interface ThreadSiteHeaderProps {
-  threadId: string
-  projectId: string
-  projectName: string
-  onViewFiles: () => void
-  onToggleSidePanel: () => void
-  onProjectRenamed?: (newName: string) => void
-  isMobileView?: boolean
+  threadId: string;
+  projectId: string;
+  projectName: string;
+  onViewFiles: () => void;
+  onToggleSidePanel: () => void;
+  onProjectRenamed?: (newName: string) => void;
+  isMobileView?: boolean;
 }
 
-export function SiteHeader({ 
-  threadId, 
+export function SiteHeader({
+  threadId,
   projectId,
-  projectName, 
-  onViewFiles, 
+  projectName,
+  onViewFiles,
   onToggleSidePanel,
   onProjectRenamed,
-  isMobileView
+  isMobileView,
 }: ThreadSiteHeaderProps) {
-  const pathname = usePathname()
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(projectName)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const isMobile = useIsMobile() || isMobileView
-  const { setOpenMobile } = useSidebar()
-  
+  const pathname = usePathname();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(projectName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile() || isMobileView;
+  const { setOpenMobile } = useSidebar();
+
   const copyCurrentUrl = () => {
-    const url = window.location.origin + pathname
-    navigator.clipboard.writeText(url)
-    toast.success("URL copied to clipboard")
-  }
+    const url = window.location.origin + pathname;
+    navigator.clipboard.writeText(url);
+    toast.success('URL copied to clipboard');
+  };
 
   const startEditing = () => {
-    setEditName(projectName)
-    setIsEditing(true)
+    setEditName(projectName);
+    setIsEditing(true);
     setTimeout(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }, 0)
-  }
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  };
 
   const cancelEditing = () => {
-    setIsEditing(false)
-    setEditName(projectName)
-  }
+    setIsEditing(false);
+    setEditName(projectName);
+  };
 
   const saveNewName = async () => {
-    if (editName.trim() === "") {
-      setEditName(projectName)
-      setIsEditing(false)
-      return
+    if (editName.trim() === '') {
+      setEditName(projectName);
+      setIsEditing(false);
+      return;
     }
-    
+
     if (editName !== projectName) {
       try {
         if (!projectId) {
-          toast.error("Cannot rename: Project ID is missing")
-          setEditName(projectName)
-          setIsEditing(false)
-          return
+          toast.error('Cannot rename: Project ID is missing');
+          setEditName(projectName);
+          setIsEditing(false);
+          return;
         }
-        
-        const updatedProject = await updateProject(projectId, { name: editName })
+
+        const updatedProject = await updateProject(projectId, {
+          name: editName,
+        });
         if (updatedProject) {
-          onProjectRenamed?.(editName)
-          toast.success("Project renamed successfully")
+          onProjectRenamed?.(editName);
+          toast.success('Project renamed successfully');
         } else {
-          throw new Error("Failed to update project")
+          throw new Error('Failed to update project');
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to rename project"
-        console.error("Failed to rename project:", errorMessage)
-        toast.error(errorMessage)
-        setEditName(projectName)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to rename project';
+        console.error('Failed to rename project:', errorMessage);
+        toast.error(errorMessage);
+        setEditName(projectName);
       }
     }
-    
-    setIsEditing(false)
-  }
+
+    setIsEditing(false);
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      saveNewName()
-    } else if (e.key === "Escape") {
-      cancelEditing()
+    if (e.key === 'Enter') {
+      saveNewName();
+    } else if (e.key === 'Escape') {
+      cancelEditing();
     }
-  }
+  };
 
   return (
-    <header className={cn(
-      "bg-background sticky top-0 flex h-14 shrink-0 items-center gap-2 z-20 w-full",
-      isMobile && "px-2"
-    )}>
+    <header
+      className={cn(
+        'bg-background sticky top-0 flex h-14 shrink-0 items-center gap-2 z-20 w-full',
+        isMobile && 'px-2',
+      )}
+    >
       {isMobile && (
         <Button
           variant="ghost"
@@ -155,7 +160,7 @@ export function SiteHeader({
         ) : !projectName || projectName === 'Project' ? (
           <Skeleton className="h-5 w-32" />
         ) : (
-          <div 
+          <div
             className="text-base font-medium text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
             onClick={startEditing}
             title="Click to rename project"
@@ -164,7 +169,7 @@ export function SiteHeader({
           </div>
         )}
       </div>
-      
+
       <div className="flex items-center gap-1 pr-4">
         {isMobile ? (
           // Mobile view - only show the side panel toggle
@@ -231,5 +236,5 @@ export function SiteHeader({
         )}
       </div>
     </header>
-  )
-} 
+  );
+}

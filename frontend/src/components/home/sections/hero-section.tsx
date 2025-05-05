@@ -1,32 +1,38 @@
-"use client"
-import { HeroVideoSection } from "@/components/home/sections/hero-video-section";
-import { siteConfig } from "@/lib/home";
-import { ArrowRight, Github, X, AlertCircle } from "lucide-react";
-import { FlickeringGrid } from "@/components/home/ui/flickering-grid";
-import { useMediaQuery } from "@/hooks/use-media-query";
-import { useState, useEffect, useRef, FormEvent } from "react";
-import { useScroll } from "motion/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
-import { createProject, createThread, addUserMessage, startAgent, BillingError } from "@/lib/api";
-import { generateThreadName } from "@/lib/actions/threads";
-import GoogleSignIn from "@/components/GoogleSignIn";
-import { Input } from "@/components/ui/input";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
+'use client';
+import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
+import { siteConfig } from '@/lib/home';
+import { ArrowRight, Github, X, AlertCircle } from 'lucide-react';
+import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useScroll } from 'motion/react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
+import {
+  createProject,
+  createThread,
+  addUserMessage,
+  startAgent,
+  BillingError,
+} from '@/lib/api';
+import { generateThreadName } from '@/lib/actions/threads';
+import GoogleSignIn from '@/components/GoogleSignIn';
+import { Input } from '@/components/ui/input';
+import { SubmitButton } from '@/components/ui/submit-button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
   DialogTitle,
-  DialogOverlay
-} from "@/components/ui/dialog";
+  DialogOverlay,
+} from '@/components/ui/dialog';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
-import { useBillingError } from "@/hooks/useBillingError";
-import { useAccounts } from "@/hooks/use-accounts";
-import { isLocalMode, config } from "@/lib/config";
-import { toast } from "sonner";
+import { useBillingError } from '@/hooks/useBillingError';
+import { useAccounts } from '@/hooks/use-accounts';
+import { isLocalMode, config } from '@/lib/config';
+import { toast } from 'sonner';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -38,19 +44,20 @@ const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
 export function HeroSection() {
   const { hero } = siteConfig;
-  const tablet = useMediaQuery("(max-width: 1024px)");
+  const tablet = useMediaQuery('(max-width: 1024px)');
   const [mounted, setMounted] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const { scrollY } = useScroll();
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const { billingError, handleBillingError, clearBillingError } = useBillingError();
+  const { billingError, handleBillingError, clearBillingError } =
+    useBillingError();
   const { data: accounts } = useAccounts();
-  const personalAccount = accounts?.find(account => account.personal_account);
-  
+  const personalAccount = accounts?.find((account) => account.personal_account);
+
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -61,20 +68,20 @@ export function HeroSection() {
 
   // Detect when scrolling is active to reduce animation complexity
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", () => {
+    const unsubscribe = scrollY.on('change', () => {
       setIsScrolling(true);
-      
+
       // Clear any existing timeout
       if (scrollTimeout.current) {
         clearTimeout(scrollTimeout.current);
       }
-      
+
       // Set a new timeout
       scrollTimeout.current = setTimeout(() => {
         setIsScrolling(false);
       }, 300); // Wait 300ms after scroll stops
     });
-    
+
     return () => {
       unsubscribe();
       if (scrollTimeout.current) {
@@ -89,7 +96,7 @@ export function HeroSection() {
       localStorage.setItem(PENDING_PROMPT_KEY, inputValue.trim());
     }
   }, [authDialogOpen, inputValue]);
-  
+
   // Close dialog and redirect when user authenticates
   useEffect(() => {
     if (authDialogOpen && user && !isLoading) {
@@ -101,56 +108,62 @@ export function HeroSection() {
   // Create an agent with the provided prompt
   const createAgentWithPrompt = async () => {
     if (!inputValue.trim() || isSubmitting) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Generate a name for the project using GPT
       const projectName = await generateThreadName(inputValue);
-      
+
       // 1. Create a new project with the GPT-generated name
       const newAgent = await createProject({
         name: projectName,
-        description: "",
+        description: '',
       });
-      
+
       // 2. Create a new thread for this project
       const thread = await createThread(newAgent.id);
-      
+
       // 3. Add the user message to the thread
       await addUserMessage(thread.thread_id, inputValue.trim());
-      
+
       // 4. Start the agent with the thread ID
       await startAgent(thread.thread_id, {
-        stream: true
+        stream: true,
       });
-      
+
       // 5. Navigate to the new agent's thread page
       router.push(`/agents/${thread.thread_id}`);
       // Clear input on success
-      setInputValue("");
+      setInputValue('');
     } catch (error: any) {
-      console.error("Error creating agent:", error);
+      console.error('Error creating agent:', error);
 
       // Check specifically for BillingError (402)
       if (error instanceof BillingError) {
-        console.log("Handling BillingError from hero section:", error.detail);
+        console.log('Handling BillingError from hero section:', error.detail);
         handleBillingError({
-          message: error.detail.message || 'Monthly usage limit reached. Please upgrade your plan.',
+          message:
+            error.detail.message ||
+            'Monthly usage limit reached. Please upgrade your plan.',
           currentUsage: error.detail.currentUsage as number | undefined,
           limit: error.detail.limit as number | undefined,
           subscription: error.detail.subscription || {
             price_id: config.SUBSCRIPTION_TIERS.FREE.priceId, // Default Free
-            plan_name: "Free"
-          }
+            plan_name: 'Free',
+          },
         });
         // Don't show toast for billing errors
       } else {
-         // Handle other errors (e.g., network, other API errors)
-         const isConnectionError = error instanceof TypeError && error.message.includes('Failed to fetch');
-         if (!isLocalMode() || isConnectionError) {
-            toast.error(error.message || "Failed to create agent. Please try again.");
-         }
+        // Handle other errors (e.g., network, other API errors)
+        const isConnectionError =
+          error instanceof TypeError &&
+          error.message.includes('Failed to fetch');
+        if (!isLocalMode() || isConnectionError) {
+          toast.error(
+            error.message || 'Failed to create agent. Please try again.',
+          );
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -163,9 +176,9 @@ export function HeroSection() {
       e.preventDefault();
       e.stopPropagation(); // Stop event propagation to prevent dialog closing
     }
-    
+
     if (!inputValue.trim() || isSubmitting) return;
-    
+
     // If user is not logged in, save prompt and show auth dialog
     if (!user && !isLoading) {
       // Save prompt to localStorage BEFORE showing the dialog
@@ -173,39 +186,41 @@ export function HeroSection() {
       setAuthDialogOpen(true);
       return;
     }
-    
+
     // User is logged in, create the agent
     createAgentWithPrompt();
   };
-  
+
   // Handle Enter key press
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault(); // Prevent default form submission
       e.stopPropagation(); // Stop event propagation
       handleSubmit();
     }
   };
-  
+
   // Handle auth form submission
   const handleSignIn = async (prevState: any, formData: FormData) => {
     setAuthError(null);
     try {
       // Implement sign in logic here
-      const email = formData.get("email") as string;
-      const password = formData.get("password") as string;
-      
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
+
       // Add the returnUrl to the form data for proper redirection
-      formData.append("returnUrl", "/dashboard");
-      
+      formData.append('returnUrl', '/dashboard');
+
       // Call your authentication function here
-      
+
       // Return any error state
-      return { message: "Invalid credentials" };
+      return { message: 'Invalid credentials' };
     } catch (error) {
-      console.error("Sign in error:", error);
-      setAuthError(error instanceof Error ? error.message : "An error occurred");
-      return { message: "An error occurred during sign in" };
+      console.error('Sign in error:', error);
+      setAuthError(
+        error instanceof Error ? error.message : 'An error occurred',
+      );
+      return { message: 'An error occurred during sign in' };
     }
   };
 
@@ -216,13 +231,13 @@ export function HeroSection() {
         <div className="absolute left-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from left to right */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
-          
+
           {/* Vertical fade from top */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-          
+
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-          
+
           <FlickeringGrid
             className="h-full w-full"
             squareSize={mounted && tablet ? 2 : 2.5}
@@ -232,18 +247,18 @@ export function HeroSection() {
             flickerChance={isScrolling ? 0.01 : 0.03} // Low flickering when not scrolling
           />
         </div>
-        
+
         {/* Right side flickering grid with gradient fades */}
         <div className="absolute right-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from right to left */}
           <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
-          
+
           {/* Vertical fade from top */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-          
+
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-          
+
           <FlickeringGrid
             className="h-full w-full"
             squareSize={mounted && tablet ? 2 : 2.5}
@@ -253,33 +268,49 @@ export function HeroSection() {
             flickerChance={isScrolling ? 0.01 : 0.03} // Low flickering when not scrolling
           />
         </div>
-        
+
         {/* Center content background with rounded bottom */}
         <div className="absolute inset-x-1/4 top-0 h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
-        
+
         <div className="relative z-10 pt-32 max-w-3xl mx-auto h-full w-full flex flex-col gap-10 items-center justify-center">
-                    {/* <p className="border border-border bg-accent rounded-full text-sm h-8 px-3 flex items-center gap-2">
+          {/* <p className="border border-border bg-accent rounded-full text-sm h-8 px-3 flex items-center gap-2">
             {hero.badgeIcon}
             {hero.badge}
           </p> */}
 
-          <Link 
-            href={hero.githubUrl} 
-            target="_blank" 
+          <Link
+            href={hero.githubUrl}
+            target="_blank"
             rel="noopener noreferrer"
             className="group border border-border/50 bg-background hover:bg-accent/20 hover:border-secondary/40 rounded-full text-sm h-8 px-3 flex items-center gap-2 transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 hover:-translate-y-0.5"
           >
             {hero.badgeIcon}
-            <span className="font-medium text-muted-foreground text-xs tracking-wide group-hover:text-primary transition-colors duration-300">{hero.badge}</span>
+            <span className="font-medium text-muted-foreground text-xs tracking-wide group-hover:text-primary transition-colors duration-300">
+              {hero.badge}
+            </span>
             <span className="inline-flex items-center justify-center size-3.5 rounded-full bg-muted/30 group-hover:bg-secondary/30 transition-colors duration-300">
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground group-hover:text-primary">
-                <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-muted-foreground group-hover:text-primary"
+              >
+                <path
+                  d="M7 17L17 7M17 7H8M17 7V16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </span>
           </Link>
           <div className="flex flex-col items-center justify-center gap-5">
             <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center">
-              <span className="text-secondary">Suna</span><span className="text-primary">, your AI Employee.</span>
+              <span className="text-secondary">Suna</span>
+              <span className="text-primary">, your AI Employee.</span>
             </h1>
             <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight">
               {hero.description}
@@ -299,12 +330,12 @@ export function HeroSection() {
                     className="flex-1 h-12 md:h-14 rounded-full px-2 bg-transparent focus:outline-none text-sm md:text-base py-2"
                     disabled={isSubmitting}
                   />
-                  <button 
+                  <button
                     type="submit"
                     className={`rounded-full p-2 md:p-3 transition-all duration-200 ${
-                      inputValue.trim() 
-                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80" 
-                        : "bg-muted text-muted-foreground"
+                      inputValue.trim()
+                        ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                     disabled={!inputValue.trim() || isSubmitting}
                     aria-label="Submit"
@@ -333,7 +364,9 @@ export function HeroSection() {
         <DialogContent className="sm:max-w-md rounded-xl bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] border border-border">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-medium">Sign in to continue</DialogTitle>
+              <DialogTitle className="text-xl font-medium">
+                Sign in to continue
+              </DialogTitle>
               {/* <button 
                 onClick={() => setAuthDialogOpen(false)}
                 className="rounded-full p-1 hover:bg-muted transition-colors"
@@ -345,7 +378,7 @@ export function HeroSection() {
               Sign in or create an account to talk with Suna
             </DialogDescription>
           </DialogHeader>
-          
+
           {/* Auth error message */}
           {authError && (
             <div className="mb-4 p-3 rounded-lg flex items-center gap-3 bg-secondary/10 border border-secondary/20 text-secondary">
@@ -353,7 +386,7 @@ export function HeroSection() {
               <span className="text-sm font-medium">{authError}</span>
             </div>
           )}
-          
+
           {/* Google Sign In */}
           <div className="w-full">
             <GoogleSignIn returnUrl="/dashboard" />
@@ -383,7 +416,7 @@ export function HeroSection() {
                 required
               />
             </div>
-            
+
             <div>
               <Input
                 id="password"
@@ -394,7 +427,7 @@ export function HeroSection() {
                 required
               />
             </div>
-            
+
             <div className="space-y-4 pt-4">
               <SubmitButton
                 formAction={handleSignIn}
@@ -403,9 +436,9 @@ export function HeroSection() {
               >
                 Sign in
               </SubmitButton>
-              
+
               <Link
-                href={`/auth?mode=signup&returnUrl=${encodeURIComponent("/dashboard")}`}
+                href={`/auth?mode=signup&returnUrl=${encodeURIComponent('/dashboard')}`}
                 className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
                 onClick={() => setAuthDialogOpen(false)}
               >
@@ -414,8 +447,8 @@ export function HeroSection() {
             </div>
 
             <div className="text-center pt-2">
-              <Link 
-                href={`/auth?returnUrl=${encodeURIComponent("/dashboard")}`}
+              <Link
+                href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
                 className="text-sm text-primary hover:underline"
                 onClick={() => setAuthDialogOpen(false)}
               >
@@ -429,13 +462,16 @@ export function HeroSection() {
             <Link href="/terms" className="text-primary hover:underline">
               Terms of Service
             </Link>{' '}
-            and{' '}<Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+            and{' '}
+            <Link href="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Add Billing Error Alert here */}
-      <BillingErrorAlert 
+      <BillingErrorAlert
         message={billingError?.message}
         currentUsage={billingError?.currentUsage}
         limit={billingError?.limit}

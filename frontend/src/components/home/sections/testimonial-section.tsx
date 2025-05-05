@@ -1,6 +1,6 @@
-import { SectionHeader } from "@/components/home/section-header";
-import { SocialProofTestimonials } from "@/components/home/testimonial-scroll";
-import { siteConfig } from "@/lib/home";
+import { SectionHeader } from '@/components/home/section-header';
+import { SocialProofTestimonials } from '@/components/home/testimonial-scroll';
+import { siteConfig } from '@/lib/home';
 
 export function TestimonialSection() {
   const { testimonials } = siteConfig;

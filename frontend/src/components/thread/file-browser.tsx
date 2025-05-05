@@ -1,12 +1,29 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { File, Folder, ChevronRight, ChevronUp, FileText, Coffee } from "lucide-react";
-import { listSandboxFiles, getSandboxFileContent, type FileInfo } from "@/lib/api";
-import { toast } from "sonner";
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  File,
+  Folder,
+  ChevronRight,
+  ChevronUp,
+  FileText,
+  Coffee,
+} from 'lucide-react';
+import {
+  listSandboxFiles,
+  getSandboxFileContent,
+  type FileInfo,
+} from '@/lib/api';
+import { toast } from 'sonner';
 
 interface FileBrowserProps {
   sandboxId: string;
@@ -14,25 +31,29 @@ interface FileBrowserProps {
   trigger?: React.ReactNode;
 }
 
-export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserProps) {
+export function FileBrowser({
+  sandboxId,
+  onSelectFile,
+  trigger,
+}: FileBrowserProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentPath, setCurrentPath] = useState("");
+  const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
-  
+
   // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
-      loadFiles("");
+      loadFiles('');
     } else {
       setFileContent(null);
       setSelectedFile(null);
     }
   }, [isOpen, sandboxId]);
-  
+
   // Load files from the current path
   const loadFiles = async (path: string) => {
     setIsLoading(true);
@@ -40,22 +61,22 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
       const files = await listSandboxFiles(sandboxId, path);
       setFiles(files);
       setCurrentPath(path);
-      
+
       // Update breadcrumbs
-      if (path === "") {
+      if (path === '') {
         setBreadcrumbs([]);
       } else {
         const parts = path.split('/').filter(Boolean);
         setBreadcrumbs(parts);
       }
     } catch (error) {
-      toast.error("Failed to load files");
-      console.error("Failed to load files:", error);
+      toast.error('Failed to load files');
+      console.error('Failed to load files:', error);
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Load file content
   const loadFileContent = async (path: string) => {
     setIsLoading(true);
@@ -66,17 +87,17 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
         setFileContent(content);
       } else {
         // For binary files, show a message
-        setFileContent("[Binary file]");
+        setFileContent('[Binary file]');
       }
     } catch (error) {
-      toast.error("Failed to load file content");
-      console.error("Failed to load file content:", error);
+      toast.error('Failed to load file content');
+      console.error('Failed to load file content:', error);
       setFileContent(null);
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Handle file or folder click
   const handleItemClick = (file: FileInfo) => {
     if (file.is_dir) {
@@ -85,18 +106,18 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
       loadFileContent(file.path);
     }
   };
-  
+
   // Navigate to a specific breadcrumb
   const navigateToBreadcrumb = (index: number) => {
     if (index === -1) {
       // Root directory
-      loadFiles("");
+      loadFiles('');
     } else {
       const path = breadcrumbs.slice(0, index + 1).join('/');
       loadFiles(path);
     }
   };
-  
+
   // Handle select button click
   const handleSelectFile = () => {
     if (selectedFile && fileContent && onSelectFile) {
@@ -104,7 +125,7 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
       setIsOpen(false);
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -114,7 +135,7 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
         <DialogHeader>
           <DialogTitle>Sandbox Files</DialogTitle>
         </DialogHeader>
-        
+
         {/* Breadcrumbs */}
         <div className="flex items-center space-x-1 text-sm py-2 border-b">
           <Button
@@ -140,7 +161,7 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
             </div>
           ))}
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
           {/* File list */}
           <div className="border rounded-md overflow-y-auto h-[400px]">
@@ -157,12 +178,15 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
               </div>
             ) : (
               <div className="p-2">
-                {currentPath !== "" && (
+                {currentPath !== '' && (
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-sm mb-1"
                     onClick={() => {
-                      const parentPath = currentPath.split('/').slice(0, -1).join('/');
+                      const parentPath = currentPath
+                        .split('/')
+                        .slice(0, -1)
+                        .join('/');
                       loadFiles(parentPath);
                     }}
                   >
@@ -173,7 +197,7 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
                 {files.map((file) => (
                   <Button
                     key={file.path}
-                    variant={selectedFile === file.path ? "secondary" : "ghost"}
+                    variant={selectedFile === file.path ? 'secondary' : 'ghost'}
                     className="w-full justify-start text-sm mb-1"
                     onClick={() => handleItemClick(file)}
                   >
@@ -188,11 +212,11 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
               </div>
             )}
           </div>
-          
+
           {/* File preview */}
           <div className="border rounded-md overflow-hidden flex flex-col">
             <div className="p-2 bg-muted text-sm font-medium border-b">
-              {selectedFile ? selectedFile.split('/').pop() : "File Preview"}
+              {selectedFile ? selectedFile.split('/').pop() : 'File Preview'}
             </div>
             <div className="p-2 overflow-y-auto flex-1 h-[360px]">
               {isLoading && selectedFile ? (
@@ -212,7 +236,7 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
             </div>
           </div>
         </div>
-        
+
         {selectedFile && fileContent && onSelectFile && (
           <div className="flex justify-end pt-2">
             <Button onClick={handleSelectFile}>Select File</Button>
@@ -221,4 +245,4 @@ export function FileBrowser({ sandboxId, onSelectFile, trigger }: FileBrowserPro
       </DialogContent>
     </Dialog>
   );
-} 
+}
