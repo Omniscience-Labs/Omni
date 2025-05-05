@@ -1571,10 +1571,10 @@ export default function ThreadPage({
                 className="h-8 w-8"
                 aria-label={isPlaying ? 'Pause Replay' : 'Play Replay'}
               >
-                {isPlaying ?
+                {isPlaying ? 
                   <Pause className="h-4 w-4" /> :
                   <Play className="h-4 w-4" />
-                )}
+                }
               </Button>
               <Button
                 variant="ghost"
@@ -1915,7 +1915,7 @@ export default function ThreadPage({
                 {isPlaying ?
                   <Pause className="h-4 w-4" /> :
                   <Play className="h-4 w-4" />
-                )}
+                }
               </Button>
 
               <div className="flex items-center text-xs text-muted-foreground">
