@@ -173,6 +173,8 @@ async def run_agent(
 
         max_tokens = 64000 if "sonnet" in model_name.lower() else None
 
+        # model_name = "openrouter/qwen/qwen3-235b-a22b"
+
         response = await thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=system_message,
