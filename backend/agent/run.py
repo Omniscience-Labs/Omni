@@ -33,7 +33,7 @@ async def run_agent(
     thread_manager: Optional[ThreadManager] = None,
     native_max_auto_continues: int = 25,
     max_iterations: int = 150,
-    model_name: str = "openai/gpt-4o",
+    model_name: str = "anthropic/claude-3-7-sonnet-latest",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True
@@ -178,11 +178,11 @@ async def run_agent(
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
 
-        # Configure tool calling based on model type
-        use_xml_tool_calling = "anthropic" in model_name.lower() or "claude" in model_name.lower()
-        use_native_tool_calling = "openai" in model_name.lower() or "gpt" in model_name.lower()
+        # # Configure tool calling based on model type
+        # use_xml_tool_calling = "anthropic" in model_name.lower() or "claude" in model_name.lower()
+        # use_native_tool_calling = "openai" in model_name.lower() or "gpt" in model_name.lower()
 
-        # model_name = "openrouter/qwen/qwen3-235b-a22b"
+        # # model_name = "openrouter/qwen/qwen3-235b-a22b"
 
         response = await thread_manager.run_thread(
             thread_id=thread_id,
@@ -195,15 +195,15 @@ async def run_agent(
             max_xml_tool_calls=1,
             temporary_message=temporary_message,
             processor_config=ProcessorConfig(
-                xml_tool_calling=use_xml_tool_calling,
-                native_tool_calling=use_native_tool_calling,
+                xml_tool_calling=True,
+                native_tool_calling=False,
                 execute_tools=True,
                 execute_on_stream=True,
                 tool_execution_strategy="parallel",
                 xml_adding_strategy="user_message"
             ),
             native_max_auto_continues=native_max_auto_continues,
-            include_xml_examples=use_xml_tool_calling,
+            include_xml_examples=True,
             enable_thinking=enable_thinking,
             reasoning_effort=reasoning_effort,
             enable_context_manager=enable_context_manager
@@ -249,27 +249,27 @@ async def run_agent(
                 except Exception as e:
                     print(f"Error processing assistant chunk: {e}")
 
-            # Check for native function calls (OpenAI format)
-            elif chunk.get('type') == 'status' and 'content' in chunk:
-                try:
-                    # Parse the status content
-                    status_content = chunk.get('content', '{}')
-                    if isinstance(status_content, str):
-                        status_content = json.loads(status_content)
+            # # Check for native function calls (OpenAI format)
+            # elif chunk.get('type') == 'status' and 'content' in chunk:
+            #     try:
+            #         # Parse the status content
+            #         status_content = chunk.get('content', '{}')
+            #         if isinstance(status_content, str):
+            #             status_content = json.loads(status_content)
 
-                    # Check if this is a tool call status
-                    status_type = status_content.get('status_type')
-                    function_name = status_content.get('function_name', '')
+            #         # Check if this is a tool call status
+            #         status_type = status_content.get('status_type')
+            #         function_name = status_content.get('function_name', '')
 
-                    # Check for special function names that should stop execution
-                    if status_type == 'tool_started' and function_name in ['ask', 'complete', 'web-browser-takeover']:
-                        last_tool_call = function_name
-                        print(f"Agent used native function call: {function_name}")
-                except json.JSONDecodeError:
-                    # Handle cases where content might not be valid JSON
-                    print(f"Warning: Could not parse status content JSON: {chunk.get('content')}")
-                except Exception as e:
-                    print(f"Error processing status chunk: {e}")
+            #         # Check for special function names that should stop execution
+            #         if status_type == 'tool_started' and function_name in ['ask', 'complete', 'web-browser-takeover']:
+            #             last_tool_call = function_name
+            #             print(f"Agent used native function call: {function_name}")
+            #     except json.JSONDecodeError:
+            #         # Handle cases where content might not be valid JSON
+            #         print(f"Warning: Could not parse status content JSON: {chunk.get('content')}")
+            #     except Exception as e:
+            #         print(f"Error processing status chunk: {e}")
 
             yield chunk
 

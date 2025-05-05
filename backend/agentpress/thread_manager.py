@@ -196,17 +196,6 @@ class ThreadManager:
         # Log model info
         logger.info(f"🤖 Thread {thread_id}: Using model {llm_model}")
 
-        # Use a default config if none was provided (needed for XML examples check)
-        if processor_config is None:
-            # Determine default tool calling method based on model
-            use_xml_tool_calling = "anthropic" in llm_model.lower() or "claude" in llm_model.lower()
-            use_native_tool_calling = "openai" in llm_model.lower() or "gpt" in llm_model.lower()
-
-            processor_config = ProcessorConfig(
-                xml_tool_calling=use_xml_tool_calling,
-                native_tool_calling=use_native_tool_calling
-            )
-
         # Apply max_xml_tool_calls if specified and not already set in config
         if max_xml_tool_calls > 0 and not processor_config.max_xml_tool_calls:
             processor_config.max_xml_tool_calls = max_xml_tool_calls
@@ -272,24 +261,24 @@ Here are the XML tools available with examples:
                     token_threshold = self.context_manager.token_threshold
                     logger.info(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
 
-                    if token_count >= token_threshold and enable_context_manager:
-                        logger.info(f"Thread token count ({token_count}) exceeds threshold ({token_threshold}), summarizing...")
-                        summarized = await self.context_manager.check_and_summarize_if_needed(
-                            thread_id=thread_id,
-                            add_message_callback=self.add_message,
-                            model=llm_model,
-                            force=True
-                        )
-                        if summarized:
-                            logger.info("Summarization complete, fetching updated messages with summary")
-                            messages = await self.get_llm_messages(thread_id)
-                            # Recount tokens after summarization, using the modified prompt
-                            new_token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages)
-                            logger.info(f"After summarization: token count reduced from {token_count} to {new_token_count}")
-                        else:
-                            logger.warning("Summarization failed or wasn't needed - proceeding with original messages")
-                    elif not enable_context_manager:
-                        logger.info("Automatic summarization disabled. Skipping token count check and summarization.")
+                    # if token_count >= token_threshold and enable_context_manager:
+                    #     logger.info(f"Thread token count ({token_count}) exceeds threshold ({token_threshold}), summarizing...")
+                    #     summarized = await self.context_manager.check_and_summarize_if_needed(
+                    #         thread_id=thread_id,
+                    #         add_message_callback=self.add_message,
+                    #         model=llm_model,
+                    #         force=True
+                    #     )
+                    #     if summarized:
+                    #         logger.info("Summarization complete, fetching updated messages with summary")
+                    #         messages = await self.get_llm_messages(thread_id)
+                    #         # Recount tokens after summarization, using the modified prompt
+                    #         new_token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages)
+                    #         logger.info(f"After summarization: token count reduced from {token_count} to {new_token_count}")
+                    #     else:
+                    #         logger.warning("Summarization failed or wasn't needed - proceeding with original messages")
+                    # elif not enable_context_manager:
+                    #     logger.info("Automatic summarization disabled. Skipping token count check and summarization.")
 
                 except Exception as e:
                     logger.error(f"Error counting tokens or summarizing: {str(e)}")
