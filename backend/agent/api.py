@@ -42,7 +42,7 @@ MODEL_NAME_ALIASES = {
     "grok-3": "xai/grok-3-fast-latest",
     "deepseek": "deepseek/deepseek-chat",
     "grok-3-mini": "xai/grok-3-mini-fast-beta",
-    "qwen3-4b": "openrouter/qwen/qwen3-4b:free", 
+    "qwen3": "openrouter/qwen/qwen3-235b-a22b", 
 
     # Also include full names as keys to ensure they map to themselves
     "anthropic/claude-3-7-sonnet-latest": "anthropic/claude-3-7-sonnet-latest",

@@ -76,7 +76,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const {
       selectedModel,
       setSelectedModel: handleModelChange,
-      subscriptionTier,
+      subscriptionStatus,
       allModels: modelOptions,
       canAccessModel,
     } = useModelSelection();
@@ -188,8 +188,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             }
           }}
         >
-          <div className="w-full bg-muted/30 text-sm flex flex-col justify-between items-start rounded-lg border-b">
-            <CardContent className="shadow w-full p-1.5 pb-2 pt-3 bg-sidebar rounded-2xl border">
+          <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
+            <CardContent className="w-full p-1.5 pb-2 pt-3 bg-sidebar rounded-2xl border">
               <UploadedFilesDisplay
                 uploadedFiles={uploadedFiles}
                 sandboxId={sandboxId}
@@ -220,7 +220,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 selectedModel={selectedModel}
                 onModelChange={handleModelChange}
                 modelOptions={modelOptions}
-                currentTier={subscriptionTier}
+                subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
               />
             </CardContent>

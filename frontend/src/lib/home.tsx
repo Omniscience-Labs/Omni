@@ -111,8 +111,8 @@ export const siteConfig = {
       buttonText: 'Hire Suna',
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
-      hours: '10 min',
-      features: ['Public Projects'],
+      hours: '60 min',
+      features: ['Public Projects', 'Basic Model (Limited capabilities)'],
       stripePriceId: config.SUBSCRIPTION_TIERS.FREE.priceId,
       upgradePlans: [],
     },
@@ -127,7 +127,7 @@ export const siteConfig = {
       features: [
         '2 hours',
         'Private projects',
-        'Team functionality (coming soon)',
+        'Access to intelligent Model (Full Suna)',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_20.priceId,
       upgradePlans: [],
@@ -140,7 +140,7 @@ export const siteConfig = {
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
       hours: '6 hours',
-      features: ['Unlimited seats'],
+      features: ['Suited to you needs'],
       upgradePlans: [
         {
           hours: '6 hours',

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,14 +14,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, Crown, LockIcon } from 'lucide-react';
-import { ModelOption, SubscriptionTier } from './_use-model-selection';
+import { Check, ChevronDown, LockIcon, ZapIcon } from 'lucide-react';
+import { ModelOption, SubscriptionStatus } from './_use-model-selection';
+import { PaywallDialog } from '@/components/payment/paywall-dialog';
 
 interface ModelSelectorProps {
   selectedModel: string;
   onModelChange: (modelId: string) => void;
   modelOptions: ModelOption[];
-  currentTier: SubscriptionTier;
   canAccessModel: (modelId: string) => boolean;
 }
 
@@ -29,33 +29,26 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   selectedModel,
   onModelChange,
   modelOptions,
-  currentTier,
   canAccessModel,
 }) => {
-  const selectedModelLabel =
-    modelOptions.find((option) => option.id === selectedModel)?.label || '';
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [lockedModel, setLockedModel] = useState<string | null>(null);
 
-  const handleModelSelection = (modelId: string) => {
-    if (canAccessModel(modelId)) {
-      onModelChange(modelId);
+  const selectedLabel =
+    modelOptions.find((o) => o.id === selectedModel)?.label || 'Select model';
+
+  const handleSelect = (id: string) => {
+    if (canAccessModel(id)) {
+      onModelChange(id);
+    } else {
+      setLockedModel(id);
+      setPaywallOpen(true);
     }
   };
 
-  const getModelTierInfo = (modelTier: string) => {
-    switch (modelTier) {
-      case 'base-only':
-        return {
-          icon: <Crown className="h-3 w-3 text-blue-500" />,
-          tooltip: 'Requires Pro plan or higher',
-        };
-      case 'extra-only':
-        return {
-          icon: <Crown className="h-3 w-3 text-yellow-500" />,
-          tooltip: 'Requires Pro plan',
-        };
-      default:
-        return { icon: null, tooltip: null };
-    }
+  const closeDialog = () => {
+    setPaywallOpen(false);
+    setLockedModel(null);
   };
 
   return (
@@ -64,43 +57,49 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size='default'
-            className="h-7 rounded-md text-muted-foreground shadow-none border-none focus:ring-0 w-auto px-2 py-0"
+            size="default"
+            className="h-8 rounded-md text-muted-foreground shadow-none border-none focus:ring-0 px-3"
           >
-            <div className="flex items-center gap-1 text-sm">
-              <span>{selectedModelLabel}</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
+            <div className="flex items-center gap-1 text-sm font-medium">
+              <span>{selectedLabel}</span>
+              <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
             </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          {modelOptions.map((option) => {
-            const { icon, tooltip } = getModelTierInfo(option.tier);
-            const isAccessible = canAccessModel(option.id);
 
+        <DropdownMenuContent align="end" className="w-64 p-1">
+          {modelOptions.map((opt) => {
+            const accessible = canAccessModel(opt.id);
             return (
-              <TooltipProvider key={option.id}>
+              <TooltipProvider key={opt.id}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuItem
-                      className={`text-sm flex items-center justify-between cursor-pointer ${
-                        !isAccessible ? 'opacity-50' : ''
-                      }`}
-                      onClick={() => handleModelSelection(option.id)}
+                      className="text-sm py-3 px-3 flex items-start cursor-pointer rounded-md"
+                      onClick={() => handleSelect(opt.id)}
                     >
-                      <div className="flex items-center gap-2">
-                        {option.label}
-                        {icon}
-                        {!isAccessible && <LockIcon className="h-3 w-3 ml-1" />}
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-2">
+                            {opt.id === 'sonnet-3.7' && (
+                              <ZapIcon className="h-4 w-4 text-yellow-500" />
+                            )}
+                            <span className="font-medium">{opt.label}</span>
+                            {!accessible && <LockIcon className="h-3 w-3 ml-1 text-gray-400" />}
+                          </div>
+                          {selectedModel === opt.id && (
+                            <Check className="h-4 w-4 text-blue-500" />
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {opt.description}
+                        </div>
                       </div>
-                      {selectedModel === option.id && (
-                        <Check className="h-4 w-4 text-muted-foreground" />
-                      )}
                     </DropdownMenuItem>
                   </TooltipTrigger>
-                  {tooltip && (
+                  {!accessible && (
                     <TooltipContent side="left" className="text-xs">
-                      <p>{tooltip}</p>
+                      <p>Requires subscription to access</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -109,6 +108,23 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {paywallOpen && (
+        <PaywallDialog
+          open={true}
+          onDialogClose={closeDialog}
+          title="Premium Model"
+          description={
+            lockedModel
+              ? `Subscribe to access ${modelOptions.find(
+                  (m) => m.id === lockedModel
+                )?.label}`
+              : 'Subscribe to access premium models'
+          }
+          ctaText="Subscribe Now"
+          cancelText="Maybe Later"
+        />
+      )}
     </div>
   );
 };

@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
 import { ModelSelector } from './model-selector';
-import { useModelSelection } from './_use-model-selection';
 
 interface MessageInputProps {
   value: string;
@@ -31,7 +30,7 @@ interface MessageInputProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   modelOptions: any[];
-  currentTier: string;
+  subscriptionStatus: string;
   canAccessModel: (model: string) => boolean;
 }
 
@@ -60,7 +59,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       selectedModel,
       onModelChange,
       modelOptions,
-      currentTier,
+      subscriptionStatus,
       canAccessModel,
     },
     ref,
@@ -86,10 +85,6 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       window.addEventListener('resize', adjustHeight);
       return () => window.removeEventListener('resize', adjustHeight);
     }, [value, ref]);
-
-    const {
-      subscriptionTier,
-    } = useModelSelection();
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -145,7 +140,6 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               selectedModel={selectedModel}
               onModelChange={onModelChange}
               modelOptions={modelOptions}
-              currentTier={subscriptionTier}
               canAccessModel={canAccessModel}
             />
             <Button
