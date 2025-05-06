@@ -191,7 +191,7 @@ async def run_agent(
         # use_xml_tool_calling = "anthropic" in model_name.lower() or "claude" in model_name.lower()
         # use_native_tool_calling = "openai" in model_name.lower() or "gpt" in model_name.lower()
 
-        model_name = "openrouter/qwen/qwen3-235b-a22b"
+        # model_name = "openrouter/qwen/qwen3-235b-a22b"
         
 
         response = await thread_manager.run_thread(
