@@ -1540,7 +1540,7 @@ export default function ThreadPage({
         />
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto px-6 py-4 pb-24 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+          className="flex-1 overflow-y-auto px-6 py-4 pb-36 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
           onScroll={handleScroll}
         >
           <div className="mx-auto max-w-3xl">

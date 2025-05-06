@@ -220,6 +220,14 @@ Here are the XML tools available with examples:
                 for tag_name, example in xml_examples.items():
                     examples_content += f"<{tag_name}> Example: {example}\\n"
 
+                # # Save examples content to a file
+                # try:
+                #     with open('xml_examples.txt', 'w') as f:
+                #         f.write(examples_content)
+                #     logger.debug("Saved XML examples to xml_examples.txt")
+                # except Exception as e:
+                #     logger.error(f"Failed to save XML examples to file: {e}")
+
                 system_content = working_system_prompt.get('content')
 
                 if isinstance(system_content, str):
@@ -237,7 +245,6 @@ Here are the XML tools available with examples:
                         logger.warning("System prompt content is a list but no text block found to append XML examples.")
                 else:
                     logger.warning(f"System prompt content is of unexpected type ({type(system_content)}), cannot add XML examples.")
-
         # Control whether we need to auto-continue due to tool_calls finish reason
         auto_continue = True
         auto_continue_count = 0
