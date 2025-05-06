@@ -1,13 +1,18 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, Fragment, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  File, 
-  Folder, 
-  FolderOpen, 
+import { useState, useEffect, useRef, Fragment, useCallback } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  File,
+  Folder,
+  FolderOpen,
   Upload,
   Download,
   ChevronRight,
@@ -17,13 +22,26 @@ import {
   AlertTriangle,
   FileText,
   ChevronDown,
-} from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileRenderer, getFileTypeFromExtension } from "@/components/file-renderers";
-import { listSandboxFiles, getSandboxFileContent, type FileInfo, Project } from "@/lib/api";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+} from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  FileRenderer,
+  getFileTypeFromExtension,
+} from '@/components/file-renderers';
+import {
+  listSandboxFiles,
+  getSandboxFileContent,
+  type FileInfo,
+  Project,
+} from '@/lib/api';
+import { toast } from 'sonner';
+import { createClient } from '@/lib/supabase/client';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 
 // Define API_URL
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -36,48 +54,56 @@ interface FileViewerModalProps {
   project?: Project;
 }
 
-export function FileViewerModal({ 
+export function FileViewerModal({
   open,
   onOpenChange,
   sandboxId,
   initialFilePath,
-  project
+  project,
 }: FileViewerModalProps) {
   // File navigation state
-  const [currentPath, setCurrentPath] = useState("/workspace");
+  const [currentPath, setCurrentPath] = useState('/workspace');
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  
+
   // File content state
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [rawContent, setRawContent] = useState<string | Blob | null>(null);
-  const [textContentForRenderer, setTextContentForRenderer] = useState<string | null>(null);
-  const [blobUrlForRenderer, setBlobUrlForRenderer] = useState<string | null>(null);
+  const [textContentForRenderer, setTextContentForRenderer] = useState<
+    string | null
+  >(null);
+  const [blobUrlForRenderer, setBlobUrlForRenderer] = useState<string | null>(
+    null,
+  );
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
-  
+
   // Add a ref to track current loading operation
   const loadingFileRef = useRef<string | null>(null);
-  
+
   // Utility state
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // State to track if initial path has been processed
   const [initialPathProcessed, setInitialPathProcessed] = useState(false);
-  
+
   // Project state
-  const [projectWithSandbox, setProjectWithSandbox] = useState<Project | undefined>(project);
-  
+  const [projectWithSandbox, setProjectWithSandbox] = useState<
+    Project | undefined
+  >(project);
+
   // Add state for PDF export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const markdownContainerRef = useRef<HTMLDivElement>(null);
   const markdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Add state for print orientation
-  const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  
+  const [pdfOrientation, setPdfOrientation] = useState<
+    'portrait' | 'landscape'
+  >('portrait');
+
   // Setup project with sandbox URL if not provided directly
   useEffect(() => {
     if (project) {
@@ -89,13 +115,19 @@ export function FileViewerModal({
   const normalizePath = useCallback((path: unknown): string => {
     // Explicitly check if the path is a non-empty string
     if (typeof path !== 'string' || !path) {
-      console.warn(`[FILE VIEWER] normalizePath received non-string or empty value:`, path, `Returning '/workspace'`);
+      console.warn(
+        `[FILE VIEWER] normalizePath received non-string or empty value:`,
+        path,
+        `Returning '/workspace'`,
+      );
       return '/workspace';
     }
     // Now we know path is a string
-    return path.startsWith('/workspace') ? path : `/workspace/${path.replace(/^\//, '')}`;
+    return path.startsWith('/workspace')
+      ? path
+      : `/workspace/${path.replace(/^\//, '')}`;
   }, []);
-  
+
   // Helper function to clear the selected file
   const clearSelectedFile = useCallback(() => {
     setSelectedFilePath(null);
@@ -108,30 +140,42 @@ export function FileViewerModal({
   }, []);
 
   // Helper function to navigate to a folder - COMPLETELY FIXED
-  const navigateToFolder = useCallback((folder: FileInfo) => {
-    if (!folder.is_dir) return;
-    
-    // Ensure the path is properly normalized
-    const normalizedPath = normalizePath(folder.path);
-    
-    // Log before and after states for debugging
-    console.log(`[FILE VIEWER] Navigating to folder: ${folder.path} → ${normalizedPath}`);
-    console.log(`[FILE VIEWER] Current path before navigation: ${currentPath}`);
-    
-    // Clear selected file when navigating
-    clearSelectedFile();
-    
-    // Update path state - must happen after clearing selection
-    setCurrentPath(normalizedPath);
-  }, [normalizePath, clearSelectedFile, currentPath]);
+  const navigateToFolder = useCallback(
+    (folder: FileInfo) => {
+      if (!folder.is_dir) return;
+
+      // Ensure the path is properly normalized
+      const normalizedPath = normalizePath(folder.path);
+
+      // Log before and after states for debugging
+      console.log(
+        `[FILE VIEWER] Navigating to folder: ${folder.path} → ${normalizedPath}`,
+      );
+      console.log(
+        `[FILE VIEWER] Current path before navigation: ${currentPath}`,
+      );
+
+      // Clear selected file when navigating
+      clearSelectedFile();
+
+      // Update path state - must happen after clearing selection
+      setCurrentPath(normalizedPath);
+    },
+    [normalizePath, clearSelectedFile, currentPath],
+  );
 
   // Navigate to a specific path in the breadcrumb
-  const navigateToBreadcrumb = useCallback((path: string) => {
-    const normalizedPath = normalizePath(path);
-    console.log(`[FILE VIEWER] Navigating to breadcrumb path: ${path} → ${normalizedPath}`);
-    clearSelectedFile();
-    setCurrentPath(normalizedPath);
-  }, [normalizePath, clearSelectedFile]);
+  const navigateToBreadcrumb = useCallback(
+    (path: string) => {
+      const normalizedPath = normalizePath(path);
+      console.log(
+        `[FILE VIEWER] Navigating to breadcrumb path: ${path} → ${normalizedPath}`,
+      );
+      clearSelectedFile();
+      setCurrentPath(normalizedPath);
+    },
+    [normalizePath, clearSelectedFile],
+  );
 
   // Helper function to navigate to home
   const navigateHome = useCallback(() => {
@@ -141,146 +185,192 @@ export function FileViewerModal({
   }, [clearSelectedFile, currentPath]);
 
   // Function to generate breadcrumb segments from a path
-  const getBreadcrumbSegments = useCallback((path: string) => {
-    // Ensure we're working with a normalized path
-    const normalizedPath = normalizePath(path);
-    
-    // Remove /workspace prefix and split by /
-    const cleanPath = normalizedPath.replace(/^\/workspace\/?/, '');
-    if (!cleanPath) return [];
-    
-    const parts = cleanPath.split('/').filter(Boolean);
-    let currentPath = '/workspace';
-    
-    return parts.map((part, index) => {
-      currentPath = `${currentPath}/${part}`;
-      return {
-        name: part,
-        path: currentPath,
-        isLast: index === parts.length - 1
-      };
-    });
-  }, [normalizePath]);
+  const getBreadcrumbSegments = useCallback(
+    (path: string) => {
+      // Ensure we're working with a normalized path
+      const normalizedPath = normalizePath(path);
+
+      // Remove /workspace prefix and split by /
+      const cleanPath = normalizedPath.replace(/^\/workspace\/?/, '');
+      if (!cleanPath) return [];
+
+      const parts = cleanPath.split('/').filter(Boolean);
+      let currentPath = '/workspace';
+
+      return parts.map((part, index) => {
+        currentPath = `${currentPath}/${part}`;
+        return {
+          name: part,
+          path: currentPath,
+          isLast: index === parts.length - 1,
+        };
+      });
+    },
+    [normalizePath],
+  );
 
   // Core file opening function - Refined
-  const openFile = useCallback(async (file: FileInfo) => {
-    if (file.is_dir) {
-      navigateToFolder(file);
-      return;
-    }
-    
-    // Skip if already selected and content exists
-    if (selectedFilePath === file.path && rawContent) {
-      console.log(`[FILE VIEWER] File already loaded: ${file.path}`);
-      return;
-    }
-    
-    console.log(`[FILE VIEWER] Opening file: ${file.path}`);
-    
-    // Clear previous state FIRST
-    clearSelectedFile(); 
-    
-    // Set loading state and selected file path immediately
-    setIsLoadingContent(true);
-    setSelectedFilePath(file.path);
-    
-    // Set the loading ref to track current operation
-    loadingFileRef.current = file.path;
-    
-    try {
-      // Fetch content
-      const content = await getSandboxFileContent(sandboxId, file.path);
-      console.log(`[FILE VIEWER] Received content for ${file.path} (${typeof content})`);
-      
-      // Critical check: Ensure the file we just loaded is still the one selected
-      if (loadingFileRef.current !== file.path) {
-        console.log(`[FILE VIEWER] Selection changed during loading, aborting. Loading: ${loadingFileRef.current}, Expected: ${file.path}`);
-        setIsLoadingContent(false); // Still need to stop loading indicator
-        return; // Abort state update
+  const openFile = useCallback(
+    async (file: FileInfo) => {
+      if (file.is_dir) {
+        navigateToFolder(file);
+        return;
       }
-      
-      // Store raw content
-      setRawContent(content);
-      
-      // Determine how to prepare content for the renderer
-      if (typeof content === 'string') {
-        console.log(`[FILE VIEWER] Setting text content directly for renderer.`);
-        setTextContentForRenderer(content);
-        setBlobUrlForRenderer(null); // Ensure no blob URL is set
-      } else if (content instanceof Blob) {
-        console.log(`[FILE VIEWER] Content is a Blob. Will generate URL if needed.`);
-        // Let the useEffect handle URL generation
-        setTextContentForRenderer(null); // Clear any previous text content
-      } else {
-        console.warn("[FILE VIEWER] Unexpected content type received.");
-        setContentError("Received unexpected content type.");
+
+      // Skip if already selected and content exists
+      if (selectedFilePath === file.path && rawContent) {
+        console.log(`[FILE VIEWER] File already loaded: ${file.path}`);
+        return;
       }
-      
-      setIsLoadingContent(false);
-    } catch (error) {
-      console.error(`[FILE VIEWER] Error loading file:`, error);
-      
-      // Only update error if this file is still the one being loaded
-      if (loadingFileRef.current === file.path) {
-        setContentError(`Failed to load file: ${error instanceof Error ? error.message : String(error)}`);
+
+      console.log(`[FILE VIEWER] Opening file: ${file.path}`);
+
+      // Clear previous state FIRST
+      clearSelectedFile();
+
+      // Set loading state and selected file path immediately
+      setIsLoadingContent(true);
+      setSelectedFilePath(file.path);
+
+      // Set the loading ref to track current operation
+      loadingFileRef.current = file.path;
+
+      try {
+        // Fetch content
+        const content = await getSandboxFileContent(sandboxId, file.path);
+        console.log(
+          `[FILE VIEWER] Received content for ${file.path} (${typeof content})`,
+        );
+
+        // Critical check: Ensure the file we just loaded is still the one selected
+        if (loadingFileRef.current !== file.path) {
+          console.log(
+            `[FILE VIEWER] Selection changed during loading, aborting. Loading: ${loadingFileRef.current}, Expected: ${file.path}`,
+          );
+          setIsLoadingContent(false); // Still need to stop loading indicator
+          return; // Abort state update
+        }
+
+        // Store raw content
+        setRawContent(content);
+
+        // Determine how to prepare content for the renderer
+        if (typeof content === 'string') {
+          console.log(
+            `[FILE VIEWER] Setting text content directly for renderer.`,
+          );
+          setTextContentForRenderer(content);
+          setBlobUrlForRenderer(null); // Ensure no blob URL is set
+        } else if (content instanceof Blob) {
+          console.log(
+            `[FILE VIEWER] Content is a Blob. Will generate URL if needed.`,
+          );
+          // Let the useEffect handle URL generation
+          setTextContentForRenderer(null); // Clear any previous text content
+        } else {
+          console.warn('[FILE VIEWER] Unexpected content type received.');
+          setContentError('Received unexpected content type.');
+        }
+
         setIsLoadingContent(false);
-        setRawContent(null); // Clear raw content on error
+      } catch (error) {
+        console.error(`[FILE VIEWER] Error loading file:`, error);
+
+        // Only update error if this file is still the one being loaded
+        if (loadingFileRef.current === file.path) {
+          setContentError(
+            `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          setIsLoadingContent(false);
+          setRawContent(null); // Clear raw content on error
+        }
+      } finally {
+        // Clear the loading ref if it matches the current operation
+        if (loadingFileRef.current === file.path) {
+          loadingFileRef.current = null;
+        }
       }
-    } finally {
-      // Clear the loading ref if it matches the current operation
-      if (loadingFileRef.current === file.path) {
-        loadingFileRef.current = null;
-      }
-    }
-  }, [sandboxId, selectedFilePath, rawContent, navigateToFolder, clearSelectedFile]);
-  
+    },
+    [
+      sandboxId,
+      selectedFilePath,
+      rawContent,
+      navigateToFolder,
+      clearSelectedFile,
+    ],
+  );
+
   // Effect to manage blob URL for renderer
   useEffect(() => {
     let objectUrl: string | null = null;
-    
+
     // Create a URL if rawContent is a Blob
     if (rawContent instanceof Blob) {
       // Determine if it *should* be text - might still render via blob URL if conversion fails
-      const fileType = selectedFilePath ? getFileTypeFromExtension(selectedFilePath) : 'binary';
+      const fileType = selectedFilePath
+        ? getFileTypeFromExtension(selectedFilePath)
+        : 'binary';
       const shouldBeText = ['text', 'code', 'markdown'].includes(fileType);
-      
+
       // Attempt to read as text first if it should be text
       if (shouldBeText) {
-        rawContent.text()
-          .then(text => {
+        rawContent
+          .text()
+          .then((text) => {
             // Check if selection is still valid *before* setting state
-            if (loadingFileRef.current === null && selectedFilePath && rawContent instanceof Blob) {
-              console.log(`[FILE VIEWER] Successfully read Blob as text, length: ${text.length}`);
+            if (
+              loadingFileRef.current === null &&
+              selectedFilePath &&
+              rawContent instanceof Blob
+            ) {
+              console.log(
+                `[FILE VIEWER] Successfully read Blob as text, length: ${text.length}`,
+              );
               setTextContentForRenderer(text);
               setBlobUrlForRenderer(null); // Clear any blob URL if text is successful
             } else {
-              console.log("[FILE VIEWER] Selection changed or no longer a blob while reading text, discarding result.");
+              console.log(
+                '[FILE VIEWER] Selection changed or no longer a blob while reading text, discarding result.',
+              );
             }
           })
-          .catch(err => {
-            console.warn("[FILE VIEWER] Failed to read Blob as text, falling back to blob URL:", err);
+          .catch((err) => {
+            console.warn(
+              '[FILE VIEWER] Failed to read Blob as text, falling back to blob URL:',
+              err,
+            );
             // If reading as text fails, fall back to creating a blob URL
-             if (loadingFileRef.current === null && selectedFilePath && rawContent instanceof Blob) {
-                objectUrl = URL.createObjectURL(rawContent);
-                console.log(`[FILE VIEWER] Created blob URL (fallback): ${objectUrl}`);
-                setBlobUrlForRenderer(objectUrl);
-                setTextContentForRenderer(null); // Ensure text content is cleared
-             } else {
-                console.log("[FILE VIEWER] Selection changed or no longer a blob during text read fallback, discarding result.");
-             }
+            if (
+              loadingFileRef.current === null &&
+              selectedFilePath &&
+              rawContent instanceof Blob
+            ) {
+              objectUrl = URL.createObjectURL(rawContent);
+              console.log(
+                `[FILE VIEWER] Created blob URL (fallback): ${objectUrl}`,
+              );
+              setBlobUrlForRenderer(objectUrl);
+              setTextContentForRenderer(null); // Ensure text content is cleared
+            } else {
+              console.log(
+                '[FILE VIEWER] Selection changed or no longer a blob during text read fallback, discarding result.',
+              );
+            }
           });
       } else {
-         // For binary types, directly create the blob URL
-         objectUrl = URL.createObjectURL(rawContent);
-         console.log(`[FILE VIEWER] Created blob URL for binary type: ${objectUrl}`);
-         setBlobUrlForRenderer(objectUrl);
-         setTextContentForRenderer(null);
+        // For binary types, directly create the blob URL
+        objectUrl = URL.createObjectURL(rawContent);
+        console.log(
+          `[FILE VIEWER] Created blob URL for binary type: ${objectUrl}`,
+        );
+        setBlobUrlForRenderer(objectUrl);
+        setTextContentForRenderer(null);
       }
     } else {
       // If rawContent is not a Blob, ensure URL state is null
       setBlobUrlForRenderer(null);
     }
-    
+
     // Cleanup function to revoke the URL
     return () => {
       if (objectUrl) {
@@ -293,16 +383,17 @@ export function FileViewerModal({
   // Handle file download - Define after helpers
   const handleDownload = useCallback(async () => {
     if (!selectedFilePath || isDownloading) return;
-    
+
     setIsDownloading(true);
-    
+
     try {
       // Use cached content if available
       if (rawContent) {
-        const blob = rawContent instanceof Blob 
-          ? rawContent 
-          : new Blob([rawContent], { type: 'text/plain' });
-          
+        const blob =
+          rawContent instanceof Blob
+            ? rawContent
+            : new Blob([rawContent], { type: 'text/plain' });
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -311,12 +402,16 @@ export function FileViewerModal({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url); // Clean up the URL
-        
-        toast.success("File downloaded");
+
+        toast.success('File downloaded');
       } else {
         // Fetch directly if not cached
-        const content = await getSandboxFileContent(sandboxId, selectedFilePath);
-        const blob = content instanceof Blob ? content : new Blob([String(content)]);
+        const content = await getSandboxFileContent(
+          sandboxId,
+          selectedFilePath,
+        );
+        const blob =
+          content instanceof Blob ? content : new Blob([String(content)]);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -325,12 +420,12 @@ export function FileViewerModal({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url); // Clean up the URL
-        
-        toast.success("File downloaded");
+
+        toast.success('File downloaded');
       }
     } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Failed to download file");
+      console.error('Download failed:', error);
+      toast.error('Failed to download file');
     } finally {
       setIsDownloading(false);
     }
@@ -342,100 +437,123 @@ export function FileViewerModal({
       fileInputRef.current.click();
     }
   }, []);
-  
+
   // Process uploaded file - Define after helpers
-  const processUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0) return;
-    
-    const file = event.target.files[0];
-    setIsUploading(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('path', `${currentPath}/${file.name}`);
-      
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No access token available');
+  const processUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!event.target.files || event.target.files.length === 0) return;
+
+      const file = event.target.files[0];
+      setIsUploading(true);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', `${currentPath}/${file.name}`);
+
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error('No access token available');
+        }
+
+        const response = await fetch(
+          `${API_URL}/sandboxes/${sandboxId}/files`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error || 'Upload failed');
+        }
+
+        // Reload the file list
+        const filesData = await listSandboxFiles(sandboxId, currentPath);
+        setFiles(filesData);
+
+        toast.success(`Uploaded: ${file.name}`);
+      } catch (error) {
+        console.error('Upload failed:', error);
+        toast.error(
+          `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setIsUploading(false);
+        if (event.target) event.target.value = '';
       }
-      
-      const response = await fetch(`${API_URL}/sandboxes/${sandboxId}/files`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Upload failed');
-      }
-      
-      // Reload the file list
-      const filesData = await listSandboxFiles(sandboxId, currentPath);
-      setFiles(filesData);
-      
-      toast.success(`Uploaded: ${file.name}`);
-    } catch (error) {
-      console.error("Upload failed:", error);
-      toast.error(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsUploading(false);
-      if (event.target) event.target.value = '';
-    }
-  }, [currentPath, sandboxId]);
+    },
+    [currentPath, sandboxId],
+  );
 
   // Handle modal closing - clean up resources
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      console.log('[FILE VIEWER] handleOpenChange: Modal closing, resetting state.');
-      clearSelectedFile();
-      setCurrentPath('/workspace'); // Reset path to root
-      setFiles([]);
-      setInitialPathProcessed(false); // Reset the processed flag
-    }
-    onOpenChange(open);
-  }, [onOpenChange, clearSelectedFile]);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        console.log(
+          '[FILE VIEWER] handleOpenChange: Modal closing, resetting state.',
+        );
+        clearSelectedFile();
+        setCurrentPath('/workspace'); // Reset path to root
+        setFiles([]);
+        setInitialPathProcessed(false); // Reset the processed flag
+      }
+      onOpenChange(open);
+    },
+    [onOpenChange, clearSelectedFile],
+  );
 
   // Helper to check if file is markdown
   const isMarkdownFile = useCallback((filePath: string | null) => {
     return filePath ? filePath.toLowerCase().endsWith('.md') : false;
   }, []);
-  
+
   // Handle PDF export for markdown files
-  const handleExportPdf = useCallback(async (orientation: 'portrait' | 'landscape' = 'portrait') => {
-    if (!selectedFilePath || isExportingPdf || !isMarkdownFile(selectedFilePath)) return;
-    
-    setIsExportingPdf(true);
-    
-    try {
-      // Use the ref to access the markdown content directly
-      if (!markdownRef.current) {
-        throw new Error('Markdown content not found');
-      }
-      
-      // Create a standalone document for printing
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        throw new Error('Unable to open print window. Please check if popup blocker is enabled.');
-      }
-      
-      // Get the base URL for resolving relative URLs
-      const baseUrl = window.location.origin;
-      
-      // Generate HTML content
-      const fileName = selectedFilePath.split('/').pop() || 'document';
-      const pdfName = fileName.replace(/\.md$/, '');
-      
-      // Extract content
-      const markdownContent = markdownRef.current.innerHTML;
-      
-      // Generate a full HTML document with controlled styles
-      const htmlContent = `
+  const handleExportPdf = useCallback(
+    async (orientation: 'portrait' | 'landscape' = 'portrait') => {
+      if (
+        !selectedFilePath ||
+        isExportingPdf ||
+        !isMarkdownFile(selectedFilePath)
+      )
+        return;
+
+      setIsExportingPdf(true);
+
+      try {
+        // Use the ref to access the markdown content directly
+        if (!markdownRef.current) {
+          throw new Error('Markdown content not found');
+        }
+
+        // Create a standalone document for printing
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          throw new Error(
+            'Unable to open print window. Please check if popup blocker is enabled.',
+          );
+        }
+
+        // Get the base URL for resolving relative URLs
+        const baseUrl = window.location.origin;
+
+        // Generate HTML content
+        const fileName = selectedFilePath.split('/').pop() || 'document';
+        const pdfName = fileName.replace(/\.md$/, '');
+
+        // Extract content
+        const markdownContent = markdownRef.current.innerHTML;
+
+        // Generate a full HTML document with controlled styles
+        const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -554,20 +672,24 @@ export function FileViewerModal({
         </body>
         </html>
       `;
-      
-      // Write the HTML content to the new window
-      printWindow.document.open();
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      
-      toast.success("PDF export initiated. Check your print dialog.");
-    } catch (error) {
-      console.error("PDF export failed:", error);
-      toast.error(`Failed to export PDF: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsExportingPdf(false);
-    }
-  }, [selectedFilePath, isExportingPdf, isMarkdownFile]);
+
+        // Write the HTML content to the new window
+        printWindow.document.open();
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+
+        toast.success('PDF export initiated. Check your print dialog.');
+      } catch (error) {
+        console.error('PDF export failed:', error);
+        toast.error(
+          `Failed to export PDF: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setIsExportingPdf(false);
+      }
+    },
+    [selectedFilePath, isExportingPdf, isMarkdownFile],
+  );
 
   // --- useEffect Hooks --- //
 
@@ -576,89 +698,133 @@ export function FileViewerModal({
     if (!open || !sandboxId) {
       return; // Don't load if modal is closed or no sandbox ID
     }
-    
+
     const loadFiles = async () => {
       setIsLoadingFiles(true);
-      console.log(`[FILE VIEWER] useEffect[currentPath]: Triggered. Loading files for path: ${currentPath}`);
+      console.log(
+        `[FILE VIEWER] useEffect[currentPath]: Triggered. Loading files for path: ${currentPath}`,
+      );
       try {
         const filesData = await listSandboxFiles(sandboxId, currentPath);
-        console.log(`[FILE VIEWER] useEffect[currentPath]: API returned ${filesData.length} files.`);
+        console.log(
+          `[FILE VIEWER] useEffect[currentPath]: API returned ${filesData.length} files.`,
+        );
         setFiles(filesData);
       } catch (error) {
-        console.error("Failed to load files:", error);
-        toast.error("Failed to load files");
+        console.error('Failed to load files:', error);
+        toast.error('Failed to load files');
         setFiles([]);
       } finally {
         setIsLoadingFiles(false);
       }
     };
-    
+
     loadFiles();
     // Dependency: Only re-run when open, sandboxId, or currentPath changes
   }, [open, sandboxId, currentPath]);
-  
+
   // Handle initial file path - Runs ONLY ONCE on open if initialFilePath is provided
   useEffect(() => {
     // Only run if modal is open, initial path is provided, AND it hasn't been processed yet
     if (open && initialFilePath && !initialPathProcessed) {
-      console.log(`[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${initialFilePath}`);
-      
+      console.log(
+        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${initialFilePath}`,
+      );
+
       // Normalize the initial path
       const fullPath = normalizePath(initialFilePath);
       const lastSlashIndex = fullPath.lastIndexOf('/');
-      const directoryPath = lastSlashIndex > 0 ? fullPath.substring(0, lastSlashIndex) : '/workspace';
-      const fileName = lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
-      
-      console.log(`[FILE VIEWER] useEffect[initialFilePath]: Normalized Path: ${fullPath}, Directory: ${directoryPath}, File: ${fileName}`);
+      const directoryPath =
+        lastSlashIndex > 0
+          ? fullPath.substring(0, lastSlashIndex)
+          : '/workspace';
+      const fileName =
+        lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
+
+      console.log(
+        `[FILE VIEWER] useEffect[initialFilePath]: Normalized Path: ${fullPath}, Directory: ${directoryPath}, File: ${fileName}`,
+      );
 
       // Set the current path to the target directory
       // This will trigger the other useEffect to load files for this directory
       if (currentPath !== directoryPath) {
-        console.log(`[FILE VIEWER] useEffect[initialFilePath]: Setting current path to ${directoryPath}`);
+        console.log(
+          `[FILE VIEWER] useEffect[initialFilePath]: Setting current path to ${directoryPath}`,
+        );
         setCurrentPath(directoryPath);
       }
-      
+
       // Mark the initial path as processed so this doesn't run again
       setInitialPathProcessed(true);
     } else if (!open) {
       // Reset the processed flag when the modal closes
-      console.log('[FILE VIEWER] useEffect[initialFilePath]: Modal closed, resetting initialPathProcessed flag.');
+      console.log(
+        '[FILE VIEWER] useEffect[initialFilePath]: Modal closed, resetting initialPathProcessed flag.',
+      );
       setInitialPathProcessed(false);
     }
   }, [open, initialFilePath, initialPathProcessed, normalizePath, currentPath]);
-  
+
   // Effect to open the initial file *after* the correct directory files are loaded
   useEffect(() => {
     // Only run if initial path was processed, files are loaded, and no file is currently selected
-    if (initialPathProcessed && !isLoadingFiles && files.length > 0 && !selectedFilePath && initialFilePath) {
-      console.log('[FILE VIEWER] useEffect[openInitialFile]: Checking for initial file now that files are loaded.');
-      
+    if (
+      initialPathProcessed &&
+      !isLoadingFiles &&
+      files.length > 0 &&
+      !selectedFilePath &&
+      initialFilePath
+    ) {
+      console.log(
+        '[FILE VIEWER] useEffect[openInitialFile]: Checking for initial file now that files are loaded.',
+      );
+
       const fullPath = normalizePath(initialFilePath);
       const lastSlashIndex = fullPath.lastIndexOf('/');
-      const targetFileName = lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
-      
+      const targetFileName =
+        lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
+
       if (targetFileName) {
-        console.log(`[FILE VIEWER] useEffect[openInitialFile]: Looking for file: ${targetFileName} in current directory: ${currentPath}`);
-        const targetFile = files.find(f => f.name === targetFileName && f.path === fullPath);
-        
+        console.log(
+          `[FILE VIEWER] useEffect[openInitialFile]: Looking for file: ${targetFileName} in current directory: ${currentPath}`,
+        );
+        const targetFile = files.find(
+          (f) => f.name === targetFileName && f.path === fullPath,
+        );
+
         if (targetFile && !targetFile.is_dir) {
-          console.log(`[FILE VIEWER] useEffect[openInitialFile]: Found initial file, opening: ${targetFile.path}`);
-          openFile(targetFile); 
+          console.log(
+            `[FILE VIEWER] useEffect[openInitialFile]: Found initial file, opening: ${targetFile.path}`,
+          );
+          openFile(targetFile);
         } else {
-          console.log(`[FILE VIEWER] useEffect[openInitialFile]: Initial file ${targetFileName} not found in loaded files or is a directory.`);
+          console.log(
+            `[FILE VIEWER] useEffect[openInitialFile]: Initial file ${targetFileName} not found in loaded files or is a directory.`,
+          );
         }
       }
     }
-  }, [initialPathProcessed, isLoadingFiles, files, selectedFilePath, initialFilePath, normalizePath, currentPath, openFile]);
+  }, [
+    initialPathProcessed,
+    isLoadingFiles,
+    files,
+    selectedFilePath,
+    initialFilePath,
+    normalizePath,
+    currentPath,
+    openFile,
+  ]);
 
   // --- Render --- //
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[90vw] md:max-w-[1200px] w-[95vw] h-[90vh] max-h-[900px] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-4 py-2 border-b flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold">Workspace Files</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">
+            Workspace Files
+          </DialogTitle>
         </DialogHeader>
-        
+
         {/* Navigation Bar */}
         <div className="px-4 py-2 border-b flex items-center gap-2">
           <Button
@@ -670,17 +836,17 @@ export function FileViewerModal({
           >
             <Home className="h-4 w-4" />
           </Button>
-          
+
           <div className="flex items-center overflow-x-auto flex-1 min-w-0 scrollbar-hide whitespace-nowrap">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 px-2 text-sm font-medium min-w-fit flex-shrink-0"
               onClick={navigateHome}
             >
               home
             </Button>
-            
+
             {currentPath !== '/workspace' && (
               <>
                 {getBreadcrumbSegments(currentPath).map((segment, index) => (
@@ -698,7 +864,7 @@ export function FileViewerModal({
                 ))}
               </>
             )}
-            
+
             {selectedFilePath && (
               <>
                 <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground opacity-50 flex-shrink-0" />
@@ -710,7 +876,7 @@ export function FileViewerModal({
               </>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2 flex-shrink-0">
             {selectedFilePath && (
               <>
@@ -728,7 +894,7 @@ export function FileViewerModal({
                   )}
                   <span className="hidden sm:inline">Download</span>
                 </Button>
-                
+
                 {/* Replace the Export as PDF button with a dropdown */}
                 {isMarkdownFile(selectedFilePath) && (
                   <DropdownMenu>
@@ -736,7 +902,11 @@ export function FileViewerModal({
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={isExportingPdf || isLoadingContent || contentError !== null}
+                        disabled={
+                          isExportingPdf ||
+                          isLoadingContent ||
+                          contentError !== null
+                        }
                         className="h-8 gap-1"
                       >
                         {isExportingPdf ? (
@@ -749,13 +919,13 @@ export function FileViewerModal({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleExportPdf('portrait')}
                         className="flex items-center gap-2 cursor-pointer"
                       >
                         <span className="rotate-90">⬌</span> Portrait
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleExportPdf('landscape')}
                         className="flex items-center gap-2 cursor-pointer"
                       >
@@ -766,7 +936,7 @@ export function FileViewerModal({
                 )}
               </>
             )}
-            
+
             {!selectedFilePath && (
               <Button
                 variant="outline"
@@ -783,7 +953,7 @@ export function FileViewerModal({
                 <span className="hidden sm:inline">Upload</span>
               </Button>
             )}
-            
+
             <input
               type="file"
               ref={fileInputRef}
@@ -793,7 +963,7 @@ export function FileViewerModal({
             />
           </div>
         </div>
-        
+
         {/* Content Area */}
         <div className="flex-1 overflow-hidden">
           {selectedFilePath ? (
@@ -802,16 +972,22 @@ export function FileViewerModal({
               {isLoadingContent ? (
                 <div className="h-full w-full flex flex-col items-center justify-center">
                   <Loader className="h-8 w-8 animate-spin text-primary mb-3" />
-                  <p className="text-sm text-muted-foreground">Loading file...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Loading file...
+                  </p>
                 </div>
               ) : contentError ? (
                 <div className="h-full w-full flex items-center justify-center p-4">
                   <div className="max-w-md p-6 text-center border rounded-lg bg-muted/10">
                     <AlertTriangle className="h-10 w-10 text-orange-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Error Loading File</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{contentError}</p>
+                    <h3 className="text-lg font-medium mb-2">
+                      Error Loading File
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {contentError}
+                    </p>
                     <div className="flex justify-center gap-3">
-                      <Button 
+                      <Button
                         onClick={() => {
                           setContentError(null);
                           setIsLoadingContent(true);
@@ -820,7 +996,7 @@ export function FileViewerModal({
                             name: selectedFilePath.split('/').pop() || '',
                             is_dir: false,
                             size: 0,
-                            mod_time: new Date().toISOString()
+                            mod_time: new Date().toISOString(),
                           } as FileInfo);
                         }}
                       >
@@ -846,7 +1022,9 @@ export function FileViewerModal({
                     fileName={selectedFilePath}
                     className="h-full w-full"
                     project={projectWithSandbox}
-                    markdownRef={isMarkdownFile(selectedFilePath) ? markdownRef : undefined}
+                    markdownRef={
+                      isMarkdownFile(selectedFilePath) ? markdownRef : undefined
+                    }
                   />
                 </div>
               )}
@@ -861,20 +1039,26 @@ export function FileViewerModal({
               ) : files.length === 0 ? (
                 <div className="h-full w-full flex flex-col items-center justify-center">
                   <Folder className="h-12 w-12 mb-2 text-muted-foreground opacity-30" />
-                  <p className="text-sm text-muted-foreground">Directory is empty</p>
+                  <p className="text-sm text-muted-foreground">
+                    Directory is empty
+                  </p>
                 </div>
               ) : (
                 <ScrollArea className="h-full w-full p-2">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-4">
-                    {files.map(file => (
+                    {files.map((file) => (
                       <button
                         key={file.path}
                         className={`flex flex-col items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors ${
-                          selectedFilePath === file.path ? 'bg-muted border-primary/20' : ''
+                          selectedFilePath === file.path
+                            ? 'bg-muted border-primary/20'
+                            : ''
                         }`}
                         onClick={() => {
                           if (file.is_dir) {
-                            console.log(`[FILE VIEWER] Folder clicked: ${file.name}, path: ${file.path}`);
+                            console.log(
+                              `[FILE VIEWER] Folder clicked: ${file.name}, path: ${file.path}`,
+                            );
                             navigateToFolder(file);
                           } else {
                             openFile(file);
@@ -902,4 +1086,4 @@ export function FileViewerModal({
       </DialogContent>
     </Dialog>
   );
-} 
+}

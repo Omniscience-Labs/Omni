@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.2",
@@ -37,6 +39,8 @@
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/react-query": "^5.75.2",
+    "@tanstack/react-query-devtools": "^5.75.2",
     "@types/papaparse": "^5.3.15",
     "@uiw/codemirror-extensions-langs": "^4.23.10",
     "@uiw/codemirror-theme-vscode": "^4.23.10",
@@ -97,6 +101,7 @@
     "encoding": "^0.1.13",
     "eslint": "^9",
     "eslint-config-next": "15.2.2",
+    "prettier": "^3.5.3",
     "shiki": "^3.2.2",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.2.4",

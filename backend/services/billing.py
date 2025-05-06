@@ -21,7 +21,7 @@ stripe.api_key = config.STRIPE_SECRET_KEY
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 SUBSCRIPTION_TIERS = {
-    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 10},
+    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60},
     config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120},  # 2 hours
     config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360},  # 6 hours
     config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720},  # 12 hours

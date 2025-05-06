@@ -1,34 +1,30 @@
-import { Metadata } from "next";
-import { siteConfig } from "@/lib/site";
+import { Metadata } from 'next';
+import { siteConfig } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
-  keywords: [
-    "Kortix Suna",
-    "AI",
-    "Agent",
-  ],
+  keywords: ['Kortix Suna', 'AI', 'Agent'],
   authors: [
     {
-      name: "Kortix AI Corp",
-      url: "https://kortix.ai",
+      name: 'Kortix AI Corp',
+      url: 'https://kortix.ai',
     },
   ],
-  creator: "Kortix AI Corp",
+  creator: 'Kortix AI Corp',
   openGraph: {
-    type: "website",
-    locale: "en_US",
+    type: 'website',
+    locale: 'en_US',
     url: siteConfig.url,
     title: siteConfig.name,
     description: siteConfig.description,
     siteName: siteConfig.name,
   },
   twitter: {
-    card: "summary_large_image",
+    card: 'summary_large_image',
     title: siteConfig.name,
     description: siteConfig.description,
-    creator: "@kortixai",
+    creator: '@kortixai',
   },
   robots: {
     index: true,
@@ -36,9 +32,9 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
     },
   },
 };

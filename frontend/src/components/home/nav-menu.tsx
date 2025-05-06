@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { siteConfig } from "@/lib/home";
-import { motion } from "motion/react";
-import React, { useRef, useState } from "react";
+import { siteConfig } from '@/lib/home';
+import { motion } from 'motion/react';
+import React, { useRef, useState } from 'react';
 
 interface NavItem {
   name: string;
@@ -16,7 +16,7 @@ export function NavMenu() {
   const [left, setLeft] = useState(0);
   const [width, setWidth] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  const [activeSection, setActiveSection] = useState("hero");
+  const [activeSection, setActiveSection] = useState('hero');
   const [isManualScroll, setIsManualScroll] = useState(false);
 
   React.useEffect(() => {
@@ -67,9 +67,9 @@ export function NavMenu() {
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener('scroll', handleScroll);
     handleScroll(); // Initial check
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [isManualScroll]);
 
   const handleClick = (
@@ -101,7 +101,7 @@ export function NavMenu() {
       // Smooth scroll to exact position
       window.scrollTo({
         top: offsetPosition,
-        behavior: "smooth",
+        behavior: 'smooth',
       });
 
       // Reset manual scroll flag after animation completes
@@ -122,8 +122,8 @@ export function NavMenu() {
             key={item.name}
             className={`z-10 cursor-pointer h-full flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors duration-200 ${
               activeSection === item.href.substring(1)
-                ? "text-primary"
-                : "text-primary/60 hover:text-primary"
+                ? 'text-primary'
+                : 'text-primary/60 hover:text-primary'
             } tracking-tight`}
           >
             <a href={item.href} onClick={(e) => handleClick(e, item)}>
@@ -134,7 +134,7 @@ export function NavMenu() {
         {isReady && (
           <motion.li
             animate={{ left, width }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="absolute inset-0 my-1.5 rounded-full bg-accent/60 border border-border"
           />
         )}

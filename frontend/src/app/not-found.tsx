@@ -1,46 +1,46 @@
-"use client"
+'use client';
 
-import Link from "next/link"
-import { useEffect, useState, useRef } from "react"
-import { ArrowLeft } from "lucide-react"
-import { useScroll } from "motion/react"
-import { FlickeringGrid } from "@/components/home/ui/flickering-grid"
-import { useMediaQuery } from "@/hooks/use-media-query"
+import Link from 'next/link';
+import { useEffect, useState, useRef } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useScroll } from 'motion/react';
+import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 export default function NotFound() {
-  const tablet = useMediaQuery("(max-width: 1024px)")
-  const [mounted, setMounted] = useState(false)
-  const [isScrolling, setIsScrolling] = useState(false)
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null)
-  const { scrollY } = useScroll()
+  const tablet = useMediaQuery('(max-width: 1024px)');
+  const [mounted, setMounted] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { scrollY } = useScroll();
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // Detect when scrolling is active to reduce animation complexity
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", () => {
-      setIsScrolling(true)
-      
+    const unsubscribe = scrollY.on('change', () => {
+      setIsScrolling(true);
+
       // Clear any existing timeout
       if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current)
+        clearTimeout(scrollTimeout.current);
       }
-      
+
       // Set a new timeout
       scrollTimeout.current = setTimeout(() => {
-        setIsScrolling(false)
-      }, 300) // Wait 300ms after scroll stops
-    })
-    
+        setIsScrolling(false);
+      }, 300); // Wait 300ms after scroll stops
+    });
+
     return () => {
-      unsubscribe()
+      unsubscribe();
       if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current)
+        clearTimeout(scrollTimeout.current);
       }
-    }
-  }, [scrollY])
+    };
+  }, [scrollY]);
 
   return (
     <section className="w-full relative overflow-hidden min-h-screen flex items-center justify-center">
@@ -49,13 +49,13 @@ export default function NotFound() {
         <div className="absolute left-0 top-0 h-full w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from left to right */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
-          
+
           {/* Vertical fade from top */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-          
+
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-          
+
           <FlickeringGrid
             className="h-full w-full"
             squareSize={mounted && tablet ? 2 : 2.5}
@@ -65,18 +65,18 @@ export default function NotFound() {
             flickerChance={isScrolling ? 0.01 : 0.03}
           />
         </div>
-        
+
         {/* Right side flickering grid with gradient fades */}
         <div className="absolute right-0 top-0 h-full w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from right to left */}
           <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
-          
+
           {/* Vertical fade from top */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-          
+
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-          
+
           <FlickeringGrid
             className="h-full w-full"
             squareSize={mounted && tablet ? 2 : 2.5}
@@ -86,10 +86,10 @@ export default function NotFound() {
             flickerChance={isScrolling ? 0.01 : 0.03}
           />
         </div>
-        
+
         {/* Center content background with rounded bottom */}
         <div className="absolute inset-x-1/4 top-0 h-full -z-20 bg-background rounded-b-xl"></div>
-        
+
         <div className="relative z-10 max-w-3xl mx-auto h-full w-full flex flex-col gap-10 items-center justify-center">
           <div className="inline-flex h-10 w-fit items-center justify-center gap-2 rounded-full bg-secondary/10 text-secondary px-4">
             <span className="text-sm font-medium">404 Error</span>
@@ -118,5 +118,5 @@ export default function NotFound() {
         </div>
       </div>
     </section>
-  )
-} 
+  );
+}

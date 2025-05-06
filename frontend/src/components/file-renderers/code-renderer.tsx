@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
-import { vscodeDark } from "@uiw/codemirror-theme-vscode";
-import { langs } from "@uiw/codemirror-extensions-langs";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { xcodeLight } from "@uiw/codemirror-theme-xcode";
-import { useTheme } from "next-themes";
-import { EditorView } from "@codemirror/view";
+import React, { useEffect, useState } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { langs } from '@uiw/codemirror-extensions-langs';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { xcodeLight } from '@uiw/codemirror-theme-xcode';
+import { useTheme } from 'next-themes';
+import { EditorView } from '@codemirror/view';
 
 interface CodeRendererProps {
   content: string;
@@ -44,7 +44,11 @@ const languageMap: Record<string, any> = {
   // Add more languages as needed
 };
 
-export function CodeRenderer({ content, language = "", className }: CodeRendererProps) {
+export function CodeRenderer({
+  content,
+  language = '',
+  className,
+}: CodeRendererProps) {
   // Get current theme
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -55,21 +59,17 @@ export function CodeRenderer({ content, language = "", className }: CodeRenderer
   }, []);
 
   // Determine the language extension to use
-  const langExtension = language && languageMap[language]
-    ? [languageMap[language]()]
-    : [];
+  const langExtension =
+    language && languageMap[language] ? [languageMap[language]()] : [];
 
   // Add line wrapping extension
-  const extensions = [
-    ...langExtension,
-    EditorView.lineWrapping,
-  ];
+  const extensions = [...langExtension, EditorView.lineWrapping];
 
   // Select the theme based on the current theme
   const theme = mounted && resolvedTheme === 'dark' ? vscodeDark : xcodeLight;
 
   return (
-    <ScrollArea className={cn("w-full h-full", className)}>
+    <ScrollArea className={cn('w-full h-full', className)}>
       <div className="w-full">
         <CodeMirror
           value={content}
@@ -89,4 +89,4 @@ export function CodeRenderer({ content, language = "", className }: CodeRenderer
       </div>
     </ScrollArea>
   );
-} 
+}

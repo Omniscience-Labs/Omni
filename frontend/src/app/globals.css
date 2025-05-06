@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -210,12 +210,16 @@
 
   @keyframes elliptical-orbit {
     from {
-      transform: rotate(var(--angle, 0)deg) translate(var(--h-radius, 160px), 0) rotate(calc(var(--angle, 0)deg * -1));
+      transform: rotate(var(--angle, 0) deg)
+        translate(var(--h-radius, 160px), 0)
+        rotate(calc(var(--angle, 0) deg * -1));
     }
     to {
-      transform: rotate(calc(var(--angle, 0)deg + 360deg)) translate(var(--h-radius, 160px), 0) rotate(calc((var(--angle, 0)deg + 360deg) * -1));
+      transform: rotate(calc(var(--angle, 0) deg + 360deg))
+        translate(var(--h-radius, 160px), 0)
+        rotate(calc((var(--angle, 0) deg + 360deg) * -1));
     }
-  }  
+  }
 }
 
 :root {
@@ -255,7 +259,7 @@
 }
 
 .dark {
-  --background: oklch(21.03% 0.006 285.89); /* #18181B */
+  --background: oklch(0.185 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -263,13 +267,13 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(54.65% 0.246 262.87); 
+  --secondary: oklch(54.65% 0.246 262.87);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(27.39% 0.005 286.03);
-  --accent-foreground:oklch(98.46% 0.002 247.84)
-  --destructive: oklch(0.396 0.141 25.723);
+  --accent-foreground: oklch(98.46% 0.002 247.84)
+    --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
@@ -302,28 +306,40 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "palt"; /* Adjusts spacing for CJK text */
+    font-feature-settings: 'palt'; /* Adjusts spacing for CJK text */
   }
-  
+
   /* Add font fallbacks for CJK characters */
-  .cjk-text, 
-  .prose p, 
-  .prose li, 
-  .prose table td, 
+  .cjk-text,
+  .prose p,
+  .prose li,
+  .prose table td,
   .prose table th,
   .markdown-content {
-    font-family: var(--font-sans), ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", 
-                 "Noto Sans", "Noto Sans CJK JP", "Noto Sans CJK KR", "Noto Sans CJK SC", 
-                 "Noto Sans CJK TC", sans-serif;
+    font-family:
+      var(--font-sans),
+      ui-sans-serif,
+      -apple-system,
+      'Segoe UI',
+      'Helvetica Neue',
+      'Noto Sans',
+      'Noto Sans CJK JP',
+      'Noto Sans CJK KR',
+      'Noto Sans CJK SC',
+      'Noto Sans CJK TC',
+      sans-serif;
     line-height: 1.7;
   }
-  
+
   /* Specific handling for monospace/code with CJK character support */
-  code, pre, .font-mono {
-    font-family: var(--font-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, 
-                 Consolas, "Liberation Mono", "Courier New", monospace, 
-                 "Noto Sans Mono CJK JP", "Noto Sans Mono CJK KR", "Noto Sans Mono CJK SC", 
-                 "Noto Sans Mono CJK TC";
+  code,
+  pre,
+  .font-mono {
+    font-family:
+      var(--font-mono), ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco,
+      Consolas, 'Liberation Mono', 'Courier New', monospace,
+      'Noto Sans Mono CJK JP', 'Noto Sans Mono CJK KR', 'Noto Sans Mono CJK SC',
+      'Noto Sans Mono CJK TC';
   }
 }
 
@@ -358,7 +374,9 @@
     margin-bottom: 0.3em;
   }
 
-  & h4, & h5, & h6 {
+  & h4,
+  & h5,
+  & h6 {
     font-size: 1rem;
     font-weight: 600;
     margin-top: 0.5em;
@@ -366,7 +384,8 @@
   }
 
   /* Improve lists */
-  & ul, & ol {
+  & ul,
+  & ol {
     padding-left: 1.5em;
     margin-top: 0.5em;
     margin-bottom: 0.5em;
@@ -385,7 +404,8 @@
     margin-bottom: 0.25em;
   }
 
-  & li > ul, & li > ol {
+  & li > ul,
+  & li > ol {
     margin-top: 0.25em;
     margin-bottom: 0.25em;
   }
@@ -413,7 +433,7 @@
   }
 
   /* Fix inline code to ensure it wraps when needed */
-  & code:not([class*="language-"]) {
+  & code:not([class*='language-']) {
     padding: 0.2em 0.4em;
     font-size: 0.85em;
     font-family: var(--font-mono);
@@ -451,7 +471,7 @@
     font-style: italic;
     color: theme('colors.slate.600');
   }
-  
+
   /* Dark mode specific overrides */
   .dark & {
     /* Code blocks in dark mode */
@@ -459,23 +479,23 @@
       background-color: theme('colors.zinc.800');
       border: 1px solid theme('colors.zinc.700');
     }
-    
-    & code:not([class*="language-"]) {
+
+    & code:not([class*='language-']) {
       background-color: theme('colors.zinc.800');
       color: theme('colors.zinc.200');
       border: 1px solid theme('colors.zinc.700');
     }
-    
+
     /* Tables in dark mode */
     & th {
       background-color: theme('colors.zinc.800');
       border-color: theme('colors.zinc.700');
     }
-    
+
     & td {
       border-color: theme('colors.zinc.700');
     }
-    
+
     /* Blockquotes in dark mode */
     & blockquote {
       border-left-color: theme('colors.zinc.600');

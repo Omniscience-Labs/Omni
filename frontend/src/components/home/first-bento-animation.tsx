@@ -1,14 +1,14 @@
 /* eslint-disable @next/next/no-img-element */
-"use client";
+'use client';
 
-import { Icons } from "@/components/home/icons";
+import { Icons } from '@/components/home/icons';
 import {
   Reasoning,
   ReasoningContent,
   ReasoningResponse,
-} from "@/components/home/ui/reasoning";
-import { AnimatePresence, motion, useInView } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+} from '@/components/home/ui/reasoning';
+import { AnimatePresence, motion, useInView } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 
 export function ReasoningBasic() {
   const reasoningText = `Based on your calendar patterns and preferences, I recommend scheduling the team meeting for Tuesday at 2pm. This time slot has historically had the highest attendance rate, and it avoids conflicts with other recurring meetings.`;
@@ -54,7 +54,7 @@ export function FirstBentoAnimation() {
           y: shouldAnimate ? -75 : 0,
         }}
         transition={{
-          type: "spring",
+          type: 'spring',
           stiffness: 300,
           damping: 20,
         }}
@@ -66,7 +66,7 @@ export function FirstBentoAnimation() {
             animate={{ opacity: 1, x: 0 }}
             transition={{
               duration: 0.3,
-              ease: "easeOut",
+              ease: 'easeOut',
             }}
           >
             <p className="text-sm">
@@ -98,7 +98,7 @@ export function FirstBentoAnimation() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{
                     duration: 0.2,
-                    ease: "easeOut",
+                    ease: 'easeOut',
                   }}
                 >
                   <div className="flex gap-1">
@@ -111,7 +111,7 @@ export function FirstBentoAnimation() {
                           duration: 0.6,
                           repeat: Infinity,
                           delay: index * 0.2,
-                          ease: "easeInOut",
+                          ease: 'easeInOut',
                         }}
                       />
                     ))}
@@ -130,7 +130,7 @@ export function FirstBentoAnimation() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{
                     duration: 0.3,
-                    ease: "easeOut",
+                    ease: 'easeOut',
                   }}
                 >
                   <ReasoningBasic />

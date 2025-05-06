@@ -1,8 +1,8 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   BadgeCheck,
   Bell,
@@ -17,15 +17,11 @@ import {
   AudioWaveform,
   Sun,
   Moon,
-} from "lucide-react"
-import { useAccounts } from "@/hooks/use-accounts"
-import NewTeamForm from "@/components/basejump/new-team-form"
+} from 'lucide-react';
+import { useAccounts } from '@/hooks/use-accounts';
+import NewTeamForm from '@/components/basejump/new-team-form';
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,13 +31,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from '@/components/ui/sidebar';
 import {
   Dialog,
   DialogContent,
@@ -49,108 +45,117 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { createClient } from "@/lib/supabase/client"
-import { useTheme } from "next-themes"
+} from '@/components/ui/dialog';
+import { createClient } from '@/lib/supabase/client';
+import { useTheme } from 'next-themes';
 
 export function NavUserWithTeams({
   user,
 }: {
   user: {
-    name: string
-    email: string
-    avatar: string
-  }
+    name: string;
+    email: string;
+    avatar: string;
+  };
 }) {
-  const router = useRouter()
-  const { isMobile } = useSidebar()
-  const { data: accounts } = useAccounts()
-  const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false)
-  const { theme, setTheme } = useTheme()
-  
+  const router = useRouter();
+  const { isMobile } = useSidebar();
+  const { data: accounts } = useAccounts();
+  const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
+  const { theme, setTheme } = useTheme();
+
   // Prepare personal account and team accounts
-  const personalAccount = React.useMemo(() => accounts?.find(account => account.personal_account), [accounts])
-  const teamAccounts = React.useMemo(() => accounts?.filter(account => !account.personal_account), [accounts])
-  
+  const personalAccount = React.useMemo(
+    () => accounts?.find((account) => account.personal_account),
+    [accounts],
+  );
+  const teamAccounts = React.useMemo(
+    () => accounts?.filter((account) => !account.personal_account),
+    [accounts],
+  );
+
   // Create a default list of teams with logos for the UI (will show until real data loads)
   const defaultTeams = [
     {
-      name: personalAccount?.name || "Personal Account",
+      name: personalAccount?.name || 'Personal Account',
       logo: Command,
-      plan: "Personal",
+      plan: 'Personal',
       account_id: personalAccount?.account_id,
       slug: personalAccount?.slug,
-      personal_account: true
+      personal_account: true,
     },
-    ...(teamAccounts?.map(team => ({
+    ...(teamAccounts?.map((team) => ({
       name: team.name,
       logo: AudioWaveform,
-      plan: "Team",
+      plan: 'Team',
       account_id: team.account_id,
       slug: team.slug,
-      personal_account: false
-    })) || [])
-  ]
-  
+      personal_account: false,
+    })) || []),
+  ];
+
   // Use the first team or first entry in defaultTeams as activeTeam
-  const [activeTeam, setActiveTeam] = React.useState(defaultTeams[0])
-  
+  const [activeTeam, setActiveTeam] = React.useState(defaultTeams[0]);
+
   // Update active team when accounts load
   React.useEffect(() => {
     if (accounts?.length) {
-      const currentTeam = accounts.find(account => account.account_id === activeTeam.account_id)
+      const currentTeam = accounts.find(
+        (account) => account.account_id === activeTeam.account_id,
+      );
       if (currentTeam) {
         setActiveTeam({
           name: currentTeam.name,
           logo: currentTeam.personal_account ? Command : AudioWaveform,
-          plan: currentTeam.personal_account ? "Personal" : "Team",
+          plan: currentTeam.personal_account ? 'Personal' : 'Team',
           account_id: currentTeam.account_id,
           slug: currentTeam.slug,
-          personal_account: currentTeam.personal_account
-        })
+          personal_account: currentTeam.personal_account,
+        });
       } else {
         // If current team not found, set first available account as active
-        const firstAccount = accounts[0]
+        const firstAccount = accounts[0];
         setActiveTeam({
           name: firstAccount.name,
           logo: firstAccount.personal_account ? Command : AudioWaveform,
-          plan: firstAccount.personal_account ? "Personal" : "Team",
+          plan: firstAccount.personal_account ? 'Personal' : 'Team',
           account_id: firstAccount.account_id,
           slug: firstAccount.slug,
-          personal_account: firstAccount.personal_account
-        })
+          personal_account: firstAccount.personal_account,
+        });
       }
     }
-  }, [accounts, activeTeam.account_id])
-  
+  }, [accounts, activeTeam.account_id]);
+
   // Handle team selection
   const handleTeamSelect = (team) => {
-    setActiveTeam(team)
-    
+    setActiveTeam(team);
+
     // Navigate to the appropriate dashboard
     if (team.personal_account) {
-      router.push('/dashboard')
+      router.push('/dashboard');
     } else {
-      router.push(`/${team.slug}`)
+      router.push(`/${team.slug}`);
     }
-  }
+  };
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/auth")
-  }
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/auth');
+  };
 
   const getInitials = (name: string) => {
-    return name.split(' ')
-      .map(part => part.charAt(0))
+    return name
+      .split(' ')
+      .map((part) => part.charAt(0))
       .join('')
       .toUpperCase()
-      .substring(0, 2)
-  }
+      .substring(0, 2);
+  };
 
   if (!activeTeam) {
-    return null
+    return null;
   }
 
   return (
@@ -165,7 +170,9 @@ export function NavUserWithTeams({
               >
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -176,7 +183,7 @@ export function NavUserWithTeams({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-              side={isMobile ? "bottom" : "top"}
+              side={isMobile ? 'bottom' : 'top'}
               align="start"
               sideOffset={4}
             >
@@ -184,7 +191,9 @@ export function NavUserWithTeams({
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
+                    <AvatarFallback className="rounded-lg">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
@@ -202,14 +211,16 @@ export function NavUserWithTeams({
                   </DropdownMenuLabel>
                   <DropdownMenuItem
                     key={personalAccount.account_id}
-                    onClick={() => handleTeamSelect({
-                      name: personalAccount.name,
-                      logo: Command,
-                      plan: "Personal",
-                      account_id: personalAccount.account_id,
-                      slug: personalAccount.slug,
-                      personal_account: true
-                    })}
+                    onClick={() =>
+                      handleTeamSelect({
+                        name: personalAccount.name,
+                        logo: Command,
+                        plan: 'Personal',
+                        account_id: personalAccount.account_id,
+                        slug: personalAccount.slug,
+                        personal_account: true,
+                      })
+                    }
                     className="gap-2 p-2"
                   >
                     <div className="flex size-6 items-center justify-center rounded-xs border">
@@ -220,7 +231,7 @@ export function NavUserWithTeams({
                   </DropdownMenuItem>
                 </>
               )}
-              
+
               {teamAccounts?.length > 0 && (
                 <>
                   <DropdownMenuLabel className="text-muted-foreground text-xs mt-2">
@@ -229,14 +240,16 @@ export function NavUserWithTeams({
                   {teamAccounts.map((team, index) => (
                     <DropdownMenuItem
                       key={team.account_id}
-                      onClick={() => handleTeamSelect({
-                        name: team.name,
-                        logo: AudioWaveform,
-                        plan: "Team",
-                        account_id: team.account_id,
-                        slug: team.slug,
-                        personal_account: false
-                      })}
+                      onClick={() =>
+                        handleTeamSelect({
+                          name: team.name,
+                          logo: AudioWaveform,
+                          plan: 'Team',
+                          account_id: team.account_id,
+                          slug: team.slug,
+                          personal_account: false,
+                        })
+                      }
                       className="gap-2 p-2"
                     >
                       <div className="flex size-6 items-center justify-center rounded-xs border">
@@ -248,7 +261,7 @@ export function NavUserWithTeams({
                   ))}
                 </>
               )}
-              
+
               {/* <DropdownMenuSeparator />
               <DialogTrigger asChild>
                 <DropdownMenuItem 
@@ -279,7 +292,9 @@ export function NavUserWithTeams({
                     Settings
                   </Link>
                 </DropdownMenuItem> */}
-                <DropdownMenuItem onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
+                <DropdownMenuItem
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                >
                   <div className="flex items-center gap-2">
                     <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                     <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -296,10 +311,12 @@ export function NavUserWithTeams({
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      
+
       <DialogContent className="sm:max-w-[425px] border-subtle dark:border-white/10 bg-card-bg dark:bg-background-secondary rounded-2xl shadow-custom">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Create a new team</DialogTitle>
+          <DialogTitle className="text-foreground">
+            Create a new team
+          </DialogTitle>
           <DialogDescription className="text-foreground/70">
             Create a team to collaborate with others.
           </DialogDescription>
@@ -307,5 +324,5 @@ export function NavUserWithTeams({
         <NewTeamForm />
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   AnimatePresence,
@@ -6,8 +6,8 @@ import {
   useInView,
   useMotionValue,
   useSpring,
-} from "motion/react";
-import { useEffect, useRef, useState } from "react";
+} from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 
 interface BoxConfig {
   title: string;
@@ -16,17 +16,17 @@ interface BoxConfig {
 
 const boxConfigs: BoxConfig[] = [
   {
-    title: "Bento grid",
-    className: "bg-secondary text-white",
+    title: 'Bento grid',
+    className: 'bg-secondary text-white',
   },
   {
-    title: "Landing Page",
-    className: "bg-secondary/40 text-white",
+    title: 'Landing Page',
+    className: 'bg-secondary/40 text-white',
   },
   {
-    title: "Add Task",
+    title: 'Add Task',
     className:
-      "bg-secondary/20 border border-secondary border-dashed text-secondary",
+      'bg-secondary/20 border border-secondary border-dashed text-secondary',
   },
 ];
 
@@ -94,11 +94,11 @@ export function FourthBentoAnimation({
 
     updateWidth();
 
-    window.addEventListener("resize", updateWidth);
+    window.addEventListener('resize', updateWidth);
 
     // Cleanup event listener on component unmount
     return () => {
-      window.removeEventListener("resize", updateWidth);
+      window.removeEventListener('resize', updateWidth);
     };
   }, []);
 
@@ -188,7 +188,7 @@ export function FourthBentoAnimation({
         className="absolute top-10 w-[2px] h-[calc(100%-80px)] bg-gradient-to-b from-black dark:from-accent to-transparent z-10"
         style={{
           x: smoothX,
-          translateX: "-50%",
+          translateX: '-50%',
         }}
         initial={{ opacity: 0 }}
         animate={{
@@ -203,7 +203,7 @@ export function FourthBentoAnimation({
         className="absolute top-14 bg-black dark:bg-accent h-6 z-20 flex items-center justify-center text-xs p-2 rounded-md shadow-[0px_2.2px_6.6px_0px_rgba(18,43,105,0.04),0px_1.1px_2.2px_0px_rgba(18,43,105,0.08),0px_0px_0px_1.1px_rgba(18,43,105,0.08),0px_1.1px_0px_0px_rgba(255,255,255,0.20)_inset,0px_4.4px_6.6px_0px_rgba(255,255,255,0.01)_inset]"
         style={{
           x: smoothX,
-          translateX: "-50%",
+          translateX: '-50%',
         }}
         initial={{ opacity: 0 }}
         animate={{
@@ -249,7 +249,7 @@ export function FourthBentoAnimation({
               }
               exit={{ opacity: 0, x: index % 2 === 0 ? 50 : -50 }}
               transition={{
-                type: "spring",
+                type: 'spring',
                 stiffness: 220,
                 damping: 18,
                 duration: 0.3,
