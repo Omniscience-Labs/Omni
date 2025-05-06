@@ -4,7 +4,8 @@ import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscript
 import { useState, useEffect } from 'react';
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
-export const DEFAULT_MODEL_ID = 'qwen3';
+export const DEFAULT_FREE_MODEL_ID = 'qwen3';
+export const DEFAULT_PREMIUM_MODEL_ID = 'sonnet-3.7';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -38,7 +39,7 @@ export const canAccessModel = (
 };
 
 export const useModelSelection = () => {
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_FREE_MODEL_ID);
   
   const { data: subscriptionData } = useSubscription();
   
@@ -51,15 +52,34 @@ export const useModelSelection = () => {
     
     try {
       const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
-      if (!savedModel) return;
       
-      const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
-      
-      if (modelOption && canAccessModel(subscriptionStatus, modelOption.requiresSubscription)) {
-        setSelectedModel(savedModel);
-      } else {
-        localStorage.removeItem(STORAGE_KEY_MODEL);
-        setSelectedModel(DEFAULT_MODEL_ID);
+      if (subscriptionStatus === 'active') {
+        if (savedModel) {
+          const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
+          if (modelOption && canAccessModel(subscriptionStatus, modelOption.requiresSubscription)) {
+            setSelectedModel(savedModel);
+            return;
+          }
+        }
+        
+        setSelectedModel(DEFAULT_PREMIUM_MODEL_ID);
+        try {
+          localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_PREMIUM_MODEL_ID);
+        } catch (error) {
+          console.warn('Failed to save model preference to localStorage:', error);
+        }
+      } 
+      else if (savedModel) {
+        const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
+        if (modelOption && canAccessModel(subscriptionStatus, modelOption.requiresSubscription)) {
+          setSelectedModel(savedModel);
+        } else {
+          localStorage.removeItem(STORAGE_KEY_MODEL);
+          setSelectedModel(DEFAULT_FREE_MODEL_ID);
+        }
+      }
+      else {
+        setSelectedModel(DEFAULT_FREE_MODEL_ID);
       }
     } catch (error) {
       console.warn('Failed to load preferences from localStorage:', error);
