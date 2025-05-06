@@ -146,6 +146,7 @@ class Configuration:
     RAPID_API_KEY: str
     CLOUDFLARE_API_TOKEN: Optional[str] = None
     FIRECRAWL_API_KEY: str
+    FIRECRAWL_URL: Optional[str] = "https://api.firecrawl.dev"
     
     # Stripe configuration
     STRIPE_SECRET_KEY: Optional[str] = None

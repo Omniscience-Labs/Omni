@@ -20,6 +20,7 @@ class WebSearchTool(Tool):
         # Use the provided API key or get it from environment variables
         self.tavily_api_key = api_key or config.TAVILY_API_KEY
         self.firecrawl_api_key = config.FIRECRAWL_API_KEY
+        self.firecrawl_url = config.FIRECRAWL_URL
         
         if not self.tavily_api_key:
             raise ValueError("TAVILY_API_KEY not found in configuration")
@@ -270,7 +271,7 @@ class WebSearchTool(Tool):
                     "formats": ["markdown"]
                 }
                 response = await client.post(
-                    "https://api.firecrawl.dev/v1/scrape",
+                    f"{self.firecrawl_url}/v1/scrape",
                     json=payload,
                     headers=headers,
                     timeout=60,
