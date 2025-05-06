@@ -205,12 +205,12 @@ function DashboardContent() {
         </div>
       )}
 
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[560px] max-w-[90%]">
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[650px] max-w-[90%]">
         <div className="flex flex-col items-center text-center mb-2 w-full">
-          <h1 className={cn('tracking-tight text-4xl font-bold leading-tight')}>
-            Welcome to <span className={cn(secondaryGradient)}>Suna</span>
+          <h1 className={cn('tracking-tight text-4xl font-semibold leading-tight')}>
+            Hey
           </h1>
-          <p className="tracking-tight text-3xl font-semibold text-muted-foreground/80 mt-2 flex items-center gap-2">
+          <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2 flex items-center gap-2">
             What would you like Suna to do today?
           </p>
         </div>

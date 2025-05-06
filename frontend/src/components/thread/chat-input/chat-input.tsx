@@ -10,10 +10,9 @@ import React, {
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { FileUploadHandler, handleFiles } from './file-upload-handler';
+import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { UploadedFilesDisplay } from './uploaded-file-display';
-import { ModelSelector } from './model-selector';
 import { useModelSelection } from './_use-model-selection';
 
 export interface ChatInputHandles {
@@ -167,9 +166,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     };
 
     return (
-      <div className="mx-auto w-full max-w-3xl px-4">
+      <div className="mx-auto w-full max-w-4xl px-4">
         <Card
-          className="shadow-none w-full max-w-3xl mx-auto bg-transparent border-none rounded-xl overflow-hidden"
+          className="shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-xl overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={(e) => {
@@ -190,7 +189,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           }}
         >
           <div className="w-full bg-muted/30 text-sm flex flex-col justify-between items-start rounded-lg border-b">
-            <CardContent className="shadow w-full p-1.5 pb-2 pt-3 bg-background rounded-2xl border">
+            <CardContent className="shadow w-full p-1.5 pb-2 pt-3 bg-sidebar rounded-2xl border">
               <UploadedFilesDisplay
                 uploadedFiles={uploadedFiles}
                 sandboxId={sandboxId}
@@ -209,33 +208,21 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 onStopAgent={onStopAgent}
                 isDraggingOver={isDraggingOver}
                 uploadedFiles={uploadedFiles}
+
+                fileInputRef={fileInputRef}
+                isUploading={isUploading}
+                sandboxId={sandboxId}
+                setPendingFiles={setPendingFiles}
+                setUploadedFiles={setUploadedFiles}
+                setIsUploading={setIsUploading}
+                hideAttachments={hideAttachments}
+
+                selectedModel={selectedModel}
+                onModelChange={handleModelChange}
+                modelOptions={modelOptions}
+                currentTier={subscriptionTier}
+                canAccessModel={canAccessModel}
               />
-
-              <div className="flex items-center justify-start mt-3 ml-3">
-                <div className="flex items-center gap-3">
-                  {!hideAttachments && (
-                    <FileUploadHandler
-                      ref={fileInputRef}
-                      loading={loading}
-                      disabled={disabled}
-                      isAgentRunning={isAgentRunning}
-                      isUploading={isUploading}
-                      sandboxId={sandboxId}
-                      setPendingFiles={setPendingFiles}
-                      setUploadedFiles={setUploadedFiles}
-                      setIsUploading={setIsUploading}
-                    />
-                  )}
-
-                  <ModelSelector
-                    selectedModel={selectedModel}
-                    onModelChange={handleModelChange}
-                    modelOptions={modelOptions}
-                    currentTier={subscriptionTier}
-                    canAccessModel={canAccessModel}
-                  />
-                </div>
-              </div>
             </CardContent>
           </div>
         </Card>

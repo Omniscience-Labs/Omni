@@ -188,8 +188,8 @@ export const FileUploadHandler = forwardRef<
                 type="button"
                 onClick={handleFileUpload}
                 variant="ghost"
-                size="sm"
-                className="h-7 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                size="default"
+                className="h-7 rounded-md text-muted-foreground"
                 disabled={
                   loading || (disabled && !isAgentRunning) || isUploading
                 }
@@ -199,7 +199,7 @@ export const FileUploadHandler = forwardRef<
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
-                <span className="text-xs">Attachments</span>
+                <span className="text-sm">Attachments</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -220,8 +220,5 @@ export const FileUploadHandler = forwardRef<
   },
 );
 
-// For easier access from other components
 FileUploadHandler.displayName = 'FileUploadHandler';
-
-// Export the helper functions for use in other components
 export { handleFiles, handleLocalFiles, uploadFiles };

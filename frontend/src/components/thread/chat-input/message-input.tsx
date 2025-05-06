@@ -1,11 +1,12 @@
-'use client';
-
 import React, { forwardRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Square, Loader2, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UploadedFile } from './chat-input';
+import { FileUploadHandler } from './file-upload-handler';
+import { ModelSelector } from './model-selector';
+import { useModelSelection } from './_use-model-selection';
 
 interface MessageInputProps {
   value: string;
@@ -18,6 +19,20 @@ interface MessageInputProps {
   onStopAgent?: () => void;
   isDraggingOver: boolean;
   uploadedFiles: UploadedFile[];
+
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  isUploading: boolean;
+  sandboxId?: string;
+  setPendingFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  setUploadedFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
+  setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
+  hideAttachments?: boolean;
+
+  selectedModel: string;
+  onModelChange: (model: string) => void;
+  modelOptions: any[];
+  currentTier: string;
+  canAccessModel: (model: string) => boolean;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -33,6 +48,20 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       onStopAgent,
       isDraggingOver,
       uploadedFiles,
+
+      fileInputRef,
+      isUploading,
+      sandboxId,
+      setPendingFiles,
+      setUploadedFiles,
+      setIsUploading,
+      hideAttachments = false,
+
+      selectedModel,
+      onModelChange,
+      modelOptions,
+      currentTier,
+      canAccessModel,
     },
     ref,
   ) => {
@@ -58,6 +87,10 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       return () => window.removeEventListener('resize', adjustHeight);
     }, [value, ref]);
 
+    const {
+      subscriptionTier,
+    } = useModelSelection();
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -72,47 +105,78 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
     };
 
     return (
-      <div className="flex gap-2 px-2">
-        <Textarea
-          ref={ref}
-          value={value}
-          onChange={onChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className={cn(
-            'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-2 py-1 text-base min-h-[40px] max-h-[200px] overflow-y-auto resize-none',
-            isDraggingOver ? 'opacity-40' : '',
-          )}
-          disabled={loading || (disabled && !isAgentRunning)}
-          rows={2}
-        />
-        <Button
-          type="submit"
-          onClick={isAgentRunning && onStopAgent ? onStopAgent : onSubmit}
-          size="icon"
-          className={cn(
-            'flex-shrink-0 self-end',
-            isAgentRunning ? 'bg-red-500 hover:bg-red-600' : '',
-            (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
-              loading ||
-              (disabled && !isAgentRunning)
-              ? 'opacity-50'
-              : '',
-          )}
-          disabled={
-            (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
-            loading ||
-            (disabled && !isAgentRunning)
-          }
-        >
-          {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : isAgentRunning ? (
-            <Square className="h-5 w-5" />
-          ) : (
-            <ArrowUp className="h-5 w-5" />
-          )}
-        </Button>
+      <div className="flex flex-col w-full h-auto gap-4 justify-between">
+        <div className="flex gap-2 items-center px-2">
+          <Textarea
+            ref={ref}
+            value={value}
+            onChange={onChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className={cn(
+              'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-2 py-1 text-base min-h-[40px] max-h-[200px] overflow-y-auto resize-none',
+              isDraggingOver ? 'opacity-40' : '',
+            )}
+            disabled={loading || (disabled && !isAgentRunning)}
+            rows={2}
+          />
+        </div>
+
+        <div className="flex items-center justify-between mt-1 ml-3 mb-1 pr-2">
+          <div className="flex items-center gap-3">
+            {!hideAttachments && (
+              <FileUploadHandler
+                ref={fileInputRef}
+                loading={loading}
+                disabled={disabled}
+                isAgentRunning={isAgentRunning}
+                isUploading={isUploading}
+                sandboxId={sandboxId}
+                setPendingFiles={setPendingFiles}
+                setUploadedFiles={setUploadedFiles}
+                setIsUploading={setIsUploading}
+              />
+            )}
+
+            
+          </div>
+          <div className='flex items-center gap-2'>
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+              modelOptions={modelOptions}
+              currentTier={subscriptionTier}
+              canAccessModel={canAccessModel}
+            />
+            <Button
+              type="submit"
+              onClick={isAgentRunning && onStopAgent ? onStopAgent : onSubmit}
+              size="sm"
+              className={cn(
+                'w-7 h-7 flex-shrink-0 self-end',
+                isAgentRunning ? 'bg-red-500 hover:bg-red-600' : '',
+                (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
+                  loading ||
+                  (disabled && !isAgentRunning)
+                  ? 'opacity-50'
+                  : '',
+              )}
+              disabled={
+                (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
+                loading ||
+                (disabled && !isAgentRunning)
+              }
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isAgentRunning ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     );
   },

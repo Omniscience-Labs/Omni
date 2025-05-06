@@ -64,10 +64,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size='default'
             className="h-7 rounded-md text-muted-foreground shadow-none border-none focus:ring-0 w-auto px-2 py-0"
           >
-            <div className="flex items-center gap-1 text-xs">
+            <div className="flex items-center gap-1 text-sm">
               <span>{selectedModelLabel}</span>
               <ChevronDown className="h-3 w-3 opacity-50" />
             </div>
