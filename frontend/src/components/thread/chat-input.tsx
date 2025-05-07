@@ -57,7 +57,7 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 // Local storage keys
 const STORAGE_KEY_MODEL = 'suna-preferred-model';
-const DEFAULT_MODEL_ID = 'deepseek'; // Define default model ID
+const DEFAULT_MODEL_ID = 'gemini-flash-2.5'; // Define default model ID
 
 interface ChatInputProps {
   onSubmit: (
