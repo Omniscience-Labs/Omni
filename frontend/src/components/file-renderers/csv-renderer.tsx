@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import { readString } from "react-papaparse";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useEffect, useMemo } from 'react';
+import { readString } from 'react-papaparse';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -10,11 +10,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CsvRendererProps {
   content: string;
@@ -42,7 +42,7 @@ interface PapaParseResult {
 }
 
 export function CsvRenderer({ content, className }: CsvRendererProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
 
@@ -53,29 +53,29 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
     try {
       let headers: string[] = [];
       let data: Record<string, string>[] = [];
-      
+
       readString(content, {
         header: true,
         skipEmptyLines: true,
         complete: (results: any) => {
           if (results.errors && results.errors.length > 0) {
-            console.error("CSV parsing errors:", results.errors);
+            console.error('CSV parsing errors:', results.errors);
           }
-          
+
           headers = results.meta.fields || [];
           data = results.data || [];
         },
         error: (error: Error) => {
-          console.error("CSV parsing error:", error);
-        }
+          console.error('CSV parsing error:', error);
+        },
       });
-      
+
       return {
         data,
         headers,
       };
     } catch (error) {
-      console.error("Failed to parse CSV:", error);
+      console.error('Failed to parse CSV:', error);
       return { data: [], headers: [] };
     }
   }, [content]);
@@ -108,7 +108,7 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
   }, [searchTerm]);
 
   return (
-    <div className={cn("flex flex-col h-full w-full", className)}>
+    <div className={cn('flex flex-col h-full w-full', className)}>
       {/* Search and pagination controls */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="relative w-full max-w-sm">
@@ -121,7 +121,7 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
             className="pl-9"
           />
         </div>
-        
+
         <div className="flex items-center gap-2 ml-4">
           <Button
             variant="outline"
@@ -131,22 +131,24 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          
+
           <span className="text-sm text-muted-foreground min-w-[100px] text-center">
             Page {currentPage} of {totalPages}
           </span>
-          
+
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            onClick={() =>
+              setCurrentPage(Math.min(totalPages, currentPage + 1))
+            }
             disabled={currentPage === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      
+
       {/* Table */}
       <ScrollArea className="flex-1 w-full relative">
         <div className="min-w-full">
@@ -165,8 +167,11 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
                 paginatedData.map((row, rowIndex) => (
                   <TableRow key={rowIndex}>
                     {parsedData.headers.map((header, cellIndex) => (
-                      <TableCell key={cellIndex} className={cellIndex === 0 ? "font-medium" : ""}>
-                        {row[header] || ""}
+                      <TableCell
+                        key={cellIndex}
+                        className={cellIndex === 0 ? 'font-medium' : ''}
+                      >
+                        {row[header] || ''}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -177,7 +182,7 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
                     colSpan={parsedData.headers.length || 1}
                     className="h-24 text-center"
                   >
-                    {searchTerm ? "No results found." : "No data available."}
+                    {searchTerm ? 'No results found.' : 'No data available.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -187,4 +192,4 @@ export function CsvRenderer({ content, className }: CsvRendererProps) {
       </ScrollArea>
     </div>
   );
-} 
+}

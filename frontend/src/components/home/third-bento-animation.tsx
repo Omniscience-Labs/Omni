@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { colorWithOpacity, getRGBA } from "@/lib/utils";
-import NumberFlow from "@number-flow/react";
-import { motion, useInView } from "motion/react";
-import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { colorWithOpacity, getRGBA } from '@/lib/utils';
+import NumberFlow from '@number-flow/react';
+import { motion, useInView } from 'motion/react';
+import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 
 interface LineChartProps {
   data: number[];
@@ -26,7 +26,7 @@ export function LineChart({
 
   // Create smooth curve points using bezier curves
   const createSmoothPath = (points: { x: number; y: number }[]) => {
-    if (points.length < 2) return "";
+    if (points.length < 2) return '';
 
     const path = points.reduce((acc, point, i, arr) => {
       if (i === 0) {
@@ -51,7 +51,7 @@ export function LineChart({
       const cp2y = point.y - (next.y - prev.y) * smoothing;
 
       return `${acc} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${point.x},${point.y}`;
-    }, "");
+    }, '');
 
     return path;
   };
@@ -77,9 +77,12 @@ export function LineChart({
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      setShowPulse(true);
-    }, (startAnimationDelay || 0) * 1000);
+    const timeoutId = setTimeout(
+      () => {
+        setShowPulse(true);
+      },
+      (startAnimationDelay || 0) * 1000,
+    );
 
     return () => clearTimeout(timeoutId);
   }, [shouldAnimate, startAnimationDelay]);
@@ -121,7 +124,7 @@ export function LineChart({
         }}
         transition={{
           duration: 0.8,
-          ease: "easeOut",
+          ease: 'easeOut',
           delay: startAnimationDelay,
         }}
         d={`${smoothPath} L ${width},${height} L 0,${height} Z`}
@@ -134,7 +137,7 @@ export function LineChart({
         animate={{ pathLength: shouldAnimate ? 1 : 0 }}
         transition={{
           duration: 1.5,
-          ease: "easeInOut",
+          ease: 'easeInOut',
           delay: startAnimationDelay,
         }}
         d={smoothPath}
@@ -158,7 +161,7 @@ export function LineChart({
         transition={{
           delay: startAnimationDelay ? startAnimationDelay + 0.3 : 0.3,
           duration: 0.4,
-          ease: "backOut",
+          ease: 'backOut',
         }}
       />
 
@@ -183,7 +186,7 @@ export function LineChart({
                 duration: 2,
                 repeat: Infinity,
                 delay: index * 0.67,
-                ease: "easeOut",
+                ease: 'easeOut',
                 times: [0, 1],
                 repeatDelay: 0,
               }}
@@ -214,9 +217,12 @@ export function NumberFlowCounter({
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      setShowCounter(true);
-    }, (startAnimationDelay || 0) * 1000);
+    const timeoutId = setTimeout(
+      () => {
+        setShowCounter(true);
+      },
+      (startAnimationDelay || 0) * 1000,
+    );
 
     return () => clearTimeout(timeoutId);
   }, [shouldAnimate, startAnimationDelay]);
@@ -236,7 +242,7 @@ export function NumberFlowCounter({
   return (
     <div
       className={`${
-        showCounter ? "opacity-100" : "opacity-0"
+        showCounter ? 'opacity-100' : 'opacity-0'
       } transition-opacity duration-300 ease-in-out absolute top-32 left-[42%] -translate-x-1/2 text-sm bg-[#1A1B25] border border-white/[0.07] text-white px-4 py-1 rounded-full h-8 flex items-center justify-center font-mono shadow-[0px_1.1px_0px_0px_rgba(255,255,255,0.20)_inset,0px_4.4px_6.6px_0px_rgba(255,255,255,0.01)_inset,0px_2.2px_6.6px_0px_rgba(18,43,105,0.04),0px_1.1px_2.2px_0px_rgba(18,43,105,0.08),0px_0px_0px_1.1px_rgba(18,43,105,0.08)]`}
     >
       <NumberFlow
@@ -244,7 +250,7 @@ export function NumberFlowCounter({
         className="font-mono"
         transformTiming={{
           duration: 700,
-          easing: "ease-out",
+          easing: 'ease-out',
         }}
         format={{
           useGrouping: true,
@@ -258,7 +264,7 @@ export function NumberFlowCounter({
 export function ThirdBentoAnimation({
   data,
   toolTipValues,
-  color = "var(--secondary)",
+  color = 'var(--secondary)',
   startAnimationDelay = 0,
   once = false,
 }: {
@@ -291,7 +297,7 @@ export function ThirdBentoAnimation({
       className="relative flex size-full items-center justify-center h-[300px] pt-10 overflow-hidden"
       style={
         {
-          "--color": computedColor,
+          '--color': computedColor,
         } as CSSProperties
       }
     >
@@ -301,7 +307,7 @@ export function ThirdBentoAnimation({
         transition={{
           duration: 0.5,
           delay: startAnimationDelay ? startAnimationDelay + 0.3 : 0.3,
-          ease: "easeOut",
+          ease: 'easeOut',
         }}
         className="absolute top-[60%] left-1/2 -translate-x-1/2 w-[2px] h-32 bg-gradient-to-b from-[var(--color)] to-[var(--color-transparent)]"
       ></motion.div>

@@ -1,4 +1,4 @@
-import { Project } from "@/lib/api";
+import { Project } from '@/lib/api';
 
 export interface ToolViewProps {
   assistantContent?: string;
@@ -17,4 +17,4 @@ export interface ToolViewProps {
 
 export interface BrowserToolViewProps extends ToolViewProps {
   name?: string;
-} 
+}

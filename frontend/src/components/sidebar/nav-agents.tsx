@@ -1,6 +1,6 @@
-"use client"
+'use client';
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef } from 'react';
 import {
   ArrowUpRight,
   Link as LinkIcon,
@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -29,7 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from '@/components/ui/sidebar';
 import {
   Tooltip,
   TooltipContent,
@@ -48,7 +48,7 @@ type ThreadWithProject = {
   projectName: string;
   url: string;
   updatedAt: string;
-}
+};
 
 export function NavAgents() {
   const { isMobile, state } = useSidebar()
@@ -67,7 +67,9 @@ export function NavAgents() {
   const isPerformingActionRef = useRef(false);
 
   // Helper to sort threads by updated_at (most recent first)
-  const sortThreads = (threadsList: ThreadWithProject[]): ThreadWithProject[] => {
+  const sortThreads = (
+    threadsList: ThreadWithProject[],
+  ): ThreadWithProject[] => {
     return [...threadsList].sort((a, b) => {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
@@ -77,7 +79,7 @@ export function NavAgents() {
   const loadThreadsWithProjects = async (showLoading = true) => {
     try {
       if (showLoading) {
-        setIsLoading(true)
+        setIsLoading(true);
       }
 
       // Get all projects
@@ -86,13 +88,13 @@ export function NavAgents() {
 
       // If no projects are found, the user might not be logged in
       if (projects.length === 0) {
-        setThreads([])
-        return
+        setThreads([]);
+        return;
       }
 
       // Create a map of projects by ID for faster lookups
       const projectsById = new Map<string, Project>();
-      projects.forEach(project => {
+      projects.forEach((project) => {
         projectsById.set(project.id, project);
       });
 
@@ -111,7 +113,9 @@ export function NavAgents() {
         // Get the associated project
         const project = projectsById.get(projectId);
         if (!project) {
-          console.log(`❌ Thread ${thread.thread_id} has project_id=${projectId} but no matching project found`);
+          console.log(
+            `❌ Thread ${thread.thread_id} has project_id=${projectId} but no matching project found`,
+          );
           continue;
         }
 
@@ -123,22 +127,23 @@ export function NavAgents() {
           projectId: projectId,
           projectName: project.name || 'Unnamed Project',
           url: `/agents/${thread.thread_id}`,
-          updatedAt: thread.updated_at || project.updated_at || new Date().toISOString()
+          updatedAt:
+            thread.updated_at || project.updated_at || new Date().toISOString(),
         });
       }
 
       // Set threads, ensuring consistent sort order
-      setThreads(sortThreads(threadsWithProjects))
+      setThreads(sortThreads(threadsWithProjects));
     } catch (err) {
-      console.error("Error loading threads with projects:", err)
+      console.error('Error loading threads with projects:', err);
       // Set empty threads array on error
-      setThreads([])
+      setThreads([]);
     } finally {
       if (showLoading) {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
-  }
+  };
 
   // Load threads dynamically from the API on initial load
   useEffect(() => {
@@ -170,34 +175,37 @@ export function NavAgents() {
         // Silently refresh in background to fetch updated timestamp and re-sort
         setTimeout(() => loadThreadsWithProjects(false), 1000);
       }
-    }
+    };
 
     // Add event listener
     window.addEventListener('project-updated', handleProjectUpdate as EventListener);
 
     // Cleanup
     return () => {
-      window.removeEventListener('project-updated', handleProjectUpdate as EventListener);
-    }
+      window.removeEventListener(
+        'project-updated',
+        handleProjectUpdate as EventListener,
+      );
+    };
   }, []);
 
   // Reset loading state when navigation completes (pathname changes)
   useEffect(() => {
-    setLoadingThreadId(null)
-  }, [pathname])
+    setLoadingThreadId(null);
+  }, [pathname]);
 
   // Add event handler for completed navigation
   useEffect(() => {
     const handleNavigationComplete = () => {
-      console.log("NAVIGATION - Navigation event completed");
-      document.body.style.pointerEvents = "auto";
+      console.log('NAVIGATION - Navigation event completed');
+      document.body.style.pointerEvents = 'auto';
       isNavigatingRef.current = false;
     };
 
     window.addEventListener("popstate", handleNavigationComplete);
 
     return () => {
-      window.removeEventListener("popstate", handleNavigationComplete);
+      window.removeEventListener('popstate', handleNavigationComplete);
       // Ensure we clean up any leftover styles
       document.body.style.pointerEvents = "auto";
     };
@@ -206,7 +214,7 @@ export function NavAgents() {
   // Reset isNavigatingRef when pathname changes
   useEffect(() => {
     isNavigatingRef.current = false;
-    document.body.style.pointerEvents = "auto";
+    document.body.style.pointerEvents = 'auto';
   }, [pathname]);
 
   // Function to handle thread click with loading state
@@ -238,9 +246,9 @@ export function NavAgents() {
     const deletedThread = { ...threadToDelete };
 
     // Log operation start
-    console.log("DELETION - Starting thread deletion process", {
+    console.log('DELETION - Starting thread deletion process', {
       threadId: deletedThread.id,
-      isCurrentThread: isActive
+      isCurrentThread: isActive,
     });
 
     // Use the centralized deletion system with completion callback
@@ -255,14 +263,14 @@ export function NavAgents() {
         setThreads(prev => prev.filter(t => t.threadId !== threadId));
 
         // Show success message
-        toast.success("Conversation deleted successfully");
+        toast.success('Conversation deleted successfully');
       },
       // Completion callback to reset local state
       () => {
         setThreadToDelete(null);
         setIsDeleting(false);
         isPerformingActionRef.current = false;
-      }
+      },
     );
   };
 
@@ -270,7 +278,7 @@ export function NavAgents() {
     <SidebarGroup>
       <div className="flex justify-between items-center">
         <SidebarGroupLabel>Agents</SidebarGroupLabel>
-        {state !== "collapsed" ? (
+        {state !== 'collapsed' ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
@@ -287,7 +295,7 @@ export function NavAgents() {
       </div>
 
       <SidebarMenu className="overflow-y-auto max-h-[calc(100vh-200px)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        {state === "collapsed" && (
+        {state === 'collapsed' && (
           <SidebarMenuItem>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -323,11 +331,21 @@ export function NavAgents() {
 
               return (
                 <SidebarMenuItem key={`thread-${thread.threadId}`}>
-                  {state === "collapsed" ? (
+                  {state === 'collapsed' ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <SidebarMenuButton asChild className={isActive ? "bg-accent text-accent-foreground" : ""}>
-                          <Link href={thread.url} onClick={(e) => handleThreadClick(e, thread.threadId, thread.url)}>
+                        <SidebarMenuButton
+                          asChild
+                          className={
+                            isActive ? 'bg-accent text-accent-foreground' : ''
+                          }
+                        >
+                          <Link
+                            href={thread.url}
+                            onClick={(e) =>
+                              handleThreadClick(e, thread.threadId, thread.url)
+                            }
+                          >
                             {isThreadLoading ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
@@ -340,8 +358,20 @@ export function NavAgents() {
                       <TooltipContent>{thread.projectName}</TooltipContent>
                     </Tooltip>
                   ) : (
-                    <SidebarMenuButton asChild className={isActive ? "bg-accent text-accent-foreground font-medium" : ""}>
-                      <Link href={thread.url} onClick={(e) => handleThreadClick(e, thread.threadId, thread.url)}>
+                    <SidebarMenuButton
+                      asChild
+                      className={
+                        isActive
+                          ? 'bg-accent text-accent-foreground font-medium'
+                          : ''
+                      }
+                    >
+                      <Link
+                        href={thread.url}
+                        onClick={(e) =>
+                          handleThreadClick(e, thread.threadId, thread.url)
+                        }
+                      >
                         {isThreadLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
@@ -351,7 +381,7 @@ export function NavAgents() {
                       </Link>
                     </SidebarMenuButton>
                   )}
-                  {state !== "collapsed" && (
+                  {state !== 'collapsed' && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <SidebarMenuAction showOnHover>
@@ -361,8 +391,8 @@ export function NavAgents() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         className="w-56 rounded-lg"
-                        side={isMobile ? "bottom" : "right"}
-                        align={isMobile ? "end" : "start"}
+                        side={isMobile ? 'bottom' : 'right'}
+                        align={isMobile ? 'end' : 'start'}
                       >
                         <DropdownMenuItem onClick={() => {
                           setSelectedItem({ threadId: thread?.threadId, projectId: thread?.projectId })
@@ -372,13 +402,24 @@ export function NavAgents() {
                           <span>Share Chat</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <a href={thread.url} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={thread.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <ArrowUpRight className="text-muted-foreground" />
                             <span>Open in New Tab</span>
                           </a>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteThread(thread.threadId, thread.projectName)}>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleDeleteThread(
+                              thread.threadId,
+                              thread.projectName,
+                            )
+                          }
+                        >
                           <Trash2 className="text-muted-foreground" />
                           <span>Delete</span>
                         </DropdownMenuItem>
@@ -416,5 +457,5 @@ export function NavAgents() {
         />
       )}
     </SidebarGroup>
-  )
+  );
 }

@@ -3,7 +3,7 @@ import type { Project } from '@/lib/api';
 import { Message as BaseApiMessageType } from '@/lib/api';
 
 // Define a type for the params to make React.use() work properly
-export type ThreadParams = { 
+export type ThreadParams = {
   threadId: string;
 };
 
@@ -54,4 +54,4 @@ export interface ApiMessageType extends Omit<BaseApiMessageType, 'type'> {
 }
 
 // Re-export existing types
-export type { Project }; 
+export type { Project };

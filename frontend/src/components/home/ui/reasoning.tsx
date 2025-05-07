@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { cn } from "@/lib/utils";
-import { ChevronDownIcon } from "lucide-react";
+import { cn } from '@/lib/utils';
+import { ChevronDownIcon } from 'lucide-react';
 import React, {
   createContext,
   useContext,
   useEffect,
   useRef,
   useState,
-} from "react";
-import { Markdown } from "../../ui/markdown";
-import { useTextStream, type Mode } from "./response-stream";
+} from 'react';
+import { Markdown } from '../../ui/markdown';
+import { useTextStream, type Mode } from './response-stream';
 
 type ReasoningContextType = {
   isOpen: boolean;
@@ -18,14 +18,14 @@ type ReasoningContextType = {
 };
 
 const ReasoningContext = createContext<ReasoningContextType | undefined>(
-  undefined
+  undefined,
 );
 
 function useReasoningContext() {
   const context = useContext(ReasoningContext);
   if (!context) {
     throw new Error(
-      "useReasoningContext must be used within a Reasoning provider"
+      'useReasoningContext must be used within a Reasoning provider',
     );
   }
   return context;
@@ -81,15 +81,15 @@ function ReasoningTrigger({
 
   return (
     <button
-      className={cn("flex cursor-pointer items-center gap-2", className)}
+      className={cn('flex cursor-pointer items-center gap-2', className)}
       onClick={() => onOpenChange(!isOpen)}
       {...props}
     >
       <span className="text-primary">{children}</span>
       <div
         className={cn(
-          "transform transition-transform",
-          isOpen ? "rotate-180" : ""
+          'transform transition-transform',
+          isOpen ? 'rotate-180' : '',
         )}
       >
         <ChevronDownIcon className="size-4" />
@@ -134,11 +134,11 @@ function ReasoningContent({
     <div
       ref={contentRef}
       className={cn(
-        "overflow-hidden transition-[max-height] duration-300 ease-out",
-        className
+        'overflow-hidden transition-[max-height] duration-300 ease-out',
+        className,
       )}
       style={{
-        maxHeight: isOpen ? contentRef.current?.scrollHeight : "0px",
+        maxHeight: isOpen ? contentRef.current?.scrollHeight : '0px',
       }}
       {...props}
     >
@@ -162,7 +162,7 @@ function ReasoningResponse({
   text,
   className,
   speed = 20,
-  mode = "typewriter",
+  mode = 'typewriter',
   onComplete,
   fadeDuration,
   segmentDelay,
@@ -182,8 +182,8 @@ function ReasoningResponse({
   return (
     <div
       className={cn(
-        "text-muted-foreground prose prose-sm dark:prose-invert text-sm transition-opacity duration-300 ease-out",
-        className
+        'text-muted-foreground prose prose-sm dark:prose-invert text-sm transition-opacity duration-300 ease-out',
+        className,
       )}
       style={{
         opacity: isOpen ? 1 : 0,

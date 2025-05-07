@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import { Button } from "@/components/ui/button"
 import { FolderOpen, Link, PanelRightOpen, Check, X, Menu, Share2 } from "lucide-react"
@@ -20,13 +20,13 @@ import { useSidebar } from "@/components/ui/sidebar"
 import { ShareModal } from "@/components/sidebar/share-modal"
 
 interface ThreadSiteHeaderProps {
-  threadId: string
-  projectId: string
-  projectName: string
-  onViewFiles: () => void
-  onToggleSidePanel: () => void
-  onProjectRenamed?: (newName: string) => void
-  isMobileView?: boolean
+  threadId: string;
+  projectId: string;
+  projectName: string;
+  onViewFiles: () => void;
+  onToggleSidePanel: () => void;
+  onProjectRenamed?: (newName: string) => void;
+  isMobileView?: boolean;
 }
 
 export function SiteHeader({
@@ -36,7 +36,7 @@ export function SiteHeader({
   onViewFiles,
   onToggleSidePanel,
   onProjectRenamed,
-  isMobileView
+  isMobileView,
 }: ThreadSiteHeaderProps) {
   const pathname = usePathname()
   const [isEditing, setIsEditing] = useState(false)
@@ -52,47 +52,48 @@ export function SiteHeader({
   }
 
   const startEditing = () => {
-    setEditName(projectName)
-    setIsEditing(true)
+    setEditName(projectName);
+    setIsEditing(true);
     setTimeout(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }, 0)
-  }
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  };
 
   const cancelEditing = () => {
-    setIsEditing(false)
-    setEditName(projectName)
-  }
+    setIsEditing(false);
+    setEditName(projectName);
+  };
 
   const saveNewName = async () => {
-    if (editName.trim() === "") {
-      setEditName(projectName)
-      setIsEditing(false)
-      return
+    if (editName.trim() === '') {
+      setEditName(projectName);
+      setIsEditing(false);
+      return;
     }
 
     if (editName !== projectName) {
       try {
         if (!projectId) {
-          toast.error("Cannot rename: Project ID is missing")
-          setEditName(projectName)
-          setIsEditing(false)
-          return
+          toast.error('Cannot rename: Project ID is missing');
+          setEditName(projectName);
+          setIsEditing(false);
+          return;
         }
 
         const updatedProject = await updateProject(projectId, { name: editName })
         if (updatedProject) {
-          onProjectRenamed?.(editName)
-          toast.success("Project renamed successfully")
+          onProjectRenamed?.(editName);
+          toast.success('Project renamed successfully');
         } else {
-          throw new Error("Failed to update project")
+          throw new Error('Failed to update project');
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to rename project"
-        console.error("Failed to rename project:", errorMessage)
-        toast.error(errorMessage)
-        setEditName(projectName)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to rename project';
+        console.error('Failed to rename project:', errorMessage);
+        toast.error(errorMessage);
+        setEditName(projectName);
       }
     }
 
@@ -100,12 +101,12 @@ export function SiteHeader({
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      saveNewName()
-    } else if (e.key === "Escape") {
-      cancelEditing()
+    if (e.key === 'Enter') {
+      saveNewName();
+    } else if (e.key === 'Escape') {
+      cancelEditing();
     }
-  }
+  };
 
   return (
     <>

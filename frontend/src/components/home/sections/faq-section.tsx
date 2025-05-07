@@ -3,9 +3,9 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/home/ui/accordion";
-import { SectionHeader } from "@/components/home/section-header";
-import { siteConfig } from "@/lib/home";
+} from '@/components/home/ui/accordion';
+import { SectionHeader } from '@/components/home/section-header';
+import { siteConfig } from '@/lib/home';
 
 export function FAQSection() {
   const { faqSection } = siteConfig;

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { CodeRenderer } from "./code-renderer";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Monitor, Code, ExternalLink } from "lucide-react";
+import React, { useState } from 'react';
+import { CodeRenderer } from './code-renderer';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Monitor, Code, ExternalLink } from 'lucide-react';
 
 interface HtmlRendererProps {
   content: string;
@@ -12,12 +12,16 @@ interface HtmlRendererProps {
   className?: string;
 }
 
-export function HtmlRenderer({ content, previewUrl, className }: HtmlRendererProps) {
+export function HtmlRenderer({
+  content,
+  previewUrl,
+  className,
+}: HtmlRendererProps) {
   // Always default to 'preview' mode
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
 
   return (
-    <div className={cn("w-full h-full flex flex-col", className)}>
+    <div className={cn('w-full h-full flex flex-col', className)}>
       {/* Content area */}
       <div className="flex-1 min-h-0 relative">
         {/* View mode toggle */}
@@ -26,8 +30,8 @@ export function HtmlRenderer({ content, previewUrl, className }: HtmlRendererPro
             variant="ghost"
             size="sm"
             className={cn(
-              "flex items-center gap-2 bg-background/80 backdrop-blur-sm hover:bg-background/90",
-              viewMode === 'preview' && "bg-background/90"
+              'flex items-center gap-2 bg-background/80 backdrop-blur-sm hover:bg-background/90',
+              viewMode === 'preview' && 'bg-background/90',
             )}
             onClick={() => setViewMode('preview')}
           >
@@ -38,8 +42,8 @@ export function HtmlRenderer({ content, previewUrl, className }: HtmlRendererPro
             variant="ghost"
             size="sm"
             className={cn(
-              "flex items-center gap-2 bg-background/80 backdrop-blur-sm hover:bg-background/90",
-              viewMode === 'code' && "bg-background/90"
+              'flex items-center gap-2 bg-background/80 backdrop-blur-sm hover:bg-background/90',
+              viewMode === 'code' && 'bg-background/90',
             )}
             onClick={() => setViewMode('code')}
           >
@@ -78,4 +82,4 @@ export function HtmlRenderer({ content, previewUrl, className }: HtmlRendererPro
       </div>
     </div>
   );
-} 
+}

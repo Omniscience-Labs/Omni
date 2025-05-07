@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { cn } from "@/lib/utils";
-import React, { useEffect, useState } from "react";
-import { codeToHtml } from "shiki";
-import { useTheme } from "next-themes";
+import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from 'react';
+import { codeToHtml } from 'shiki';
+import { useTheme } from 'next-themes';
 
 export type CodeBlockProps = {
   children?: React.ReactNode;
@@ -12,12 +12,7 @@ export type CodeBlockProps = {
 
 function CodeBlock({ children, className, ...props }: CodeBlockProps) {
   return (
-    <div
-      className={cn(
-        className
-      )}
-      {...props}
-    >
+    <div className={cn(className)} {...props}>
       {children}
     </div>
   );
@@ -32,16 +27,17 @@ export type CodeBlockCodeProps = {
 
 function CodeBlockCode({
   code,
-  language = "tsx",
+  language = 'tsx',
   theme: propTheme,
   className,
   ...props
 }: CodeBlockCodeProps) {
   const { resolvedTheme } = useTheme();
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
-  
+
   // Use github-dark when in dark mode, github-light when in light mode
-  const theme = propTheme || (resolvedTheme === 'dark' ? 'github-dark' : 'github-light');
+  const theme =
+    propTheme || (resolvedTheme === 'dark' ? 'github-dark' : 'github-light');
 
   useEffect(() => {
     async function highlight() {
@@ -51,10 +47,7 @@ function CodeBlockCode({
     highlight();
   }, [code, language, theme]);
 
-  const classNames = cn(
-    "",
-    className
-  );
+  const classNames = cn('', className);
 
   // SSR fallback: render plain code if not hydrated yet
   return highlightedHtml ? (
@@ -80,10 +73,7 @@ function CodeBlockGroup({
   ...props
 }: CodeBlockGroupProps) {
   return (
-    <div
-      className={cn("", className)}
-      {...props}
-    >
+    <div className={cn('', className)} {...props}>
       {children}
     </div>
   );

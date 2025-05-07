@@ -40,8 +40,9 @@ MODEL_NAME_ALIASES = {
     "gpt-4": "openai/gpt-4",
     "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview",
     "grok-3": "xai/grok-3-fast-latest",
-    "deepseek": "deepseek/deepseek-chat",
+    "deepseek": "openrouter/deepseek/deepseek-chat",
     "grok-3-mini": "xai/grok-3-mini-fast-beta",
+    "qwen3": "openrouter/qwen/qwen3-235b-a22b", 
 
     # Also include full names as keys to ensure they map to themselves
     "anthropic/claude-3-7-sonnet-latest": "anthropic/claude-3-7-sonnet-latest",
@@ -51,7 +52,7 @@ MODEL_NAME_ALIASES = {
     "openai/gpt-4": "openai/gpt-4",
     "openrouter/google/gemini-2.5-flash-preview": "openrouter/google/gemini-2.5-flash-preview",
     "xai/grok-3-fast-latest": "xai/grok-3-fast-latest",
-    "deepseek/deepseek-chat": "deepseek/deepseek-chat",
+    "deepseek/deepseek-chat": "openrouter/deepseek/deepseek-chat",
     "xai/grok-3-mini-fast-beta": "xai/grok-3-mini-fast-beta",
 }
 

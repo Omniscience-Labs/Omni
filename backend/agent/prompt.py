@@ -581,7 +581,7 @@ For casual conversation and social interactions:
   * The system will continue running in a loop if completion is not signaled
   * Additional commands after completion are considered errors
   * Redundant verifications after completion are prohibited
-"""
+  """
 
 
 def get_system_prompt():

@@ -74,7 +74,16 @@ async def run_agent(
     if config.RAPID_API_KEY:
         thread_manager.add_tool(DataProvidersTool)
 
-    system_message = { "role": "system", "content": get_system_prompt() }
+
+    # Only include sample response if the model name does not contain "anthropic"
+    if "anthropic" not in model_name.lower():
+        sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
+        with open(sample_response_path, 'r') as file:
+            sample_response = file.read()
+        
+        system_message = { "role": "system", "content": get_system_prompt() + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>" }
+    else:
+        system_message = { "role": "system", "content": get_system_prompt() }
 
     iteration_count = 0
     continue_execution = True
@@ -177,12 +186,6 @@ async def run_agent(
             max_tokens = 64000
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
-
-        # # Configure tool calling based on model type
-        # use_xml_tool_calling = "anthropic" in model_name.lower() or "claude" in model_name.lower()
-        # use_native_tool_calling = "openai" in model_name.lower() or "gpt" in model_name.lower()
-
-        # # model_name = "openrouter/qwen/qwen3-235b-a22b"
 
         response = await thread_manager.run_thread(
             thread_id=thread_id,

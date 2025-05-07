@@ -263,7 +263,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         return (
                                             <div key={group.key} className="flex justify-end">
-                                                <div className="inline-flex max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
+                                                <div className="inline-flex max-w-[85%] rounded-xl bg-primary/10 px-4 py-3">
                                                     <div className="space-y-3">
                                                         {cleanContent && (
                                                             <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">{cleanContent}</Markdown>

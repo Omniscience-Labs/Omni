@@ -1,11 +1,16 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { type NextRequest, NextResponse } from 'next/server';
 
 function forceLoginWithReturn(request: NextRequest) {
   const originalUrl = new URL(request.url);
   const path = originalUrl.pathname;
   const query = originalUrl.searchParams.toString();
-  return NextResponse.redirect(new URL(`/auth?returnUrl=${encodeURIComponent(path + (query ? `?${query}` : ''))}`, request.url));
+  return NextResponse.redirect(
+    new URL(
+      `/auth?returnUrl=${encodeURIComponent(path + (query ? `?${query}` : ''))}`,
+      request.url,
+    ),
+  );
 }
 
 export const validateSession = async (request: NextRequest) => {
@@ -49,7 +54,7 @@ export const validateSession = async (request: NextRequest) => {
             // If the cookie is removed, update the cookies for the request and response
             request.cookies.set({
               name,
-              value: "",
+              value: '',
               ...options,
             });
             response = NextResponse.next({
@@ -59,7 +64,7 @@ export const validateSession = async (request: NextRequest) => {
             });
             response.cookies.set({
               name,
-              value: "",
+              value: '',
               ...options,
             });
           },
@@ -69,11 +74,16 @@ export const validateSession = async (request: NextRequest) => {
 
     // This will refresh session if expired - required for Server Components
     // https://supabase.com/docs/guides/auth/server-side/nextjs
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const protectedRoutes = ['/dashboard', '/invitation'];
 
-    if (!user && protectedRoutes.some(path => request.nextUrl.pathname.startsWith(path))) {
+    if (
+      !user &&
+      protectedRoutes.some((path) => request.nextUrl.pathname.startsWith(path))
+    ) {
       // redirect to /auth
       return forceLoginWithReturn(request);
     }

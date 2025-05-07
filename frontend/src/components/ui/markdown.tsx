@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { cn } from "@/lib/utils";
-import { marked } from "marked";
-import { memo, useId, useMemo } from "react";
-import ReactMarkdown, { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { CodeBlock, CodeBlockCode } from "@/components/ui/code-block";
+import { cn } from '@/lib/utils';
+import { marked } from 'marked';
+import { memo, useId, useMemo } from 'react';
+import ReactMarkdown, { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { CodeBlock, CodeBlockCode } from '@/components/ui/code-block';
 
 export type MarkdownProps = {
   children: string;
@@ -19,9 +19,9 @@ function parseMarkdownIntoBlocks(markdown: string): string[] {
 }
 
 function extractLanguage(className?: string): string {
-  if (!className) return "plaintext";
+  if (!className) return 'plaintext';
   const match = className.match(/language-(\w+)/);
-  return match ? match[1] : "plaintext";
+  return match ? match[1] : 'plaintext';
 }
 
 const INITIAL_COMPONENTS: Partial<Components> = {
@@ -34,8 +34,8 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       return (
         <span
           className={cn(
-            "bg-primary-foreground dark:bg-zinc-800 dark:border dark:border-zinc-700 rounded-sm px-1 font-mono text-sm",
-            className
+            'bg-primary-foreground dark:bg-zinc-800 dark:border dark:border-zinc-700 rounded-sm px-1 font-mono text-sm',
+            className,
           )}
           {...props}
         >
@@ -48,7 +48,11 @@ const INITIAL_COMPONENTS: Partial<Components> = {
 
     return (
       <CodeBlock className="rounded-md overflow-hidden my-4 border border-zinc-200 dark:border-zinc-800">
-        <CodeBlockCode code={children as string} language={language} className="text-sm overflow-x-auto" />
+        <CodeBlockCode
+          code={children as string}
+          language={language}
+          className="text-sm overflow-x-auto"
+        />
       </CodeBlock>
     );
   },
@@ -56,37 +60,96 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     return <>{children}</>;
   },
   ul: function UnorderedList({ children, ...props }: any) {
-    return <ul className="list-disc pl-5 my-2" {...props}>{children}</ul>;
+    return (
+      <ul className="list-disc pl-5 my-2" {...props}>
+        {children}
+      </ul>
+    );
   },
   ol: function OrderedList({ children, ...props }: any) {
-    return <ol className="list-decimal pl-5 my-2" {...props}>{children}</ol>;
+    return (
+      <ol className="list-decimal pl-5 my-2" {...props}>
+        {children}
+      </ol>
+    );
   },
   li: function ListItem({ children, ...props }: any) {
-    return <li className="my-1" {...props}>{children}</li>;
+    return (
+      <li className="my-1" {...props}>
+        {children}
+      </li>
+    );
   },
   h1: function H1({ children, ...props }: any) {
-    return <h1 className="text-2xl font-bold my-3" {...props}>{children}</h1>;
+    return (
+      <h1 className="text-2xl font-bold my-3" {...props}>
+        {children}
+      </h1>
+    );
   },
   h2: function H2({ children, ...props }: any) {
-    return <h2 className="text-xl font-bold my-2" {...props}>{children}</h2>;
+    return (
+      <h2 className="text-xl font-bold my-2" {...props}>
+        {children}
+      </h2>
+    );
   },
   h3: function H3({ children, ...props }: any) {
-    return <h3 className="text-lg font-bold my-2" {...props}>{children}</h3>;
+    return (
+      <h3 className="text-lg font-bold my-2" {...props}>
+        {children}
+      </h3>
+    );
   },
   blockquote: function Blockquote({ children, ...props }: any) {
-    return <blockquote className="border-l-4 border-muted pl-4 italic my-2 dark:text-zinc-400 dark:border-zinc-600" {...props}>{children}</blockquote>;
+    return (
+      <blockquote
+        className="border-l-4 border-muted pl-4 italic my-2 dark:text-zinc-400 dark:border-zinc-600"
+        {...props}
+      >
+        {children}
+      </blockquote>
+    );
   },
   a: function Anchor({ children, href, ...props }: any) {
-    return <a href={href} className="text-primary hover:underline dark:text-blue-400" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+    return (
+      <a
+        href={href}
+        className="text-primary hover:underline dark:text-blue-400"
+        target="_blank"
+        rel="noopener noreferrer"
+        {...props}
+      >
+        {children}
+      </a>
+    );
   },
   table: function Table({ children, ...props }: any) {
-    return <table className="w-full border-collapse my-3 text-sm" {...props}>{children}</table>;
+    return (
+      <table className="w-full border-collapse my-3 text-sm" {...props}>
+        {children}
+      </table>
+    );
   },
   th: function TableHeader({ children, ...props }: any) {
-    return <th className="border border-slate-300 dark:border-zinc-700 px-3 py-2 text-left font-semibold bg-slate-100 dark:bg-zinc-800" {...props}>{children}</th>;
+    return (
+      <th
+        className="border border-slate-300 dark:border-zinc-700 px-3 py-2 text-left font-semibold bg-slate-100 dark:bg-zinc-800"
+        {...props}
+      >
+        {children}
+      </th>
+    );
   },
   td: function TableCell({ children, ...props }: any) {
-    return <td className="border border-slate-300 dark:border-zinc-700 px-3 py-2" {...props}>{children}</td>;
+    return (
+      <td
+        className="border border-slate-300 dark:border-zinc-700 px-3 py-2"
+        {...props}
+      >
+        {children}
+      </td>
+    );
   },
 };
 
@@ -99,20 +162,17 @@ const MemoizedMarkdownBlock = memo(
     components?: Partial<Components>;
   }) {
     return (
-      <ReactMarkdown 
-        remarkPlugins={[remarkGfm]} 
-        components={components}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
     );
   },
   function propsAreEqual(prevProps: any, nextProps: any) {
     return prevProps.content === nextProps.content;
-  }
+  },
 );
 
-MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock";
+MemoizedMarkdownBlock.displayName = 'MemoizedMarkdownBlock';
 
 function MarkdownComponent({
   children,
@@ -125,7 +185,12 @@ function MarkdownComponent({
   const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children]);
 
   return (
-    <div className={cn("prose-code:before:hidden prose-code:after:hidden", className)}>
+    <div
+      className={cn(
+        'prose-code:before:hidden prose-code:after:hidden',
+        className,
+      )}
+    >
       {blocks.map((block, index) => (
         <MemoizedMarkdownBlock
           key={`${blockId}-block-${index}`}
@@ -138,6 +203,6 @@ function MarkdownComponent({
 }
 
 const Markdown = memo(MarkdownComponent);
-Markdown.displayName = "Markdown";
+Markdown.displayName = 'Markdown';
 
 export { Markdown };

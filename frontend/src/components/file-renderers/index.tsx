@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import React, { forwardRef } from "react";
-import { cn } from "@/lib/utils";
-import { MarkdownRenderer } from "./markdown-renderer";
-import { CodeRenderer } from "./code-renderer";
-import { PdfRenderer } from "./pdf-renderer";
-import { ImageRenderer } from "./image-renderer";
-import { BinaryRenderer } from "./binary-renderer";
-import { HtmlRenderer } from "./html-renderer";
-import { constructHtmlPreviewUrl } from "@/lib/utils/url";
+import React, { forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+import { MarkdownRenderer } from './markdown-renderer';
+import { CodeRenderer } from './code-renderer';
+import { PdfRenderer } from './pdf-renderer';
+import { ImageRenderer } from './image-renderer';
+import { BinaryRenderer } from './binary-renderer';
+import { HtmlRenderer } from './html-renderer';
+import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 
-export type FileType = 
+export type FileType =
   | 'markdown'
   | 'code'
   | 'pdf'
@@ -28,7 +28,7 @@ interface FileRendererProps {
       sandbox_url?: string;
       vnc_preview?: string;
       pass?: string;
-    }
+    };
   };
   markdownRef?: React.RefObject<HTMLDivElement>;
 }
@@ -36,18 +36,58 @@ interface FileRendererProps {
 // Helper function to determine file type from extension
 export function getFileTypeFromExtension(fileName: string): FileType {
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
-  
+
   const markdownExtensions = ['md', 'markdown'];
   const codeExtensions = [
-    'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'python',
-    'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'php', 'rb', 'sh', 'bash',
-    'xml', 'yml', 'yaml', 'toml', 'sql', 'graphql', 'swift', 'kotlin',
-    'dart', 'r', 'lua', 'scala', 'perl', 'haskell', 'rust'
+    'js',
+    'jsx',
+    'ts',
+    'tsx',
+    'html',
+    'css',
+    'json',
+    'py',
+    'python',
+    'java',
+    'c',
+    'cpp',
+    'h',
+    'cs',
+    'go',
+    'rs',
+    'php',
+    'rb',
+    'sh',
+    'bash',
+    'xml',
+    'yml',
+    'yaml',
+    'toml',
+    'sql',
+    'graphql',
+    'swift',
+    'kotlin',
+    'dart',
+    'r',
+    'lua',
+    'scala',
+    'perl',
+    'haskell',
+    'rust',
   ];
-  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+  const imageExtensions = [
+    'png',
+    'jpg',
+    'jpeg',
+    'gif',
+    'webp',
+    'svg',
+    'bmp',
+    'ico',
+  ];
   const pdfExtensions = ['pdf'];
   const textExtensions = ['txt', 'csv', 'log', 'env', 'ini'];
-  
+
   if (markdownExtensions.includes(extension)) {
     return 'markdown';
   } else if (codeExtensions.includes(extension)) {
@@ -66,7 +106,7 @@ export function getFileTypeFromExtension(fileName: string): FileType {
 // Helper function to get language from file extension for code highlighting
 export function getLanguageFromExtension(fileName: string): string {
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
-  
+
   const extensionToLanguage: Record<string, string> = {
     js: 'javascript',
     jsx: 'jsx',
@@ -94,22 +134,22 @@ export function getLanguageFromExtension(fileName: string): string {
     sql: 'sql',
     // Add more mappings as needed
   };
-  
+
   return extensionToLanguage[extension] || '';
 }
 
-export function FileRenderer({ 
-  content, 
-  binaryUrl, 
-  fileName, 
-  className, 
+export function FileRenderer({
+  content,
+  binaryUrl,
+  fileName,
+  className,
   project,
-  markdownRef 
+  markdownRef,
 }: FileRendererProps) {
   const fileType = getFileTypeFromExtension(fileName);
   const language = getLanguageFromExtension(fileName);
   const isHtmlFile = fileName.toLowerCase().endsWith('.html');
-  
+
   // Create blob URL for HTML content if needed
   const blobHtmlUrl = React.useMemo(() => {
     if (isHtmlFile && content && !project?.sandbox?.sandbox_url) {
@@ -118,12 +158,13 @@ export function FileRenderer({
     }
     return undefined;
   }, [isHtmlFile, content, project?.sandbox?.sandbox_url]);
-  
+
   // Construct HTML file preview URL if we have a sandbox and the file is HTML
-  const htmlPreviewUrl = (isHtmlFile && project?.sandbox?.sandbox_url && fileName) 
-    ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, fileName)
-    : blobHtmlUrl; // Use blob URL as fallback
-  
+  const htmlPreviewUrl =
+    isHtmlFile && project?.sandbox?.sandbox_url && fileName
+      ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, fileName)
+      : blobHtmlUrl; // Use blob URL as fallback
+
   // Clean up blob URL on unmount
   React.useEffect(() => {
     return () => {
@@ -132,14 +173,11 @@ export function FileRenderer({
       }
     };
   }, [blobHtmlUrl]);
-  
+
   return (
-    <div className={cn("w-full h-full", className)}>
+    <div className={cn('w-full h-full', className)}>
       {fileType === 'binary' ? (
-        <BinaryRenderer 
-          url={binaryUrl || ''} 
-          fileName={fileName} 
-        />
+        <BinaryRenderer url={binaryUrl || ''} fileName={fileName} />
       ) : fileType === 'image' && binaryUrl ? (
         <ImageRenderer url={binaryUrl} />
       ) : fileType === 'pdf' && binaryUrl ? (
@@ -153,8 +191,8 @@ export function FileRenderer({
           className="w-full h-full"
         />
       ) : fileType === 'code' || fileType === 'text' ? (
-        <CodeRenderer 
-          content={content || ''} 
+        <CodeRenderer
+          content={content || ''}
           language={language}
           className="w-full h-full"
         />
@@ -167,4 +205,4 @@ export function FileRenderer({
       )}
     </div>
   );
-} 
+}

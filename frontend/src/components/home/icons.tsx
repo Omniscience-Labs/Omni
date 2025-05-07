@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 export const Icons = {
   logo: ({ className }: { className?: string }) => (
@@ -8,7 +8,7 @@ export const Icons = {
       viewBox="0 0 42 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("size-4 fill-[var(--secondary)]", className)}
+      className={cn('size-4 fill-[var(--secondary)]', className)}
     >
       <g clipPath="url(#clip0_322_9172)">
         <path
@@ -34,7 +34,7 @@ export const Icons = {
       viewBox="0 0 46 45"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("size-4", className)}
+      className={cn('size-4', className)}
     >
       <g filter="url(#filter0_ddd_1_4900)">
         <rect
@@ -229,7 +229,7 @@ export const Icons = {
       viewBox="0 0 46 45"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("size-4", className)}
+      className={cn('size-4', className)}
     >
       <g filter="url(#filter0_ddd_1_2018)">
         <rect
@@ -704,7 +704,7 @@ export const Icons = {
       viewBox="0 0 46 45"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("size-4", className)}
+      className={cn('size-4', className)}
     >
       <g filter="url(#filter0_ddd_1_4914)">
         <rect
@@ -1009,7 +1009,7 @@ export const Icons = {
       viewBox="0 0 46 45"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("size-4", className)}
+      className={cn('size-4', className)}
     >
       <g filter="url(#filter0_ddd_1_2046)">
         <rect

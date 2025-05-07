@@ -1,6 +1,6 @@
-import { siteConfig } from "@/lib/home";
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { siteConfig } from '@/lib/home';
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export function CompanyShowcase() {
   const { companyShowcase } = siteConfig;

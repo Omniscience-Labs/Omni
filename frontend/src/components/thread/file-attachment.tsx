@@ -6,6 +6,9 @@ import {
     Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AttachmentGroup } from './attachment-group';
+import { HtmlRenderer } from './preview-renderers/html-renderer';
+import { MarkdownRenderer } from './preview-renderers/markdown-renderer';
 
 // Define basic file types
 export type FileType =
@@ -105,9 +108,15 @@ function getFileSize(filepath: string, type: FileType): string {
 function getFileUrl(sandboxId: string | undefined, path: string): string {
     if (!sandboxId) return path;
 
+    // Check if the path already starts with /workspace
+    if (!path.startsWith('/workspace')) {
+        // Prepend /workspace to the path if it doesn't already have it
+        path = `/workspace/${path.startsWith('/') ? path.substring(1) : path}`;
+    }
 
     const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
     url.searchParams.append('path', path);
+
     return url.toString();
 }
 
@@ -117,69 +126,276 @@ interface FileAttachmentProps {
     className?: string;
     sandboxId?: string;
     showPreview?: boolean;
+    localPreviewUrl?: string;
+    customStyle?: React.CSSProperties;
+    /**
+     * Controls whether HTML and Markdown files show their content preview.
+     * - true: files are shown as regular file attachments (default)
+     * - false: HTML and MD files show rendered content in grid layout
+     */
+    collapsed?: boolean;
 }
+
+// Cache fetched content between mounts to avoid duplicate fetches
+const contentCache = new Map<string, string>();
+const errorCache = new Set<string>();
 
 export function FileAttachment({
     filepath,
     onClick,
     className,
     sandboxId,
-    showPreview = true
+    showPreview = true,
+    localPreviewUrl,
+    customStyle,
+    collapsed = true
 }: FileAttachmentProps) {
-    const [imageLoaded, setImageLoaded] = React.useState(false);
+    // Simplified state management
     const [imageError, setImageError] = React.useState(false);
+    const [fileContent, setFileContent] = React.useState<string | null>(null);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [hasError, setHasError] = React.useState(false);
 
+    // Basic file info
     const filename = filepath.split('/').pop() || 'file';
     const extension = filename.split('.').pop()?.toLowerCase() || '';
     const fileType = getFileType(filename);
-    const fileUrl = sandboxId ? getFileUrl(sandboxId, filepath) : filepath;
-
+    const fileUrl = localPreviewUrl || (sandboxId ? getFileUrl(sandboxId, filepath) : filepath);
     const typeLabel = getTypeLabel(fileType, extension);
     const fileSize = getFileSize(filepath, fileType);
     const IconComponent = getFileIcon(fileType);
 
+    // Display flags
     const isImage = fileType === 'image' && showPreview;
+    const isHtmlOrMd = extension === 'html' || extension === 'htm' || extension === 'md' || extension === 'markdown';
+    const isGridLayout = customStyle?.gridColumn === '1 / -1' || Boolean(customStyle && ('--attachment-height' in customStyle));
+    const shouldShowPreview = isHtmlOrMd && showPreview && collapsed === false;
+
+    // Cache key for this file
+    const cacheKey = `${sandboxId || ''}:${filepath}`;
+
+    // Fetch content ONCE on mount using cache
+    React.useEffect(() => {
+        // Skip if we shouldn't show preview
+        if (!shouldShowPreview) return;
+
+        // Check cache first
+        if (contentCache.has(cacheKey)) {
+            setFileContent(contentCache.get(cacheKey) || null);
+            return;
+        }
+
+        // Check error cache
+        if (errorCache.has(cacheKey)) {
+            setHasError(true);
+            return;
+        }
+
+        // Only fetch if we need to
+        const controller = new AbortController();
+        setIsLoading(true);
+
+        fetch(fileUrl, { signal: controller.signal })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(text => {
+                // Cache the result
+                contentCache.set(cacheKey, text);
+                setFileContent(text);
+                setIsLoading(false);
+            })
+            .catch(error => {
+                if (error.name !== 'AbortError') {
+                    errorCache.add(cacheKey);
+                    setHasError(true);
+                }
+                setIsLoading(false);
+            });
+
+        return () => {
+            controller.abort();
+        };
+    }, []);  // Empty dependency array means run once on mount
 
     const handleClick = () => {
-        if (onClick) onClick(filepath);
+        if (onClick) {
+            onClick(filepath);
+        }
     };
 
-    // Clean layout with proper image handling
+    // Images are displayed with their natural aspect ratio
+    if (isImage && !imageError) {
+        // Use custom height for images if provided through CSS variable
+        const imageHeight = isGridLayout
+            ? customStyle['--attachment-height'] as string
+            : '54px';
+
+        return (
+            <button
+                onClick={handleClick}
+                className={cn(
+                    "group relative min-h-[54px] min-w-fit rounded-xl cursor-pointer",
+                    "border border-black/10 dark:border-white/10",
+                    "bg-black/5 dark:bg-black/20",
+                    "shadow-sm hover:shadow",
+                    "p-0 overflow-hidden", // No padding, content touches borders
+                    "flex items-center",
+                    "inline-block", // Use inline-block to make width match content
+                    className
+                )}
+                style={{
+                    maxWidth: "100%", // Ensure doesn't exceed container width
+                    height: isGridLayout ? imageHeight : 'auto',
+                    ...customStyle
+                }}
+                title={filename}
+            >
+                <img
+                    src={fileUrl}
+                    alt={filename}
+                    className="w-auto"
+                    style={{ height: imageHeight }}
+                    onLoad={() => { }}
+                    onError={() => setImageError(true)}
+                />
+            </button>
+        );
+    }
+
+    // HTML/MD preview when not collapsed and in grid layout
+    if (shouldShowPreview && isGridLayout) {
+        return (
+            <div
+                className={cn(
+                    "group relative rounded-xl w-full",
+                    "border border-black/10 dark:border-white/10",
+                    "bg-black/5 dark:bg-black/20",
+                    "shadow-sm",
+                    "overflow-hidden",
+                    "h-[300px]", // Fixed height for previews
+                    "pt-10", // Room for header
+                    className
+                )}
+                style={{
+                    gridColumn: "1 / -1", // Make it take full width in grid
+                    width: "100%",        // Ensure full width
+                    ...customStyle
+                }}
+                onClick={hasError ? handleClick : undefined} // Make clickable if error
+            >
+                {/* Content area */}
+                <div className="h-full w-full relative">
+                    {/* Only show content if we have it and no errors */}
+                    {!hasError && fileContent && (
+                        <>
+                            {extension === 'md' || extension === 'markdown' ? (
+                                <MarkdownRenderer
+                                    content={fileContent}
+                                    className="h-full w-full"
+                                />
+                            ) : (
+                                <HtmlRenderer
+                                    content={fileContent}
+                                    previewUrl={fileUrl}
+                                    className="h-full w-full"
+                                />
+                            )}
+                        </>
+                    )}
+
+                    {/* Error state */}
+                    {hasError && (
+                        <div className="h-full w-full flex flex-col items-center justify-center p-4">
+                            <div className="text-red-500 mb-2">Error loading content</div>
+                            <div className="text-muted-foreground text-sm text-center mb-2">
+                                {fileUrl && (
+                                    <div className="text-xs max-w-full overflow-hidden truncate opacity-70">
+                                        Path may need /workspace prefix
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleClick}
+                                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 rounded-md text-sm"
+                            >
+                                Open in viewer
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Loading state */}
+                    {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                            <div className="animate-pulse">Loading content...</div>
+                        </div>
+                    )}
+
+                    {/* Empty content state - show when not loading and no content yet */}
+                    {!fileContent && !isLoading && !hasError && (
+                        <div className="h-full w-full flex flex-col items-center justify-center p-4 pointer-events-none">
+                            <div className="text-muted-foreground text-sm mb-2">
+                                Preview available
+                            </div>
+                            <div className="text-muted-foreground text-xs text-center">
+                                Click header to open externally
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Header with filename */}
+                <div className="absolute top-0 left-0 right-0 bg-black/5 dark:bg-white/5 p-2 z-10 flex items-center justify-between">
+                    <div className="text-sm font-medium truncate">{filename}</div>
+                    {onClick && (
+                        <button
+                            onClick={handleClick}
+                            className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                        >
+                            <ExternalLink size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Regular files with details
+    const safeStyle = { ...customStyle };
+    delete safeStyle.height;
+    delete safeStyle['--attachment-height'];
+
     return (
         <button
             onClick={handleClick}
             className={cn(
-                "group flex items-start gap-3 p-4 rounded-md bg-muted/10 hover:bg-muted/20 transition-colors",
-                "border border-transparent hover:border-muted/20 w-full text-left",
+                "group flex rounded-xl transition-all duration-200 min-h-[54px] h-[54px] w-full overflow-hidden cursor-pointer",
+                "border border-black/10 dark:border-white/10",
+                "bg-sidebar",
+                "text-left",
+                "pr-7", // Right padding for X button
                 className
             )}
+            style={safeStyle}
+            title={filename}
         >
-            {isImage && !imageError ? (
-                <div className="relative h-10 w-10 rounded-md overflow-hidden bg-muted/5 flex-shrink-0">
-                    <Image
-                        src={fileUrl}
-                        alt={filename}
-                        fill
-                        className="object-cover"
-                        onLoad={() => setImageLoaded(true)}
-                        onError={() => setImageError(true)}
-                        unoptimized
-                    />
+            <div className="relative h-full aspect-square flex-shrink-0 bg-black/5 dark:bg-white/5">
+                <div className="flex items-center justify-center h-full w-full">
+                    <IconComponent className="h-5 w-5 text-black/60 dark:text-white/60" />
                 </div>
-            ) : (
-                <div className="flex items-center justify-center h-10 w-10 text-muted-foreground flex-shrink-0">
-                    <IconComponent className="h-5 w-5" />
-                </div>
-            )}
+            </div>
 
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col justify-center p-2 pl-3">
                 <div className="text-sm font-medium text-foreground truncate">
                     {filename}
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <span>{typeLabel}</span>
-                    <span>·</span>
-                    <span>{fileSize}</span>
+                    <span className="text-black/60 dark:text-white/60">{typeLabel}</span>
+                    <span className="text-black/40 dark:text-white/40">·</span>
+                    <span className="text-black/60 dark:text-white/60">{fileSize}</span>
                 </div>
             </div>
         </button>
@@ -192,6 +408,7 @@ interface FileAttachmentGridProps {
     className?: string;
     sandboxId?: string;
     showPreviews?: boolean;
+    collapsed?: boolean;
 }
 
 export function FileAttachmentGrid({
@@ -199,27 +416,21 @@ export function FileAttachmentGrid({
     onFileClick,
     className,
     sandboxId,
-    showPreviews = true
+    showPreviews = true,
+    collapsed = false
 }: FileAttachmentGridProps) {
     if (!attachments || attachments.length === 0) return null;
 
-    // Deduplicate attachments
-    const uniqueAttachments = [...new Set(attachments)];
-
-    // Simple grid layout
     return (
-        <div className={cn("mt-4", className)}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {uniqueAttachments.map((attachment, index) => (
-                    <FileAttachment
-                        key={`file-${index}`}
-                        filepath={attachment}
-                        onClick={onFileClick}
-                        sandboxId={sandboxId}
-                        showPreview={showPreviews}
-                    />
-                ))}
-            </div>
-        </div>
+        <AttachmentGroup
+            files={attachments}
+            onFileClick={onFileClick}
+            className={className}
+            sandboxId={sandboxId}
+            showPreviews={showPreviews}
+            layout="grid"
+            gridImageHeight={150} // Use larger height for grid layout
+            collapsed={collapsed}
+        />
     );
 } 
