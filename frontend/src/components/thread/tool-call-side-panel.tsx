@@ -4,6 +4,7 @@ import { Project } from '@/lib/api';
 import { getToolIcon } from '@/components/thread/utils';
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
 import { CircleDashed, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -217,6 +218,7 @@ interface ToolCallSidePanelProps {
     toolContent?: string,
     isSuccess?: boolean,
   ) => React.ReactNode;
+  isLoading?: boolean;
 }
 
 export function ToolCallSidePanel({
@@ -230,6 +232,7 @@ export function ToolCallSidePanel({
   project,
   renderAssistantMessage,
   renderToolResult,
+  isLoading = false,
 }: ToolCallSidePanelProps) {
   // Move hooks outside of conditional
   const [dots, setDots] = React.useState('');
@@ -307,6 +310,50 @@ export function ToolCallSidePanel({
   }, [currentIndex, totalCalls, onNavigate]);
 
   if (!isOpen) return null;
+
+  if (isLoading) {
+    return (
+      <div
+        className={cn(
+          'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
+          isMobile
+            ? 'w-full'
+            : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+          !isOpen && 'translate-x-full',
+        )}
+      >
+        <div className="flex-1 flex flex-col overflow-hidden bg-background">
+          <div className="flex flex-col h-full">
+            <div className="pt-4 pl-4 pr-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    Suna's Computer
+                  </h2>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 p-4 overflow-auto">
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-20 w-full rounded-md" />
+                <Skeleton className="h-40 w-full rounded-md" />
+                <Skeleton className="h-20 w-full rounded-md" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     if (!currentToolCall) {

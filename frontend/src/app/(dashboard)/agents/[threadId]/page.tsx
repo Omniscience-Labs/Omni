@@ -1370,7 +1370,7 @@ export default function ThreadPage({
     return (
       <div className="flex h-screen">
         <div
-          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${isSidePanelOpen ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
+          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out`}
         >
           {/* Skeleton Header */}
           <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -1465,16 +1465,7 @@ export default function ThreadPage({
           </div>
         </div>
 
-        {/* Skeleton Side Panel (closed state) */}
-        <div className={`hidden ${isSidePanelOpen ? 'block' : ''}`}>
-          <div className="h-screen w-[450px] border-l">
-            <div className="p-4">
-              <Skeleton className="h-8 w-32 mb-4" />
-              <Skeleton className="h-20 w-full rounded-md mb-4" />
-              <Skeleton className="h-40 w-full rounded-md" />
-            </div>
-          </div>
-        </div>
+        {/* Skeleton Side Panel (hidden during loading) */}
       </div>
     );
   }
@@ -1483,7 +1474,7 @@ export default function ThreadPage({
     return (
       <div className="flex h-screen">
         <div
-          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${isSidePanelOpen ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
+          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(isSidePanelOpen && initialLoadCompleted.current) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
         >
           <SiteHeader
             threadId={threadId}
@@ -1512,13 +1503,14 @@ export default function ThreadPage({
           </div>
         </div>
         <ToolCallSidePanel
-          isOpen={isSidePanelOpen}
+          isOpen={isSidePanelOpen && initialLoadCompleted.current}
           onClose={() => setIsSidePanelOpen(false)}
           toolCalls={[]}
           currentIndex={0}
           onNavigate={handleSidePanelNavigate}
           project={project || undefined}
           agentStatus="error"
+          isLoading={!initialLoadCompleted.current || isLoading}
         />
       </div>
     );
@@ -1527,7 +1519,7 @@ export default function ThreadPage({
   return (
     <div className="flex h-screen">
       <div
-        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${isSidePanelOpen ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
+        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted.current || isSidePanelOpen) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
       >
         <SiteHeader
           threadId={threadId}
@@ -1935,7 +1927,7 @@ export default function ThreadPage({
       </div>
 
       <ToolCallSidePanel
-        isOpen={isSidePanelOpen}
+        isOpen={isSidePanelOpen && initialLoadCompleted.current}
         onClose={() => {
           setIsSidePanelOpen(false);
           userClosedPanelRef.current = true;
@@ -1949,6 +1941,7 @@ export default function ThreadPage({
         project={project || undefined}
         renderAssistantMessage={toolViewAssistant}
         renderToolResult={toolViewResult}
+        isLoading={!initialLoadCompleted.current || isLoading}
       />
 
       {sandboxId && (
