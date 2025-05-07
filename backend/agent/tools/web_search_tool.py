@@ -1,8 +1,5 @@
 from tavily import AsyncTavilyClient
 import httpx
-from typing import List, Optional
-from datetime import datetime
-import os
 from dotenv import load_dotenv
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
 from utils.config import config

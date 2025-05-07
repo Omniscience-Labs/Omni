@@ -1,8 +1,7 @@
-from fastapi import HTTPException, Request, Depends
-from typing import Optional, List, Dict, Any
+from fastapi import HTTPException, Request
+from typing import Optional
 import jwt
 from jwt.exceptions import PyJWTError
-from utils.logger import logger
 
 # This function extracts the user ID from Supabase JWT
 async def get_current_user_id_from_jwt(request: Request) -> str:

@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional, Tuple, AsyncGenerator, Callable, U
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from litellm import completion_cost, token_counter
+from litellm import completion_cost
 
 from agentpress.tool import Tool, ToolResult
 from agentpress.tool_registry import ToolRegistry

@@ -18,8 +18,6 @@ from openai import OpenAIError
 import litellm
 from utils.logger import logger
 from utils.config import config
-from datetime import datetime
-import traceback
 
 # litellm.set_verbose=True
 litellm.modify_params=True
