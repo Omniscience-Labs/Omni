@@ -57,7 +57,7 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 // Local storage keys
 const STORAGE_KEY_MODEL = 'suna-preferred-model';
-const DEFAULT_MODEL_ID = 'qwen3'; // Define default model ID
+const DEFAULT_MODEL_ID = 'deepseek'; // Define default model ID
 
 interface ChatInputProps {
   onSubmit: (
@@ -112,7 +112,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     const [uncontrolledValue, setUncontrolledValue] = useState('');
     const value = isControlled ? controlledValue : uncontrolledValue;
-    const [showInfo, setShowInfo] = useState(true);
 
     // Define model options array earlier so it can be used in useEffect
     const modelOptions = [
