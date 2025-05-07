@@ -187,8 +187,6 @@ async def run_agent(
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
 
-        model_name = "openrouter/google/gemini-2.5-flash-preview"
-
         response = await thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=system_message,
