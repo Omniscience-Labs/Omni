@@ -1,8 +1,9 @@
 name: Build and Push Docker Images
 
 on:
-  push:
-    branches: [ main ]
+  # Remove active triggers to disable the workflow
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
 
 permissions:
