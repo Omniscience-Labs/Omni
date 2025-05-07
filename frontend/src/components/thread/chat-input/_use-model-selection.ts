@@ -4,7 +4,7 @@ import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscript
 import { useState, useEffect } from 'react';
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
-export const DEFAULT_FREE_MODEL_ID = 'gemini-flash-2.5';
+export const DEFAULT_FREE_MODEL_ID = 'qwen35';
 export const DEFAULT_PREMIUM_MODEL_ID = 'sonnet-3.7';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
@@ -18,7 +18,7 @@ export interface ModelOption {
 
 export const MODEL_OPTIONS: ModelOption[] = [
   { 
-    id: 'gemini-flash-2.5', 
+    id: 'qwen3', 
     label: 'Free', 
     requiresSubscription: false,
     description: 'Limited capabilities. Upgrade for full performance.'
