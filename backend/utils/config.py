@@ -114,8 +114,8 @@ class Configuration:
     GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_API_BASE: Optional[str] = "https://openrouter.ai/api/v1"
-    OR_SITE_URL: Optional[str] = None
-    OR_APP_NAME: Optional[str] = "Suna.so"    
+    OR_SITE_URL: Optional[str] = "https://suna.so"
+    OR_APP_NAME: Optional[str] = "Kortix Suna"    
     
     # AWS Bedrock credentials
     AWS_ACCESS_KEY_ID: Optional[str] = None

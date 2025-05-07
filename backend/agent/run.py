@@ -187,13 +187,6 @@ async def run_agent(
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
 
-        # # Configure tool calling based on model type
-        # use_xml_tool_calling = "anthropic" in model_name.lower() or "claude" in model_name.lower()
-        # use_native_tool_calling = "openai" in model_name.lower() or "gpt" in model_name.lower()
-
-        # model_name = "openrouter/qwen/qwen3-235b-a22b"
-        
-
         response = await thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=system_message,
