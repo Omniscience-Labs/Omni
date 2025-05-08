@@ -1,10 +1,11 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { useState, createContext } from 'react';
+import { useState, createContext, useEffect } from 'react';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ReactQueryProvider } from '@/providers/react-query-provider';
-import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { dehydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { initializeCacheSystem } from '@/lib/cache-init';
 
 export interface ParsedTag {
   tagName: string;
@@ -31,22 +32,41 @@ export const ToolCallsContext = createContext<{
   setToolCalls: React.Dispatch<React.SetStateAction<ParsedTag[]>>;
 }>({
   toolCalls: [],
-  setToolCalls: () => {},
+  setToolCalls: () => { },
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Shared state for tool calls across the app
   const [toolCalls, setToolCalls] = useState<ParsedTag[]>([]);
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+      },
+    },
+  });
   const dehydratedState = dehydrate(queryClient);
+
+  // Initialize the file caching system when the app starts
+  useEffect(() => {
+    // Start the cache maintenance system
+    const { stopCacheSystem } = initializeCacheSystem();
+
+    // Clean up when the component unmounts
+    return () => {
+      stopCacheSystem();
+    };
+  }, []);
 
   return (
     <AuthProvider>
       <ToolCallsContext.Provider value={{ toolCalls, setToolCalls }}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <ReactQueryProvider dehydratedState={dehydratedState}>
-            {children}
-          </ReactQueryProvider>
+          <QueryClientProvider client={queryClient}>
+            <ReactQueryProvider dehydratedState={dehydratedState}>
+              {children}
+            </ReactQueryProvider>
+          </QueryClientProvider>
         </ThemeProvider>
       </ToolCallsContext.Provider>
     </AuthProvider>

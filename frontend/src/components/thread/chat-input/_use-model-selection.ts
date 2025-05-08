@@ -2,6 +2,7 @@
 
 import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { useState, useEffect } from 'react';
+import { isLocalMode } from '@/lib/config';
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
 export const DEFAULT_FREE_MODEL_ID = 'deepseek';
@@ -35,6 +36,9 @@ export const canAccessModel = (
   subscriptionStatus: SubscriptionStatus,
   requiresSubscription: boolean,
 ): boolean => {
+  if (isLocalMode()) {
+    return true;
+  }
   return subscriptionStatus === 'active' || !requiresSubscription;
 };
 
@@ -53,7 +57,7 @@ export const useModelSelection = () => {
     try {
       const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
       
-      if (subscriptionStatus === 'active') {
+      if (subscriptionStatus === 'active' || isLocalMode()) {
         if (savedModel) {
           const modelOption = MODEL_OPTIONS.find(option => option.id === savedModel);
           if (modelOption && canAccessModel(subscriptionStatus, modelOption.requiresSubscription)) {
@@ -114,6 +118,9 @@ export const useModelSelection = () => {
       return model ? canAccessModel(subscriptionStatus, model.requiresSubscription) : false;
     },
     isSubscriptionRequired: (modelId: string) => {
+      if (isLocalMode()) {
+        return false;
+      }
       return MODEL_OPTIONS.find(m => m.id === modelId)?.requiresSubscription || false;
     }
   };

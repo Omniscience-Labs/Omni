@@ -3,18 +3,23 @@ import Image from 'next/image';
 import {
     FileText, FileImage, FileCode, FilePlus, FileSpreadsheet, FileVideo,
     FileAudio, FileType, Database, Archive, File, ExternalLink,
-    Download
+    Download, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttachmentGroup } from './attachment-group';
 import { HtmlRenderer } from './preview-renderers/html-renderer';
 import { MarkdownRenderer } from './preview-renderers/markdown-renderer';
+import { CsvRenderer } from './preview-renderers/csv-renderer';
+import { useFileContent } from '@/hooks/use-file-content';
+import { useImageContent } from '@/hooks/use-image-content';
+import { useAuth } from '@/components/AuthProvider';
 
 // Define basic file types
 export type FileType =
     | 'image' | 'code' | 'text' | 'pdf'
     | 'audio' | 'video' | 'spreadsheet'
     | 'archive' | 'database' | 'markdown'
+    | 'csv'
     | 'other';
 
 // Simple extension-based file type detection
@@ -28,7 +33,8 @@ function getFileType(filename: string): FileType {
     if (ext === 'pdf') return 'pdf';
     if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) return 'audio';
     if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'video';
-    if (['csv', 'xls', 'xlsx'].includes(ext)) return 'spreadsheet';
+    if (['csv', 'tsv'].includes(ext)) return 'csv';
+    if (['xls', 'xlsx'].includes(ext)) return 'spreadsheet';
     if (['zip', 'rar', 'tar', 'gz'].includes(ext)) return 'archive';
     if (['db', 'sqlite', 'sql'].includes(ext)) return 'database';
 
@@ -46,6 +52,7 @@ function getFileIcon(type: FileType): React.ElementType {
         audio: FileAudio,
         video: FileVideo,
         spreadsheet: FileSpreadsheet,
+        csv: FileSpreadsheet,
         archive: Archive,
         database: Database,
         other: File
@@ -69,6 +76,7 @@ function getTypeLabel(type: FileType, extension?: string): string {
         audio: 'Audio',
         video: 'Video',
         spreadsheet: 'Spreadsheet',
+        csv: 'CSV',
         archive: 'Archive',
         database: 'Database',
         other: 'File'
@@ -92,6 +100,7 @@ function getFileSize(filepath: string, type: FileType): string {
         markdown: 0.3,
         pdf: 8.0,
         spreadsheet: 3.0,
+        csv: 2.0,
         archive: 5.0,
         database: 4.0,
         other: 1.0
@@ -129,9 +138,9 @@ interface FileAttachmentProps {
     localPreviewUrl?: string;
     customStyle?: React.CSSProperties;
     /**
-     * Controls whether HTML and Markdown files show their content preview.
+     * Controls whether HTML, Markdown, and CSV files show their content preview.
      * - true: files are shown as regular file attachments (default)
-     * - false: HTML and MD files show rendered content in grid layout
+     * - false: HTML, MD, and CSV files show rendered content in grid layout
      */
     collapsed?: boolean;
 }
@@ -150,10 +159,10 @@ export function FileAttachment({
     customStyle,
     collapsed = true
 }: FileAttachmentProps) {
+    // Authentication 
+    const { session } = useAuth();
+
     // Simplified state management
-    const [imageError, setImageError] = React.useState(false);
-    const [fileContent, setFileContent] = React.useState<string | null>(null);
-    const [isLoading, setIsLoading] = React.useState(false);
     const [hasError, setHasError] = React.useState(false);
 
     // Basic file info
@@ -166,60 +175,38 @@ export function FileAttachment({
     const IconComponent = getFileIcon(fileType);
 
     // Display flags
-    const isImage = fileType === 'image' && showPreview;
+    const isImage = fileType === 'image';
     const isHtmlOrMd = extension === 'html' || extension === 'htm' || extension === 'md' || extension === 'markdown';
+    const isCsv = extension === 'csv' || extension === 'tsv';
     const isGridLayout = customStyle?.gridColumn === '1 / -1' || Boolean(customStyle && ('--attachment-height' in customStyle));
-    const shouldShowPreview = isHtmlOrMd && showPreview && collapsed === false;
+    const shouldShowPreview = (isHtmlOrMd || isCsv) && showPreview && collapsed === false;
 
-    // Cache key for this file
-    const cacheKey = `${sandboxId || ''}:${filepath}`;
+    // Use the React Query hook to fetch file content
+    const {
+        data: fileContent,
+        isLoading: fileContentLoading,
+        error: fileContentError
+    } = useFileContent(
+        shouldShowPreview ? sandboxId : undefined,
+        shouldShowPreview ? filepath : undefined
+    );
 
-    // Fetch content ONCE on mount using cache
+    // Use the React Query hook to fetch image content with authentication
+    const {
+        data: imageUrl,
+        isLoading: imageLoading,
+        error: imageError
+    } = useImageContent(
+        isImage && showPreview && sandboxId ? sandboxId : undefined,
+        isImage && showPreview ? filepath : undefined
+    );
+
+    // Set error state based on query errors
     React.useEffect(() => {
-        // Skip if we shouldn't show preview
-        if (!shouldShowPreview) return;
-
-        // Check cache first
-        if (contentCache.has(cacheKey)) {
-            setFileContent(contentCache.get(cacheKey) || null);
-            return;
-        }
-
-        // Check error cache
-        if (errorCache.has(cacheKey)) {
+        if (fileContentError || imageError) {
             setHasError(true);
-            return;
         }
-
-        // Only fetch if we need to
-        const controller = new AbortController();
-        setIsLoading(true);
-
-        fetch(fileUrl, { signal: controller.signal })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch: ${response.status}`);
-                }
-                return response.text();
-            })
-            .then(text => {
-                // Cache the result
-                contentCache.set(cacheKey, text);
-                setFileContent(text);
-                setIsLoading(false);
-            })
-            .catch(error => {
-                if (error.name !== 'AbortError') {
-                    errorCache.add(cacheKey);
-                    setHasError(true);
-                }
-                setIsLoading(false);
-            });
-
-        return () => {
-            controller.abort();
-        };
-    }, []);  // Empty dependency array means run once on mount
+    }, [fileContentError, imageError]);
 
     const handleClick = () => {
         if (onClick) {
@@ -228,23 +215,48 @@ export function FileAttachment({
     };
 
     // Images are displayed with their natural aspect ratio
-    if (isImage && !imageError) {
+    if (isImage && showPreview) {
         // Use custom height for images if provided through CSS variable
         const imageHeight = isGridLayout
             ? customStyle['--attachment-height'] as string
             : '54px';
 
+        // Show loading state for images
+        if (imageLoading && sandboxId) {
+            return (
+                <button
+                    onClick={handleClick}
+                    className={cn(
+                        "group relative min-h-[54px] min-w-fit rounded-xl cursor-pointer",
+                        "border border-black/10 dark:border-white/10",
+                        "bg-black/5 dark:bg-black/20",
+                        "p-0 overflow-hidden",
+                        "flex items-center justify-center",
+                        isGridLayout ? "w-full" : "inline-block",
+                        className
+                    )}
+                    style={{
+                        maxWidth: "100%",
+                        height: isGridLayout ? imageHeight : 'auto',
+                        ...customStyle
+                    }}
+                    title={filename}
+                >
+                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                </button>
+            );
+        }
+
         return (
             <button
                 onClick={handleClick}
                 className={cn(
-                    "group relative min-h-[54px] min-w-fit rounded-xl cursor-pointer",
+                    "group relative min-h-[54px] rounded-xl cursor-pointer",
                     "border border-black/10 dark:border-white/10",
                     "bg-black/5 dark:bg-black/20",
-                    "shadow-sm hover:shadow",
                     "p-0 overflow-hidden", // No padding, content touches borders
-                    "flex items-center",
-                    "inline-block", // Use inline-block to make width match content
+                    "flex items-center justify-center", // Center the image
+                    isGridLayout ? "w-full" : "inline-block", // Full width in grid
                     className
                 )}
                 style={{
@@ -255,26 +267,44 @@ export function FileAttachment({
                 title={filename}
             >
                 <img
-                    src={fileUrl}
+                    src={sandboxId && session?.access_token ? imageUrl : fileUrl}
                     alt={filename}
-                    className="w-auto"
-                    style={{ height: imageHeight }}
+                    className={cn(
+                        "max-h-full", // Respect parent height constraint
+                        isGridLayout ? "w-full h-full object-cover" : "w-auto" // Full width & height in grid with object-cover
+                    )}
+                    style={{
+                        height: imageHeight,
+                        objectPosition: "center",
+                        objectFit: isGridLayout ? "cover" : "contain"
+                    }}
                     onLoad={() => { }}
-                    onError={() => setImageError(true)}
+                    onError={() => setHasError(true)}
                 />
             </button>
         );
     }
 
-    // HTML/MD preview when not collapsed and in grid layout
+    const rendererMap = {
+        'html': HtmlRenderer,
+        'htm': HtmlRenderer,
+        'md': MarkdownRenderer,
+        'markdown': MarkdownRenderer,
+        'csv': CsvRenderer,
+        'tsv': CsvRenderer
+    };
+
+    // HTML/MD/CSV preview when not collapsed and in grid layout
     if (shouldShowPreview && isGridLayout) {
+        // Determine the renderer component
+        const Renderer = rendererMap[extension as keyof typeof rendererMap];
+
         return (
             <div
                 className={cn(
                     "group relative rounded-xl w-full",
                     "border border-black/10 dark:border-white/10",
                     "bg-black/5 dark:bg-black/20",
-                    "shadow-sm",
                     "overflow-hidden",
                     "h-[300px]", // Fixed height for previews
                     "pt-10", // Room for header
@@ -292,17 +322,16 @@ export function FileAttachment({
                     {/* Only show content if we have it and no errors */}
                     {!hasError && fileContent && (
                         <>
-                            {extension === 'md' || extension === 'markdown' ? (
-                                <MarkdownRenderer
-                                    content={fileContent}
-                                    className="h-full w-full"
-                                />
-                            ) : (
-                                <HtmlRenderer
+                            {Renderer ? (
+                                <Renderer
                                     content={fileContent}
                                     previewUrl={fileUrl}
                                     className="h-full w-full"
                                 />
+                            ) : (
+                                <div className="p-4 text-muted-foreground">
+                                    No preview available for this file type
+                                </div>
                             )}
                         </>
                     )}
@@ -328,14 +357,14 @@ export function FileAttachment({
                     )}
 
                     {/* Loading state */}
-                    {isLoading && (
+                    {fileContentLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                            <div className="animate-pulse">Loading content...</div>
+                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
                         </div>
                     )}
 
                     {/* Empty content state - show when not loading and no content yet */}
-                    {!fileContent && !isLoading && !hasError && (
+                    {!fileContent && !fileContentLoading && !hasError && (
                         <div className="h-full w-full flex flex-col items-center justify-center p-4 pointer-events-none">
                             <div className="text-muted-foreground text-sm mb-2">
                                 Preview available
@@ -382,7 +411,7 @@ export function FileAttachment({
             style={safeStyle}
             title={filename}
         >
-            <div className="relative h-full aspect-square flex-shrink-0 bg-black/5 dark:bg-white/5">
+            <div className="relative min-w-[54px] h-full aspect-square flex-shrink-0 bg-black/5 dark:bg-white/5">
                 <div className="flex items-center justify-center h-full w-full">
                     <IconComponent className="h-5 w-5 text-black/60 dark:text-white/60" />
                 </div>

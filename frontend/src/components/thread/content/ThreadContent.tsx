@@ -6,6 +6,8 @@ import { Markdown } from '@/components/ui/markdown';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
+import { FileCache } from '@/hooks/use-cached-file';
+import { useAuth } from '@/components/AuthProvider';
 
 // Define the set of tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -38,6 +40,33 @@ const HIDE_STREAMING_XML_TAGS = new Set([
 // Helper function to render attachments
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string) {
     if (!attachments || attachments.length === 0) return null;
+
+    // Preload attachments into cache if we have a sandboxId
+    if (sandboxId) {
+        // Use setTimeout to do this asynchronously without blocking rendering
+        setTimeout(() => {
+            // Try to get the token from localStorage
+            let token = null;
+            try {
+                const sessionData = localStorage.getItem('auth');
+                if (sessionData) {
+                    const session = JSON.parse(sessionData);
+                    token = session.access_token;
+
+                    if (token) {
+                        FileCache.preload(sandboxId, attachments, token);
+                    } else {
+                        console.warn("Cannot preload attachments: No token in session");
+                    }
+                } else {
+                    console.warn("Cannot preload attachments: No auth session found");
+                }
+            } catch (err) {
+                console.error("Error accessing auth token for preloading:", err);
+            }
+        }, 0);
+    }
+
     return <FileAttachmentGrid
         attachments={attachments}
         onFileClick={fileViewerHandler}
@@ -163,6 +192,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const latestMessageRef = useRef<HTMLDivElement>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [userHasScrolled, setUserHasScrolled] = useState(false);
+    const { session } = useAuth();
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
@@ -179,11 +209,43 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         messagesEndRef.current?.scrollIntoView({ behavior });
     }, []);
 
+    // Preload all message attachments when messages change or sandboxId is provided
+    React.useEffect(() => {
+        if (!sandboxId) return;
+
+        // Extract all file attachments from messages
+        const allAttachments: string[] = [];
+
+        displayMessages.forEach(message => {
+            if (message.type === 'user') {
+                try {
+                    const content = typeof message.content === 'string' ? message.content : '';
+                    const attachmentsMatch = content.match(/\[Uploaded File: (.*?)\]/g);
+                    if (attachmentsMatch) {
+                        attachmentsMatch.forEach(match => {
+                            const pathMatch = match.match(/\[Uploaded File: (.*?)\]/);
+                            if (pathMatch && pathMatch[1]) {
+                                allAttachments.push(pathMatch[1]);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error parsing message attachments:', e);
+                }
+            }
+        });
+
+        if (allAttachments.length > 0 && session?.access_token) {
+            // Preload files in background with authentication token
+            FileCache.preload(sandboxId, allAttachments, session.access_token);
+        }
+    }, [displayMessages, sandboxId, session?.access_token]);
+
     return (
         <>
             <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-6 py-4 pb-24 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                className="flex-1 overflow-y-auto px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                 onScroll={handleScroll}
             >
                 <div className="mx-auto max-w-3xl">

@@ -37,7 +37,7 @@ export function AttachmentGroup({
     onFileClick,
     showPreviews = true,
     maxHeight = '216px',
-    gridImageHeight = 120, // Default larger height for grid layout
+    gridImageHeight = 180, // Increased from 120 for better visibility
     collapsed = true // By default, HTML/MD files are collapsed
 }: AttachmentGroupProps) {
     if (!files || files.length === 0) return null;
@@ -66,44 +66,64 @@ export function AttachmentGroup({
         return !sandboxId ? file.localUrl : undefined;
     };
 
-    // Check if a file is HTML or Markdown
-    const isHtmlOrMd = (file: string | UploadedFile): boolean => {
+    // Check if a file is HTML, Markdown, or CSV
+    const isPreviewableFile = (file: string | UploadedFile): boolean => {
         const path = getFilePath(file);
         const ext = path.split('.').pop()?.toLowerCase() || '';
-        return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown';
+        return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv';
     };
 
     // Content based on layout type
     const renderContent = () => {
         if (layout === 'grid') {
-            // For grid layout, sort files to put uncollapsed HTML/MD files at the end
+            // For grid layout, sort files to put uncollapsed preview files at the end
             const sortedFiles = [...uniqueFiles].sort((a, b) => {
-                // Only consider HTML/MD files special if they're not collapsed
-                const aIsSpecial = !collapsed && isHtmlOrMd(a);
-                const bIsSpecial = !collapsed && isHtmlOrMd(b);
+                // Only consider HTML/MD/CSV files special if they're not collapsed
+                const aIsSpecial = !collapsed && isPreviewableFile(a);
+                const bIsSpecial = !collapsed && isPreviewableFile(b);
 
-                // Put uncollapsed HTML/MD files at the end
+                // Put uncollapsed previewable files at the end
                 return aIsSpecial === bIsSpecial ? 0 : aIsSpecial ? 1 : -1;
             });
 
+            // Determine if the last item should span full width (odd number of items)
+            const shouldLastItemSpanFull = sortedFiles.length % 2 === 1 && sortedFiles.length > 1;
+
             return (
-                <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-3", className)}>
+                <div className={cn(
+                    "grid gap-3",
+                    // Adjust grid column layout based on number of files and their types 
+                    uniqueFiles.length === 1 ? "grid-cols-1" :
+                        uniqueFiles.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
+                            "grid-cols-1 sm:grid-cols-2",
+                    className
+                )}>
                     {sortedFiles.map((file, index) => {
                         // Check if the file is an image to apply different styles
                         const path = getFilePath(file);
                         const filename = path.split('/').pop() || '';
                         const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) !== null;
 
-                        // Check if it's HTML/MD file
-                        const isHtmlMdFile = isHtmlOrMd(file);
+                        // Check if it's a previewable file
+                        const isPreviewFile = isPreviewableFile(file);
+
+                        // Check if this is the last item and should span the full width
+                        const isLastItem = index === sortedFiles.length - 1;
+                        const shouldSpanFull = shouldLastItemSpanFull && isLastItem;
 
                         return (
                             <div
                                 key={index}
-                                className="relative group"
+                                className={cn(
+                                    "relative group",
+                                    // Make images fill their grid cell properly 
+                                    isImage ? "flex items-center justify-center h-full" : ""
+                                )}
                                 style={{
-                                    // If it's an uncollapsed HTML/MD file in grid, make it take full width
-                                    gridColumn: (isHtmlMdFile && !collapsed) ? '1 / -1' : 'auto'
+                                    // If it should span full width or it's an uncollapsed previewable file
+                                    gridColumn: shouldSpanFull || (isPreviewFile && !collapsed)
+                                        ? '1 / -1'
+                                        : 'auto'
                                 }}
                             >
                                 <FileAttachment
@@ -113,17 +133,18 @@ export function AttachmentGroup({
                                     showPreview={showPreviews}
                                     localPreviewUrl={getLocalPreviewUrl(file)}
                                     className={cn(
-                                        // Only apply special styling for images in grid layout
-                                        isImage ? "h-auto min-h-[54px]" : ""
+                                        // Apply full width for images in grid so they fill the cell
+                                        isImage ? "h-auto min-h-[54px] w-full" : ""
                                     )}
-                                    // Pass customStyle for both images and HTML/MD files
+                                    // Pass customStyle for both images and previewable files
                                     customStyle={
                                         isImage ? {
+                                            width: '100%', // Full width in grid
                                             height: 'auto', // For compatibility
-                                            ...(({ '--attachment-height': `${gridImageHeight}px` }) as React.CSSProperties)
+                                            ...(({ '--attachment-height': `${shouldSpanFull ? Math.floor(gridImageHeight * 1.33) : gridImageHeight}px` }) as React.CSSProperties)
                                         } :
-                                            (isHtmlMdFile && !collapsed) ? {
-                                                gridColumn: '1 / -1' // Explicit grid styling for HTML/MD
+                                            (isPreviewFile && !collapsed) || shouldSpanFull ? {
+                                                gridColumn: '1 / -1' // Explicit grid styling for previewable files or full-width items
                                             } : undefined
                                     }
                                     collapsed={collapsed} // Pass collapsed prop
