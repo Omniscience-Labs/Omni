@@ -1,12 +1,12 @@
 import os
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter, Form, Depends, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from utils.logger import logger
-from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, get_optional_user_id
+from utils.auth_utils import get_optional_user_id
 from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agent.api import get_or_create_project_sandbox

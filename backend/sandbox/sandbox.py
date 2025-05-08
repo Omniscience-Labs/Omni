@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from daytona_sdk import Daytona, DaytonaConfig, CreateSandboxParams, Sandbox, SessionExecuteRequest

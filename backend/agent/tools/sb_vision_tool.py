@@ -4,7 +4,7 @@ import mimetypes
 from typing import Optional
 
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
-from sandbox.sandbox import SandboxToolsBase, Sandbox
+from sandbox.sandbox import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
 import json

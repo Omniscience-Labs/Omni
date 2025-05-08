@@ -1,11 +1,10 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body
-from playwright.async_api import async_playwright, Browser, Page, ElementHandle
+from playwright.async_api import async_playwright, Browser, Page
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 import asyncio
 import json
 import logging
-import re
 import base64
 from dataclasses import dataclass, field
 from datetime import datetime
