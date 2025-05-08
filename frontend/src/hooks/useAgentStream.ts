@@ -252,6 +252,21 @@ export function useAgentStream(
         return;
       }
 
+      // --- Check for error messages first ---
+      try {
+        const jsonData = JSON.parse(processedData);
+        if (jsonData.status === 'error') {
+          console.error('[useAgentStream] Received error status message:', jsonData);
+          const errorMessage = jsonData.message || 'Unknown error occurred';
+          setError(errorMessage);
+          toast.error(errorMessage, { duration: 15000 });
+          callbacks.onError?.(errorMessage);
+          return;
+        }
+      } catch (jsonError) {
+        // Not JSON or could not parse as JSON, continue processing
+      }
+
       // --- Process JSON messages ---
       const message: UnifiedMessage = safeJsonParse(processedData, null);
       if (!message) {
@@ -379,6 +394,9 @@ export function useAgentStream(
 
       console.error('[useAgentStream] Streaming error:', errorMessage, err);
       setError(errorMessage);
+      
+      // Show error toast with longer duration
+      toast.error(errorMessage, { duration: 15000 });
 
       const runId = currentRunIdRef.current;
       if (!runId) {
@@ -389,53 +407,6 @@ export function useAgentStream(
         return;
       }
 
-      // Check agent status immediately after an error
-      getAgentStatus(runId)
-        .then((agentStatus) => {
-          if (!isMountedRef.current) return; // Check mount status again after async call
-
-          if (agentStatus.status === 'running') {
-            console.warn(
-              `[useAgentStream] Stream error for ${runId}, but agent is still running. Finalizing with error.`,
-            );
-            finalizeStream('error', runId); // Stream failed, even if agent might still be running backend-side
-            toast.warning('Stream interrupted. Agent might still be running.');
-          } else {
-            // Map backend terminal status to hook terminal status
-            const finalStatus = mapAgentStatus(agentStatus.status);
-            console.log(
-              `[useAgentStream] Stream error for ${runId}, agent status is ${agentStatus.status}. Finalizing stream as ${finalStatus}.`,
-            );
-            finalizeStream(finalStatus, runId);
-          }
-        })
-        .catch((statusError) => {
-          if (!isMountedRef.current) return;
-
-          const statusErrorMessage =
-            statusError instanceof Error
-              ? statusError.message
-              : String(statusError);
-          console.error(
-            `[useAgentStream] Error checking agent status for ${runId} after stream error: ${statusErrorMessage}`,
-          );
-
-          const isNotFoundError =
-            statusErrorMessage.includes('not found') ||
-            statusErrorMessage.includes('404') ||
-            statusErrorMessage.includes('does not exist');
-
-          if (isNotFoundError) {
-            console.log(
-              `[useAgentStream] Agent run ${runId} not found after stream error. Finalizing.`,
-            );
-            // Revert to agent_not_running for this specific case
-            finalizeStream('agent_not_running', runId);
-          } else {
-            // For other status check errors, finalize with the original stream error
-            finalizeStream('error', runId);
-          }
-        });
     },
     [finalizeStream],
   );

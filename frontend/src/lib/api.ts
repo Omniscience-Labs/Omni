@@ -859,6 +859,22 @@ export const streamAgent = (
             return;
           }
 
+          // Check for error status messages
+          try {
+            const jsonData = JSON.parse(rawData);
+            if (jsonData.status === 'error') {
+              console.error(`[STREAM] Error status received for ${agentRunId}:`, jsonData);
+              
+              // Pass the error message to the callback
+              callbacks.onError(jsonData.message || 'Unknown error occurred');
+              
+              // Don't close the stream for error status messages as they may continue
+              return;
+            }
+          } catch (jsonError) {
+            // Not JSON or invalid JSON, continue with normal processing
+          }
+
           // Check for "Agent run not found" error
           if (
             rawData.includes('Agent run') &&

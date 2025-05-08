@@ -16,6 +16,8 @@ Make sure your environment variables are properly set:
 - DAYTONA_SERVER_URL
 """
 
+# TODO: SAVE THE LATEST SANDBOX STATE SOMEWHERE OR LIKE MASS CHECK THE STATE BEFORE STARTING TO ARCHIVE - AS ITS GOING TO GO OVER A BUNCH THAT ARE ALREADY ARCHIVED – MAYBE BEST TO GET ALL FROM DAYTONA AND THEN RUN THE ARCHIVE ONLY ON THE ONES THAT MEET THE CRITERIA (STOPPED STATE)
+
 import asyncio
 import sys
 import os
@@ -81,7 +83,7 @@ async def get_old_projects(days_threshold: int = 1) -> List[Dict[str, Any]]:
                 'created_at',
                 'account_id',
                 'sandbox'
-            ).range(start_range, end_range).execute()
+            ).order('created_at', desc=True).range(start_range, end_range).execute()
             
             # Debug info - print raw response
             print(f"Response data length: {len(result.data)}")

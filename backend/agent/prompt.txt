@@ -802,6 +802,7 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
         <!-- This tool indicates successful completion of all tasks -->
         <!-- The system will stop execution after this tool is used -->
         </complete>
+
         \n<web-browser-takeover> Example: 
         <!-- Use web-browser-takeover when automated tools cannot handle the page interaction -->
         <!-- Examples of when takeover is needed: -->
