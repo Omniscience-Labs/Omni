@@ -7,7 +7,6 @@ from pydantic import BaseModel
 
 from utils.logger import logger
 from utils.auth_utils import get_optional_user_id
-from sandbox.sandbox import get_or_start_sandbox
 from services.supabase import DBConnection
 from agent.api import get_or_create_project_sandbox
 
@@ -97,14 +96,8 @@ async def get_sandbox_by_id_safely(client, sandbox_id: str):
     
     try:
         # Get the sandbox
-        sandbox, retrieved_sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
-        
-        # Verify we got the right sandbox
-        if retrieved_sandbox_id != sandbox_id:
-            logger.warning(f"Retrieved sandbox ID {retrieved_sandbox_id} doesn't match requested ID {sandbox_id} for project {project_id}")
-            # Fall back to the direct method if IDs don't match (shouldn't happen but just in case)
-            sandbox = await get_or_start_sandbox(sandbox_id)
-        
+        sandbox = await get_or_create_project_sandbox(client, project_id)
+            
         return sandbox
     except Exception as e:
         logger.error(f"Error retrieving sandbox {sandbox_id}: {str(e)}")

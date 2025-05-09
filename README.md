@@ -88,7 +88,7 @@ You'll need the following components:
 - Redis database for caching and session management
 - Daytona sandbox for secure agent execution
 - Python 3.11 for the API backend
-- API keys for LLM providers (Anthropic)
+- API keys for LLM providers (Anthropic, OpenRouter)
 - Tavily API key for enhanced search capabilities
 - Firecrawl API key for web scraping capabilities
 
@@ -99,23 +99,16 @@ You'll need the following components:
    - Save your project's API URL, anon key, and service role key for later use
    - Install the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
 
-2. **Redis**: Set up a Redis instance using one of these options:
-   - [Upstash Redis](https://upstash.com/) (recommended for cloud deployments)
-   - Local installation:
-     - [Mac](https://formulae.brew.sh/formula/redis): `brew install redis`
-     - [Linux](https://redis.io/docs/getting-started/installation/install-redis-on-linux/): Follow distribution-specific instructions
-     - [Windows](https://redis.io/docs/getting-started/installation/install-redis-on-windows/): Use WSL2 or Docker
-   - Docker Compose (included in our setup):
-     - If you're using our Docker Compose setup, Redis is included and configured automatically
-     - No additional installation is needed
-   - Save your Redis connection details for later use (not needed if using Docker Compose)
+2. **Redis**: 
+   - Go to the `/backend` folder
+   - Run `docker compose up redis`
 
 3. **Daytona**:
    - Create an account on [Daytona](https://app.daytona.io/)
    - Generate an API key from your account settings
    - Go to [Images](https://app.daytona.io/dashboard/images)
    - Click "Add Image"
-   - Enter `adamcohenhillel/kortix-suna:0.0.20` as the image name
+   - Enter `kortix/suna:0.1` as the image name
    - Set `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf` as the Entrypoint
 
 4. **LLM API Keys**:
