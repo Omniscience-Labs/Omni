@@ -187,8 +187,6 @@ async def run_agent(
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
 
-        # model_name = "openrouter/nvidia/llama-3.1-nemotron-ultra-253b-v1:free"
-
         response = await thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=system_message,

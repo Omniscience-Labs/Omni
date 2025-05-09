@@ -10,7 +10,6 @@ from utils.auth_utils import get_optional_user_id
 from services.supabase import DBConnection
 from agent.api import get_or_create_project_sandbox
 
-
 # Initialize shared resources
 router = APIRouter(tags=["sandbox"])
 db = None
