@@ -19,7 +19,7 @@ from agent.tools.sb_files_tool import SandboxFilesTool
 from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.prompt import get_system_prompt
-from utils import logger
+from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
 from services.billing import check_billing_status
 from agent.tools.sb_vision_tool import SandboxVisionTool
@@ -39,7 +39,7 @@ async def run_agent(
     enable_context_manager: bool = True
 ):
     """Run the development agent with specified configuration."""
-    print(f"🚀 Starting agent with model: {model_name}")
+    logger.info(f"🚀 Starting agent with model: {model_name}")
 
     thread_manager = ThreadManager()
 
@@ -90,7 +90,7 @@ async def run_agent(
 
     while continue_execution and iteration_count < max_iterations:
         iteration_count += 1
-        print(f"🔄 Running iteration {iteration_count} of {max_iterations}...")
+        logger.info(f"🔄 Running iteration {iteration_count} of {max_iterations}...")
 
         # Billing check on each iteration - still needed within the iterations
         can_run, message, subscription = await check_billing_status(client, account_id)
@@ -108,7 +108,7 @@ async def run_agent(
         if latest_message.data and len(latest_message.data) > 0:
             message_type = latest_message.data[0].get('type')
             if message_type == 'assistant':
-                print(f"Last message was from assistant, stopping execution")
+                logger.info(f"Last message was from assistant, stopping execution")
                 continue_execution = False
                 break
 
@@ -215,7 +215,7 @@ async def run_agent(
             )
 
             if isinstance(response, dict) and "status" in response and response["status"] == "error":
-                print(f"Error response from run_thread: {response.get('message', 'Unknown error')}")
+                logger.error(f"Error response from run_thread: {response.get('message', 'Unknown error')}")
                 yield response
                 break
 
@@ -228,7 +228,7 @@ async def run_agent(
                 async for chunk in response:
                     # If we receive an error chunk, we should stop after this iteration
                     if isinstance(chunk, dict) and chunk.get('type') == 'status' and chunk.get('status') == 'error':
-                        print(f"Error chunk detected: {chunk.get('message', 'Unknown error')}")
+                        logger.error(f"Error chunk detected: {chunk.get('message', 'Unknown error')}")
                         error_detected = True
                         yield chunk  # Forward the error chunk
                         continue     # Continue processing other chunks but don't break yet
@@ -256,27 +256,27 @@ async def run_agent(
                                        xml_tool = 'web-browser-takeover'
 
                                    last_tool_call = xml_tool
-                                   print(f"Agent used XML tool: {xml_tool}")
+                                   logger.info(f"Agent used XML tool: {xml_tool}")
                         except json.JSONDecodeError:
                             # Handle cases where content might not be valid JSON
-                            print(f"Warning: Could not parse assistant content JSON: {chunk.get('content')}")
+                            logger.warning(f"Warning: Could not parse assistant content JSON: {chunk.get('content')}")
                         except Exception as e:
-                            print(f"Error processing assistant chunk: {e}")
+                            logger.error(f"Error processing assistant chunk: {e}")
 
                     yield chunk
 
                 # Check if we should stop based on the last tool call or error
                 if error_detected:
-                    print(f"Stopping due to error detected in response")
+                    logger.info(f"Stopping due to error detected in response")
                     break
                     
                 if last_tool_call in ['ask', 'complete', 'web-browser-takeover']:
-                    print(f"Agent decided to stop with tool: {last_tool_call}")
+                    logger.info(f"Agent decided to stop with tool: {last_tool_call}")
                     continue_execution = False
             except Exception as e:
                 # Just log the error and re-raise to stop all iterations
                 error_msg = f"Error during response streaming: {str(e)}"
-                print(f"Error: {error_msg}")
+                logger.error(f"Error: {error_msg}")
                 yield {
                     "type": "status",
                     "status": "error",
@@ -288,7 +288,7 @@ async def run_agent(
         except Exception as e:
             # Just log the error and re-raise to stop all iterations
             error_msg = f"Error running thread: {str(e)}"
-            print(f"Error: {error_msg}")
+            logger.error(f"Error: {error_msg}")
             yield {
                 "type": "status",
                 "status": "error",

@@ -37,7 +37,7 @@ class SandboxWebSearchTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search the web for up-to-date information on a specific topic using the Tavily API. This tool allows you to gather real-time information from the internet to answer user queries, research topics, validate facts, and find recent developments. Results include titles, URLs, summaries, and publication dates. Use this tool for discovering relevant web pages before potentially crawling them for complete content.",
+            "description": "Search the web for up-to-date information on a specific topic using the Tavily API. This tool allows you to gather real-time information from the internet to answer user queries, research topics, validate facts, and find recent developments. Results include titles, URLs, and publication dates. Use this tool for discovering relevant web pages before potentially crawling them for complete content.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -45,11 +45,6 @@ class SandboxWebSearchTool(SandboxToolsBase):
                         "type": "string",
                         "description": "The search query to find relevant web pages. Be specific and include key terms to improve search accuracy. For best results, use natural language questions or keyword combinations that precisely describe what you're looking for."
                     },
-                    # "summary": {
-                    #     "type": "boolean",
-                    #     "description": "Whether to include a summary of each search result. Summaries provide key context about each page without requiring full content extraction. Set to true to get concise descriptions of each result.",
-                    #     "default": True
-                    # },
                     "num_results": {
                         "type": "integer",
                         "description": "The number of search results to return. Increase for more comprehensive research or decrease for focused, high-relevance results.",
@@ -64,7 +59,6 @@ class SandboxWebSearchTool(SandboxToolsBase):
         tag_name="web-search",
         mappings=[
             {"param_name": "query", "node_type": "attribute", "path": "."},
-            # {"param_name": "summary", "node_type": "attribute", "path": "."},
             {"param_name": "num_results", "node_type": "attribute", "path": "."}
         ],
         example='''
@@ -87,14 +81,13 @@ class SandboxWebSearchTool(SandboxToolsBase):
         <!-- Another search example -->
         <web-search 
             query="healthy breakfast recipes" 
-            num_results="20">
+            num_results="10">
         </web-search>
         '''
     )
     async def web_search(
         self, 
-        query: str, 
-        # summary: bool = True,
+        query: str,
         num_results: int = 20
     ) -> ToolResult:
         """
@@ -119,6 +112,7 @@ class SandboxWebSearchTool(SandboxToolsBase):
                 num_results = 20
 
             # Execute the search with Tavily
+            logging.info(f"Executing web search for query: '{query}' with {num_results} results")
             search_response = await self.tavily_client.search(
                 query=query,
                 max_results=num_results,
@@ -141,15 +135,9 @@ class SandboxWebSearchTool(SandboxToolsBase):
                     "url": result.get("url", ""),
                 }
 
-                # if summary:
-                #     # Prefer full content; fall back to description
-                #     formatted_result["snippet"] = (
-                #         result.get("content") or 
-                #         result.get("description") or 
-                #         ""
-                #     )
-
                 formatted_results.append(formatted_result)
+            
+            logging.info(f"Retrieved {len(formatted_results)} search results for query: '{query}'")
             
             # Return a properly formatted ToolResult with the search results directly
             return ToolResult(
@@ -159,6 +147,7 @@ class SandboxWebSearchTool(SandboxToolsBase):
         
         except Exception as e:
             error_message = str(e)
+            logging.error(f"Error performing web search for '{query}': {error_message}")
             simplified_message = f"Error performing web search: {error_message[:200]}"
             if len(error_message) > 200:
                 simplified_message += "..."
@@ -168,39 +157,32 @@ class SandboxWebSearchTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "scrape_webpage",
-            "description": "Retrieve the complete text content of a specific webpage using Firecrawl. This tool extracts the full text content from any accessible web page and returns it for analysis, processing, or reference. The extracted text includes the main content of the page without HTML markup. Note that some pages may have limitations on access due to paywalls, access restrictions, or dynamic content loading.",
+            "description": "Extract full text content from multiple webpages in a single operation. IMPORTANT: You should ALWAYS collect multiple relevant URLs from web-search results and scrape them all in a single call for efficiency. This tool saves time by processing multiple pages simultaneously rather than one at a time. The extracted text includes the main content of each page without HTML markup.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "url": {
+                    "urls": {
                         "type": "string",
-                        "description": "The complete URL of the webpage to scrape. This should be a valid, accessible web address including the protocol (http:// or https://). The tool will attempt to extract all text content from this URL."
-                    },
-                    "result_name": {
-                        "type": "string",
-                        "description": "Name to use for the saved result file. If not provided, a name will be generated from the URL.",
-                        "default": ""
+                        "description": "Multiple URLs to scrape, separated by commas. You should ALWAYS include several URLs when possible for efficiency. Example: 'https://example.com/page1,https://example.com/page2,https://example.com/page3'"
                     }
                 },
-                "required": ["url"]
+                "required": ["urls"]
             }
         }
     })
     @xml_schema(
         tag_name="scrape-webpage",
         mappings=[
-            {"param_name": "url", "node_type": "attribute", "path": "."},
-            {"param_name": "result_name", "node_type": "attribute", "path": ".", "required": False}
+            {"param_name": "urls", "node_type": "attribute", "path": "."}
         ],
         example='''
         <!-- 
         The scrape-webpage tool extracts the complete text content from web pages using Firecrawl.
         IMPORTANT WORKFLOW RULES:
         1. ALWAYS use web-search first to find relevant URLs
-        2. Then use scrape-webpage on URLs from web-search results
-        3. Only if scrape-webpage fails or if the page requires interaction:
-           - Use direct browser tools (browser_navigate_to, browser_click_element, etc.)
-           - This is needed for dynamic content, JavaScript-heavy sites, or pages requiring interaction
+        2. COLLECT MULTIPLE URLs from web-search results, not just one
+        3. ALWAYS scrape multiple URLs at once for efficiency, rather than making separate calls
+        4. Only use browser tools if scrape-webpage fails
         
         Firecrawl Features:
         - Converts web pages into clean markdown
@@ -217,58 +199,116 @@ class SandboxWebSearchTool(SandboxToolsBase):
             num_results="5">
         </web-search>
         
-        <!-- 2. Then scrape specific URLs from search results -->
+        <!-- 2. WRONG WAY (inefficient) - don't do this -->
+        <!-- Don't scrape just one URL at a time -->
         <scrape-webpage 
-            url="https://example.com/research/ai-paper-2024"
-            result_name="ai_research_paper">
+            urls="https://example.com/research/ai-paper-2024">
         </scrape-webpage>
         
-        <!-- 3. Only if scrape fails or interaction needed, use browser tools -->
-        <!-- Example of when to use browser tools:
-             - Dynamic content loading
-             - JavaScript-heavy sites
-             - Pages requiring login
-             - Interactive elements
-             - Infinite scroll pages
-        -->
+        <!-- 3. CORRECT WAY (efficient) - do this instead -->
+        <!-- Always scrape multiple URLs in a single call -->
+        <scrape-webpage 
+            urls="https://example.com/research/paper1,https://example.com/research/paper2,https://example.com/research/paper3,https://example.com/research/paper4">
+        </scrape-webpage>
         '''
     )
     async def scrape_webpage(
         self,
-        url: str,
-        result_name: str = ""
+        urls: str
     ) -> ToolResult:
         """
-        Retrieve the complete text content of a webpage using Firecrawl and save it to a file.
+        Retrieve the complete text content of multiple webpages in a single efficient operation.
         
-        This function scrapes the specified URL and extracts the full text content from the page.
-        The extracted text is saved to a file in the /workspace/scrape directory.
+        ALWAYS collect multiple relevant URLs from search results and scrape them all at once
+        rather than making separate calls for each URL. This is much more efficient.
         
         Parameters:
-        - url: The URL of the webpage to scrape
-        - result_name: Optional name for the result file (if not provided, generated from URL)
+        - urls: Multiple URLs to scrape, separated by commas
         """
         try:
-            logging.info(f"Starting to scrape webpage: {url}")
+            logging.info(f"Starting to scrape webpages: {urls}")
             
             # Ensure sandbox is initialized
             await self._ensure_sandbox()
             
-            # Parse the URL parameter exactly as it would appear in XML
-            if not url:
-                logging.warning("Scrape attempt with empty URL")
-                return self.fail_response("A valid URL is required.")
+            # Parse the URLs parameter
+            if not urls:
+                logging.warning("Scrape attempt with empty URLs")
+                return self.fail_response("Valid URLs are required.")
+            
+            # Split the URLs string into a list
+            url_list = [url.strip() for url in urls.split(',') if url.strip()]
+            
+            if not url_list:
+                logging.warning("No valid URLs found in the input")
+                return self.fail_response("No valid URLs provided.")
                 
-            # Handle url parameter (as it would appear in XML)
-            if isinstance(url, str):
-                # Add protocol if missing
-                if not (url.startswith('http://') or url.startswith('https://')):
-                    url = 'https://' + url
-                    logging.info(f"Added https:// protocol to URL: {url}")
+            if len(url_list) == 1:
+                logging.warning("Only a single URL provided - for efficiency you should scrape multiple URLs at once")
+            
+            logging.info(f"Processing {len(url_list)} URLs: {url_list}")
+            
+            # Process each URL and collect results
+            results = []
+            for url in url_list:
+                try:
+                    # Add protocol if missing
+                    if not (url.startswith('http://') or url.startswith('https://')):
+                        url = 'https://' + url
+                        logging.info(f"Added https:// protocol to URL: {url}")
+                    
+                    # Scrape this URL
+                    result = await self._scrape_single_url(url)
+                    results.append(result)
+                    
+                except Exception as e:
+                    logging.error(f"Error processing URL {url}: {str(e)}")
+                    results.append({
+                        "url": url,
+                        "success": False,
+                        "error": str(e)
+                    })
+            
+            # Summarize results
+            successful = sum(1 for r in results if r.get("success", False))
+            failed = len(results) - successful
+            
+            # Create success/failure message
+            if successful == len(results):
+                message = f"Successfully scraped all {len(results)} URLs. Results saved to:"
+                for r in results:
+                    if r.get("file_path"):
+                        message += f"\n- {r.get('file_path')}"
+            elif successful > 0:
+                message = f"Scraped {successful} URLs successfully and {failed} failed. Results saved to:"
+                for r in results:
+                    if r.get("success", False) and r.get("file_path"):
+                        message += f"\n- {r.get('file_path')}"
+                message += "\n\nFailed URLs:"
+                for r in results:
+                    if not r.get("success", False):
+                        message += f"\n- {r.get('url')}: {r.get('error', 'Unknown error')}"
             else:
-                logging.warning(f"Invalid URL type: {type(url)}")
-                return self.fail_response("URL must be a string.")
-                
+                error_details = "; ".join([f"{r.get('url')}: {r.get('error', 'Unknown error')}" for r in results])
+                return self.fail_response(f"Failed to scrape all {len(results)} URLs. Errors: {error_details}")
+            
+            return ToolResult(
+                success=True,
+                output=message
+            )
+        
+        except Exception as e:
+            error_message = str(e)
+            logging.error(f"Error in scrape_webpage: {error_message}")
+            return self.fail_response(f"Error processing scrape request: {error_message[:200]}")
+    
+    async def _scrape_single_url(self, url: str) -> dict:
+        """
+        Helper function to scrape a single URL and return the result information.
+        """
+        logging.info(f"Scraping single URL: {url}")
+        
+        try:
             # ---------- Firecrawl scrape endpoint ----------
             logging.info(f"Sending request to Firecrawl for URL: {url}")
             async with httpx.AsyncClient() as client:
@@ -328,27 +368,17 @@ class SandboxWebSearchTool(SandboxToolsBase):
                 formatted_result["metadata"] = data["data"]["metadata"]
                 logging.info(f"Added metadata: {data['data']['metadata'].keys()}")
             
-            # Create a safe filename from the URL or use provided result_name
+            # Create a simple filename from the URL domain and date
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            if result_name:
-                safe_filename = f"{timestamp}_{result_name}"
-            else:
-                # Extract domain and path from URL for the filename
-                from urllib.parse import urlparse
-                parsed_url = urlparse(url)
-                domain = parsed_url.netloc.replace("www.", "")
-                path = parsed_url.path.rstrip("/")
-                if path:
-                    last_part = path.split("/")[-1]
-                    safe_filename = f"{timestamp}_{domain}_{last_part}"
-                else:
-                    safe_filename = f"{timestamp}_{domain}"
-                # Clean up filename
-                safe_filename = "".join([c if c.isalnum() else "_" for c in safe_filename])[:60]
             
-            # Ensure .json extension
-            if not safe_filename.endswith('.json'):
-                safe_filename += '.json'
+            # Extract domain from URL for the filename
+            from urllib.parse import urlparse
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.replace("www.", "")
+            
+            # Clean up domain for filename
+            domain = "".join([c if c.isalnum() else "_" for c in domain])
+            safe_filename = f"{timestamp}_{domain}.json"
             
             logging.info(f"Generated filename: {safe_filename}")
             
@@ -365,34 +395,24 @@ class SandboxWebSearchTool(SandboxToolsBase):
                 json_content.encode()
             )
             
-            return ToolResult(
-                success=True,
-                output=f"Successfully saved the scrape of the website under path '{results_file_path}'."
-            )
+            return {
+                "url": url,
+                "success": True,
+                "title": title,
+                "file_path": results_file_path,
+                "content_length": len(markdown_content)
+            }
         
         except Exception as e:
             error_message = str(e)
-            # Log the full error for debugging
-            logging.error(f"Scraping error for URL '{url}': {error_message}")
+            logging.error(f"Error scraping URL '{url}': {error_message}")
             
-            # Create a more informative error message for the user
-            if "timeout" in error_message.lower():
-                user_message = f"The request timed out while trying to scrape the webpage. The site might be slow or blocking automated access."
-            elif "connection" in error_message.lower():
-                user_message = f"Could not connect to the website. The site might be down or blocking access."
-            elif "404" in error_message:
-                user_message = f"The webpage was not found (404 error). Please check if the URL is correct."
-            elif "403" in error_message:
-                user_message = f"Access to the webpage was forbidden (403 error). The site may be blocking automated access."
-            elif "401" in error_message:
-                user_message = f"Authentication required to access this webpage (401 error)."
-            else:
-                user_message = f"Error scraping webpage: {error_message[:200]}"
-                if len(error_message) > 200:
-                    user_message += "..."
-                    
-            return self.fail_response(user_message)
-
+            # Create an error result
+            return {
+                "url": url,
+                "success": False,
+                "error": error_message
+            }
 
 if __name__ == "__main__":
     async def test_web_search():
