@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   ArrowDown,
@@ -118,7 +118,17 @@ function renderMarkdownContent(
   ) => void,
   messageId: string | null,
   fileViewerHandler?: (filePath?: string) => void,
+  debugMode: boolean = false
 ) {
+  // If in debug mode, just display raw content in a pre tag
+  if (debugMode) {
+    return (
+      <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30 text-foreground">
+        {content}
+      </pre>
+    );
+  }
+
   const xmlRegex =
     /<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?>(?:[\s\S]*?)<\/\1>|<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/g;
   let lastIndex = 0;
@@ -282,6 +292,10 @@ export default function ThreadPage({
   const unwrappedParams = React.use(params);
   const threadId = unwrappedParams.threadId;
   const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
+  
+  // Add debug mode state - check for debug=true in URL
+  const [debugMode, setDebugMode] = useState(false);
 
   const router = useRouter();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
@@ -1361,6 +1375,12 @@ export default function ThreadPage({
     isLoading,
   ]);
 
+  // Check for debug mode in URL on initial load and when URL changes
+  useEffect(() => {
+    const debugParam = searchParams.get('debug');
+    setDebugMode(debugParam === 'true');
+  }, [searchParams]);
+
   if (isLoading && !initialLoadCompleted.current) {
     return (
       <div className="flex h-screen">
@@ -1478,6 +1498,7 @@ export default function ThreadPage({
             onViewFiles={handleOpenFileViewer}
             onToggleSidePanel={toggleSidePanel}
             isMobileView={isMobile}
+            debugMode={debugMode}
           />
           <div className="flex flex-1 items-center justify-center p-4">
             <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-lg border bg-card p-6 text-center">
@@ -1513,6 +1534,12 @@ export default function ThreadPage({
 
   return (
     <div className="flex h-screen">
+      {/* Render debug mode indicator when active */}
+      {debugMode && (
+        <div className="fixed top-16 right-4 bg-amber-500 text-black text-xs px-2 py-1 rounded-md shadow-md z-50">
+          Debug Mode
+        </div>
+      )}
       <div
         className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted.current || isSidePanelOpen) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
       >
@@ -1524,6 +1551,7 @@ export default function ThreadPage({
           onToggleSidePanel={toggleSidePanel}
           onProjectRenamed={handleProjectRenamed}
           isMobileView={isMobile}
+          debugMode={debugMode}
         />
         <div
           ref={messagesContainerRef}
@@ -1613,6 +1641,19 @@ export default function ThreadPage({
                         }
                       })();
 
+                      // In debug mode, display raw message content
+                      if (debugMode) {
+                        return (
+                          <div key={group.key} className="flex justify-end">
+                            <div className="inline-flex max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
+                              <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                {message.content}
+                              </pre>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       // Extract attachments from the message content
                       const attachmentsMatch = messageContent.match(
                         /\[Uploaded File: (.*?)\]/g,
@@ -1676,6 +1717,34 @@ export default function ThreadPage({
                               <div className="inline-flex max-w-[90%] rounded-lg bg-muted/5 px-4 py-3 text-sm">
                                 <div className="space-y-2">
                                   {(() => {
+                                    // In debug mode, just show raw messages content
+                                    if (debugMode) {
+                                      return group.messages.map((message, msgIndex) => {
+                                        const msgKey = message.message_id || `raw-msg-${msgIndex}`;
+                                        return (
+                                          <div key={msgKey} className="mb-4">
+                                            <div className="text-xs font-medium text-muted-foreground mb-1">
+                                              Type: {message.type} | ID: {message.message_id || 'no-id'}
+                                            </div>
+                                            <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                              {message.content}
+                                            </pre>
+                                            {message.metadata && message.metadata !== '{}' && (
+                                              <div className="mt-2">
+                                                <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                  Metadata:
+                                                </div>
+                                                <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                                  {message.metadata}
+                                                </pre>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      });
+                                    }
+
+                                    // Normal rendering mode
                                     const toolResultsMap = new Map<
                                       string | null,
                                       UnifiedMessage[]
@@ -1722,6 +1791,7 @@ export default function ThreadPage({
                                               handleToolClick,
                                               message.message_id,
                                               handleOpenFileViewer,
+                                              debugMode
                                             );
 
                                           elements.push(
@@ -1748,6 +1818,16 @@ export default function ThreadPage({
                                       streamHookStatus === 'connecting') && (
                                       <div className="mt-2">
                                         {(() => {
+                                          // In debug mode, show raw streaming content
+                                          if (debugMode && streamingTextContent) {
+                                            return (
+                                              <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                                {streamingTextContent}
+                                              </pre>
+                                            );
+                                          }
+
+                                          // Normal streaming mode
                                           let detectedTag: string | null = null;
                                           let tagStartIndex = -1;
                                           if (streamingTextContent) {

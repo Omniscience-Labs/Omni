@@ -27,6 +27,7 @@ interface ThreadSiteHeaderProps {
   onToggleSidePanel: () => void;
   onProjectRenamed?: (newName: string) => void;
   isMobileView?: boolean;
+  debugMode?: boolean;
 }
 
 export function SiteHeader({
@@ -37,6 +38,7 @@ export function SiteHeader({
   onToggleSidePanel,
   onProjectRenamed,
   isMobileView,
+  debugMode,
 }: ThreadSiteHeaderProps) {
   const pathname = usePathname()
   const [isEditing, setIsEditing] = useState(false)

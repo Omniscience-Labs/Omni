@@ -3,19 +3,25 @@ import httpx
 from dotenv import load_dotenv
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
 from utils.config import config
+from sandbox.tool_base import SandboxToolsBase
+from agentpress.thread_manager import ThreadManager
 import json
+import os
+import datetime
+import asyncio
+import logging
 
 # TODO: add subpages, etc... in filters as sometimes its necessary 
 
-class WebSearchTool(Tool):
+class SandboxWebSearchTool(SandboxToolsBase):
     """Tool for performing web searches using Tavily API and web scraping using Firecrawl."""
 
-    def __init__(self, api_key: str = None):
-        super().__init__()
+    def __init__(self, project_id: str, thread_manager: ThreadManager):
+        super().__init__(project_id, thread_manager)
         # Load environment variables
         load_dotenv()
-        # Use the provided API key or get it from environment variables
-        self.tavily_api_key = api_key or config.TAVILY_API_KEY
+        # Use API keys from config
+        self.tavily_api_key = config.TAVILY_API_KEY
         self.firecrawl_api_key = config.FIRECRAWL_API_KEY
         self.firecrawl_url = config.FIRECRAWL_URL
         
@@ -145,7 +151,7 @@ class WebSearchTool(Tool):
 
                 formatted_results.append(formatted_result)
             
-            # Return a properly formatted ToolResult
+            # Return a properly formatted ToolResult with the search results directly
             return ToolResult(
                 success=True,
                 output=json.dumps(formatted_results, ensure_ascii=False)
@@ -169,6 +175,11 @@ class WebSearchTool(Tool):
                     "url": {
                         "type": "string",
                         "description": "The complete URL of the webpage to scrape. This should be a valid, accessible web address including the protocol (http:// or https://). The tool will attempt to extract all text content from this URL."
+                    },
+                    "result_name": {
+                        "type": "string",
+                        "description": "Name to use for the saved result file. If not provided, a name will be generated from the URL.",
+                        "default": ""
                     }
                 },
                 "required": ["url"]
@@ -178,7 +189,8 @@ class WebSearchTool(Tool):
     @xml_schema(
         tag_name="scrape-webpage",
         mappings=[
-            {"param_name": "url", "node_type": "attribute", "path": "."}
+            {"param_name": "url", "node_type": "attribute", "path": "."},
+            {"param_name": "result_name", "node_type": "attribute", "path": ".", "required": False}
         ],
         example='''
         <!-- 
@@ -202,13 +214,13 @@ class WebSearchTool(Tool):
         <!-- 1. First search for relevant content -->
         <web-search 
             query="latest AI research papers" 
-            # summary="true"
             num_results="5">
         </web-search>
         
         <!-- 2. Then scrape specific URLs from search results -->
         <scrape-webpage 
-            url="https://example.com/research/ai-paper-2024">
+            url="https://example.com/research/ai-paper-2024"
+            result_name="ai_research_paper">
         </scrape-webpage>
         
         <!-- 3. Only if scrape fails or interaction needed, use browser tools -->
@@ -223,30 +235,28 @@ class WebSearchTool(Tool):
     )
     async def scrape_webpage(
         self,
-        url: str
+        url: str,
+        result_name: str = ""
     ) -> ToolResult:
         """
-        Retrieve the complete text content of a webpage using Firecrawl.
+        Retrieve the complete text content of a webpage using Firecrawl and save it to a file.
         
         This function scrapes the specified URL and extracts the full text content from the page.
-        The extracted text is returned in the response, making it available for further analysis,
-        processing, or reference.
-        
-        The returned data includes:
-        - Title: The title of the webpage
-        - URL: The URL of the scraped page
-        - Published Date: When the content was published (if available)
-        - Text: The complete text content of the webpage in markdown format
-        
-        Note that some pages may have limitations on access due to paywalls, 
-        access restrictions, or dynamic content loading.
+        The extracted text is saved to a file in the /workspace/scrape directory.
         
         Parameters:
         - url: The URL of the webpage to scrape
+        - result_name: Optional name for the result file (if not provided, generated from URL)
         """
         try:
+            logging.info(f"Starting to scrape webpage: {url}")
+            
+            # Ensure sandbox is initialized
+            await self._ensure_sandbox()
+            
             # Parse the URL parameter exactly as it would appear in XML
             if not url:
+                logging.warning("Scrape attempt with empty URL")
                 return self.fail_response("A valid URL is required.")
                 
             # Handle url parameter (as it would appear in XML)
@@ -254,10 +264,13 @@ class WebSearchTool(Tool):
                 # Add protocol if missing
                 if not (url.startswith('http://') or url.startswith('https://')):
                     url = 'https://' + url
+                    logging.info(f"Added https:// protocol to URL: {url}")
             else:
+                logging.warning(f"Invalid URL type: {type(url)}")
                 return self.fail_response("URL must be a string.")
                 
             # ---------- Firecrawl scrape endpoint ----------
+            logging.info(f"Sending request to Firecrawl for URL: {url}")
             async with httpx.AsyncClient() as client:
                 headers = {
                     "Authorization": f"Bearer {self.firecrawl_api_key}",
@@ -267,57 +280,130 @@ class WebSearchTool(Tool):
                     "url": url,
                     "formats": ["markdown"]
                 }
-                response = await client.post(
-                    f"{self.firecrawl_url}/v1/scrape",
-                    json=payload,
-                    headers=headers,
-                    timeout=60,
-                )
-                response.raise_for_status()
-                data = response.json()
+                
+                # Use longer timeout and retry logic for more reliability
+                max_retries = 3
+                timeout_seconds = 120
+                retry_count = 0
+                
+                while retry_count < max_retries:
+                    try:
+                        logging.info(f"Sending request to Firecrawl (attempt {retry_count + 1}/{max_retries})")
+                        response = await client.post(
+                            f"{self.firecrawl_url}/v1/scrape",
+                            json=payload,
+                            headers=headers,
+                            timeout=timeout_seconds,
+                        )
+                        response.raise_for_status()
+                        data = response.json()
+                        logging.info(f"Successfully received response from Firecrawl for {url}")
+                        break
+                    except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ReadError) as timeout_err:
+                        retry_count += 1
+                        logging.warning(f"Request timed out (attempt {retry_count}/{max_retries}): {str(timeout_err)}")
+                        if retry_count >= max_retries:
+                            raise Exception(f"Request timed out after {max_retries} attempts with {timeout_seconds}s timeout")
+                        # Exponential backoff
+                        logging.info(f"Waiting {2 ** retry_count}s before retry")
+                        await asyncio.sleep(2 ** retry_count)
+                    except Exception as e:
+                        # Don't retry on non-timeout errors
+                        logging.error(f"Error during scraping: {str(e)}")
+                        raise e
 
             # Format the response
+            title = data.get("data", {}).get("metadata", {}).get("title", "")
+            markdown_content = data.get("data", {}).get("markdown", "")
+            logging.info(f"Extracted content from {url}: title='{title}', content length={len(markdown_content)}")
+            
             formatted_result = {
-                "Title": data.get("data", {}).get("metadata", {}).get("title", ""),
-                "URL": url,
-                "Text": data.get("data", {}).get("markdown", "")
+                "title": title,
+                "url": url,
+                "text": markdown_content
             }
             
             # Add metadata if available
             if "metadata" in data.get("data", {}):
-                formatted_result["Metadata"] = data["data"]["metadata"]
+                formatted_result["metadata"] = data["data"]["metadata"]
+                logging.info(f"Added metadata: {data['data']['metadata'].keys()}")
             
-            return self.success_response([formatted_result])
+            # Create a safe filename from the URL or use provided result_name
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            if result_name:
+                safe_filename = f"{timestamp}_{result_name}"
+            else:
+                # Extract domain and path from URL for the filename
+                from urllib.parse import urlparse
+                parsed_url = urlparse(url)
+                domain = parsed_url.netloc.replace("www.", "")
+                path = parsed_url.path.rstrip("/")
+                if path:
+                    last_part = path.split("/")[-1]
+                    safe_filename = f"{timestamp}_{domain}_{last_part}"
+                else:
+                    safe_filename = f"{timestamp}_{domain}"
+                # Clean up filename
+                safe_filename = "".join([c if c.isalnum() else "_" for c in safe_filename])[:60]
+            
+            # Ensure .json extension
+            if not safe_filename.endswith('.json'):
+                safe_filename += '.json'
+            
+            logging.info(f"Generated filename: {safe_filename}")
+            
+            # Save results to a file in the /workspace/scrape directory
+            scrape_dir = f"{self.workspace_path}/scrape"
+            self.sandbox.fs.create_folder(scrape_dir, "755")
+            
+            results_file_path = f"{scrape_dir}/{safe_filename}"
+            json_content = json.dumps(formatted_result, ensure_ascii=False, indent=2)
+            logging.info(f"Saving content to file: {results_file_path}, size: {len(json_content)} bytes")
+            
+            self.sandbox.fs.upload_file(
+                results_file_path, 
+                json_content.encode()
+            )
+            
+            return ToolResult(
+                success=True,
+                output=f"Successfully saved the scrape of the website under path '{results_file_path}'."
+            )
         
         except Exception as e:
             error_message = str(e)
-            # Truncate very long error messages
-            simplified_message = f"Error scraping webpage: {error_message[:200]}"
-            if len(error_message) > 200:
-                simplified_message += "..."
-            return self.fail_response(simplified_message)
+            # Log the full error for debugging
+            logging.error(f"Scraping error for URL '{url}': {error_message}")
+            
+            # Create a more informative error message for the user
+            if "timeout" in error_message.lower():
+                user_message = f"The request timed out while trying to scrape the webpage. The site might be slow or blocking automated access."
+            elif "connection" in error_message.lower():
+                user_message = f"Could not connect to the website. The site might be down or blocking access."
+            elif "404" in error_message:
+                user_message = f"The webpage was not found (404 error). Please check if the URL is correct."
+            elif "403" in error_message:
+                user_message = f"Access to the webpage was forbidden (403 error). The site may be blocking automated access."
+            elif "401" in error_message:
+                user_message = f"Authentication required to access this webpage (401 error)."
+            else:
+                user_message = f"Error scraping webpage: {error_message[:200]}"
+                if len(error_message) > 200:
+                    user_message += "..."
+                    
+            return self.fail_response(user_message)
 
 
 if __name__ == "__main__":
-    import asyncio
-    
     async def test_web_search():
         """Test function for the web search tool"""
-        search_tool = WebSearchTool()
-        result = await search_tool.web_search(
-            query="rubber gym mats best prices comparison",
-            # summary=True,
-            num_results=20
-        )
-        print(result)
+        # This test function is not compatible with the sandbox version
+        print("Test function needs to be updated for sandbox version")
     
     async def test_scrape_webpage():
         """Test function for the webpage scrape tool"""
-        search_tool = WebSearchTool()
-        result = await search_tool.scrape_webpage(
-            url="https://www.wired.com/story/anthropic-benevolent-artificial-intelligence/"
-        )
-        print(result)
+        # This test function is not compatible with the sandbox version
+        print("Test function needs to be updated for sandbox version")
     
     async def run_tests():
         """Run all test functions"""
