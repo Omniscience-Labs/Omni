@@ -66,22 +66,26 @@ class SandboxWebSearchTool(SandboxToolsBase):
         The web-search tool allows you to search the internet for real-time information.
         Use this tool when you need to find current information, research topics, or verify facts.
         
-        The tool returns information including:
-        - Titles of relevant web pages
-        - URLs for accessing the pages
-        - Published dates (when available)
+        THE TOOL NOW RETURNS:
+        - Direct answer to your query from search results
+        - Relevant images when available
+        - Detailed search results including titles, URLs, and snippets
+        
+        WORKFLOW RECOMMENDATION:
+        1. Use web-search first with a specific question to get direct answers
+        2. Only use scrape-webpage if you need more detailed information from specific pages
         -->
         
         <!-- Simple search example -->
         <web-search 
-            query="current weather in New York City" 
+            query="what is Kortix AI and what are they building?" 
             num_results="20">
         </web-search>
         
         <!-- Another search example -->
         <web-search 
-            query="healthy breakfast recipes" 
-            num_results="10">
+            query="latest AI research on transformer models" 
+            num_results="20">
         </web-search>
         '''
     )
@@ -116,33 +120,18 @@ class SandboxWebSearchTool(SandboxToolsBase):
             search_response = await self.tavily_client.search(
                 query=query,
                 max_results=num_results,
-                include_answer=False,
-                include_images=False,
+                include_images=True,
+                include_answer="advanced",
+                search_depth="advanced",
             )
-
-            # Normalize the response format
-            raw_results = (
-                search_response.get("results")
-                if isinstance(search_response, dict)
-                else search_response
-            )
-
-            # Format results consistently
-            formatted_results = []
-            for result in raw_results:
-                formatted_result = {
-                    "title": result.get("title", ""),
-                    "url": result.get("url", ""),
-                }
-
-                formatted_results.append(formatted_result)
             
-            logging.info(f"Retrieved {len(formatted_results)} search results for query: '{query}'")
+            # Return the complete Tavily response 
+            # This includes the query, answer, results, images and more
+            logging.info(f"Retrieved search results for query: '{query}' with answer and {len(search_response.get('results', []))} results")
             
-            # Return a properly formatted ToolResult with the search results directly
             return ToolResult(
                 success=True,
-                output=json.dumps(formatted_results, ensure_ascii=False)
+                output=json.dumps(search_response, ensure_ascii=False)
             )
         
         except Exception as e:
@@ -176,40 +165,50 @@ class SandboxWebSearchTool(SandboxToolsBase):
             {"param_name": "urls", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <!-- 
-        The scrape-webpage tool extracts the complete text content from web pages using Firecrawl.
-        IMPORTANT WORKFLOW RULES:
-        1. ALWAYS use web-search first to find relevant URLs
-        2. COLLECT MULTIPLE URLs from web-search results, not just one
-        3. ALWAYS scrape multiple URLs at once for efficiency, rather than making separate calls
-        4. Only use browser tools if scrape-webpage fails
+  <!-- 
+        IMPORTANT: The scrape-webpage tool should ONLY be used when you absolutely need
+        the full content of specific web pages that can't be answered by web-search alone.
         
-        Firecrawl Features:
-        - Converts web pages into clean markdown
-        - Handles dynamic content and JavaScript-rendered sites
-        - Manages proxies, caching, and rate limits
-        - Supports PDFs and images
-        - Outputs clean markdown
+        WORKFLOW PRIORITY:
+        1. ALWAYS use web-search first - it now provides direct answers to questions
+        2. Only use scrape-webpage when you need specific details not found in the search results
+        3. Remember that web-search now returns:
+           - Direct answers to your query
+           - Relevant images
+           - Detailed search result snippets
+        
+        When to use scrape-webpage:
+        - When you need complete article text beyond what search snippets provide
+        - For extracting structured data from specific pages
+        - When analyzing lengthy documentation or guides
+        - For comparing detailed content across multiple sources
+        
+        When NOT to use scrape-webpage:
+        - When web-search already answers the query
+        - For simple fact-checking or basic information
+        - When only a high-level overview is needed
         -->
         
         <!-- Example workflow: -->
-        <!-- 1. First search for relevant content -->
+        <!-- 1. First search for relevant content with a specific question -->
         <web-search 
-            query="latest AI research papers" 
-            num_results="5">
+            query="what is Kortix AI and what are they building?" 
+            num_results="20">
         </web-search>
         
-        <!-- 2. WRONG WAY (inefficient) - don't do this -->
-        <!-- Don't scrape just one URL at a time -->
+        <!-- 2. Only if you need specific details not in the search results, then scrape -->
         <scrape-webpage 
-            urls="https://example.com/research/ai-paper-2024">
+            urls="https://www.kortix.ai/,https://github.com/kortix-ai/suna">
         </scrape-webpage>
         
-        <!-- 3. CORRECT WAY (efficient) - do this instead -->
-        <!-- Always scrape multiple URLs in a single call -->
-        <scrape-webpage 
-            urls="https://example.com/research/paper1,https://example.com/research/paper2,https://example.com/research/paper3,https://example.com/research/paper4">
-        </scrape-webpage>
+        <!-- 3. Only if scrape fails or interaction needed, use browser tools -->
+        <!-- Example of when to use browser tools:
+             - Dynamic content loading
+             - JavaScript-heavy sites
+             - Pages requiring login
+             - Interactive elements
+             - Infinite scroll pages
+        -->
         '''
     )
     async def scrape_webpage(

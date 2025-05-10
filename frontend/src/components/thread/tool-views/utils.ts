@@ -289,30 +289,37 @@ export function extractSearchQuery(content: string | undefined): string | null {
 
   let contentToSearch = content; // Start with the original content
 
-  // 3. Try parsing as JSON first, as the relevant content might be nested
+  // Try parsing as JSON first
   try {
-    const parsedOuter = JSON.parse(content);
-    if (typeof parsedOuter.content === 'string') {
+    const parsedContent = JSON.parse(content);
+    
+    // Check if it's the new Tavily response format
+    if (parsedContent.query && typeof parsedContent.query === 'string') {
+      return parsedContent.query;
+    }
+    
+    // Continue with existing logic for backward compatibility
+    if (typeof parsedContent.content === 'string') {
       // If the outer content is JSON and has a 'content' string field,
       // use that inner content for searching the query.
-      contentToSearch = parsedOuter.content;
+      contentToSearch = parsedContent.content;
 
       // Also check common JSON structures within the outer parsed object itself
-      if (typeof parsedOuter.query === 'string') {
-        return parsedOuter.query;
+      if (typeof parsedContent.query === 'string') {
+        return parsedContent.query;
       }
       if (
-        typeof parsedOuter.arguments === 'object' &&
-        parsedOuter.arguments !== null &&
-        typeof parsedOuter.arguments.query === 'string'
+        typeof parsedContent.arguments === 'object' &&
+        parsedContent.arguments !== null &&
+        typeof parsedContent.arguments.query === 'string'
       ) {
-        return parsedOuter.arguments.query;
+        return parsedContent.arguments.query;
       }
       if (
-        Array.isArray(parsedOuter.tool_calls) &&
-        parsedOuter.tool_calls.length > 0
+        Array.isArray(parsedContent.tool_calls) &&
+        parsedContent.tool_calls.length > 0
       ) {
-        const toolCall = parsedOuter.tool_calls[0];
+        const toolCall = parsedContent.tool_calls[0];
         if (
           typeof toolCall.arguments === 'object' &&
           toolCall.arguments !== null &&
@@ -766,10 +773,20 @@ export function extractSearchResults(
 ): Array<{ title: string; url: string; snippet?: string }> {
   if (!content) return [];
 
-  // First try the standard JSON extraction methods
+  // First check if it's the new Tavily response format
   try {
-    // Try to parse JSON content first
     const parsedContent = JSON.parse(content);
+    
+    // Check if this is the new Tavily response format
+    if (parsedContent.results && Array.isArray(parsedContent.results)) {
+      return parsedContent.results.map(result => ({
+        title: result.title || '',
+        url: result.url || '',
+        snippet: result.content || '',
+      }));
+    }
+    
+    // Continue with existing logic for backward compatibility
     if (parsedContent.content && typeof parsedContent.content === 'string') {
       // Look for a tool_result tag
       const toolResultMatch = parsedContent.content.match(

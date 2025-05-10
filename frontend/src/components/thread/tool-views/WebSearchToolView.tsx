@@ -5,6 +5,7 @@ import {
   CheckCircle,
   AlertTriangle,
   ExternalLink,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -28,6 +29,28 @@ export function WebSearchToolView({
   const query = extractSearchQuery(assistantContent);
   const searchResults = extractSearchResults(toolContent);
   const toolTitle = getToolTitle(name);
+  
+  // Extract additional data from Tavily response
+  const [answer, setAnswer] = React.useState<string | null>(null);
+  const [images, setImages] = React.useState<string[]>([]);
+  
+  React.useEffect(() => {
+    if (toolContent) {
+      try {
+        const parsedContent = JSON.parse(toolContent);
+        // Check if it's the new Tavily response format with answer
+        if (parsedContent.answer && typeof parsedContent.answer === 'string') {
+          setAnswer(parsedContent.answer);
+        }
+        // Check for images array
+        if (parsedContent.images && Array.isArray(parsedContent.images)) {
+          setImages(parsedContent.images);
+        }
+      } catch (e) {
+        // Silently fail - the view will work without these extras
+      }
+    }
+  }, [toolContent]);
 
   return (
     <div className="flex flex-col h-full">
@@ -77,6 +100,52 @@ export function WebSearchToolView({
               </div>
             ) : searchResults.length > 0 ? (
               <div className="p-3">
+                {/* Answer section */}
+                {answer && (
+                  <div className="mb-4 bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-100 dark:border-blue-900">
+                    <h3 className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-1">
+                      Answer
+                    </h3>
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans">
+                      {answer}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Images section */}
+                {images.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
+                      <ImageIcon className="h-3.5 w-3.5 mr-1" />
+                      Images
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                      {images.map((image, idx) => (
+                        <a 
+                          key={idx} 
+                          href={image} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="group relative overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                        >
+                          <img 
+                            src={image} 
+                            alt={`Search result ${idx + 1}`}
+                            className="object-cover w-full h-24 group-hover:opacity-90 transition-opacity"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E";
+                              target.classList.add("p-4");
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Results section */}
                 <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-3">
                   Found {searchResults.length} results
                 </div>
