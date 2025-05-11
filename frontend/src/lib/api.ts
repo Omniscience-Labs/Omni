@@ -183,52 +183,52 @@ export const getProject = async (projectId: string): Promise<Project> => {
 
     console.log('Raw project data from database:', data);
 
-    // // If project has a sandbox, ensure it's started
-    // if (data.sandbox?.id) {
-    //   // Fire off sandbox activation without blocking
-    //   const ensureSandboxActive = async () => {
-    //     try {
-    //       const {
-    //         data: { session },
-    //       } = await supabase.auth.getSession();
+    // If project has a sandbox, ensure it's started
+    if (data.sandbox?.id) {
+      // Fire off sandbox activation without blocking
+      const ensureSandboxActive = async () => {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
 
-    //       // For public projects, we don't need authentication
-    //       const headers: Record<string, string> = {
-    //         'Content-Type': 'application/json',
-    //       };
+          // For public projects, we don't need authentication
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
 
-    //       if (session?.access_token) {
-    //         headers['Authorization'] = `Bearer ${session.access_token}`;
-    //       }
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
 
-    //       console.log(`Ensuring sandbox is active for project ${projectId}...`);
-    //       const response = await fetch(
-    //         `${API_URL}/project/${projectId}/sandbox/ensure-active`,
-    //         {
-    //           method: 'POST',
-    //           headers,
-    //         },
-    //       );
+          console.log(`Ensuring sandbox is active for project ${projectId}...`);
+          const response = await fetch(
+            `${API_URL}/project/${projectId}/sandbox/ensure-active`,
+            {
+              method: 'POST',
+              headers,
+            },
+          );
 
-    //       if (!response.ok) {
-    //         const errorText = await response
-    //           .text()
-    //           .catch(() => 'No error details available');
-    //         console.warn(
-    //           `Failed to ensure sandbox is active: ${response.status} ${response.statusText}`,
-    //           errorText,
-    //         );
-    //       } else {
-    //         console.log('Sandbox activation successful');
-    //       }
-    //     } catch (sandboxError) {
-    //       console.warn('Failed to ensure sandbox is active:', sandboxError);
-    //     }
-    //   };
+          if (!response.ok) {
+            const errorText = await response
+              .text()
+              .catch(() => 'No error details available');
+            console.warn(
+              `Failed to ensure sandbox is active: ${response.status} ${response.statusText}`,
+              errorText,
+            );
+          } else {
+            console.log('Sandbox activation successful');
+          }
+        } catch (sandboxError) {
+          console.warn('Failed to ensure sandbox is active:', sandboxError);
+        }
+      };
 
-    //   // Start the sandbox activation without awaiting
-    //   ensureSandboxActive();
-    // }
+      // Start the sandbox activation without awaiting
+      ensureSandboxActive();
+    }
 
     // Map database fields to our Project type
     const mappedProject: Project = {
