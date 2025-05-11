@@ -43,9 +43,9 @@ CMD ["sh", "-c", "gunicorn api:app \
      --workers $WORKERS \
      --worker-class uvicorn.workers.UvicornWorker \
      --bind 0.0.0.0:8000 \
-     --timeout 600 \
-     --graceful-timeout 300 \
-     --keep-alive 250 \
+     --timeout 1800 \
+     --graceful-timeout 600 \
+     --keep-alive-timeout 1800 \
      --max-requests 2000 \
      --max-requests-jitter 400 \
      --forwarded-allow-ips '*' \
