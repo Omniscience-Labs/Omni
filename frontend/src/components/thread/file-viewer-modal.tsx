@@ -36,12 +36,14 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import { useCachedFile, getCachedFile, FileCache } from '@/hooks/use-cached-file';
 
 // Define API_URL
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -61,10 +63,18 @@ export function FileViewerModal({
   initialFilePath,
   project,
 }: FileViewerModalProps) {
+  // Auth for session token
+  const { session } = useAuth();
+
   // File navigation state
   const [currentPath, setCurrentPath] = useState('/workspace');
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Add a navigation lock to prevent race conditions
+  const [isNavigationLocked, setIsNavigationLocked] = useState(false);
+  const currentNavigationRef = useRef<string | null>(null);
 
   // File content state
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
@@ -80,6 +90,19 @@ export function FileViewerModal({
 
   // Add a ref to track current loading operation
   const loadingFileRef = useRef<string | null>(null);
+
+  // Use the cached file hook for the selected file
+  const {
+    data: cachedFileContent,
+    isLoading: isCachedFileLoading,
+    error: cachedFileError,
+  } = useCachedFile(
+    sandboxId,
+    selectedFilePath,
+    {
+      contentType: 'text', // Default to text, we'll handle binary later
+    }
+  );
 
   // Utility state
   const [isUploading, setIsUploading] = useState(false);
@@ -103,6 +126,9 @@ export function FileViewerModal({
   const [pdfOrientation, setPdfOrientation] = useState<
     'portrait' | 'landscape'
   >('portrait');
+
+  // Add a ref to track active download URLs
+  const activeDownloadUrls = useRef<Set<string>>(new Set());
 
   // Setup project with sandbox URL if not provided directly
   useEffect(() => {
@@ -128,6 +154,11 @@ export function FileViewerModal({
       : `/workspace/${path.replace(/^\//, '')}`;
   }, []);
 
+  // Helper function to check if a value is a Blob (type-safe version of instanceof)
+  const isBlob = (value: any): value is Blob => {
+    return value instanceof Blob;
+  };
+
   // Helper function to clear the selected file
   const clearSelectedFile = useCallback(() => {
     setSelectedFilePath(null);
@@ -139,7 +170,258 @@ export function FileViewerModal({
     loadingFileRef.current = null; // Clear the loading ref
   }, []);
 
-  // Helper function to navigate to a folder - COMPLETELY FIXED
+  // Forward declaration for openFile - will be defined below but referenced first
+  // Core file opening function
+  const openFile = useCallback(
+    async (file: FileInfo) => {
+      if (file.is_dir) {
+        // Since navigateToFolder is defined below, we can safely call it
+        // We define navigateToFolder first, then use it in openFile
+        // For directories, just navigate to that folder
+        if (!file.is_dir) return;
+
+        // Ensure the path is properly normalized
+        const normalizedPath = normalizePath(file.path);
+
+        // Always navigate to the folder to ensure breadcrumbs update correctly
+        console.log(
+          `[FILE VIEWER] Navigating to folder: ${file.path} → ${normalizedPath}`,
+        );
+        console.log(
+          `[FILE VIEWER] Current path before navigation: ${currentPath}`,
+        );
+
+        // Clear selected file when navigating
+        clearSelectedFile();
+
+        // Update path state - must happen after clearing selection
+        setCurrentPath(normalizedPath);
+        return;
+      }
+
+      // Skip if already selected and content exists
+      if (selectedFilePath === file.path && rawContent) {
+        console.log(`[FILE VIEWER] File already loaded: ${file.path}`);
+        return;
+      }
+
+      console.log(`[FILE VIEWER] Opening file: ${file.path}`);
+
+      // Check if this is an image or PDF file
+      const isImageFile = FileCache.isImageFile(file.path);
+      const isPdfFile = FileCache.isPdfFile(file.path);
+
+      if (isImageFile) {
+        console.log(`[FILE VIEWER][IMAGE DEBUG] Opening image file: ${file.path}`);
+      } else if (isPdfFile) {
+        console.log(`[FILE VIEWER] Opening PDF file: ${file.path}`);
+      }
+
+      // Clear previous state FIRST
+      clearSelectedFile();
+
+      // Set loading state immediately for UX
+      setIsLoadingContent(true);
+      setSelectedFilePath(file.path);
+
+      // Set the loading ref to track current operation
+      loadingFileRef.current = file.path;
+
+      try {
+        // Check if we have a valid session token
+        if (!session?.access_token) {
+          throw new Error('Authentication token missing. Please refresh the page and login again.');
+        }
+
+        // Start timer for performance logging
+        const startTime = performance.now();
+
+        // For PDFs, always use blob content type
+        const contentType = isPdfFile ? 'blob' : FileCache.getContentTypeFromPath(file.path);
+
+        console.log(`[FILE VIEWER] Fetching content for ${file.path} with content type: ${contentType}`);
+
+        // Fetch content using the cached file utility
+        const content = await getCachedFile(
+          sandboxId,
+          file.path,
+          {
+            contentType: contentType as 'text' | 'blob' | 'json',
+            force: isPdfFile, // Force refresh for PDFs to ensure we get a blob
+            token: session.access_token,
+          }
+        );
+
+        const loadTime = Math.round(performance.now() - startTime);
+        console.log(
+          `[FILE VIEWER] Received content for ${file.path} in ${loadTime}ms (${typeof content})`,
+        );
+
+        // Critical check: Ensure the file we just loaded is still the one selected
+        if (loadingFileRef.current !== file.path) {
+          console.log(
+            `[FILE VIEWER] Selection changed during loading, aborting. Loading: ${loadingFileRef.current}, Expected: ${file.path}`,
+          );
+          setIsLoadingContent(false);
+          return;
+        }
+
+        // Store raw content
+        setRawContent(content);
+
+        // Handle content based on type
+        if (typeof content === 'string') {
+          if (content.startsWith('blob:')) {
+            console.log(`[FILE VIEWER] Setting blob URL directly: ${content}`);
+            setTextContentForRenderer(null);
+            setBlobUrlForRenderer(content);
+          } else if (isPdfFile) {
+            // For PDFs, we should never get here as they should be handled as blobs
+            console.error(`[FILE VIEWER] Received PDF content as string instead of blob, length: ${content.length}`);
+            console.log(`[FILE VIEWER] First 100 chars of content: ${content.substring(0, 100)}`);
+
+            // Try one more time with explicit blob type and force refresh
+            console.log(`[FILE VIEWER] Retrying PDF fetch with explicit blob type and force refresh`);
+            const pdfBlob = await getCachedFile(
+              sandboxId,
+              file.path,
+              {
+                contentType: 'blob',
+                force: true,
+                token: session.access_token,
+              }
+            );
+
+            if (typeof pdfBlob === 'string' && pdfBlob.startsWith('blob:')) {
+              console.log(`[FILE VIEWER] Successfully got blob URL on retry: ${pdfBlob}`);
+              setTextContentForRenderer(null);
+              setBlobUrlForRenderer(pdfBlob);
+            } else {
+              throw new Error('Failed to load PDF in correct format after retry');
+            }
+          } else {
+            console.log(`[FILE VIEWER] Setting text content directly for renderer.`);
+            setTextContentForRenderer(content);
+            setBlobUrlForRenderer(null);
+          }
+        } else if (isBlob(content)) {
+          console.log(`[FILE VIEWER] Content is a Blob. Creating blob URL.`);
+          const url = URL.createObjectURL(content);
+          console.log(`[FILE VIEWER] Created blob URL: ${url}`);
+          setTextContentForRenderer(null);
+          setBlobUrlForRenderer(url);
+        }
+
+        setIsLoadingContent(false);
+      } catch (error) {
+        console.error(`[FILE VIEWER] Error loading file:`, error);
+        if (loadingFileRef.current === file.path) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes('Authentication token required') ||
+            errorMessage.includes('Authentication token missing')) {
+            toast.error('Authentication error. Please refresh and login again.');
+            setContentError('Authentication error. Please refresh the page and login again.');
+          } else {
+            setContentError(`Failed to load file: ${errorMessage}`);
+          }
+          setIsLoadingContent(false);
+          setRawContent(null);
+        }
+      } finally {
+        if (loadingFileRef.current === file.path) {
+          loadingFileRef.current = null;
+        }
+      }
+    },
+    [
+      sandboxId,
+      selectedFilePath,
+      rawContent,
+      clearSelectedFile,
+      session?.access_token,
+      currentPath,
+      normalizePath,
+    ],
+  );
+
+  // Load files when modal opens or path changes - Refined
+  useEffect(() => {
+    if (!open || !sandboxId) {
+      return; // Don't load if modal is closed or no sandbox ID
+    }
+
+    // Skip repeated loads for the same path
+    if (isLoadingFiles && currentNavigationRef.current === currentPath) {
+      console.log(`[FILE VIEWER] Already loading ${currentPath}, skipping duplicate load`);
+      return;
+    }
+
+    // Track current navigation
+    currentNavigationRef.current = currentPath;
+    console.log(`[FILE VIEWER] Starting navigation to: ${currentPath}`);
+
+    const loadTimeout = setTimeout(async () => {
+      setIsLoadingFiles(true);
+      console.log(
+        `[FILE VIEWER] useEffect[currentPath]: Triggered. Loading files for path: ${currentPath}`,
+      );
+      try {
+        // Log cache status
+        console.log(`[FILE VIEWER] Checking cache for directory listing at ${currentPath}`);
+
+        // Create a cache key for this directory listing
+        const dirCacheKey = `${sandboxId}:directory:${currentPath}`;
+
+        // Check if we have this directory listing cached
+        let filesData;
+        if (FileCache.has(dirCacheKey) && !isInitialLoad) {
+          console.log(`[FILE VIEWER] Using cached directory listing for ${currentPath}`);
+          filesData = FileCache.get(dirCacheKey);
+        } else {
+          console.log(`[FILE VIEWER] Cache miss, fetching directory listing from API for ${currentPath}`);
+          filesData = await listSandboxFiles(sandboxId, currentPath);
+
+          // Cache the directory listing
+          if (filesData && Array.isArray(filesData)) {
+            console.log(`[FILE VIEWER] Caching directory listing: ${filesData.length} files`);
+            FileCache.set(dirCacheKey, filesData);
+          }
+        }
+
+        // Only update files if we're still on the same path
+        if (currentNavigationRef.current === currentPath) {
+          console.log(
+            `[FILE VIEWER] useEffect[currentPath]: Got ${filesData?.length || 0} files for ${currentPath}`,
+          );
+          setFiles(filesData || []);
+        } else {
+          console.log(`[FILE VIEWER] Path changed during loading, aborting file update for ${currentPath}`);
+        }
+
+        // After the first load, set isInitialLoad to false
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
+      } catch (error) {
+        console.error('Failed to load files:', error);
+        toast.error('Failed to load files');
+        if (currentNavigationRef.current === currentPath) {
+          setFiles([]);
+        }
+      } finally {
+        // Only clear loading state if we're still working with the current path
+        if (currentNavigationRef.current === currentPath) {
+          setIsLoadingFiles(false);
+          console.log(`[FILE VIEWER] Completed loading for: ${currentPath}`);
+        }
+      }
+    }, 50); // Short delay to allow state updates to settle
+
+    return () => clearTimeout(loadTimeout);
+    // Dependency: Only re-run when open, sandboxId, currentPath changes
+  }, [open, sandboxId, currentPath, isInitialLoad, isLoadingFiles]);
+
+  // Helper function to navigate to a folder
   const navigateToFolder = useCallback(
     (folder: FileInfo) => {
       if (!folder.is_dir) return;
@@ -147,7 +429,7 @@ export function FileViewerModal({
       // Ensure the path is properly normalized
       const normalizedPath = normalizePath(folder.path);
 
-      // Log before and after states for debugging
+      // Always navigate to the folder to ensure breadcrumbs update correctly
       console.log(
         `[FILE VIEWER] Navigating to folder: ${folder.path} → ${normalizedPath}`,
       );
@@ -168,9 +450,13 @@ export function FileViewerModal({
   const navigateToBreadcrumb = useCallback(
     (path: string) => {
       const normalizedPath = normalizePath(path);
+
+      // Always navigate when clicking breadcrumbs to ensure proper update
       console.log(
         `[FILE VIEWER] Navigating to breadcrumb path: ${path} → ${normalizedPath}`,
       );
+
+      // Clear selected file and set path
       clearSelectedFile();
       setCurrentPath(normalizedPath);
     },
@@ -179,7 +465,9 @@ export function FileViewerModal({
 
   // Helper function to navigate to home
   const navigateHome = useCallback(() => {
+    // Always navigate home when clicked to ensure consistent behavior
     console.log('[FILE VIEWER] Navigating home from:', currentPath);
+
     clearSelectedFile();
     setCurrentPath('/workspace');
   }, [clearSelectedFile, currentPath]);
@@ -209,306 +497,250 @@ export function FileViewerModal({
     [normalizePath],
   );
 
-  // Core file opening function - Refined
-  const openFile = useCallback(
-    async (file: FileInfo) => {
-      if (file.is_dir) {
-        navigateToFolder(file);
-        return;
+  // Add a helper to directly interact with the raw cache
+  const directlyAccessCache = useCallback(
+    (filePath: string): {
+      found: boolean;
+      content: any;
+      contentType: string;
+    } => {
+      // Normalize the path for consistent cache key
+      let normalizedPath = filePath;
+      if (!normalizedPath.startsWith('/workspace')) {
+        normalizedPath = `/workspace/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
       }
 
-      // Skip if already selected and content exists
-      if (selectedFilePath === file.path && rawContent) {
-        console.log(`[FILE VIEWER] File already loaded: ${file.path}`);
-        return;
+      // Detect the appropriate content type based on file extension
+      const detectedContentType = FileCache.getContentTypeFromPath(filePath);
+
+      // Create cache key with detected content type
+      const cacheKey = `${sandboxId}:${normalizedPath}:${detectedContentType}`;
+      console.log(`[FILE VIEWER] Checking cache for key: ${cacheKey}`);
+
+      if (FileCache.has(cacheKey)) {
+        const cachedContent = FileCache.get(cacheKey);
+        console.log(`[FILE VIEWER] Direct cache hit for ${normalizedPath} (${detectedContentType})`);
+        return { found: true, content: cachedContent, contentType: detectedContentType };
       }
 
-      console.log(`[FILE VIEWER] Opening file: ${file.path}`);
-
-      // Clear previous state FIRST
-      clearSelectedFile();
-
-      // Set loading state and selected file path immediately
-      setIsLoadingContent(true);
-      setSelectedFilePath(file.path);
-
-      // Set the loading ref to track current operation
-      loadingFileRef.current = file.path;
-
-      try {
-        // Fetch content
-        const content = await getSandboxFileContent(sandboxId, file.path);
-        console.log(
-          `[FILE VIEWER] Received content for ${file.path} (${typeof content})`,
-        );
-
-        // Critical check: Ensure the file we just loaded is still the one selected
-        if (loadingFileRef.current !== file.path) {
-          console.log(
-            `[FILE VIEWER] Selection changed during loading, aborting. Loading: ${loadingFileRef.current}, Expected: ${file.path}`,
-          );
-          setIsLoadingContent(false); // Still need to stop loading indicator
-          return; // Abort state update
-        }
-
-        // Store raw content
-        setRawContent(content);
-
-        // Determine how to prepare content for the renderer
-        if (typeof content === 'string') {
-          console.log(
-            `[FILE VIEWER] Setting text content directly for renderer.`,
-          );
-          setTextContentForRenderer(content);
-          setBlobUrlForRenderer(null); // Ensure no blob URL is set
-        } else if (content instanceof Blob) {
-          console.log(
-            `[FILE VIEWER] Content is a Blob. Will generate URL if needed.`,
-          );
-          // Let the useEffect handle URL generation
-          setTextContentForRenderer(null); // Clear any previous text content
-        } else {
-          console.warn('[FILE VIEWER] Unexpected content type received.');
-          setContentError('Received unexpected content type.');
-        }
-
-        setIsLoadingContent(false);
-      } catch (error) {
-        console.error(`[FILE VIEWER] Error loading file:`, error);
-
-        // Only update error if this file is still the one being loaded
-        if (loadingFileRef.current === file.path) {
-          setContentError(
-            `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          setIsLoadingContent(false);
-          setRawContent(null); // Clear raw content on error
-        }
-      } finally {
-        // Clear the loading ref if it matches the current operation
-        if (loadingFileRef.current === file.path) {
-          loadingFileRef.current = null;
-        }
-      }
+      console.log(`[FILE VIEWER] Cache miss for key: ${cacheKey}`);
+      return { found: false, content: null, contentType: detectedContentType };
     },
-    [
-      sandboxId,
-      selectedFilePath,
-      rawContent,
-      navigateToFolder,
-      clearSelectedFile,
-    ],
+    [sandboxId],
   );
 
-  // Effect to manage blob URL for renderer
+  // Handle initial file path - Runs ONLY ONCE on open if initialFilePath is provided
   useEffect(() => {
-    let objectUrl: string | null = null;
+    // Only run if modal is open, initial path is provided, AND it hasn't been processed yet
+    if (open && initialFilePath && !initialPathProcessed) {
+      console.log(
+        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${initialFilePath}`,
+      );
 
-    // Create a URL if rawContent is a Blob
-    if (rawContent instanceof Blob) {
-      // Determine if it *should* be text - might still render via blob URL if conversion fails
-      const fileType = selectedFilePath
-        ? getFileTypeFromExtension(selectedFilePath)
-        : 'binary';
-      const shouldBeText = ['text', 'code', 'markdown'].includes(fileType);
+      // Normalize the initial path
+      const fullPath = normalizePath(initialFilePath);
+      const lastSlashIndex = fullPath.lastIndexOf('/');
+      const directoryPath =
+        lastSlashIndex > 0
+          ? fullPath.substring(0, lastSlashIndex)
+          : '/workspace';
+      const fileName =
+        lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
 
-      // Attempt to read as text first if it should be text
-      if (shouldBeText) {
-        rawContent
-          .text()
-          .then((text) => {
-            // Check if selection is still valid *before* setting state
-            if (
-              loadingFileRef.current === null &&
-              selectedFilePath &&
-              rawContent instanceof Blob
-            ) {
-              console.log(
-                `[FILE VIEWER] Successfully read Blob as text, length: ${text.length}`,
-              );
-              setTextContentForRenderer(text);
-              setBlobUrlForRenderer(null); // Clear any blob URL if text is successful
-            } else {
-              console.log(
-                '[FILE VIEWER] Selection changed or no longer a blob while reading text, discarding result.',
-              );
-            }
-          })
-          .catch((err) => {
-            console.warn(
-              '[FILE VIEWER] Failed to read Blob as text, falling back to blob URL:',
-              err,
-            );
-            // If reading as text fails, fall back to creating a blob URL
-            if (
-              loadingFileRef.current === null &&
-              selectedFilePath &&
-              rawContent instanceof Blob
-            ) {
-              objectUrl = URL.createObjectURL(rawContent);
-              console.log(
-                `[FILE VIEWER] Created blob URL (fallback): ${objectUrl}`,
-              );
-              setBlobUrlForRenderer(objectUrl);
-              setTextContentForRenderer(null); // Ensure text content is cleared
-            } else {
-              console.log(
-                '[FILE VIEWER] Selection changed or no longer a blob during text read fallback, discarding result.',
-              );
-            }
-          });
-      } else {
-        // For binary types, directly create the blob URL
-        objectUrl = URL.createObjectURL(rawContent);
+      console.log(
+        `[FILE VIEWER] useEffect[initialFilePath]: Normalized Path: ${fullPath}, Directory: ${directoryPath}, File: ${fileName}`,
+      );
+
+      // Set the current path to the target directory
+      // This will trigger the other useEffect to load files for this directory
+      if (currentPath !== directoryPath) {
         console.log(
-          `[FILE VIEWER] Created blob URL for binary type: ${objectUrl}`,
+          `[FILE VIEWER] useEffect[initialFilePath]: Setting current path to ${directoryPath}`,
         );
-        setBlobUrlForRenderer(objectUrl);
-        setTextContentForRenderer(null);
+        setCurrentPath(directoryPath);
       }
-    } else {
-      // If rawContent is not a Blob, ensure URL state is null
-      setBlobUrlForRenderer(null);
+
+      // Try to load the file directly from cache if possible
+      if (initialFilePath) {
+        console.log(`[FILE VIEWER] Attempting to load initial file directly from cache: ${initialFilePath}`);
+
+        // Create a temporary FileInfo object for the initial file
+        const initialFile: FileInfo = {
+          name: fileName,
+          path: fullPath,
+          is_dir: false,
+          size: 0,
+          mod_time: new Date().toISOString(),
+        };
+
+        // Now that openFile is defined first, we can call it directly
+        console.log(`[FILE VIEWER] Opening initial file: ${fullPath}`);
+        openFile(initialFile);
+      }
+
+      // Mark the initial path as processed so this doesn't run again
+      setInitialPathProcessed(true);
+    } else if (!open) {
+      // Reset the processed flag when the modal closes
+      console.log(
+        '[FILE VIEWER] useEffect[initialFilePath]: Modal closed, resetting initialPathProcessed flag.',
+      );
+      setInitialPathProcessed(false);
+    }
+  }, [open, initialFilePath, initialPathProcessed, normalizePath, currentPath, openFile]);
+
+  // Fix the useEffect that's causing infinite rendering by using a stable reference check
+  // Replace the problematic useEffect around line 369
+  useEffect(() => {
+    // Only create a blob URL if we have raw content that is a Blob AND we don't already have a blob URL
+    // This prevents the infinite loop of creating URLs → triggering renders → creating more URLs
+    if (rawContent && isBlob(rawContent) && selectedFilePath && !blobUrlForRenderer) {
+      // Check if this is an image file
+      const isImageFile = selectedFilePath.match(/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i);
+
+      // Create a blob URL for binary content
+      const url = URL.createObjectURL(rawContent);
+
+      if (isImageFile) {
+        console.log(`[FILE VIEWER][IMAGE DEBUG] Created new blob URL: ${url} for image: ${selectedFilePath}`);
+        console.log(`[FILE VIEWER][IMAGE DEBUG] Image blob size: ${rawContent.size} bytes, type: ${rawContent.type}`);
+      } else {
+        console.log(`[FILE VIEWER] Created blob URL: ${url} for ${selectedFilePath}`);
+      }
+
+      setBlobUrlForRenderer(url);
     }
 
-    // Cleanup function to revoke the URL
+    // Clean up previous URL when component unmounts or URL changes
     return () => {
-      if (objectUrl) {
-        console.log(`[FILE VIEWER] Revoking blob URL: ${objectUrl}`);
-        URL.revokeObjectURL(objectUrl);
+      if (blobUrlForRenderer) {
+        console.log(`[FILE VIEWER] Revoking blob URL on cleanup: ${blobUrlForRenderer}`);
+        URL.revokeObjectURL(blobUrlForRenderer);
       }
     };
-  }, [rawContent, selectedFilePath]); // Re-run when rawContent or selectedFilePath changes
+  }, [rawContent, selectedFilePath, isBlob, blobUrlForRenderer]);
 
-  // Handle file download - Define after helpers
-  const handleDownload = useCallback(async () => {
-    if (!selectedFilePath || isDownloading) return;
+  // Effect to handle cached file content updates
+  useEffect(() => {
+    if (!selectedFilePath) return;
 
-    setIsDownloading(true);
+    // Only update loading state if it's different from what we expect
+    if (isCachedFileLoading && !isLoadingContent) {
+      setIsLoadingContent(true);
+    } else if (!isCachedFileLoading && isLoadingContent) {
+      if (cachedFileError) {
+        setContentError(`Failed to load file: ${cachedFileError.message}`);
+      } else if (cachedFileContent !== null) {
+        console.log(`[FILE VIEWER] Received cached content type: ${typeof cachedFileContent}`);
+        console.log(`[FILE VIEWER] Received cached content is Blob: ${isBlob(cachedFileContent)}`);
+        console.log(`[FILE VIEWER] Received cached content is string: ${typeof cachedFileContent === 'string'}`);
+        console.log(`[FILE VIEWER] Received cached content starts with blob: ${typeof cachedFileContent === 'string' && cachedFileContent.startsWith('blob:')}`);
 
-    try {
-      // Use cached content if available
-      if (rawContent) {
-        const blob =
-          rawContent instanceof Blob
-            ? rawContent
-            : new Blob([rawContent], { type: 'text/plain' });
+        // Check if this is a PDF file
+        const isPdfFile = FileCache.isPdfFile(selectedFilePath);
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedFilePath.split('/').pop() || 'file';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url); // Clean up the URL
+        if (isPdfFile) {
+          // For PDFs, handle specially to ensure it's always a blob URL
+          if (typeof cachedFileContent === 'string' && cachedFileContent.startsWith('blob:')) {
+            console.log(`[FILE VIEWER] Using existing blob URL for PDF`);
+            setBlobUrlForRenderer(cachedFileContent);
+            setTextContentForRenderer(null);
+          } else if (isBlob(cachedFileContent)) {
+            console.log(`[FILE VIEWER] Creating new blob URL from cached PDF blob`);
+            const url = URL.createObjectURL(cachedFileContent);
+            setBlobUrlForRenderer(url);
+            setTextContentForRenderer(null);
+          } else {
+            // If we somehow got text content for a PDF, force a refresh with blob type
+            console.log(`[FILE VIEWER] Invalid PDF content type, forcing refresh with blob type`);
 
-        toast.success('File downloaded');
-      } else {
-        // Fetch directly if not cached
-        const content = await getSandboxFileContent(
-          sandboxId,
-          selectedFilePath,
-        );
-        const blob =
-          content instanceof Blob ? content : new Blob([String(content)]);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedFilePath.split('/').pop() || 'file';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url); // Clean up the URL
+            // Force refresh with blob type
+            (async () => {
+              try {
+                console.log(`[FILE VIEWER] Explicitly fetching PDF as blob`);
 
-        toast.success('File downloaded');
-      }
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast.error('Failed to download file');
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [selectedFilePath, isDownloading, rawContent, sandboxId]);
+                const pdfContent = await getCachedFile(
+                  sandboxId,
+                  selectedFilePath,
+                  {
+                    contentType: 'blob',
+                    force: true,
+                    token: session?.access_token
+                  }
+                );
 
-  // Handle file upload - Define after helpers
-  const handleUpload = useCallback(() => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  }, []);
+                if (typeof pdfContent === 'string' && pdfContent.startsWith('blob:')) {
+                  console.log(`[FILE VIEWER] Received correct blob URL for PDF: ${pdfContent}`);
+                  setBlobUrlForRenderer(pdfContent);
+                  setTextContentForRenderer(null);
+                } else {
+                  console.error(`[FILE VIEWER] Failed to get correct PDF format after retry`);
+                  setContentError('Failed to load PDF in correct format');
+                }
+              } catch (err) {
+                console.error(`[FILE VIEWER] Error loading PDF:`, err);
+                setContentError(`Failed to load PDF: ${err instanceof Error ? err.message : String(err)}`);
+              } finally {
+                setIsLoadingContent(false);
+              }
+            })();
 
-  // Process uploaded file - Define after helpers
-  const processUpload = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!event.target.files || event.target.files.length === 0) return;
+            return; // Skip the rest since we're handling loading manually
+          }
+        } else {
+          // For non-PDF files, handle as before
+          setRawContent(cachedFileContent);
 
-      const file = event.target.files[0];
-      setIsUploading(true);
-
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('path', `${currentPath}/${file.name}`);
-
-        const supabase = createClient();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session?.access_token) {
-          throw new Error('No access token available');
+          if (typeof cachedFileContent === 'string') {
+            if (cachedFileContent.startsWith('blob:')) {
+              setTextContentForRenderer(null);
+              setBlobUrlForRenderer(cachedFileContent);
+            } else {
+              setTextContentForRenderer(cachedFileContent);
+              setBlobUrlForRenderer(null);
+            }
+          } else if (cachedFileContent && isBlob(cachedFileContent)) {
+            const url = URL.createObjectURL(cachedFileContent);
+            setTextContentForRenderer(null);
+            setBlobUrlForRenderer(url);
+          }
         }
-
-        const response = await fetch(
-          `${API_URL}/sandboxes/${sandboxId}/files`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: formData,
-          },
-        );
-
-        if (!response.ok) {
-          const error = await response.text();
-          throw new Error(error || 'Upload failed');
-        }
-
-        // Reload the file list
-        const filesData = await listSandboxFiles(sandboxId, currentPath);
-        setFiles(filesData);
-
-        toast.success(`Uploaded: ${file.name}`);
-      } catch (error) {
-        console.error('Upload failed:', error);
-        toast.error(
-          `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      } finally {
-        setIsUploading(false);
-        if (event.target) event.target.value = '';
       }
-    },
-    [currentPath, sandboxId],
-  );
+      setIsLoadingContent(false);
+    }
+  }, [selectedFilePath, cachedFileContent, isCachedFileLoading, cachedFileError, isLoadingContent, isBlob, openFile, sandboxId, session?.access_token]);
 
-  // Handle modal closing - clean up resources
+  // Modify the cleanup effect to respect active downloads
+  useEffect(() => {
+    return () => {
+      if (blobUrlForRenderer && !isDownloading && !activeDownloadUrls.current.has(blobUrlForRenderer)) {
+        console.log(`[FILE VIEWER] Revoking blob URL on cleanup: ${blobUrlForRenderer}`);
+        URL.revokeObjectURL(blobUrlForRenderer);
+      }
+    };
+  }, [blobUrlForRenderer, isDownloading]);
+
+  // Modify handleOpenChange to respect active downloads
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
-        console.log(
-          '[FILE VIEWER] handleOpenChange: Modal closing, resetting state.',
-        );
+        console.log('[FILE VIEWER] handleOpenChange: Modal closing, resetting state.');
+
+        // Only revoke if not downloading and not an active download URL
+        if (blobUrlForRenderer && !isDownloading && !activeDownloadUrls.current.has(blobUrlForRenderer)) {
+          console.log(`[FILE VIEWER] Manually revoking blob URL on modal close: ${blobUrlForRenderer}`);
+          URL.revokeObjectURL(blobUrlForRenderer);
+        }
+
         clearSelectedFile();
-        setCurrentPath('/workspace'); // Reset path to root
+        setCurrentPath('/workspace');
         setFiles([]);
-        setInitialPathProcessed(false); // Reset the processed flag
+        setInitialPathProcessed(false);
+        setIsInitialLoad(true);
       }
       onOpenChange(open);
     },
-    [onOpenChange, clearSelectedFile],
+    [onOpenChange, clearSelectedFile, setIsInitialLoad, blobUrlForRenderer, isDownloading],
   );
 
   // Helper to check if file is markdown
@@ -691,129 +923,138 @@ export function FileViewerModal({
     [selectedFilePath, isExportingPdf, isMarkdownFile],
   );
 
-  // --- useEffect Hooks --- //
+  // Handle file download - Define after helpers
+  const handleDownload = async () => {
+    if (!selectedFilePath || isDownloading) return;
 
-  // Load files when modal opens or path changes - Refined
-  useEffect(() => {
-    if (!open || !sandboxId) {
-      return; // Don't load if modal is closed or no sandbox ID
-    }
+    try {
+      setIsDownloading(true);
+      console.log(`[FILE VIEWER] Starting download for: ${selectedFilePath}`);
 
-    const loadFiles = async () => {
-      setIsLoadingFiles(true);
-      console.log(
-        `[FILE VIEWER] useEffect[currentPath]: Triggered. Loading files for path: ${currentPath}`,
-      );
-      try {
-        const filesData = await listSandboxFiles(sandboxId, currentPath);
-        console.log(
-          `[FILE VIEWER] useEffect[currentPath]: API returned ${filesData.length} files.`,
-        );
-        setFiles(filesData);
-      } catch (error) {
-        console.error('Failed to load files:', error);
-        toast.error('Failed to load files');
-        setFiles([]);
-      } finally {
-        setIsLoadingFiles(false);
-      }
-    };
+      // Get the file content from cache
+      const cacheKey = `${sandboxId}:${selectedFilePath}`;
+      const cachedContent = FileCache.get(cacheKey);
 
-    loadFiles();
-    // Dependency: Only re-run when open, sandboxId, or currentPath changes
-  }, [open, sandboxId, currentPath]);
-
-  // Handle initial file path - Runs ONLY ONCE on open if initialFilePath is provided
-  useEffect(() => {
-    // Only run if modal is open, initial path is provided, AND it hasn't been processed yet
-    if (open && initialFilePath && !initialPathProcessed) {
-      console.log(
-        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${initialFilePath}`,
-      );
-
-      // Normalize the initial path
-      const fullPath = normalizePath(initialFilePath);
-      const lastSlashIndex = fullPath.lastIndexOf('/');
-      const directoryPath =
-        lastSlashIndex > 0
-          ? fullPath.substring(0, lastSlashIndex)
-          : '/workspace';
-      const fileName =
-        lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
-
-      console.log(
-        `[FILE VIEWER] useEffect[initialFilePath]: Normalized Path: ${fullPath}, Directory: ${directoryPath}, File: ${fileName}`,
-      );
-
-      // Set the current path to the target directory
-      // This will trigger the other useEffect to load files for this directory
-      if (currentPath !== directoryPath) {
-        console.log(
-          `[FILE VIEWER] useEffect[initialFilePath]: Setting current path to ${directoryPath}`,
-        );
-        setCurrentPath(directoryPath);
-      }
-
-      // Mark the initial path as processed so this doesn't run again
-      setInitialPathProcessed(true);
-    } else if (!open) {
-      // Reset the processed flag when the modal closes
-      console.log(
-        '[FILE VIEWER] useEffect[initialFilePath]: Modal closed, resetting initialPathProcessed flag.',
-      );
-      setInitialPathProcessed(false);
-    }
-  }, [open, initialFilePath, initialPathProcessed, normalizePath, currentPath]);
-
-  // Effect to open the initial file *after* the correct directory files are loaded
-  useEffect(() => {
-    // Only run if initial path was processed, files are loaded, and no file is currently selected
-    if (
-      initialPathProcessed &&
-      !isLoadingFiles &&
-      files.length > 0 &&
-      !selectedFilePath &&
-      initialFilePath
-    ) {
-      console.log(
-        '[FILE VIEWER] useEffect[openInitialFile]: Checking for initial file now that files are loaded.',
-      );
-
-      const fullPath = normalizePath(initialFilePath);
-      const lastSlashIndex = fullPath.lastIndexOf('/');
-      const targetFileName =
-        lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
-
-      if (targetFileName) {
-        console.log(
-          `[FILE VIEWER] useEffect[openInitialFile]: Looking for file: ${targetFileName} in current directory: ${currentPath}`,
-        );
-        const targetFile = files.find(
-          (f) => f.name === targetFileName && f.path === fullPath,
+      if (!cachedContent) {
+        console.log(`[FILE VIEWER] Cache miss for download, fetching fresh content`);
+        // If not in cache, fetch it fresh
+        const content = await getCachedFile(
+          sandboxId,
+          selectedFilePath,
+          {
+            contentType: FileCache.getContentTypeFromPath(selectedFilePath),
+            force: true,
+            token: session?.access_token,
+          }
         );
 
-        if (targetFile && !targetFile.is_dir) {
-          console.log(
-            `[FILE VIEWER] useEffect[openInitialFile]: Found initial file, opening: ${targetFile.path}`,
-          );
-          openFile(targetFile);
-        } else {
-          console.log(
-            `[FILE VIEWER] useEffect[openInitialFile]: Initial file ${targetFileName} not found in loaded files or is a directory.`,
-          );
+        if (!content) {
+          throw new Error('Failed to fetch file content');
         }
+
+        // Create a new blob URL for download
+        const downloadUrl = URL.createObjectURL(content);
+        console.log(`[FILE VIEWER] Created download URL: ${downloadUrl}`);
+
+        // Create and trigger download
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = selectedFilePath.split('/').pop() || 'file';
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+      } else {
+        console.log(`[FILE VIEWER] Using cached content for download`);
+        // If we have cached content, use it directly
+        const downloadUrl = URL.createObjectURL(cachedContent);
+        console.log(`[FILE VIEWER] Created download URL from cache: ${downloadUrl}`);
+
+        // Create and trigger download
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = selectedFilePath.split('/').pop() || 'file';
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
       }
+
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsDownloading(false);
     }
-  }, [
-    initialPathProcessed,
-    isLoadingFiles,
-    files,
-    selectedFilePath,
-    initialFilePath,
-    normalizePath,
-    currentPath,
-    openFile,
-  ]);
+  };
+
+  // Handle file upload - Define after helpers
+  const handleUpload = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  // Process uploaded file - Define after helpers
+  const processUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!event.target.files || event.target.files.length === 0) return;
+
+      const file = event.target.files[0];
+      setIsUploading(true);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', `${currentPath}/${file.name}`);
+
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error('No access token available');
+        }
+
+        const response = await fetch(
+          `${API_URL}/sandboxes/${sandboxId}/files`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error || 'Upload failed');
+        }
+
+        // Reload the file list
+        const filesData = await listSandboxFiles(sandboxId, currentPath);
+        setFiles(filesData);
+
+        toast.success(`Uploaded: ${file.name}`);
+      } catch (error) {
+        console.error('Upload failed:', error);
+        toast.error(
+          `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        setIsUploading(false);
+        if (event.target) event.target.value = '';
+      }
+    },
+    [currentPath, sandboxId],
+  );
 
   // --- Render --- //
   return (
@@ -973,7 +1214,28 @@ export function FileViewerModal({
                 <div className="h-full w-full flex flex-col items-center justify-center">
                   <Loader className="h-8 w-8 animate-spin text-primary mb-3" />
                   <p className="text-sm text-muted-foreground">
-                    Loading file...
+                    Loading file{selectedFilePath ? `: ${selectedFilePath.split('/').pop()}` : '...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {(() => {
+                      // Normalize the path for consistent cache checks
+                      if (!selectedFilePath) return "Preparing...";
+
+                      let normalizedPath = selectedFilePath;
+                      if (!normalizedPath.startsWith('/workspace')) {
+                        normalizedPath = `/workspace/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
+                      }
+
+                      // Detect the appropriate content type based on file extension
+                      const detectedContentType = FileCache.getContentTypeFromPath(normalizedPath);
+
+                      // Check for cache with the correct content type
+                      const isCached = FileCache.has(`${sandboxId}:${normalizedPath}:${detectedContentType}`);
+
+                      return isCached
+                        ? "Using cached version"
+                        : "Fetching from server";
+                    })()}
                   </p>
                 </div>
               ) : contentError ? (
@@ -1049,11 +1311,10 @@ export function FileViewerModal({
                     {files.map((file) => (
                       <button
                         key={file.path}
-                        className={`flex flex-col items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors ${
-                          selectedFilePath === file.path
-                            ? 'bg-muted border-primary/20'
-                            : ''
-                        }`}
+                        className={`flex flex-col items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors ${selectedFilePath === file.path
+                          ? 'bg-muted border-primary/20'
+                          : ''
+                          }`}
                         onClick={() => {
                           if (file.is_dir) {
                             console.log(

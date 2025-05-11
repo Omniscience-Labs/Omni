@@ -8,12 +8,15 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
-import { UploadedFilesDisplay } from './uploaded-file-display';
+import { FileAttachment } from '../file-attachment';
+import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from 'sonner';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -42,6 +45,8 @@ export interface UploadedFile {
   name: string;
   path: string;
   size: number;
+  type: string;
+  localUrl?: string;
 }
 
 export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
@@ -147,6 +152,11 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     };
 
     const removeUploadedFile = (index: number) => {
+      const fileToRemove = uploadedFiles[index];
+      if (fileToRemove.localUrl) {
+        URL.revokeObjectURL(fileToRemove.localUrl);
+      }
+
       setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
       if (!sandboxId && pendingFiles.length > index) {
         setPendingFiles((prev) => prev.filter((_, i) => i !== index));
@@ -190,10 +200,13 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         >
           <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
             <CardContent className="w-full p-1.5 pb-2 pt-3 bg-sidebar rounded-2xl border">
-              <UploadedFilesDisplay
-                uploadedFiles={uploadedFiles}
+              <AttachmentGroup
+                files={uploadedFiles}
                 sandboxId={sandboxId}
-                onRemoveFile={removeUploadedFile}
+                onRemove={removeUploadedFile}
+                layout="inline"
+                maxHeight="216px"
+                showPreviews={true}
               />
 
               <MessageInput

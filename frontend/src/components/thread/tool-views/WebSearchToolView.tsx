@@ -29,11 +29,11 @@ export function WebSearchToolView({
   const query = extractSearchQuery(assistantContent);
   const searchResults = extractSearchResults(toolContent);
   const toolTitle = getToolTitle(name);
-  
+
   // Extract additional data from Tavily response
   const [answer, setAnswer] = React.useState<string | null>(null);
   const [images, setImages] = React.useState<string[]>([]);
-  
+
   React.useEffect(() => {
     if (toolContent) {
       try {
@@ -111,7 +111,7 @@ export function WebSearchToolView({
                     </p>
                   </div>
                 )}
-                
+
                 {/* Images section */}
                 {images.length > 0 && (
                   <div className="mb-4">
@@ -121,15 +121,15 @@ export function WebSearchToolView({
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                       {images.map((image, idx) => (
-                        <a 
-                          key={idx} 
-                          href={image} 
-                          target="_blank" 
+                        <a
+                          key={idx}
+                          href={image}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="group relative overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                         >
-                          <img 
-                            src={image} 
+                          <img
+                            src={image}
                             alt={`Search result ${idx + 1}`}
                             className="object-cover w-full h-24 group-hover:opacity-90 transition-opacity"
                             onError={(e) => {
@@ -144,7 +144,7 @@ export function WebSearchToolView({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Results section */}
                 <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-3">
                   Found {searchResults.length} results

@@ -38,17 +38,17 @@ export function BillingErrorAlert({
               <h3 className="text-sm font-semibold text-destructive">
                 Usage Limit Reached
               </h3>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onDismiss} 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDismiss}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mb-3">{message}</p>
-            
+
             <div className="flex gap-2">
               <Button
                 variant="outline"

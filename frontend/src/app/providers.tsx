@@ -1,7 +1,7 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { useState, createContext } from 'react';
+import { useState, createContext, useEffect } from 'react';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ReactQueryProvider } from '@/providers/react-query-provider';
 import { dehydrate, QueryClient } from '@tanstack/react-query';
@@ -31,7 +31,7 @@ export const ToolCallsContext = createContext<{
   setToolCalls: React.Dispatch<React.SetStateAction<ParsedTag[]>>;
 }>({
   toolCalls: [],
-  setToolCalls: () => {},
+  setToolCalls: () => { },
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {

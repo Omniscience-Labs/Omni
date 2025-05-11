@@ -171,6 +171,13 @@ export function SiteHeader({
         </div>
 
         <div className="flex items-center gap-1 pr-4">
+          {/* Debug mode indicator */}
+          {debugMode && (
+            <div className="bg-amber-500 text-black text-xs px-2 py-0.5 rounded-md mr-2">
+              Debug
+            </div>
+          )}
+
           {isMobile ? (
             // Mobile view - only show the side panel toggle
             <Button

@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import {
   ArrowDown,
   CheckCircle,
@@ -21,10 +20,10 @@ import {
 } from 'lucide-react';
 import {
   addUserMessage,
-  getMessages,
   startAgent,
   stopAgent,
   getAgentRuns,
+  getMessages,
   getProject,
   getThread,
   updateProject,
@@ -44,51 +43,22 @@ import {
 } from '@/components/thread/tool-call-side-panel';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAgentStream } from '@/hooks/useAgentStream';
-import { Markdown } from '@/components/ui/markdown';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { isLocalMode } from '@/lib/config';
+import { ThreadContent } from '@/components/thread/content/ThreadContent';
+import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
 
 import {
   UnifiedMessage,
-  ParsedContent,
   ParsedMetadata,
   ThreadParams,
 } from '@/components/thread/types';
 import {
-  getToolIcon,
-  extractPrimaryParam,
   safeJsonParse,
 } from '@/components/thread/utils';
 
-// Define the set of tags whose raw XML should be hidden during streaming
-const HIDE_STREAMING_XML_TAGS = new Set([
-  'execute-command',
-  'create-file',
-  'delete-file',
-  'full-file-rewrite',
-  'str-replace',
-  'browser-click-element',
-  'browser-close-tab',
-  'browser-drag-drop',
-  'browser-get-dropdown-options',
-  'browser-go-back',
-  'browser-input-text',
-  'browser-navigate-to',
-  'browser-scroll-down',
-  'browser-scroll-to-text',
-  'browser-scroll-up',
-  'browser-select-dropdown-option',
-  'browser-send-keys',
-  'browser-switch-tab',
-  'browser-wait',
-  'deploy',
-  'ask',
-  'complete',
-  'crawl-webpage',
-  'web-search',
-]);
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -109,181 +79,6 @@ interface StreamingToolCall {
   xml_tag_name?: string;
 }
 
-// Render Markdown content while preserving XML tags that should be displayed as tool calls
-function renderMarkdownContent(
-  content: string,
-  handleToolClick: (
-    assistantMessageId: string | null,
-    toolName: string,
-  ) => void,
-  messageId: string | null,
-  fileViewerHandler?: (filePath?: string) => void,
-  debugMode: boolean = false
-) {
-  // If in debug mode, just display raw content in a pre tag
-  if (debugMode) {
-    return (
-      <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30 text-foreground">
-        {content}
-      </pre>
-    );
-  }
-
-  const xmlRegex =
-    /<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?>(?:[\s\S]*?)<\/\1>|<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/g;
-  let lastIndex = 0;
-  const contentParts: React.ReactNode[] = [];
-  let match;
-
-  // If no XML tags found, just return the full content as markdown
-  if (!content.match(xmlRegex)) {
-    return (
-      <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">
-        {content}
-      </Markdown>
-    );
-  }
-
-  while ((match = xmlRegex.exec(content)) !== null) {
-    // Add text before the tag as markdown
-    if (match.index > lastIndex) {
-      const textBeforeTag = content.substring(lastIndex, match.index);
-      contentParts.push(
-        <Markdown
-          key={`md-${lastIndex}`}
-          className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none inline-block mr-1 break-words"
-        >
-          {textBeforeTag}
-        </Markdown>,
-      );
-    }
-
-    const rawXml = match[0];
-    const toolName = match[1] || match[2];
-    const IconComponent = getToolIcon(toolName);
-    const paramDisplay = extractPrimaryParam(toolName, rawXml);
-    const toolCallKey = `tool-${match.index}`;
-
-    if (toolName === 'ask') {
-      // Extract attachments from the XML attributes
-      const attachmentsMatch = rawXml.match(/attachments=["']([^"']*)["']/i);
-      const attachments = attachmentsMatch
-        ? attachmentsMatch[1].split(',').map((a) => a.trim())
-        : [];
-
-      // Extract content from the ask tag
-      const contentMatch = rawXml.match(/<ask[^>]*>([\s\S]*?)<\/ask>/i);
-      const askContent = contentMatch ? contentMatch[1] : '';
-
-      // Render <ask> tag content with attachment UI (using the helper)
-      contentParts.push(
-        <div key={`ask-${match.index}`} className="space-y-3">
-          <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">
-            {askContent}
-          </Markdown>
-          {renderAttachments(attachments, fileViewerHandler)}
-        </div>,
-      );
-    } else {
-      // Render tool button as a clickable element
-      contentParts.push(
-        <button
-          key={toolCallKey}
-          onClick={() => handleToolClick(messageId, toolName)}
-          className="inline-flex items-center gap-1.5 py-1 px-2.5 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-border"
-        >
-          <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-          <span className="font-mono text-xs text-foreground">{toolName}</span>
-          {paramDisplay && (
-            <span
-              className="ml-1 text-muted-foreground truncate max-w-[200px]"
-              title={paramDisplay}
-            >
-              {paramDisplay}
-            </span>
-          )}
-        </button>,
-      );
-    }
-    lastIndex = xmlRegex.lastIndex;
-  }
-
-  // Add text after the last tag
-  if (lastIndex < content.length) {
-    contentParts.push(
-      <Markdown
-        key={`md-${lastIndex}`}
-        className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words"
-      >
-        {content.substring(lastIndex)}
-      </Markdown>,
-    );
-  }
-
-  return contentParts;
-}
-
-// Helper function to render attachments (now deduplicated)
-function renderAttachments(
-  attachments: string[],
-  fileViewerHandler?: (filePath?: string) => void,
-) {
-  if (!attachments || attachments.length === 0) return null;
-
-  // Deduplicate attachments using Set for simplicity
-  const uniqueAttachments = [...new Set(attachments)];
-
-  return (
-    <div className="mt-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {uniqueAttachments.map((attachment, idx) => {
-          const extension = attachment.split('.').pop()?.toLowerCase();
-          const filename = attachment.split('/').pop() || 'file';
-
-          // Define file size (placeholder logic)
-          const fileSize =
-            extension === 'html'
-              ? '52.68 KB'
-              : attachment.includes('itinerary')
-                ? '4.14 KB'
-                : attachment.includes('proposal')
-                  ? '6.20 KB'
-                  : attachment.includes('todo')
-                    ? '1.89 KB'
-                    : attachment.includes('research')
-                      ? '3.75 KB'
-                      : `${((attachment.length % 5) + 1).toFixed(2)} KB`; // Use length for pseudo-stable size
-
-          // Get file type display
-          const fileType = extension === 'html' ? 'Code' : 'Text';
-
-          return (
-            <button
-              key={`attachment-${idx}`}
-              onClick={() => fileViewerHandler?.(attachment)}
-              className="group flex items-center gap-3 p-4 rounded-md bg-muted/10 hover:bg-muted/20 transition-colors"
-            >
-              <div className="flex items-center justify-center">
-                <File className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <div className="text-sm font-medium text-foreground truncate">
-                  {filename}
-                </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span>{fileType}</span>
-                  <span>·</span>
-                  <span>{fileSize}</span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export default function ThreadPage({
   params,
 }: {
@@ -293,9 +88,6 @@ export default function ThreadPage({
   const threadId = unwrappedParams.threadId;
   const isMobile = useIsMobile();
   const searchParams = useSearchParams();
-  
-  // Add debug mode state - check for debug=true in URL
-  const [debugMode, setDebugMode] = useState(false);
 
   const router = useRouter();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
@@ -340,6 +132,9 @@ export default function ThreadPage({
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
+
+  // Add debug mode state - check for debug=true in URL
+  const [debugMode, setDebugMode] = useState(false);
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -426,6 +221,10 @@ export default function ThreadPage({
           }
         }
       }
+
+      if (event.key === 'Escape' && isSidePanelOpen) {
+        setIsSidePanelOpen(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -437,6 +236,7 @@ export default function ThreadPage({
     console.log(
       `[STREAM HANDLER] Received message: ID=${message.message_id}, Type=${message.type}`,
     );
+
     if (!message.message_id) {
       console.warn(
         `[STREAM HANDLER] Received message is missing ID: Type=${message.type}, Content=${message.content?.substring(0, 50)}...`,
@@ -501,7 +301,12 @@ export default function ThreadPage({
 
   const handleStreamError = useCallback((errorMessage: string) => {
     console.error(`[PAGE] Stream hook error: ${errorMessage}`);
-    toast.error(errorMessage, { duration: 15000 });
+    if (
+      !errorMessage.toLowerCase().includes('not found') &&
+      !errorMessage.toLowerCase().includes('agent run is not running')
+    ) {
+      toast.error(`Stream Error: ${errorMessage}`);
+    }
   }, []);
 
   const handleStreamClose = useCallback(() => {
@@ -536,6 +341,21 @@ export default function ThreadPage({
     }
   }, [agentRunId, startStreaming, currentHookRunId]);
 
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isSidePanelOpen) {
+      setIsSidePanelOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidePanelOpen]);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -552,19 +372,9 @@ export default function ThreadPage({
 
         if (!isMounted) return;
 
-        console.log('[PAGE] Thread data loaded:', threadData);
-
         if (threadData?.project_id) {
-          console.log(
-            '[PAGE] Getting project data for project_id:',
-            threadData.project_id,
-          );
           const projectData = await getProject(threadData.project_id);
           if (isMounted && projectData) {
-            console.log('[PAGE] Project data loaded:', projectData);
-            console.log('[PAGE] Project ID:', projectData.id);
-            console.log('[PAGE] Project sandbox data:', projectData.sandbox);
-
             // Set project data
             setProject(projectData);
 
@@ -582,111 +392,24 @@ export default function ThreadPage({
         if (!messagesLoadedRef.current) {
           const messagesData = await getMessages(threadId);
           if (isMounted) {
-            // Log raw messages fetched from API
-            console.log('[PAGE] Raw messages fetched:', messagesData);
-
             // Map API message type to UnifiedMessage type
             const unifiedMessages = (messagesData || [])
               .filter((msg) => msg.type !== 'status')
-              .map((msg: ApiMessageType, index: number) => {
-                console.log(`[MAP ${index}] Processing raw message:`, msg);
-                const messageId = msg.message_id;
-                console.log(
-                  `[MAP ${index}] Accessed msg.message_id:`,
-                  messageId,
-                );
-                if (!messageId && msg.type !== 'status') {
-                  console.warn(
-                    `[MAP ${index}] Non-status message fetched from API is missing ID: Type=${msg.type}`,
-                  );
-                }
-                const threadIdMapped = msg.thread_id || threadId;
-                console.log(
-                  `[MAP ${index}] Accessed msg.thread_id (using fallback):`,
-                  threadIdMapped,
-                );
-                const typeMapped = (msg.type ||
-                  'system') as UnifiedMessage['type'];
-                console.log(
-                  `[MAP ${index}] Accessed msg.type (using fallback):`,
-                  typeMapped,
-                );
-                const isLlmMessageMapped = Boolean(msg.is_llm_message);
-                console.log(
-                  `[MAP ${index}] Accessed msg.is_llm_message:`,
-                  isLlmMessageMapped,
-                );
-                const contentMapped = msg.content || '';
-                console.log(
-                  `[MAP ${index}] Accessed msg.content (using fallback):`,
-                  contentMapped.substring(0, 50) + '...',
-                );
-                const metadataMapped = msg.metadata || '{}';
-                console.log(
-                  `[MAP ${index}] Accessed msg.metadata (using fallback):`,
-                  metadataMapped,
-                );
-                const createdAtMapped =
-                  msg.created_at || new Date().toISOString();
-                console.log(
-                  `[MAP ${index}] Accessed msg.created_at (using fallback):`,
-                  createdAtMapped,
-                );
-                const updatedAtMapped =
-                  msg.updated_at || new Date().toISOString();
-                console.log(
-                  `[MAP ${index}] Accessed msg.updated_at (using fallback):`,
-                  updatedAtMapped,
-                );
+              .map((msg: ApiMessageType) => ({
+                message_id: msg.message_id || null,
+                thread_id: msg.thread_id || threadId,
+                type: (msg.type || 'system') as UnifiedMessage['type'],
+                is_llm_message: Boolean(msg.is_llm_message),
+                content: msg.content || '',
+                metadata: msg.metadata || '{}',
+                created_at: msg.created_at || new Date().toISOString(),
+                updated_at: msg.updated_at || new Date().toISOString(),
+              }));
 
-                return {
-                  message_id: messageId || null,
-                  thread_id: threadIdMapped,
-                  type: typeMapped,
-                  is_llm_message: isLlmMessageMapped,
-                  content: contentMapped,
-                  metadata: metadataMapped,
-                  created_at: createdAtMapped,
-                  updated_at: updatedAtMapped,
-                };
-              });
-
-            setMessages(unifiedMessages); // Set the filtered and mapped messages
-            console.log(
-              '[PAGE] Loaded Messages (excluding status, keeping browser_state):',
-              unifiedMessages.length,
-            );
-
-            // Debug loaded messages
-            const assistantMessages = unifiedMessages.filter(
-              (m) => m.type === 'assistant',
-            );
-            const toolMessages = unifiedMessages.filter(
-              (m) => m.type === 'tool',
-            );
-
-            console.log('[PAGE] Assistant messages:', assistantMessages.length);
-            console.log('[PAGE] Tool messages:', toolMessages.length);
-
-            // Check if tool messages have associated assistant messages
-            toolMessages.forEach((toolMsg) => {
-              try {
-                const metadata = JSON.parse(toolMsg.metadata);
-                if (metadata.assistant_message_id) {
-                  const hasAssociated = assistantMessages.some(
-                    (assMsg) =>
-                      assMsg.message_id === metadata.assistant_message_id,
-                  );
-                  console.log(
-                    `[PAGE] Tool message ${toolMsg.message_id} references assistant ${metadata.assistant_message_id} - found: ${hasAssociated}`,
-                  );
-                }
-              } catch (e) {
-                console.error('Error parsing tool message metadata:', e);
-              }
-            });
-
+            setMessages(unifiedMessages);
+            console.log('[PAGE] Loaded Messages (excluding status, keeping browser_state):', unifiedMessages.length);
             messagesLoadedRef.current = true;
+
             if (!hasInitiallyScrolled.current) {
               scrollToBottom('auto');
               hasInitiallyScrolled.current = true;
@@ -768,38 +491,30 @@ export default function ThreadPage({
         // Handle failure to add the user message
         if (results[0].status === 'rejected') {
           const reason = results[0].reason;
-          console.error('Failed to send message:', reason);
-          throw new Error(
-            `Failed to send message: ${reason?.message || reason}`,
-          );
+          console.error("Failed to send message:", reason);
+          throw new Error(`Failed to send message: ${reason?.message || reason}`);
         }
 
         // Handle failure to start the agent
         if (results[1].status === 'rejected') {
           const error = results[1].reason;
-          console.error('Failed to start agent:', error);
+          console.error("Failed to start agent:", error);
 
           // Check if it's our custom BillingError (402)
           if (error instanceof BillingError) {
-            console.log('Caught BillingError:', error.detail);
+            console.log("Caught BillingError:", error.detail);
             // Extract billing details
             setBillingData({
               // Note: currentUsage and limit might not be in the detail from the backend yet
               currentUsage: error.detail.currentUsage as number | undefined,
               limit: error.detail.limit as number | undefined,
-              message:
-                error.detail.message ||
-                'Monthly usage limit reached. Please upgrade.', // Use message from error detail
-              accountId: project?.account_id || null, // Pass account ID
+              message: error.detail.message || 'Monthly usage limit reached. Please upgrade.', // Use message from error detail
+              accountId: project?.account_id || null // Pass account ID
             });
             setShowBillingAlert(true);
 
             // Remove the optimistic message since the agent couldn't start
-            setMessages((prev) =>
-              prev.filter(
-                (m) => m.message_id !== optimisticUserMessage.message_id,
-              ),
-            );
+            setMessages(prev => prev.filter(m => m.message_id !== optimisticUserMessage.message_id));
             return; // Stop further execution in this case
           }
 
@@ -839,18 +554,6 @@ export default function ThreadPage({
     // The centralizing of refetching in the hook simplifies this logic
   }, [stopStreaming]);
 
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } =
-      messagesContainerRef.current;
-    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 100;
-    setShowScrollButton(isScrolledUp);
-    setUserHasScrolled(isScrolledUp);
-  };
-
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  };
 
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
@@ -870,27 +573,14 @@ export default function ThreadPage({
     return () => observer.disconnect();
   }, [messages, streamingTextContent, streamingToolCall, setShowScrollButton]);
 
-  const handleScrollButtonClick = () => {
-    scrollToBottom('smooth');
-    setUserHasScrolled(false);
-  };
-
   useEffect(() => {
-    console.log(
-      `[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`,
-    );
+    console.log(`[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`);
 
     // If the stream hook reports completion/stopping but our UI hasn't updated
-    if (
-      (streamHookStatus === 'completed' ||
-        streamHookStatus === 'stopped' ||
-        streamHookStatus === 'agent_not_running' ||
-        streamHookStatus === 'error') &&
-      (agentStatus === 'running' || agentStatus === 'connecting')
-    ) {
-      console.log(
-        '[PAGE] Detected hook completed but UI still shows running, updating status',
-      );
+    if ((streamHookStatus === 'completed' || streamHookStatus === 'stopped' ||
+      streamHookStatus === 'agent_not_running' || streamHookStatus === 'error') &&
+      (agentStatus === 'running' || agentStatus === 'connecting')) {
+      console.log('[PAGE] Detected hook completed but UI still shows running, updating status');
       setAgentStatus('idle');
       setAgentRunId(null);
       setAutoOpenedPanel(false);
@@ -906,22 +596,64 @@ export default function ThreadPage({
     setFileViewerOpen(true);
   }, []);
 
+  // Process the assistant call data
+  const toolViewAssistant = useCallback(
+    (assistantContent?: string, toolContent?: string) => {
+      // This needs to stay simple as it's meant for the side panel tool call view
+      if (!assistantContent) return null;
+
+      return (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            Assistant Message
+          </div>
+          <div className="rounded-md border bg-muted/50 p-3">
+            <div className="text-xs prose prose-xs dark:prose-invert chat-markdown max-w-none">{assistantContent}</div>
+          </div>
+        </div>
+      );
+    },
+    [],
+  );
+
+  // Process the tool result data
+  const toolViewResult = useCallback(
+    (toolContent?: string, isSuccess?: boolean) => {
+      if (!toolContent) return null;
+
+      return (
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <div className="text-xs font-medium text-muted-foreground">
+              Tool Result
+            </div>
+            <div
+              className={`px-2 py-0.5 rounded-full text-xs ${isSuccess
+                ? 'bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-300'
+                : 'bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-300'
+                }`}
+            >
+              {isSuccess ? 'Success' : 'Failed'}
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/50 p-3">
+            <div className="text-xs prose prose-xs dark:prose-invert chat-markdown max-w-none">{toolContent}</div>
+          </div>
+        </div>
+      );
+    },
+    [],
+  );
+
   // Automatically detect and populate tool calls from messages
   useEffect(() => {
     // Calculate historical tool pairs regardless of panel state
     const historicalToolPairs: ToolCallInput[] = [];
-    const assistantMessages = messages.filter(
-      (m) => m.type === 'assistant' && m.message_id,
-    );
+    const assistantMessages = messages.filter(m => m.type === 'assistant' && m.message_id);
 
-    assistantMessages.forEach((assistantMsg) => {
-      const resultMessage = messages.find((toolMsg) => {
-        if (
-          toolMsg.type !== 'tool' ||
-          !toolMsg.metadata ||
-          !assistantMsg.message_id
-        )
-          return false;
+    assistantMessages.forEach(assistantMsg => {
+      const resultMessage = messages.find(toolMsg => {
+        if (toolMsg.type !== 'tool' || !toolMsg.metadata || !assistantMsg.message_id) return false;
         try {
           const metadata = JSON.parse(toolMsg.metadata);
           return metadata.assistant_message_id === assistantMsg.message_id;
@@ -952,7 +684,7 @@ export default function ThreadPage({
               toolName = assistantContentParsed.tool_calls[0].name || 'unknown';
             }
           }
-        } catch {}
+        } catch { }
 
         // Skip adding <ask> tags to the tool calls
         if (toolName === 'ask' || toolName === 'complete') {
@@ -962,12 +694,10 @@ export default function ThreadPage({
         let isSuccess = true;
         try {
           const toolContent = resultMessage.content?.toLowerCase() || '';
-          isSuccess = !(
-            toolContent.includes('failed') ||
+          isSuccess = !(toolContent.includes('failed') ||
             toolContent.includes('error') ||
-            toolContent.includes('failure')
-          );
-        } catch {}
+            toolContent.includes('failure'));
+        } catch { }
 
         historicalToolPairs.push({
           assistantCall: {
@@ -993,11 +723,7 @@ export default function ThreadPage({
       if (isSidePanelOpen && !userClosedPanelRef.current) {
         // Always jump to the latest tool call index
         setCurrentToolIndex(historicalToolPairs.length - 1);
-      } else if (
-        !isSidePanelOpen &&
-        !autoOpenedPanel &&
-        !userClosedPanelRef.current
-      ) {
+      } else if (!isSidePanelOpen && !autoOpenedPanel && !userClosedPanelRef.current) {
         // Auto-open the panel only the first time tools are detected
         setCurrentToolIndex(historicalToolPairs.length - 1);
         setIsSidePanelOpen(true);
@@ -1013,136 +739,79 @@ export default function ThreadPage({
     }
   }, [isSidePanelOpen]);
 
-  // Process the assistant call data
-  const toolViewAssistant = useCallback(
-    (assistantContent?: string, toolContent?: string) => {
-      // This needs to stay simple as it's meant for the side panel tool call view
-      if (!assistantContent) return null;
-
-      return (
-        <div className="space-y-1">
-          <div className="text-xs font-medium text-muted-foreground">
-            Assistant Message
-          </div>
-          <div className="rounded-md border bg-muted/50 p-3">
-            <Markdown className="text-xs prose prose-xs dark:prose-invert chat-markdown max-w-none">
-              {assistantContent}
-            </Markdown>
-          </div>
-        </div>
-      );
-    },
-    [],
-  );
-
-  // Process the tool result data
-  const toolViewResult = useCallback(
-    (toolContent?: string, isSuccess?: boolean) => {
-      if (!toolContent) return null;
-
-      return (
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <div className="text-xs font-medium text-muted-foreground">
-              Tool Result
-            </div>
-            <div
-              className={`px-2 py-0.5 rounded-full text-xs ${
-                isSuccess
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-300'
-                  : 'bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-300'
-              }`}
-            >
-              {isSuccess ? 'Success' : 'Failed'}
-            </div>
-          </div>
-          <div className="rounded-md border bg-muted/50 p-3">
-            <Markdown className="text-xs prose prose-xs dark:prose-invert chat-markdown max-w-none">
-              {toolContent}
-            </Markdown>
-          </div>
-        </div>
-      );
-    },
-    [],
-  );
-
   // Update handleToolClick to respect user closing preference and navigate correctly
-  const handleToolClick = useCallback(
-    (clickedAssistantMessageId: string | null, clickedToolName: string) => {
-      // Explicitly ignore ask tags from opening the side panel
-      if (clickedToolName === 'ask') {
-        return;
-      }
+  const handleToolClick = useCallback((clickedAssistantMessageId: string | null, clickedToolName: string) => {
+    // Explicitly ignore ask tags from opening the side panel
+    if (clickedToolName === 'ask') {
+      return;
+    }
 
-      if (!clickedAssistantMessageId) {
-        console.warn(
-          'Clicked assistant message ID is null. Cannot open side panel.',
-        );
-        toast.warning('Cannot view details: Assistant message ID is missing.');
-        return;
-      }
+    if (!clickedAssistantMessageId) {
+      console.warn("Clicked assistant message ID is null. Cannot open side panel.");
+      toast.warning("Cannot view details: Assistant message ID is missing.");
+      return;
+    }
 
-      // Reset user closed state when explicitly clicking a tool
-      userClosedPanelRef.current = false;
+    // Reset user closed state when explicitly clicking a tool
+    userClosedPanelRef.current = false;
 
-      console.log(
-        '[PAGE] Tool Click Triggered. Assistant Message ID:',
-        clickedAssistantMessageId,
-        'Tool Name:',
-        clickedToolName,
+    console.log(
+      '[PAGE] Tool Click Triggered. Assistant Message ID:',
+      clickedAssistantMessageId,
+      'Tool Name:',
+      clickedToolName,
+    );
+
+    // Find the index of the tool call associated with the clicked assistant message
+    const toolIndex = toolCalls.findIndex((tc) => {
+      // Check if the assistant message ID matches the one stored in the tool result's metadata
+      if (!tc.toolResult?.content || tc.toolResult.content === 'STREAMING')
+        return false; // Skip streaming or incomplete calls
+
+      // Directly compare assistant message IDs if available in the structure
+      // Find the original assistant message based on the ID
+      const assistantMessage = messages.find(
+        (m) =>
+          m.message_id === clickedAssistantMessageId &&
+          m.type === 'assistant',
       );
+      if (!assistantMessage) return false;
 
-      // Find the index of the tool call associated with the clicked assistant message
-      const toolIndex = toolCalls.findIndex((tc) => {
-        // Check if the assistant message ID matches the one stored in the tool result's metadata
-        if (!tc.toolResult?.content || tc.toolResult.content === 'STREAMING')
-          return false; // Skip streaming or incomplete calls
-
-        // Directly compare assistant message IDs if available in the structure
-        // Find the original assistant message based on the ID
-        const assistantMessage = messages.find(
-          (m) =>
-            m.message_id === clickedAssistantMessageId &&
-            m.type === 'assistant',
-        );
-        if (!assistantMessage) return false;
-
-        // Find the corresponding tool message using metadata
-        const toolMessage = messages.find((m) => {
-          if (m.type !== 'tool' || !m.metadata) return false;
-          try {
-            const metadata = safeJsonParse<ParsedMetadata>(m.metadata, {});
-            return (
-              metadata.assistant_message_id === assistantMessage.message_id
-            );
-          } catch {
-            return false;
-          }
-        });
-
-        // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
-        return (
-          tc.assistantCall?.content === assistantMessage.content &&
-          tc.toolResult?.content === toolMessage?.content
-        );
+      // Find the corresponding tool message using metadata
+      const toolMessage = messages.find((m) => {
+        if (m.type !== 'tool' || !m.metadata) return false;
+        try {
+          const metadata = safeJsonParse<ParsedMetadata>(m.metadata, {});
+          return (
+            metadata.assistant_message_id === assistantMessage.message_id
+          );
+        } catch {
+          return false;
+        }
       });
 
-      if (toolIndex !== -1) {
-        console.log(
-          `[PAGE] Found tool call at index ${toolIndex} for assistant message ${clickedAssistantMessageId}`,
-        );
-        setCurrentToolIndex(toolIndex);
-        setIsSidePanelOpen(true); // Explicitly open the panel
-      } else {
-        console.warn(
-          `[PAGE] Could not find matching tool call in toolCalls array for assistant message ID: ${clickedAssistantMessageId}`,
-        );
-        toast.info('Could not find details for this tool call.');
-        // Optionally, still open the panel but maybe at the last index or show a message?
-        // setIsSidePanelOpen(true);
-      }
-    },
+      // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
+      return (
+        tc.assistantCall?.content === assistantMessage.content &&
+        tc.toolResult?.content === toolMessage?.content
+      );
+    });
+
+    if (toolIndex !== -1) {
+      console.log(
+        `[PAGE] Found tool call at index ${toolIndex} for assistant message ${clickedAssistantMessageId}`,
+      );
+      setCurrentToolIndex(toolIndex);
+      setIsSidePanelOpen(true); // Explicitly open the panel
+    } else {
+      console.warn(
+        `[PAGE] Could not find matching tool call in toolCalls array for assistant message ID: ${clickedAssistantMessageId}`,
+      );
+      toast.info('Could not find details for this tool call.');
+      // Optionally, still open the panel but maybe at the last index or show a message?
+      // setIsSidePanelOpen(true);
+    }
+  },
     [messages, toolCalls],
   ); // Add toolCalls as a dependency
 
@@ -1381,111 +1050,12 @@ export default function ThreadPage({
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
 
-  if (isLoading && !initialLoadCompleted.current) {
-    return (
-      <div className="flex h-screen">
-        <div
-          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out`}
-        >
-          {/* Skeleton Header */}
-          <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-14 items-center gap-4 px-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-6 w-6 rounded-full" />
-                  <Skeleton className="h-5 w-40" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-8 w-8 rounded-full" />
-                <Skeleton className="h-8 w-8 rounded-full" />
-              </div>
-            </div>
-          </div>
-
-          {/* Skeleton Chat Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 pb-[5.5rem]">
-            <div className="mx-auto max-w-3xl space-y-6">
-              {/* User message */}
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Assistant response with tool usage */}
-              <div>
-                <div className="flex items-start gap-3">
-                  <Skeleton className="flex-shrink-0 w-5 h-5 mt-2 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <div className="max-w-[90%] w-full rounded-lg bg-muted px-4 py-3">
-                      <div className="space-y-3">
-                        <div>
-                          <Skeleton className="h-4 w-full max-w-[360px] mb-2" />
-                          <Skeleton className="h-4 w-full max-w-[320px] mb-2" />
-                          <Skeleton className="h-4 w-full max-w-[290px]" />
-                        </div>
-
-                        {/* Tool call button skeleton */}
-                        <div className="py-1">
-                          <Skeleton className="h-6 w-32 rounded-md" />
-                        </div>
-
-                        <div>
-                          <Skeleton className="h-4 w-full max-w-[340px] mb-2" />
-                          <Skeleton className="h-4 w-full max-w-[280px]" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* User message */}
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
-                  <Skeleton className="h-4 w-36" />
-                </div>
-              </div>
-
-              {/* Assistant thinking state */}
-              <div>
-                <div className="flex items-start gap-3">
-                  <Skeleton className="flex-shrink-0 w-5 h-5 mt-2 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-1.5 py-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-gray-400/50 animate-pulse" />
-                      <div className="h-1.5 w-1.5 rounded-full bg-gray-400/50 animate-pulse delay-150" />
-                      <div className="h-1.5 w-1.5 rounded-full bg-gray-400/50 animate-pulse delay-300" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Skeleton Chat Input */}
-          <div className="border-t p-4">
-            <div className="mx-auto max-w-3xl">
-              <div className="relative">
-                <Skeleton className="h-10 w-full rounded-md" />
-                <div className="absolute right-2 top-2">
-                  <Skeleton className="h-6 w-6 rounded-full" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Skeleton Side Panel (hidden during loading) */}
-      </div>
-    );
-  }
-
-  if (error) {
+  // Main rendering function for the thread page
+  if (!initialLoadCompleted.current || isLoading) {
+    // Use the new ThreadSkeleton component instead of inline skeleton
+    return <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} />;
+  } else if (error) {
+    // Error state...
     return (
       <div className="flex h-screen">
         <div
@@ -1513,531 +1083,157 @@ export default function ThreadPage({
                   'JSON object requested, multiple (or no) rows returned',
                 )
                   ? 'This thread either does not exist or you do not have access to it.'
-                  : error}
-              </p>
+                  : error
+                }
+              </p >
+            </div >
+          </div >
+        </div >
+        <ToolCallSidePanel
+          isOpen={isSidePanelOpen && initialLoadCompleted.current}
+          onClose={() => {
+            setIsSidePanelOpen(false);
+            userClosedPanelRef.current = true;
+            setAutoOpenedPanel(true);
+          }}
+          toolCalls={toolCalls}
+          messages={messages as ApiMessageType[]}
+          agentStatus={agentStatus}
+          currentIndex={currentToolIndex}
+          onNavigate={handleSidePanelNavigate}
+          project={project || undefined}
+          renderAssistantMessage={toolViewAssistant}
+          renderToolResult={toolViewResult}
+          isLoading={!initialLoadCompleted.current || isLoading}
+        />
+
+        {
+          sandboxId && (
+            <FileViewerModal
+              open={fileViewerOpen}
+              onOpenChange={setFileViewerOpen}
+              sandboxId={sandboxId}
+              initialFilePath={fileToView}
+              project={project || undefined}
+            />
+          )
+        }
+
+        {/* Billing Alert for usage limit */}
+        <BillingErrorAlert
+          message={billingData.message}
+          currentUsage={billingData.currentUsage}
+          limit={billingData.limit}
+          accountId={billingData.accountId}
+          onDismiss={() => setShowBillingAlert(false)}
+          isOpen={showBillingAlert}
+        />
+      </div >
+    );
+  } else {
+    return (
+      <div className="flex h-screen">
+        {/* Render debug mode indicator when active */}
+        {debugMode && (
+          <div className="fixed top-16 right-4 bg-amber-500 text-black text-xs px-2 py-1 rounded-md shadow-md z-50">
+            Debug Mode
+          </div>
+        )}
+        <div
+          className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted.current || isSidePanelOpen) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
+        >
+          <SiteHeader
+            threadId={threadId}
+            projectName={projectName}
+            projectId={project?.id || ''}
+            onViewFiles={handleOpenFileViewer}
+            onToggleSidePanel={toggleSidePanel}
+            onProjectRenamed={handleProjectRenamed}
+            isMobileView={isMobile}
+            debugMode={debugMode}
+          />
+
+          {/* Pass debugMode to ThreadContent component */}
+          <ThreadContent
+            messages={messages}
+            streamingTextContent={streamingTextContent}
+            streamingToolCall={streamingToolCall}
+            agentStatus={agentStatus}
+            handleToolClick={handleToolClick}
+            handleOpenFileViewer={handleOpenFileViewer}
+            readOnly={false}
+            streamHookStatus={streamHookStatus}
+            sandboxId={sandboxId}
+            project={project}
+            debugMode={debugMode}
+          />
+
+          <div
+            className={cn(
+              "fixed bottom-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pt-8 transition-all duration-200 ease-in-out",
+              leftSidebarState === 'expanded' ? 'left-[72px] lg:left-[256px]' : 'left-[72px]',
+              isSidePanelOpen ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]' : 'right-0',
+              isMobile ? 'left-0 right-0' : ''
+            )}>
+            <div className={cn(
+              "mx-auto",
+              isMobile ? "w-full px-4" : "max-w-3xl"
+            )}>
+              <ChatInput
+                value={newMessage}
+                onChange={setNewMessage}
+                onSubmit={handleSubmitMessage}
+                placeholder="Ask Suna anything..."
+                loading={isSending}
+                disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
+                isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
+                onStopAgent={handleStopAgent}
+                autoFocus={!isLoading}
+                onFileBrowse={handleOpenFileViewer}
+                sandboxId={sandboxId || undefined}
+              />
             </div>
           </div>
         </div>
+
         <ToolCallSidePanel
           isOpen={isSidePanelOpen && initialLoadCompleted.current}
-          onClose={() => setIsSidePanelOpen(false)}
-          toolCalls={[]}
-          currentIndex={0}
+          onClose={() => {
+            setIsSidePanelOpen(false);
+            userClosedPanelRef.current = true;
+            setAutoOpenedPanel(true);
+          }}
+          toolCalls={toolCalls}
+          messages={messages as ApiMessageType[]}
+          agentStatus={agentStatus}
+          currentIndex={currentToolIndex}
           onNavigate={handleSidePanelNavigate}
           project={project || undefined}
-          agentStatus="error"
+          renderAssistantMessage={toolViewAssistant}
+          renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
+        />
+
+        {sandboxId && (
+          <FileViewerModal
+            open={fileViewerOpen}
+            onOpenChange={setFileViewerOpen}
+            sandboxId={sandboxId}
+            initialFilePath={fileToView}
+            project={project || undefined}
+          />
+        )}
+
+        {/* Billing Alert for usage limit */}
+        <BillingErrorAlert
+          message={billingData.message}
+          currentUsage={billingData.currentUsage}
+          limit={billingData.limit}
+          accountId={billingData.accountId}
+          onDismiss={() => setShowBillingAlert(false)}
+          isOpen={showBillingAlert}
         />
       </div>
     );
   }
-
-  return (
-    <div className="flex h-screen">
-      {/* Render debug mode indicator when active */}
-      {debugMode && (
-        <div className="fixed top-16 right-4 bg-amber-500 text-black text-xs px-2 py-1 rounded-md shadow-md z-50">
-          Debug Mode
-        </div>
-      )}
-      <div
-        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted.current || isSidePanelOpen) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
-      >
-        <SiteHeader
-          threadId={threadId}
-          projectName={projectName}
-          projectId={project?.id || ''}
-          onViewFiles={handleOpenFileViewer}
-          onToggleSidePanel={toggleSidePanel}
-          onProjectRenamed={handleProjectRenamed}
-          isMobileView={isMobile}
-          debugMode={debugMode}
-        />
-        <div
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto px-6 py-4 pb-36 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-          onScroll={handleScroll}
-        >
-          <div className="mx-auto max-w-3xl">
-            {messages.length === 0 &&
-            !streamingTextContent &&
-            !streamingToolCall &&
-            agentStatus === 'idle' ? (
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  Send a message to start.
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8 mb-8">
-                {(() => {
-                  // Group messages logic
-                  type MessageGroup = {
-                    type: 'user' | 'assistant_group';
-                    messages: UnifiedMessage[];
-                    key: string;
-                  };
-                  const groupedMessages: MessageGroup[] = [];
-                  let currentGroup: MessageGroup | null = null;
-
-                  messages.forEach((message, index) => {
-                    const messageType = message.type;
-                    const key = message.message_id || `msg-${index}`;
-
-                    if (messageType === 'user') {
-                      if (currentGroup) {
-                        groupedMessages.push(currentGroup);
-                      }
-                      groupedMessages.push({
-                        type: 'user',
-                        messages: [message],
-                        key,
-                      });
-                      currentGroup = null;
-                    } else if (
-                      messageType === 'assistant' ||
-                      messageType === 'tool' ||
-                      messageType === 'browser_state'
-                    ) {
-                      if (
-                        currentGroup &&
-                        currentGroup.type === 'assistant_group'
-                      ) {
-                        currentGroup.messages.push(message);
-                      } else {
-                        if (currentGroup) {
-                          groupedMessages.push(currentGroup);
-                        }
-                        currentGroup = {
-                          type: 'assistant_group',
-                          messages: [message],
-                          key,
-                        };
-                      }
-                    } else if (messageType !== 'status') {
-                      if (currentGroup) {
-                        groupedMessages.push(currentGroup);
-                        currentGroup = null;
-                      }
-                    }
-                  });
-
-                  if (currentGroup) {
-                    groupedMessages.push(currentGroup);
-                  }
-
-                  return groupedMessages.map((group, groupIndex) => {
-                    if (group.type === 'user') {
-                      const message = group.messages[0];
-                      const messageContent = (() => {
-                        try {
-                          const parsed = safeJsonParse<ParsedContent>(
-                            message.content,
-                            { content: message.content },
-                          );
-                          return parsed.content || message.content;
-                        } catch {
-                          return message.content;
-                        }
-                      })();
-
-                      // In debug mode, display raw message content
-                      if (debugMode) {
-                        return (
-                          <div key={group.key} className="flex justify-end">
-                            <div className="inline-flex max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
-                              <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">
-                                {message.content}
-                              </pre>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      // Extract attachments from the message content
-                      const attachmentsMatch = messageContent.match(
-                        /\[Uploaded File: (.*?)\]/g,
-                      );
-                      const attachments = attachmentsMatch
-                        ? attachmentsMatch
-                            .map((match) => {
-                              const pathMatch = match.match(
-                                /\[Uploaded File: (.*?)\]/,
-                              );
-                              return pathMatch ? pathMatch[1] : null;
-                            })
-                            .filter(Boolean)
-                        : [];
-
-                      // Remove attachment info from the message content
-                      const cleanContent = messageContent
-                        .replace(/\[Uploaded File: .*?\]/g, '')
-                        .trim();
-
-                      return (
-                        <div key={group.key} className="flex justify-end">
-                          <div className="inline-flex max-w-[85%] rounded-lg bg-primary/10 px-4 py-3">
-                            <div className="space-y-3">
-                              {cleanContent && (
-                                <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
-                                  {cleanContent}
-                                </Markdown>
-                              )}
-
-                              {/* Use the helper function to render user attachments */}
-                              {renderAttachments(
-                                attachments as string[],
-                                handleOpenFileViewer,
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    } else if (group.type === 'assistant_group') {
-                      return (
-                        <div
-                          key={group.key}
-                          ref={
-                            groupIndex === groupedMessages.length - 1
-                              ? latestMessageRef
-                              : null
-                          }
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center overflow-hidden ml-auto mr-2">
-                              <Image
-                                src="/kortix-symbol.svg"
-                                alt="Kortix"
-                                width={14}
-                                height={14}
-                                className="object-contain invert dark:invert-0 opacity-70"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <div className="inline-flex max-w-[90%] rounded-lg bg-muted/5 px-4 py-3 text-sm">
-                                <div className="space-y-2">
-                                  {(() => {
-                                    // In debug mode, just show raw messages content
-                                    if (debugMode) {
-                                      return group.messages.map((message, msgIndex) => {
-                                        const msgKey = message.message_id || `raw-msg-${msgIndex}`;
-                                        return (
-                                          <div key={msgKey} className="mb-4">
-                                            <div className="text-xs font-medium text-muted-foreground mb-1">
-                                              Type: {message.type} | ID: {message.message_id || 'no-id'}
-                                            </div>
-                                            <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                              {message.content}
-                                            </pre>
-                                            {message.metadata && message.metadata !== '{}' && (
-                                              <div className="mt-2">
-                                                <div className="text-xs font-medium text-muted-foreground mb-1">
-                                                  Metadata:
-                                                </div>
-                                                <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                  {message.metadata}
-                                                </pre>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      });
-                                    }
-
-                                    // Normal rendering mode
-                                    const toolResultsMap = new Map<
-                                      string | null,
-                                      UnifiedMessage[]
-                                    >();
-                                    group.messages.forEach((msg) => {
-                                      if (msg.type === 'tool') {
-                                        const meta =
-                                          safeJsonParse<ParsedMetadata>(
-                                            msg.metadata,
-                                            {},
-                                          );
-                                        const assistantId =
-                                          meta.assistant_message_id || null;
-                                        if (!toolResultsMap.has(assistantId)) {
-                                          toolResultsMap.set(assistantId, []);
-                                        }
-                                        toolResultsMap
-                                          .get(assistantId)
-                                          ?.push(msg);
-                                      }
-                                    });
-
-                                    const renderedToolResultIds =
-                                      new Set<string>();
-                                    const elements: React.ReactNode[] = [];
-
-                                    group.messages.forEach(
-                                      (message, msgIndex) => {
-                                        if (message.type === 'assistant') {
-                                          const parsedContent =
-                                            safeJsonParse<ParsedContent>(
-                                              message.content,
-                                              {},
-                                            );
-                                          const msgKey =
-                                            message.message_id ||
-                                            `submsg-assistant-${msgIndex}`;
-
-                                          if (!parsedContent.content) return;
-
-                                          const renderedContent =
-                                            renderMarkdownContent(
-                                              parsedContent.content,
-                                              handleToolClick,
-                                              message.message_id,
-                                              handleOpenFileViewer,
-                                              debugMode
-                                            );
-
-                                          elements.push(
-                                            <div
-                                              key={msgKey}
-                                              className={
-                                                msgIndex > 0 ? 'mt-2' : ''
-                                              }
-                                            >
-                                              <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
-                                                {renderedContent}
-                                              </div>
-                                            </div>,
-                                          );
-                                        }
-                                      },
-                                    );
-
-                                    return elements;
-                                  })()}
-
-                                  {groupIndex === groupedMessages.length - 1 &&
-                                    (streamHookStatus === 'streaming' ||
-                                      streamHookStatus === 'connecting') && (
-                                      <div className="mt-2">
-                                        {(() => {
-                                          // In debug mode, show raw streaming content
-                                          if (debugMode && streamingTextContent) {
-                                            return (
-                                              <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                {streamingTextContent}
-                                              </pre>
-                                            );
-                                          }
-
-                                          // Normal streaming mode
-                                          let detectedTag: string | null = null;
-                                          let tagStartIndex = -1;
-                                          if (streamingTextContent) {
-                                            for (const tag of HIDE_STREAMING_XML_TAGS) {
-                                              const openingTagPattern = `<${tag}`;
-                                              const index =
-                                                streamingTextContent.indexOf(
-                                                  openingTagPattern,
-                                                );
-                                              if (index !== -1) {
-                                                detectedTag = tag;
-                                                tagStartIndex = index;
-                                                break;
-                                              }
-                                            }
-                                          }
-
-                                          const textToRender =
-                                            streamingTextContent || '';
-                                          const textBeforeTag = detectedTag
-                                            ? textToRender.substring(
-                                                0,
-                                                tagStartIndex,
-                                              )
-                                            : textToRender;
-                                          const showCursor =
-                                            (streamHookStatus === 'streaming' ||
-                                              streamHookStatus ===
-                                                'connecting') &&
-                                            !detectedTag;
-
-                                          return (
-                                            <>
-                                              {textBeforeTag && (
-                                                <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
-                                                  {textBeforeTag}
-                                                </Markdown>
-                                              )}
-                                              {showCursor && (
-                                                <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
-                                              )}
-
-                                              {detectedTag && (
-                                                <div className="mt-2 mb-1">
-                                                  <button className="inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20">
-                                                    <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                    <span className="font-mono text-xs text-primary">
-                                                      {detectedTag}
-                                                    </span>
-                                                  </button>
-                                                </div>
-                                              )}
-
-                                              {streamingToolCall &&
-                                                !detectedTag && (
-                                                  <div className="mt-2 mb-1">
-                                                    {(() => {
-                                                      const toolName =
-                                                        streamingToolCall.name ||
-                                                        streamingToolCall.xml_tag_name ||
-                                                        'Tool';
-                                                      const IconComponent =
-                                                        getToolIcon(toolName);
-                                                      const paramDisplay =
-                                                        extractPrimaryParam(
-                                                          toolName,
-                                                          streamingToolCall.arguments ||
-                                                            '',
-                                                        );
-                                                      return (
-                                                        <button className="inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20">
-                                                          <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                          <span className="font-mono text-xs text-primary">
-                                                            {toolName}
-                                                          </span>
-                                                          {paramDisplay && (
-                                                            <span
-                                                              className="ml-1 text-primary/70 truncate max-w-[200px]"
-                                                              title={
-                                                                paramDisplay
-                                                              }
-                                                            >
-                                                              {paramDisplay}
-                                                            </span>
-                                                          )}
-                                                        </button>
-                                                      );
-                                                    })()}
-                                                  </div>
-                                                )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                    )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  });
-                })()}
-                {(agentStatus === 'running' || agentStatus === 'connecting') &&
-                  (messages.length === 0 ||
-                    messages[messages.length - 1].type === 'user') && (
-                    <div ref={latestMessageRef}>
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center overflow-hidden bg-primary/10">
-                          <Image
-                            src="/kortix-symbol.svg"
-                            alt="Suna"
-                            width={14}
-                            height={14}
-                            className="object-contain"
-                          />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                          <div className="max-w-[90%] px-4 py-3 text-sm">
-                            <div className="flex items-center gap-1.5 py-1">
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse" />
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-150" />
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-300" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-              </div>
-            )}
-            <div ref={messagesEndRef} className="h-1" />
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          'fixed bottom-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pt-8 transition-all duration-200 ease-in-out',
-          leftSidebarState === 'expanded'
-            ? 'left-[72px] lg:left-[256px]'
-            : 'left-[72px]',
-          isSidePanelOpen
-            ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]'
-            : 'right-0',
-          isMobile ? 'left-0 right-0' : '',
-        )}
-      >
-        <div className={cn('mx-auto', isMobile ? 'w-full px-4' : 'max-w-3xl')}>
-          <ChatInput
-            value={newMessage}
-            onChange={setNewMessage}
-            onSubmit={handleSubmitMessage}
-            placeholder="Ask Suna anything..."
-            loading={isSending}
-            disabled={
-              isSending ||
-              agentStatus === 'running' ||
-              agentStatus === 'connecting'
-            }
-            isAgentRunning={
-              agentStatus === 'running' || agentStatus === 'connecting'
-            }
-            onStopAgent={handleStopAgent}
-            autoFocus={!isLoading}
-            onFileBrowse={handleOpenFileViewer}
-            sandboxId={sandboxId || undefined}
-          />
-        </div>
-      </div>
-
-      <ToolCallSidePanel
-        isOpen={isSidePanelOpen && initialLoadCompleted.current}
-        onClose={() => {
-          setIsSidePanelOpen(false);
-          userClosedPanelRef.current = true;
-          setAutoOpenedPanel(true);
-        }}
-        toolCalls={toolCalls}
-        messages={messages as ApiMessageType[]}
-        agentStatus={agentStatus}
-        currentIndex={currentToolIndex}
-        onNavigate={handleSidePanelNavigate}
-        project={project || undefined}
-        renderAssistantMessage={toolViewAssistant}
-        renderToolResult={toolViewResult}
-        isLoading={!initialLoadCompleted.current || isLoading}
-      />
-
-      {sandboxId && (
-        <FileViewerModal
-          open={fileViewerOpen}
-          onOpenChange={setFileViewerOpen}
-          sandboxId={sandboxId}
-          initialFilePath={fileToView}
-          project={project || undefined}
-        />
-      )}
-
-      {/* Billing Alert for usage limit */}
-      <BillingErrorAlert
-        message={billingData.message}
-        currentUsage={billingData.currentUsage}
-        limit={billingData.limit}
-        accountId={billingData.accountId}
-        onDismiss={() => setShowBillingAlert(false)}
-        isOpen={showBillingAlert}
-      />
-    </div>
-  );
 }
