@@ -5,9 +5,8 @@ from agentpress.thread_manager import ThreadManager
 from agentpress.tool import Tool
 from daytona_sdk import Sandbox
 from sandbox.sandbox import get_or_start_sandbox
-from utils import logger
+from utils.logger import logger
 from utils.files_utils import clean_path
-
 
 class SandboxToolsBase(Tool):
     """Base class for all sandbox tools that provides project-based sandbox access."""

@@ -212,56 +212,56 @@ async def read_file(
         raise HTTPException(status_code=500, detail=str(e))
 
 # Should happen on server-side fully
-# @router.post("/project/{project_id}/sandbox/ensure-active")
-# async def ensure_project_sandbox_active(
-#     project_id: str,
-#     request: Request = None,
-#     user_id: Optional[str] = Depends(get_optional_user_id)
-# ):
-#     """
-#     Ensure that a project's sandbox is active and running.
-#     Checks the sandbox status and starts it if it's not running.
-#     """
-#     logger.info(f"Received ensure sandbox active request for project {project_id}, user_id: {user_id}")
-#     client = await db.client
+@router.post("/project/{project_id}/sandbox/ensure-active")
+async def ensure_project_sandbox_active(
+    project_id: str,
+    request: Request = None,
+    user_id: Optional[str] = Depends(get_optional_user_id)
+):
+    """
+    Ensure that a project's sandbox is active and running.
+    Checks the sandbox status and starts it if it's not running.
+    """
+    logger.info(f"Received ensure sandbox active request for project {project_id}, user_id: {user_id}")
+    client = await db.client
     
-#     # Find the project and sandbox information
-#     project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
+    # Find the project and sandbox information
+    project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
     
-#     if not project_result.data or len(project_result.data) == 0:
-#         logger.error(f"Project not found: {project_id}")
-#         raise HTTPException(status_code=404, detail="Project not found")
+    if not project_result.data or len(project_result.data) == 0:
+        logger.error(f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail="Project not found")
     
-#     project_data = project_result.data[0]
+    project_data = project_result.data[0]
     
-#     # For public projects, no authentication is needed
-#     if not project_data.get('is_public'):
-#         # For private projects, we must have a user_id
-#         if not user_id:
-#             logger.error(f"Authentication required for private project {project_id}")
-#             raise HTTPException(status_code=401, detail="Authentication required for this resource")
+    # For public projects, no authentication is needed
+    if not project_data.get('is_public'):
+        # For private projects, we must have a user_id
+        if not user_id:
+            logger.error(f"Authentication required for private project {project_id}")
+            raise HTTPException(status_code=401, detail="Authentication required for this resource")
             
-#         account_id = project_data.get('account_id')
+        account_id = project_data.get('account_id')
         
-#         # Verify account membership
-#         if account_id:
-#             account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
-#             if not (account_user_result.data and len(account_user_result.data) > 0):
-#                 logger.error(f"User {user_id} not authorized to access project {project_id}")
-#                 raise HTTPException(status_code=403, detail="Not authorized to access this project")
+        # Verify account membership
+        if account_id:
+            account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
+            if not (account_user_result.data and len(account_user_result.data) > 0):
+                logger.error(f"User {user_id} not authorized to access project {project_id}")
+                raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
-#     try:
-#         # Get or create the sandbox
-#         logger.info(f"Ensuring sandbox is active for project {project_id}")
-#         sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
+    try:
+        # Get or create the sandbox
+        logger.info(f"Ensuring sandbox is active for project {project_id}")
+        sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
         
-#         logger.info(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
+        logger.info(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
         
-#         return {
-#             "status": "success", 
-#             "sandbox_id": sandbox_id,
-#             "message": "Sandbox is active"
-#         }
-#     except Exception as e:
-#         logger.error(f"Error ensuring sandbox is active for project {project_id}: {str(e)}")
-#         raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "status": "success", 
+            "sandbox_id": sandbox_id,
+            "message": "Sandbox is active"
+        }
+    except Exception as e:
+        logger.error(f"Error ensuring sandbox is active for project {project_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
