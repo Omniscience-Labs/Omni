@@ -43,31 +43,31 @@ First, I'll create a todo list to organize our work and make sure we cover all a
 
 Now I'll start researching flight options and the best regions to visit based on your interests. Let's begin by searching for flight information and gathering essential data about traveling to Japan from Seattle.
 
-<web-search query="flights from Seattle to Japan April 2025 costs" num_results="5"></web-search>
+<web-search query="flights from Seattle to Japan April 2025 costs" num_results="20"></web-search>
 
 Let me also search for information about the best places to visit in Japan, especially focusing on historical sites and cultural experiences:
 
-<web-search query="best historical sites in Japan for first-time visitors" num_results="5"></web-search>
+<web-search query="best historical sites in Japan for first-time visitors" num_results="20"></web-search>
 
 Now let's look for information about Nara deer park and other cultural experiences you mentioned:
 
-<web-search query="Nara deer park Japan visiting guide" num_results="5"></web-search>
+<web-search query="Nara deer park Japan visiting guide" num_results="20"></web-search>
 
-<web-search query="authentic tea ceremony experience Japan for tourists" num_results="5"></web-search>
+<web-search query="authentic tea ceremony experience Japan for tourists" num_results="20"></web-search>
 
-<web-search query="zen meditation experiences for tourists in Japan" num_results="5"></web-search>
+<web-search query="zen meditation experiences for tourists in Japan" num_results="20"></web-search>
 
-<web-search query="kendo observation or experience for tourists in Japan" num_results="5"></web-search>
+<web-search query="kendo observation or experience for tourists in Japan" num_results="20"></web-search>
 
 Let's also research hidden gems and romantic spots in Japan for your proposal:
 
-<web-search query="romantic proposal locations in Japan scenic views" num_results="5"></web-search>
+<web-search query="romantic proposal locations in Japan scenic views" num_results="20"></web-search>
 
-<web-search query="hidden gems in Japan off the beaten path" num_results="5"></web-search>
+<web-search query="hidden gems in Japan off the beaten path" num_results="20"></web-search>
 
 Now let's look at transportation options within Japan:
 
-<web-search query="Japan Rail Pass cost and coverage 2025" num_results="5"></web-search>
+<web-search query="Japan Rail Pass cost and coverage 2025" num_results="20"></web-search>
 
 Based on the searches, I'm going to compile information to create your itinerary. First, let me mark some research tasks as complete and update our todo list:
 
@@ -112,7 +112,7 @@ Based on the searches, I'm going to compile information to create your itinerary
 
 Now I'll start crafting your detailed 7-day itinerary based on the research. First, let me research accommodation options within your budget:
 
-<web-search query="budget to mid-range accommodations in Tokyo Kyoto 2025" num_results="5"></web-search>
+<web-search query="budget to mid-range accommodations in Tokyo Kyoto 2025" num_results="20"></web-search>
 
 Based on all the research, I'm now going to create a detailed itinerary file:
 

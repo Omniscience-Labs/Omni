@@ -5,14 +5,14 @@ stripe listen --forward-to localhost:8000/api/billing/webhook
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Tuple
 import stripe
 from datetime import datetime, timezone
 from utils.logger import logger
 from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY

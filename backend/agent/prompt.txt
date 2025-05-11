@@ -840,7 +840,7 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
         <web-search 
             query="latest AI research papers" 
             # summary="true"
-            num_results="5">
+            num_results="20">
         </web-search>
         
         <!-- 2. Then scrape specific URLs from search results -->

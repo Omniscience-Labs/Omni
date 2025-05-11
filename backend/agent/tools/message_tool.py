@@ -1,4 +1,3 @@
-import os
 from typing import List, Optional, Union
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
 

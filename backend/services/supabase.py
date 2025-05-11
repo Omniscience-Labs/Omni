@@ -2,7 +2,6 @@
 Centralized database connection management for AgentPress using Supabase.
 """
 
-import os
 from typing import Optional
 from supabase import create_async_client, AsyncClient
 from utils.logger import logger

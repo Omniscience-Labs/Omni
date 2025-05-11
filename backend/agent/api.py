@@ -597,7 +597,7 @@ async def stream_agent_run(
                         if new_responses_json:
                             new_responses = [json.loads(r) for r in new_responses_json]
                             num_new = len(new_responses)
-                            logger.debug(f"Received {num_new} new responses for {agent_run_id} (index {new_start_index} onwards)")
+                            # logger.debug(f"Received {num_new} new responses for {agent_run_id} (index {new_start_index} onwards)")
                             for response in new_responses:
                                 yield f"data: {json.dumps(response)}\n\n"
                                 # Check if this response signals completion

@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowDown,
   CheckCircle,
@@ -87,6 +87,7 @@ export default function ThreadPage({
   const unwrappedParams = React.use(params);
   const threadId = unwrappedParams.threadId;
   const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
 
   const router = useRouter();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
@@ -131,6 +132,9 @@ export default function ThreadPage({
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
+
+  // Add debug mode state - check for debug=true in URL
+  const [debugMode, setDebugMode] = useState(false);
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -1040,6 +1044,12 @@ export default function ThreadPage({
     isLoading,
   ]);
 
+  // Check for debug mode in URL on initial load and when URL changes
+  useEffect(() => {
+    const debugParam = searchParams.get('debug');
+    setDebugMode(debugParam === 'true');
+  }, [searchParams]);
+
   // Main rendering function for the thread page
   if (!initialLoadCompleted.current || isLoading) {
     // Use the new ThreadSkeleton component instead of inline skeleton
@@ -1058,6 +1068,7 @@ export default function ThreadPage({
             onViewFiles={handleOpenFileViewer}
             onToggleSidePanel={toggleSidePanel}
             isMobileView={isMobile}
+            debugMode={debugMode}
           />
           <div className="flex flex-1 items-center justify-center p-4">
             <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-lg border bg-card p-6 text-center">
@@ -1122,6 +1133,12 @@ export default function ThreadPage({
   } else {
     return (
       <div className="flex h-screen">
+        {/* Render debug mode indicator when active */}
+        {debugMode && (
+          <div className="fixed top-16 right-4 bg-amber-500 text-black text-xs px-2 py-1 rounded-md shadow-md z-50">
+            Debug Mode
+          </div>
+        )}
         <div
           className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted.current || isSidePanelOpen) ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
         >
@@ -1133,9 +1150,10 @@ export default function ThreadPage({
             onToggleSidePanel={toggleSidePanel}
             onProjectRenamed={handleProjectRenamed}
             isMobileView={isMobile}
+            debugMode={debugMode}
           />
 
-          {/* Use ThreadContent component instead of custom message rendering */}
+          {/* Pass debugMode to ThreadContent component */}
           <ThreadContent
             messages={messages}
             streamingTextContent={streamingTextContent}
@@ -1147,6 +1165,7 @@ export default function ThreadPage({
             streamHookStatus={streamHookStatus}
             sandboxId={sandboxId}
             project={project}
+            debugMode={debugMode}
           />
 
           <div

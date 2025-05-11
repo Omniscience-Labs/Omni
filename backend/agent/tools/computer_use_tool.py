@@ -4,11 +4,11 @@ import base64
 import aiohttp
 import asyncio
 import logging
-from typing import Optional, Dict, Any, Union
-from PIL import Image
+from typing import Optional, Dict
+import os
 
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
-from sandbox.sandbox import SandboxToolsBase, Sandbox
+from sandbox.tool_base import SandboxToolsBase, Sandbox
 
 KEYBOARD_KEYS = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',

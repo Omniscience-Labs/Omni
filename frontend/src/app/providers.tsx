@@ -4,8 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { useState, createContext, useEffect } from 'react';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ReactQueryProvider } from '@/providers/react-query-provider';
-import { dehydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { initializeCacheSystem } from '@/lib/cache-init';
+import { dehydrate, QueryClient } from '@tanstack/react-query';
 
 export interface ParsedTag {
   tagName: string;
@@ -38,35 +37,16 @@ export const ToolCallsContext = createContext<{
 export function Providers({ children }: { children: React.ReactNode }) {
   // Shared state for tool calls across the app
   const [toolCalls, setToolCalls] = useState<ParsedTag[]>([]);
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-      },
-    },
-  });
+  const queryClient = new QueryClient();
   const dehydratedState = dehydrate(queryClient);
-
-  // Initialize the file caching system when the app starts
-  useEffect(() => {
-    // Start the cache maintenance system
-    const { stopCacheSystem } = initializeCacheSystem();
-
-    // Clean up when the component unmounts
-    return () => {
-      stopCacheSystem();
-    };
-  }, []);
 
   return (
     <AuthProvider>
       <ToolCallsContext.Provider value={{ toolCalls, setToolCalls }}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <QueryClientProvider client={queryClient}>
-            <ReactQueryProvider dehydratedState={dehydratedState}>
-              {children}
-            </ReactQueryProvider>
-          </QueryClientProvider>
+          <ReactQueryProvider dehydratedState={dehydratedState}>
+            {children}
+          </ReactQueryProvider>
         </ThemeProvider>
       </ToolCallsContext.Provider>
     </AuthProvider>

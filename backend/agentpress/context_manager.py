@@ -8,7 +8,7 @@ reaching the context window limitations of LLM models.
 import json
 from typing import List, Dict, Any, Optional
 
-from litellm import token_counter, completion, completion_cost
+from litellm import token_counter, completion_cost
 from services.supabase import DBConnection
 from services.llm import make_llm_api_call
 from utils.logger import logger
