@@ -34,6 +34,7 @@ const handleLocalFiles = (
     name: file.name,
     path: `/workspace/${file.name}`,
     size: file.size,
+    type: file.type || 'application/octet-stream',
     localUrl: URL.createObjectURL(file)
   }));
 
@@ -91,6 +92,7 @@ const uploadFiles = async (
         name: file.name,
         path: uploadPath,
         size: file.size,
+        type: file.type || 'application/octet-stream',
       });
 
       toast.success(`File uploaded: ${file.name}`);

@@ -13,6 +13,7 @@ import { CsvRenderer } from './preview-renderers/csv-renderer';
 import { useFileContent } from '@/hooks/use-file-content';
 import { useImageContent } from '@/hooks/use-image-content';
 import { useAuth } from '@/components/AuthProvider';
+import { Project } from '@/lib/api';
 
 // Define basic file types
 export type FileType =
@@ -143,6 +144,7 @@ interface FileAttachmentProps {
      * - false: HTML, MD, and CSV files show rendered content in grid layout
      */
     collapsed?: boolean;
+    project?: Project;
 }
 
 // Cache fetched content between mounts to avoid duplicate fetches
@@ -157,7 +159,8 @@ export function FileAttachment({
     showPreview = true,
     localPreviewUrl,
     customStyle,
-    collapsed = true
+    collapsed = true,
+    project
 }: FileAttachmentProps) {
     // Authentication 
     const { session } = useAuth();
@@ -279,7 +282,14 @@ export function FileAttachment({
                         objectFit: isGridLayout ? "cover" : "contain"
                     }}
                     onLoad={() => { }}
-                    onError={() => setHasError(true)}
+                    onError={(e) => {
+                        console.error('Image load error:', e);
+                        setHasError(true);
+                        // If the image failed to load and we have a localPreviewUrl that's a blob URL, try using it directly
+                        if (localPreviewUrl && typeof localPreviewUrl === 'string' && localPreviewUrl.startsWith('blob:')) {
+                            (e.target as HTMLImageElement).src = localPreviewUrl;
+                        }
+                    }}
                 />
             </button>
         );
@@ -327,6 +337,7 @@ export function FileAttachment({
                                     content={fileContent}
                                     previewUrl={fileUrl}
                                     className="h-full w-full"
+                                    project={project}
                                 />
                             ) : (
                                 <div className="p-4 text-muted-foreground">
@@ -438,6 +449,7 @@ interface FileAttachmentGridProps {
     sandboxId?: string;
     showPreviews?: boolean;
     collapsed?: boolean;
+    project?: Project;
 }
 
 export function FileAttachmentGrid({
@@ -446,7 +458,8 @@ export function FileAttachmentGrid({
     className,
     sandboxId,
     showPreviews = true,
-    collapsed = false
+    collapsed = false,
+    project
 }: FileAttachmentGridProps) {
     if (!attachments || attachments.length === 0) return null;
 
@@ -460,6 +473,7 @@ export function FileAttachmentGrid({
             layout="grid"
             gridImageHeight={150} // Use larger height for grid layout
             collapsed={collapsed}
+            project={project}
         />
     );
 } 

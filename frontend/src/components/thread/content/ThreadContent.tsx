@@ -8,6 +8,7 @@ import { safeJsonParse } from '@/components/thread/utils';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
 import { FileCache } from '@/hooks/use-cached-file';
 import { useAuth } from '@/components/AuthProvider';
+import { Project } from '@/lib/api';
 
 // Define the set of tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -38,33 +39,33 @@ const HIDE_STREAMING_XML_TAGS = new Set([
 ]);
 
 // Helper function to render attachments
-export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string) {
+export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string, project?: Project) {
     if (!attachments || attachments.length === 0) return null;
 
     // Preload attachments into cache if we have a sandboxId
     if (sandboxId) {
-        // Use setTimeout to do this asynchronously without blocking rendering
-        setTimeout(() => {
-            // Try to get the token from localStorage
-            let token = null;
-            try {
-                const sessionData = localStorage.getItem('auth');
-                if (sessionData) {
-                    const session = JSON.parse(sessionData);
-                    token = session.access_token;
+        // Check if we can access localStorage and if there's a valid auth session before trying to preload
+        let hasValidSession = false;
+        let token = null;
 
-                    if (token) {
-                        FileCache.preload(sandboxId, attachments, token);
-                    } else {
-                        console.warn("Cannot preload attachments: No token in session");
-                    }
-                } else {
-                    console.warn("Cannot preload attachments: No auth session found");
-                }
-            } catch (err) {
-                console.error("Error accessing auth token for preloading:", err);
+        try {
+            const sessionData = localStorage.getItem('auth');
+            if (sessionData) {
+                const session = JSON.parse(sessionData);
+                token = session?.access_token;
+                hasValidSession = !!token;
             }
-        }, 0);
+        } catch (err) {
+            // Silent catch - localStorage might be unavailable in some contexts
+        }
+
+        // Only attempt to preload if we have a valid session
+        if (hasValidSession && token) {
+            // Use setTimeout to do this asynchronously without blocking rendering
+            setTimeout(() => {
+                FileCache.preload(sandboxId, attachments, token);
+            }, 0);
+        }
     }
 
     return <FileAttachmentGrid
@@ -72,6 +73,7 @@ export function renderAttachments(attachments: string[], fileViewerHandler?: (fi
         onFileClick={fileViewerHandler}
         showPreviews={true}
         sandboxId={sandboxId}
+        project={project}
     />;
 }
 
@@ -81,7 +83,8 @@ export function renderMarkdownContent(
     handleToolClick: (assistantMessageId: string | null, toolName: string) => void,
     messageId: string | null,
     fileViewerHandler?: (filePath?: string) => void,
-    sandboxId?: string
+    sandboxId?: string,
+    project?: Project
 ) {
     const xmlRegex = /<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?>(?:[\s\S]*?)<\/\1>|<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/g;
     let lastIndex = 0;
@@ -121,7 +124,7 @@ export function renderMarkdownContent(
             contentParts.push(
                 <div key={`ask-${match.index}`} className="space-y-3">
                     <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askContent}</Markdown>
-                    {renderAttachments(attachments, fileViewerHandler, sandboxId)}
+                    {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
         } else {
@@ -170,6 +173,7 @@ export interface ThreadContentProps {
     currentToolCall?: any; // For playback mode
     streamHookStatus?: string; // Add this prop
     sandboxId?: string; // Add sandboxId prop
+    project?: Project; // Add project prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -185,7 +189,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     isStreamingText = false,
     currentToolCall,
     streamHookStatus = "idle",
-    sandboxId
+    sandboxId,
+    project
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -235,6 +240,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             }
         });
 
+        // Only attempt to preload if we have attachments AND a valid token
         if (allAttachments.length > 0 && session?.access_token) {
             // Preload files in background with authentication token
             FileCache.preload(sandboxId, allAttachments, session.access_token);
@@ -332,7 +338,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                         )}
 
                                                         {/* Use the helper function to render user attachments */}
-                                                        {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId)}
+                                                        {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -375,7 +381,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 handleToolClick,
                                                                                 message.message_id,
                                                                                 handleOpenFileViewer,
-                                                                                sandboxId
+                                                                                sandboxId,
+                                                                                project
                                                                             );
 
                                                                             elements.push(

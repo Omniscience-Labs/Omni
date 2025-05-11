@@ -705,6 +705,7 @@ export default function ThreadPage({
           isStreamingText={playbackState.isStreamingText}
           currentToolCall={playbackState.currentToolCall}
           sandboxId={sandboxId || ""}
+          project={project}
         />
 
         {/* Welcome overlay */}

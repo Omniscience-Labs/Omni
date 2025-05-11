@@ -3,16 +3,17 @@ import { X } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { FileAttachment } from './file-attachment';
 import { cn } from '@/lib/utils';
+import { Project } from '@/lib/api';
+
+type LayoutStyle = 'inline' | 'grid';
 
 interface UploadedFile {
     name: string;
     path: string;
     size: number;
+    type: string;
     localUrl?: string;
 }
-
-// Union type for layout styles
-type LayoutStyle = 'inline' | 'grid';
 
 interface AttachmentGroupProps {
     // Support both path strings and full file objects
@@ -26,6 +27,7 @@ interface AttachmentGroupProps {
     maxHeight?: string;
     gridImageHeight?: number; // New prop for grid image height
     collapsed?: boolean; // Add new collapsed prop
+    project?: Project; // Add project prop
 }
 
 export function AttachmentGroup({
@@ -38,7 +40,8 @@ export function AttachmentGroup({
     showPreviews = true,
     maxHeight = '216px',
     gridImageHeight = 180, // Increased from 120 for better visibility
-    collapsed = true // By default, HTML/MD files are collapsed
+    collapsed = true, // By default, HTML/MD files are collapsed
+    project // Add project prop
 }: AttachmentGroupProps) {
     if (!files || files.length === 0) return null;
 
@@ -148,6 +151,7 @@ export function AttachmentGroup({
                                             } : undefined
                                     }
                                     collapsed={collapsed} // Pass collapsed prop
+                                    project={project} // Pass project to FileAttachment
                                 />
                                 {onRemove && (
                                     <div

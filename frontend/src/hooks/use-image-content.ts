@@ -32,7 +32,17 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
     // Check if image is already in cache
     const cached = FileCache.get(cacheKey);
     if (cached) {
-      setImageUrl(cached);
+      if (typeof cached === 'string' && cached.startsWith('blob:')) {
+        setImageUrl(cached);
+      } else if (cached instanceof Blob) {
+        // If we somehow got a raw blob object, create a URL from it
+        const blobUrl = URL.createObjectURL(cached);
+        setImageUrl(blobUrl);
+        // Store the URL back in the cache
+        FileCache.set(cacheKey, blobUrl);
+      } else {
+        setImageUrl(String(cached));
+      }
       return;
     }
 

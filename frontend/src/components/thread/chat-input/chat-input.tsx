@@ -45,6 +45,7 @@ export interface UploadedFile {
   name: string;
   path: string;
   size: number;
+  type: string;
   localUrl?: string;
 }
 

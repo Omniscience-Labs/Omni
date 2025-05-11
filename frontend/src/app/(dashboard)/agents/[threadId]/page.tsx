@@ -1145,7 +1145,8 @@ export default function ThreadPage({
             handleOpenFileViewer={handleOpenFileViewer}
             readOnly={false}
             streamHookStatus={streamHookStatus}
-            sandboxId={sandboxId || ""}
+            sandboxId={sandboxId}
+            project={project}
           />
 
           <div
