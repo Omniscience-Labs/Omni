@@ -215,7 +215,7 @@ npm install
 
 # Install backend dependencies
 cd ../backend
-pip install -r requirements.txt
+poetry install
 ```
 
 6. **Start the application**:
@@ -229,7 +229,7 @@ npm run dev
    In another terminal, start the backend:
 ```bash
 cd backend
-python api.py
+poetry run python3.11 api.py
 ```
 
 5-6. **Docker Compose Alternative**:
