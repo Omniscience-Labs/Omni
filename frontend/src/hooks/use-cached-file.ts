@@ -24,6 +24,15 @@ function normalizePath(path: string): string {
     path = `/workspace/${path.startsWith('/') ? path.substring(1) : path}`;
   }
   
+  // Handle Unicode escape sequences like \u0308
+  try {
+    path = path.replace(/\\u([0-9a-fA-F]{4})/g, (_, hexCode) => {
+      return String.fromCharCode(parseInt(hexCode, 16));
+    });
+  } catch (e) {
+    console.error('Error processing Unicode escapes in path:', e);
+  }
+  
   return path;
 }
 
@@ -111,6 +120,8 @@ export function useCachedFile<T = string>(
       const normalizedPath = normalizePath(filePath || '');
       
       const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
+      
+      // Properly encode the path parameter for UTF-8 support
       url.searchParams.append('path', normalizedPath);
       
       // Fetch with authentication
@@ -377,6 +388,11 @@ export const FileCache = {
     console.log(`[FILE CACHE] Preloading ${filePaths.length} files for sandbox ${sandboxId}`);
     
     return Promise.all(filePaths.map(async (path) => {
+      // Handle Unicode escape sequences in paths
+      path = path.replace(/\\u([0-9a-fA-F]{4})/g, (_, hexCode) => {
+        return String.fromCharCode(parseInt(hexCode, 16));
+      });
+      
       const normalizedPath = normalizePath(path);
       const key = getCacheKey(sandboxId, path);
       
@@ -389,6 +405,8 @@ export const FileCache = {
       
       try {        
         const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
+        
+        // Properly encode the path parameter for UTF-8 support
         url.searchParams.append('path', normalizedPath);
         
         const response = await fetch(url.toString(), {
@@ -491,6 +509,11 @@ export async function getCachedFile(
     ? 'blob' 
     : (options.contentType || 'text');
   
+  // First ensure the file path has any Unicode escape sequences properly handled
+  filePath = filePath.replace(/\\u([0-9a-fA-F]{4})/g, (_, hexCode) => {
+    return String.fromCharCode(parseInt(hexCode, 16));
+  });
+  
   const key = getCacheKey(sandboxId, filePath);
   const startTime = performance.now();
   
@@ -535,7 +558,10 @@ export async function getCachedFile(
   
   try {
     const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
-    url.searchParams.append('path', normalizePath(filePath));
+    const normalizedPath = normalizePath(filePath);
+    
+    // Properly encode the path parameter for UTF-8 characters
+    url.searchParams.append('path', normalizedPath);
     
     const response = await fetch(url.toString(), {
       headers: {

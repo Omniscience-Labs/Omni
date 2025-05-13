@@ -124,7 +124,19 @@ function getFileUrl(sandboxId: string | undefined, path: string): string {
         path = `/workspace/${path.startsWith('/') ? path.substring(1) : path}`;
     }
 
+    // Handle any potential Unicode escape sequences
+    try {
+        // Replace escaped Unicode sequences with actual characters
+        path = path.replace(/\\u([0-9a-fA-F]{4})/g, (_, hexCode) => {
+            return String.fromCharCode(parseInt(hexCode, 16));
+        });
+    } catch (e) {
+        console.error('Error processing Unicode escapes in path:', e);
+    }
+
     const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
+
+    // Properly encode the path parameter for UTF-8 support
     url.searchParams.append('path', path);
 
     return url.toString();

@@ -9,9 +9,9 @@ import { FileCache } from '@/hooks/use-cached-file';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
 import {
-  extractPrimaryParam,
-  getToolIcon,
-  safeJsonParse,
+    extractPrimaryParam,
+    getToolIcon,
+    safeJsonParse,
 } from '@/components/thread/utils';
 
 // Define the set of tags whose raw XML should be hidden during streaming
