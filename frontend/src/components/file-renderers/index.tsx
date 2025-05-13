@@ -31,6 +31,8 @@ interface FileRendererProps {
     };
   };
   markdownRef?: React.RefObject<HTMLDivElement>;
+  onDownload?: () => void;
+  isDownloading?: boolean;
 }
 
 // Helper function to determine file type from extension
@@ -145,6 +147,8 @@ export function FileRenderer({
   className,
   project,
   markdownRef,
+  onDownload,
+  isDownloading,
 }: FileRendererProps) {
   const fileType = getFileTypeFromExtension(fileName);
   const language = getLanguageFromExtension(fileName);
@@ -177,7 +181,7 @@ export function FileRenderer({
   return (
     <div className={cn('w-full h-full', className)}>
       {fileType === 'binary' ? (
-        <BinaryRenderer url={binaryUrl || ''} fileName={fileName} />
+        <BinaryRenderer url={binaryUrl || ''} fileName={fileName} onDownload={onDownload} isDownloading={isDownloading} />
       ) : fileType === 'image' && binaryUrl ? (
         <ImageRenderer url={binaryUrl} />
       ) : fileType === 'pdf' && binaryUrl ? (

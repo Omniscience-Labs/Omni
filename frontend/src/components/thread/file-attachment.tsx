@@ -194,6 +194,8 @@ export function FileAttachment({
     const isHtmlOrMd = extension === 'html' || extension === 'htm' || extension === 'md' || extension === 'markdown';
     const isCsv = extension === 'csv' || extension === 'tsv';
     const isGridLayout = customStyle?.gridColumn === '1 / -1' || Boolean(customStyle && ('--attachment-height' in customStyle));
+    // Define isInlineMode early, before any hooks
+    const isInlineMode = !isGridLayout;
     const shouldShowPreview = (isHtmlOrMd || isCsv) && showPreview && collapsed === false;
 
     // Use the React Query hook to fetch file content
@@ -262,6 +264,33 @@ export function FileAttachment({
             );
         }
 
+        // Check for errors
+        if (imageError || hasError) {
+            return (
+                <button
+                    onClick={handleClick}
+                    className={cn(
+                        "group relative min-h-[54px] min-w-fit rounded-xl cursor-pointer",
+                        "border border-black/10 dark:border-white/10",
+                        "bg-black/5 dark:bg-black/20",
+                        "p-0 overflow-hidden",
+                        "flex flex-col items-center justify-center gap-1",
+                        isGridLayout ? "w-full" : "inline-block",
+                        className
+                    )}
+                    style={{
+                        maxWidth: "100%",
+                        height: isGridLayout ? imageHeight : 'auto',
+                        ...customStyle
+                    }}
+                    title={filename}
+                >
+                    <IconComponent className="h-6 w-6 text-red-500 mb-1" />
+                    <div className="text-xs text-red-500">Failed to load image</div>
+                </button>
+            );
+        }
+
         return (
             <button
                 onClick={handleClick}
@@ -293,12 +322,27 @@ export function FileAttachment({
                         objectPosition: "center",
                         objectFit: isGridLayout ? "cover" : "contain"
                     }}
-                    onLoad={() => { }}
+                    onLoad={() => {
+                        console.log("Image loaded successfully:", filename);
+                    }}
                     onError={(e) => {
-                        console.error('Image load error:', e);
+                        // Avoid logging the error for all instances of the same image
+                        console.error('Image load error for:', filename);
+
+                        // Only log details in dev environments to avoid console spam
+                        if (process.env.NODE_ENV === 'development') {
+                            console.error('Image URL:', sandboxId && session?.access_token ? imageUrl : fileUrl);
+
+                            // Check if the error is potentially due to authentication
+                            if (sandboxId && (!session || !session.access_token)) {
+                                console.error('Authentication issue: Missing session or token');
+                            }
+                        }
+
                         setHasError(true);
                         // If the image failed to load and we have a localPreviewUrl that's a blob URL, try using it directly
                         if (localPreviewUrl && typeof localPreviewUrl === 'string' && localPreviewUrl.startsWith('blob:')) {
+                            console.log('Falling back to localPreviewUrl for:', filename);
                             (e.target as HTMLImageElement).src = localPreviewUrl;
                         }
                     }}
@@ -424,30 +468,33 @@ export function FileAttachment({
         <button
             onClick={handleClick}
             className={cn(
-                "group flex rounded-xl transition-all duration-200 min-h-[54px] h-[54px] w-full overflow-hidden cursor-pointer",
+                "group flex rounded-xl transition-all duration-200 min-h-[54px] h-[54px] overflow-hidden cursor-pointer",
                 "border border-black/10 dark:border-white/10",
                 "bg-sidebar",
                 "text-left",
                 "pr-7", // Right padding for X button
+                isInlineMode
+                    ? "min-w-[170px] w-full sm:max-w-[300px] sm:w-fit" // Full width on mobile, constrained on larger screens
+                    : "min-w-[170px] max-w-[300px] w-fit", // Original constraints for grid layout
                 className
             )}
             style={safeStyle}
             title={filename}
         >
-            <div className="relative min-w-[54px] h-full aspect-square flex-shrink-0 bg-black/5 dark:bg-white/5">
+            <div className="relative min-w-[54px] w-[54px] h-full aspect-square flex-shrink-0 bg-black/5 dark:bg-white/5">
                 <div className="flex items-center justify-center h-full w-full">
                     <IconComponent className="h-5 w-5 text-black/60 dark:text-white/60" />
                 </div>
             </div>
 
-            <div className="flex-1 min-w-0 flex flex-col justify-center p-2 pl-3">
-                <div className="text-sm font-medium text-foreground truncate">
+            <div className="flex-1 min-w-0 flex flex-col justify-center p-2 pl-3 overflow-hidden">
+                <div className="text-sm font-medium text-foreground truncate max-w-full">
                     {filename}
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <span className="text-black/60 dark:text-white/60">{typeLabel}</span>
-                    <span className="text-black/40 dark:text-white/40">·</span>
-                    <span className="text-black/60 dark:text-white/60">{fileSize}</span>
+                <div className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                    <span className="text-black/60 dark:text-white/60 truncate">{typeLabel}</span>
+                    <span className="text-black/40 dark:text-white/40 flex-shrink-0">·</span>
+                    <span className="text-black/60 dark:text-white/60 flex-shrink-0">{fileSize}</span>
                 </div>
             </div>
         </button>
