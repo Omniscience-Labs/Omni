@@ -201,7 +201,7 @@ def collect_daytona_info():
     print_info("Then, generate an API key from 'Keys' menu")
     print_info("After that, go to Images (https://app.daytona.io/dashboard/images)")
     print_info("Click '+Create Image'")
-    print_info("Enter 'kortix/suna:0.1' as the image name")
+    print_info("Enter 'kortix/suna:0.1.2' as the image name")
     print_info("Set '/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf' as the Entrypoint")
     
     input("Press Enter to continue once you've completed these steps...")
@@ -450,6 +450,12 @@ def collect_search_api_keys():
 
 def collect_rapidapi_keys():
     """Collect RapidAPI key (optional)"""
+    print_info("To enable API services like LinkedIn, and others, you'll need a RapidAPI key")
+    print_info("Each service requires individual activation in your RapidAPI account:")
+    print_info("1. Locate the service's `base_url` in its corresponding file (e.g., https://linkedin-data-scraper.p.rapidapi.com in backend/agent/tools/data_providers/LinkedinProvider.py)")
+    print_info("2. Visit that specific API on the RapidAPI marketplace")
+    print_info("3. Subscribe to th`e service (many offer free tiers with limited requests)")
+    print_info("4. Once subscribed, the service will be available to your agent through the API Services tool")
     print_info("A RapidAPI key is optional for API services like LinkedIn")
     print_info("Visit https://rapidapi.com/ to get your API key if needed")
     print_info("You can leave this blank and add it later if desired")

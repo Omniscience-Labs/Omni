@@ -243,38 +243,38 @@ async def _cleanup_redis_response_list(agent_run_id: str):
     except Exception as e:
         logger.warning(f"Failed to set TTL on response list {response_list_key}: {str(e)}")
 
-async def restore_running_agent_runs():
-    """Mark agent runs that were still 'running' in the database as failed and clean up Redis resources."""
-    logger.info("Restoring running agent runs after server restart")
-    client = await db.client
-    running_agent_runs = await client.table('agent_runs').select('id').eq("status", "running").execute()
+# async def restore_running_agent_runs():
+#     """Mark agent runs that were still 'running' in the database as failed and clean up Redis resources."""
+#     logger.info("Restoring running agent runs after server restart")
+#     client = await db.client
+#     running_agent_runs = await client.table('agent_runs').select('id').eq("status", "running").execute()
 
-    for run in running_agent_runs.data:
-        agent_run_id = run['id']
-        logger.warning(f"Found running agent run {agent_run_id} from before server restart")
+#     for run in running_agent_runs.data:
+#         agent_run_id = run['id']
+#         logger.warning(f"Found running agent run {agent_run_id} from before server restart")
 
-        # Clean up Redis resources for this run
-        try:
-            # Clean up active run key
-            active_run_key = f"active_run:{instance_id}:{agent_run_id}"
-            await redis.delete(active_run_key)
+#         # Clean up Redis resources for this run
+#         try:
+#             # Clean up active run key
+#             active_run_key = f"active_run:{instance_id}:{agent_run_id}"
+#             await redis.delete(active_run_key)
 
-            # Clean up response list
-            response_list_key = f"agent_run:{agent_run_id}:responses"
-            await redis.delete(response_list_key)
+#             # Clean up response list
+#             response_list_key = f"agent_run:{agent_run_id}:responses"
+#             await redis.delete(response_list_key)
 
-            # Clean up control channels
-            control_channel = f"agent_run:{agent_run_id}:control"
-            instance_control_channel = f"agent_run:{agent_run_id}:control:{instance_id}"
-            await redis.delete(control_channel)
-            await redis.delete(instance_control_channel)
+#             # Clean up control channels
+#             control_channel = f"agent_run:{agent_run_id}:control"
+#             instance_control_channel = f"agent_run:{agent_run_id}:control:{instance_id}"
+#             await redis.delete(control_channel)
+#             await redis.delete(instance_control_channel)
 
-            logger.info(f"Cleaned up Redis resources for agent run {agent_run_id}")
-        except Exception as e:
-            logger.error(f"Error cleaning up Redis resources for agent run {agent_run_id}: {e}")
+#             logger.info(f"Cleaned up Redis resources for agent run {agent_run_id}")
+#         except Exception as e:
+#             logger.error(f"Error cleaning up Redis resources for agent run {agent_run_id}: {e}")
 
-        # Call stop_agent_run to handle status update and cleanup
-        await stop_agent_run(agent_run_id, error_message="Server restarted while agent was running")
+#         # Call stop_agent_run to handle status update and cleanup
+#         await stop_agent_run(agent_run_id, error_message="Server restarted while agent was running")
 
 async def check_for_active_project_agent_run(client, project_id: str):
     """

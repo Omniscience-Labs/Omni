@@ -3,29 +3,42 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Download, File } from 'lucide-react';
+import { Download, File, Loader } from 'lucide-react';
 
 interface BinaryRendererProps {
   url: string;
   fileName: string;
   className?: string;
+  onDownload?: () => void;
+  isDownloading?: boolean;
 }
 
 export function BinaryRenderer({
   url,
   fileName,
   className,
+  onDownload,
+  isDownloading = false,
 }: BinaryRendererProps) {
   const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
 
-  // Handle download
+  // Handle download - use external handler if provided, fallback to direct URL
   const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (onDownload) {
+      // Use the file-viewer's more robust download handler if provided
+      onDownload();
+    } else if (url) {
+      // Fallback to direct URL download (less robust)
+      console.log(`[BINARY RENDERER] Using fallback download for ${fileName}`);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName.split('/').pop() || 'file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      console.error('[BINARY RENDERER] No download URL or handler available');
+    }
   };
 
   return (
@@ -43,7 +56,7 @@ export function BinaryRenderer({
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold mb-2">{fileName}</h3>
+        <h3 className="text-lg font-semibold mb-2">{fileName.split('/').pop()}</h3>
         <p className="text-sm text-muted-foreground mb-6">
           This binary file cannot be previewed in the browser
         </p>
@@ -52,8 +65,13 @@ export function BinaryRenderer({
           variant="default"
           className="min-w-[150px]"
           onClick={handleDownload}
+          disabled={isDownloading}
         >
-          <Download className="h-4 w-4 mr-2" />
+          {isDownloading ? (
+            <Loader className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
           Download
         </Button>
       </div>

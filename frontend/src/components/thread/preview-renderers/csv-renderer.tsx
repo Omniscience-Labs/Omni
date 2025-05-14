@@ -47,7 +47,7 @@ export function CsvRenderer({
     return (
         <div className={cn('w-full h-full overflow-hidden', className)}>
             <ScrollArea className="w-full h-full">
-                <div className="p-2">
+                <div className="p-0">
                     <table className="w-full border-collapse text-sm">
                         <thead className="bg-muted sticky top-0">
                             <tr>

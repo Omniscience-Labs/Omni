@@ -46,8 +46,8 @@ CMD ["sh", "-c", "gunicorn api:app \
      --timeout 1800 \
      --graceful-timeout 600 \
      --keep-alive 1800 \
-     --max-requests 2000 \
-     --max-requests-jitter 400 \
+     --max-requests 0 \
+     --max-requests-jitter 0 \
      --forwarded-allow-ips '*' \
      --worker-connections $WORKER_CONNECTIONS \
      --worker-tmp-dir /dev/shm \

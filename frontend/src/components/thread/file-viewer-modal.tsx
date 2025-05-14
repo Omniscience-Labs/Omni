@@ -211,10 +211,16 @@ export function FileViewerModal({
       const isImageFile = FileCache.isImageFile(file.path);
       const isPdfFile = FileCache.isPdfFile(file.path);
 
+      // Check for Office documents and other binary files
+      const extension = file.path.split('.').pop()?.toLowerCase();
+      const isOfficeFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(extension || '');
+
       if (isImageFile) {
         console.log(`[FILE VIEWER][IMAGE DEBUG] Opening image file: ${file.path}`);
       } else if (isPdfFile) {
         console.log(`[FILE VIEWER] Opening PDF file: ${file.path}`);
+      } else if (isOfficeFile) {
+        console.log(`[FILE VIEWER] Opening Office document: ${file.path} (${extension})`);
       }
 
       // Clear previous state FIRST
@@ -236,8 +242,8 @@ export function FileViewerModal({
         // Start timer for performance logging
         const startTime = performance.now();
 
-        // For PDFs, always use blob content type
-        const contentType = isPdfFile ? 'blob' : FileCache.getContentTypeFromPath(file.path);
+        // For PDFs and Office documents, always use blob content type
+        const contentType = isPdfFile || isOfficeFile ? 'blob' : FileCache.getContentTypeFromPath(file.path);
 
         console.log(`[FILE VIEWER] Fetching content for ${file.path} with content type: ${contentType}`);
 
@@ -275,14 +281,14 @@ export function FileViewerModal({
             console.log(`[FILE VIEWER] Setting blob URL directly: ${content}`);
             setTextContentForRenderer(null);
             setBlobUrlForRenderer(content);
-          } else if (isPdfFile) {
-            // For PDFs, we should never get here as they should be handled as blobs
-            console.error(`[FILE VIEWER] Received PDF content as string instead of blob, length: ${content.length}`);
+          } else if (isPdfFile || isOfficeFile) {
+            // For PDFs and Office files, we should never get here as they should be handled as blobs
+            console.error(`[FILE VIEWER] Received binary file content as string instead of blob, length: ${content.length}`);
             console.log(`[FILE VIEWER] First 100 chars of content: ${content.substring(0, 100)}`);
 
             // Try one more time with explicit blob type and force refresh
-            console.log(`[FILE VIEWER] Retrying PDF fetch with explicit blob type and force refresh`);
-            const pdfBlob = await getCachedFile(
+            console.log(`[FILE VIEWER] Retrying binary file fetch with explicit blob type and force refresh`);
+            const binaryBlob = await getCachedFile(
               sandboxId,
               file.path,
               {
@@ -292,12 +298,12 @@ export function FileViewerModal({
               }
             );
 
-            if (typeof pdfBlob === 'string' && pdfBlob.startsWith('blob:')) {
-              console.log(`[FILE VIEWER] Successfully got blob URL on retry: ${pdfBlob}`);
+            if (typeof binaryBlob === 'string' && binaryBlob.startsWith('blob:')) {
+              console.log(`[FILE VIEWER] Successfully got blob URL on retry: ${binaryBlob}`);
               setTextContentForRenderer(null);
-              setBlobUrlForRenderer(pdfBlob);
+              setBlobUrlForRenderer(binaryBlob);
             } else {
-              throw new Error('Failed to load PDF in correct format after retry');
+              throw new Error('Failed to load binary file in correct format after retry');
             }
           } else {
             console.log(`[FILE VIEWER] Setting text content directly for renderer.`);
@@ -636,30 +642,32 @@ export function FileViewerModal({
         console.log(`[FILE VIEWER] Received cached content is string: ${typeof cachedFileContent === 'string'}`);
         console.log(`[FILE VIEWER] Received cached content starts with blob: ${typeof cachedFileContent === 'string' && cachedFileContent.startsWith('blob:')}`);
 
-        // Check if this is a PDF file
+        // Check if this is a PDF file or Office file
         const isPdfFile = FileCache.isPdfFile(selectedFilePath);
+        const extension = selectedFilePath.split('.').pop()?.toLowerCase();
+        const isOfficeFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(extension || '');
 
-        if (isPdfFile) {
-          // For PDFs, handle specially to ensure it's always a blob URL
+        if (isPdfFile || isOfficeFile) {
+          // For PDFs and Office files, handle specially to ensure it's always a blob URL
           if (typeof cachedFileContent === 'string' && cachedFileContent.startsWith('blob:')) {
-            console.log(`[FILE VIEWER] Using existing blob URL for PDF`);
+            console.log(`[FILE VIEWER] Using existing blob URL for binary file`);
             setBlobUrlForRenderer(cachedFileContent);
             setTextContentForRenderer(null);
           } else if (isBlob(cachedFileContent)) {
-            console.log(`[FILE VIEWER] Creating new blob URL from cached PDF blob`);
+            console.log(`[FILE VIEWER] Creating new blob URL from cached binary blob`);
             const url = URL.createObjectURL(cachedFileContent);
             setBlobUrlForRenderer(url);
             setTextContentForRenderer(null);
           } else {
-            // If we somehow got text content for a PDF, force a refresh with blob type
-            console.log(`[FILE VIEWER] Invalid PDF content type, forcing refresh with blob type`);
+            // If we somehow got text content for a binary file, force a refresh with blob type
+            console.log(`[FILE VIEWER] Invalid binary content type, forcing refresh with blob type`);
 
             // Force refresh with blob type
             (async () => {
               try {
-                console.log(`[FILE VIEWER] Explicitly fetching PDF as blob`);
+                console.log(`[FILE VIEWER] Explicitly fetching binary file as blob`);
 
-                const pdfContent = await getCachedFile(
+                const binaryContent = await getCachedFile(
                   sandboxId,
                   selectedFilePath,
                   {
@@ -669,17 +677,17 @@ export function FileViewerModal({
                   }
                 );
 
-                if (typeof pdfContent === 'string' && pdfContent.startsWith('blob:')) {
-                  console.log(`[FILE VIEWER] Received correct blob URL for PDF: ${pdfContent}`);
-                  setBlobUrlForRenderer(pdfContent);
+                if (typeof binaryContent === 'string' && binaryContent.startsWith('blob:')) {
+                  console.log(`[FILE VIEWER] Received correct blob URL for binary file: ${binaryContent}`);
+                  setBlobUrlForRenderer(binaryContent);
                   setTextContentForRenderer(null);
                 } else {
-                  console.error(`[FILE VIEWER] Failed to get correct PDF format after retry`);
-                  setContentError('Failed to load PDF in correct format');
+                  console.error(`[FILE VIEWER] Failed to get correct binary format after retry`);
+                  setContentError('Failed to load file in correct format');
                 }
               } catch (err) {
-                console.error(`[FILE VIEWER] Error loading PDF:`, err);
-                setContentError(`Failed to load PDF: ${err instanceof Error ? err.message : String(err)}`);
+                console.error(`[FILE VIEWER] Error loading binary file:`, err);
+                setContentError(`Failed to load file: ${err instanceof Error ? err.message : String(err)}`);
               } finally {
                 setIsLoadingContent(false);
               }
@@ -923,74 +931,90 @@ export function FileViewerModal({
     [selectedFilePath, isExportingPdf, isMarkdownFile],
   );
 
-  // Handle file download - Define after helpers
+  // Handle file download - streamlined for performance
   const handleDownload = async () => {
     if (!selectedFilePath || isDownloading) return;
 
     try {
       setIsDownloading(true);
-      console.log(`[FILE VIEWER] Starting download for: ${selectedFilePath}`);
 
-      // Get the file content from cache
-      const cacheKey = `${sandboxId}:${selectedFilePath}`;
-      const cachedContent = FileCache.get(cacheKey);
+      // Get file metadata
+      const fileName = selectedFilePath.split('/').pop() || 'file';
+      const mimeType = FileCache.getMimeTypeFromPath?.(selectedFilePath) || 'application/octet-stream';
 
-      if (!cachedContent) {
-        console.log(`[FILE VIEWER] Cache miss for download, fetching fresh content`);
-        // If not in cache, fetch it fresh
-        const content = await getCachedFile(
-          sandboxId,
-          selectedFilePath,
-          {
-            contentType: FileCache.getContentTypeFromPath(selectedFilePath),
-            force: true,
-            token: session?.access_token,
+      // Use rawContent if available
+      if (rawContent) {
+        let blob: Blob;
+
+        if (typeof rawContent === 'string') {
+          if (rawContent.startsWith('blob:')) {
+            // If it's a blob URL, get directly from server to avoid CORS issues
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(selectedFilePath)}`,
+              { headers: { 'Authorization': `Bearer ${session?.access_token}` } }
+            );
+
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+            blob = await response.blob();
+          } else {
+            // Text content
+            blob = new Blob([rawContent], { type: mimeType });
           }
-        );
-
-        if (!content) {
-          throw new Error('Failed to fetch file content');
+        } else if (rawContent instanceof Blob) {
+          // Already a blob
+          blob = rawContent;
+        } else {
+          // Unknown format, stringify
+          blob = new Blob([JSON.stringify(rawContent)], { type: 'application/json' });
         }
 
-        // Create a new blob URL for download
-        const downloadUrl = URL.createObjectURL(content);
-        console.log(`[FILE VIEWER] Created download URL: ${downloadUrl}`);
+        // Ensure correct MIME type
+        if (blob.type !== mimeType) {
+          blob = new Blob([blob], { type: mimeType });
+        }
 
-        // Create and trigger download
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = selectedFilePath.split('/').pop() || 'file';
-        document.body.appendChild(a);
-        a.click();
-
-        // Clean up
-        document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
-      } else {
-        console.log(`[FILE VIEWER] Using cached content for download`);
-        // If we have cached content, use it directly
-        const downloadUrl = URL.createObjectURL(cachedContent);
-        console.log(`[FILE VIEWER] Created download URL from cache: ${downloadUrl}`);
-
-        // Create and trigger download
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = selectedFilePath.split('/').pop() || 'file';
-        document.body.appendChild(a);
-        a.click();
-
-        // Clean up
-        document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
+        downloadBlob(blob, fileName);
+        return;
       }
 
-      toast.success('Download started');
+      // Get from server if no raw content
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(selectedFilePath)}`,
+        { headers: { 'Authorization': `Bearer ${session?.access_token}` } }
+      );
+
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      const blob = await response.blob();
+      const finalBlob = new Blob([blob], { type: mimeType });
+      downloadBlob(finalBlob, fileName);
+
     } catch (error) {
-      console.error('Download failed:', error);
+      console.error('[FILE VIEWER] Download error:', error);
       toast.error(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // Helper function to download a blob
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Track URL and schedule cleanup
+    activeDownloadUrls.current.add(url);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      activeDownloadUrls.current.delete(url);
+    }, 10000);
+
+    toast.success('Download started');
   };
 
   // Handle file upload - Define after helpers
@@ -1287,6 +1311,8 @@ export function FileViewerModal({
                     markdownRef={
                       isMarkdownFile(selectedFilePath) ? markdownRef : undefined
                     }
+                    onDownload={handleDownload}
+                    isDownloading={isDownloading}
                   />
                 </div>
               )}
