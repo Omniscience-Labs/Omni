@@ -16,6 +16,7 @@ import pytesseract
 from PIL import Image
 import io
 from utils.logger import logger
+from services.supabase import DBConnection
 
 #######################################################
 # Action model definitions
@@ -290,6 +291,7 @@ class BrowserAutomation:
         self.include_attributes = ["id", "href", "src", "alt", "aria-label", "placeholder", "name", "role", "title", "value"]
         self.screenshot_dir = os.path.join(os.getcwd(), "screenshots")
         os.makedirs(self.screenshot_dir, exist_ok=True)
+        self.db = DBConnection()  # Initialize DB connection
         
         # Register routes
         self.router.on_startup.append(self.startup)
@@ -615,18 +617,19 @@ class BrowserAutomation:
         try:
             page = await self.get_current_page()
             screenshot_bytes = await page.screenshot(type='jpeg', quality=60, full_page=False)
+
+            client = await self.db.client
             
-            # If we have storage credentials, upload to S3
-            if os.environ.get('SUPABASE_URL') and os.environ.get('SUPABASE_KEY'):
+            if client:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 random_id = random.randint(1000, 9999)
                 filename = f"screenshot_{timestamp}_{random_id}.jpg"
                 
-                result = await self.upload_to_storage(screenshot_bytes, filename)
+                logger.info(f"Attempting to upload screenshot: {filename}")
+                result = await self.upload_to_storage(client, screenshot_bytes, filename)
                 
-                # Verify the upload was successful if we got a URL
                 if isinstance(result, dict) and result.get("is_s3") and result.get("url"):
-                    if await self.verify_file_exists(filename):
+                    if await self.verify_file_exists(client, filename):
                         logger.info(f"Screenshot upload verified: {filename}")
                     else:
                         logger.error(f"Screenshot upload failed verification: {filename}")
@@ -634,38 +637,61 @@ class BrowserAutomation:
                 
                 return result
             else:
+                logger.warning("No Supabase client available, falling back to base64")
                 return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
+            logger.error(f"Error taking screenshot: {str(e)}")
             traceback.print_exc()
             return ""
         
-    async def upload_to_storage(self, file_bytes: bytes, filename: str) -> str:
+    async def upload_to_storage(self, client, file_bytes: bytes, filename: str) -> str:
         """Upload file to Supabase Storage and return the URL"""
         try:
-            supabase_url = os.environ.get('SUPABASE_URL')
-            supabase_key = os.environ.get('SUPABASE_KEY')
-            
-            from supabase import create_client, Client
-            supabase_client: Client = create_client(supabase_url, supabase_key)
             bucket_name = 'screenshots'
             
-            buckets = supabase_client.storage.list_buckets()
+            buckets = client.storage.list_buckets()
             if not any(bucket.name == bucket_name for bucket in buckets):
-                supabase_client.storage.create_bucket(bucket_name)
+                logger.info(f"Creating bucket: {bucket_name}")
+                try:
+                    client.storage.create_bucket(bucket_name)
+                    logger.info("Bucket created successfully")
+                except Exception as e:
+                    logger.error(f"Failed to create bucket: {str(e)}")
+                    raise
 
-            result = supabase_client.storage.from_(bucket_name).upload(
-                path=filename,
-                file=file_bytes,
-                file_options={"content-type": "image/jpeg"}
-            )
+            logger.info(f"Uploading file: {filename}")
+            try:
+                result = client.storage.from_(bucket_name).upload(
+                    path=filename,
+                    file=file_bytes,
+                    file_options={"content-type": "image/jpeg"}
+                )
+                logger.info("File upload successful")
+            except Exception as e:
+                logger.error(f"Failed to upload file: {str(e)}")
+                raise
             
-            # Get the public URL
-            file_url = supabase_client.storage.from_(bucket_name).get_public_url(filename)
+            file_url = client.storage.from_(bucket_name).get_public_url(filename)
+            logger.info(f"Generated URL: {file_url}")
             
             return {"url": file_url, "is_s3": True}
         except Exception as e:
+            logger.error(f"Error in upload_to_storage: {str(e)}")
             traceback.print_exc()
             return base64.b64encode(file_bytes).decode('utf-8')
+
+    async def verify_file_exists(self, client, filename: str) -> bool:
+        """Verify that a file exists in the storage bucket"""
+        logger.info(f"=== Verifying file exists: {filename} ===")
+        try:
+            bucket_name = 'screenshots'
+            files = client.storage.from_(bucket_name).list()
+            exists = any(f['name'] == filename for f in files)
+            logger.info(f"File verification result: {'exists' if exists else 'not found'}")
+            return exists
+        except Exception as e:
+            logger.error(f"Error verifying file: {str(e)}")
+            return False
     
     async def save_screenshot_to_file(self) -> str:
         """Take a screenshot and save to file, returning the path"""
@@ -708,20 +734,32 @@ class BrowserAutomation:
         """Helper method to get updated browser state after any action
         Returns a tuple of (dom_state, screenshot, elements, metadata)
         """
+        logger.info(f"=== Starting get_updated_browser_state for action: {action_name} ===")
         try:
             # Wait a moment for any potential async processes to settle
+            logger.info("Waiting for async processes to settle")
             await asyncio.sleep(0.5)
             
             # Get updated state
+            logger.info("Getting current DOM state")
             dom_state = await self.get_current_dom_state()
+            logger.info(f"DOM state retrieved - URL: {dom_state.url}, Title: {dom_state.title}")
+            
+            logger.info("Taking screenshot")
             screenshot = await self.take_screenshot()
+            logger.info(f"Screenshot result type: {'dict' if isinstance(screenshot, dict) else 'base64 string'}")
+            if isinstance(screenshot, dict) and screenshot.get("url"):
+                logger.info(f"Screenshot URL: {screenshot['url']}")
             
             # Format elements for output
+            logger.info("Formatting clickable elements")
             elements = dom_state.element_tree.clickable_elements_to_string(
                 include_attributes=self.include_attributes
             )
+            logger.info(f"Found {len(dom_state.selector_map)} clickable elements")
             
             # Collect additional metadata
+            logger.info("Collecting metadata")
             page = await self.get_current_page()
             metadata = {}
             
@@ -747,8 +785,9 @@ class BrowserAutomation:
             
             metadata['interactive_elements'] = interactive_elements
             
-            # Get viewport dimensions - Fix syntax error in JavaScript
+            # Get viewport dimensions
             try:
+                logger.info("Getting viewport dimensions")
                 viewport = await page.evaluate("""
                 () => {
                     return {
@@ -759,21 +798,24 @@ class BrowserAutomation:
                 """)
                 metadata['viewport_width'] = viewport.get('width', 0)
                 metadata['viewport_height'] = viewport.get('height', 0)
+                logger.info(f"Viewport dimensions: {metadata['viewport_width']}x{metadata['viewport_height']}")
             except Exception as e:
-                print(f"Error getting viewport dimensions: {e}")
+                logger.error(f"Error getting viewport dimensions: {e}")
                 metadata['viewport_width'] = 0
                 metadata['viewport_height'] = 0
             
             # Extract OCR text from screenshot if available
             ocr_text = ""
             if screenshot:
+                logger.info("Extracting OCR text from screenshot")
                 ocr_text = await self.extract_ocr_text_from_screenshot(screenshot)
                 metadata['ocr_text'] = ocr_text
+                logger.info(f"OCR text length: {len(ocr_text)} characters")
             
-            print(f"Got updated state after {action_name}: {len(dom_state.selector_map)} elements")
+            logger.info(f"=== Completed get_updated_browser_state for {action_name} ===")
             return dom_state, screenshot, elements, metadata
         except Exception as e:
-            print(f"Error getting updated state after {action_name}: {e}")
+            logger.error(f"Error in get_updated_browser_state for {action_name}: {e}")
             traceback.print_exc()
             # Return empty values in case of error
             return None, "", "", {}
