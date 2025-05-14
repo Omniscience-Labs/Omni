@@ -15,6 +15,7 @@ import traceback
 import pytesseract
 from PIL import Image
 import io
+from utils.logger import logger
 
 #######################################################
 # Action model definitions
@@ -259,15 +260,16 @@ class BrowserActionResult(BaseModel):
     url: Optional[str] = None
     title: Optional[str] = None
     elements: Optional[str] = None  # Formatted string of clickable elements
-    screenshot_base64: Optional[str] = None
+    screenshot_base64: Optional[str] = None  # For backward compatibility
+    screenshot_url: Optional[str] = None 
     pixels_above: int = 0
     pixels_below: int = 0
     content: Optional[str] = None
-    ocr_text: Optional[str] = None  # Added field for OCR text
+    ocr_text: Optional[str] = None
     
     # Additional metadata
-    element_count: int = 0  # Number of interactive elements found
-    interactive_elements: Optional[List[Dict[str, Any]]] = None  # Simplified list of interactive elements
+    element_count: int = 0
+    interactive_elements: Optional[List[Dict[str, Any]]] = None
     viewport_width: Optional[int] = None
     viewport_height: Optional[int] = None
     
@@ -609,15 +611,61 @@ class BrowserAutomation:
             )
     
     async def take_screenshot(self) -> str:
-        """Take a screenshot and return as base64 encoded string"""
+        """Take a screenshot and return as base64 encoded string or S3 URL"""
         try:
             page = await self.get_current_page()
             screenshot_bytes = await page.screenshot(type='jpeg', quality=60, full_page=False)
-            return base64.b64encode(screenshot_bytes).decode('utf-8')
+            
+            # If we have storage credentials, upload to S3
+            if os.environ.get('SUPABASE_URL') and os.environ.get('SUPABASE_KEY'):
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                random_id = random.randint(1000, 9999)
+                filename = f"screenshot_{timestamp}_{random_id}.jpg"
+                
+                result = await self.upload_to_storage(screenshot_bytes, filename)
+                
+                # Verify the upload was successful if we got a URL
+                if isinstance(result, dict) and result.get("is_s3") and result.get("url"):
+                    if await self.verify_file_exists(filename):
+                        logger.info(f"Screenshot upload verified: {filename}")
+                    else:
+                        logger.error(f"Screenshot upload failed verification: {filename}")
+                        return base64.b64encode(screenshot_bytes).decode('utf-8')
+                
+                return result
+            else:
+                return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
-            print(f"Error taking screenshot: {e}")
-            # Return an empty string rather than failing
+            traceback.print_exc()
             return ""
+        
+    async def upload_to_storage(self, file_bytes: bytes, filename: str) -> str:
+        """Upload file to Supabase Storage and return the URL"""
+        try:
+            supabase_url = os.environ.get('SUPABASE_URL')
+            supabase_key = os.environ.get('SUPABASE_KEY')
+            
+            from supabase import create_client, Client
+            supabase_client: Client = create_client(supabase_url, supabase_key)
+            bucket_name = 'screenshots'
+            
+            buckets = supabase_client.storage.list_buckets()
+            if not any(bucket.name == bucket_name for bucket in buckets):
+                supabase_client.storage.create_bucket(bucket_name)
+
+            result = supabase_client.storage.from_(bucket_name).upload(
+                path=filename,
+                file=file_bytes,
+                file_options={"content-type": "image/jpeg"}
+            )
+            
+            # Get the public URL
+            file_url = supabase_client.storage.from_(bucket_name).get_public_url(filename)
+            
+            return {"url": file_url, "is_s3": True}
+        except Exception as e:
+            traceback.print_exc()
+            return base64.b64encode(file_bytes).decode('utf-8')
     
     async def save_screenshot_to_file(self) -> str:
         """Take a screenshot and save to file, returning the path"""
@@ -731,12 +779,19 @@ class BrowserAutomation:
             return None, "", "", {}
 
     def build_action_result(self, success: bool, message: str, dom_state, screenshot: str, 
-                              elements: str, metadata: dict, error: str = "", content: str = None,
-                              fallback_url: str = None) -> BrowserActionResult:
+                      elements: str, metadata: dict, error: str = "", content: str = None,
+                      fallback_url: str = None) -> BrowserActionResult:
         """Helper method to build a consistent BrowserActionResult"""
-        # Ensure elements is never None to avoid display issues
         if elements is None:
             elements = ""
+            
+        screenshot_base64 = None
+        screenshot_url = None
+        
+        if isinstance(screenshot, dict) and screenshot.get("is_s3"):
+            screenshot_url = screenshot.get("url")
+        else:
+            screenshot_base64 = screenshot
             
         return BrowserActionResult(
             success=success,
@@ -745,7 +800,8 @@ class BrowserAutomation:
             url=dom_state.url if dom_state else fallback_url or "",
             title=dom_state.title if dom_state else "",
             elements=elements,
-            screenshot_base64=screenshot,
+            screenshot_base64=screenshot_base64,
+            screenshot_url=screenshot_url,
             pixels_above=dom_state.pixels_above if dom_state else 0,
             pixels_below=dom_state.pixels_below if dom_state else 0,
             content=content,
