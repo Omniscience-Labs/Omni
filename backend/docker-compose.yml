@@ -73,6 +73,11 @@ services:
           cpus: '1'
           memory: 8G
 
+  rabbitmq:
+    image: rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+
 networks:
   app-network:
     driver: bridge
