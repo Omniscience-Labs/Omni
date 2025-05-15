@@ -17,7 +17,7 @@ from services import redis
 from agent.run import run_agent
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
 from utils.logger import logger
-from services.billing import check_billing_status
+from services.billing import check_billing_status, can_use_model
 from utils.config import config
 from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
@@ -397,6 +397,10 @@ async def start_agent(
     thread_data = thread_result.data[0]
     project_id = thread_data.get('project_id')
     account_id = thread_data.get('account_id')
+
+    can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+    if not can_use:
+        raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
 
     can_run, message, subscription = await check_billing_status(client, account_id)
     if not can_run:
@@ -917,6 +921,10 @@ async def initiate_agent_with_files(
     logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
     account_id = user_id # In Basejump, personal account_id is the same as user_id
+    
+    can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+    if not can_use:
+        raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
 
     can_run, message, subscription = await check_billing_status(client, account_id)
     if not can_run:

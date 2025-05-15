@@ -13,12 +13,37 @@ from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
-
+from utils.constants import MODEL_ACCESS_TIERS
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
+
+MODEL_NAME_ALIASES = {
+    # Short names to full names
+    "sonnet-3.7": "anthropic/claude-3-7-sonnet-latest",
+    "gpt-4.1": "openai/gpt-4.1-2025-04-14",
+    "gpt-4o": "openai/gpt-4o",
+    "gpt-4-turbo": "openai/gpt-4-turbo",
+    "gpt-4": "openai/gpt-4",
+    "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview",
+    "grok-3": "xai/grok-3-fast-latest",
+    "deepseek": "openrouter/deepseek/deepseek-chat",
+    "grok-3-mini": "xai/grok-3-mini-fast-beta",
+    "qwen3": "openrouter/qwen/qwen3-235b-a22b", 
+
+    # Also include full names as keys to ensure they map to themselves
+    "anthropic/claude-3-7-sonnet-latest": "anthropic/claude-3-7-sonnet-latest",
+    "openai/gpt-4.1-2025-04-14": "openai/gpt-4.1-2025-04-14",
+    "openai/gpt-4o": "openai/gpt-4o",
+    "openai/gpt-4-turbo": "openai/gpt-4-turbo",
+    "openai/gpt-4": "openai/gpt-4",
+    "openrouter/google/gemini-2.5-flash-preview": "openrouter/google/gemini-2.5-flash-preview",
+    "xai/grok-3-fast-latest": "xai/grok-3-fast-latest",
+    "deepseek/deepseek-chat": "openrouter/deepseek/deepseek-chat",
+    "xai/grok-3-mini-fast-beta": "xai/grok-3-mini-fast-beta",
+}
 
 SUBSCRIPTION_TIERS = {
     config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60},
@@ -197,6 +222,49 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
         total_seconds += (end_time - start_time)
     
     return total_seconds / 60  # Convert to minutes
+
+async def get_allowed_models_for_user(client, user_id: str):
+    """
+    Get the list of models allowed for a user based on their subscription tier.
+    
+    Returns:
+        List of model names allowed for the user's subscription tier.
+    """
+
+    subscription = await get_user_subscription(user_id)
+    tier_name = 'free'
+    
+    if subscription:
+        price_id = None
+        if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
+            price_id = subscription['items']['data'][0]['price']['id']
+        else:
+            price_id = subscription.get('price_id', config.STRIPE_FREE_TIER_ID)
+        
+        # Get tier info for this price_id
+        tier_info = SUBSCRIPTION_TIERS.get(price_id)
+        if tier_info:
+            tier_name = tier_info['name']
+    
+    # Return allowed models for this tier
+    return MODEL_ACCESS_TIERS.get(tier_name, MODEL_ACCESS_TIERS['free'])  # Default to free tier if unknown
+
+
+async def can_use_model(client, user_id: str, model_name: str):
+    if config.ENV_MODE == EnvMode.LOCAL:
+        logger.info("Running in local development mode - billing checks are disabled")
+        return True, "Local development mode - billing disabled", {
+            "price_id": "local_dev",
+            "plan_name": "Local Development",
+            "minutes_limit": "no limit"
+        }
+        
+    allowed_models = await get_allowed_models_for_user(client, user_id)
+    resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
+    if resolved_model in allowed_models:
+        return True, "Model access allowed", allowed_models
+    
+    return False, f"Your current subscription plan does not include access to {model_name}. Please upgrade your subscription or choose from your available models: {', '.join(allowed_models)}", allowed_models
 
 async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optional[Dict]]:
     """
