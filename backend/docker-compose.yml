@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   api:
@@ -16,6 +16,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - app-network
     environment:
@@ -23,6 +25,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
       - LOG_LEVEL=INFO
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
     logging:
       driver: "json-file"
       options:
@@ -31,10 +35,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '14'
+          cpus: "14"
           memory: 48G
         reservations:
-          cpus: '8'
+          cpus: "8"
           memory: 32G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -42,6 +46,84 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m dramatiq run_agent_background
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./worker-1-logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - LOG_LEVEL=INFO
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "14"
+          memory: 48G
+        reservations:
+          cpus: "8"
+          memory: 32G
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m dramatiq run_agent_background
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./worker-2-logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - LOG_LEVEL=INFO
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "14"
+          memory: 48G
+        reservations:
+          cpus: "8"
+          memory: 32G
 
   redis:
     image: redis:7-alpine
@@ -67,10 +149,39 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 12G
         reservations:
-          cpus: '1'
+          cpus: "1"
+          memory: 8G
+
+  rabbitmq:
+    image: rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 12G
+        reservations:
+          cpus: "1"
           memory: 8G
 
 networks:
@@ -79,3 +190,4 @@ networks:
 
 volumes:
   redis_data:
+  rabbitmq_data:
