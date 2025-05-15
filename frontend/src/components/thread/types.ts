@@ -9,6 +9,7 @@ export type ThreadParams = {
 
 // Unified Message Interface matching the backend/database schema
 export interface UnifiedMessage {
+  sequence?: number;
   message_id: string | null; // Can be null for transient stream events (chunks, unsaved statuses)
   thread_id: string;
   type: 'user' | 'assistant' | 'tool' | 'system' | 'status' | 'browser_state'; // Add 'system' if used

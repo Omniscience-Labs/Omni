@@ -744,8 +744,8 @@ async def run_agent_background(
 
             # Store response in Redis list and publish notification
             response_json = json.dumps(response)
-            await redis.rpush(response_list_key, response_json)
-            await redis.publish(response_channel, "new")
+            asyncio.create_task(redis.rpush(response_list_key, response_json))
+            asyncio.create_task(redis.publish(response_channel, "new"))
             total_responses += 1
 
             # Check for agent-signaled completion or error
