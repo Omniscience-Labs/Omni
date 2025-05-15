@@ -32,3 +32,4 @@ pydantic
 tavily-python>=0.5.4
 pytesseract==0.3.13
 stripe>=7.0.0
+dramatiq[rabbitmq]>=1.17.1
