@@ -86,6 +86,7 @@ Suna can be self-hosted on your own infrastructure. Follow these steps to set up
 You'll need the following components:
 - A Supabase project for database and authentication
 - Redis database for caching and session management
+- RabbitMQ message queue for orchestrating worker tasks
 - Daytona sandbox for secure agent execution
 - Python 3.11 for the API backend
 - API keys for LLM providers (Anthropic, OpenRouter)
@@ -99,9 +100,9 @@ You'll need the following components:
    - Save your project's API URL, anon key, and service role key for later use
    - Install the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
 
-2. **Redis**: 
+2. **Redis and RabbitMQ**:
    - Go to the `/backend` folder
-   - Run `docker compose up redis`
+   - Run `docker compose up redis rabbitmq`
 
 3. **Daytona**:
    - Create an account on [Daytona](https://app.daytona.io/)
@@ -156,6 +157,9 @@ REDIS_HOST=your_redis_host
 REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password
 REDIS_SSL=True  # Set to False for local Redis without SSL
+
+RABBITMQ_HOST=your_rabbitmq_host # Set to localhost if running locally
+RABBITMQ_PORT=5672
 
 # Daytona credentials from step 3
 DAYTONA_API_KEY=your_daytona_api_key
@@ -232,17 +236,27 @@ cd backend
 poetry run python3.11 api.py
 ```
 
+   In one more terminal, start the backend worker:
+```bash
+cd backend
+poetry run python3.11 -m dramatiq run_agent_background
+```
+
 5-6. **Docker Compose Alternative**:
 
 Before running with Docker Compose, make sure your environment files are properly configured:
 - In `backend/.env`, set all the required environment variables as described above
   - For Redis configuration, use `REDIS_HOST=redis` instead of localhost
+  - For RabbitMQ, use `RABBITMQ_HOST=rabbitmq` instead of localhost
   - The Docker Compose setup will automatically set these Redis environment variables:
     ```
     REDIS_HOST=redis
     REDIS_PORT=6379
     REDIS_PASSWORD=
     REDIS_SSL=False
+
+    RABBITMQ_HOST=rabbitmq
+    RABBITMQ_PORT=5672
     ```
 - In `frontend/.env.local`, make sure to set `NEXT_PUBLIC_BACKEND_URL="http://backend:8000/api"` to use the container name
 
@@ -257,7 +271,7 @@ If you're building the images locally instead of using pre-built ones:
 docker compose up
 ```
 
-The Docker Compose setup includes a Redis service that will be used by the backend automatically.
+The Docker Compose setup includes Redis and RabbitMQ services that will be used by the backend automatically.
 
 
 7. **Access Suna**:
