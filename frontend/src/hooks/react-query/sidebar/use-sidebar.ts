@@ -1,0 +1,129 @@
+'use client';
+
+import { createMutationHook, createQueryKeys } from "@/hooks/use-query";
+import { getProjects, getThreads, Project, Thread, deleteThread } from "@/lib/api";
+import { createQueryHook } from '@/hooks/use-query';
+import { threadKeys } from "./keys";
+import { projectKeys } from "./keys";
+
+export const useProjects = createQueryHook(
+  projectKeys.lists(),
+  async () => {
+    const data = await getProjects();
+    return data as Project[];
+  },
+  {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  }
+);
+
+export const useThreads = createQueryHook(
+  threadKeys.lists(),
+  async () => {
+    const data = await getThreads();
+    return data as Thread[];
+  },
+  {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  }
+);
+
+interface DeleteThreadVariables {
+  threadId: string;
+  isNavigateAway?: boolean;
+}
+
+export const useDeleteThread = createMutationHook(
+  async ({ threadId }: DeleteThreadVariables) => {
+    return await deleteThread(threadId);
+  },
+  {
+    onSuccess: () => {
+    },
+  }
+);
+
+interface DeleteMultipleThreadsVariables {
+  threadIds: string[];
+  onProgress?: (completed: number, total: number) => void;
+}
+
+export const useDeleteMultipleThreads = createMutationHook(
+  async ({ threadIds, onProgress }: DeleteMultipleThreadsVariables) => {
+    let completedCount = 0;
+    const results = await Promise.all(
+      threadIds.map(async (threadId) => {
+        try {
+          const result = await deleteThread(threadId);
+          completedCount++;
+          onProgress?.(completedCount, threadIds.length);
+          return { success: true, threadId };
+        } catch (error) {
+          return { success: false, threadId, error };
+        }
+      })
+    );
+    
+    return {
+      successful: results.filter(r => r.success).map(r => r.threadId),
+      failed: results.filter(r => !r.success).map(r => r.threadId),
+    };
+  },
+  {
+    onSuccess: () => {
+    },
+  }
+);
+
+export type ThreadWithProject = {
+  threadId: string;
+  projectId: string;
+  projectName: string;
+  url: string;
+  updatedAt: string;
+};
+
+export const processThreadsWithProjects = (
+  threads: Thread[],
+  projects: Project[]
+): ThreadWithProject[] => {
+  const projectsById = new Map<string, Project>();
+  projects.forEach((project) => {
+    projectsById.set(project.id, project);
+  });
+
+  const threadsWithProjects: ThreadWithProject[] = [];
+
+  for (const thread of threads) {
+    const projectId = thread.project_id;
+    if (!projectId) continue;
+
+    const project = projectsById.get(projectId);
+    if (!project) {
+      console.log(
+        `❌ Thread ${thread.thread_id} has project_id=${projectId} but no matching project found`,
+      );
+      continue;
+    }
+    threadsWithProjects.push({
+      threadId: thread.thread_id,
+      projectId: projectId,
+      projectName: project.name || 'Unnamed Project',
+      url: `/agents/${thread.thread_id}`,
+      updatedAt:
+        thread.updated_at || project.updated_at || new Date().toISOString(),
+    });
+  }
+
+  return sortThreads(threadsWithProjects);
+};
+
+export const sortThreads = (
+  threadsList: ThreadWithProject[],
+): ThreadWithProject[] => {
+  return [...threadsList].sort((a, b) => {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+};
