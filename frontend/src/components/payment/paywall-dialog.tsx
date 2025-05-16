@@ -58,7 +58,7 @@ export const PaywallDialog: React.FC<PaywallDialogProps> = ({
       strayBackdrops.forEach(element => element.remove());
     };
   }, []);
-
+  
   useEffect(() => {
     if (!open) {
       document.body.classList.remove('overflow-hidden');
