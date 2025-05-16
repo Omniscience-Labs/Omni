@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
 import { ModelSelector } from './model-selector';
+import { SubscriptionStatus } from './_use-model-selection';
+import { isLocalMode } from '@/lib/config';
 
 interface MessageInputProps {
   value: string;
@@ -30,7 +32,7 @@ interface MessageInputProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   modelOptions: any[];
-  subscriptionStatus: string;
+  subscriptionStatus: SubscriptionStatus;
   canAccessModel: (model: string) => boolean;
 }
 
@@ -140,7 +142,9 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               selectedModel={selectedModel}
               onModelChange={onModelChange}
               modelOptions={modelOptions}
+              subscriptionStatus={subscriptionStatus}
               canAccessModel={canAccessModel}
+              initialAutoSelect={!isLocalMode()}
             />
             <Button
               type="submit"

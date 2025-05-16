@@ -282,7 +282,7 @@ export function NavUserWithTeams({
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
                   <Link href="/settings/billing">
-                    <CreditCard className="mr-2 h-4 w-4" />
+                    <CreditCard className="h-4 w-4" />
                     Billing
                   </Link>
                 </DropdownMenuItem>
@@ -296,15 +296,15 @@ export function NavUserWithTeams({
                   onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 >
                   <div className="flex items-center gap-2">
-                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                     <span>Theme</span>
                   </div>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
+              <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10' onClick={handleLogout}>
+                <LogOut className="h-4 w-4 text-destructive" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
