@@ -12,6 +12,20 @@ services:
       timeout: 5s
       retries: 3
 
+  rabbitmq:
+    image: rabbitmq
+    # ports:
+    #   - "127.0.0.1:5672:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
@@ -28,6 +42,8 @@ services:
       - REDIS_SSL=False
     depends_on:
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   frontend:
@@ -46,3 +62,4 @@ services:
 
 volumes:
   redis-data:
+  rabbitmq_data:
