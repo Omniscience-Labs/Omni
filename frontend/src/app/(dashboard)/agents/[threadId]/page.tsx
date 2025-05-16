@@ -3,37 +3,19 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowDown,
-  CheckCircle,
-  CircleDashed,
   AlertTriangle,
-  Info,
-  File,
-  ChevronRight,
 } from 'lucide-react';
 import {
-  addUserMessage,
-  startAgent,
-  stopAgent,
-  getAgentRuns,
-  getMessages,
-  getProject,
-  getThread,
-  updateProject,
+  BillingError,
   Project,
   Message as BaseApiMessageType,
-  BillingError,
-  checkBillingStatus,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ChatInput } from '@/components/thread/chat-input/chat-input';
 import { FileViewerModal } from '@/components/thread/file-viewer-modal';
 import { SiteHeader } from '@/components/thread/thread-site-header';
@@ -58,7 +40,11 @@ import {
 import {
   safeJsonParse,
 } from '@/components/thread/utils';
-
+import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
+import { useAddUserMessageMutation, useMessagesQuery } from '@/hooks/react-query/threads/use-messages';
+import { useProjectQuery } from '@/hooks/react-query/threads/use-project';
+import { useAgentRunsQuery, useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
+import { useBillingStatusQuery } from '@/hooks/react-query/threads/use-billing-status';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -135,6 +121,18 @@ export default function ThreadPage({
 
   // Add debug mode state - check for debug=true in URL
   const [debugMode, setDebugMode] = useState(false);
+
+  const threadQuery = useThreadQuery(threadId);
+  const messagesQuery = useMessagesQuery(threadId);
+  const projectId = threadQuery.data?.project_id || '';
+  const projectQuery = useProjectQuery(projectId);
+  const agentRunsQuery = useAgentRunsQuery(threadId);
+  const billingStatusQuery = useBillingStatusQuery(); 
+
+  const addUserMessageMutation = useAddUserMessageMutation();
+  const startAgentMutation = useStartAgentMutation();
+  const stopAgentMutation = useStopAgentMutation();
+
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -356,89 +354,86 @@ export default function ThreadPage({
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
+  // Effect to load initial data using React Query
   useEffect(() => {
     let isMounted = true;
 
-    async function loadData() {
+    async function initializeData() {
       if (!initialLoadCompleted.current) setIsLoading(true);
       setError(null);
 
       try {
         if (!threadId) throw new Error('Thread ID is required');
 
-        const threadData = await getThread(threadId).catch((err) => {
-          throw new Error('Failed to load thread data: ' + err.message);
-        });
+        // Check if we have thread data
+        if (threadQuery.isError) {
+          throw new Error('Failed to load thread data: ' + threadQuery.error);
+        }
 
         if (!isMounted) return;
 
-        if (threadData?.project_id) {
-          const projectData = await getProject(threadData.project_id);
-          if (isMounted && projectData) {
-            // Set project data
-            setProject(projectData);
+        // Process project data when available
+        if (projectQuery.data) {
+          // Set project data
+          setProject(projectQuery.data);
 
-            // Make sure sandbox ID is set correctly
-            if (typeof projectData.sandbox === 'string') {
-              setSandboxId(projectData.sandbox);
-            } else if (projectData.sandbox?.id) {
-              setSandboxId(projectData.sandbox.id);
-            }
+          // Make sure sandbox ID is set correctly
+          if (typeof projectQuery.data.sandbox === 'string') {
+            setSandboxId(projectQuery.data.sandbox);
+          } else if (projectQuery.data.sandbox?.id) {
+            setSandboxId(projectQuery.data.sandbox.id);
+          }
 
-            setProjectName(projectData.name || '');
+          setProjectName(projectQuery.data.name || '');
+        }
+
+        // Process messages data when available
+        if (messagesQuery.data && !messagesLoadedRef.current) {
+          // Map API message type to UnifiedMessage type
+          const unifiedMessages = (messagesQuery.data || [])
+            .filter((msg) => msg.type !== 'status')
+            .map((msg: ApiMessageType) => ({
+              message_id: msg.message_id || null,
+              thread_id: msg.thread_id || threadId,
+              type: (msg.type || 'system') as UnifiedMessage['type'],
+              is_llm_message: Boolean(msg.is_llm_message),
+              content: msg.content || '',
+              metadata: msg.metadata || '{}',
+              created_at: msg.created_at || new Date().toISOString(),
+              updated_at: msg.updated_at || new Date().toISOString(),
+            }));
+
+          setMessages(unifiedMessages);
+          console.log('[PAGE] Loaded Messages (excluding status, keeping browser_state):', unifiedMessages.length);
+          messagesLoadedRef.current = true;
+
+          if (!hasInitiallyScrolled.current) {
+            scrollToBottom('auto');
+            hasInitiallyScrolled.current = true;
           }
         }
 
-        if (!messagesLoadedRef.current) {
-          const messagesData = await getMessages(threadId);
-          if (isMounted) {
-            // Map API message type to UnifiedMessage type
-            const unifiedMessages = (messagesData || [])
-              .filter((msg) => msg.type !== 'status')
-              .map((msg: ApiMessageType) => ({
-                message_id: msg.message_id || null,
-                thread_id: msg.thread_id || threadId,
-                type: (msg.type || 'system') as UnifiedMessage['type'],
-                is_llm_message: Boolean(msg.is_llm_message),
-                content: msg.content || '',
-                metadata: msg.metadata || '{}',
-                created_at: msg.created_at || new Date().toISOString(),
-                updated_at: msg.updated_at || new Date().toISOString(),
-              }));
+        // Check for active agent runs
+        if (agentRunsQuery.data && !agentRunsCheckedRef.current && isMounted) {
+          console.log('[PAGE] Checking for active agent runs...');
+          agentRunsCheckedRef.current = true;
 
-            setMessages(unifiedMessages);
-            console.log('[PAGE] Loaded Messages (excluding status, keeping browser_state):', unifiedMessages.length);
-            messagesLoadedRef.current = true;
-
-            if (!hasInitiallyScrolled.current) {
-              scrollToBottom('auto');
-              hasInitiallyScrolled.current = true;
-            }
-          }
-        }
-
-        if (!agentRunsCheckedRef.current && isMounted) {
-          try {
-            console.log('[PAGE] Checking for active agent runs...');
-            const agentRuns = await getAgentRuns(threadId);
-            agentRunsCheckedRef.current = true;
-
-            const activeRun = agentRuns.find((run) => run.status === 'running');
-            if (activeRun && isMounted) {
-              console.log('[PAGE] Found active run on load:', activeRun.id);
-              setAgentRunId(activeRun.id);
-            } else {
-              console.log('[PAGE] No active agent runs found');
-              if (isMounted) setAgentStatus('idle');
-            }
-          } catch (err) {
-            console.error('[PAGE] Error checking for active runs:', err);
-            agentRunsCheckedRef.current = true;
+          const activeRun = agentRunsQuery.data.find((run) => run.status === 'running');
+          if (activeRun && isMounted) {
+            console.log('[PAGE] Found active run on load:', activeRun.id);
+            setAgentRunId(activeRun.id);
+          } else {
+            console.log('[PAGE] No active agent runs found');
             if (isMounted) setAgentStatus('idle');
           }
         }
 
-        initialLoadCompleted.current = true;
+        // Mark initialization as complete when we have the core data
+        if (threadQuery.data && messagesQuery.data && agentRunsQuery.data) {
+          initialLoadCompleted.current = true;
+          setIsLoading(false);
+        }
+
       } catch (err) {
         console.error('Error loading thread data:', err);
         if (isMounted) {
@@ -446,18 +441,27 @@ export default function ThreadPage({
             err instanceof Error ? err.message : 'Failed to load thread';
           setError(errorMessage);
           toast.error(errorMessage);
+          setIsLoading(false);
         }
-      } finally {
-        if (isMounted) setIsLoading(false);
       }
     }
 
-    loadData();
+    if (threadId) {
+      initializeData();
+    }
 
     return () => {
       isMounted = false;
     };
-  }, [threadId]);
+  }, [
+    threadId, 
+    threadQuery.data, 
+    threadQuery.isError, 
+    threadQuery.error,
+    projectQuery.data,
+    messagesQuery.data,
+    agentRunsQuery.data
+  ]);
 
   const handleSubmitMessage = useCallback(
     async (
@@ -483,10 +487,18 @@ export default function ThreadPage({
       scrollToBottom('smooth');
 
       try {
-        const results = await Promise.allSettled([
-          addUserMessage(threadId, message),
-          startAgent(threadId, options),
-        ]);
+        // Use React Query mutations instead of direct API calls
+        const messagePromise = addUserMessageMutation.mutateAsync({ 
+          threadId, 
+          message 
+        });
+        
+        const agentPromise = startAgentMutation.mutateAsync({ 
+          threadId, 
+          options 
+        });
+
+        const results = await Promise.allSettled([messagePromise, agentPromise]);
 
         // Handle failure to add the user message
         if (results[0].status === 'rejected') {
@@ -525,6 +537,11 @@ export default function ThreadPage({
         // If agent started successfully
         const agentResult = results[1].value;
         setAgentRunId(agentResult.agent_run_id);
+        
+        // Refresh queries after successful operations
+        messagesQuery.refetch();
+        agentRunsQuery.refetch();
+        
       } catch (err) {
         // Catch errors from addUserMessage or non-BillingError agent start errors
         console.error('Error sending message or starting agent:', err);
@@ -540,8 +557,8 @@ export default function ThreadPage({
         setIsSending(false);
       }
     },
-    [threadId, project?.account_id],
-  ); // Ensure project.account_id is a dependency
+    [threadId, project?.account_id, addUserMessageMutation, startAgentMutation, messagesQuery, agentRunsQuery],
+  );
 
   const handleStopAgent = useCallback(async () => {
     console.log(`[PAGE] Requesting agent stop via hook.`);
@@ -549,11 +566,18 @@ export default function ThreadPage({
 
     // First stop the streaming and let the hook handle refetching
     await stopStreaming();
-
-    // We don't need to refetch messages here since the hook will do that
-    // The centralizing of refetching in the hook simplifies this logic
-  }, [stopStreaming]);
-
+    
+    // Use React Query's stopAgentMutation if we have an agent run ID
+    if (agentRunId) {
+      try {
+        await stopAgentMutation.mutateAsync(agentRunId);
+        // Refresh agent runs after stopping
+        agentRunsQuery.refetch();
+      } catch (error) {
+        console.error('Error stopping agent:', error);
+      }
+    }
+  }, [stopStreaming, agentRunId, stopAgentMutation, agentRunsQuery]);
 
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
@@ -561,7 +585,7 @@ export default function ThreadPage({
     if ((isNewUserMessage || agentStatus === 'running') && !userHasScrolled) {
       scrollToBottom('smooth');
     }
-  }, [messages, agentStatus, userHasScrolled, scrollToBottom]);
+  }, [messages, agentStatus, userHasScrolled]);
 
   useEffect(() => {
     if (!latestMessageRef.current || messages.length === 0) return;
@@ -571,7 +595,7 @@ export default function ThreadPage({
     );
     observer.observe(latestMessageRef.current);
     return () => observer.disconnect();
-  }, [messages, streamingTextContent, streamingToolCall, setShowScrollButton]);
+  }, [messages, streamingTextContent, streamingToolCall]);
 
   useEffect(() => {
     console.log(`[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`);
@@ -930,57 +954,34 @@ export default function ThreadPage({
     }
   }, [projectName]);
 
-  // Add another useEffect to ensure messages are refreshed when agent status changes to idle
+  // Update messages when they change in the query
   useEffect(() => {
-    if (
-      agentStatus === 'idle' &&
-      streamHookStatus !== 'streaming' &&
-      streamHookStatus !== 'connecting'
-    ) {
-      console.log(
-        '[PAGE] Agent status changed to idle, ensuring messages are up to date',
-      );
-      // Only do this if we're not in the initial loading state
-      if (!isLoading && initialLoadCompleted.current) {
-        // Double-check messages after a short delay to ensure we have latest content
-        const timer = setTimeout(() => {
-          getMessages(threadId)
-            .then((messagesData) => {
-              if (messagesData) {
-                console.log(
-                  `[PAGE] Backup refetch completed with ${messagesData.length} messages`,
-                );
-                // Map API message type to UnifiedMessage type
-                const unifiedMessages = (messagesData || [])
-                  .filter((msg) => msg.type !== 'status')
-                  .map((msg: ApiMessageType) => ({
-                    message_id: msg.message_id || null,
-                    thread_id: msg.thread_id || threadId,
-                    type: (msg.type || 'system') as UnifiedMessage['type'],
-                    is_llm_message: Boolean(msg.is_llm_message),
-                    content: msg.content || '',
-                    metadata: msg.metadata || '{}',
-                    created_at: msg.created_at || new Date().toISOString(),
-                    updated_at: msg.updated_at || new Date().toISOString(),
-                  }));
+    if (messagesQuery.data && messagesQuery.status === 'success') {
+      // Only update if we're not in initial loading and the agent isn't running
+      if (!isLoading && agentStatus !== 'running' && agentStatus !== 'connecting') {
+        // Map API message type to UnifiedMessage type
+        const unifiedMessages = (messagesQuery.data || [])
+          .filter((msg) => msg.type !== 'status')
+          .map((msg: ApiMessageType) => ({
+            message_id: msg.message_id || null,
+            thread_id: msg.thread_id || threadId,
+            type: (msg.type || 'system') as UnifiedMessage['type'],
+            is_llm_message: Boolean(msg.is_llm_message),
+            content: msg.content || '',
+            metadata: msg.metadata || '{}',
+            created_at: msg.created_at || new Date().toISOString(),
+            updated_at: msg.updated_at || new Date().toISOString(),
+          }));
 
-                setMessages(unifiedMessages);
-                // Reset auto-opened panel to allow tool detection with fresh messages
-                setAutoOpenedPanel(false);
-                scrollToBottom('smooth');
-              }
-            })
-            .catch((err) => {
-              console.error('Error in backup message refetch:', err);
-            });
-        }, 1000);
-
-        return () => clearTimeout(timer);
+        setMessages(unifiedMessages);
+        // Reset auto-opened panel to allow tool detection with fresh messages
+        setAutoOpenedPanel(false);
+        scrollToBottom('smooth');
       }
     }
-  }, [agentStatus, threadId, isLoading, streamHookStatus]);
+  }, [messagesQuery.data, messagesQuery.status, isLoading, agentStatus, threadId]);
 
-  // Update the checkBillingStatus function
+  // Check billing status and handle billing limit
   const checkBillingLimits = useCallback(async () => {
     // Skip billing checks in local development mode
     if (isLocalMode()) {
@@ -991,9 +992,11 @@ export default function ThreadPage({
     }
 
     try {
-      const result = await checkBillingStatus();
+      // Use React Query to get billing status
+      await billingStatusQuery.refetch();
+      const result = billingStatusQuery.data;
 
-      if (!result.can_run) {
+      if (result && !result.can_run) {
         setBillingData({
           currentUsage: result.subscription?.minutes_limit || 0,
           limit: result.subscription?.minutes_limit || 0,
@@ -1008,9 +1011,9 @@ export default function ThreadPage({
       console.error('Error checking billing status:', err);
       return false;
     }
-  }, [project?.account_id]);
+  }, [project?.account_id, billingStatusQuery]);
 
-  // Update useEffect to use the renamed function
+  // Check billing when agent status changes
   useEffect(() => {
     const previousStatus = previousAgentStatus.current;
 
@@ -1023,7 +1026,7 @@ export default function ThreadPage({
     previousAgentStatus.current = agentStatus;
   }, [agentStatus, checkBillingLimits]);
 
-  // Update other useEffect to use the renamed function
+  // Check billing on initial load
   useEffect(() => {
     if (project?.account_id && initialLoadCompleted.current) {
       console.log('Checking billing status on page load');
@@ -1031,7 +1034,7 @@ export default function ThreadPage({
     }
   }, [project?.account_id, checkBillingLimits, initialLoadCompleted]);
 
-  // Update the last useEffect to use the renamed function
+  // Check billing after messages loaded
   useEffect(() => {
     if (messagesLoadedRef.current && project?.account_id && !isLoading) {
       console.log('Checking billing status after messages loaded');
@@ -1085,10 +1088,10 @@ export default function ThreadPage({
                   ? 'This thread either does not exist or you do not have access to it.'
                   : error
                 }
-              </p >
-            </div >
-          </div >
-        </div >
+              </p>
+            </div>
+          </div>
+        </div>
         <ToolCallSidePanel
           isOpen={isSidePanelOpen && initialLoadCompleted.current}
           onClose={() => {
@@ -1128,7 +1131,7 @@ export default function ThreadPage({
           onDismiss={() => setShowBillingAlert(false)}
           isOpen={showBillingAlert}
         />
-      </div >
+      </div>
     );
   } else {
     return (
