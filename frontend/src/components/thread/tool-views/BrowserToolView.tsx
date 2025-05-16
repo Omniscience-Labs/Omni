@@ -84,6 +84,7 @@ export function BrowserToolView({
         browserStateMessage.content,
         {},
       );
+      console.log('Browser state content: ', browserStateContent)
       screenshotBase64 = browserStateContent?.screenshot_base64 || null;
     }
   }

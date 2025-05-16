@@ -100,22 +100,23 @@ def setup_logger(name: str = 'agentpress') -> logging.Logger:
     except Exception as e:
         print(f"Error setting up file handler: {e}")
     
-    # Console handler - WARNING in production, INFO in other environments
+    # Console handler - WARNING in production, DEBUG in other environments
     try:
         console_handler = logging.StreamHandler(sys.stdout)
         if config.ENV_MODE == EnvMode.PRODUCTION:
             console_handler.setLevel(logging.WARNING)
         else:
-            console_handler.setLevel(logging.INFO)
+            console_handler.setLevel(logging.DEBUG)
         
         console_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s'
+            '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
         )
         console_handler.setFormatter(console_formatter)
         
         # Add console handler to logger
         logger.addHandler(console_handler)
-        print(f"Added console handler with level: {console_handler.level}")
+        logger.info(f"Added console handler with level: {console_handler.level}")
+        logger.info(f"Log file will be created at: {log_dir}")
     except Exception as e:
         print(f"Error setting up console handler: {e}")
     
