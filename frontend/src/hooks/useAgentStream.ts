@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   streamAgent,
   getAgentStatus,
@@ -72,7 +72,9 @@ export function useAgentStream(
 ): UseAgentStreamResult {
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('idle');
-  const [textContent, setTextContent] = useState<string>('');
+  const [textContent, setTextContent] = useState<
+    { content: string; sequence?: number }[]
+  >([]);
   const [toolCall, setToolCall] = useState<ParsedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +83,12 @@ export function useAgentStream(
   const currentRunIdRef = useRef<string | null>(null); // Ref to track the run ID being processed
   const threadIdRef = useRef(threadId); // Ref to hold the current threadId
   const setMessagesRef = useRef(setMessages); // Ref to hold the setMessages function
+
+  const orderedTextContent = useMemo(() => {
+    return textContent
+      .sort((a, b) => a.sequence - b.sequence)
+      .reduce((acc, curr) => acc + curr.content, '');
+  }, [textContent]);
 
   // Update refs if threadId or setMessages changes
   useEffect(() => {
@@ -148,7 +156,7 @@ export function useAgentStream(
       }
 
       // Reset streaming-specific state
-      setTextContent('');
+      setTextContent([]);
       setToolCall(null);
 
       // Update status and clear run ID
@@ -292,10 +300,15 @@ export function useAgentStream(
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
           ) {
-            setTextContent((prev) => prev + parsedContent.content);
+            setTextContent((prev) => {
+              return prev.concat({
+                sequence: message.sequence,
+                content: parsedContent.content,
+              });
+            });
             callbacks.onAssistantChunk?.({ content: parsedContent.content });
           } else if (parsedMetadata.stream_status === 'complete') {
-            setTextContent('');
+            setTextContent([]);
             setToolCall(null);
             if (message.message_id) callbacks.onMessage(message);
           } else if (!parsedMetadata.stream_status) {
@@ -501,7 +514,7 @@ export function useAgentStream(
       }
       // Reset state on unmount if needed, though finalizeStream should handle most cases
       setStatus('idle');
-      setTextContent('');
+      setTextContent([]);
       setToolCall(null);
       setError(null);
       setAgentRunId(null);
@@ -528,7 +541,7 @@ export function useAgentStream(
       }
 
       // Reset state before starting
-      setTextContent('');
+      setTextContent([]);
       setToolCall(null);
       setError(null);
       updateStatus('connecting');
@@ -616,7 +629,7 @@ export function useAgentStream(
 
   return {
     status,
-    textContent,
+    textContent: orderedTextContent,
     toolCall,
     error,
     agentRunId,
