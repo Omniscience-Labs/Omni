@@ -6,6 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
@@ -15,11 +16,14 @@ import {
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { Check, ChevronDown, Search, AlertTriangle, Crown, ArrowUpRight } from 'lucide-react';
 import { ModelOption, SubscriptionStatus } from './_use-model-selection';
 import { PaywallDialog } from '@/components/payment/paywall-dialog';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
+
+const LOW_QUALITY_MODELS = ['deepseek', 'grok-3-mini', 'qwen3'];
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -45,11 +49,18 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [autoSelect, setAutoSelect] = useState(initialAutoSelect);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const filteredOptions = modelOptions.filter((opt) =>
     opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
     opt.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const groupedOptions = {
+    premium: filteredOptions.filter(model => model.top),
+    standard: filteredOptions.filter(model => !model.top && !LOW_QUALITY_MODELS.includes(model.id)),
+    basic: filteredOptions.filter(model => LOW_QUALITY_MODELS.includes(model.id))
+  };
 
   const getBestAvailableModel = () => {
     if (subscriptionStatus === 'active') {
@@ -90,6 +101,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const selectedLabel =
     modelOptions.find((o) => o.id === selectedModel)?.label || 'Select model';
+    
+  const isLowQualitySelected = LOW_QUALITY_MODELS.includes(selectedModel);
 
   const handleSelect = (id: string) => {
     if (canAccessModel(id)) {
@@ -111,6 +124,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   };
 
+  const handleUpgradeClick = () => {
+    router.push('/settings/billing');
+  };
+
   const closeDialog = () => {
     setPaywallOpen(false);
     setLockedModel(null);
@@ -118,7 +135,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex((prev) => 
@@ -138,6 +154,60 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   };
 
+  const renderModelOption = (opt: ModelOption, index: number) => {
+    const accessible = canAccessModel(opt.id);
+    const isHighlighted = filteredOptions.indexOf(opt) === highlightedIndex;
+    const isPremium = opt.requiresSubscription;
+    const isLowQuality = LOW_QUALITY_MODELS.includes(opt.id);
+    
+    return (
+      <TooltipProvider key={opt.id}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className='w-full'>
+              <DropdownMenuItem
+                className={cn(
+                  "text-sm px-3 py-2 flex items-center justify-between cursor-pointer",
+                  isHighlighted && "bg-accent",
+                  !accessible && "opacity-70"
+                )}
+                onClick={() => handleSelect(opt.id)}
+                onMouseEnter={() => setHighlightedIndex(filteredOptions.indexOf(opt))}
+              >
+                <div className="flex items-center">
+                  <span className="font-medium">{opt.label}</span>
+                  {isLowQuality && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 ml-1.5" />
+                  )}
+                </div>
+                <div className="flex items-center">
+                  {isPremium && !accessible && (
+                    <span className="text-xs text-purple-500 font-semibold mr-2">MAX</span>
+                  )}
+                  {selectedModel === opt.id && (
+                    <Check className="mr-2 h-4 w-4 text-blue-500" />
+                  )}
+                  {opt.top && (
+                    <Badge className="bg-purple-500/20 text-purple-500 rounded-full">TOP</Badge>
+                  )}
+                </div>
+              </DropdownMenuItem>
+            </div>
+          </TooltipTrigger>
+          {!accessible ? (
+            <TooltipContent side="left" className="text-xs max-w-xs">
+              <p>Requires subscription to access premium model</p>
+            </TooltipContent>
+          ) : isLowQuality ? (
+            <TooltipContent side="left" className="text-xs max-w-xs">
+              <p>Not recommended for complex tasks</p>
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div className="relative">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -148,6 +218,18 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             className="h-8 rounded-md text-muted-foreground shadow-none border-none focus:ring-0 px-3"
           >
             <div className="flex items-center gap-1 text-sm font-medium">
+              {isLowQualitySelected && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mr-1" />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      <p>Basic model with limited capabilities</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <span>{selectedLabel}</span>
               <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
             </div>
@@ -190,53 +272,49 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   />
                 </div>
               </div>
-              <div className="max-h-[280px] overflow-y-auto w-full p-3 scrollbar-hide">
+              {subscriptionStatus !== 'active' && (
+                <div className="p-3 bg-primary/10 dark:bg-blue-950/40 border-b border-border">
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center">
+                      <Crown className="h-4 w-4 text-primary mr-2" />
+                      <div>
+                        <p className="text-sm font-medium">Unlock Premium Models</p>
+                        <p className="text-xs text-muted-foreground">Get better results with top-tier AI</p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="w-full h-8 font-medium"
+                      onClick={handleUpgradeClick}
+                    >
+                      <span>Upgrade to Pro</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="max-h-[280px] overflow-y-auto w-full p-1 scrollbar-hide">
                 {filteredOptions.length > 0 ? (
-                  filteredOptions.map((opt, index) => {
-                    const accessible = canAccessModel(opt.id);
-                    const isHighlighted = index === highlightedIndex;
-                    const isPremium = opt.requiresSubscription;
-                    
-                    return (
-                      <TooltipProvider key={opt.id}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className='w-full'>
-                              <DropdownMenuItem
-                                className={cn(
-                                  "text-sm px-3 py-1.5 flex items-center justify-between cursor-pointer",
-                                  isHighlighted && "bg-accent",
-                                  !accessible && "opacity-70"
-                                )}
-                                onClick={() => handleSelect(opt.id)}
-                                onMouseEnter={() => setHighlightedIndex(index)}
-                              >
-                                <span className="font-medium">{opt.label}</span>
-                                <div className="flex items-center">
-                                  {isPremium && !accessible && (
-                                    <span className="text-xs text-purple-500 font-semibold mr-2">MAX</span>
-                                  )}
-                                  {selectedModel === opt.id && (
-                                    <Check className="mr-2 h-4 w-4 text-blue-500" />
-                                  )}
-                                  {opt.top && (
-                                    <Badge className="bg-yellow-500/20 text-yellow-500 rounded-full">TOP</Badge>
-                                  )}
-                                </div>
-                              </DropdownMenuItem>
-                            </div>
-                          </TooltipTrigger>
-                          {!accessible && (
-                            <TooltipContent side="left" className="text-xs">
-                              <p>Requires subscription to access</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    );
-                  })
+                  <div>
+                    {groupedOptions.premium.length > 0 && (
+                      <div>
+                        {groupedOptions.premium.map(renderModelOption)}
+                      </div>
+                    )}
+                    {groupedOptions.standard.length > 0 && (
+                      <div>
+                        {groupedOptions.standard.map(renderModelOption)}
+                      </div>
+                    )}
+                    {groupedOptions.basic.length > 0 && (
+                      <div>
+                        {groupedOptions.basic.map(renderModelOption)}
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="text-sm text-center py-2 text-muted-foreground">
+                  <div className="text-sm text-center py-4 text-muted-foreground">
                     No models match your search
                   </div>
                 )}
@@ -256,7 +334,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               ? `Subscribe to access ${modelOptions.find(
                   (m) => m.id === lockedModel
                 )?.label}`
-              : 'Subscribe to access premium models'
+              : 'Subscribe to access premium models with enhanced capabilities'
           }
           ctaText="Subscribe Now"
           cancelText="Maybe Later"

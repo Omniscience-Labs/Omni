@@ -396,28 +396,34 @@ export function NavAgents() {
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleMultiSelect}
-                      className="h-7 w-7"
-                      disabled={combinedThreads.length === 0}
-                    >
-                      <Checkbox className="h-4 w-4" />
-                      <span className="sr-only">Select Multiple</span>
-                    </Button>
+                    <div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleMultiSelect}
+                        className="h-7 w-7"
+                        disabled={combinedThreads.length === 0}
+                      >
+                        <div className="h-4 w-4 border rounded border-foreground/30 flex items-center justify-center">
+                          {isMultiSelectActive && <Check className="h-3 w-3" />}
+                        </div>
+                        <span className="sr-only">Select</span>
+                      </Button>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>Select Multiple</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link
-                      href="/dashboard"
-                      className="text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center rounded-md"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span className="sr-only">New Agent</span>
-                    </Link>
+                    <div>
+                      <Link
+                        href="/dashboard"
+                        className="text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center rounded-md"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span className="sr-only">New Agent</span>
+                      </Link>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>New Agent</TooltipContent>
                 </Tooltip>
@@ -432,12 +438,14 @@ export function NavAgents() {
           <SidebarMenuItem>
             <Tooltip>
               <TooltipTrigger asChild>
-                <SidebarMenuButton asChild>
-                  <Link href="/dashboard" className="flex items-center">
-                    <Plus className="h-4 w-4" />
-                    <span>New Agent</span>
-                  </Link>
-                </SidebarMenuButton>
+                <div>
+                  <SidebarMenuButton asChild>
+                    <Link href="/dashboard" className="flex items-center">
+                      <Plus className="h-4 w-4" />
+                      <span>New Agent</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </div>
               </TooltipTrigger>
               <TooltipContent>New Agent</TooltipContent>
             </Tooltip>
@@ -468,32 +476,35 @@ export function NavAgents() {
                   {state === 'collapsed' ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <SidebarMenuButton
-                          asChild
-                          className={
-                            isActive ? 'bg-accent text-accent-foreground' : 
-                            isSelected ? 'bg-primary/10' : ''
-                          }
-                        >
-                          <Link
-                            href={thread.url}
-                            onClick={(e) =>
-                              handleThreadClick(e, thread.threadId, thread.url)
+                        <div>
+                          <SidebarMenuButton
+                            asChild
+                            className={
+                              isActive ? 'bg-accent text-accent-foreground' : 
+                              isSelected ? 'bg-primary/10' : ''
                             }
                           >
-                            {isMultiSelectActive ? (
-                              <Checkbox 
-                                checked={isSelected}
-                                className="h-4 w-4"
-                              />
-                            ) : isThreadLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MessagesSquare className="h-4 w-4" />
-                            )}
-                            <span>{thread.projectName}</span>
-                          </Link>
-                        </SidebarMenuButton>
+                            <Link
+                              href={thread.url}
+                              onClick={(e) =>
+                                handleThreadClick(e, thread.threadId, thread.url)
+                              }
+                            >
+                              {isMultiSelectActive ? (
+                                <div 
+                                  className={`h-4 w-4 border rounded flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-foreground'}`}
+                                >
+                                  {isSelected && <Check className="h-3 w-3 text-white" />}
+                                </div>
+                              ) : isThreadLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MessagesSquare className="h-4 w-4" />
+                              )}
+                              <span>{thread.projectName}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>{thread.projectName}</TooltipContent>
                     </Tooltip>
@@ -515,17 +526,18 @@ export function NavAgents() {
                         }
                         className="flex items-center"
                       >
-                        {isMultiSelectActive ? (
-                          <Checkbox 
-                            checked={isSelected}
-                            className="h-4 w-4 mr-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              toggleThreadSelection(thread.threadId);
-                            }}
-                          />
-                        ) : null}
+                            {isMultiSelectActive ? (
+                              <div 
+                                className={`h-4 w-4 border flex-shrink-0 hover:bg-muted transition rounded mr-2 flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-foreground/30'}`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleThreadSelection(thread.threadId);
+                                }}
+                              >
+                                {isSelected && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                            ) : null}
                         {isThreadLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
@@ -585,7 +597,6 @@ export function NavAgents() {
             })}
           </>
         ) : (
-          // Empty state
           <SidebarMenuItem>
             <SidebarMenuButton className="text-sidebar-foreground/70">
               <MessagesSquare className="h-4 w-4" />
@@ -595,7 +606,6 @@ export function NavAgents() {
         )}
       </SidebarMenu>
       
-      {/* Bulk delete progress indicator */}
       {(isDeletingSingle || isDeletingMultiple) && totalToDelete > 0 && (
         <div className="mt-2 px-2">
           <div className="text-xs text-muted-foreground mb-1">

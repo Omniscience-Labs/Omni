@@ -28,6 +28,7 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
   'gemini-flash-2.5': 'Gemini Flash 2.5 - Google\'s fast, responsive AI model',
   'grok-3': 'Grok-3 - xAI\'s latest large language model with enhanced capabilities',
   'deepseek': 'DeepSeek - Free tier model with good general capabilities',
+  'deepseek-r1': 'DeepSeek R1 - Advanced model with enhanced reasoning and coding capabilities',
   'grok-3-mini': 'Grok-3 Mini - Smaller, faster version of Grok-3 for simpler tasks',
   'qwen3': 'Qwen3 - Alibaba\'s powerful multilingual language model'
 };
@@ -72,7 +73,7 @@ export const useModelSelection = () => {
       ];
     }
 
-    const topModels = ['sonnet-3.7', 'gpt-4o', 'gemini-flash-2.5'];
+    const topModels = ['sonnet-3.7', 'gemini-flash-2.5'];
 
     return modelsData.models.map(model => {
       const shortName = model.short_name || model.id;
