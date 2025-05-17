@@ -105,6 +105,12 @@ cd suna
 python setup.py
 ```
 
+3. **Start or stop the containers**:
+
+```bash
+python start.py
+```
+
 ### Manual Setup
 
 See the [Self-Hosting Guide](./docs/SELF-HOSTING.md) for detailed manual setup instructions.

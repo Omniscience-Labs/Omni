@@ -199,7 +199,9 @@ Suna can be started in two ways:
 This method starts all required services in Docker containers:
 
 ```bash
-docker compose up -d
+docker compose up -d # Use `docker compose down` to stop it later
+# or
+python start.py # Use the same to stop it later
 ```
 
 ### 2. Manual Startup
