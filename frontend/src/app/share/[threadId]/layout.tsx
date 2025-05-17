@@ -10,7 +10,6 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       canonical: `${process.env.NEXT_PUBLIC_URL}/share/${threadId}`,
     },
     openGraph: {
-      url: `${process.env.NEXT_PUBLIC_URL}/share/${threadId}`,
       title: 'Shared Conversation | Kortix Suna',
       description: 'Replay this Agent conversation on Kortix Suna',
       images: [`${process.env.NEXT_PUBLIC_URL}/share-page/og-fallback.png`],
