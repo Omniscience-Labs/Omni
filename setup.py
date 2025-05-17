@@ -824,16 +824,16 @@ def main():
     
     current_step += 1
     
-    # # Collect all environment variables
-    # print_step(current_step, total_steps, "Collecting Supabase information")
-    # supabase_info = collect_supabase_info()
-    # # Set Supabase URL in environment for later use
-    # os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
-    # current_step += 1
+    # Collect all environment variables
+    print_step(current_step, total_steps, "Collecting Supabase information")
+    supabase_info = collect_supabase_info()
+    # Set Supabase URL in environment for later use
+    os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
+    current_step += 1
     
-    # print_step(current_step, total_steps, "Collecting Daytona information")
-    # daytona_info = collect_daytona_info()
-    # current_step += 1
+    print_step(current_step, total_steps, "Collecting Daytona information")
+    daytona_info = collect_daytona_info()
+    current_step += 1
     
     print_step(current_step, total_steps, "Collecting LLM API keys")
     llm_api_keys = collect_llm_api_keys()
