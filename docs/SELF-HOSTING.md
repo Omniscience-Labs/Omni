@@ -199,10 +199,6 @@ Suna can be started in two ways:
 This method starts all required services in Docker containers:
 
 ```bash
-# Using pre-built images (faster)
-docker compose -f docker-compose.ghcr.yaml up -d
-
-# OR building images locally (customizable)
 docker compose up -d
 ```
 
@@ -213,7 +209,6 @@ This method requires you to start each component separately:
 1. Start Redis and RabbitMQ (required for backend):
 
 ```bash
-cd backend
 docker compose up redis rabbitmq -d
 ```
 

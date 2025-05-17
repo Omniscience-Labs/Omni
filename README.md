@@ -80,7 +80,7 @@ Handles data persistence with authentication, user management, conversation hist
 
 ## Self-Hosting
 
-Suna can be self-hosted on your own infrastructure using our setup wizard. For a comprehensive guide to self-hosting Suna, please refer to our [Self-Hosting Guide](./SELF-HOSTING.md).
+Suna can be self-hosted on your own infrastructure using our setup wizard. For a comprehensive guide to self-hosting Suna, please refer to our [Self-Hosting Guide](./docs/SELF-HOSTING.md).
 
 The setup process includes:
 
@@ -105,7 +105,15 @@ cd suna
 python setup.py
 ```
 
+### Manual Setup
+
+See the [Self-Hosting Guide](./docs/SELF-HOSTING.md) for detailed manual setup instructions.
+
 The wizard will guide you through all necessary steps to get your Suna instance up and running. For detailed instructions, troubleshooting tips, and advanced configuration options, see the [Self-Hosting Guide](./SELF-HOSTING.md).
+
+## Contributing
+
+We welcome contributions from the community! Please see our [Contributing Guide](./CONTRIBUTING.md) for more details.
 
 ## Acknowledgements
 
