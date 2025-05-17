@@ -1,6 +1,7 @@
 MODEL_ACCESS_TIERS = {
     "free": [
         "openrouter/deepseek/deepseek-chat",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_2_20": [
         "openrouter/deepseek/deepseek-chat",
@@ -12,6 +13,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_6_50": [
         "openrouter/deepseek/deepseek-chat",
@@ -23,6 +26,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_12_100": [
         "openrouter/deepseek/deepseek-chat",
@@ -34,6 +39,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_25_200": [
         "openrouter/deepseek/deepseek-chat",
@@ -45,6 +52,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_50_400": [
         "openrouter/deepseek/deepseek-chat",
@@ -56,6 +65,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_125_800": [
         "openrouter/deepseek/deepseek-chat",
@@ -67,6 +78,8 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
     "tier_200_1000": [
         "openrouter/deepseek/deepseek-chat",
@@ -78,5 +91,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         # "openai/gpt-4.1-2025-04-14",
+        # "openrouter/deepseek/deepseek-r1",
+        "openrouter/qwen/qwen3-235b-a22b",
     ],
 }
