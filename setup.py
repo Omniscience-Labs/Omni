@@ -49,19 +49,19 @@ def print_step(step_num, total_steps, step_name):
 
 def print_info(message):
     """Print info message"""
-    print(f"{Colors.CYAN}ℹ️ {message}{Colors.ENDC}")
+    print(f"{Colors.CYAN}ℹ️  {message}{Colors.ENDC}")
 
 def print_success(message):
     """Print success message"""
-    print(f"{Colors.GREEN}✅ {message}{Colors.ENDC}")
+    print(f"{Colors.GREEN}✅  {message}{Colors.ENDC}")
 
 def print_warning(message):
     """Print warning message"""
-    print(f"{Colors.YELLOW}⚠️ {message}{Colors.ENDC}")
+    print(f"{Colors.YELLOW}⚠️  {message}{Colors.ENDC}")
 
 def print_error(message):
     """Print error message"""
-    print(f"{Colors.RED}❌ {message}{Colors.ENDC}")
+    print(f"{Colors.RED}❌  {message}{Colors.ENDC}")
 
 def check_requirements():
     """Check if all required tools are installed"""
@@ -200,7 +200,7 @@ def collect_daytona_info():
     print_info("Visit https://app.daytona.io/ to create one")
     print_info("Then, generate an API key from 'Keys' menu")
     print_info("After that, go to Images (https://app.daytona.io/dashboard/images)")
-    print_info("Click '+Create Image'")
+    print_info("Click '+ Create Image'")
     print_info("Enter 'kortix/suna:0.1.2' as the image name")
     print_info("Set '/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf' as the Entrypoint")
     
@@ -743,45 +743,49 @@ def start_suna():
         print_info("Starting Suna with Docker Compose...")
         
         try:
+            # TODO: uncomment when we have pre-built images on Docker Hub or GHCR
             # GitHub repository environment variable setup
-            github_repo = None
+            # github_repo = None
             
-            print(f"\n{Colors.CYAN}Do you want to use pre-built images or build locally?{Colors.ENDC}")
-            print(f"{Colors.CYAN}[1] {Colors.GREEN}Pre-built images{Colors.ENDC} {Colors.CYAN}(faster){Colors.ENDC}")
-            print(f"{Colors.CYAN}[2] {Colors.GREEN}Build locally{Colors.ENDC} {Colors.CYAN}(customizable){Colors.ENDC}\n")
+            # print(f"\n{Colors.CYAN}Do you want to use pre-built images or build locally?{Colors.ENDC}")
+            # print(f"{Colors.CYAN}[1] {Colors.GREEN}Pre-built images{Colors.ENDC} {Colors.CYAN}(faster){Colors.ENDC}")
+            # print(f"{Colors.CYAN}[2] {Colors.GREEN}Build locally{Colors.ENDC} {Colors.CYAN}(customizable){Colors.ENDC}\n")
             
-            while True:
-                build_choice = input("Enter your choice (1 or 2): ")
-                if build_choice in ["1", "2"]:
-                    break
-                print_error("Invalid selection. Please enter '1' for pre-built images or '2' for building locally.")
+            # while True:
+            #     build_choice = input("Enter your choice (1 or 2): ")
+            #     if build_choice in ["1", "2"]:
+            #         break
+            #     print_error("Invalid selection. Please enter '1' for pre-built images or '2' for building locally.")
                 
-            use_prebuilt = build_choice == "1"
+            # use_prebuilt = build_choice == "1"
             
-            if use_prebuilt:
-                # Get GitHub repository name from user
-                print_info("For pre-built images, you need to specify a GitHub repository name")
-                print_info("Example format: your-github-username/repo-name")
+            # if use_prebuilt:
+            #     # Get GitHub repository name from user
+            #     print_info("For pre-built images, you need to specify a GitHub repository name")
+            #     print_info("Example format: your-github-username/repo-name")
                 
-                github_repo = input("Enter GitHub repository name: ")
-                if not github_repo or "/" not in github_repo:
-                    print_warning("Invalid GitHub repository format. Using a default value.")
-                    # Create a random GitHub repository name as fallback
-                    random_name = ''.join(random.choices(string.ascii_lowercase, k=8))
-                    github_repo = f"user/{random_name}"
+            #     github_repo = input("Enter GitHub repository name: ")
+            #     if not github_repo or "/" not in github_repo:
+            #         print_warning("Invalid GitHub repository format. Using a default value.")
+            #         # Create a random GitHub repository name as fallback
+            #         random_name = ''.join(random.choices(string.ascii_lowercase, k=8))
+            #         github_repo = f"user/{random_name}"
                 
-                # Set the environment variable
-                os.environ["GITHUB_REPOSITORY"] = github_repo
-                print_info(f"Using GitHub repository: {github_repo}")
+            #     # Set the environment variable
+            #     os.environ["GITHUB_REPOSITORY"] = github_repo
+            #     print_info(f"Using GitHub repository: {github_repo}")
                 
-                # Start with pre-built images
-                print_info("Using pre-built images...")
-                subprocess.run(['docker', 'compose', '-f', 'docker-compose.ghcr.yaml', 'up', '-d'], check=True)
-            else:
-                # Start with docker-compose (build images locally)
-                print_info("Building images locally...")
-                subprocess.run(['docker', 'compose', 'up', '-d'], check=True)
-            
+            #     # Start with pre-built images
+            #     print_info("Using pre-built images...")
+            #     subprocess.run(['docker', 'compose', '-f', 'docker-compose.ghcr.yaml', 'up', '-d'], check=True)
+            # else:
+            #     # Start with docker-compose (build images locally)
+            #     print_info("Building images locally...")
+            #     subprocess.run(['docker', 'compose', 'up', '-d'], check=True)
+
+            print_info("Building images locally...")
+            subprocess.run(['docker', 'compose', 'up', '-d'], check=True)
+
             # Wait for services to be ready
             print_info("Waiting for services to start...")
             time.sleep(10)  # Give services some time to start
