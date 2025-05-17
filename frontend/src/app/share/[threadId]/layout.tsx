@@ -6,13 +6,15 @@ export async function generateMetadata({ params }): Promise<Metadata> {
   const fallbackMetaData = {
     title: 'Shared Conversation | Kortix Suna',
     description: 'Replay this Agent conversation on Kortix Suna',
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_URL}/share/${threadId}`,
+    },
     openGraph: {
       title: 'Shared Conversation | Kortix Suna',
       description: 'Replay this Agent conversation on Kortix Suna',
       images: [`${process.env.NEXT_PUBLIC_URL}/share-page/og-fallback.png`],
     },
   };
-
 
   try {
     const threadData = await getThread(threadId);
@@ -27,15 +29,20 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' ||
       process.env.NEXT_PUBLIC_ENV_MODE === 'local';
 
-      const title = projectData.name || 'Shared Conversation | Kortix Suna';
-      const description = projectData.description || 'Replay this Agent conversation on Kortix Suna';
-      const ogImage = isDevelopment
-        ? `${process.env.NEXT_PUBLIC_URL}/share-page/og-fallback.png`
-        : `${process.env.NEXT_PUBLIC_URL}/api/share-page/og-image?title=${projectData.name}`;
+    const title = projectData.name || 'Shared Conversation | Kortix Suna';
+    const description =
+      projectData.description ||
+      'Replay this Agent conversation on Kortix Suna';
+    const ogImage = isDevelopment
+      ? `${process.env.NEXT_PUBLIC_URL}/share-page/og-fallback.png`
+      : `${process.env.NEXT_PUBLIC_URL}/api/share-page/og-image?title=${projectData.name}`;
 
     return {
       title,
       description,
+      alternates: {
+        canonical: `${process.env.NEXT_PUBLIC_URL}/share/${threadId}`,
+      },
       openGraph: {
         title,
         description,
@@ -45,7 +52,6 @@ export async function generateMetadata({ params }): Promise<Metadata> {
         title,
         description,
         images: ogImage,
-        creator: '@kortixai',
         card: 'summary_large_image',
       },
     };
