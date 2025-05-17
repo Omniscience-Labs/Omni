@@ -221,17 +221,15 @@ def collect_daytona_info():
 def collect_llm_api_keys():
     """Collect LLM API keys for various providers"""
     print_info("You need at least one LLM provider API key to use Suna")
-    print_info("Available LLM providers: OpenAI, Anthropic, Groq, OpenRouter")
+    print_info("Available LLM providers: OpenAI, Anthropic, OpenRouter")
     
     # Display provider selection options
     print(f"\n{Colors.CYAN}Select LLM providers to configure:{Colors.ENDC}")
     print(f"{Colors.CYAN}[1] {Colors.GREEN}OpenAI{Colors.ENDC}")
-    print(f"{Colors.CYAN}[2] {Colors.GREEN}Anthropic{Colors.ENDC} {Colors.CYAN}(recommended for best performance){Colors.ENDC}")
-    print(f"{Colors.CYAN}[3] {Colors.GREEN}Groq{Colors.ENDC}")
-    print(f"{Colors.CYAN}[4] {Colors.GREEN}OpenRouter{Colors.ENDC} {Colors.CYAN}(access to multiple models){Colors.ENDC}")
-    print(f"{Colors.CYAN}[5] {Colors.GREEN}AWS Bedrock{Colors.ENDC}")
-    print(f"{Colors.CYAN}Enter numbers separated by commas (e.g., 1,2,4){Colors.ENDC}\n")
-    
+    print(f"{Colors.CYAN}[2] {Colors.GREEN}Anthropic{Colors.ENDC}")
+    print(f"{Colors.CYAN}[3] {Colors.GREEN}OpenRouter{Colors.ENDC} {Colors.CYAN}(access to multiple models){Colors.ENDC}")
+    print(f"{Colors.CYAN}Enter numbers separated by commas (e.g., 1,2,3){Colors.ENDC}\n")
+
     while True:
         providers_input = input("Select providers (required, at least one): ")
         selected_providers = []
@@ -246,19 +244,15 @@ def collect_llm_api_keys():
                 elif num == 2:
                     selected_providers.append('ANTHROPIC')
                 elif num == 3:
-                    selected_providers.append('GROQ')
-                elif num == 4:
                     selected_providers.append('OPENROUTER')
-                elif num == 5:
-                    selected_providers.append('AWS_BEDROCK')
             
             if selected_providers:
                 break
             else:
                 print_error("Please select at least one provider.")
         except ValueError:
-            print_error("Invalid input. Please enter provider numbers (e.g., 1,2,4).")
-    
+            print_error("Invalid input. Please enter provider numbers (e.g., 1,2,3).")
+
     # Collect API keys for selected providers
     api_keys = {}
     model_info = {}
@@ -267,9 +261,7 @@ def collect_llm_api_keys():
     model_aliases = {
         'OPENAI': ['openai/gpt-4o', 'openai/gpt-4o-mini'],
         'ANTHROPIC': ['anthropic/claude-3-7-sonnet-latest', 'anthropic/claude-3-5-sonnet-latest'],
-        'GROQ': ['groq/llama-3.1-70b-versatile', 'groq/llama-3.1-405b-reasoning-preview'],
         'OPENROUTER': ['openrouter/google/gemini-2.5-pro-preview', 'openrouter/deepseek/deepseek-chat-v3-0324:free', 'openrouter/openai/gpt-4o-2024-11-20'],
-        'AWS_BEDROCK': ['anthropic.claude-3-7-sonnet-20250219-v1:0', 'anthropic.claude-3-5-sonnet-20241022-v2:0']
     }
     
     for provider in selected_providers:
@@ -319,28 +311,6 @@ def collect_llm_api_keys():
                     break
                 print_error("Invalid API key format. It should be at least 10 characters long.")
         
-        elif provider == 'GROQ':
-            while True:
-                api_key = input("Enter your Groq API key: ")
-                if validate_api_key(api_key):
-                    api_keys['GROQ_API_KEY'] = api_key
-                    
-                    # Recommend default model
-                    print(f"\n{Colors.CYAN}Recommended Groq models:{Colors.ENDC}")
-                    for i, model in enumerate(model_aliases['GROQ'], 1):
-                        print(f"{Colors.CYAN}[{i}] {Colors.GREEN}{model}{Colors.ENDC}")
-                    
-                    model_choice = input("Select default model (1-2) or press Enter for llama-3.1-70b: ").strip()
-                    if not model_choice or model_choice == '1':
-                        model_info['default_model'] = 'groq/llama-3.1-70b-versatile'
-                    elif model_choice == '2':
-                        model_info['default_model'] = 'groq/llama-3.1-405b-reasoning-preview'
-                    else:
-                        model_info['default_model'] = 'groq/llama-3.1-70b-versatile'
-                        print_warning(f"Invalid selection, using default: groq/llama-3.1-70b-versatile")
-                    break
-                print_error("Invalid API key format. It should be at least 10 characters long.")
-        
         elif provider == 'OPENROUTER':
             while True:
                 api_key = input("Enter your OpenRouter API key: ")
@@ -364,34 +334,6 @@ def collect_llm_api_keys():
                     break
                 print_error("Invalid API key format. It should be at least 10 characters long.")
         
-        elif provider == 'AWS_BEDROCK':
-            print_info("For AWS Bedrock, you'll need AWS credentials and region")
-            
-            aws_access_key = input("Enter your AWS Access Key ID: ")
-            aws_secret_key = input("Enter your AWS Secret Access Key: ")
-            aws_region = input("Enter your AWS Region (e.g., us-west-2): ") or "us-west-2"
-            
-            if aws_access_key and aws_secret_key:
-                api_keys['AWS_ACCESS_KEY_ID'] = aws_access_key
-                api_keys['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
-                api_keys['AWS_REGION_NAME'] = aws_region
-                
-                # Recommend default model for AWS Bedrock
-                print(f"\n{Colors.CYAN}Recommended AWS Bedrock models:{Colors.ENDC}")
-                for i, model in enumerate(model_aliases['AWS_BEDROCK'], 1):
-                    print(f"{Colors.CYAN}[{i}] {Colors.GREEN}{model}{Colors.ENDC}")
-                
-                model_choice = input("Select default model (1-2) or press Enter for claude-3-7-sonnet: ").strip()
-                if not model_choice or model_choice == '1':
-                    model_info['default_model'] = 'bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0'
-                elif model_choice == '2':
-                    model_info['default_model'] = 'bedrock/amazon.titan-text-lite-v1'
-                else:
-                    model_info['default_model'] = 'bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0'
-                    print_warning(f"Invalid selection, using default: bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0")
-            else:
-                print_warning("AWS credentials incomplete, Bedrock will not be configured correctly")
-    
     # If no default model has been set, check which provider was selected and set an appropriate default
     if 'default_model' not in model_info:
         if 'ANTHROPIC_API_KEY' in api_keys:
@@ -400,10 +342,6 @@ def collect_llm_api_keys():
             model_info['default_model'] = 'openai/gpt-4o'
         elif 'OPENROUTER_API_KEY' in api_keys:
             model_info['default_model'] = 'openrouter/google/gemini-2.5-flash-preview'
-        elif 'GROQ_API_KEY' in api_keys:
-            model_info['default_model'] = 'groq/llama-3.1-70b-versatile'
-        elif 'AWS_ACCESS_KEY_ID' in api_keys:
-            model_info['default_model'] = 'bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0'
     
     print_success(f"Using {model_info['default_model']} as the default model")
     
@@ -886,16 +824,16 @@ def main():
     
     current_step += 1
     
-    # Collect all environment variables
-    print_step(current_step, total_steps, "Collecting Supabase information")
-    supabase_info = collect_supabase_info()
-    # Set Supabase URL in environment for later use
-    os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
-    current_step += 1
+    # # Collect all environment variables
+    # print_step(current_step, total_steps, "Collecting Supabase information")
+    # supabase_info = collect_supabase_info()
+    # # Set Supabase URL in environment for later use
+    # os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
+    # current_step += 1
     
-    print_step(current_step, total_steps, "Collecting Daytona information")
-    daytona_info = collect_daytona_info()
-    current_step += 1
+    # print_step(current_step, total_steps, "Collecting Daytona information")
+    # daytona_info = collect_daytona_info()
+    # current_step += 1
     
     print_step(current_step, total_steps, "Collecting LLM API keys")
     llm_api_keys = collect_llm_api_keys()
