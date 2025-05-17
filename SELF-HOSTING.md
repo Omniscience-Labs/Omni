@@ -5,22 +5,21 @@ This guide provides detailed instructions for setting up and hosting your own in
 ## Table of Contents
 
 - [Overview](#overview)
-- [System Requirements](#system-requirements)
 - [Prerequisites](#prerequisites)
 - [Installation Steps](#installation-steps)
 - [Manual Configuration](#manual-configuration)
 - [Post-Installation Steps](#post-installation-steps)
 - [Troubleshooting](#troubleshooting)
-- [Maintenance](#maintenance)
 
 ## Overview
 
 Suna consists of four main components:
 
 1. **Backend API** - Python/FastAPI service for REST endpoints, thread management, and LLM integration
-2. **Frontend** - Next.js/React application providing the user interface
-3. **Agent Docker** - Isolated execution environment for each agent
-4. **Supabase Database** - Handles data persistence and authentication
+2. **Backend Worker** - Python/Dramatiq worker service for handling agent tasks
+3. **Frontend** - Next.js/React application providing the user interface
+4. **Agent Docker** - Isolated execution environment for each agent
+5. **Supabase Database** - Handles data persistence and authentication
 
 ## Prerequisites
 
@@ -41,6 +40,7 @@ Obtain the following API keys:
 #### Required
 
 - **LLM Provider** (at least one of the following):
+
   - [Anthropic](https://console.anthropic.com/) - Recommended for best performance
   - [OpenAI](https://platform.openai.com/)
   - [Groq](https://console.groq.com/)
@@ -48,6 +48,7 @@ Obtain the following API keys:
   - [AWS Bedrock](https://aws.amazon.com/bedrock/)
 
 - **Search and Web Scraping**:
+
   - [Tavily](https://tavily.com/) - For enhanced search capabilities
   - [Firecrawl](https://firecrawl.dev/) - For web scraping capabilities
 
@@ -62,12 +63,12 @@ Obtain the following API keys:
 
 Ensure the following tools are installed on your system:
 
-- **Git**
-- **Docker**
-- **Python 3.11**
-- **Poetry**
-- **Node.js & npm**
-- **Supabase CLI**
+- **[Git](https://git-scm.com/downloads)**
+- **[Docker](https://docs.docker.com/get-docker/)**
+- **[Python 3.11](https://www.python.org/downloads/)**
+- **[Poetry](https://python-poetry.org/docs/#installation)**
+- **[Node.js & npm](https://nodejs.org/en/download/)**
+- **[Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)**
 
 ## Installation Steps
 
@@ -87,6 +88,7 @@ python setup.py
 ```
 
 The wizard will:
+
 - Check if all required tools are installed
 - Collect your API keys and configuration information
 - Set up the Supabase database
@@ -122,7 +124,11 @@ If you prefer to configure your installation manually, or if you need to modify 
 
 ### Backend Configuration (.env)
 
-```
+The backend configuration is stored in `backend/.env`
+
+Example configuration:
+
+```sh
 # Environment Mode
 ENV_MODE=local
 
@@ -136,6 +142,10 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_SSL=false
+
+# RABBITMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
 
 # LLM Providers
 ANTHROPIC_API_KEY=your-anthropic-key
@@ -165,7 +175,8 @@ The frontend configuration is stored in `frontend/.env.local` and includes:
 - Backend API URL
 
 Example configuration:
-```
+
+```sh
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 NEXT_PUBLIC_BACKEND_URL=http://backend:8000/api
@@ -199,22 +210,32 @@ docker compose up -d
 
 This method requires you to start each component separately:
 
-1. Start Redis (required for backend):
+1. Start Redis and RabbitMQ (required for backend):
+
 ```bash
 cd backend
-docker compose up redis -d
+docker compose up redis rabbitmq -d
 ```
 
 2. Start the frontend (in one terminal):
+
 ```bash
 cd frontend
 npm run dev
 ```
 
 3. Start the backend (in another terminal):
+
 ```bash
 cd backend
 poetry run python3.11 api.py
+```
+
+4. Start the worker (in one more terminal):
+
+```bash
+cd backend
+poetry run python3.11 -m dramatiq run_agent_background
 ```
 
 ## Troubleshooting
@@ -222,15 +243,18 @@ poetry run python3.11 api.py
 ### Common Issues
 
 1. **Docker services not starting**
+
    - Check Docker logs: `docker compose logs`
    - Ensure Docker is running correctly
    - Verify port availability (3000 for frontend, 8000 for backend)
 
 2. **Database connection issues**
+
    - Verify Supabase configuration
    - Check if 'basejump' schema is exposed in Supabase
 
 3. **LLM API key issues**
+
    - Verify API keys are correctly entered
    - Check for API usage limits or restrictions
 
@@ -253,8 +277,12 @@ npm run dev
 # Backend logs (manual setup)
 cd backend
 poetry run python3.11 api.py
+
+# Worker logs (manual setup)
+cd backend
+poetry run python3.11 -m dramatiq run_agent_background
 ```
 
 ---
 
-For further assistance, join the [Suna Discord Community](https://discord.gg/Py6pCBUUPw) or check the [GitHub repository](https://github.com/kortix-ai/suna) for updates and issues. 
+For further assistance, join the [Suna Discord Community](https://discord.gg/Py6pCBUUPw) or check the [GitHub repository](https://github.com/kortix-ai/suna) for updates and issues.

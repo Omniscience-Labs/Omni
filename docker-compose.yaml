@@ -1,16 +1,26 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     command: redis-server --save 60 1 --loglevel warning
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+  rabbitmq:
+    image: rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   backend:
     build:
@@ -26,8 +36,35 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
       - REDIS_SSL=False
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
     depends_on:
       redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      worker:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m dramatiq run_agent_background
+    volumes:
+      - ./backend/.env:/app/.env:ro
+    environment:
+      - ENV_MODE=local
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_SSL=False
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   frontend:
@@ -45,4 +82,5 @@ services:
       - backend
 
 volumes:
-  redis-data:
+  redis_data:
+  rabbitmq_data:

@@ -122,18 +122,29 @@ async def run_agent(
             try:
                 browser_content = json.loads(latest_browser_state_msg.data[0]["content"])
                 screenshot_base64 = browser_content.get("screenshot_base64")
-                # Create a copy of the browser state without screenshot
+                screenshot_url = browser_content.get("screenshot_url")
+                
+                # Create a copy of the browser state without screenshot data
                 browser_state_text = browser_content.copy()
                 browser_state_text.pop('screenshot_base64', None)
                 browser_state_text.pop('screenshot_url', None)
-                browser_state_text.pop('screenshot_url_base64', None)
 
                 if browser_state_text:
                     temp_message_content_list.append({
                         "type": "text",
                         "text": f"The following is the current state of the browser:\n{json.dumps(browser_state_text, indent=2)}"
                     })
-                if screenshot_base64:
+                    
+                # Prioritize screenshot_url if available
+                if screenshot_url:
+                    temp_message_content_list.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": screenshot_url,
+                        }
+                    })
+                elif screenshot_base64:
+                    # Fallback to base64 if URL not available
                     temp_message_content_list.append({
                         "type": "image_url",
                         "image_url": {
@@ -141,7 +152,7 @@ async def run_agent(
                         }
                     })
                 else:
-                    logger.warning("Browser state found but no screenshot base64 data.")
+                    logger.warning("Browser state found but no screenshot data.")
 
                 await client.table('messages').delete().eq('message_id', latest_browser_state_msg.data[0]["message_id"]).execute()
             except Exception as e:

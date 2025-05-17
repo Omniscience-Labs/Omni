@@ -486,6 +486,13 @@ def configure_backend_env(env_vars, use_docker=True):
         'REDIS_PASSWORD': '',
         'REDIS_SSL': 'false',
     }
+
+    # RabbitMQ configuration (based on deployment method)
+    rabbitmq_host = 'rabbitmq' if use_docker else 'localhost'
+    rabbitmq_config = {
+        'RABBITMQ_HOST': rabbitmq_host,
+        'RABBITMQ_PORT': '5672',
+    }
     
     # Organize all configuration
     all_config = {}
@@ -507,6 +514,11 @@ ENV_MODE=local
     # Redis section
     env_content += "\n# REDIS\n"
     for key, value in redis_config.items():
+        env_content += f"{key}={value}\n"
+    
+    # RabbitMQ section
+    env_content += "\n# RABBITMQ\n"
+    for key, value in rabbitmq_config.items():
         env_content += f"{key}={value}\n"
     
     # LLM section
@@ -573,6 +585,7 @@ ENV_MODE=local
     
     print_success(f"Backend .env file created at {env_path}")
     print_info(f"Redis host is set to: {redis_host}")
+    print_info(f"RabbitMQ host is set to: {rabbitmq_host}")
 
 def configure_frontend_env(env_vars, use_docker=True):
     """Configure frontend .env.local file"""
@@ -712,11 +725,11 @@ def install_dependencies():
 
 def start_suna():
     """Start Suna using Docker Compose or manual startup"""
-    print_info("You can start Suna using either Docker Compose or by manually starting the frontend and backend servers.")
-    
+    print_info("You can start Suna using either Docker Compose or by manually starting the frontend, backend and worker.")
+
     print(f"\n{Colors.CYAN}How would you like to start Suna?{Colors.ENDC}")
     print(f"{Colors.CYAN}[1] {Colors.GREEN}Docker Compose{Colors.ENDC} {Colors.CYAN}(recommended, starts all services){Colors.ENDC}")
-    print(f"{Colors.CYAN}[2] {Colors.GREEN}Manual startup{Colors.ENDC} {Colors.CYAN}(requires Redis & separate terminals){Colors.ENDC}\n")
+    print(f"{Colors.CYAN}[2] {Colors.GREEN}Manual startup{Colors.ENDC} {Colors.CYAN}(requires Redis, RabbitMQ & separate terminals){Colors.ENDC}\n")
     
     while True:
         start_method = input("Enter your choice (1 or 2): ")
@@ -794,10 +807,11 @@ def start_suna():
         return use_docker
     else:
         print_info("For manual startup, you'll need to:")
-        print_info("1. Start Redis in Docker (required for the backend)")
+        print_info("1. Start Redis and RabbitMQ in Docker (required for the backend)")
         print_info("2. Start the frontend with npm run dev")
         print_info("3. Start the backend with poetry run python3.11 api.py")
-        print_warning("Note: Redis must be running before starting the backend")
+        print_info("4. Start the worker with poetry run python3.11 -m dramatiq run_agent_background")
+        print_warning("Note: Redis and RabbitMQ must be running before starting the backend")
         print_info("Detailed instructions will be provided at the end of setup")
         
         return use_docker
@@ -825,9 +839,9 @@ def final_instructions(use_docker=True, env_vars=None):
         print_info("Suna setup is complete but services are not running yet.")
         print_info("To start Suna, you need to:")
         
-        print_info("1. Start Redis (required for backend):")
+        print_info("1. Start Redis and RabbitMQ (required for backend):")
         print(f"{Colors.CYAN}    cd backend")
-        print(f"    docker compose up redis -d{Colors.ENDC}")
+        print(f"    docker compose up redis rabbitmq -d{Colors.ENDC}")
         
         print_info("2. In one terminal:")
         print(f"{Colors.CYAN}    cd frontend")
@@ -836,6 +850,10 @@ def final_instructions(use_docker=True, env_vars=None):
         print_info("3. In another terminal:")
         print(f"{Colors.CYAN}    cd backend")
         print(f"    poetry run python3.11 api.py{Colors.ENDC}")
+        
+        print_info("3. In one more terminal:")
+        print(f"{Colors.CYAN}    cd backend")
+        print(f"    poetry run python3.11 -m dramatiq run_agent_background{Colors.ENDC}")
         
         print_info("4. Once all services are running, access Suna at: http://localhost:3000")
         print_info("5. Create an account using Supabase authentication to start using Suna")
