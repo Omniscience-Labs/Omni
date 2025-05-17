@@ -3,6 +3,7 @@ from daytona_api_client.models.workspace_state import WorkspaceState
 from dotenv import load_dotenv
 from utils.logger import logger
 from utils.config import config
+from utils.config import Configuration
 
 load_dotenv()
 
@@ -91,7 +92,7 @@ def create_sandbox(password: str, project_id: str = None):
         labels = {'id': project_id}
         
     params = CreateSandboxParams(
-        image="kortix/suna:0.1.2",
+        image=Configuration.SANDBOX_IMAGE_NAME,
         public=True,
         labels=labels,
         env_vars={
