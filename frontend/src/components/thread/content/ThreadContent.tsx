@@ -265,7 +265,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         <>
             <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                 onScroll={handleScroll}
             >
                 <div className="mx-auto max-w-3xl">

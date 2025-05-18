@@ -10,20 +10,8 @@ import { CircleDashed, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { ToolView } from './tool-views/wrapper';
 
-// Import tool view components from the tool-views directory
-import { CommandToolView } from './tool-views/CommandToolView';
-import { StrReplaceToolView } from './tool-views/StrReplaceToolView';
-import { GenericToolView } from './tool-views/GenericToolView';
-import { FileOperationToolView } from './tool-views/FileOperationToolView';
-import { BrowserToolView } from './tool-views/BrowserToolView';
-import { WebSearchToolView } from './tool-views/WebSearchToolView';
-import { WebCrawlToolView } from './tool-views/WebCrawlToolView';
-import { WebScrapeToolView } from './tool-views/WebScrapeToolView';
-import { DataProviderToolView } from './tool-views/DataProviderToolView';
-import { ExposePortToolView } from './tool-views/ExposePortToolView';
-
-// Simple input interface
 export interface ToolCallInput {
   assistantCall: {
     content?: string;
@@ -36,169 +24,6 @@ export interface ToolCallInput {
     timestamp?: string;
   };
   messages?: ApiMessageType[];
-}
-
-// Get the specialized tool view component based on the tool name
-function getToolView(
-  toolName: string | undefined,
-  assistantContent: string | undefined,
-  toolContent: string | undefined,
-  assistantTimestamp: string | undefined,
-  toolTimestamp: string | undefined,
-  isSuccess: boolean = true,
-  project?: Project,
-  messages?: ApiMessageType[],
-  agentStatus?: string,
-  currentIndex?: number,
-  totalCalls?: number,
-  isStreaming?: boolean,
-) {
-  if (!toolName) return null;
-
-  const normalizedToolName = toolName.toLowerCase();
-
-  switch (normalizedToolName) {
-    case 'execute-command':
-      return (
-        <CommandToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'str-replace':
-      return (
-        <StrReplaceToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'expose-port':
-      return (
-        <ExposePortToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-    case 'create-file':
-    case 'full-file-rewrite':
-    case 'delete-file':
-      return (
-        <FileOperationToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          name={normalizedToolName}
-          project={project}
-        />
-      );
-    case 'browser-navigate':
-    case 'browser-click':
-    case 'browser-extract':
-    case 'browser-fill':
-    case 'browser-wait':
-      return (
-        <BrowserToolView
-          currentIndex={currentIndex}
-          totalCalls={totalCalls}
-          agentStatus={agentStatus}
-          messages={messages}
-          name={normalizedToolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          project={project}
-        />
-      );
-    case 'web-search':
-      return (
-        <WebSearchToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'crawl-webpage':
-      return (
-        <WebCrawlToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'scrape-webpage':
-      return (
-        <WebScrapeToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'execute-data-provider-call':
-    case 'get-data-provider-endpoints':
-      return (
-        <DataProviderToolView
-          name={normalizedToolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-    default:
-      // Check if it's a browser operation
-      if (normalizedToolName.startsWith('browser-')) {
-        return (
-          <BrowserToolView
-            currentIndex={currentIndex}
-            totalCalls={totalCalls}
-            agentStatus={agentStatus}
-            messages={messages}
-            name={toolName}
-            assistantContent={assistantContent}
-            toolContent={toolContent}
-            assistantTimestamp={assistantTimestamp}
-            toolTimestamp={toolTimestamp}
-            isSuccess={isSuccess}
-            project={project}
-          />
-        );
-      }
-
-      // Fallback to generic view
-      return (
-        <GenericToolView
-          name={toolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-  }
 }
 
 interface ToolCallSidePanelProps {
@@ -230,8 +55,6 @@ export function ToolCallSidePanel({
   messages,
   agentStatus,
   project,
-  renderAssistantMessage,
-  renderToolResult,
   isLoading = false,
 }: ToolCallSidePanelProps) {
   // Move hooks outside of conditional
@@ -327,7 +150,7 @@ export function ToolCallSidePanel({
             <div className="pt-4 pl-4 pr-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                  <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                     Suna's Computer
                   </h2>
                 </div>
@@ -359,15 +182,13 @@ export function ToolCallSidePanel({
     if (!currentToolCall) {
       return (
         <div className="flex flex-col h-full">
-          {/* Always show header with close button for empty state */}
           <div className="pt-4 pl-4 pr-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                   Suna's Computer
                 </h2>
               </div>
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -378,8 +199,6 @@ export function ToolCallSidePanel({
               </Button>
             </div>
           </div>
-
-          {/* Empty state message */}
           <div className="flex items-center justify-center flex-1 p-4">
             <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
               No tool call details available.
@@ -389,60 +208,29 @@ export function ToolCallSidePanel({
       );
     }
 
-    const toolView = getToolView(
-      currentToolCall.assistantCall.name,
-      currentToolCall.assistantCall.content,
-      currentToolCall.toolResult?.content,
-      currentToolCall.assistantCall.timestamp,
-      currentToolCall.toolResult?.timestamp,
-      isStreaming ? true : (currentToolCall.toolResult?.isSuccess ?? true),
-      project,
-      messages,
-      agentStatus,
-      currentIndex,
-      totalCalls,
-      isStreaming,
+    const toolView = (
+      <ToolView
+        name={currentToolCall.assistantCall.name}
+        assistantContent={currentToolCall.assistantCall.content}
+        toolContent={currentToolCall.toolResult?.content}
+        assistantTimestamp={currentToolCall.assistantCall.timestamp}
+        toolTimestamp={currentToolCall.toolResult?.timestamp}
+        isSuccess={isStreaming ? true : (currentToolCall.toolResult?.isSuccess ?? true)}
+        isStreaming={isStreaming}
+        project={project}
+        messages={messages}
+        agentStatus={agentStatus}
+        currentIndex={currentIndex}
+        totalCalls={totalCalls}
+      />
     );
-
-    if (!toolView) {
-      return (
-        <div className="flex flex-col h-full">
-          {/* Header with close button even when no tool view */}
-          <div className="pt-4 pl-4 pr-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                  Suna's Computer
-                </h2>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Error state message */}
-          <div className="flex items-center justify-center flex-1 p-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
-              Unable to display tool details.
-            </p>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className="flex flex-col h-full">
-        <div className="pt-4 pl-4 pr-4">
+        <div className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                 Suna's Computer
               </h2>
             </div>
@@ -455,7 +243,7 @@ export function ToolCallSidePanel({
                 <span
                   className={cn(
                     'text-sm text-zinc-700 dark:text-zinc-300',
-                    isMobile && 'hidden sm:inline', // Hide on small mobile
+                    isMobile && 'hidden sm:inline',
                   )}
                 >
                   {currentToolName}
@@ -470,8 +258,6 @@ export function ToolCallSidePanel({
                 >
                   {isSuccess ? 'Success' : 'Failed'}
                 </div>
-
-                {/* Add close button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -489,8 +275,6 @@ export function ToolCallSidePanel({
                   <CircleDashed className="h-3 w-3 animate-spin" />
                   <span>Running</span>
                 </div>
-
-                {/* Add close button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -502,7 +286,6 @@ export function ToolCallSidePanel({
               </div>
             )}
 
-            {/* Show close button when no status is available */}
             {!currentToolCall.toolResult?.content && !isStreaming && (
               <Button
                 variant="ghost"
