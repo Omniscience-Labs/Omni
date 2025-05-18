@@ -113,17 +113,11 @@ ENV PYTHONUNBUFFERED=1
 ENV CHROME_PATH=/ms-playwright/chromium-*/chrome-linux/chrome
 ENV ANONYMIZED_TELEMETRY=false
 ENV DISPLAY=:99
-ENV RESOLUTION=1024x768x24
+ENV RESOLUTION=1920x1080x24
 ENV VNC_PASSWORD=vncpassword
 ENV CHROME_PERSISTENT_SESSION=true
-ENV RESOLUTION_WIDTH=1024
-ENV RESOLUTION_HEIGHT=768
-# Add Chrome stability flags
-ENV CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --disable-software-rasterizer --disable-extensions --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-component-extensions-with-background-pages --disable-features=TranslateUI,BlinkGenPropertyTrees --disable-ipc-flooding-protection --disable-renderer-backgrounding --enable-features=NetworkService,NetworkServiceInProcess --force-color-profile=srgb --metrics-recording-only --mute-audio"
-# Add Playwright specific settings
-ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/ms-playwright/chromium-*/chrome-linux/chrome
+ENV RESOLUTION_WIDTH=1920
+ENV RESOLUTION_HEIGHT=1080
 
 # Set up supervisor configuration
 RUN mkdir -p /var/log/supervisor
