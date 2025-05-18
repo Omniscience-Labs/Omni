@@ -59,7 +59,6 @@ class SandboxBrowserTool(SandboxToolsBase):
 
                     logger.info("Browser automation request completed successfully")
 
-                    # Add full result to thread messages for state tracking
                     added_message = await self.thread_manager.add_message(
                         thread_id=self.thread_id,
                         type="browser_state",
@@ -67,17 +66,13 @@ class SandboxBrowserTool(SandboxToolsBase):
                         is_llm_message=False
                     )
 
-                    # Return tool-specific success response
                     success_response = {
                         "success": True,
                         "message": result.get("message", "Browser action completed successfully")
                     }
 
-                    # Add message ID if available
                     if added_message and 'message_id' in added_message:
                         success_response['message_id'] = added_message['message_id']
-
-                    # Add relevant browser-specific info
                     if result.get("url"):
                         success_response["url"] = result["url"]
                     if result.get("title"):
@@ -86,7 +81,6 @@ class SandboxBrowserTool(SandboxToolsBase):
                         success_response["elements_found"] = result["element_count"]
                     if result.get("pixels_below"):
                         success_response["scrollable_content"] = result["pixels_below"] > 0
-                    # Add OCR text when available
                     if result.get("ocr_text"):
                         success_response["ocr_text"] = result["ocr_text"]
 
@@ -103,6 +97,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             logger.error(f"Error executing browser action: {e}")
             logger.debug(traceback.format_exc())
             return self.fail_response(f"Error executing browser action: {e}")
+
 
     @openapi_schema({
         "type": "function",

@@ -72,20 +72,31 @@ export function BrowserToolView({
 
   // Find the browser_state message and extract the screenshot
   let screenshotBase64: string | null = null;
-  if (browserStateMessageId && messages.length > 0) {
-    const browserStateMessage = messages.find(
-      (msg) =>
-        (msg.type as string) === 'browser_state' &&
-        msg.message_id === browserStateMessageId,
-    );
+  let latestBrowserState: any = null;
+  let latestTimestamp = 0;
 
-    if (browserStateMessage) {
-      const browserStateContent = safeJsonParse<{ screenshot_base64?: string }>(
-        browserStateMessage.content,
-        {},
-      );
-      console.log('Browser state content: ', browserStateContent)
-      screenshotBase64 = browserStateContent?.screenshot_base64 || null;
+  if (messages.length > 0) {
+    // Find the latest browser_state message by comparing timestamps
+    messages.forEach((msg) => {
+      if ((msg.type as string) === 'browser_state') {
+        try {
+          const content = safeJsonParse<{ timestamp?: number }>(msg.content, {});
+          const timestamp = content?.timestamp || 0;
+          
+          if (timestamp > latestTimestamp) {
+            latestTimestamp = timestamp;
+            latestBrowserState = content;
+          }
+        } catch (error) {
+          console.error('[BrowserToolView] Error parsing browser state:', error);
+        }
+      }
+    });
+
+    // Use the latest browser state
+    if (latestBrowserState) {
+      screenshotBase64 = latestBrowserState.screenshot_base64 || null;
+      console.log('Latest browser state:', latestBrowserState);
     }
   }
 
