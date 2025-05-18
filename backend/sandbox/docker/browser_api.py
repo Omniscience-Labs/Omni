@@ -15,8 +15,6 @@ import traceback
 import pytesseract
 from PIL import Image
 import io
-from utils.logger import logger
-from services.supabase import DBConnection
 
 #######################################################
 # Action model definitions
@@ -261,16 +259,15 @@ class BrowserActionResult(BaseModel):
     url: Optional[str] = None
     title: Optional[str] = None
     elements: Optional[str] = None  # Formatted string of clickable elements
-    screenshot_base64: Optional[str] = None  # For backward compatibility
-    screenshot_url: Optional[str] = None 
+    screenshot_base64: Optional[str] = None
     pixels_above: int = 0
     pixels_below: int = 0
     content: Optional[str] = None
-    ocr_text: Optional[str] = None
+    ocr_text: Optional[str] = None  # Added field for OCR text
     
     # Additional metadata
-    element_count: int = 0
-    interactive_elements: Optional[List[Dict[str, Any]]] = None
+    element_count: int = 0  # Number of interactive elements found
+    interactive_elements: Optional[List[Dict[str, Any]]] = None  # Simplified list of interactive elements
     viewport_width: Optional[int] = None
     viewport_height: Optional[int] = None
     
@@ -291,7 +288,6 @@ class BrowserAutomation:
         self.include_attributes = ["id", "href", "src", "alt", "aria-label", "placeholder", "name", "role", "title", "value"]
         self.screenshot_dir = os.path.join(os.getcwd(), "screenshots")
         os.makedirs(self.screenshot_dir, exist_ok=True)
-        self.db = DBConnection()  # Initialize DB connection
         
         # Register routes
         self.router.on_startup.append(self.startup)
@@ -311,7 +307,7 @@ class BrowserAutomation:
         
         # Tab management
         self.router.post("/automation/switch_tab")(self.switch_tab)
-        # self.router.post("/automation/open_tab")(self.open_tab)
+        self.router.post("/automation/open_tab")(self.open_tab)
         self.router.post("/automation/close_tab")(self.close_tab)
         
         # Content actions
@@ -337,7 +333,7 @@ class BrowserAutomation:
             playwright = await async_playwright().start()
             print("Playwright started, launching browser...")
             
-            # Use non-headless mode for testing with slower timeouts and additional options
+            # Use non-headless mode for testing with slower timeouts
             launch_options = {
                 "headless": False,
                 "timeout": 60000
@@ -346,6 +342,19 @@ class BrowserAutomation:
             try:
                 self.browser = await playwright.chromium.launch(**launch_options)
                 print("Browser launched successfully")
+                
+                # Create a single context with viewport settings
+                self.context = await self.browser.new_context(
+                    viewport={'width': 1024, 'height': 768}
+                )
+                
+                # Create initial page and navigate to a default page
+                page = await self.context.new_page()
+                await page.goto("https://www.google.com", wait_until="domcontentloaded")
+                self.pages.append(page)
+                self.current_page_index = 0
+                print("Initial page created and navigated to Google")
+                
             except Exception as browser_error:
                 print(f"Failed to launch browser: {browser_error}")
                 # Try with minimal options
@@ -353,16 +362,16 @@ class BrowserAutomation:
                 launch_options = {"timeout": 90000}
                 self.browser = await playwright.chromium.launch(**launch_options)
                 print("Browser launched with minimal options")
-
-            # Check if we already have pages
-            if not self.pages:
-                print("Creating initial page")
-                page = await self.browser.new_page()
+                
+                # Create context and initial page even with minimal options
+                self.context = await self.browser.new_context(
+                    viewport={'width': 1024, 'height': 768}
+                )
+                page = await self.context.new_page()
+                await page.goto("https://www.google.com", wait_until="domcontentloaded")
                 self.pages.append(page)
                 self.current_page_index = 0
-            else:
-                print("Using existing page")
-                self.current_page_index = 0
+                print("Initial page created with minimal options")
                 
             print("Browser initialization completed successfully")
         except Exception as e:
@@ -529,18 +538,6 @@ class BrowserAutomation:
         """Get the current DOM state including element tree and selector map"""
         try:
             page = await self.get_current_page()
-            
-            # First check if page is valid and has content
-            try:
-                current_url = page.url
-                if current_url == "about:blank":
-                    # If page is blank, try to recover by waiting for content
-                    await page.wait_for_load_state("domcontentloaded", timeout=5000)
-                    current_url = page.url
-            except Exception as e:
-                print(f"Error checking page URL: {e}")
-                current_url = "about:blank"
-            
             selector_map = await self.get_selector_map()
             
             # Create a root element
@@ -558,12 +555,13 @@ class BrowserAutomation:
                     root.children.append(element)
             
             # Get basic page info
+            url = page.url
             try:
                 title = await page.title()
             except:
                 title = "Unknown Title"
             
-            # Get more accurate scroll information
+            # Get more accurate scroll information - fix JavaScript syntax
             try:
                 scroll_info = await page.evaluate("""
                 () => {
@@ -594,7 +592,7 @@ class BrowserAutomation:
             return DOMState(
                 element_tree=root,
                 selector_map=selector_map,
-                url=current_url,
+                url=url,
                 title=title,
                 pixels_above=pixels_above,
                 pixels_below=pixels_below
@@ -602,16 +600,7 @@ class BrowserAutomation:
         except Exception as e:
             print(f"Error getting DOM state: {e}")
             traceback.print_exc()
-            
-            # Try to get at least the current URL before falling back
-            current_url = "about:blank"
-            try:
-                page = await self.get_current_page()
-                current_url = page.url
-            except:
-                pass
-                
-            # Return a minimal valid state with the actual URL if possible
+            # Return a minimal valid state to avoid breaking tests
             dummy_root = DOMElementNode(
                 is_visible=True,
                 tag_name="body",
@@ -622,92 +611,22 @@ class BrowserAutomation:
             return DOMState(
                 element_tree=dummy_root,
                 selector_map=dummy_map,
-                url=current_url,
+                url=page.url if 'page' in locals() else "about:blank",
                 title="Error page",
                 pixels_above=0,
                 pixels_below=0
             )
     
     async def take_screenshot(self) -> str:
-        """Take a screenshot and return as base64 encoded string or S3 URL"""
+        """Take a screenshot and return as base64 encoded string"""
         try:
             page = await self.get_current_page()
             screenshot_bytes = await page.screenshot(type='jpeg', quality=60, full_page=False)
-
-            client = await self.db.client
-            
-            if client:
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                random_id = random.randint(1000, 9999)
-                filename = f"screenshot_{timestamp}_{random_id}.jpg"
-                
-                logger.info(f"Attempting to upload screenshot: {filename}")
-                result = await self.upload_to_storage(client, screenshot_bytes, filename)
-                
-                if isinstance(result, dict) and result.get("is_s3") and result.get("url"):
-                    if await self.verify_file_exists(client, filename):
-                        logger.info(f"Screenshot upload verified: {filename}")
-                    else:
-                        logger.error(f"Screenshot upload failed verification: {filename}")
-                        return base64.b64encode(screenshot_bytes).decode('utf-8')
-                
-                return result
-            else:
-                logger.warning("No Supabase client available, falling back to base64")
-                return base64.b64encode(screenshot_bytes).decode('utf-8')
+            return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
-            logger.error(f"Error taking screenshot: {str(e)}")
-            traceback.print_exc()
+            print(f"Error taking screenshot: {e}")
+            # Return an empty string rather than failing
             return ""
-        
-    async def upload_to_storage(self, client, file_bytes: bytes, filename: str) -> str:
-        """Upload file to Supabase Storage and return the URL"""
-        try:
-            bucket_name = 'screenshots'
-            
-            buckets = client.storage.list_buckets()
-            if not any(bucket.name == bucket_name for bucket in buckets):
-                logger.info(f"Creating bucket: {bucket_name}")
-                try:
-                    client.storage.create_bucket(bucket_name)
-                    logger.info("Bucket created successfully")
-                except Exception as e:
-                    logger.error(f"Failed to create bucket: {str(e)}")
-                    raise
-
-            logger.info(f"Uploading file: {filename}")
-            try:
-                result = client.storage.from_(bucket_name).upload(
-                    path=filename,
-                    file=file_bytes,
-                    file_options={"content-type": "image/jpeg"}
-                )
-                logger.info("File upload successful")
-            except Exception as e:
-                logger.error(f"Failed to upload file: {str(e)}")
-                raise
-            
-            file_url = client.storage.from_(bucket_name).get_public_url(filename)
-            logger.info(f"Generated URL: {file_url}")
-            
-            return {"url": file_url, "is_s3": True}
-        except Exception as e:
-            logger.error(f"Error in upload_to_storage: {str(e)}")
-            traceback.print_exc()
-            return base64.b64encode(file_bytes).decode('utf-8')
-
-    async def verify_file_exists(self, client, filename: str) -> bool:
-        """Verify that a file exists in the storage bucket"""
-        logger.info(f"=== Verifying file exists: {filename} ===")
-        try:
-            bucket_name = 'screenshots'
-            files = client.storage.from_(bucket_name).list()
-            exists = any(f['name'] == filename for f in files)
-            logger.info(f"File verification result: {'exists' if exists else 'not found'}")
-            return exists
-        except Exception as e:
-            logger.error(f"Error verifying file: {str(e)}")
-            return False
     
     async def save_screenshot_to_file(self) -> str:
         """Take a screenshot and save to file, returning the path"""
@@ -750,32 +669,20 @@ class BrowserAutomation:
         """Helper method to get updated browser state after any action
         Returns a tuple of (dom_state, screenshot, elements, metadata)
         """
-        logger.info(f"=== Starting get_updated_browser_state for action: {action_name} ===")
         try:
             # Wait a moment for any potential async processes to settle
-            logger.info("Waiting for async processes to settle")
             await asyncio.sleep(0.5)
             
             # Get updated state
-            logger.info("Getting current DOM state")
             dom_state = await self.get_current_dom_state()
-            logger.info(f"DOM state retrieved - URL: {dom_state.url}, Title: {dom_state.title}")
-            
-            logger.info("Taking screenshot")
             screenshot = await self.take_screenshot()
-            logger.info(f"Screenshot result type: {'dict' if isinstance(screenshot, dict) else 'base64 string'}")
-            if isinstance(screenshot, dict) and screenshot.get("url"):
-                logger.info(f"Screenshot URL: {screenshot['url']}")
             
             # Format elements for output
-            logger.info("Formatting clickable elements")
             elements = dom_state.element_tree.clickable_elements_to_string(
                 include_attributes=self.include_attributes
             )
-            logger.info(f"Found {len(dom_state.selector_map)} clickable elements")
             
             # Collect additional metadata
-            logger.info("Collecting metadata")
             page = await self.get_current_page()
             metadata = {}
             
@@ -801,9 +708,8 @@ class BrowserAutomation:
             
             metadata['interactive_elements'] = interactive_elements
             
-            # Get viewport dimensions
+            # Get viewport dimensions - Fix syntax error in JavaScript
             try:
-                logger.info("Getting viewport dimensions")
                 viewport = await page.evaluate("""
                 () => {
                     return {
@@ -814,42 +720,32 @@ class BrowserAutomation:
                 """)
                 metadata['viewport_width'] = viewport.get('width', 0)
                 metadata['viewport_height'] = viewport.get('height', 0)
-                logger.info(f"Viewport dimensions: {metadata['viewport_width']}x{metadata['viewport_height']}")
             except Exception as e:
-                logger.error(f"Error getting viewport dimensions: {e}")
+                print(f"Error getting viewport dimensions: {e}")
                 metadata['viewport_width'] = 0
                 metadata['viewport_height'] = 0
             
             # Extract OCR text from screenshot if available
             ocr_text = ""
             if screenshot:
-                logger.info("Extracting OCR text from screenshot")
                 ocr_text = await self.extract_ocr_text_from_screenshot(screenshot)
                 metadata['ocr_text'] = ocr_text
-                logger.info(f"OCR text length: {len(ocr_text)} characters")
             
-            logger.info(f"=== Completed get_updated_browser_state for {action_name} ===")
+            print(f"Got updated state after {action_name}: {len(dom_state.selector_map)} elements")
             return dom_state, screenshot, elements, metadata
         except Exception as e:
-            logger.error(f"Error in get_updated_browser_state for {action_name}: {e}")
+            print(f"Error getting updated state after {action_name}: {e}")
             traceback.print_exc()
             # Return empty values in case of error
             return None, "", "", {}
 
     def build_action_result(self, success: bool, message: str, dom_state, screenshot: str, 
-                      elements: str, metadata: dict, error: str = "", content: str = None,
-                      fallback_url: str = None) -> BrowserActionResult:
+                              elements: str, metadata: dict, error: str = "", content: str = None,
+                              fallback_url: str = None) -> BrowserActionResult:
         """Helper method to build a consistent BrowserActionResult"""
+        # Ensure elements is never None to avoid display issues
         if elements is None:
             elements = ""
-            
-        screenshot_base64 = None
-        screenshot_url = None
-        
-        if isinstance(screenshot, dict) and screenshot.get("is_s3"):
-            screenshot_url = screenshot.get("url")
-        else:
-            screenshot_base64 = screenshot
             
         return BrowserActionResult(
             success=success,
@@ -858,8 +754,7 @@ class BrowserAutomation:
             url=dom_state.url if dom_state else fallback_url or "",
             title=dom_state.title if dom_state else "",
             elements=elements,
-            screenshot_base64=screenshot_base64,
-            screenshot_url=screenshot_url,
+            screenshot_base64=screenshot,
             pixels_above=dom_state.pixels_above if dom_state else 0,
             pixels_below=dom_state.pixels_below if dom_state else 0,
             content=content,
@@ -876,52 +771,10 @@ class BrowserAutomation:
         """Navigate to a specified URL"""
         try:
             page = await self.get_current_page()
+            await page.goto(action.url, wait_until="domcontentloaded")
+            await page.wait_for_load_state("networkidle", timeout=10000)
             
-            # First check if we're already on the target URL
-            current_url = page.url
-            if current_url == action.url:
-                print(f"Already on target URL: {action.url}")
-                dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"navigate_to({action.url})")
-                return self.build_action_result(
-                    True,
-                    f"Already on {action.url}",
-                    dom_state,
-                    screenshot,
-                    elements,
-                    metadata,
-                    error="",
-                    content=None
-                )
-            
-            # Attempt navigation with retries
-            max_retries = 3
-            retry_count = 0
-            last_error = None
-            
-            while retry_count < max_retries:
-                try:
-                    print(f"Navigation attempt {retry_count + 1} to {action.url}")
-                    await page.goto(action.url, wait_until="domcontentloaded", timeout=30000)
-                    await page.wait_for_load_state("networkidle", timeout=10000)
-                    
-                    # Verify we actually navigated to the target URL
-                    new_url = page.url
-                    if new_url == "about:blank":
-                        raise Exception("Navigation resulted in blank page")
-                        
-                    print(f"Successfully navigated to {new_url}")
-                    break
-                except Exception as e:
-                    last_error = e
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        print(f"Navigation attempt {retry_count} failed: {e}")
-                        await asyncio.sleep(1)  # Wait before retry
-                    else:
-                        print(f"All navigation attempts failed: {e}")
-                        raise
-            
-            # Get updated state after successful navigation
+            # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"navigate_to({action.url})")
             
             result = self.build_action_result(
@@ -940,7 +793,6 @@ class BrowserAutomation:
         except Exception as e:
             print(f"Navigation error: {str(e)}")
             traceback.print_exc()
-            
             # Try to get some state info even after error
             try:
                 dom_state, screenshot, elements, metadata = await self.get_updated_browser_state("navigate_error_recovery")
@@ -955,14 +807,6 @@ class BrowserAutomation:
                     content=None
                 )
             except:
-                # If we can't get state, at least try to get the current URL
-                current_url = "about:blank"
-                try:
-                    page = await self.get_current_page()
-                    current_url = page.url
-                except:
-                    pass
-                    
                 return self.build_action_result(
                     False,
                     str(e),
@@ -971,8 +815,7 @@ class BrowserAutomation:
                     "",
                     {},
                     error=str(e),
-                    content=None,
-                    fallback_url=current_url
+                    content=None
                 )
     
     async def search_google(self, action: SearchGoogleAction = Body(...)):
@@ -1407,8 +1250,8 @@ class BrowserAutomation:
         """Open a new tab with the specified URL"""
         try:
             print(f"Attempting to open new tab with URL: {action.url}")
-            # Create new page in same browser instance
-            new_page = await self.browser.new_page()
+            # Create new page in the existing context
+            new_page = await self.context.new_page()
             print(f"New page created successfully")
             
             # Navigate to the URL
