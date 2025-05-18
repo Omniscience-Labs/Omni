@@ -282,8 +282,8 @@ class BrowserAutomation:
     def __init__(self):
         self.router = APIRouter()
         self.browser: Browser = None
-        self.pages: List[Page] = []
-        self.current_page_index: int = 0
+        self.context = None
+        self.page = None  # Single page instance
         self.logger = logging.getLogger("browser_automation")
         self.include_attributes = ["id", "href", "src", "alt", "aria-label", "placeholder", "name", "role", "title", "value"]
         self.screenshot_dir = os.path.join(os.getcwd(), "screenshots")
@@ -304,11 +304,6 @@ class BrowserAutomation:
         self.router.post("/automation/click_coordinates")(self.click_coordinates)
         self.router.post("/automation/input_text")(self.input_text)
         self.router.post("/automation/send_keys")(self.send_keys)
-        
-        # Tab management
-        self.router.post("/automation/switch_tab")(self.switch_tab)
-        self.router.post("/automation/open_tab")(self.open_tab)
-        self.router.post("/automation/close_tab")(self.close_tab)
         
         # Content actions
         self.router.post("/automation/extract_content")(self.extract_content)
@@ -348,12 +343,10 @@ class BrowserAutomation:
                     viewport={'width': 1024, 'height': 768}
                 )
                 
-                # Create initial page and navigate to a default page
-                page = await self.context.new_page()
-                await page.goto("https://www.google.com", wait_until="domcontentloaded")
-                self.pages.append(page)
-                self.current_page_index = 0
-                print("Initial page created and navigated to Google")
+                # Create single page and navigate to a neutral page
+                self.page = await self.context.new_page()
+                await self.page.goto("about:blank", wait_until="domcontentloaded")
+                print("Initial page created and navigated to about:blank")
                 
             except Exception as browser_error:
                 print(f"Failed to launch browser: {browser_error}")
@@ -367,10 +360,8 @@ class BrowserAutomation:
                 self.context = await self.browser.new_context(
                     viewport={'width': 1024, 'height': 768}
                 )
-                page = await self.context.new_page()
-                await page.goto("https://www.google.com", wait_until="domcontentloaded")
-                self.pages.append(page)
-                self.current_page_index = 0
+                self.page = await self.context.new_page()
+                await self.page.goto("about:blank", wait_until="domcontentloaded")
                 print("Initial page created with minimal options")
                 
             print("Browser initialization completed successfully")
@@ -385,10 +376,10 @@ class BrowserAutomation:
             await self.browser.close()
     
     async def get_current_page(self) -> Page:
-        """Get the current active page"""
-        if not self.pages:
-            raise HTTPException(status_code=500, detail="No browser pages available")
-        return self.pages[self.current_page_index]
+        """Get the current page"""
+        if not self.page:
+            raise HTTPException(status_code=500, detail="No browser page available")
+        return self.page
     
     async def get_selector_map(self) -> Dict[int, DOMElementNode]:
         """Get a map of selectable elements on the page"""
@@ -770,9 +761,8 @@ class BrowserAutomation:
     async def navigate_to(self, action: GoToUrlAction = Body(...)):
         """Navigate to a specified URL"""
         try:
-            page = await self.get_current_page()
-            await page.goto(action.url, wait_until="domcontentloaded")
-            await page.wait_for_load_state("networkidle", timeout=10000)
+            await self.page.goto(action.url, wait_until="domcontentloaded")
+            await self.page.wait_for_load_state("networkidle", timeout=10000)
             
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"navigate_to({action.url})")
@@ -821,10 +811,9 @@ class BrowserAutomation:
     async def search_google(self, action: SearchGoogleAction = Body(...)):
         """Search Google with the provided query"""
         try:
-            page = await self.get_current_page()
             search_url = f"https://www.google.com/search?q={action.query}"
-            await page.goto(search_url)
-            await page.wait_for_load_state()
+            await self.page.goto(search_url)
+            await self.page.wait_for_load_state()
             
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"search_google({action.query})")
@@ -870,9 +859,8 @@ class BrowserAutomation:
     async def go_back(self, _: NoParamsAction = Body(...)):
         """Navigate back in browser history"""
         try:
-            page = await self.get_current_page()
-            await page.go_back()
-            await page.wait_for_load_state()
+            await self.page.go_back()
+            await self.page.wait_for_load_state()
             
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state("go_back")
@@ -1189,149 +1177,6 @@ class BrowserAutomation:
                 error="",
                 content=None
             )
-        except Exception as e:
-            return self.build_action_result(
-                False,
-                str(e),
-                None,
-                "",
-                "",
-                {},
-                error=str(e),
-                content=None
-            )
-    
-    # Tab Management Actions
-    
-    async def switch_tab(self, action: SwitchTabAction = Body(...)):
-        """Switch to a different tab by index"""
-        try:
-            if 0 <= action.page_id < len(self.pages):
-                self.current_page_index = action.page_id
-                page = await self.get_current_page()
-                await page.wait_for_load_state()
-                
-                # Get updated state after action
-                dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"switch_tab({action.page_id})")
-                
-                return self.build_action_result(
-                    True,
-                    f"Switched to tab {action.page_id}",
-                    dom_state,
-                    screenshot,
-                    elements,
-                    metadata,
-                    error="",
-                    content=None
-                )
-            else:
-                return self.build_action_result(
-                    False,
-                    f"Tab {action.page_id} not found",
-                    None,
-                    "",
-                    "",
-                    {},
-                    error=f"Tab {action.page_id} not found"
-                )
-        except Exception as e:
-            return self.build_action_result(
-                False,
-                str(e),
-                None,
-                "",
-                "",
-                {},
-                error=str(e),
-                content=None
-            )
-    
-    async def open_tab(self, action: OpenTabAction = Body(...)):
-        """Open a new tab with the specified URL"""
-        try:
-            print(f"Attempting to open new tab with URL: {action.url}")
-            # Create new page in the existing context
-            new_page = await self.context.new_page()
-            print(f"New page created successfully")
-            
-            # Navigate to the URL
-            await new_page.goto(action.url, wait_until="domcontentloaded")
-            await new_page.wait_for_load_state("networkidle", timeout=10000)
-            print(f"Navigated to URL in new tab: {action.url}")
-            
-            # Add to page list and make it current
-            self.pages.append(new_page)
-            self.current_page_index = len(self.pages) - 1
-            print(f"New tab added as index {self.current_page_index}")
-            
-            # Get updated state after action
-            dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"open_tab({action.url})")
-            
-            return self.build_action_result(
-                True,
-                f"Opened new tab with URL: {action.url}",
-                dom_state,
-                screenshot,
-                elements,
-                metadata,
-                error="",
-                content=None
-            )
-        except Exception as e:
-            print("****"*10)
-            print(f"Error opening tab: {e}")
-            print(traceback.format_exc())
-            print("****"*10)
-            return self.build_action_result(
-                False,
-                str(e),
-                None,
-                "",
-                "",
-                {},
-                error=str(e),
-                content=None
-            )
-    
-    async def close_tab(self, action: CloseTabAction = Body(...)):
-        """Close a tab by index"""
-        try:
-            if 0 <= action.page_id < len(self.pages):
-                page = self.pages[action.page_id]
-                url = page.url
-                await page.close()
-                self.pages.pop(action.page_id)
-                
-                # Adjust current index if needed
-                if self.current_page_index >= len(self.pages):
-                    self.current_page_index = max(0, len(self.pages) - 1)
-                elif self.current_page_index >= action.page_id:
-                    self.current_page_index = max(0, self.current_page_index - 1)
-                
-                # Get updated state after action
-                page = await self.get_current_page()
-                dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"close_tab({action.page_id})")
-                
-                return self.build_action_result(
-                    True,
-                    f"Closed tab {action.page_id} with URL: {url}",
-                    dom_state,
-                    screenshot,
-                    elements,
-                    metadata,
-                    error="",
-                    content=None
-                )
-            else:
-                return self.build_action_result(
-                    False,
-                    f"Tab {action.page_id} not found",
-                    None,
-                    "",
-                    "",
-                    {},
-                    error=f"Tab {action.page_id} not found"
-                )
         except Exception as e:
             return self.build_action_result(
                 False,
