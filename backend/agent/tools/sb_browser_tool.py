@@ -5,6 +5,7 @@ from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
 from sandbox.tool_base import SandboxToolsBase
 from utils.logger import logger
+from utils.s3_upload_utils import upload_base64_image
 
 
 class SandboxBrowserTool(SandboxToolsBase):
@@ -59,6 +60,17 @@ class SandboxBrowserTool(SandboxToolsBase):
 
                     logger.info("Browser automation request completed successfully")
 
+                    if "screenshot_base64" in result:
+                        try:
+                            image_url = await upload_base64_image(result["screenshot_base64"])
+                            result["image_url"] = image_url
+                            # Remove base64 data from result to keep it clean
+                            del result["screenshot_base64"]
+                            logger.debug(f"Uploaded screenshot to {image_url}")
+                        except Exception as e:
+                            logger.error(f"Failed to upload screenshot: {e}")
+                            result["image_upload_error"] = str(e)
+
                     added_message = await self.thread_manager.add_message(
                         thread_id=self.thread_id,
                         type="browser_state",
@@ -83,6 +95,8 @@ class SandboxBrowserTool(SandboxToolsBase):
                         success_response["scrollable_content"] = result["pixels_below"] > 0
                     if result.get("ocr_text"):
                         success_response["ocr_text"] = result["ocr_text"]
+                    if result.get("image_url"):
+                        success_response["image_url"] = result["image_url"]
 
                     return self.success_response(success_response)
 
