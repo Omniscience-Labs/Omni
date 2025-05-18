@@ -110,7 +110,7 @@ RUN python -c "from playwright.sync_api import sync_playwright; print('Playwrigh
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV CHROME_PATH=/ms-playwright/chromium-*/chrome
+ENV CHROME_PATH=/ms-playwright/chromium-*/chrome-linux/chrome
 ENV ANONYMIZED_TELEMETRY=false
 ENV DISPLAY=:99
 ENV RESOLUTION=1024x768x24
@@ -123,7 +123,7 @@ ENV CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --disable-s
 # Add Playwright specific settings
 ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/ms-playwright/chromium-*/chrome
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/ms-playwright/chromium-*/chrome-linux/chrome
 
 # Set up supervisor configuration
 RUN mkdir -p /var/log/supervisor
