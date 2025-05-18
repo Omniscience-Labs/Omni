@@ -6,7 +6,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
       args:
         TARGETPLATFORM: ${TARGETPLATFORM:-linux/amd64}
-    image: kortix/suna:0.1.2
+    image: kortix/suna:0.1.2.1
     ports:
       - "6080:6080"  # noVNC web interface
       - "5901:5901"  # VNC port
@@ -15,7 +15,7 @@ services:
       - "8080:8080"  # HTTP server port
     environment:
       - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-false}
-      - CHROME_PATH=/usr/bin/google-chrome
+      - CHROME_PATH=/usr/bin/chromium
       - CHROME_USER_DATA=/app/data/chrome_data
       - CHROME_PERSISTENT_SESSION=${CHROME_PERSISTENT_SESSION:-false}
       - CHROME_CDP=${CHROME_CDP:-http://localhost:9222}
@@ -27,8 +27,13 @@ services:
       - VNC_PASSWORD=${VNC_PASSWORD:-vncpassword}
       - CHROME_DEBUGGING_PORT=9222
       - CHROME_DEBUGGING_HOST=localhost
+      - CHROME_FLAGS=${CHROME_FLAGS:-"--no-sandbox --disable-dev-shm-usage --disable-gpu --disable-software-rasterizer --disable-extensions --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-component-extensions-with-background-pages --disable-features=TranslateUI,BlinkGenPropertyTrees --disable-ipc-flooding-protection --disable-renderer-backgrounding --enable-features=NetworkService,NetworkServiceInProcess --force-color-profile=srgb --metrics-recording-only --mute-audio"}
+      - PLAYWRIGHT_SKIP_BROWSER_GC=1
+      - PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+      - NODE_OPTIONS="--max-old-space-size=4096"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - chrome_data:/app/data/chrome_data
     restart: unless-stopped
     shm_size: '2gb'
     cap_add:
@@ -42,3 +47,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  chrome_data:

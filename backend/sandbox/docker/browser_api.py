@@ -311,7 +311,7 @@ class BrowserAutomation:
         
         # Tab management
         self.router.post("/automation/switch_tab")(self.switch_tab)
-        self.router.post("/automation/open_tab")(self.open_tab)
+        # self.router.post("/automation/open_tab")(self.open_tab)
         self.router.post("/automation/close_tab")(self.close_tab)
         
         # Content actions
@@ -337,7 +337,7 @@ class BrowserAutomation:
             playwright = await async_playwright().start()
             print("Playwright started, launching browser...")
             
-            # Use non-headless mode for testing with slower timeouts
+            # Use non-headless mode for testing with slower timeouts and additional options
             launch_options = {
                 "headless": False,
                 "timeout": 60000
@@ -354,21 +354,17 @@ class BrowserAutomation:
                 self.browser = await playwright.chromium.launch(**launch_options)
                 print("Browser launched with minimal options")
 
-            try:
-                await self.get_current_page()
-                print("Found existing page, using it")
-                self.current_page_index = 0
-            except Exception as page_error:
-                print(f"Error finding existing page, creating new one. ( {page_error})")
+            # Check if we already have pages
+            if not self.pages:
+                print("Creating initial page")
                 page = await self.browser.new_page()
-                print("New page created successfully")
                 self.pages.append(page)
                 self.current_page_index = 0
-                # Navigate to about:blank to ensure page is ready
-                # await page.goto("google.com", timeout=30000)
-                print("Navigated to google.com")
+            else:
+                print("Using existing page")
+                self.current_page_index = 0
                 
-                print("Browser initialization completed successfully")
+            print("Browser initialization completed successfully")
         except Exception as e:
             print(f"Browser startup error: {str(e)}")
             traceback.print_exc()
@@ -533,6 +529,18 @@ class BrowserAutomation:
         """Get the current DOM state including element tree and selector map"""
         try:
             page = await self.get_current_page()
+            
+            # First check if page is valid and has content
+            try:
+                current_url = page.url
+                if current_url == "about:blank":
+                    # If page is blank, try to recover by waiting for content
+                    await page.wait_for_load_state("domcontentloaded", timeout=5000)
+                    current_url = page.url
+            except Exception as e:
+                print(f"Error checking page URL: {e}")
+                current_url = "about:blank"
+            
             selector_map = await self.get_selector_map()
             
             # Create a root element
@@ -550,13 +558,12 @@ class BrowserAutomation:
                     root.children.append(element)
             
             # Get basic page info
-            url = page.url
             try:
                 title = await page.title()
             except:
                 title = "Unknown Title"
             
-            # Get more accurate scroll information - fix JavaScript syntax
+            # Get more accurate scroll information
             try:
                 scroll_info = await page.evaluate("""
                 () => {
@@ -587,7 +594,7 @@ class BrowserAutomation:
             return DOMState(
                 element_tree=root,
                 selector_map=selector_map,
-                url=url,
+                url=current_url,
                 title=title,
                 pixels_above=pixels_above,
                 pixels_below=pixels_below
@@ -595,7 +602,16 @@ class BrowserAutomation:
         except Exception as e:
             print(f"Error getting DOM state: {e}")
             traceback.print_exc()
-            # Return a minimal valid state to avoid breaking tests
+            
+            # Try to get at least the current URL before falling back
+            current_url = "about:blank"
+            try:
+                page = await self.get_current_page()
+                current_url = page.url
+            except:
+                pass
+                
+            # Return a minimal valid state with the actual URL if possible
             dummy_root = DOMElementNode(
                 is_visible=True,
                 tag_name="body",
@@ -606,7 +622,7 @@ class BrowserAutomation:
             return DOMState(
                 element_tree=dummy_root,
                 selector_map=dummy_map,
-                url=page.url if 'page' in locals() else "about:blank",
+                url=current_url,
                 title="Error page",
                 pixels_above=0,
                 pixels_below=0
@@ -860,10 +876,52 @@ class BrowserAutomation:
         """Navigate to a specified URL"""
         try:
             page = await self.get_current_page()
-            await page.goto(action.url, wait_until="domcontentloaded")
-            await page.wait_for_load_state("networkidle", timeout=10000)
             
-            # Get updated state after action
+            # First check if we're already on the target URL
+            current_url = page.url
+            if current_url == action.url:
+                print(f"Already on target URL: {action.url}")
+                dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"navigate_to({action.url})")
+                return self.build_action_result(
+                    True,
+                    f"Already on {action.url}",
+                    dom_state,
+                    screenshot,
+                    elements,
+                    metadata,
+                    error="",
+                    content=None
+                )
+            
+            # Attempt navigation with retries
+            max_retries = 3
+            retry_count = 0
+            last_error = None
+            
+            while retry_count < max_retries:
+                try:
+                    print(f"Navigation attempt {retry_count + 1} to {action.url}")
+                    await page.goto(action.url, wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_load_state("networkidle", timeout=10000)
+                    
+                    # Verify we actually navigated to the target URL
+                    new_url = page.url
+                    if new_url == "about:blank":
+                        raise Exception("Navigation resulted in blank page")
+                        
+                    print(f"Successfully navigated to {new_url}")
+                    break
+                except Exception as e:
+                    last_error = e
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        print(f"Navigation attempt {retry_count} failed: {e}")
+                        await asyncio.sleep(1)  # Wait before retry
+                    else:
+                        print(f"All navigation attempts failed: {e}")
+                        raise
+            
+            # Get updated state after successful navigation
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"navigate_to({action.url})")
             
             result = self.build_action_result(
@@ -882,6 +940,7 @@ class BrowserAutomation:
         except Exception as e:
             print(f"Navigation error: {str(e)}")
             traceback.print_exc()
+            
             # Try to get some state info even after error
             try:
                 dom_state, screenshot, elements, metadata = await self.get_updated_browser_state("navigate_error_recovery")
@@ -896,6 +955,14 @@ class BrowserAutomation:
                     content=None
                 )
             except:
+                # If we can't get state, at least try to get the current URL
+                current_url = "about:blank"
+                try:
+                    page = await self.get_current_page()
+                    current_url = page.url
+                except:
+                    pass
+                    
                 return self.build_action_result(
                     False,
                     str(e),
@@ -904,7 +971,8 @@ class BrowserAutomation:
                     "",
                     {},
                     error=str(e),
-                    content=None
+                    content=None,
+                    fallback_url=current_url
                 )
     
     async def search_google(self, action: SearchGoogleAction = Body(...)):

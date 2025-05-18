@@ -19,7 +19,7 @@ You can modify the sandbox environment for development or to add new capabilitie
 2. Build a custom image:
    ```
    cd backend/sandbox/docker
-   docker-compose build
+   docker compose build
    ```
 3. Test your changes locally using docker-compose
 
