@@ -1034,11 +1034,8 @@ export default function ThreadPage({
         clearTimeout(timeoutId);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     project?.account_id,
-    initialLoadCompleted.current,
-    messagesLoadedRef.current,
     isLoading,
     agentStatus,
     checkBillingLimits
