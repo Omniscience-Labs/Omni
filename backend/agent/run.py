@@ -154,7 +154,6 @@ async def run_agent(
                 else:
                     logger.warning("Browser state found but no screenshot data.")
 
-                await client.table('messages').delete().eq('message_id', latest_browser_state_msg.data[0]["message_id"]).execute()
             except Exception as e:
                 logger.error(f"Error parsing browser state: {e}")
 

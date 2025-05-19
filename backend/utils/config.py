@@ -155,11 +155,11 @@ class Configuration:
     STRIPE_DEFAULT_TRIAL_DAYS: int = 14
     
     # Stripe Product IDs
-    STRIPE_PRODUCT_ID_PROD: str = 'prod_SCl7AQ2C8kK1CD'  # Production product ID
-    STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'  # Staging product ID
+    STRIPE_PRODUCT_ID_PROD: str = 'prod_SCl7AQ2C8kK1CD'
+    STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.2"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.2.8"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     @property

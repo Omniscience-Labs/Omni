@@ -978,7 +978,7 @@ class ResponseProcessor:
                         if value is not None:
                             params[mapping.param_name] = value
                             parsing_details["attributes"][mapping.param_name] = value # Store raw attribute
-                            logger.info(f"Found attribute {mapping.param_name}: {value}")
+                            # logger.info(f"Found attribute {mapping.param_name}: {value}")
                 
                     elif mapping.node_type == "element":
                         # Extract element content
@@ -986,7 +986,7 @@ class ResponseProcessor:
                         if content is not None:
                             params[mapping.param_name] = content.strip()
                             parsing_details["elements"][mapping.param_name] = content.strip() # Store raw element content
-                            logger.info(f"Found element {mapping.param_name}: {content.strip()}")
+                            # logger.info(f"Found element {mapping.param_name}: {content.strip()}")
                 
                     elif mapping.node_type == "text":
                         # Extract text content
@@ -994,7 +994,7 @@ class ResponseProcessor:
                         if content is not None:
                             params[mapping.param_name] = content.strip()
                             parsing_details["text_content"] = content.strip() # Store raw text content
-                            logger.info(f"Found text content for {mapping.param_name}: {content.strip()}")
+                            # logger.info(f"Found text content for {mapping.param_name}: {content.strip()}")
                 
                     elif mapping.node_type == "content":
                         # Extract root content
@@ -1002,7 +1002,7 @@ class ResponseProcessor:
                         if content is not None:
                             params[mapping.param_name] = content.strip()
                             parsing_details["root_content"] = content.strip() # Store raw root content
-                            logger.info(f"Found root content for {mapping.param_name}")
+                            # logger.info(f"Found root content for {mapping.param_name}")
                 
                 except Exception as e:
                     logger.error(f"Error processing mapping {mapping}: {e}")
