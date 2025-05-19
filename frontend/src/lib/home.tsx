@@ -1191,7 +1191,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1576091160550-2173dba999ef?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://github.com/Kortix-ai/Suna/blob/main/use-cases/competitor-analysis.md',
+      url: 'https://suna.so/share/2fbf0552-87d6-4d12-be25-d54f435bc493',
     },
     {
       id: 'vc-list',
