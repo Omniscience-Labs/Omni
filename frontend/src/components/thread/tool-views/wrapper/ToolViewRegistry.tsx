@@ -16,12 +16,21 @@ export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 type ToolViewRegistryType = Record<string, ToolViewComponent>;
 
 const defaultRegistry: ToolViewRegistryType = {
-  'browser-navigate': BrowserToolView,
-  'browser-click': BrowserToolView,
-  'browser-extract': BrowserToolView,
-  'browser-fill': BrowserToolView,
+  'browser-navigate-to': BrowserToolView,
+  'browser-go-back': BrowserToolView,
   'browser-wait': BrowserToolView,
-  'browser-screenshot': BrowserToolView,
+  'browser-click-element': BrowserToolView,
+  'browser-input-text': BrowserToolView,
+  'browser-send-keys': BrowserToolView,
+  'browser-switch-tab': BrowserToolView,
+  'browser-close-tab': BrowserToolView,
+  'browser-scroll-down': BrowserToolView,
+  'browser-scroll-up': BrowserToolView,
+  'browser-scroll-to-text': BrowserToolView,
+  'browser-get-dropdown-options': BrowserToolView,
+  'browser-select-dropdown-option': BrowserToolView,
+  'browser-drag-drop': BrowserToolView,
+  'browser-click-coordinates': BrowserToolView,
 
   'execute-command': CommandToolView,
 

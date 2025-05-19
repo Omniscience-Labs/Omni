@@ -432,38 +432,36 @@ export function FileOperationToolView({
         </Tabs>
       ) : (
         <>
-          <CardHeader className="bg-gradient-to-r from-zinc-50/80 to-zinc-100/80 dark:from-zinc-900/80 dark:to-zinc-800/80 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 p-2 py-1 flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg", config.bgColor)}>
-                <Icon className={cn("h-5 w-5", config.color)} />
+          <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded-lg", config.bgColor)}>
+                  <Icon className={cn("h-5 w-5", config.color)} />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                    {processedFilePath || 'Unknown file path'}
+                  </CardTitle>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                  {operation === 'create' ? 'Create File' : 
-                   operation === 'rewrite' ? 'Update File' : 'Delete File'}
-                </CardTitle>
-                <CardDescription className="text-sm text-zinc-500 dark:text-zinc-400 font-mono">
-                  {processedFilePath || 'Unknown file path'}
-                </CardDescription>
+              
+              <div className="flex items-center gap-2">
+                {!isStreaming ? (
+                  <Badge variant="secondary" className={cn("px-2 py-1 transition-colors", config.badgeColor)}>
+                    {isSuccess ? (
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                    ) : (
+                      <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {isSuccess ? config.successMessage : `Failed to ${operation}`}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-1">
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {config.progressMessage}
+                  </Badge>
+                )}
               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {!isStreaming ? (
-                <Badge variant="secondary" className={cn("px-2 py-1 transition-colors", config.badgeColor)}>
-                  {isSuccess ? (
-                    <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                  ) : (
-                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {isSuccess ? config.successMessage : `Failed to ${operation}`}
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-1">
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  {config.progressMessage}
-                </Badge>
-              )}
             </div>
           </CardHeader>
 

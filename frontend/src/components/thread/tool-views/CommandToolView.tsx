@@ -1,19 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Terminal,
   CheckCircle,
   AlertTriangle,
   CircleDashed,
+  ExternalLink,
+  Code,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  ArrowRight
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
-  extractCommand,
-  extractCommandOutput,
   extractExitCode,
   formatTimestamp,
   getToolTitle,
 } from './utils';
 import { cn } from '@/lib/utils';
+import { useTheme } from 'next-themes';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CommandToolView({
   name = 'execute-command',
@@ -24,15 +35,17 @@ export function CommandToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
-  // Extract command with improved XML parsing
+  const { resolvedTheme } = useTheme();
+  const isDarkTheme = resolvedTheme === 'dark';
+  const [progress, setProgress] = useState(0);
+  const [showFullOutput, setShowFullOutput] = useState(false);
+
   const rawCommand = React.useMemo(() => {
     if (!assistantContent) return null;
 
     try {
-      // Try to parse JSON content first
       const parsed = JSON.parse(assistantContent);
       if (parsed.content) {
-        // Look for execute-command tag
         const commandMatch = parsed.content.match(
           /<execute-command[^>]*>([\s\S]*?)<\/execute-command>/,
         );
@@ -41,7 +54,6 @@ export function CommandToolView({
         }
       }
     } catch (e) {
-      // If JSON parsing fails, try direct XML extraction
       const commandMatch = assistantContent.match(
         /<execute-command[^>]*>([\s\S]*?)<\/execute-command>/,
       );
@@ -53,198 +65,286 @@ export function CommandToolView({
     return null;
   }, [assistantContent]);
 
-  // Clean the command by removing any leading/trailing whitespace and newlines
   const command = rawCommand
-    ?.replace(/^suna@computer:~\$\s*/g, '') // Remove prompt prefix
-    ?.replace(/\\n/g, '') // Remove escaped newlines
-    ?.replace(/\n/g, '') // Remove actual newlines
-    ?.trim(); // Clean up any remaining whitespace
+    ?.replace(/^suna@computer:~\$\s*/g, '')
+    ?.replace(/\\n/g, '')
+    ?.replace(/\n/g, '')
+    ?.trim();
 
-  // Extract and clean the output with improved parsing
   const output = React.useMemo(() => {
     if (!toolContent) return null;
 
+    let extractedOutput = '';
+    let success = true;
+
     try {
-      // Try to parse JSON content first
-      const parsed = JSON.parse(toolContent);
-      if (parsed.content) {
-        // Look for tool_result tag
-        const toolResultMatch = parsed.content.match(
-          /<tool_result>\s*<execute-command>([\s\S]*?)<\/execute-command>\s*<\/tool_result>/,
-        );
-        if (toolResultMatch) {
-          return toolResultMatch[1].trim();
-        }
-
-        // Look for output field in a ToolResult pattern
-        const outputMatch = parsed.content.match(
-          /ToolResult\(.*?output='([\s\S]*?)'.*?\)/,
-        );
-        if (outputMatch) {
-          return outputMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-        }
-
-        // Try to parse as direct JSON
-        try {
-          const outputJson = JSON.parse(parsed.content);
-          if (outputJson.output) {
-            return outputJson.output;
+      if (typeof toolContent === 'string') {
+        if (toolContent.includes('ToolResult')) {
+          const successMatch = toolContent.match(/success=(true|false)/i);
+          success = successMatch ? successMatch[1].toLowerCase() === 'true' : true;
+          
+          //@ts-expect-error IGNORE
+          const outputMatch = toolContent.match(/output=['"](.*)['"]/s);
+          if (outputMatch && outputMatch[1]) {
+            extractedOutput = outputMatch[1]
+              .replace(/\\n/g, '\n')
+              .replace(/\\"/g, '"')
+              .replace(/\\t/g, '\t')
+              .replace(/\\'/g, "'");
+          } else {
+            extractedOutput = toolContent;
           }
-        } catch (e) {
-          // If JSON parsing fails, use the content as-is
-          return parsed.content;
+        } else {
+          try {
+            const parsed = JSON.parse(toolContent);
+            if (parsed.output) {
+              extractedOutput = parsed.output;
+              success = parsed.success !== false;
+            } else if (parsed.content) {
+              extractedOutput = parsed.content;
+            } else {
+              extractedOutput = JSON.stringify(parsed, null, 2);
+            }
+          } catch (e) {
+            extractedOutput = toolContent;
+          }
         }
+      } else {
+        extractedOutput = String(toolContent);
       }
     } catch (e) {
-      // If JSON parsing fails, try direct XML extraction
-      const toolResultMatch = toolContent.match(
-        /<tool_result>\s*<execute-command>([\s\S]*?)<\/execute-command>\s*<\/tool_result>/,
-      );
-      if (toolResultMatch) {
-        return toolResultMatch[1].trim();
-      }
-
-      const outputMatch = toolContent.match(
-        /ToolResult\(.*?output='([\s\S]*?)'.*?\)/,
-      );
-      if (outputMatch) {
-        return outputMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-      }
+      extractedOutput = String(toolContent);
+      console.error('Error parsing tool content:', e);
     }
 
-    return toolContent;
+    return extractedOutput;
   }, [toolContent]);
 
-  const exitCode = extractExitCode(toolContent);
+  const exitCode = extractExitCode(output);
   const toolTitle = getToolTitle(name);
+  
+  // Simulate progress when streaming
+  useEffect(() => {
+    if (isStreaming) {
+      const timer = setInterval(() => {
+        setProgress((prevProgress) => {
+          if (prevProgress >= 95) {
+            clearInterval(timer);
+            return prevProgress;
+          }
+          return prevProgress + 5;
+        });
+      }, 300);
+      return () => clearInterval(timer);
+    } else {
+      setProgress(100);
+    }
+  }, [isStreaming]);
+
+  // Format and handle the output for display
+  const formattedOutput = React.useMemo(() => {
+    if (!output) return [];
+    
+    // Replace JSON string escaped newlines with actual newlines
+    let processedOutput = output
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'");
+    
+    // Split by real newlines for line-by-line display
+    return processedOutput.split('\n');
+  }, [output]);
+
+  // Only show a preview if there are many lines
+  const hasMoreLines = formattedOutput.length > 10;
+  const previewLines = formattedOutput.slice(0, 10);
+  const linesToShow = showFullOutput ? formattedOutput : previewLines;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 p-4 overflow-auto">
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden h-full flex flex-col">
-          <div className="flex items-center p-2 bg-zinc-100 dark:bg-zinc-900 justify-between border-b border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center">
-              <Terminal className="h-4 w-4 mr-2 text-zinc-600 dark:text-zinc-400" />
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Terminal
-              </span>
+    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
+      <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+        <div className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
+              <Terminal className="h-5 w-5 text-purple-500 dark:text-purple-400" />
             </div>
-            {exitCode !== null && !isStreaming && (
-              <span
-                className={cn(
-                  'text-xs flex items-center',
-                  isSuccess
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-red-600 dark:text-red-400',
-                )}
-              >
-                <span className="h-1.5 w-1.5 rounded-full mr-1.5 bg-current"></span>
-                Exit: {exitCode}
-              </span>
-            )}
-          </div>
-
-          <div className="terminal-container flex-1 overflow-auto bg-black text-zinc-300 font-mono">
-            <div className="p-3 text-xs">
-              {command && output && !isStreaming && (
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <span className="text-emerald-400 shrink-0 mr-2">
-                      suna@computer:~$
-                    </span>
-                    <span className="text-zinc-300">{command}</span>
-                  </div>
-
-                  <div className="whitespace-pre-wrap break-words text-zinc-400 pl-0">
-                    {output}
-                  </div>
-
-                  {isSuccess && (
-                    <div className="text-emerald-400 mt-1">
-                      suna@computer:~$ _
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {command && !output && !isStreaming && (
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <span className="text-emerald-400 shrink-0 mr-2">
-                      suna@computer:~$
-                    </span>
-                    <span className="text-zinc-300">{command}</span>
-                  </div>
-                  <div className="flex items-center h-4">
-                    <div className="w-2 h-4 bg-zinc-500 animate-pulse"></div>
-                  </div>
-                </div>
-              )}
-
-              {!command && !output && !isStreaming && (
-                <div className="flex items-start">
-                  <span className="text-emerald-400 shrink-0 mr-2">
-                    suna@computer:~$
-                  </span>
-                  <span className="w-2 h-4 bg-zinc-500 animate-pulse"></span>
-                </div>
-              )}
-
-              {isStreaming && (
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <span className="text-emerald-400 shrink-0 mr-2">
-                      suna@computer:~$
-                    </span>
-                    <span className="text-zinc-300">
-                      {command || 'running command...'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <CircleDashed className="h-3 w-3 animate-spin text-blue-400" />
-                    <span>Command execution in progress...</span>
-                  </div>
-                </div>
-              )}
+            <div>
+              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                {toolTitle}
+              </CardTitle>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          
           {!isStreaming && (
-            <div className="flex items-center gap-2">
+            <Badge 
+              variant="secondary" 
+              className={
+                isSuccess 
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                  : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
+              }
+            >
               {isSuccess ? (
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                <CheckCircle className="h-3.5 w-3.5 mr-1" />
               ) : (
-                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              <span>
-                {isSuccess
-                  ? `Command completed successfully${exitCode !== null ? ` (exit code: ${exitCode})` : ''}`
-                  : `Command failed${exitCode !== null ? ` with exit code ${exitCode}` : ''}`}
-              </span>
-            </div>
+              {isSuccess ? 'Command executed successfully' : 'Command failed'}
+            </Badge>
           )}
+        </div>
+      </CardHeader>
 
-          {isStreaming && (
-            <div className="flex items-center gap-2">
-              <CircleDashed className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-              <span>Executing command...</span>
+      <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
+        {isStreaming ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+            <div className="text-center w-full max-w-xs">
+              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-500 dark:text-purple-400" />
+              </div>
+              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                Executing command
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                <span className="font-mono text-xs break-all">{command || 'Processing command...'}</span>
+              </p>
+              <Progress value={progress} className="w-full h-2" />
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
-          )}
-
-          <div className="text-xs">
-            {toolTimestamp && !isStreaming
-              ? formatTimestamp(toolTimestamp)
-              : assistantTimestamp
-                ? formatTimestamp(assistantTimestamp)
-                : ''}
           </div>
+        ) : command ? (
+          <ScrollArea className="h-full w-full">
+            <div className="p-4">
+              <div className="mb-4 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg overflow-hidden shadow-sm border border-zinc-200 dark:border-zinc-800">
+                <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
+                  <Code className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Command</span>
+                </div>
+                <div className="p-4 font-mono text-sm text-zinc-700 dark:text-zinc-300 flex gap-2">
+                  <span className="text-purple-500 dark:text-purple-400 select-none">$</span>
+                  <code className="flex-1 break-all">{command}</code>
+                </div>
+              </div>
+
+              {output && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center">
+                      <ArrowRight className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
+                      Output
+                      {exitCode !== null && (
+                        <Badge 
+                          className={cn(
+                            "ml-2",
+                            exitCode === 0 
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          )}
+                        >
+                          Exit code: {exitCode}
+                        </Badge>
+                      )}
+                    </h3>
+                    {hasMoreLines && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowFullOutput(!showFullOutput)}
+                        className="h-7 text-xs flex items-center gap-1"
+                      >
+                        {showFullOutput ? (
+                          <>
+                            <ChevronUp className="h-3 w-3" />
+                            Show less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3 w-3" />
+                            Show full output
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-00/20">
+                    <div className="bg-zinc-300 dark:bg-neutral-800 px-3 py-1 flex items-center justify-between border-b border-zinc-300/50 dark:border-zinc-700/50">
+                      <span className="text-xs text-zinc-600 dark:text-zinc-400">Terminal output</span>
+                      {exitCode !== null && exitCode !== 0 && (
+                        <Badge variant="outline" className="text-xs h-5 border-red-700/30 text-red-400">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Error
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="p-4 max-h-96 overflow-auto scrollbar-hide">
+                      <pre className="text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-all overflow-visible">
+                        {linesToShow.map((line, index) => (
+                          <div 
+                            key={index} 
+                            className={cn(
+                              "py-0.5 bg-transparent",
+                            )}
+                          >
+                            {line || ' '}
+                          </div>
+                        ))}
+                        {!showFullOutput && hasMoreLines && (
+                          <div className="text-zinc-500 mt-2 border-t border-zinc-700/30 pt-2">
+                            + {formattedOutput.length - 10} more lines
+                          </div>
+                        )}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!output && !isStreaming && (
+                <div className="bg-black rounded-lg overflow-hidden border border-zinc-700/20 shadow-md p-6 flex items-center justify-center">
+                  <div className="text-center">
+                    <CircleDashed className="h-8 w-8 text-zinc-500 mx-auto mb-2" />
+                    <p className="text-zinc-400 text-sm">No output received</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-zinc-100 to-zinc-50 shadow-inner dark:from-zinc-800/40 dark:to-zinc-900/60">
+              <Terminal className="h-10 w-10 text-zinc-400 dark:text-zinc-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
+              No Command Found
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md">
+              No command was detected. Please provide a valid command to execute.
+            </p>
+          </div>
+        )}
+      </CardContent>
+      
+      <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
+        <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+          {!isStreaming && command && (
+            <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
+              <Terminal className="h-3 w-3 mr-1" />
+              Command
+            </Badge>
+          )}
+        </div>
+        
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5" />
+          {toolTimestamp && !isStreaming
+            ? formatTimestamp(toolTimestamp)
+            : assistantTimestamp
+              ? formatTimestamp(assistantTimestamp)
+              : ''}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
