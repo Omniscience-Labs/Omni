@@ -68,6 +68,9 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     dnsutils \
     sudo \
+    # OCR Tools
+    tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js and npm

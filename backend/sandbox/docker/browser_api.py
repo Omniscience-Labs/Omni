@@ -618,10 +618,29 @@ class BrowserAutomation:
         """Take a screenshot and return as base64 encoded string"""
         try:
             page = await self.get_current_page()
-            screenshot_bytes = await page.screenshot(type='jpeg', quality=60, full_page=False)
+            
+            # Wait for network to be idle and DOM to be stable
+            try:
+                await page.wait_for_load_state("networkidle", timeout=60000)  # Increased timeout to 60s
+            except Exception as e:
+                print(f"Warning: Network idle timeout, proceeding anyway: {e}")
+            
+            # Wait for any animations to complete
+            # await page.wait_for_timeout(1000)  # Wait 1 second for animations
+            
+            # Take screenshot with increased timeout and better options
+            screenshot_bytes = await page.screenshot(
+                type='jpeg',
+                quality=60,
+                full_page=False,
+                timeout=60000,  # Increased timeout to 60s
+                scale='device'  # Use device scale factor
+            )
+            
             return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
             print(f"Error taking screenshot: {e}")
+            traceback.print_exc()
             # Return an empty string rather than failing
             return ""
     
@@ -2065,4 +2084,4 @@ if __name__ == '__main__':
         asyncio.run(test_browser_api_2())
     else:
         print("Starting API server")
-        uvicorn.run("browser_api:api_app", host="0.0.0.0", port=8002)
+        uvicorn.run("browser_api:api_app", host="0.0.0.0", port=8003)
