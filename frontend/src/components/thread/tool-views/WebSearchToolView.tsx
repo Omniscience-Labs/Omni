@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search,
-  CircleDashed,
   CheckCircle,
   AlertTriangle,
   ExternalLink,
@@ -277,7 +276,7 @@ export function WebSearchToolView({
                               {result.title}
                             </a>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
-                              <Globe className="h-3 w-3 mr-1.5 opacity-70" />
+                              <Globe className="h-3 w-3 mr-1.5 flex-shrink-0 opacity-70" />
                               {cleanUrl(result.url)}
                             </div>
                           </div>
