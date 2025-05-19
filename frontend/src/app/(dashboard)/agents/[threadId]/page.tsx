@@ -1013,38 +1013,35 @@ export default function ThreadPage({
     }
   }, [project?.account_id, billingStatusQuery]);
 
-  // Check billing when agent status changes
   useEffect(() => {
-    const previousStatus = previousAgentStatus.current;
+    let timeoutId: NodeJS.Timeout;
+    const shouldCheckBilling = 
+      project?.account_id && 
+      (initialLoadCompleted.current || 
+       (messagesLoadedRef.current && !isLoading) ||
+       (previousAgentStatus.current === 'running' && agentStatus === 'idle'));
 
-    // Check if agent just completed (status changed from running to idle)
-    if (previousStatus === 'running' && agentStatus === 'idle') {
-      checkBillingLimits();
+    if (shouldCheckBilling) {
+      timeoutId = setTimeout(() => {
+        checkBillingLimits();
+      }, 500);
     }
 
-    // Store current status for next comparison
     previousAgentStatus.current = agentStatus;
-  }, [agentStatus, checkBillingLimits]);
 
-  // Check billing on initial load
-  useEffect(() => {
-    if (project?.account_id && initialLoadCompleted.current) {
-      console.log('Checking billing status on page load');
-      checkBillingLimits();
-    }
-  }, [project?.account_id, checkBillingLimits, initialLoadCompleted]);
-
-  // Check billing after messages loaded
-  useEffect(() => {
-    if (messagesLoadedRef.current && project?.account_id && !isLoading) {
-      console.log('Checking billing status after messages loaded');
-      checkBillingLimits();
-    }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    messagesLoadedRef.current,
-    checkBillingLimits,
     project?.account_id,
+    initialLoadCompleted.current,
+    messagesLoadedRef.current,
     isLoading,
+    agentStatus,
+    checkBillingLimits
   ]);
 
   // Check for debug mode in URL on initial load and when URL changes
