@@ -1191,7 +1191,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1576091160550-2173dba999ef?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/5ee791ac-e19c-4986-a61c-6d0659d0e5bc',
+      url: 'https://github.com/Kortix-ai/Suna/blob/main/use-cases/competitor-analysis.md',
     },
     {
       id: 'vc-list',
@@ -1226,13 +1226,13 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/804d20a3-cf1c-4adb-83bb-0e77cc6adeac',
+      url: 'https://suna.so/share/a172382b-aa77-42a2-a3e1-46f32a0f9c37',
     },
     {
       id: 'candidate-search',
       title: 'Looking for Candidates',
       description:
-        "Go on LinkedIn, and find me 10 profiles available - they are not working right now - for a junior software engineer position, who are located in Munich, Germany. They should have at least one bachelor's degree in Computer Science or anything related to it, and 1-year of experience in any field/role.",
+        "Go on LinkedIn, and find 10 profiles available - they are not working right now - for a junior software engineer position, who are located in Munich, Germany. They should have at least one bachelor's degree in Computer Science or anything related to it, and 1-year of experience in any field/role.",
       category: 'recruitment',
       featured: true,
       icon: (
@@ -1268,13 +1268,13 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/3ae581b0-2db8-4c63-b324-3b8d29762e74',
+      url: 'https://suna.so/share/d9e39c94-4f6f-4b5a-b1a0-b681bfe0dee8',
     },
     {
       id: 'company-trip',
       title: 'Planning Company Trip',
       description:
-        "Generate me a route plan for my company. We should go to California. We'll be in 8 people. Compose the trip from the departure (Paris, France) to the activities we can do considering that the trip will be 7 days long - departure on the 21st of Apr 2025.",
+        "Generate a route plan for my company. We should go to California. We'll be 8 people. Compose the trip from the departure (Paris, France) to the activities we can do considering that the trip will be 7 days long - departure on the 21st of Jun 2025.",
       category: 'travel',
       featured: true,
       icon: (
@@ -1317,13 +1317,13 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/725e64a0-f1e2-4bb6-8a1f-703c2833fd72',
+      url: 'https://suna.so/share/23f7d904-eb66-4a9c-9247-b9704ddfd233',
     },
     {
       id: 'excel-spreadsheet',
       title: 'Working on Excel',
       description:
-        'My company asked me to set up an Excel spreadsheet with all the information about Italian lottery games (Lotto, 10eLotto, and Million Day). Based on that, generate and send me a spreadsheet with all the basic information (public ones).',
+        'My company asked to set up an Excel spreadsheet with all the information about Italian lottery games (Lotto, 10eLotto, and Million Day). Based on that, generate and send me a spreadsheet with all the basic information (public ones).',
       category: 'data',
       featured: true,
       icon: (
@@ -1359,7 +1359,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1532153975070-2e9ab71f1b14?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/128f23a4-51cd-42a6-97a0-0b458b32010e',
+      url: 'https://suna.so/share/bf6a819b-6af5-4ef7-b861-16e5261ceeb0',
     },
     {
       id: 'speaker-prospecting',
@@ -1401,7 +1401,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/7a7592ea-ed44-4c69-bcb5-5f9bb88c188c',
+      url: 'https://suna.so/share/6830cc6d-3fbd-492a-93f8-510a5f48ce50',
     },
     {
       id: 'scientific-papers',
@@ -1443,7 +1443,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1532153975070-2e9ab71f1b14?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/c2081b3c-786e-4e7c-9bf4-46e9b23bb662',
+      url: 'https://suna.so/share/a106ef9f-ed97-46ee-8e51-7bfaf2ac3c29',
     },
     {
       id: 'lead-generation',
@@ -1485,7 +1485,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1552581234-26160f608093?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/6b6296a6-8683-49e5-9ad0-a32952d12c44',
+      url: 'https://suna.so/share/a01744fc-6b33-434c-9d4e-67d7e820297c',
     },
     {
       id: 'seo-analysis',
@@ -1534,7 +1534,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/43491cb0-cd6c-45f0-880c-66ddc8c4b842',
+      url: 'https://suna.so/share/59be8603-3225-4c15-a948-ab976e5912f6',
     },
     {
       id: 'personal-trip',
@@ -1583,7 +1583,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/37b31907-8349-4f63-b0e5-27ca597ed02a',
+      url: 'https://suna.so/share/8442cc76-ac8b-438c-b539-4b93909a2218',
     },
     {
       id: 'funded-startups',
@@ -1618,7 +1618,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/8b2a897e-985a-4d5e-867b-15239274f764',
+      url: 'https://suna.so/share/f04c871c-6bf5-4464-8e9c-5351c9cf5a60',
     },
     {
       id: 'scrape-forums',
@@ -1660,7 +1660,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://www.suna.so/share/7d7a5d93-a20d-48b0-82cc-e9a876e9fd04',
+      url: 'https://suna.so/share/53bcd4c7-40d6-4293-9f69-e2638ddcfad8',
     },
   ],
 };
