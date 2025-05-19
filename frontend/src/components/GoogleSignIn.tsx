@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
+import { useTheme } from 'next-themes';
 
 // Add type declarations for Google One Tap
 declare global {
@@ -68,6 +69,7 @@ interface GoogleSignInProps {
 export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const [isLoading, setIsLoading] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   const handleGoogleSignIn = useCallback(
     async (response: GoogleSignInResponse) => {
@@ -184,7 +186,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
             if (buttonContainer) {
               window.google.accounts.id.renderButton(buttonContainer, {
                 type: 'standard',
-                theme: 'outline',
+                theme: resolvedTheme === 'dark' ? 'filled_black' : 'outline',
                 size: 'large',
                 text: 'continue_with',
                 shape: 'pill',
