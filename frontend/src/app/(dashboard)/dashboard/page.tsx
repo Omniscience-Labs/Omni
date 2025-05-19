@@ -73,64 +73,36 @@ function DashboardContent() {
       const files = chatInputRef.current?.getPendingFiles() || [];
       localStorage.removeItem(PENDING_PROMPT_KEY);
 
-      if (files.length > 0) {
-        // ---- Handle submission WITH files ----
-        console.log(
-          `Submitting with message: "${message}" and ${files.length} files.`,
-        );
-        const formData = new FormData();
+      // Always use FormData for consistency
+      const formData = new FormData();
+      formData.append('prompt', message);
 
-        // Use 'prompt' key instead of 'message'
-        formData.append('prompt', message);
+      // Append files if present
+      files.forEach((file, index) => {
+        formData.append('files', file, file.name);
+      });
 
-        // Append files
-        files.forEach((file, index) => {
-          formData.append('files', file, file.name);
-        });
+      // Append options
+      if (options?.model_name) formData.append('model_name', options.model_name);
+      formData.append('enable_thinking', String(options?.enable_thinking ?? false));
+      formData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
+      formData.append('stream', String(options?.stream ?? true));
+      formData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 
-        // Append options individually instead of bundled 'options' field
-        if (options?.model_name)
-          formData.append('model_name', options.model_name);
-        // Default values from backend signature if not provided in options:
-        formData.append(
-          'enable_thinking',
-          String(options?.enable_thinking ?? false),
-        );
-        formData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
-        formData.append('stream', String(options?.stream ?? true));
-        formData.append(
-          'enable_context_manager',
-          String(options?.enable_context_manager ?? false),
-        );
+      console.log('FormData content:', Array.from(formData.entries()));
 
-        console.log('FormData content:', Array.from(formData.entries()));
+      const result = await initiateAgent(formData);
+      console.log('Agent initiated:', result);
 
-        const result = await initiateAgent(formData);
-        console.log('Agent initiated with files:', result);
-
-        if (result.thread_id) {
-          router.push(`/agents/${result.thread_id}`);
-        } else {
-          throw new Error('Agent initiation did not return a thread_id.');
-        }
-        chatInputRef.current?.clearPendingFiles();
+      if (result.thread_id) {
+        router.push(`/agents/${result.thread_id}`);
       } else {
-        // ---- Handle text-only messages (NO CHANGES NEEDED HERE) ----
-        console.log(`Submitting text-only message: "${message}"`);
-        const projectName = await generateThreadName(message);
-        const newProject = await createProject({
-          name: projectName,
-          description: '',
-        });
-        const thread = await createThread(newProject.id);
-        await addUserMessage(thread.thread_id, message);
-        await startAgent(thread.thread_id, options); // Pass original options here
-        router.push(`/agents/${thread.thread_id}`);
+        throw new Error('Agent initiation did not return a thread_id.');
       }
+      chatInputRef.current?.clearPendingFiles();
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        // Delegate billing error handling
         console.log('Handling BillingError:', error.detail);
         handleBillingError({
           message:
@@ -144,16 +116,15 @@ function DashboardContent() {
           },
         });
         setIsSubmitting(false);
-        return; // Stop further processing for billing errors
+        return;
       }
 
-      // Handle other errors
       const isConnectionError =
         error instanceof TypeError && error.message.includes('Failed to fetch');
       if (!isLocalMode() || isConnectionError) {
         toast.error(error.message || 'An unexpected error occurred');
       }
-      setIsSubmitting(false); // Reset submitting state on all errors
+      setIsSubmitting(false);
     }
   };
 

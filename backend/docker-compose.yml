@@ -1,3 +1,5 @@
+# This is a Docker Compose file for the backend service. For self-hosting, look at the root docker-compose.yml file.
+
 version: "3.8"
 
 services:

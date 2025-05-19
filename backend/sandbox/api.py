@@ -10,7 +10,6 @@ from sandbox.sandbox import get_or_start_sandbox
 from utils.logger import logger
 from utils.auth_utils import get_optional_user_id
 from services.supabase import DBConnection
-from agent.api import get_or_create_project_sandbox
 
 # Initialize shared resources
 router = APIRouter(tags=["sandbox"])
@@ -342,9 +341,16 @@ async def ensure_project_sandbox_active(
                 raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     try:
-        # Get or create the sandbox
+        # Get sandbox ID from project data
+        sandbox_info = project_data.get('sandbox', {})
+        if not sandbox_info.get('id'):
+            raise HTTPException(status_code=404, detail="No sandbox found for this project")
+            
+        sandbox_id = sandbox_info['id']
+        
+        # Get or start the sandbox
         logger.info(f"Ensuring sandbox is active for project {project_id}")
-        sandbox, sandbox_id, sandbox_pass = await get_or_create_project_sandbox(client, project_id)
+        sandbox = await get_or_start_sandbox(sandbox_id)
         
         logger.info(f"Successfully ensured sandbox {sandbox_id} is active for project {project_id}")
         
