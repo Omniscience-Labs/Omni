@@ -109,6 +109,15 @@ export function CommandToolView({
             extractedOutput = toolContent;
           }
         }
+      } else if (typeof toolContent === 'object' && toolContent !== null) {
+        // Handle case where toolContent is already an object
+        const typedToolContent = toolContent as Record<string, any>;
+        if ('output' in typedToolContent) {
+          extractedOutput = typedToolContent.output;
+          success = 'success' in typedToolContent ? !!typedToolContent.success : true;
+        } else {
+          extractedOutput = JSON.stringify(toolContent, null, 2);
+        }
       } else {
         extractedOutput = String(toolContent);
       }
@@ -123,7 +132,6 @@ export function CommandToolView({
   const exitCode = extractExitCode(output);
   const toolTitle = getToolTitle(name);
   
-  // Simulate progress when streaming
   useEffect(() => {
     if (isStreaming) {
       const timer = setInterval(() => {
@@ -141,22 +149,34 @@ export function CommandToolView({
     }
   }, [isStreaming]);
 
-  // Format and handle the output for display
   const formattedOutput = React.useMemo(() => {
     if (!output) return [];
+    let processedOutput = output;
+    try {
+      if (typeof output === 'string' && (output.trim().startsWith('{') || output.trim().startsWith('{'))) {
+        const parsed = JSON.parse(output);
+        if (parsed && typeof parsed === 'object' && parsed.output) {
+          processedOutput = parsed.output;
+        }
+      }
+    } catch (e) {
+    }
     
-    // Replace JSON string escaped newlines with actual newlines
-    let processedOutput = output
+    processedOutput = String(processedOutput);
+    processedOutput = processedOutput.replace(/\\\\/g, '\\');
+    
+    processedOutput = processedOutput
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
       .replace(/\\"/g, '"')
       .replace(/\\'/g, "'");
     
-    // Split by real newlines for line-by-line display
+    processedOutput = processedOutput.replace(/\\u([0-9a-fA-F]{4})/g, (match, group) => {
+      return String.fromCharCode(parseInt(group, 16));
+    });
     return processedOutput.split('\n');
   }, [output]);
 
-  // Only show a preview if there are many lines
   const hasMoreLines = formattedOutput.length > 10;
   const previewLines = formattedOutput.slice(0, 10);
   const linesToShow = showFullOutput ? formattedOutput : previewLines;

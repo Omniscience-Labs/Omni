@@ -6,7 +6,7 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -150,6 +150,7 @@ export function ToolCallSidePanel({
             <div className="pt-4 pl-4 pr-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  <Computer className="h-4 w-4" />
                   <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                     Suna's Computer
                   </h2>
@@ -185,6 +186,7 @@ export function ToolCallSidePanel({
           <div className="pt-4 pl-4 pr-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
+                <Computer className="h-4 w-4" />
                 <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                   Suna's Computer
                 </h2>
@@ -230,6 +232,7 @@ export function ToolCallSidePanel({
         <div className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <Computer className="h-4 w-4" />
               <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                 Suna's Computer
               </h2>
@@ -313,7 +316,7 @@ export function ToolCallSidePanel({
         'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
         isMobile
           ? 'w-full'
-          : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+          : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
         !isOpen && 'translate-x-full',
       )}
     >

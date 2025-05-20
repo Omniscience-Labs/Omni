@@ -37,14 +37,7 @@ import {
   CardContent, 
   CardHeader,
   CardTitle,
-  CardDescription 
 } from '@/components/ui/card';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -376,15 +369,14 @@ export function FileOperationToolView({
             <TabsContent value="preview" className="flex-1 h-full mt-0 p-0 overflow-hidden">
               <ScrollArea className="h-full w-full">
                 {isHtml && htmlPreviewUrl && (
-                  <div className="w-full h-full min-h-80 bg-white">
-                    <iframe
-                      src={htmlPreviewUrl}
-                      title={`HTML Preview of ${fileName}`}
-                      className="w-full h-full border-0"
-                      style={{ minHeight: '300px', height: '100%' }}
-                      sandbox="allow-same-origin allow-scripts"
-                    />
-                  </div>
+                  <div className="flex flex-col h-[calc(100vh-16rem)]"> 
+                  <iframe 
+                    src={htmlPreviewUrl}
+                    title={`HTML Preview of ${fileName}`}
+                    className="flex-grow border-0" 
+                    sandbox="allow-same-origin allow-scripts"
+                  />
+                </div>
                 )}
                 
                 {isMarkdown && (

@@ -9,6 +9,7 @@ import React, {
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import {
   BillingError,
@@ -121,6 +122,9 @@ export default function ThreadPage({
 
   // Add debug mode state - check for debug=true in URL
   const [debugMode, setDebugMode] = useState(false);
+
+  // Add state for the free tier upgrade dialog
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const threadQuery = useThreadQuery(threadId);
   const messagesQuery = useMessagesQuery(threadId);
@@ -1013,7 +1017,6 @@ export default function ThreadPage({
     }
   }, [project?.account_id, billingStatusQuery]);
 
-  // Check billing when agent status changes
   useEffect(() => {
     const previousStatus = previousAgentStatus.current;
 
@@ -1026,32 +1029,42 @@ export default function ThreadPage({
     previousAgentStatus.current = agentStatus;
   }, [agentStatus, checkBillingLimits]);
 
-  // Check billing on initial load
   useEffect(() => {
-    if (project?.account_id && initialLoadCompleted.current) {
-      console.log('Checking billing status on page load');
+    if (project?.account_id && initialLoadCompleted.current && !billingStatusQuery.data) {
+      console.log('Checking billing status on initial load');
       checkBillingLimits();
     }
-  }, [project?.account_id, checkBillingLimits, initialLoadCompleted]);
+  }, [project?.account_id, checkBillingLimits, initialLoadCompleted, billingStatusQuery.data]);
 
-  // Check billing after messages loaded
-  useEffect(() => {
-    if (messagesLoadedRef.current && project?.account_id && !isLoading) {
-      console.log('Checking billing status after messages loaded');
-      checkBillingLimits();
-    }
-  }, [
-    messagesLoadedRef.current,
-    checkBillingLimits,
-    project?.account_id,
-    isLoading,
-  ]);
-
-  // Check for debug mode in URL on initial load and when URL changes
   useEffect(() => {
     const debugParam = searchParams.get('debug');
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
+
+  const handleUpgrade = useCallback(() => {
+    router.push('/settings/billing');
+  }, [router]);
+
+  // Check user tier and show dialog if needed
+  useEffect(() => {
+    if (initialLoadCompleted.current && billingStatusQuery.data) {
+      const isPro = billingStatusQuery.data.subscription?.plan_name?.toLowerCase().includes('pro');
+      console.log("Billing check for upgrade dialog:", { 
+        isPro, 
+        subscription: billingStatusQuery.data.subscription,
+        userId: threadQuery.data?.created_by || 'user'
+      });
+      
+      // Always show dialog for debugging
+      setShowUpgradeDialog(true);
+      console.log("Setting showUpgradeDialog to true");
+    } else {
+      console.log("Not showing upgrade dialog:", { 
+        initialLoadCompleted: initialLoadCompleted.current,
+        hasBillingData: !!billingStatusQuery.data
+      });
+    }
+  }, [initialLoadCompleted, billingStatusQuery.data, threadQuery.data]);
 
   // Main rendering function for the thread page
   if (!initialLoadCompleted.current || isLoading) {
@@ -1227,7 +1240,6 @@ export default function ThreadPage({
           />
         )}
 
-        {/* Billing Alert for usage limit */}
         <BillingErrorAlert
           message={billingData.message}
           currentUsage={billingData.currentUsage}

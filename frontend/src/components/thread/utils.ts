@@ -1,12 +1,8 @@
 import type { ElementType } from 'react';
 import {
-  ArrowDown,
   FileText,
   Terminal,
   ExternalLink,
-  User,
-  CheckCircle,
-  CircleDashed,
   FileEdit,
   Search,
   Globe,

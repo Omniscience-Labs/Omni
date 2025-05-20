@@ -10,6 +10,7 @@ import { StrReplaceToolView } from '../StrReplaceToolView';
 import { WebCrawlToolView } from '../WebCrawlToolView';
 import { WebScrapeToolView } from '../WebScrapeToolView';
 import { WebSearchToolView } from '../WebSearchToolView';
+import { SeeImageToolView } from '../SeeImageToolView';
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
@@ -49,6 +50,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'get-data-provider-endpoints': DataProviderToolView,
 
   'expose-port': ExposePortToolView,
+
+  'see-image': SeeImageToolView,
 
   'default': GenericToolView,
 };
