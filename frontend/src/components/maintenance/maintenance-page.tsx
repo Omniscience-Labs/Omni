@@ -6,6 +6,7 @@ import { checkApiHealth } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { isLocalMode } from '@/lib/config';
 
 export function MaintenancePage() {
   const [isCheckingHealth, setIsCheckingHealth] = useState(true);
@@ -48,16 +49,21 @@ export function MaintenancePage() {
           </h1>
 
           <p className="text-muted-foreground">
-            We're currently performing maintenance on our systems. Our team is
-            working to get everything back up and running as soon as possible.
+            {isLocalMode() ? (
+              "The backend server appears to be offline. Please check that your backend server is running."
+            ) : (
+              "We're currently performing maintenance on our systems. Our team is working to get everything back up and running as soon as possible."
+            )}
           </p>
 
           <Alert className="mt-6">
             <AlertTitle>Agent Executions Stopped</AlertTitle>
             <AlertDescription>
-              Any running agent executions have been stopped during maintenance.
-              You'll need to manually continue these executions once the system
-              is back online.
+              {isLocalMode() ? (
+                "The backend server needs to be running for agent executions to work. Please start the backend server and try again."
+              ) : (
+                "Any running agent executions have been stopped during maintenance. You'll need to manually continue these executions once the system is back online."
+              )}
             </AlertDescription>
           </Alert>
         </div>
