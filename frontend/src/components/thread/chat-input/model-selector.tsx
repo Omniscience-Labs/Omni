@@ -167,7 +167,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             <div className='w-full'>
               <DropdownMenuItem
                 className={cn(
-                  "text-sm px-3 py-2 flex items-center justify-between cursor-pointer",
+                  "text-sm px-3 py-1 flex items-center justify-between cursor-pointer",
                   isHighlighted && "bg-accent",
                   !accessible && "opacity-70"
                 )}
@@ -255,6 +255,28 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               />
             </div>
           </div>
+
+          {subscriptionStatus !== 'active' && (
+            <div className="p-3 bg-primary/10 border-b border-border">
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center">
+                  <Crown className="h-4 w-4 text-primary mr-2" />
+                  <div>
+                    <p className="text-sm font-medium">Unlock Premium Models</p>
+                    <p className="text-xs text-muted-foreground">Get better results with top-tier AI</p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="w-full h-8 font-medium"
+                  onClick={handleUpgradeClick}
+                >
+                  <span>Upgrade to Pro</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
           
           {!autoSelect && (
             <>
@@ -272,27 +294,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   />
                 </div>
               </div>
-              {subscriptionStatus !== 'active' && (
-                <div className="p-3 bg-primary/10 dark:bg-blue-950/40 border-b border-border">
-                  <div className="flex flex-col space-y-2">
-                    <div className="flex items-center">
-                      <Crown className="h-4 w-4 text-primary mr-2" />
-                      <div>
-                        <p className="text-sm font-medium">Unlock Premium Models</p>
-                        <p className="text-xs text-muted-foreground">Get better results with top-tier AI</p>
-                      </div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      className="w-full h-8 font-medium"
-                      onClick={handleUpgradeClick}
-                    >
-                      <span>Upgrade to Pro</span>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
               
               <div className="max-h-[280px] overflow-y-auto w-full p-1 scrollbar-hide">
                 {filteredOptions.length > 0 ? (

@@ -9,6 +9,7 @@ import React, {
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import {
   BillingError,
@@ -121,6 +122,9 @@ export default function ThreadPage({
 
   // Add debug mode state - check for debug=true in URL
   const [debugMode, setDebugMode] = useState(false);
+
+  // Add state for the free tier upgrade dialog
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const threadQuery = useThreadQuery(threadId);
   const messagesQuery = useMessagesQuery(threadId);
@@ -1014,45 +1018,32 @@ export default function ThreadPage({
   }, [project?.account_id, billingStatusQuery]);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    const shouldCheckBilling = 
-      project?.account_id && 
-      (initialLoadCompleted.current || 
-       (messagesLoadedRef.current && !isLoading) ||
-       (previousAgentStatus.current === 'running' && agentStatus === 'idle'));
+    const previousStatus = previousAgentStatus.current;
 
-    if (shouldCheckBilling) {
-      timeoutId = setTimeout(() => {
-        checkBillingLimits();
-      }, 500);
+    // Check if agent just completed (status changed from running to idle)
+    if (previousStatus === 'running' && agentStatus === 'idle') {
+      checkBillingLimits();
     }
 
+    // Store current status for next comparison
     previousAgentStatus.current = agentStatus;
+  }, [agentStatus, checkBillingLimits]);
 
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [
-    project?.account_id,
-    isLoading,
-    agentStatus,
-    checkBillingLimits
-  ]);
+  useEffect(() => {
+    if (project?.account_id && initialLoadCompleted.current && !billingStatusQuery.data) {
+      console.log('Checking billing status on initial load');
+      checkBillingLimits();
+    }
+  }, [project?.account_id, checkBillingLimits, initialLoadCompleted, billingStatusQuery.data]);
 
-  // Check for debug mode in URL on initial load and when URL changes
   useEffect(() => {
     const debugParam = searchParams.get('debug');
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
 
-  // Main rendering function for the thread page
   if (!initialLoadCompleted.current || isLoading) {
-    // Use the new ThreadSkeleton component instead of inline skeleton
     return <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} />;
   } else if (error) {
-    // Error state...
     return (
       <div className="flex h-screen">
         <div
@@ -1221,7 +1212,6 @@ export default function ThreadPage({
           />
         )}
 
-        {/* Billing Alert for usage limit */}
         <BillingErrorAlert
           message={billingData.message}
           currentUsage={billingData.currentUsage}

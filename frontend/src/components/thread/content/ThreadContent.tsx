@@ -1,5 +1,4 @@
 import React, { useRef, useState, useCallback } from 'react';
-import Image from 'next/image';
 import { ArrowDown, CircleDashed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/ui/markdown';
@@ -13,6 +12,7 @@ import {
     getToolIcon,
     safeJsonParse,
 } from '@/components/thread/utils';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
 // Define the set of tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -265,7 +265,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         <>
             <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                 onScroll={handleScroll}
             >
                 <div className="mx-auto max-w-3xl">
@@ -374,11 +374,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex items-start gap-3">
-                                                    <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center overflow-hidden ml-auto mr-2">
-                                                        <Image src="/kortix-symbol.svg" alt="Kortix" width={14} height={14} className="object-contain invert dark:invert-0 opacity-70" />
+                                                    <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center ml-auto mr-2">
+                                                    <KortixLogo />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <div className="inline-flex max-w-[90%] rounded-lg bg-muted/5 px-4 py-3 text-sm">
+                                                        <div className="inline-flex max-w-[90%] rounded-lg px-4 text-sm">
                                                             <div className="space-y-2">
                                                                 {(() => {
                                                                     // In debug mode, just show raw messages content
@@ -597,8 +597,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 (messages.length === 0 || messages[messages.length - 1].type === 'user') && (
                                     <div ref={latestMessageRef}>
                                         <div className="flex items-start gap-3">
-                                            <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center overflow-hidden bg-primary/10">
-                                                <Image src="/kortix-symbol.svg" alt="Suna" width={14} height={14} className="object-contain" />
+                                            <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center bg-primary/10">
+                                            <KortixLogo />
                                             </div>
                                             <div className="flex-1 space-y-2">
                                                 <div className="max-w-[90%] px-4 py-3 text-sm">
@@ -617,8 +617,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             {readOnly && currentToolCall && (
                                 <div ref={latestMessageRef}>
                                     <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center overflow-hidden bg-primary/10">
-                                            <Image src="/kortix-symbol.svg" alt="Suna" width={14} height={14} className="object-contain" />
+                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
+                                            <KortixLogo />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <div className="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium text-primary bg-primary/10 rounded-md border border-primary/20">
@@ -636,8 +636,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             {readOnly && visibleMessages && visibleMessages.length === 0 && isStreamingText && (
                                 <div ref={latestMessageRef}>
                                     <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center overflow-hidden bg-primary/10">
-                                            <Image src="/kortix-symbol.svg" alt="Suna" width={14} height={14} className="object-contain" />
+                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
+                                        <KortixLogo />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <div className="max-w-[90%] px-4 py-3 text-sm">
