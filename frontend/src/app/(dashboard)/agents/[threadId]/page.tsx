@@ -1041,37 +1041,9 @@ export default function ThreadPage({
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
 
-  const handleUpgrade = useCallback(() => {
-    router.push('/settings/billing');
-  }, [router]);
-
-  // Check user tier and show dialog if needed
-  useEffect(() => {
-    if (initialLoadCompleted.current && billingStatusQuery.data) {
-      const isPro = billingStatusQuery.data.subscription?.plan_name?.toLowerCase().includes('pro');
-      console.log("Billing check for upgrade dialog:", { 
-        isPro, 
-        subscription: billingStatusQuery.data.subscription,
-        userId: threadQuery.data?.created_by || 'user'
-      });
-      
-      // Always show dialog for debugging
-      setShowUpgradeDialog(true);
-      console.log("Setting showUpgradeDialog to true");
-    } else {
-      console.log("Not showing upgrade dialog:", { 
-        initialLoadCompleted: initialLoadCompleted.current,
-        hasBillingData: !!billingStatusQuery.data
-      });
-    }
-  }, [initialLoadCompleted, billingStatusQuery.data, threadQuery.data]);
-
-  // Main rendering function for the thread page
   if (!initialLoadCompleted.current || isLoading) {
-    // Use the new ThreadSkeleton component instead of inline skeleton
     return <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} />;
   } else if (error) {
-    // Error state...
     return (
       <div className="flex h-screen">
         <div

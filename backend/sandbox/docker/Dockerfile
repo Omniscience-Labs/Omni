@@ -68,6 +68,9 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     dnsutils \
     sudo \
+    # OCR Tools
+    tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js and npm
@@ -113,11 +116,13 @@ ENV PYTHONUNBUFFERED=1
 ENV CHROME_PATH=/ms-playwright/chromium-*/chrome-linux/chrome
 ENV ANONYMIZED_TELEMETRY=false
 ENV DISPLAY=:99
-ENV RESOLUTION=1920x1080x24
+ENV RESOLUTION=1024x768x24
 ENV VNC_PASSWORD=vncpassword
 ENV CHROME_PERSISTENT_SESSION=true
-ENV RESOLUTION_WIDTH=1920
-ENV RESOLUTION_HEIGHT=1080
+ENV RESOLUTION_WIDTH=1024
+ENV RESOLUTION_HEIGHT=768
+# Add Chrome flags to prevent multiple tabs/windows
+ENV CHROME_FLAGS="--single-process --no-first-run --no-default-browser-check --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-component-extensions-with-background-pages --disable-dev-shm-usage --disable-extensions --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-renderer-backgrounding --enable-features=NetworkServiceInProcess2 --force-color-profile=srgb --metrics-recording-only --mute-audio --no-sandbox --disable-gpu"
 
 # Set up supervisor configuration
 RUN mkdir -p /var/log/supervisor
