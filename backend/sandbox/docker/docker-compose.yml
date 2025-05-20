@@ -6,7 +6,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
       args:
         TARGETPLATFORM: ${TARGETPLATFORM:-linux/amd64}
-    image: kortix/suna:0.1.2
+    image: kortix/suna:0.1.2.8
     ports:
       - "6080:6080"  # noVNC web interface
       - "5901:5901"  # VNC port
@@ -27,6 +27,7 @@ services:
       - VNC_PASSWORD=${VNC_PASSWORD:-vncpassword}
       - CHROME_DEBUGGING_PORT=9222
       - CHROME_DEBUGGING_HOST=localhost
+      - CHROME_FLAGS=${CHROME_FLAGS:-"--single-process --no-first-run --no-default-browser-check --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-component-extensions-with-background-pages --disable-dev-shm-usage --disable-extensions --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-renderer-backgrounding --enable-features=NetworkServiceInProcess2 --force-color-profile=srgb --metrics-recording-only --mute-audio --no-sandbox --disable-gpu"}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
     restart: unless-stopped
