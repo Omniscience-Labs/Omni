@@ -590,7 +590,7 @@ render();
 
 Let me update our todo.md file to reflect our progress:
 
-<str-replace file_path="todo.md">
+<full-file-rewrite file_path="todo.md">
 # Pong Game Development Plan
 
 ## Project Setup
@@ -619,13 +619,13 @@ Let me update our todo.md file to reflect our progress:
 - [ ] Test scoring
 - [ ] Test on different screen sizes
 - [ ] Final review and adjustments
-</str-replace>
+</full-file-rewrite>
 
 ## Testing the Game
 
 Now, let's start a local server to test our Pong game:
 
-<execute-command>
+<execute-command session_name="pong_server" blocking="false">
 python -m http.server 8000
 </execute-command>
 
@@ -639,13 +639,13 @@ Now let's expose the port so you can try the game directly:
 
 Let me perform some final checks to ensure everything is working correctly:
 
-<execute-command>
+<execute-command session_name="list_files_final_check" blocking="true">
 ls -la
 </execute-command>
 
 Let's update our todo list to mark the testing as complete:
 
-<str-replace file_path="todo.md">
+<full-file-rewrite file_path="todo.md">
 # Pong Game Development Plan
 
 ## Project Setup
@@ -674,7 +674,7 @@ Let's update our todo list to mark the testing as complete:
 - [x] Test scoring
 - [x] Test on different screen sizes
 - [x] Final review and adjustments
-</str-replace>
+</full-file-rewrite>
 
 <ask attachments="index.html,style.css,script.js">
 I've built a classic Pong game for you! The game features:

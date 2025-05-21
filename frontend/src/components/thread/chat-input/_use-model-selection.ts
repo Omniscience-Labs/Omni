@@ -6,7 +6,7 @@ import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
-export const DEFAULT_FREE_MODEL_ID = 'deepseek';
+export const DEFAULT_FREE_MODEL_ID = 'gemini-flash-2.5';
 export const DEFAULT_PREMIUM_MODEL_ID = 'sonnet-3.7';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
@@ -60,7 +60,7 @@ export const useModelSelection = () => {
       return [
         { 
           id: DEFAULT_FREE_MODEL_ID, 
-          label: 'DeepSeek', 
+          label: 'Gemini Flash 2.5', 
           requiresSubscription: false,
           description: 'Free tier model with good general capabilities.'
         },
@@ -73,7 +73,7 @@ export const useModelSelection = () => {
       ];
     }
 
-    const topModels = ['sonnet-3.7', 'gemini-flash-2.5'];
+    const topModels = ['sonnet-3.7'];
 
     return modelsData.models.map(model => {
       const shortName = model.short_name || model.id;
