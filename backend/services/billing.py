@@ -25,6 +25,7 @@ MODEL_NAME_ALIASES = {
     "sonnet-3.7": "anthropic/claude-3-7-sonnet-latest",
     # "gpt-4.1": "openai/gpt-4.1-2025-04-14",  # Commented out in constants.py
     "gpt-4o": "openai/gpt-4o",
+    "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview-05-20",
     # "gpt-4-turbo": "openai/gpt-4-turbo",  # Commented out in constants.py
     # "gpt-4": "openai/gpt-4",  # Commented out in constants.py
     # "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview",  # Commented out in constants.py
@@ -49,6 +50,7 @@ MODEL_NAME_ALIASES = {
     
     "qwen/qwen3-235b-a22b": "openrouter/qwen/qwen3-235b-a22b",
     # "xai/grok-3-mini-fast-beta": "xai/grok-3-mini-fast-beta",  # Commented out in constants.py
+    "openrouter/google/gemini-2.5-flash-preview-05-20": "openrouter/google/gemini-2.5-flash-preview-05-20",
 }
 
 SUBSCRIPTION_TIERS = {

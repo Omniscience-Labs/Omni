@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
-const LOW_QUALITY_MODELS = ['deepseek', 'grok-3-mini', 'qwen3'];
+const LOW_QUALITY_MODELS = ['deepseek', 'grok-3-mini', 'qwen3', 'gemini-flash-2.5'];
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -70,9 +70,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       }
     }
     
-    const deepseekModel = modelOptions.find(m => m.id === 'deepseek');
-    if (deepseekModel && canAccessModel(deepseekModel.id)) {
-      return deepseekModel.id;
+    const defaultFreeModel = modelOptions.find(m => m.id === DEFAULT_FREE_MODEL_ID);
+    if (defaultFreeModel && canAccessModel(defaultFreeModel.id)) {
+      return defaultFreeModel.id;
     }
     
     const firstAvailable = modelOptions.find(m => canAccessModel(m.id));
