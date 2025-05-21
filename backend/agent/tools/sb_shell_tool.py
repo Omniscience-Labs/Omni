@@ -154,7 +154,7 @@ class SandboxShellTool(SandboxToolsBase):
                         break
                         
                     # Get current output and check for common completion indicators
-                    output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p")
+                    output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p -S - -E -")
                     current_output = output_result.get("output", "")
                     
                     # Check for prompt indicators that suggest command completion
@@ -164,7 +164,7 @@ class SandboxShellTool(SandboxToolsBase):
                         break
                 
                 # Capture final output
-                output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p")
+                output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p -S - -E -")
                 final_output = output_result.get("output", "")
                 
                 # Kill the session after capture
@@ -274,7 +274,7 @@ class SandboxShellTool(SandboxToolsBase):
                 return self.fail_response(f"Tmux session '{session_name}' does not exist.")
             
             # Get output from tmux pane
-            output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p")
+            output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p -S - -E -")
             output = output_result.get("output", "")
             
             # Kill session if requested
