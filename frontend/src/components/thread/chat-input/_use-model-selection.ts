@@ -6,6 +6,7 @@ import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
+export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_FREE_MODEL_ID = 'deepseek';
 export const DEFAULT_PREMIUM_MODEL_ID = 'sonnet-3.7';
 
@@ -17,6 +18,12 @@ export interface ModelOption {
   requiresSubscription: boolean;
   description?: string;
   top?: boolean;
+  isCustom?: boolean;
+}
+
+export interface CustomModel {
+  id: string;
+  label: string;
 }
 
 const MODEL_DESCRIPTIONS: Record<string, string> = {
@@ -43,10 +50,59 @@ export const canAccessModel = (
   return subscriptionStatus === 'active' || !requiresSubscription;
 };
 
+// Helper to format a model name for display
+export const formatModelName = (name: string): string => {
+  return name
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// Add openrouter/ prefix to custom models
+export const getPrefixedModelId = (modelId: string, isCustom: boolean): string => {
+  if (isCustom && !modelId.startsWith('openrouter/')) {
+    return `openrouter/${modelId}`;
+  }
+  return modelId;
+};
+
+// Helper to get custom models from localStorage
+export const getCustomModels = () => {
+  if (!isLocalMode()) return [];
+  
+  try {
+    const storedModels = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS);
+    if (!storedModels) return [];
+    
+    const parsedModels = JSON.parse(storedModels);
+    if (!Array.isArray(parsedModels)) return [];
+    
+    // Ensure all custom models have openrouter/ prefix
+    return parsedModels
+      .filter((model: any) => 
+        model && typeof model === 'object' && 
+        typeof model.id === 'string' && 
+        typeof model.label === 'string')
+      .map((model: any) => ({
+        ...model,
+        id: model.id.startsWith('openrouter/') ? model.id : `openrouter/${model.id}`
+      }));
+  } catch (e) {
+    console.error('Error parsing custom models:', e);
+    return [];
+  }
+};
+
 export const useModelSelection = () => {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_FREE_MODEL_ID);
+  const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   
   const { data: subscriptionData } = useSubscription();
+  //MOCK
+  // const subscriptionData = {
+  //   status: 'no_subscription'
+  // };
+
   const { data: modelsData, isLoading: isLoadingModels } = useAvailableModels({
     refetchOnMount: false,
   });
@@ -55,9 +111,25 @@ export const useModelSelection = () => {
     ? 'active' 
     : 'no_subscription';
 
+  // Load custom models from localStorage
+  useEffect(() => {
+    if (isLocalMode() && typeof window !== 'undefined') {
+      const savedCustomModels = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS);
+      if (savedCustomModels) {
+        try {
+          setCustomModels(JSON.parse(savedCustomModels));
+        } catch (e) {
+          console.error('Failed to parse custom models from localStorage', e);
+        }
+      }
+    }
+  }, []);
+
   const MODEL_OPTIONS = useMemo(() => {
+    let baseModels = [];
+    
     if (!modelsData?.models || isLoadingModels) {
-      return [
+      baseModels = [
         { 
           id: DEFAULT_FREE_MODEL_ID, 
           label: 'DeepSeek', 
@@ -71,39 +143,53 @@ export const useModelSelection = () => {
           description: 'Anthropic\'s powerful general-purpose AI assistant.'
         },
       ];
+    } else {
+      const topModels = ['sonnet-3.7', 'gemini-flash-2.5'];
+      baseModels = modelsData.models.map(model => {
+        const shortName = model.short_name || model.id;
+        const displayName = model.display_name || shortName;
+
+        let cleanLabel = displayName;
+        if (cleanLabel.includes('/')) {
+          cleanLabel = cleanLabel.split('/').pop() || cleanLabel;
+        }
+        
+        cleanLabel = cleanLabel
+          .replace(/-/g, ' ')
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        
+        const isPremium = model?.requires_subscription || false;
+        return {
+          id: shortName,
+          label: cleanLabel,
+          requiresSubscription: isPremium,
+          description: MODEL_DESCRIPTIONS[shortName] || 
+            (isPremium 
+              ? 'Premium model with advanced capabilities' 
+              : 'Free tier model with good general capabilities'),
+          top: topModels.includes(shortName)
+        };
+      });
     }
-
-    const topModels = ['sonnet-3.7', 'gemini-flash-2.5'];
-
-    return modelsData.models.map(model => {
-      const shortName = model.short_name || model.id;
-      const displayName = model.display_name || shortName;
-
-      let cleanLabel = displayName;
-      if (cleanLabel.includes('/')) {
-        cleanLabel = cleanLabel.split('/').pop() || cleanLabel;
-      }
+    
+    // Add custom models if in local mode
+    if (isLocalMode() && customModels.length > 0) {
+      const customModelOptions = customModels.map(model => ({
+        id: model.id,
+        label: model.label || formatModelName(model.id),
+        requiresSubscription: false,
+        description: 'Custom model',
+        top: false,
+        isCustom: true
+      }));
       
-      cleanLabel = cleanLabel
-        .replace(/-/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      
-      const isPremium = shortName !== DEFAULT_FREE_MODEL_ID;
-      
-      return {
-        id: shortName,
-        label: cleanLabel,
-        requiresSubscription: isPremium,
-        description: MODEL_DESCRIPTIONS[shortName] || 
-          (isPremium 
-            ? 'Premium model with advanced capabilities' 
-            : 'Free tier model with good general capabilities'),
-        top: topModels.includes(shortName)
-      };
-    });
-  }, [modelsData, isLoadingModels]);
+      return [...baseModels, ...customModelOptions];
+    }
+    
+    return baseModels;
+  }, [modelsData, isLoadingModels, customModels]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -160,11 +246,20 @@ export const useModelSelection = () => {
   const handleModelChange = (modelId: string) => {
     const modelOption = MODEL_OPTIONS.find(option => option.id === modelId);
     
-    if (!modelOption) {
+    // Check if it's a custom model (in local storage)
+    let isCustomModel = false;
+    if (isLocalMode() && !modelOption) {
+      isCustomModel = getCustomModels().some(model => model.id === modelId);
+    }
+    
+    // Only return early if it's not a custom model and not in standard options
+    if (!modelOption && !isCustomModel) {
+      console.warn('Model not found in options:', modelId);
       return;
     }
 
-    if (!isLocalMode() && !canAccessModel(subscriptionStatus, modelOption.requiresSubscription)) {
+    // For standard models, check access permissions
+    if (!isCustomModel && !isLocalMode() && !canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false)) {
       return;
     }
     
@@ -184,12 +279,36 @@ export const useModelSelection = () => {
         );
   }, [MODEL_OPTIONS, subscriptionStatus]);
 
+  // Get the actual model ID to send to the backend
+  const getActualModelId = (modelId: string): string => {
+    // First, check if this is a standard model directly
+    const model = MODEL_OPTIONS.find(m => m.id === modelId);
+    
+    // If it's a standard model, use its ID as is
+    if (model && !model.isCustom) {
+      return modelId;
+    }
+    
+    // For custom models, ensure they have the openrouter/ prefix
+    if (model?.isCustom || isLocalMode() && getCustomModels().some(m => m.id === modelId)) {
+      return modelId.startsWith('openrouter/') ? modelId : `openrouter/${modelId}`;
+    }
+    
+    // Default fallback
+    return modelId;
+  };
+
   return {
     selectedModel,
-    setSelectedModel: handleModelChange,
+    setSelectedModel: (modelId: string) => {
+      handleModelChange(modelId);
+    },
     subscriptionStatus,
     availableModels,
     allModels: MODEL_OPTIONS,
+    customModels,
+    // This is the model ID that should be sent to the backend
+    getActualModelId,
     canAccessModel: (modelId: string) => {
       if (isLocalMode()) return true;
       const model = MODEL_OPTIONS.find(m => m.id === modelId);

@@ -131,7 +131,7 @@ export default function ThreadPage({
   const projectId = threadQuery.data?.project_id || '';
   const projectQuery = useProjectQuery(projectId);
   const agentRunsQuery = useAgentRunsQuery(threadId);
-  const billingStatusQuery = useBillingStatusQuery(); 
+  const billingStatusQuery = useBillingStatusQuery();
 
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
@@ -458,9 +458,9 @@ export default function ThreadPage({
       isMounted = false;
     };
   }, [
-    threadId, 
-    threadQuery.data, 
-    threadQuery.isError, 
+    threadId,
+    threadQuery.data,
+    threadQuery.isError,
     threadQuery.error,
     projectQuery.data,
     messagesQuery.data,
@@ -492,14 +492,14 @@ export default function ThreadPage({
 
       try {
         // Use React Query mutations instead of direct API calls
-        const messagePromise = addUserMessageMutation.mutateAsync({ 
-          threadId, 
-          message 
+        const messagePromise = addUserMessageMutation.mutateAsync({
+          threadId,
+          message
         });
-        
-        const agentPromise = startAgentMutation.mutateAsync({ 
-          threadId, 
-          options 
+
+        const agentPromise = startAgentMutation.mutateAsync({
+          threadId,
+          options
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -541,11 +541,11 @@ export default function ThreadPage({
         // If agent started successfully
         const agentResult = results[1].value;
         setAgentRunId(agentResult.agent_run_id);
-        
+
         // Refresh queries after successful operations
         messagesQuery.refetch();
         agentRunsQuery.refetch();
-        
+
       } catch (err) {
         // Catch errors from addUserMessage or non-BillingError agent start errors
         console.error('Error sending message or starting agent:', err);
@@ -570,7 +570,7 @@ export default function ThreadPage({
 
     // First stop the streaming and let the hook handle refetching
     await stopStreaming();
-    
+
     // Use React Query's stopAgentMutation if we have an agent run ID
     if (agentRunId) {
       try {

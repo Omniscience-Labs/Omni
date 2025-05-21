@@ -135,8 +135,9 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               />
             )}
 
-            
+
           </div>
+          {subscriptionStatus === 'no_subscription' && !isLocalMode() && <p className='text-sm text-amber-500'>Free plan. Upgrade.</p>}
           <div className='flex items-center gap-2'>
             <ModelSelector
               selectedModel={selectedModel}
@@ -144,7 +145,6 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               modelOptions={modelOptions}
               subscriptionStatus={subscriptionStatus}
               canAccessModel={canAccessModel}
-              initialAutoSelect={!isLocalMode()}
             />
             <Button
               type="submit"
