@@ -86,7 +86,7 @@ export const MODELS = {
     lowQuality: false,
     description: 'Gemini 2.5 - Google\'s powerful versatile model'
   },
-  'gemini-2.5-flash-preview': { 
+  'gemini-flash-2.5:thinking': { 
     tier: 'premium', 
     priority: 90,
     recommended: true,
@@ -137,7 +137,7 @@ export const MODELS = {
     lowQuality: true,
     description: 'DeepSeek - Free tier model with good general capabilities'
   },
-  'google/gemini-2.5-flash-preview': { 
+  'gemini-flash-2.5': { 
     tier: 'free', 
     priority: 50,
     recommended: false,
@@ -247,11 +247,17 @@ export const useModelSelection = () => {
     ? 'active' 
     : 'no_subscription';
 
+  // Function to refresh custom models from localStorage
+  const refreshCustomModels = () => {
+    if (isLocalMode() && typeof window !== 'undefined') {
+      const freshCustomModels = getCustomModels();
+      setCustomModels(freshCustomModels);
+    }
+  };
+
   // Load custom models from localStorage
   useEffect(() => {
-    if (isLocalMode() && typeof window !== 'undefined') {
-      setCustomModels(getCustomModels());
-    }
+    refreshCustomModels();
   }, []);
 
   // Generate model options list with consistent structure
@@ -417,21 +423,37 @@ export const useModelSelection = () => {
 
   // Handle model selection change
   const handleModelChange = (modelId: string) => {
-    const modelOption = MODEL_OPTIONS.find(option => option.id === modelId);
+    console.log('handleModelChange', modelId);
+    
+    // Refresh custom models from localStorage to ensure we have the latest
+    if (isLocalMode()) {
+      refreshCustomModels();
+    }
+    
+    // First check if it's a custom model in local mode
     const isCustomModel = isLocalMode() && customModels.some(model => model.id === modelId);
     
-    // Check if model exists
+    // Then check if it's in standard MODEL_OPTIONS
+    const modelOption = MODEL_OPTIONS.find(option => option.id === modelId);
+    
+    // Check if model exists in either custom models or standard options
     if (!modelOption && !isCustomModel) {
-      console.warn('Model not found in options:', modelId);
+      console.warn('Model not found in options:', modelId, MODEL_OPTIONS, isCustomModel, customModels);
+      
+      // Reset to default model when the selected model is not found
+      const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      setSelectedModel(defaultModel);
+      saveModelPreference(defaultModel);
       return;
     }
 
     // Check access permissions (except for custom models in local mode)
     if (!isCustomModel && !isLocalMode() && 
         !canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false)) {
+      console.warn('Model not accessible:', modelId);
       return;
     }
-    
+    console.log('setting selected model', modelId);
     setSelectedModel(modelId);
     saveModelPreference(modelId);
   };
@@ -444,12 +466,15 @@ export const useModelSelection = () => {
 
   return {
     selectedModel,
-    setSelectedModel: handleModelChange,
+    setSelectedModel: (modelId: string) => {
+      handleModelChange(modelId);
+    },
     subscriptionStatus,
     availableModels,
     allModels: MODEL_OPTIONS,  // Already pre-sorted
     customModels,
     getActualModelId,
+    refreshCustomModels,
     canAccessModel: (modelId: string) => {
       if (isLocalMode()) return true;
       const model = MODEL_OPTIONS.find(m => m.id === modelId);

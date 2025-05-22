@@ -2,8 +2,7 @@ MODEL_ACCESS_TIERS = {
     "free": [
         "openrouter/deepseek/deepseek-chat",
         "openrouter/qwen/qwen3-235b-a22b",
-        "openrouter/google/gemini-2.5-flash-preview",
-        # "openrouter/google/gemini-2.5-flash-preview:thinking",
+        "openrouter/google/gemini-2.5-flash-preview-05-20",
     ],
     "tier_2_20": [
         "openrouter/deepseek/deepseek-chat",
@@ -114,10 +113,11 @@ MODEL_NAME_ALIASES = {
     # "deepseek-r1": "openrouter/deepseek/deepseek-r1",
     # "grok-3-mini": "xai/grok-3-mini-fast-beta",  # Commented out in constants.py
     "qwen3": "openrouter/qwen/qwen3-235b-a22b",  # Commented out in constants.py
+    "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-flash:thinking":"openrouter/google/gemini-2.5-flash-preview-05-20:thinking",
     
-    
-    "google/gemini-2.5-flash-preview":"openrouter/google/gemini-2.5-flash-preview",
-    "google/gemini-2.5-flash-preview:thinking":"openrouter/google/gemini-2.5-flash-preview:thinking",
+    # "google/gemini-2.5-flash-preview":"openrouter/google/gemini-2.5-flash-preview",
+    # "google/gemini-2.5-flash-preview:thinking":"openrouter/google/gemini-2.5-flash-preview:thinking",
     "google/gemini-2.5-pro-preview":"openrouter/google/gemini-2.5-pro-preview",
     "deepseek/deepseek-chat-v3-0324":"openrouter/deepseek/deepseek-chat-v3-0324",
 

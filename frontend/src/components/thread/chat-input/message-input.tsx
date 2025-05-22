@@ -36,7 +36,8 @@ interface MessageInputProps {
   onModelChange: (model: string) => void;
   modelOptions: any[];
   subscriptionStatus: SubscriptionStatus;
-  canAccessModel: (model: string) => boolean;
+  canAccessModel: (modelId: string) => boolean;
+  refreshCustomModels?: () => void;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -66,6 +67,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       modelOptions,
       subscriptionStatus,
       canAccessModel,
+      refreshCustomModels,
     },
     ref,
   ) => {
@@ -148,6 +150,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               modelOptions={modelOptions}
               subscriptionStatus={subscriptionStatus}
               canAccessModel={canAccessModel}
+              refreshCustomModels={refreshCustomModels}
             />
             <Button
               type="submit"
