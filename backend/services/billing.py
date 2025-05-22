@@ -13,43 +13,13 @@ from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
-from utils.constants import MODEL_ACCESS_TIERS
+from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-MODEL_NAME_ALIASES = {
-    # Short names to full names
-    "sonnet-3.7": "anthropic/claude-3-7-sonnet-latest",
-    # "gpt-4.1": "openai/gpt-4.1-2025-04-14",  # Commented out in constants.py
-    "gpt-4o": "openai/gpt-4o",
-    # "gpt-4-turbo": "openai/gpt-4-turbo",  # Commented out in constants.py
-    # "gpt-4": "openai/gpt-4",  # Commented out in constants.py
-    # "gemini-flash-2.5": "openrouter/google/gemini-2.5-flash-preview",  # Commented out in constants.py
-    # "grok-3": "xai/grok-3-fast-latest",  # Commented out in constants.py
-    "deepseek": "openrouter/deepseek/deepseek-chat",
-    # "deepseek-r1": "openrouter/deepseek/deepseek-r1",
-    # "grok-3-mini": "xai/grok-3-mini-fast-beta",  # Commented out in constants.py
-    "qwen3": "openrouter/qwen/qwen3-235b-a22b",  # Commented out in constants.py
-
-
-
-    # Also include full names as keys to ensure they map to themselves
-    "anthropic/claude-3-7-sonnet-latest": "anthropic/claude-3-7-sonnet-latest",
-    # "openai/gpt-4.1-2025-04-14": "openai/gpt-4.1-2025-04-14",  # Commented out in constants.py
-    "openai/gpt-4o": "openai/gpt-4o",
-    # "openai/gpt-4-turbo": "openai/gpt-4-turbo",  # Commented out in constants.py
-    # "openai/gpt-4": "openai/gpt-4",  # Commented out in constants.py
-    # "openrouter/google/gemini-2.5-flash-preview": "openrouter/google/gemini-2.5-flash-preview",  # Commented out in constants.py
-    # "xai/grok-3-fast-latest": "xai/grok-3-fast-latest",  # Commented out in constants.py
-    "deepseek/deepseek-chat": "openrouter/deepseek/deepseek-chat",
-    # "deepseek/deepseek-r1": "openrouter/deepseek/deepseek-r1",
-    
-    "qwen/qwen3-235b-a22b": "openrouter/qwen/qwen3-235b-a22b",
-    # "xai/grok-3-mini-fast-beta": "xai/grok-3-mini-fast-beta",  # Commented out in constants.py
-}
 
 SUBSCRIPTION_TIERS = {
     config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60},
@@ -909,13 +879,14 @@ async def get_available_models(
             model_info = []
             for short_name, full_name in MODEL_NAME_ALIASES.items():
                 # Skip entries where the key is a full name to avoid duplicates
-                if short_name == full_name or '/' in short_name:
-                    continue
+                # if short_name == full_name or '/' in short_name:
+                #     continue
                 
                 model_info.append({
                     "id": full_name,
                     "display_name": short_name,
-                    "short_name": short_name
+                    "short_name": short_name,
+                    "requires_subscription": False  # Always false in local dev mode
                 })
             
             return {
@@ -926,6 +897,7 @@ async def get_available_models(
         
         # For non-local mode, get list of allowed models for this user
         allowed_models = await get_allowed_models_for_user(client, current_user_id)
+        free_tier_models = MODEL_ACCESS_TIERS.get('free', [])
         
         # Get subscription info for context
         subscription = await get_user_subscription(current_user_id)
@@ -944,22 +916,36 @@ async def get_available_models(
             if tier_info:
                 tier_name = tier_info['name']
         
-        # Get model aliases for better display
+        # Get all unique full model names from MODEL_NAME_ALIASES
+        all_models = set()
         model_aliases = {}
+        
         for short_name, full_name in MODEL_NAME_ALIASES.items():
-            # Only include short names that don't match their full names
+            # Add all unique full model names
+            all_models.add(full_name)
+            
+            # Only include short names that don't match their full names for aliases
             if short_name != full_name and not short_name.startswith("openai/") and not short_name.startswith("anthropic/") and not short_name.startswith("openrouter/") and not short_name.startswith("xai/"):
-                if full_name in allowed_models and full_name not in model_aliases:
+                if full_name not in model_aliases:
                     model_aliases[full_name] = short_name
         
-        # Create model info with display names
+        # Create model info with display names for ALL models
         model_info = []
-        for model in allowed_models:
+        for model in all_models:
             display_name = model_aliases.get(model, model.split('/')[-1] if '/' in model else model)
+            
+            # Check if model requires subscription (not in free tier)
+            requires_sub = model not in free_tier_models
+            
+            # Check if model is available with current subscription
+            is_available = model in allowed_models
+            
             model_info.append({
                 "id": model,
                 "display_name": display_name,
-                "short_name": model_aliases.get(model)
+                "short_name": model_aliases.get(model),
+                "requires_subscription": requires_sub,
+                "is_available": is_available
             })
         
         return {
