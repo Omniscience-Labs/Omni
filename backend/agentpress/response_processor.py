@@ -1062,7 +1062,9 @@ class ResponseProcessor:
     # Tool execution methods
     async def _execute_tool(self, tool_call: Dict[str, Any], trace: Optional[StatefulTraceClient] = None) -> ToolResult:
         """Execute a single tool call and return the result."""
-        span = trace.span(name=f"execute_tool.{tool_call['function_name']}", input=tool_call["arguments"])            
+        span = None
+        if trace:
+          span = trace.span(name=f"execute_tool.{tool_call['function_name']}", input=tool_call["arguments"])            
         try:
             function_name = tool_call["function_name"]
             arguments = tool_call["arguments"]
@@ -1082,17 +1084,20 @@ class ResponseProcessor:
             tool_fn = available_functions.get(function_name)
             if not tool_fn:
                 logger.error(f"Tool function '{function_name}' not found in registry")
-                span.end(status_message="tool_not_found")
+                if span:
+                    span.end(status_message="tool_not_found", level="ERROR")
                 return ToolResult(success=False, output=f"Tool function '{function_name}' not found")
             
             logger.debug(f"Found tool function for '{function_name}', executing...")
             result = await tool_fn(**arguments)
             logger.info(f"Tool execution complete: {function_name} -> {result}")
-            span.end(status_message="tool_executed", output=result)
+            if span:
+                span.end(status_message="tool_executed", output=result)
             return result
         except Exception as e:
             logger.error(f"Error executing tool {tool_call['function_name']}: {str(e)}", exc_info=True)
-            span.end(status_message="tool_execution_error", output=f"Error executing tool: {str(e)}")
+            if span:
+                span.end(status_message="tool_execution_error", output=f"Error executing tool: {str(e)}", level="ERROR")
             return ToolResult(success=False, output=f"Error executing tool: {str(e)}")
 
     async def _execute_tools(

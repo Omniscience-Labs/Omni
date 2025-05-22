@@ -127,7 +127,7 @@ async def run_agent_background(
             if stop_signal_received:
                 logger.info(f"Agent run {agent_run_id} stopped by signal.")
                 final_status = "stopped"
-                trace.span(name="agent_run_stopped").end(status_message="agent_run_stopped")
+                trace.span(name="agent_run_stopped").end(status_message="agent_run_stopped", level="WARNING")
                 break
 
             # Store response in Redis list and publish notification
@@ -178,7 +178,7 @@ async def run_agent_background(
         duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         logger.error(f"Error in agent run {agent_run_id} after {duration:.2f}s: {error_message}\n{traceback_str} (Instance: {instance_id})")
         final_status = "failed"
-        trace.span(name="agent_run_failed").end(status_message=error_message)
+        trace.span(name="agent_run_failed").end(status_message=error_message, level="ERROR")
 
         # Push error message to Redis list
         error_response = {"type": "status", "status": "error", "message": error_message}
