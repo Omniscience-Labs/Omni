@@ -523,7 +523,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              <span className="truncate max-w-[120px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-none">{selectedLabel}</span>
+              <span className="truncate max-w-[100px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-none">{selectedLabel}</span>
               <ChevronDown className="h-3 w-3 opacity-50 ml-1 flex-shrink-0" />
             </div>
           </Button>
