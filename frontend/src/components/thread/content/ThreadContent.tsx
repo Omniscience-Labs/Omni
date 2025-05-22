@@ -153,7 +153,7 @@ export function renderMarkdownContent(
                 <button
                     key={toolCallKey}
                     onClick={() => handleToolClick(messageId, toolName)}
-                    className="inline-flex items-center gap-1.5 py-1 px-2.5 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
+                    className="inline-flex items-center gap-1.5 py-1 px-1 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
                 >
                     <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
                         <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
