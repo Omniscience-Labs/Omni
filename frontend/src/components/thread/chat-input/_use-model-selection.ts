@@ -7,8 +7,8 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
-export const DEFAULT_FREE_MODEL_ID = 'qwen3';
-export const DEFAULT_PREMIUM_MODEL_ID = 'sonnet-3.7';
+export const DEFAULT_FREE_MODEL_ID = 'gemini-flash-2.5';
+export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -30,23 +30,23 @@ export interface CustomModel {
 // SINGLE SOURCE OF TRUTH for all model data
 export const MODELS = {
   // Premium high-priority models
-  'sonnet-3.7': { 
+  'claude-sonnet-4': { 
     tier: 'premium',
     priority: 100, 
     recommended: true,
     lowQuality: false,
-    description: 'Claude 3.7 Sonnet - Anthropic\'s powerful general-purpose AI assistant'
+    description: 'Claude Sonnet 4 - Anthropic\'s latest and most advanced AI assistant'
   },
-  'claude-3.7': { 
+  'claude-sonnet-3.7': { 
     tier: 'premium', 
-    priority: 100, 
+    priority: 95, 
     recommended: true,
     lowQuality: false,
     description: 'Claude 3.7 - Anthropic\'s most powerful AI assistant'
   },
-  'claude-3.7-reasoning': { 
+  'claude-sonnet-3.7-reasoning': { 
     tier: 'premium', 
-    priority: 100, 
+    priority: 95, 
     recommended: true,
     lowQuality: false,
     description: 'Claude 3.7 with enhanced reasoning capabilities'
@@ -269,14 +269,14 @@ export const useModelSelection = () => {
       models = [
         { 
           id: DEFAULT_FREE_MODEL_ID, 
-          label: 'Qwen3', 
+          label: 'Gemini Flash 2.5', 
           requiresSubscription: false,
           description: MODELS[DEFAULT_FREE_MODEL_ID]?.description || MODEL_TIERS.free.baseDescription,
           priority: MODELS[DEFAULT_FREE_MODEL_ID]?.priority || 50
         },
         { 
           id: DEFAULT_PREMIUM_MODEL_ID, 
-          label: 'Sonnet 3.7', 
+          label: 'Claude Sonnet 4', 
           requiresSubscription: true, 
           description: MODELS[DEFAULT_PREMIUM_MODEL_ID]?.description || MODEL_TIERS.premium.baseDescription,
           priority: MODELS[DEFAULT_PREMIUM_MODEL_ID]?.priority || 100
