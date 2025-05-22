@@ -184,7 +184,6 @@ export const FileUploadHandler = forwardRef<
       if (!event.target.files || event.target.files.length === 0) return;
 
       const files = Array.from(event.target.files);
-
       // Use the helper function instead of the static method
       handleFiles(
         files,

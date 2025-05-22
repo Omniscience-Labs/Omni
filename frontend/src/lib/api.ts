@@ -1535,6 +1535,7 @@ export interface Model {
   id: string;
   display_name: string;
   short_name?: string;
+  requires_subscription?: boolean;
 }
 
 export interface AvailableModelsResponse {

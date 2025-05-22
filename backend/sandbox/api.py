@@ -244,33 +244,7 @@ async def read_file(
         # Get sandbox using the safer method
         sandbox = await get_sandbox_by_id_safely(client, sandbox_id)
         
-        # Verify the file exists first
-        try:
-            filename = os.path.basename(path)
-            parent_dir = os.path.dirname(path)
-            
-            # List files in the parent directory to check if the file exists
-            files_in_dir = sandbox.fs.list_files(parent_dir)
-            
-            # Look for the target file with exact name match
-            file_exists = any(file.name == filename for file in files_in_dir)
-            
-            if not file_exists:
-                logger.warning(f"File not found: {path} in sandbox {sandbox_id}")
-                
-                # Try to find similar files to help diagnose
-                close_matches = [file.name for file in files_in_dir if filename.lower() in file.name.lower()]
-                error_detail = f"File '{filename}' not found in directory '{parent_dir}'"
-                
-                if close_matches:
-                    error_detail += f". Similar files in the directory: {', '.join(close_matches)}"
-                
-                raise HTTPException(status_code=404, detail=error_detail)
-        except Exception as list_err:
-            # If we can't list files, continue with the download attempt
-            logger.warning(f"Error checking if file exists: {str(list_err)}")
-        
-        # Read file
+        # Read file directly - don't check existence first with a separate call
         try:
             content = sandbox.fs.download_file(path)
         except Exception as download_err:

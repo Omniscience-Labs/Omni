@@ -149,13 +149,13 @@ export default function ThreadPage({
   const agentRunsQuery = useAgentRunsQuery(threadId);
   const billingStatusQuery = useBillingStatusQuery();
   const { data: subscriptionData } = useSubscription();
-  
+
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
 
-  const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active' 
-    ? 'active' 
+  const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
+    ? 'active'
     : 'no_subscription';
 
 
@@ -479,9 +479,9 @@ export default function ThreadPage({
       isMounted = false;
     };
   }, [
-    threadId, 
-    threadQuery.data, 
-    threadQuery.isError, 
+    threadId,
+    threadQuery.data,
+    threadQuery.isError,
     threadQuery.error,
     projectQuery.data,
     messagesQuery.data,
@@ -513,14 +513,14 @@ export default function ThreadPage({
 
       try {
         // Use React Query mutations instead of direct API calls
-        const messagePromise = addUserMessageMutation.mutateAsync({ 
-          threadId, 
-          message 
+        const messagePromise = addUserMessageMutation.mutateAsync({
+          threadId,
+          message
         });
-        
-        const agentPromise = startAgentMutation.mutateAsync({ 
-          threadId, 
-          options 
+
+        const agentPromise = startAgentMutation.mutateAsync({
+          threadId,
+          options
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -562,11 +562,11 @@ export default function ThreadPage({
         // If agent started successfully
         const agentResult = results[1].value;
         setAgentRunId(agentResult.agent_run_id);
-        
+
         // Refresh queries after successful operations
         messagesQuery.refetch();
         agentRunsQuery.refetch();
-        
+
       } catch (err) {
         // Catch errors from addUserMessage or non-BillingError agent start errors
         console.error('Error sending message or starting agent:', err);
@@ -591,7 +591,7 @@ export default function ThreadPage({
 
     // First stop the streaming and let the hook handle refetching
     await stopStreaming();
-    
+
     // Use React Query's stopAgentMutation if we have an agent run ID
     if (agentRunId) {
       try {
@@ -1067,7 +1067,7 @@ export default function ThreadPage({
     if (initialLoadCompleted.current && subscriptionData) {
       const hasSeenUpgradeDialog = localStorage.getItem('suna_upgrade_dialog_displayed');
       const isFreeTier = subscriptionStatus === 'no_subscription';
-      if (!hasSeenUpgradeDialog && isFreeTier) {
+      if (!hasSeenUpgradeDialog && isFreeTier && !isLocalMode()) {
         setShowUpgradeDialog(true);
       }
     }
@@ -1276,10 +1276,10 @@ export default function ThreadPage({
                 Upgrade now to access our most powerful AI model.
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="py-4">
               <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Pro Benefits</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex items-start">
                   <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
@@ -1290,7 +1290,7 @@ export default function ThreadPage({
                     <p className="text-xs text-slate-500 dark:text-slate-400">Get access to advanced models suited for complex tasks</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start">
                   <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
                     <Zap className="h-4 w-4 text-secondary" />
@@ -1300,7 +1300,7 @@ export default function ThreadPage({
                     <p className="text-xs text-slate-500 dark:text-slate-400">Get access to faster models that breeze through your tasks</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start">
                   <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
                     <Clock className="h-4 w-4 text-secondary" />
@@ -1312,7 +1312,7 @@ export default function ThreadPage({
                 </div>
               </div>
             </div>
-            
+
             <DialogFooter className="flex gap-2">
               <Button variant="outline" onClick={handleDismissUpgradeDialog}>
                 Maybe Later
