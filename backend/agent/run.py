@@ -75,15 +75,15 @@ async def run_agent(
         thread_manager.add_tool(DataProvidersTool)
 
 
-    # Only include sample response if the model name does not contain "anthropic"
-    if "anthropic" not in model_name.lower():
+    if "gemini-2.5-flash" in model_name.lower():
+        system_message = { "role": "system", "content": get_gemini_system_prompt() } # example included
+    elif "anthropic" not in model_name.lower():
+        # Only include sample response if the model name does not contain "anthropic"
         sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
         with open(sample_response_path, 'r') as file:
             sample_response = file.read()
         
         system_message = { "role": "system", "content": get_system_prompt() + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>" }
-    elif "gemini-2.5-flash" in model_name.lower():
-        system_message = { "role": "system", "content": get_gemini_system_prompt() } # example included
     else:
         system_message = { "role": "system", "content": get_system_prompt() }
 
