@@ -70,24 +70,25 @@ export const CustomModelDialog: React.FC<CustomModelDialogProps> = ({
             }}
         >
             <DialogContent
-                className="sm:max-w-[425px]"
+                className="sm:max-w-[430px]"
                 onEscapeKeyDown={handleClose}
                 onPointerDownOutside={handleClose}
             >
                 <DialogHeader>
                     <DialogTitle>{mode === 'add' ? 'Add Custom Model' : 'Edit Custom Model'}</DialogTitle>
                     <DialogDescription>
-                        Enter the model ID for your custom model. The display name will be auto-generated.
+                        Enter the model ID (use <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">openrouter/</code> prefix for OpenRouter models). See <a href="https://docs.litellm.ai/docs/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 underline">LiteLLM docs</a>; you may need to modify <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">llm.py</code>.
                     </DialogDescription>
+
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
+                <div className="flex flex-col gap-4 py-4">
+                    <div className="flex flex-col items-start gap-4">
                         <Label htmlFor="modelId" className="text-right">
                             Model ID
                         </Label>
                         <Input
                             id="modelId"
-                            placeholder="e.g. gpt-4-vision"
+                            placeholder="e.g. openrouter/meta-llama/llama-4-maverick"
                             value={formData.id}
                             onChange={handleChange}
                             className="col-span-3"

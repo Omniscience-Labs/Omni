@@ -23,7 +23,8 @@ import {
   DEFAULT_FREE_MODEL_ID,
   DEFAULT_PREMIUM_MODEL_ID,
   formatModelName,
-  getCustomModels
+  getCustomModels,
+  MODELS // Import the centralized MODELS constant
 } from './_use-model-selection';
 import { PaywallDialog } from '@/components/payment/paywall-dialog';
 import { cn } from '@/lib/utils';
@@ -31,28 +32,11 @@ import { useRouter } from 'next/navigation';
 import { isLocalMode } from '@/lib/config';
 import { CustomModelDialog, CustomModelFormData } from './custom-model-dialog';
 
-// Model capabilities map
-const MODEL_CAPABILITIES = {
-  'gpt-4o': { recommended: false, lowQuality: false },
-  'sonnet-3.7': { recommended: true, lowQuality: false },
-  'qwen3': { recommended: false, lowQuality: true },
-  'deepseek': { recommended: false, lowQuality: true },
-  'gemini-2.5': { recommended: true, lowQuality: false },
-  'gemini-2.5-flash-preview': { recommended: true, lowQuality: false },
-  'gemini-2.5-pro-preview': { recommended: true, lowQuality: false },
-  'deepseek-chat-v3-0324': { recommended: true, lowQuality: false },
-  'google/gemini-2.5-flash-preview': { recommended: false, lowQuality: true },
-  'claude-3.5': { recommended: true, lowQuality: false },
-  'claude-3.7': { recommended: true, lowQuality: false },
-  'claude-3.7-reasoning': { recommended: true, lowQuality: false },
-  'gemini-2.5-pro': { recommended: true, lowQuality: false },
-  'grok-3-mini': { recommended: false, lowQuality: true },
-};
-
 interface CustomModel {
   id: string;
   label: string;
 }
+
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -101,49 +85,53 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   // Get current custom models from state
   const currentCustomModels = customModels || [];
 
-  // Enhance model options with capabilities
-  const enhancedModelOptions = [...modelOptions, ...currentCustomModels
-    // Only add custom models that aren't already in modelOptions
-    .filter(model => !modelOptions.some(m => m.id === model.id))
-    .map(model => ({
-      ...model,
-      requiresSubscription: false,
-      top: false,
-      isCustom: true
-    }))].map(model => {
-      const baseCapabilities = MODEL_CAPABILITIES[model.id] || { recommended: false, lowQuality: false };
-      return {
-        ...model,
-        capabilities: baseCapabilities
-      };
-    });
+  // Enhance model options with capabilities - using a Map to ensure uniqueness
+  const modelMap = new Map();
 
+  // First add all standard models to the map
+  modelOptions.forEach(model => {
+    modelMap.set(model.id, {
+      ...model,
+      isCustom: false
+    });
+  });
+
+  // Then add custom models, overriding any with the same ID
+  currentCustomModels.forEach(model => {
+    if (!modelMap.has(model.id)) {
+      modelMap.set(model.id, {
+        ...model,
+        requiresSubscription: false,
+        top: false,
+        isCustom: true
+      });
+    }
+  });
+
+  // Convert map back to array
+  const enhancedModelOptions = Array.from(modelMap.values());
+
+  // Filter models based on search query
   const filteredOptions = enhancedModelOptions.filter((opt) =>
     opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
     opt.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Get free models from modelOptions
+  // Get free models from modelOptions (helper function)
   const getFreeModels = () => modelOptions.filter(m => !m.requiresSubscription).map(m => m.id);
 
-  // Sort models - free first, then premium, then by name
-  const sortedModels = filteredOptions.sort((a, b) => {
-    // First by free/premium status
-    const aIsFree = getFreeModels().some(id => a.id.includes(id)) || !a.requiresSubscription;
-    const bIsFree = getFreeModels().some(id => b.id.includes(id)) || !b.requiresSubscription;
+  // No sorting needed - models are already sorted in the hook
+  const sortedModels = filteredOptions;
 
-    if (aIsFree !== bIsFree) {
-      return aIsFree ? -1 : 1;
-    }
-
-    // Then by "top" status
-    if (a.top !== b.top) {
-      return a.top ? -1 : 1;
-    }
-
-    // Finally by name
-    return a.label.localeCompare(b.label);
-  });
+  // Simplified premium models function - just filter without sorting
+  const getPremiumModels = () => {
+    return modelOptions
+      .filter(m => m.requiresSubscription)
+      .map((m, index) => ({
+        ...m,
+        uniqueKey: getUniqueModelKey(m, index)
+      }));
+  }
 
   // Make sure model IDs are unique for rendering
   const getUniqueModelKey = (model: any, index: number): string => {
@@ -169,8 +157,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const selectedLabel =
     enhancedModelOptions.find((o) => o.id === selectedModel)?.label || 'Select model';
-
-  const isLowQualitySelected = MODEL_CAPABILITIES[selectedModel]?.lowQuality || false;
 
   const handleSelect = (id: string) => {
     // Check if it's a custom model
@@ -240,12 +226,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const openEditCustomModelDialog = (model: CustomModel, e?: React.MouseEvent) => {
     e?.stopPropagation();
 
-    // Remove openrouter/ prefix when showing in the edit form
-    const displayModelId = model.id.startsWith('openrouter/')
-      ? model.id.replace('openrouter/', '')
-      : model.id;
-
-    setDialogInitialData({ id: displayModelId, label: model.label });
+    setDialogInitialData({ id: model.id, label: model.label });
     setEditingModelId(model.id); // Keep the original ID with prefix for reference
     setDialogMode('edit');
     setIsCustomModelDialogOpen(true);
@@ -254,24 +235,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   // Handle saving a custom model
   const handleSaveCustomModel = (formData: CustomModelFormData) => {
-    // Ensure modelId is properly formatted
-    let modelId = formData.id.trim();
+    // Get model ID without automatically adding prefix
+    const modelId = formData.id.trim();
 
-    // For add mode, always add the prefix if missing
-    if (dialogMode === 'add') {
-      if (!modelId.startsWith('openrouter/')) {
-        modelId = `openrouter/${modelId}`;
-      }
-    } else {
-      // For edit mode, maintain the prefix status of the original ID
-      const originalHadPrefix = editingModelId?.startsWith('openrouter/') || false;
-
-      if (originalHadPrefix && !modelId.startsWith('openrouter/')) {
-        modelId = `openrouter/${modelId}`;
-      }
-    }
-
-    const modelLabel = formData.label.trim() || formatModelName(modelId.replace('openrouter/', ''));
+    // Generate display name based on model ID (remove prefix if present for display name)
+    const displayId = modelId.startsWith('openrouter/') ? modelId.replace('openrouter/', '') : modelId;
+    const modelLabel = formData.label.trim() || formatModelName(displayId);
 
     if (!modelId) return;
 
@@ -291,37 +260,43 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       ? [...customModels, { id: modelId, label: modelLabel }]
       : customModels.map(model => model.id === editingModelId ? { id: modelId, label: modelLabel } : model);
 
-    // Update state
-    setCustomModels(updatedModels);
-
-    // Save to storage first
+    // Save to localStorage first
     try {
       localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedModels));
     } catch (error) {
       console.error('Failed to save custom models to localStorage:', error);
     }
 
-    // Force a UI update cycle then update selection
-    // IMPORTANT: Use requestAnimationFrame to ensure DOM updates before selection changes
+    // Update state with new models
+    setCustomModels(updatedModels);
+
+    // Handle model selection changes
     if (dialogMode === 'add') {
       // Always select newly added models
-      requestAnimationFrame(() => {
-        // Direct model change for immediate effect
-        onModelChange(modelId);
-
-        // Also save the selection to localStorage
-        try {
-          localStorage.setItem(STORAGE_KEY_MODEL, modelId);
-        } catch (error) {
-          console.warn('Failed to save selected model to localStorage:', error);
-        }
-      });
+      onModelChange(modelId);
+      // Also save the selection to localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY_MODEL, modelId);
+      } catch (error) {
+        console.warn('Failed to save selected model to localStorage:', error);
+      }
     } else if (selectedModel === editingModelId) {
       // For edits, only update if the edited model was selected
-      requestAnimationFrame(() => {
-        onModelChange(modelId);
-      });
+      onModelChange(modelId);
+      try {
+        localStorage.setItem(STORAGE_KEY_MODEL, modelId);
+      } catch (error) {
+        console.warn('Failed to save selected model to localStorage:', error);
+      }
     }
+
+    // Force dropdown to close to ensure fresh data on next open
+    setIsOpen(false);
+
+    // Force a UI refresh by delaying the state update
+    setTimeout(() => {
+      setHighlightedIndex(-1);
+    }, 0);
   };
 
   // Handle closing the custom model dialog
@@ -344,49 +319,51 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     e?.stopPropagation();
     e?.preventDefault();
 
-    // Close dropdown first to force a refresh on next open
-    setIsOpen(false);
-
     // Filter out the model to delete
     const updatedCustomModels = customModels.filter(model => model.id !== modelId);
 
-    // Update state
+    // Update localStorage first to ensure data consistency
+    if (isLocalMode() && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedCustomModels));
+      } catch (error) {
+        console.error('Failed to update custom models in localStorage:', error);
+      }
+    }
+
+    // Update state with the new list
     setCustomModels(updatedCustomModels);
 
-    // Force a UI update by using requestAnimationFrame
-    requestAnimationFrame(() => {
-      // Update localStorage directly
-      if (isLocalMode() && typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedCustomModels));
-        } catch (error) {
-          console.error('Failed to update custom models in localStorage:', error);
-        }
+    // Check if we need to change the selected model
+    if (selectedModel === modelId) {
+      const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      onModelChange(defaultModel);
+      try {
+        localStorage.setItem(STORAGE_KEY_MODEL, defaultModel);
+      } catch (error) {
+        console.warn('Failed to update selected model in localStorage:', error);
       }
+    }
 
-      // If the deleted model was selected, switch to a default model
-      if (selectedModel === modelId) {
-        const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
-        onModelChange(defaultModel);
-        try {
-          localStorage.setItem(STORAGE_KEY_MODEL, defaultModel);
-        } catch (error) {
-          console.warn('Failed to update selected model in localStorage:', error);
-        }
-      }
-    });
+    // Force dropdown to close to ensure proper refresh on next open
+    setIsOpen(false);
+
+    // Force a UI refresh by scheduling a state update after React completes this render cycle
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 0);
   };
 
   const renderModelOption = (opt: any, index: number) => {
     // Custom models are always accessible in local mode
-    const isCustomModel = customModels.some(model => model.id === opt.id);
-    const accessible = isCustomModel ? true : canAccessModel(opt.id);
+    const isCustom = opt.isCustom || customModels.some(model => model.id === opt.id);
+    const accessible = isCustom ? true : canAccessModel(opt.id);
 
     // Fix the highlighting logic to use the index parameter instead of searching in filteredOptions
     const isHighlighted = index === highlightedIndex;
     const isPremium = opt.requiresSubscription;
-    const isLowQuality = MODEL_CAPABILITIES[opt.id]?.lowQuality || false;
-    const isRecommended = MODEL_CAPABILITIES[opt.id]?.recommended || false;
+    const isLowQuality = MODELS[opt.id]?.lowQuality || false;
+    const isRecommended = MODELS[opt.id]?.recommended || false;
 
     return (
       <TooltipProvider key={opt.uniqueKey || `model-${opt.id}-${index}`}>
@@ -417,7 +394,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <Crown className="h-3.5 w-3.5 text-blue-500" />
                   )}
                   {/* Custom model actions */}
-                  {isLocalMode() && isCustomModel && (
+                  {isLocalMode() && isCustom && (
                     <>
                       <button
                         onClick={(e) => {
@@ -458,7 +435,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             <TooltipContent side="left" className="text-xs max-w-xs">
               <p>Recommended for optimal performance</p>
             </TooltipContent>
-          ) : isCustomModel ? (
+          ) : isCustom ? (
             <TooltipContent side="left" className="text-xs max-w-xs">
               <p>Custom model</p>
             </TooltipContent>
@@ -468,16 +445,20 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     );
   };
 
-  // Update filtered options when customModels changes
+  // Update filtered options when customModels or search query changes
   useEffect(() => {
-    // Recalculate filtered options when custom models change
-    const newFilteredOptions = enhancedModelOptions.filter((opt) =>
-      opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      opt.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    // Force the component to re-render with new data
+    // Force reset of enhancedModelOptions whenever customModels change
+    // The next render will regenerate enhancedModelOptions with the updated modelMap
     setHighlightedIndex(-1);
-  }, [customModels, searchQuery]);
+    setSearchQuery('');
+
+    // Force React to fully re-evaluate the component rendering
+    if (isOpen) {
+      // If dropdown is open, briefly close and reopen to force refresh
+      setIsOpen(false);
+      setTimeout(() => setIsOpen(true), 10);
+    }
+  }, [customModels]);
 
   return (
     <div className="relative">
@@ -489,7 +470,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             className="h-8 rounded-lg text-muted-foreground shadow-none border-none focus:ring-0 px-3"
           >
             <div className="flex items-center gap-1 text-sm font-medium">
-              {isLowQualitySelected && (
+              {MODELS[selectedModel]?.lowQuality && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -546,10 +527,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 {/* Show capabilities */}
-                                {MODEL_CAPABILITIES[model.id]?.lowQuality && (
+                                {(MODELS[model.id]?.lowQuality || false) && (
                                   <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                                 )}
-                                {MODEL_CAPABILITIES[model.id]?.recommended && (
+                                {(MODELS[model.id]?.recommended || false) && (
                                   <Brain className="h-3.5 w-3.5 text-blue-500" />
                                 )}
                                 {selectedModel === model.id && (
@@ -559,7 +540,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                             </DropdownMenuItem>
                           </div>
                         </TooltipTrigger>
-                        {MODEL_CAPABILITIES[model.id]?.lowQuality && (
+                        {MODELS[model.id]?.lowQuality && (
                           <TooltipContent side="left" className="text-xs max-w-xs">
                             <p>Basic model with limited capabilities</p>
                           </TooltipContent>
@@ -578,7 +559,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
                   {/* Premium models container with paywall overlay */}
                   <div className="relative h-40 overflow-hidden px-2">
-                    {uniqueModels
+                    {getPremiumModels()
                       .filter(m =>
                         m.requiresSubscription &&
                         (m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -598,7 +579,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {/* Show capabilities */}
-                                    {MODEL_CAPABILITIES[model.id]?.recommended && (
+                                    {MODELS[model.id]?.recommended && (
                                       <Brain className="h-3.5 w-3.5 text-blue-500" />
                                     )}
                                     <Crown className="h-3.5 w-3.5 text-blue-500" />
@@ -645,17 +626,26 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 <div className="px-3 py-3 flex justify-between items-center">
                   <span className="text-xs font-medium text-muted-foreground">All Models</span>
                   {isLocalMode() && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openAddCustomModelDialog(e);
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAddCustomModelDialog(e);
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Add a custom model
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
                 {uniqueModels.filter(m =>

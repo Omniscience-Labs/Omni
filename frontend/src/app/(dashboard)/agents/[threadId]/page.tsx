@@ -1067,7 +1067,7 @@ export default function ThreadPage({
     if (initialLoadCompleted.current && subscriptionData) {
       const hasSeenUpgradeDialog = localStorage.getItem('suna_upgrade_dialog_displayed');
       const isFreeTier = subscriptionStatus === 'no_subscription';
-      if (!hasSeenUpgradeDialog && isFreeTier) {
+      if (!hasSeenUpgradeDialog && isFreeTier && !isLocalMode()) {
         setShowUpgradeDialog(true);
       }
     }
