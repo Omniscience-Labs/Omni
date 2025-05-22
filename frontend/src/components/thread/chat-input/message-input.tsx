@@ -8,6 +8,9 @@ import { FileUploadHandler } from './file-upload-handler';
 import { ModelSelector } from './model-selector';
 import { SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
+import { TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
+import { TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
 
 interface MessageInputProps {
   value: string;
@@ -137,7 +140,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
 
           </div>
-          {subscriptionStatus === 'no_subscription' && !isLocalMode() && <p className='text-sm text-amber-500'>Free plan. Upgrade.</p>}
+          {subscriptionStatus === 'no_subscription' && !isLocalMode() && <TooltipProvider><Tooltip><TooltipTrigger><p className='text-sm text-amber-500'>Upgrade for full performance</p></TooltipTrigger><TooltipContent><p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p></TooltipContent></Tooltip></TooltipProvider>}
           <div className='flex items-center gap-2'>
             <ModelSelector
               selectedModel={selectedModel}

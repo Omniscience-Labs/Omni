@@ -54,7 +54,7 @@ export const MODELS = {
   'gpt-4.1': { 
     tier: 'premium', 
     priority: 95,
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'GPT-4.1 - OpenAI\'s most advanced model with enhanced reasoning'
   },

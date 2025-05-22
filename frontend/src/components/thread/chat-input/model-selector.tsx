@@ -388,7 +388,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                   )}
                   {isRecommended && (
-                    <Brain className="h-3.5 w-3.5 text-blue-500" />
+                    <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
+                      Recommended
+                    </span>
                   )}
                   {isPremium && !accessible && (
                     <Crown className="h-3.5 w-3.5 text-blue-500" />
@@ -531,7 +533,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                                   <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                                 )}
                                 {(MODELS[model.id]?.recommended || false) && (
-                                  <Brain className="h-3.5 w-3.5 text-blue-500" />
+                                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
+                                    Recommended
+                                  </span>
                                 )}
                                 {selectedModel === model.id && (
                                   <Check className="h-4 w-4 text-blue-500" />
@@ -580,7 +584,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                                   <div className="flex items-center gap-2">
                                     {/* Show capabilities */}
                                     {MODELS[model.id]?.recommended && (
-                                      <Brain className="h-3.5 w-3.5 text-blue-500" />
+                                      <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
+                                        Recommended
+                                      </span>
                                     )}
                                     <Crown className="h-3.5 w-3.5 text-blue-500" />
                                   </div>
@@ -648,10 +654,34 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     </TooltipProvider>
                   )}
                 </div>
-                {uniqueModels.filter(m =>
-                  m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  m.id.toLowerCase().includes(searchQuery.toLowerCase())
-                ).map((model, index) => renderModelOption(model, index))}
+                {uniqueModels
+                  .filter(m =>
+                    m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    m.id.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  // Sort to prioritize recommended paid models first
+                  .sort((a, b) => {
+                    const aRecommendedPaid = MODELS[a.id]?.recommended && a.requiresSubscription;
+                    const bRecommendedPaid = MODELS[b.id]?.recommended && b.requiresSubscription;
+
+                    if (aRecommendedPaid && !bRecommendedPaid) return -1;
+                    if (!aRecommendedPaid && bRecommendedPaid) return 1;
+
+                    // Secondary sorting: recommended free models next
+                    const aRecommended = MODELS[a.id]?.recommended;
+                    const bRecommended = MODELS[b.id]?.recommended;
+
+                    if (aRecommended && !bRecommended) return -1;
+                    if (!aRecommended && bRecommended) return 1;
+
+                    // Paid models next
+                    if (a.requiresSubscription && !b.requiresSubscription) return -1;
+                    if (!a.requiresSubscription && b.requiresSubscription) return 1;
+
+                    // Default to alphabetical order
+                    return a.label.localeCompare(b.label);
+                  })
+                  .map((model, index) => renderModelOption(model, index))}
 
                 {uniqueModels.length === 0 && (
                   <div className="text-sm text-center py-4 text-muted-foreground">
