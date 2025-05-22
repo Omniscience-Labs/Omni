@@ -86,7 +86,7 @@ export const MODELS = {
     lowQuality: false,
     description: 'Gemini 2.5 - Google\'s powerful versatile model'
   },
-  'gemini-2.5-flash-preview': { 
+  'gemini-flash-2.5:thinking': { 
     tier: 'premium', 
     priority: 90,
     recommended: true,
@@ -137,7 +137,7 @@ export const MODELS = {
     lowQuality: true,
     description: 'DeepSeek - Free tier model with good general capabilities'
   },
-  'google/gemini-2.5-flash-preview': { 
+  'gemini-flash-2.5': { 
     tier: 'free', 
     priority: 50,
     recommended: false,
