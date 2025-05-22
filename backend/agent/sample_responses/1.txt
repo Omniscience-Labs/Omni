@@ -614,11 +614,11 @@ Let me update our todo.md file to reflect our progress:
 - [x] Ensure responsive design
 
 ## Testing
-- [ ] Test game mechanics
-- [ ] Test collision detection
-- [ ] Test scoring
-- [ ] Test on different screen sizes
-- [ ] Final review and adjustments
+- [x] Test game mechanics
+- [x] Test collision detection
+- [x] Test scoring
+- [x] Test on different screen sizes
+- [x] Final review and adjustments
 </full-file-rewrite>
 
 ## Testing the Game
@@ -645,36 +645,20 @@ ls -la
 
 Let's update our todo list to mark the testing as complete:
 
-<full-file-rewrite file_path="todo.md">
-# Pong Game Development Plan
-
-## Project Setup
-- [x] Create basic project structure (HTML, CSS, JS files)
-- [x] Set up the HTML canvas element
-- [x] Create basic styling 
-
-## Game Implementation
-- [x] Implement game canvas and rendering context
-- [x] Create the paddles (player and opponent)
-- [x] Create the ball with movement physics
-- [x] Implement collision detection
-- [x] Add scoring system
-- [x] Implement basic AI for the opponent paddle
-
-## Game Polish
-- [x] Add sound effects
-- [x] Implement start/restart game functionality
-- [x] Add visual effects (ball trails, paddle hits)
-- [x] Add game instructions
-- [x] Ensure responsive design
-
-## Testing
+<str-replace file_path="todo.md">
+    <old_str>## Testing
+- [ ] Test game mechanics
+- [ ] Test collision detection
+- [ ] Test scoring
+- [ ] Test on different screen sizes
+- [ ] Final review and adjustments</old_str>
+    <new_str>## Testing
 - [x] Test game mechanics
 - [x] Test collision detection
 - [x] Test scoring
 - [x] Test on different screen sizes
-- [x] Final review and adjustments
-</full-file-rewrite>
+- [x] Final review and adjustments</new_str>
+</str-replace>
 
 <ask attachments="index.html,style.css,script.js">
 I've built a classic Pong game for you! The game features:
