@@ -10,7 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  TerminalIcon,
+  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -38,7 +40,7 @@ export function CommandToolView({
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
   const [progress, setProgress] = useState(0);
-  const [showFullOutput, setShowFullOutput] = useState(false);
+  const [showFullOutput, setShowFullOutput] = useState(true);
 
   const rawCommand = React.useMemo(() => {
     if (!assistantContent) return null;
@@ -183,11 +185,11 @@ export function CommandToolView({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-              <Terminal className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+          <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+              <Terminal className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <div>
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
@@ -236,7 +238,7 @@ export function CommandToolView({
         ) : command ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
-              <div className="mb-4 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg overflow-hidden shadow-sm border border-zinc-200 dark:border-zinc-800">
+              <div className="mb-4 bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
                 <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
                   <Code className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
                   <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Command</span>
@@ -253,7 +255,8 @@ export function CommandToolView({
                     <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center">
                       <ArrowRight className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
                       Output
-                      {exitCode !== null && (
+                    </h3>
+                    {exitCode !== null && (
                         <Badge 
                           className={cn(
                             "ml-2",
@@ -262,35 +265,17 @@ export function CommandToolView({
                               : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                           )}
                         >
-                          Exit code: {exitCode}
+                          Success
                         </Badge>
                       )}
-                    </h3>
-                    {hasMoreLines && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setShowFullOutput(!showFullOutput)}
-                        className="h-7 text-xs flex items-center gap-1"
-                      >
-                        {showFullOutput ? (
-                          <>
-                            <ChevronUp className="h-3 w-3" />
-                            Show less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-3 w-3" />
-                            Show full output
-                          </>
-                        )}
-                      </Button>
-                    )}
                   </div>
                   
                   <div className="bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-00/20">
-                    <div className="bg-zinc-300 dark:bg-neutral-800 px-3 py-1 flex items-center justify-between border-b border-zinc-300/50 dark:border-zinc-700/50">
-                      <span className="text-xs text-zinc-600 dark:text-zinc-400">Terminal output</span>
+                    <div className="bg-zinc-300 dark:bg-neutral-800 flex items-center justify-between dark:border-zinc-700/50">
+                      <div className="bg-zinc-200 w-full dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
+                        <TerminalIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Terminal output</span>
+                      </div>
                       {exitCode !== null && exitCode !== 0 && (
                         <Badge variant="outline" className="text-xs h-5 border-red-700/30 text-red-400">
                           <AlertTriangle className="h-3 w-3 mr-1" />

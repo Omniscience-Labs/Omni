@@ -10,9 +10,11 @@ import { Project } from '@/lib/api';
 import {
     extractPrimaryParam,
     getToolIcon,
+    getUserFriendlyToolName,
     safeJsonParse,
 } from '@/components/thread/utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AgentLoader } from './loader';
 
 // Define the set of tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -39,7 +41,8 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'ask',
     'complete',
     'crawl-webpage',
-    'web-search'
+    'web-search',
+    'see-image'
 ]);
 
 // Helper function to render attachments
@@ -150,10 +153,12 @@ export function renderMarkdownContent(
                 <button
                     key={toolCallKey}
                     onClick={() => handleToolClick(messageId, toolName)}
-                    className="inline-flex items-center gap-1.5 py-1 px-2.5 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-border"
+                    className="inline-flex items-center gap-1.5 py-1 px-2.5 my-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
                 >
-                    <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="font-mono text-xs text-foreground">{toolName}</span>
+                    <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                        <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    </div>
+                    <span className="font-mono text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
                     {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                 </button>
             );
@@ -263,6 +268,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     return (
         <>
+            
             <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
@@ -279,7 +285,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     ) : (
                         <div className="space-y-8">
                             {(() => {
-                                // Group messages logic
+                                
                                 type MessageGroup = {
                                     type: 'user' | 'assistant_group';
                                     messages: UnifiedMessage[];
@@ -287,7 +293,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 };
                                 const groupedMessages: MessageGroup[] = [];
                                 let currentGroup: MessageGroup | null = null;
-
+                                
                                 displayMessages.forEach((message, index) => {
                                     const messageType = message.type;
                                     const key = message.message_id || `msg-${index}`;
@@ -314,11 +320,40 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         }
                                     }
                                 });
-
+                                
                                 if (currentGroup) {
                                     groupedMessages.push(currentGroup);
                                 }
-
+                                if(streamingTextContent) {
+                                    const lastMessages = groupedMessages.at(-1)
+                                    if(lastMessages.type === 'user'){
+                                            groupedMessages.push({type: 'assistant_group', messages: [{
+                                            content: streamingTextContent,
+                                            type: 'assistant',
+                                            message_id: 'streamingTextContent',
+                                            metadata: 'streamingTextContent',
+                                            created_at: new Date().toISOString(),
+                                            updated_at: new Date().toISOString(),
+                                            is_llm_message: true,
+                                            thread_id: 'streamingTextContent',
+                                            sequence: Infinity,
+                                        }], key: 'streamingTextContent'});
+                                    }
+                                    else {
+                                        lastMessages.messages.push({
+                                            content: streamingTextContent,
+                                            type: 'assistant',
+                                            message_id: 'streamingTextContent',
+                                            metadata: 'streamingTextContent',
+                                            created_at: new Date().toISOString(),
+                                            updated_at: new Date().toISOString(),
+                                            is_llm_message: true,
+                                            thread_id: 'streamingTextContent',
+                                            sequence: Infinity,
+                                        })
+                                    }
+                                }
+                                
                                 return groupedMessages.map((group, groupIndex) => {
                                     if (group.type === 'user') {
                                         const message = group.messages[0];
@@ -479,9 +514,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 }
                                                                             }
 
+
                                                                             const textToRender = streamingTextContent || '';
                                                                             const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                             const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
+                                                                            const IconComponent = getToolIcon(detectedTag);
 
                                                                             return (
                                                                                 <>
@@ -495,10 +532,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     {detectedTag && (
                                                                                         <div className="mt-2 mb-1">
                                                                                             <button
-                                                                                                className="inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
                                                                                             >
                                                                                                 <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                <span className="font-mono text-xs text-primary">{detectedTag}</span>
+                                                                                                <span className="font-mono text-xs text-primary">{getUserFriendlyToolName(detectedTag)}</span>
                                                                                             </button>
                                                                                         </div>
                                                                                     )}
@@ -511,7 +548,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
                                                                                                 return (
                                                                                                     <button
-                                                                                                        className="inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
                                                                                                     >
                                                                                                         <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                                         <span className="font-mono text-xs text-primary">{toolName}</span>
@@ -568,7 +605,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                             {detectedTag && (
                                                                                                 <div className="mt-2 mb-1">
                                                                                                     <button
-                                                                                                        className="inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
                                                                                                     >
                                                                                                         <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                                         <span className="font-mono text-xs text-primary">{detectedTag}</span>
@@ -592,22 +629,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     return null;
                                 });
                             })()}
-                            {(agentStatus === 'running' || agentStatus === 'connecting') &&
+                            {((agentStatus === 'running' || agentStatus === 'connecting' ) && !streamingTextContent &&
                                 !readOnly &&
-                                (messages.length === 0 || messages[messages.length - 1].type === 'user') && (
-                                    <div ref={latestMessageRef}>
+                                (messages.length === 0 || messages[messages.length - 1].type === 'user')) && (
+                                    <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex items-start gap-3">
                                             <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center bg-primary/10">
                                             <KortixLogo />
                                             </div>
-                                            <div className="flex-1 space-y-2">
-                                                <div className="max-w-[90%] px-4 py-3 text-sm">
-                                                    <div className="flex items-center gap-1.5 py-1">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse" />
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-150" />
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-300" />
-                                                    </div>
-                                                </div>
+                                            <div className="flex-1 space-y-2 w-full h-12">
+                                                <AgentLoader/>
                                             </div>
                                         </div>
                                     </div>
@@ -621,7 +652,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <KortixLogo />
                                         </div>
                                         <div className="flex-1 space-y-2">
-                                            <div className="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium text-primary bg-primary/10 rounded-md border border-primary/20">
+                                            <div className="animate-shimmer inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium text-primary bg-primary/10 rounded-md border border-primary/20">
                                                 <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                 <span className="font-mono text-xs text-primary">
                                                     {currentToolCall.name || 'Using Tool'}

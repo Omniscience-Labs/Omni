@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, ImageOff, CheckCircle, AlertTriangle, Loader2, Download, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, ImageOff, CheckCircle, AlertTriangle, Loader2, Download, ZoomIn, ZoomOut, ExternalLink, Check } from 'lucide-react';
 import { ToolViewProps } from './types';
 import { formatTimestamp, getToolTitle } from './utils';
 import {
@@ -334,8 +334,8 @@ function SafeImage({ src, alt, filePath, className }: { src: string; alt: string
   return (
     <div className="flex flex-col items-center">
       <div className={cn(
-        "overflow-hidden transition-all duration-300 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-md bg-white dark:bg-zinc-900 mb-3",
-        isZoomed ? "cursor-zoom-out" : "cursor-zoom-in hover:shadow-lg"
+        "overflow-hidden transition-all duration-300 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 mb-3",
+        isZoomed ? "cursor-zoom-out" : "cursor-zoom-in"
       )}>
         <div className="relative flex items-center justify-center">
           <img
@@ -459,7 +459,7 @@ export function SeeImageToolView({
   const config = {
     color: 'text-blue-500 dark:text-blue-400',
     bgColor: 'bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20',
-    badgeColor: 'bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 shadow-sm dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300',
+    badgeColor: 'bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300',
     hoverColor: 'hover:bg-gradient-to-b hover:from-blue-200 hover:to-blue-100 dark:hover:from-blue-800/60 dark:hover:to-blue-900/40'
   };
 
@@ -470,11 +470,11 @@ export function SeeImageToolView({
 
   return (
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="h-13 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-b p-2 px-4 space-y-0">
+      <CardHeader className="h-14 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-b p-2 px-4 space-y-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={cn("p-2 rounded-lg transition-colors", config.bgColor)}>
-              <ImageIcon className={cn("h-5 w-5", config.color)} />
+          <div className={cn("relative p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20 transition-colors", config.bgColor)}>
+              <ImageIcon className={cn("w-5 h-5", config.color)} />
             </div>
             <div>
               <div className="flex items-center">
@@ -498,11 +498,16 @@ export function SeeImageToolView({
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
             )}>
               {toolResult.success ? (
-                <CheckCircle className="h-3.5 w-3.5" />
+                <>
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Success
+                </>
               ) : (
-                <AlertTriangle className="h-3.5 w-3.5" />
+                <>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Failed
+                </>
               )}
-              {toolResult.message}
             </Badge>
           ) : (
             <Badge variant="secondary" className="bg-gradient-to-b from-blue-50 to-blue-100 text-blue-700 border border-blue-200/50 dark:from-blue-900/30 dark:to-blue-800/20 dark:text-blue-400 dark:border-blue-800/30 px-2.5 py-1 flex items-center gap-1.5">

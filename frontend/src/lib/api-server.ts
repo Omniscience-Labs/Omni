@@ -99,7 +99,7 @@ export const getProject = async (projectId: string): Promise<Project> => {
       },
     };
 
-    console.log('Mapped project data for frontend:', mappedProject);
+    // console.log('Mapped project data for frontend:', mappedProject);
 
     return mappedProject;
   } catch (error) {

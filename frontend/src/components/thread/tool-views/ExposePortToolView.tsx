@@ -6,7 +6,8 @@ import {
   Globe,
   Loader2,
   Link2,
-  Computer
+  Computer,
+  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import { formatTimestamp } from './utils';
@@ -94,12 +95,12 @@ export function ExposePortToolView({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20">
-              <Computer className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
-            </div>
+          <div className="relative p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/20">
+            <Computer className="w-5 h-5 text-green-500 dark:text-green-400" />
+          </div>
             <div>
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
                 Port Exposure

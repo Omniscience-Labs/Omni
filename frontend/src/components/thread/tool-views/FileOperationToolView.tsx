@@ -13,6 +13,7 @@ import {
   Trash2,
   LucideIcon,
   FilePen,
+  Check,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -119,6 +120,8 @@ interface OperationConfig {
   successMessage: string;
   progressMessage: string;
   bgColor: string;
+  gradientBg: string;
+  borderColor: string;
   badgeColor: string;
   hoverColor: string;
 }
@@ -251,30 +254,36 @@ export function FileOperationToolView({
   const configs: Record<FileOperation, OperationConfig> = {
     create: {
       icon: FilePen,
-      color: 'text-emerald-500 dark:text-emerald-400',
+      color: 'text-emerald-600 dark:text-emerald-400',
       successMessage: 'File created successfully',
       progressMessage: 'Creating file...',
       bgColor: 'bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20',
+      gradientBg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10',
+      borderColor: 'border-emerald-500/20',
       badgeColor: 'bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 shadow-sm dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300',
-      hoverColor: 'hover:bg-gradient-to-b hover:from-emerald-200 hover:to-emerald-100 dark:hover:from-emerald-800/60 dark:hover:to-emerald-900/40'
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
     rewrite: {
       icon: Replace,
-      color: 'text-blue-500 dark:text-blue-400',
+      color: 'text-blue-600 dark:text-blue-400',
       successMessage: 'File rewritten successfully',
       progressMessage: 'Rewriting file...',
       bgColor: 'bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20',
+      gradientBg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/10',
+      borderColor: 'border-blue-500/20',
       badgeColor: 'bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 shadow-sm dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300',
-      hoverColor: 'hover:bg-gradient-to-b hover:from-blue-200 hover:to-blue-100 dark:hover:from-blue-800/60 dark:hover:to-blue-900/40'
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
     delete: {
       icon: Trash2,
-      color: 'text-rose-500 dark:text-rose-400',
+      color: 'text-rose-600 dark:text-rose-400',
       successMessage: 'File deleted successfully',
       progressMessage: 'Deleting file...',
       bgColor: 'bg-gradient-to-b from-rose-100 to-rose-50 shadow-inner dark:from-rose-800/40 dark:to-rose-900/60 dark:shadow-rose-950/20',
+      gradientBg: 'bg-gradient-to-br from-rose-500/20 to-rose-600/10',
+      borderColor: 'border-rose-500/20',
       badgeColor: 'bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 shadow-sm dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300',
-      hoverColor: 'hover:bg-gradient-to-b hover:from-rose-200 hover:to-rose-100 dark:hover:from-rose-800/60 dark:hover:to-rose-900/40'
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
   };
 
@@ -296,10 +305,10 @@ export function FileOperationToolView({
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       {showTabs ? (
         <Tabs defaultValue={viewMode} onValueChange={(v) => setViewMode(v as 'code' | 'preview')} className="w-full h-full">
-          <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
             <div className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={cn("p-2 rounded-lg", config.bgColor)}>
+              <div className={cn("relative p-2 rounded-lg border bg-red-400", config.gradientBg, config.borderColor)}>
                   <Icon className={cn("h-5 w-5", config.color)} />
                 </div>
                 <div>
@@ -322,7 +331,7 @@ export function FileOperationToolView({
             </div>
           </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-hidden relative">
+          <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
             <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
               <ScrollArea className="h-full w-full">
                 {hasHighlighting ? (
@@ -352,10 +361,10 @@ export function FileOperationToolView({
                         key={idx}
                         className={cn("table-row transition-colors", config.hoverColor)}
                       >
-                        <div className="table-cell text-right pr-3 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                        <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
                           {idx + 1}
                         </div>
-                        <div className="table-cell pl-3 py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
+                        <div className="table-cell pl-3 text-wrap py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
                           {processUnicodeContent(line) || ' '}
                         </div>
                       </div>
@@ -424,10 +433,10 @@ export function FileOperationToolView({
         </Tabs>
       ) : (
         <>
-          <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
             <div className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-lg", config.bgColor)}>
+                <div className={cn("relative p-2 rounded-lg border", config.gradientBg, config.borderColor)}>
                   <Icon className={cn("h-5 w-5", config.color)} />
                 </div>
                 <div>
@@ -457,7 +466,7 @@ export function FileOperationToolView({
             </div>
           </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-hidden relative">
+          <CardContent className="p-0 flex-1 overflow-hidden relative -my-6">
             {operation !== 'delete' && fileContent && !isStreaming && !isHtml && !isMarkdown && !isCsv && (
               <ScrollArea className="h-full w-full">
                 {hasHighlighting ? (
@@ -476,7 +485,7 @@ export function FileOperationToolView({
                       <CodeBlockCode
                         code={processUnicodeContent(fileContent)}
                         language={language}
-                        className="text-xs p-4"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -597,7 +606,7 @@ export function FileOperationToolView({
           <div className="h-10 px-4 py-2 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
             <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
               <Badge className="py-0.5 h-6">
-                <FileIcon className="h-3 w-3 mr-1" />
+                <FileIcon className="h-3 w-3" />
                 {hasHighlighting ? language.toUpperCase() : fileType || 'TEXT'}
               </Badge>
               

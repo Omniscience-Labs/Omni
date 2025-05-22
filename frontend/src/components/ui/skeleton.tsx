@@ -23,7 +23,7 @@ function Skeleton({
       <style jsx>{`
         .background-animate {
           background-size: 200% 200%;
-          animation: gradientAnimation 2s ease infinite;
+          animation: gradientAnimation 1s ease infinite;
         }
 
         @keyframes gradientAnimation {
@@ -56,7 +56,7 @@ function Skeleton({
             rgba(255, 255, 255, 0.3) 50%,
             rgba(255, 255, 255, 0) 100%
           );
-          animation: shimmerAnimation 1.5s infinite;
+          animation: shimmerAnimation 1s infinite;
           position: absolute;
           top: 0;
           left: -150%;
