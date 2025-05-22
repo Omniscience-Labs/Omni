@@ -23,7 +23,7 @@ from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
 from services.billing import check_billing_status
 from agent.tools.sb_vision_tool import SandboxVisionTool
-
+from agent.gemini_prompt import get_gemini_system_prompt
 load_dotenv()
 
 async def run_agent(
@@ -75,8 +75,10 @@ async def run_agent(
         thread_manager.add_tool(DataProvidersTool)
 
 
-    # Only include sample response if the model name does not contain "anthropic"
-    if "anthropic" not in model_name.lower():
+    if "gemini-2.5-flash" in model_name.lower():
+        system_message = { "role": "system", "content": get_gemini_system_prompt() } # example included
+    elif "anthropic" not in model_name.lower():
+        # Only include sample response if the model name does not contain "anthropic"
         sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
         with open(sample_response_path, 'r') as file:
             sample_response = file.read()
