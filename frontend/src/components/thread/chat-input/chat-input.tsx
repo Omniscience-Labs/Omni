@@ -82,6 +82,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       allModels: modelOptions,
       canAccessModel,
       getActualModelId,
+      refreshCustomModels,
     } = useModelSelection();
 
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -233,6 +234,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 modelOptions={modelOptions}
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
+                refreshCustomModels={refreshCustomModels}
               />
             </CardContent>
           </div>
