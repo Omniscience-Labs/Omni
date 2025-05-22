@@ -48,6 +48,7 @@ const defaultRegistry: ToolViewRegistryType = {
 
   'execute-data-provider-call': DataProviderToolView,
   'get-data-provider-endpoints': DataProviderToolView,
+  'get_data_provider_endpoints': DataProviderToolView,
 
   'expose-port': ExposePortToolView,
 

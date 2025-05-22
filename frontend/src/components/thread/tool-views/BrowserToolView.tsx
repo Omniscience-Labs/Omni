@@ -8,7 +8,8 @@ import {
   CircleDashed,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -148,11 +149,11 @@ export function BrowserToolView({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-              <MonitorPlay className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+          <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+              <MonitorPlay className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <div>
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
@@ -181,7 +182,7 @@ export function BrowserToolView({
 
           {isRunning && (
             <Badge className="bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300">
-              <CircleDashed className="h-3.5 w-3.5 mr-1 animate-spin" />
+              <CircleDashed className="h-3.5 w-3.5 animate-spin" />
               Executing browser action
             </Badge>
           )}
@@ -189,17 +190,15 @@ export function BrowserToolView({
       </CardHeader>
 
       <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)', minHeight: '600px' }}>
-        {/* Browser View Logic - Preserving the core functionality */}
         <div className="flex-1 flex h-full items-stretch bg-black">
           {isLastToolCall ? (
-            // Only show live sandbox or fallback to screenshot for the last tool call
             isRunning && vncIframe ? (
               <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
                 <div className="relative w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
                   {vncIframe}
                   <div className="absolute top-4 right-4 z-10">
                     <Badge className="bg-blue-500/90 text-white border-none shadow-lg animate-pulse">
-                      <CircleDashed className="h-3 w-3 mr-1.5 animate-spin" />
+                      <CircleDashed className="h-3 w-3 animate-spin" />
                       {operation} in progress
                     </Badge>
                   </div>

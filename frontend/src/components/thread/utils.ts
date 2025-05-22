@@ -69,6 +69,8 @@ export const getToolIcon = (toolName: string): ElementType => {
       return Search;
     case 'crawl-webpage':
       return Globe;
+    case 'scrape-webpage':
+        return Globe;
 
     // API and data operations
     case 'call-data-provider':
@@ -205,3 +207,42 @@ export const extractPrimaryParam = (
     return null;
   }
 };
+
+const TOOL_DISPLAY_NAMES = new Map([
+  ['execute-command', 'Executing Command'],
+  ['create-file', 'Creating File'],
+  ['delete-file', 'Deleting File'],
+  ['full-file-rewrite', 'Rewriting File'],
+  ['str-replace', 'Editing Text'],
+  
+  ['browser-click-element', 'Clicking Element'],
+  ['browser-close-tab', 'Closing Tab'],
+  ['browser-drag-drop', 'Dragging Element'],
+  ['browser-get-dropdown-options', 'Getting Options'],
+  ['browser-go-back', 'Going Back'],
+  ['browser-input-text', 'Entering Text'],
+  ['browser-navigate-to', 'Navigating to Page'],
+  ['browser-scroll-down', 'Scrolling Down'],
+  ['browser-scroll-to-text', 'Scrolling to Text'],
+  ['browser-scroll-up', 'Scrolling Up'],
+  ['browser-select-dropdown-option', 'Selecting Option'],
+  ['browser-click-coordinates', 'Clicking Coordinates'],
+  ['browser-send-keys', 'Pressing Keys'],
+  ['browser-switch-tab', 'Switching Tab'],
+  ['browser-wait', 'Waiting'],
+
+  ['execute-data-provider-call', 'Executing data provider all'],
+  
+  ['deploy', 'Deploying'],
+  ['ask', 'Asking Question'],
+  ['complete', 'Completing Task'],
+  ['crawl-webpage', 'Crawling Website'],
+  ['expose-port', 'Exposing Port'],
+  ['scrape-webpage', 'Scraping Website'],
+  ['web-search', 'Searching Web'],
+  ['see-image', 'Viewing Image']
+]);
+
+export function getUserFriendlyToolName(toolName: string): string {
+  return TOOL_DISPLAY_NAMES.get(toolName) || toolName;
+}

@@ -9,7 +9,8 @@ import {
   ChevronDown,
   ChevronUp,
   Minus,
-  Plus
+  Plus,
+  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -49,7 +50,7 @@ interface DiffStats {
 
 // Component to display unified diff view
 const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
-  <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto">
+  <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto -mt-2">
     <table className="w-full border-collapse">
       <tbody>
         {lineDiff.map((line, i) => (
@@ -69,7 +70,7 @@ const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
               {line.type === 'added' && <Plus className="h-3.5 w-3.5 text-emerald-500" />}
             </td>
             <td className="w-full px-3 py-0.5">
-              <div className="overflow-x-auto max-w-full">
+              <div className="overflow-x-auto max-w-full text-xs">
                 {line.type === 'removed' && <span className="text-red-700 dark:text-red-400">{line.oldLine}</span>}
                 {line.type === 'added' && <span className="text-emerald-700 dark:text-emerald-400">{line.newLine}</span>}
                 {line.type === 'unchanged' && <span className="text-zinc-700 dark:text-zinc-300">{line.oldLine}</span>}
@@ -84,7 +85,7 @@ const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
 
 // Component to display split diff view
 const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
-  <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto">
+  <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto -my-2">
     <table className="w-full border-collapse">
       <thead>
         <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs">
@@ -311,7 +312,7 @@ export function StrReplaceToolView({
   if (!oldStr || !newStr) {
     return (
       <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-        <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+        <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
           <div className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
@@ -343,11 +344,11 @@ export function StrReplaceToolView({
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="h-13 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-              <FileDiff className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+          <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+              <FileDiff className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
               {toolTitle}
@@ -380,7 +381,7 @@ export function StrReplaceToolView({
         ) : (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm overflow-hidden mb-4">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden mb-4">
                 <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-between">
                   <div className="flex items-center">
                     <File className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
@@ -461,12 +462,6 @@ export function StrReplaceToolView({
                   ? 'String replacement successful'
                   : 'String replacement failed'}
               </span>
-              <Badge variant="outline" className="ml-2 h-5 py-0">
-                <Plus className="h-3 w-3 text-emerald-500 mr-1" />
-                {stats.additions}
-                <Minus className="h-3 w-3 text-red-500 mx-1" />
-                {stats.deletions}
-              </Badge>
             </div>
           )}
 
