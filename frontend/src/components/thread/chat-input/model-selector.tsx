@@ -44,6 +44,7 @@ interface ModelSelectorProps {
   modelOptions: ModelOption[];
   canAccessModel: (modelId: string) => boolean;
   subscriptionStatus: SubscriptionStatus;
+  refreshCustomModels?: () => void;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -52,6 +53,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   modelOptions,
   canAccessModel,
   subscriptionStatus,
+  refreshCustomModels,
 }) => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [lockedModel, setLockedModel] = useState<string | null>(null);
@@ -96,17 +98,30 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     });
   });
 
-  // Then add custom models, overriding any with the same ID
-  currentCustomModels.forEach(model => {
-    if (!modelMap.has(model.id)) {
-      modelMap.set(model.id, {
-        ...model,
-        requiresSubscription: false,
-        top: false,
-        isCustom: true
-      });
-    }
-  });
+  // Then add custom models from the current customModels state (not from props)
+  // This ensures we're using the most up-to-date list of custom models
+  if (isLocalMode()) {
+    // Get current custom models from state (not from storage)
+    customModels.forEach(model => {
+      // Only add if it doesn't exist or mark it as a custom model if it does
+      if (!modelMap.has(model.id)) {
+        modelMap.set(model.id, {
+          id: model.id,
+          label: model.label || formatModelName(model.id),
+          requiresSubscription: false,
+          top: false,
+          isCustom: true
+        });
+      } else {
+        // If it already exists (rare case), mark it as a custom model
+        const existingModel = modelMap.get(model.id);
+        modelMap.set(model.id, {
+          ...existingModel,
+          isCustom: true
+        });
+      }
+    });
+  }
 
   // Convert map back to array
   const enhancedModelOptions = Array.from(modelMap.values());
@@ -255,10 +270,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     // First close the dialog to prevent UI issues
     closeCustomModelDialog();
 
+    // Create the new model object
+    const newModel = { id: modelId, label: modelLabel };
+
     // Update models array (add new or update existing)
     const updatedModels = dialogMode === 'add'
-      ? [...customModels, { id: modelId, label: modelLabel }]
-      : customModels.map(model => model.id === editingModelId ? { id: modelId, label: modelLabel } : model);
+      ? [...customModels, newModel]
+      : customModels.map(model => model.id === editingModelId ? newModel : model);
 
     // Save to localStorage first
     try {
@@ -269,6 +287,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     // Update state with new models
     setCustomModels(updatedModels);
+
+    // Refresh custom models in the parent hook if the function is available
+    if (refreshCustomModels) {
+      refreshCustomModels();
+    }
 
     // Handle model selection changes
     if (dialogMode === 'add') {
@@ -334,6 +357,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     // Update state with the new list
     setCustomModels(updatedCustomModels);
 
+    // Refresh custom models in the parent hook if the function is available
+    if (refreshCustomModels) {
+      refreshCustomModels();
+    }
+
     // Check if we need to change the selected model
     if (selectedModel === modelId) {
       const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
@@ -345,18 +373,29 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       }
     }
 
-    // Force dropdown to close to ensure proper refresh on next open
+    // Force dropdown to close
     setIsOpen(false);
 
-    // Force a UI refresh by scheduling a state update after React completes this render cycle
+    // Update the modelMap and recreate enhancedModelOptions on next render
+    // This will force a complete refresh of the model list
     setTimeout(() => {
-      setIsOpen(false);
-    }, 0);
+      // Force React to fully re-evaluate the component with fresh data
+      setHighlightedIndex(-1);
+
+      // Reopen dropdown with fresh data if it was open
+      if (isOpen) {
+        setIsOpen(false);
+        setTimeout(() => setIsOpen(true), 50);
+      }
+    }, 10);
   };
 
   const renderModelOption = (opt: any, index: number) => {
-    // Custom models are always accessible in local mode
-    const isCustom = opt.isCustom || customModels.some(model => model.id === opt.id);
+    // More accurate check for custom models - use the actual customModels array
+    // from both the opt.isCustom flag and by checking if it exists in customModels
+    const isCustom = Boolean(opt.isCustom) ||
+      (isLocalMode() && customModels.some(model => model.id === opt.id));
+
     const accessible = isCustom ? true : canAccessModel(opt.id);
 
     // Fix the highlighting logic to use the index parameter instead of searching in filteredOptions
@@ -460,7 +499,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setIsOpen(false);
       setTimeout(() => setIsOpen(true), 10);
     }
-  }, [customModels]);
+  }, [customModels, modelOptions]); // Also depend on modelOptions to refresh when parent changes
 
   return (
     <div className="relative">
@@ -484,8 +523,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              <span>{selectedLabel}</span>
-              <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
+              <span className="truncate max-w-[100px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-none">{selectedLabel}</span>
+              <ChevronDown className="h-3 w-3 opacity-50 ml-1 flex-shrink-0" />
             </div>
           </Button>
         </DropdownMenuTrigger>

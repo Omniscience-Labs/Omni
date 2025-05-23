@@ -36,7 +36,8 @@ interface MessageInputProps {
   onModelChange: (model: string) => void;
   modelOptions: any[];
   subscriptionStatus: SubscriptionStatus;
-  canAccessModel: (model: string) => boolean;
+  canAccessModel: (modelId: string) => boolean;
+  refreshCustomModels?: () => void;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -66,6 +67,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       modelOptions,
       subscriptionStatus,
       canAccessModel,
+      refreshCustomModels,
     },
     ref,
   ) => {
@@ -140,7 +142,23 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
 
           </div>
-          {subscriptionStatus === 'no_subscription' && !isLocalMode() && <TooltipProvider><Tooltip><TooltipTrigger><p className='text-sm text-amber-500'>Upgrade for full performance</p></TooltipTrigger><TooltipContent><p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p></TooltipContent></Tooltip></TooltipProvider>}
+          {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <p className='text-sm text-amber-500 hidden sm:block'>Upgrade for full performance</p>
+                  <div className='sm:hidden absolute bottom-0 left-0 right-0 flex justify-center'>
+                    <p className='text-xs text-amber-500 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm'>
+                      Upgrade for better performance
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          }
           <div className='flex items-center gap-2'>
             <ModelSelector
               selectedModel={selectedModel}
@@ -148,6 +166,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               modelOptions={modelOptions}
               subscriptionStatus={subscriptionStatus}
               canAccessModel={canAccessModel}
+              refreshCustomModels={refreshCustomModels}
             />
             <Button
               type="submit"

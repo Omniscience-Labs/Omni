@@ -122,13 +122,13 @@ You have the ability to execute operations using both Python and CLI tools:
   1. Synchronous Commands (blocking):
      * Use for quick operations that complete within 60 seconds
      * Commands run directly and wait for completion
-     * Example: `<execute-command session_name="default">ls -l</execute-command>`
+     * Example: `<execute-command session_name="default" blocking="true">ls -l</execute-command>`
      * IMPORTANT: Do not use for long-running operations as they will timeout after 60 seconds
   
   2. Asynchronous Commands (non-blocking):
-     * Use run_async="true" for any command that might take longer than 60 seconds
-     * Commands run in background and return immediately
-     * Example: `<execute-command session_name="dev" run_async="true">npm run dev</execute-command>`
+     * Use `blocking="false"` (or omit `blocking`, as it defaults to false) for any command that might take longer than 60 seconds or for starting background services.
+     * Commands run in background and return immediately.
+     * Example: `<execute-command session_name="dev" blocking="false">npm run dev</execute-command>` (or simply `<execute-command session_name="dev">npm run dev</execute-command>`)
      * Common use cases:
        - Development servers (Next.js, React, etc.)
        - Build processes
@@ -143,8 +143,8 @@ You have the ability to execute operations using both Python and CLI tools:
   * Sessions maintain state between commands
 
 - Command Execution Guidelines:
-  * For commands that might take longer than 60 seconds, ALWAYS use run_async="true"
-  * Do not rely on increasing timeout for long-running commands
+  * For commands that might take longer than 60 seconds, ALWAYS use `blocking="false"` (or omit `blocking`).
+  * Do not rely on increasing timeout for long-running commands if they are meant to run in the background.
   * Use proper session names for organization
   * Chain commands with && for sequential execution
   * Use | for piping output between commands
