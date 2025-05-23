@@ -11,6 +11,7 @@ import { WebCrawlToolView } from '../WebCrawlToolView';
 import { WebScrapeToolView } from '../WebScrapeToolView';
 import { WebSearchToolView } from '../WebSearchToolView';
 import { SeeImageToolView } from '../SeeImageToolView';
+import { TerminateCommandToolView } from '../TerminateCommandToolView';
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
@@ -34,6 +35,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'browser-click-coordinates': BrowserToolView,
 
   'execute-command': CommandToolView,
+  'terminate-command': TerminateCommandToolView,
 
   'create-file': FileOperationToolView,
   'delete-file': FileOperationToolView,

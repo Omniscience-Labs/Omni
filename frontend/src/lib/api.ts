@@ -1437,11 +1437,9 @@ export const initiateAgent = async (
     const response = await fetch(`${API_URL}/agent/initiate`, {
       method: 'POST',
       headers: {
-        // Note: Don't set Content-Type for FormData
         Authorization: `Bearer ${session.access_token}`,
       },
       body: formData,
-      // Add cache: 'no-store' to prevent caching
       cache: 'no-store',
     });
 

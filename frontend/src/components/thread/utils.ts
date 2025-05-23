@@ -63,6 +63,9 @@ export const getToolIcon = (toolName: string): ElementType => {
     // Shell commands
     case 'execute-command':
       return Terminal;
+    case 'terminate-command':
+      return Terminal;
+
 
     // Web operations
     case 'web-search':
@@ -210,6 +213,7 @@ export const extractPrimaryParam = (
 
 const TOOL_DISPLAY_NAMES = new Map([
   ['execute-command', 'Executing Command'],
+  ['terminate-command', 'Terminating Command'],
   ['create-file', 'Creating File'],
   ['delete-file', 'Deleting File'],
   ['full-file-rewrite', 'Rewriting File'],

@@ -136,6 +136,8 @@ export default function ThreadPage({
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
 
+  const [externalNavIndex, setExternalNavIndex] = React.useState<number | undefined>(undefined);
+
   // Add debug mode state - check for debug=true in URL
   const [debugMode, setDebugMode] = useState(false);
 
@@ -850,8 +852,11 @@ export default function ThreadPage({
       console.log(
         `[PAGE] Found tool call at index ${toolIndex} for assistant message ${clickedAssistantMessageId}`,
       );
+      setExternalNavIndex(toolIndex);
       setCurrentToolIndex(toolIndex);
       setIsSidePanelOpen(true); // Explicitly open the panel
+
+      setTimeout(() => setExternalNavIndex(undefined), 100);
     } else {
       console.warn(
         `[PAGE] Could not find matching tool call in toolCalls array for assistant message ID: ${clickedAssistantMessageId}`,
@@ -1129,6 +1134,7 @@ export default function ThreadPage({
           }}
           toolCalls={toolCalls}
           messages={messages as ApiMessageType[]}
+          externalNavigateToIndex={externalNavIndex}
           agentStatus={agentStatus}
           currentIndex={currentToolIndex}
           onNavigate={handleSidePanelNavigate}
@@ -1236,6 +1242,7 @@ export default function ThreadPage({
           }}
           toolCalls={toolCalls}
           messages={messages as ApiMessageType[]}
+          externalNavigateToIndex={externalNavIndex}
           agentStatus={agentStatus}
           currentIndex={currentToolIndex}
           onNavigate={handleSidePanelNavigate}
