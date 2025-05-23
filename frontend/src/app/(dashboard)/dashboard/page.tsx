@@ -26,6 +26,7 @@ import { config } from '@/lib/config';
 import { cn } from '@/lib/utils';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
+import { AgentSelector } from '@/components/dashboard/agent-selector';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -33,6 +34,7 @@ function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const router = useRouter();
@@ -70,6 +72,11 @@ function DashboardContent() {
 
       const formData = new FormData();
       formData.append('prompt', message);
+
+      // Add selected agent if one is chosen
+      if (selectedAgentId) {
+        formData.append('agent_id', selectedAgentId);
+      }
 
       files.forEach((file, index) => {
         formData.append('files', file, file.name);
@@ -112,7 +119,6 @@ function DashboardContent() {
       setIsSubmitting(false);
     }
   };
-
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -180,6 +186,14 @@ function DashboardContent() {
             onChange={setInputValue}
             hideAttachments={false}
           />
+          
+          <div className="flex justify-center mt-4">
+            <AgentSelector 
+              selectedAgentId={selectedAgentId}
+              onAgentSelect={setSelectedAgentId}
+              className="max-w-sm"
+            />
+          </div>
         </div>
 
         <BillingErrorAlert

@@ -44,6 +44,34 @@ class InitiateAgentResponse(BaseModel):
     thread_id: str
     agent_run_id: Optional[str] = None
 
+class AgentCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    system_prompt: str
+    configured_mcps: Optional[List[Dict[str, Any]]] = []
+    agentpress_tools: Optional[Dict[str, Any]] = {}
+    is_default: Optional[bool] = False
+
+class AgentUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    system_prompt: Optional[str] = None
+    configured_mcps: Optional[List[Dict[str, Any]]] = None
+    agentpress_tools: Optional[Dict[str, Any]] = None
+    is_default: Optional[bool] = None
+
+class AgentResponse(BaseModel):
+    agent_id: str
+    account_id: str
+    name: str
+    description: Optional[str]
+    system_prompt: str
+    configured_mcps: List[Dict[str, Any]]
+    agentpress_tools: Dict[str, Any]
+    is_default: bool
+    created_at: str
+    updated_at: str
+
 def initialize(
     _thread_manager: ThreadManager,
     _db: DBConnection,
@@ -752,3 +780,225 @@ async def initiate_agent_with_files(
         logger.error(f"Error in agent initiation: {str(e)}\n{traceback.format_exc()}")
         # TODO: Clean up created project/thread if initiation fails mid-way
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
+
+@router.get("/agents", response_model=List[AgentResponse])
+async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Get all agents for the current user."""
+    logger.info(f"Fetching agents for user: {user_id}")
+    client = await db.client
+    
+    try:
+        # Get agents for the current user's account
+        agents = await client.table('agents').select('*').eq("account_id", user_id).order('created_at', desc=True).execute()
+        
+        if not agents.data:
+            logger.info(f"No agents found for user: {user_id}")
+            return []
+        
+        # Format the response
+        agent_list = []
+        for agent in agents.data:
+            agent_list.append(AgentResponse(
+                agent_id=agent['agent_id'],
+                account_id=agent['account_id'],
+                name=agent['name'],
+                description=agent.get('description'),
+                system_prompt=agent['system_prompt'],
+                configured_mcps=agent.get('configured_mcps', []),
+                agentpress_tools=agent.get('agentpress_tools', {}),
+                is_default=agent.get('is_default', False),
+                created_at=agent['created_at'],
+                updated_at=agent['updated_at']
+            ))
+        
+        logger.info(f"Found {len(agent_list)} agents for user: {user_id}")
+        return agent_list
+        
+    except Exception as e:
+        logger.error(f"Error fetching agents for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch agents: {str(e)}")
+
+@router.get("/agents/{agent_id}", response_model=AgentResponse)
+async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Get a specific agent by ID."""
+    logger.info(f"Fetching agent {agent_id} for user: {user_id}")
+    client = await db.client
+    
+    try:
+        # Get agent with access check
+        agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+        
+        if not agent.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent_data = agent.data
+        return AgentResponse(
+            agent_id=agent_data['agent_id'],
+            account_id=agent_data['account_id'],
+            name=agent_data['name'],
+            description=agent_data.get('description'),
+            system_prompt=agent_data['system_prompt'],
+            configured_mcps=agent_data.get('configured_mcps', []),
+            agentpress_tools=agent_data.get('agentpress_tools', {}),
+            is_default=agent_data.get('is_default', False),
+            created_at=agent_data['created_at'],
+            updated_at=agent_data['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching agent {agent_id} for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch agent: {str(e)}")
+
+@router.post("/agents", response_model=AgentResponse)
+async def create_agent(
+    agent_data: AgentCreateRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Create a new agent."""
+    logger.info(f"Creating new agent for user: {user_id}")
+    client = await db.client
+    
+    try:
+        # If this is set as default, we need to unset other defaults first
+        if agent_data.is_default:
+            await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).execute()
+        
+        # Create the agent - insert and get the data directly
+        insert_data = {
+            "account_id": user_id,
+            "name": agent_data.name,
+            "description": agent_data.description,
+            "system_prompt": agent_data.system_prompt,
+            "configured_mcps": agent_data.configured_mcps or [],
+            "agentpress_tools": agent_data.agentpress_tools or {},
+            "is_default": agent_data.is_default or False
+        }
+        
+        new_agent = await client.table('agents').insert(insert_data).execute()
+        
+        if not new_agent.data:
+            raise HTTPException(status_code=500, detail="Failed to create agent")
+        
+        agent = new_agent.data[0]
+        logger.info(f"Created agent {agent['agent_id']} for user: {user_id}")
+        
+        return AgentResponse(
+            agent_id=agent['agent_id'],
+            account_id=agent['account_id'],
+            name=agent['name'],
+            description=agent.get('description'),
+            system_prompt=agent['system_prompt'],
+            configured_mcps=agent.get('configured_mcps', []),
+            agentpress_tools=agent.get('agentpress_tools', {}),
+            is_default=agent.get('is_default', False),
+            created_at=agent['created_at'],
+            updated_at=agent['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating agent for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
+
+@router.put("/agents/{agent_id}", response_model=AgentResponse)
+async def update_agent(
+    agent_id: str,
+    agent_data: AgentUpdateRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Update an existing agent."""
+    logger.info(f"Updating agent {agent_id} for user: {user_id}")
+    client = await db.client
+    
+    try:
+        # First verify the agent exists and belongs to the user
+        existing_agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+        
+        if not existing_agent.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Prepare update data (only include fields that are not None)
+        update_data = {}
+        if agent_data.name is not None:
+            update_data["name"] = agent_data.name
+        if agent_data.description is not None:
+            update_data["description"] = agent_data.description
+        if agent_data.system_prompt is not None:
+            update_data["system_prompt"] = agent_data.system_prompt
+        if agent_data.configured_mcps is not None:
+            update_data["configured_mcps"] = agent_data.configured_mcps
+        if agent_data.agentpress_tools is not None:
+            update_data["agentpress_tools"] = agent_data.agentpress_tools
+        if agent_data.is_default is not None:
+            update_data["is_default"] = agent_data.is_default
+            # If setting as default, unset other defaults first
+            if agent_data.is_default:
+                await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).neq("agent_id", agent_id).execute()
+        
+        if not update_data:
+            # No fields to update, return existing agent
+            agent = existing_agent.data
+        else:
+            # Update the agent
+            update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
+            
+            if not update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update agent")
+            
+            # Fetch the updated agent data
+            updated_agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+            
+            if not updated_agent.data:
+                raise HTTPException(status_code=500, detail="Failed to fetch updated agent")
+            
+            agent = updated_agent.data
+        
+        logger.info(f"Updated agent {agent_id} for user: {user_id}")
+        
+        return AgentResponse(
+            agent_id=agent['agent_id'],
+            account_id=agent['account_id'],
+            name=agent['name'],
+            description=agent.get('description'),
+            system_prompt=agent['system_prompt'],
+            configured_mcps=agent.get('configured_mcps', []),
+            agentpress_tools=agent.get('agentpress_tools', {}),
+            is_default=agent.get('is_default', False),
+            created_at=agent['created_at'],
+            updated_at=agent['updated_at']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating agent {agent_id} for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
+
+@router.delete("/agents/{agent_id}")
+async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Delete an agent."""
+    logger.info(f"Deleting agent {agent_id} for user: {user_id}")
+    client = await db.client
+    
+    try:
+        existing_agent = await client.table('agents').select('is_default').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+        
+        if not existing_agent.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        if existing_agent.data.get('is_default'):
+            raise HTTPException(status_code=400, detail="Cannot delete default agent")
+        
+        delete_result = await client.table('agents').delete().eq("agent_id", agent_id).eq("account_id", user_id).execute()
+        
+        logger.info(f"Deleted agent {agent_id} for user: {user_id}")
+        return {"message": "Agent deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting agent {agent_id} for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete agent: {str(e)}")

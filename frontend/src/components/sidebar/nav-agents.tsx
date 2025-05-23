@@ -12,7 +12,8 @@ import {
   Loader2,
   Share2,
   X,
-  Check
+  Check,
+  History
 } from "lucide-react"
 import { toast } from "sonner"
 import { usePathname, useRouter } from "next/navigation"
@@ -351,7 +352,10 @@ export function NavAgents() {
   return (
     <SidebarGroup>
       <div className="flex justify-between items-center">
-        <SidebarGroupLabel>Agents</SidebarGroupLabel>
+        <SidebarGroupLabel>
+          <History className="h-2 w-2 mr-2" />
+          History
+        </SidebarGroupLabel>
         {state !== 'collapsed' ? (
           <div className="flex items-center space-x-1">
             {isMultiSelectActive ? (
