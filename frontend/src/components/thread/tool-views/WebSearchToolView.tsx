@@ -32,6 +32,10 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+function truncateText(text: string, maxLength: number = 70) {
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
 export function WebSearchToolView({
   name = 'web-search',
   assistantContent,
@@ -278,7 +282,7 @@ export function WebSearchToolView({
                             </a>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
                               <Globe className="h-3 w-3 mr-1.5 flex-shrink-0 opacity-70" />
-                              {cleanUrl(result.url)}
+                              {truncateText(cleanUrl(result.url))}
                             </div>
                           </div>
                           <TooltipProvider>
