@@ -63,6 +63,9 @@ export function FileViewerModal({
   initialFilePath,
   project,
 }: FileViewerModalProps) {
+  // Safely handle initialFilePath to ensure it's a string or null
+  const safeInitialFilePath = typeof initialFilePath === 'string' ? initialFilePath : null;
+
   // Auth for session token
   const { session } = useAuth();
 
@@ -527,13 +530,13 @@ export function FileViewerModal({
   // Handle initial file path - Runs ONLY ONCE on open if initialFilePath is provided
   useEffect(() => {
     // Only run if modal is open, initial path is provided, AND it hasn't been processed yet
-    if (open && initialFilePath && !initialPathProcessed) {
+    if (open && safeInitialFilePath && !initialPathProcessed) {
       console.log(
-        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${initialFilePath}`,
+        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${safeInitialFilePath}`,
       );
 
       // Normalize the initial path
-      const fullPath = normalizePath(initialFilePath);
+      const fullPath = normalizePath(safeInitialFilePath);
       const lastSlashIndex = fullPath.lastIndexOf('/');
       const directoryPath =
         lastSlashIndex > 0
@@ -556,8 +559,8 @@ export function FileViewerModal({
       }
 
       // Try to load the file directly from cache if possible
-      if (initialFilePath) {
-        console.log(`[FILE VIEWER] Attempting to load initial file directly from cache: ${initialFilePath}`);
+      if (safeInitialFilePath) {
+        console.log(`[FILE VIEWER] Attempting to load initial file directly from cache: ${safeInitialFilePath}`);
 
         // Create a temporary FileInfo object for the initial file
         const initialFile: FileInfo = {
@@ -582,7 +585,7 @@ export function FileViewerModal({
       );
       setInitialPathProcessed(false);
     }
-  }, [open, initialFilePath, initialPathProcessed, normalizePath, currentPath, openFile]);
+  }, [open, safeInitialFilePath, initialPathProcessed, normalizePath, currentPath, openFile]);
 
   // Fix the useEffect that's causing infinite rendering by using a stable reference check
   // Replace the problematic useEffect around line 369

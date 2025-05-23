@@ -9,6 +9,12 @@ import React, {
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
+  Brain,
+  Clock,
+  Crown,
+  Lock,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import {
   BillingError,
@@ -31,6 +37,15 @@ import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { isLocalMode } from '@/lib/config';
 import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 import {
   UnifiedMessage,
@@ -45,6 +60,8 @@ import { useAddUserMessageMutation, useMessagesQuery } from '@/hooks/react-query
 import { useProjectQuery } from '@/hooks/react-query/threads/use-project';
 import { useAgentRunsQuery, useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { useBillingStatusQuery } from '@/hooks/react-query/threads/use-billing-status';
+import { useSubscription, isPlan } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -122,16 +139,24 @@ export default function ThreadPage({
   // Add debug mode state - check for debug=true in URL
   const [debugMode, setDebugMode] = useState(false);
 
+  // Add state for the free tier upgrade dialog
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
   const threadQuery = useThreadQuery(threadId);
   const messagesQuery = useMessagesQuery(threadId);
   const projectId = threadQuery.data?.project_id || '';
   const projectQuery = useProjectQuery(projectId);
   const agentRunsQuery = useAgentRunsQuery(threadId);
-  const billingStatusQuery = useBillingStatusQuery(); 
+  const billingStatusQuery = useBillingStatusQuery();
+  const { data: subscriptionData } = useSubscription();
 
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
+
+  const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
+    ? 'active'
+    : 'no_subscription';
 
 
   const handleProjectRenamed = useCallback((newName: string) => {
@@ -454,9 +479,9 @@ export default function ThreadPage({
       isMounted = false;
     };
   }, [
-    threadId, 
-    threadQuery.data, 
-    threadQuery.isError, 
+    threadId,
+    threadQuery.data,
+    threadQuery.isError,
     threadQuery.error,
     projectQuery.data,
     messagesQuery.data,
@@ -488,14 +513,14 @@ export default function ThreadPage({
 
       try {
         // Use React Query mutations instead of direct API calls
-        const messagePromise = addUserMessageMutation.mutateAsync({ 
-          threadId, 
-          message 
+        const messagePromise = addUserMessageMutation.mutateAsync({
+          threadId,
+          message
         });
-        
-        const agentPromise = startAgentMutation.mutateAsync({ 
-          threadId, 
-          options 
+
+        const agentPromise = startAgentMutation.mutateAsync({
+          threadId,
+          options
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -537,11 +562,11 @@ export default function ThreadPage({
         // If agent started successfully
         const agentResult = results[1].value;
         setAgentRunId(agentResult.agent_run_id);
-        
+
         // Refresh queries after successful operations
         messagesQuery.refetch();
         agentRunsQuery.refetch();
-        
+
       } catch (err) {
         // Catch errors from addUserMessage or non-BillingError agent start errors
         console.error('Error sending message or starting agent:', err);
@@ -566,7 +591,7 @@ export default function ThreadPage({
 
     // First stop the streaming and let the hook handle refetching
     await stopStreaming();
-    
+
     // Use React Query's stopAgentMutation if we have an agent run ID
     if (agentRunId) {
       try {
@@ -1014,45 +1039,54 @@ export default function ThreadPage({
   }, [project?.account_id, billingStatusQuery]);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    const shouldCheckBilling = 
-      project?.account_id && 
-      (initialLoadCompleted.current || 
-       (messagesLoadedRef.current && !isLoading) ||
-       (previousAgentStatus.current === 'running' && agentStatus === 'idle'));
+    const previousStatus = previousAgentStatus.current;
 
-    if (shouldCheckBilling) {
-      timeoutId = setTimeout(() => {
-        checkBillingLimits();
-      }, 500);
+    // Check if agent just completed (status changed from running to idle)
+    if (previousStatus === 'running' && agentStatus === 'idle') {
+      checkBillingLimits();
     }
 
+    // Store current status for next comparison
     previousAgentStatus.current = agentStatus;
+  }, [agentStatus, checkBillingLimits]);
 
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [
-    project?.account_id,
-    isLoading,
-    agentStatus,
-    checkBillingLimits
-  ]);
+  useEffect(() => {
+    if (project?.account_id && initialLoadCompleted.current && !billingStatusQuery.data) {
+      console.log('Checking billing status on initial load');
+      checkBillingLimits();
+    }
+  }, [project?.account_id, checkBillingLimits, initialLoadCompleted, billingStatusQuery.data]);
 
-  // Check for debug mode in URL on initial load and when URL changes
   useEffect(() => {
     const debugParam = searchParams.get('debug');
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
 
-  // Main rendering function for the thread page
+
+  useEffect(() => {
+    if (initialLoadCompleted.current && subscriptionData) {
+      const hasSeenUpgradeDialog = localStorage.getItem('suna_upgrade_dialog_displayed');
+      const isFreeTier = subscriptionStatus === 'no_subscription';
+      if (!hasSeenUpgradeDialog && isFreeTier && !isLocalMode()) {
+        setShowUpgradeDialog(true);
+      }
+    }
+  }, [subscriptionData, subscriptionStatus, initialLoadCompleted.current]);
+
+  const handleDismissUpgradeDialog = () => {
+    setShowUpgradeDialog(false);
+    localStorage.setItem('suna_upgrade_dialog_displayed', 'true');
+  };
+
+  const handleUpgradeClick = () => {
+    router.push('/settings/billing');
+    setShowUpgradeDialog(false);
+    localStorage.setItem('suna_upgrade_dialog_displayed', 'true');
+  };
+
   if (!initialLoadCompleted.current || isLoading) {
-    // Use the new ThreadSkeleton component instead of inline skeleton
     return <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} />;
   } else if (error) {
-    // Error state...
     return (
       <div className="flex h-screen">
         <div
@@ -1221,7 +1255,6 @@ export default function ThreadPage({
           />
         )}
 
-        {/* Billing Alert for usage limit */}
         <BillingErrorAlert
           message={billingData.message}
           currentUsage={billingData.currentUsage}
@@ -1230,6 +1263,67 @@ export default function ThreadPage({
           onDismiss={() => setShowBillingAlert(false)}
           isOpen={showBillingAlert}
         />
+
+        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                <Crown className="h-5 w-5 mr-2 text-primary" />
+                Unlock the Full Suna Experience
+              </DialogTitle>
+              <DialogDescription>
+                You're currently using Suna's free tier with limited capabilities.
+                Upgrade now to access our most powerful AI model.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Pro Benefits</h3>
+
+              <div className="space-y-3">
+                <div className="flex items-start">
+                  <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
+                    <Brain className="h-4 w-4 text-secondary" />
+                  </div>
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Advanced AI Models</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Get access to advanced models suited for complex tasks</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
+                    <Zap className="h-4 w-4 text-secondary" />
+                  </div>
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Faster Responses</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Get access to faster models that breeze through your tasks</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="rounded-full bg-secondary/10 p-2 flex-shrink-0 mt-0.5">
+                    <Clock className="h-4 w-4 text-secondary" />
+                  </div>
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Higher Usage Limits</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Enjoy more conversations and longer run durations</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={handleDismissUpgradeDialog}>
+                Maybe Later
+              </Button>
+              <Button onClick={handleUpgradeClick}>
+                <Sparkles className="h-4 w-4" />
+                Upgrade Now
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

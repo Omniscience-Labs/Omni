@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileCode,
-  FileSymlink,
-  FolderPlus,
-  FileX,
   Replace,
   CheckCircle,
   AlertTriangle,
   ExternalLink,
-  CircleDashed,
+  Loader2,
   Code,
   Eye,
   FileSpreadsheet,
+  File,
+  Trash2,
+  LucideIcon,
+  FilePen,
+  Check,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -31,6 +33,17 @@ import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Type for operation type
 type FileOperation = 'create' | 'rewrite' | 'delete';
@@ -100,6 +113,19 @@ const getLanguageFromFileName = (fileName: string): string => {
   return extensionMap[extension] || 'text';
 };
 
+// Interface for operation config
+interface OperationConfig {
+  icon: LucideIcon;
+  color: string;
+  successMessage: string;
+  progressMessage: string;
+  bgColor: string;
+  gradientBg: string;
+  borderColor: string;
+  badgeColor: string;
+  hoverColor: string;
+}
+
 export function FileOperationToolView({
   assistantContent,
   toolContent,
@@ -112,6 +138,25 @@ export function FileOperationToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
+  const [progress, setProgress] = useState(0);
+
+  // Simulate progress when streaming
+  useEffect(() => {
+    if (isStreaming) {
+      const timer = setInterval(() => {
+        setProgress((prevProgress) => {
+          if (prevProgress >= 95) {
+            clearInterval(timer);
+            return prevProgress;
+          }
+          return prevProgress + 5;
+        });
+      }, 300);
+      return () => clearInterval(timer);
+    } else {
+      setProgress(100);
+    }
+  }, [isStreaming]);
 
   // Determine operation type from content or name
   const getOperationType = (): FileOperation => {
@@ -176,13 +221,13 @@ export function FileOperationToolView({
   const isCsv = fileName.endsWith('.csv');
   const language = getLanguageFromFileName(fileName);
   const hasHighlighting = language !== 'text';
+  
   // Construct HTML file preview URL if we have a sandbox and the file is HTML
   const htmlPreviewUrl =
     isHtml && project?.sandbox?.sandbox_url && processedFilePath
       ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, processedFilePath)
       : undefined;
 
-  console.log('HTML Preview URL:', htmlPreviewUrl);
   // Add state for view mode toggle (code or preview)
   const [viewMode, setViewMode] = useState<'code' | 'preview'>(
     isHtml || isMarkdown || isCsv ? 'preview' : 'code',
@@ -206,146 +251,92 @@ export function FileOperationToolView({
     );
   }
 
-  // Operation-specific configs
-  const configs = {
+  const configs: Record<FileOperation, OperationConfig> = {
     create: {
-      icon: FolderPlus,
+      icon: FilePen,
+      color: 'text-emerald-600 dark:text-emerald-400',
       successMessage: 'File created successfully',
+      progressMessage: 'Creating file...',
+      bgColor: 'bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20',
+      gradientBg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10',
+      borderColor: 'border-emerald-500/20',
+      badgeColor: 'bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 shadow-sm dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300',
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
     rewrite: {
       icon: Replace,
+      color: 'text-blue-600 dark:text-blue-400',
       successMessage: 'File rewritten successfully',
+      progressMessage: 'Rewriting file...',
+      bgColor: 'bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20',
+      gradientBg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/10',
+      borderColor: 'border-blue-500/20',
+      badgeColor: 'bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 shadow-sm dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300',
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
     delete: {
-      icon: FileX,
+      icon: Trash2,
+      color: 'text-rose-600 dark:text-rose-400',
       successMessage: 'File deleted successfully',
+      progressMessage: 'Deleting file...',
+      bgColor: 'bg-gradient-to-b from-rose-100 to-rose-50 shadow-inner dark:from-rose-800/40 dark:to-rose-900/60 dark:shadow-rose-950/20',
+      gradientBg: 'bg-gradient-to-br from-rose-500/20 to-rose-600/10',
+      borderColor: 'border-rose-500/20',
+      badgeColor: 'bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 shadow-sm dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300',
+      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
     },
   };
 
   const config = configs[operation];
   const Icon = config.icon;
 
+  const getFileIcon = () => {
+    if (isMarkdown) return FileCode;
+    if (isCsv) return FileSpreadsheet;
+    if (isHtml) return FileCode;
+    return File;
+  };
+  
+  const FileIcon = getFileIcon();
+
+  const showTabs = operation !== 'delete' && fileContent && !isStreaming && (isHtml || isMarkdown || isCsv);
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 p-4 overflow-auto">
-        {/* File Content for create and rewrite operations */}
-        {operation !== 'delete' && fileContent && !isStreaming && (
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden shadow-sm bg-white dark:bg-zinc-950 h-full flex flex-col">
-            {/* IDE Header */}
-            <div className="flex items-center p-2 bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 justify-between border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center">
-                {isMarkdown ? (
-                  <FileCode className="h-4 w-4 mr-2 text-zinc-600 dark:text-zinc-400" />
-                ) : isCsv ? (
-                  <FileSpreadsheet className="h-4 w-4 mr-2 text-zinc-600 dark:text-zinc-400" />
-                ) : (
-                  <FileSymlink className="h-4 w-4 mr-2 text-zinc-600 dark:text-zinc-400" />
-                )}
-                <span className="text-xs font-medium">{fileName}</span>
-              </div>
-
+    <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
+      {showTabs ? (
+        <Tabs defaultValue={viewMode} onValueChange={(v) => setViewMode(v as 'code' | 'preview')} className="w-full h-full">
+          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
+            <div className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                {/* View switcher for HTML files */}
-                {isHtml && htmlPreviewUrl && isSuccess && (
-                  <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                    <button
-                      onClick={() => setViewMode('code')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'code'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Code className="h-3 w-3" />
-                      <span>Code</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('preview')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'preview'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Eye className="h-3 w-3" />
-                      <span>Preview</span>
-                    </button>
-                  </div>
-                )}
-                {/* View switcher for Markdown files */}
-                {isMarkdown && isSuccess && (
-                  <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                    <button
-                      onClick={() => setViewMode('code')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'code'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Code className="h-3 w-3" />
-                      <span>Code</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('preview')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'preview'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Eye className="h-3 w-3" />
-                      <span>Preview</span>
-                    </button>
-                  </div>
-                )}
-                {/* View switcher for CSV files */}
-                {isCsv && isSuccess && (
-                  <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                    <button
-                      onClick={() => setViewMode('code')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'code'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Code className="h-3 w-3" />
-                      <span>Code</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('preview')}
-                      className={cn(
-                        'flex items-center gap-1 text-xs px-2 py-1 transition-colors',
-                        viewMode === 'preview'
-                          ? 'bg-zinc-800 text-zinc-100 dark:bg-zinc-700 dark:text-zinc-100'
-                          : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700',
-                      )}
-                    >
-                      <Eye className="h-3 w-3" />
-                      <span>Preview</span>
-                    </button>
-                  </div>
-                )}
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                  {hasHighlighting ? language.toUpperCase() : fileType}
-                </span>
+              <div className={cn("relative p-2 rounded-lg border bg-red-400", config.gradientBg, config.borderColor)}>
+                  <Icon className={cn("h-5 w-5", config.color)} />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                    {processedFilePath || 'Unknown file path'}
+                  </CardTitle>
+                </div>
               </div>
+              
+              <TabsList className="-mr-2 h-7 bg-zinc-100/70 dark:bg-zinc-800/70 rounded-lg">
+                <TabsTrigger value="code" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-primary">
+                  <Code className="h-4 w-4" />
+                  Source
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-primary">
+                  <Eye className="h-4 w-4" />
+                  Preview
+                </TabsTrigger>
+              </TabsList>
             </div>
+          </CardHeader>
 
-            {/* File Content (Code View with Syntax Highlighting) */}
-            {viewMode === 'code' ||
-            (!isHtml && !isMarkdown && !isCsv) ||
-            !isSuccess ? (
-              <div className="flex-1 overflow-auto bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+          <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
+            <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
+              <ScrollArea className="h-full w-full">
                 {hasHighlighting ? (
                   <div className="relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col">
+                    <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
                       {contentLines.map((_, idx) => (
                         <div
                           key={idx}
@@ -359,7 +350,7 @@ export function FileOperationToolView({
                       <CodeBlockCode
                         code={processUnicodeContent(fileContent)}
                         language={language}
-                        className="text-xs p-2"
+                        className="text-xs p-4"
                       />
                     </div>
                   </div>
@@ -368,9 +359,144 @@ export function FileOperationToolView({
                     {contentLines.map((line, idx) => (
                       <div
                         key={idx}
-                        className="table-row hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                        className={cn("table-row transition-colors", config.hoverColor)}
                       >
-                        <div className="table-cell text-right pr-3 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800">
+                        <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                          {idx + 1}
+                        </div>
+                        <div className="table-cell pl-3 text-wrap py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
+                          {processUnicodeContent(line) || ' '}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="table-row h-4"></div>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="preview" className="flex-1 h-full mt-0 p-0 overflow-hidden">
+              <ScrollArea className="h-full w-full">
+                {isHtml && htmlPreviewUrl && (
+                  <div className="flex flex-col h-[calc(100vh-16rem)]"> 
+                  <iframe 
+                    src={htmlPreviewUrl}
+                    title={`HTML Preview of ${fileName}`}
+                    className="flex-grow border-0" 
+                    sandbox="allow-same-origin allow-scripts"
+                  />
+                </div>
+                )}
+                
+                {isMarkdown && (
+                  <div className="p-6 py-0 prose dark:prose-invert prose-zinc max-w-none">
+                    <MarkdownRenderer
+                      content={processUnicodeContent(fileContent)}
+                    />
+                  </div>
+                )}
+                
+                {isCsv && (
+                  <div className="h-full">
+                    <CsvRenderer content={processUnicodeContent(fileContent)} />
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </CardContent>
+          
+          <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
+            <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <Badge className="py-0.5 h-6">
+                <FileIcon className="h-3 w-3" />
+                {hasHighlighting ? language.toUpperCase() : fileType || 'TEXT'}
+              </Badge>
+              
+              {isHtml && viewMode === 'preview' && htmlPreviewUrl && (
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
+                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Open in Browser
+                  </a>
+                </Button>
+              )}
+            </div>
+            
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {toolTimestamp && !isStreaming
+                ? formatTimestamp(toolTimestamp)
+                : assistantTimestamp
+                  ? formatTimestamp(assistantTimestamp)
+                  : ''}
+            </div>
+          </div>
+        </Tabs>
+      ) : (
+        <>
+          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("relative p-2 rounded-lg border", config.gradientBg, config.borderColor)}>
+                  <Icon className={cn("h-5 w-5", config.color)} />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                    {processedFilePath || 'Unknown file path'}
+                  </CardTitle>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {!isStreaming ? (
+                  <Badge variant="secondary" className={cn("px-2 py-1 transition-colors", config.badgeColor)}>
+                    {isSuccess ? (
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                    ) : (
+                      <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {isSuccess ? config.successMessage : `Failed to ${operation}`}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-1">
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {config.progressMessage}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0 flex-1 overflow-hidden relative -my-6">
+            {operation !== 'delete' && fileContent && !isStreaming && !isHtml && !isMarkdown && !isCsv && (
+              <ScrollArea className="h-full w-full">
+                {hasHighlighting ? (
+                  <div className="relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
+                      {contentLines.map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="h-6 text-right pr-3 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none"
+                        >
+                          {idx + 1}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pl-12">
+                      <CodeBlockCode
+                        code={processUnicodeContent(fileContent)}
+                        language={language}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="min-w-full table">
+                    {contentLines.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={cn("table-row transition-colors", config.hoverColor)}
+                      >
+                        <div className="table-cell text-right pr-3 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
                           {idx + 1}
                         </div>
                         <div className="table-cell pl-3 py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
@@ -381,195 +507,129 @@ export function FileOperationToolView({
                     <div className="table-row h-4"></div>
                   </div>
                 )}
-              </div>
-            ) : null}
-
-            {/* HTML Preview with iframe */}
-            {isHtml &&
-              viewMode === 'preview' &&
-              htmlPreviewUrl &&
-              isSuccess && (
-                <div className="flex-1 bg-white overflow-hidden">
-                  <iframe
-                    src={htmlPreviewUrl}
-                    title={`HTML Preview of ${fileName}`}
-                    className="w-full h-full border-0"
-                    style={{ minHeight: '300px' }}
-                    sandbox="allow-same-origin allow-scripts"
-                  />
+              </ScrollArea>
+            )}
+            {operation !== 'delete' && isStreaming && (
+              <div className="flex flex-col h-full">
+                <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {fileName || 'file.txt'}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {language.toUpperCase() || fileType || 'TEXT'}
+                  </Badge>
                 </div>
-              )}
 
-            {/* Markdown Preview */}
-            {isMarkdown && viewMode === 'preview' && isSuccess && (
-              <div className="flex-1 overflow-auto bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-                <MarkdownRenderer
-                  content={processUnicodeContent(fileContent)}
-                />
+                <div className="flex-1 flex items-center justify-center p-12 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+                  <div className="text-center w-full max-w-xs">
+                    <div className={cn("w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center", config.bgColor)}>
+                      <Loader2 className={cn("h-8 w-8 animate-spin", config.color)} />
+                    </div>
+                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                      {operation === 'create' ? 'Creating File' : 'Updating File'}
+                    </h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                      {processedFilePath ? (
+                        <span className="font-mono text-xs break-all">{processedFilePath}</span>
+                      ) : (
+                        'Processing file operation'
+                      )}
+                    </p>
+                    <Progress value={progress} className="w-full h-2" />
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
+                  </div>
+                </div>
               </div>
             )}
-
-            {/* CSV Preview */}
-            {isCsv && viewMode === 'preview' && isSuccess && (
-              <div className="flex-1 overflow-hidden bg-white dark:bg-zinc-950">
-                <CsvRenderer content={processUnicodeContent(fileContent)} />
-              </div>
-            )}
-
-            {/* External link button for HTML files */}
-            {isHtml &&
-              viewMode === 'preview' &&
-              htmlPreviewUrl &&
-              isSuccess && (
-                <div className="bg-zinc-100 dark:bg-zinc-900 p-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
-                  <a
-                    href={htmlPreviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 py-1 px-2 text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 rounded transition-colors"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 text-zinc-500 flex-shrink-0" />
-                    <span>Open in Browser</span>
-                  </a>
+            {operation === 'delete' && processedFilePath && !isStreaming && (
+              <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+                <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+                  <Trash2 className={cn("h-10 w-10", config.color)} />
                 </div>
-              )}
-          </div>
-        )}
-
-        {/* File Content for streaming state */}
-        {operation !== 'delete' && isStreaming && (
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden shadow-sm bg-white dark:bg-zinc-950 h-full flex flex-col">
-            {/* IDE Header */}
-            <div className="flex items-center p-2 bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 justify-between border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center">
-                <FileSymlink className="h-4 w-4 mr-2 text-zinc-600 dark:text-zinc-400" />
-                <span className="text-xs font-medium">
-                  {fileName || 'file.txt'}
-                </span>
-              </div>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                {fileType || 'Text'}
-              </span>
-            </div>
-
-            {/* Streaming state */}
-            <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-zinc-950">
-              <div className="text-center">
-                <CircleDashed className="h-8 w-8 mx-auto mb-3 text-blue-500 animate-spin" />
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {operation === 'create'
-                    ? 'Creating file...'
-                    : 'Rewriting file...'}
-                </p>
-                <p className="text-xs mt-1 text-zinc-500 dark:text-zinc-400">
-                  {processedFilePath || 'Processing file operation'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delete view with file path */}
-        {operation === 'delete' && processedFilePath && !isStreaming && (
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden h-full flex flex-col">
-            <div className="p-6 flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-              <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mb-4">
-                <FileX className="h-7 w-7 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-lg font-medium mb-4 text-red-600 dark:text-red-400">
-                File Deleted
-              </h3>
-              <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md p-4 w-full max-w-md text-center mb-2">
-                <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
-                  {processedFilePath}
-                </code>
-              </div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                This file has been permanently removed
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Delete view streaming state */}
-        {operation === 'delete' && isStreaming && (
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden h-full flex flex-col">
-            <div className="p-6 flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950">
-              <div className="text-center">
-                <CircleDashed className="h-8 w-8 mx-auto mb-3 text-blue-500 animate-spin" />
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Deleting file...
-                </p>
-                {processedFilePath && (
-                  <p className="text-xs mt-2 font-mono text-zinc-500 dark:text-zinc-400 break-all">
-                    {processedFilePath}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delete view with unknown path */}
-        {operation === 'delete' &&
-          !processedFilePath &&
-          !showDebugInfo &&
-          !isStreaming && (
-            <div className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden h-full flex flex-col">
-              <div className="p-6 flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-                <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mb-4">
-                  <FileX className="h-7 w-7 text-red-600 dark:text-red-400" />
-                </div>
-                <h3 className="text-lg font-medium mb-4 text-red-600 dark:text-red-400">
+                <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
                   File Deleted
                 </h3>
-                <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md p-4 w-full max-w-md text-center mb-2">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                    Unknown file path
-                  </p>
+                <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
+                  <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+                    {processedFilePath}
+                  </code>
                 </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                  A file has been deleted but the path could not be determined
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  This file has been permanently removed
                 </p>
               </div>
-            </div>
-          )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          {!isStreaming && (
-            <div className="flex items-center gap-2">
-              {isSuccess ? (
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+            )}
+            {operation === 'delete' && isStreaming && (
+              <div className="flex flex-col items-center justify-center h-full p-12 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+                <div className="text-center w-full max-w-xs">
+                  <div className={cn("w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center", config.bgColor)}>
+                    <Loader2 className={cn("h-8 w-8 animate-spin", config.color)} />
+                  </div>
+                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                    Deleting File
+                  </h3>
+                  {processedFilePath && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                      <span className="font-mono text-xs break-all">{processedFilePath}</span>
+                    </p>
+                  )}
+                  <Progress value={progress} className="w-full h-2" />
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
+                </div>
+              </div>
+            )}
+            {operation === 'delete' &&
+              !processedFilePath &&
+              !showDebugInfo &&
+              !isStreaming && (
+                <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+                    <Trash2 className={cn("h-10 w-10", config.color)} />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
+                    File Deleted
+                  </h3>
+                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                      Unknown file path
+                    </p>
+                  </div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    A file has been deleted but the path could not be determined
+                  </p>
+                </div>
               )}
-              <span>
-                {isSuccess
-                  ? config.successMessage
-                  : `Failed to ${operation} file`}
-              </span>
+          </CardContent>
+          <div className="h-10 px-4 py-2 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+            <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <Badge className="py-0.5 h-6">
+                <FileIcon className="h-3 w-3" />
+                {hasHighlighting ? language.toUpperCase() : fileType || 'TEXT'}
+              </Badge>
+              
+              {isHtml && viewMode === 'preview' && htmlPreviewUrl && (
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
+                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Open in Browser
+                  </a>
+                </Button>
+              )}
             </div>
-          )}
-
-          {isStreaming && (
-            <div className="flex items-center gap-2">
-              <CircleDashed className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-              <span>Processing file operation...</span>
+            
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {toolTimestamp && !isStreaming
+                ? formatTimestamp(toolTimestamp)
+                : assistantTimestamp
+                  ? formatTimestamp(assistantTimestamp)
+                  : ''}
             </div>
-          )}
-
-          <div className="text-xs">
-            {toolTimestamp && !isStreaming
-              ? formatTimestamp(toolTimestamp)
-              : assistantTimestamp
-                ? formatTimestamp(assistantTimestamp)
-                : ''}
           </div>
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    </Card>
   );
 }

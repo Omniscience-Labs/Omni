@@ -184,7 +184,6 @@ export const FileUploadHandler = forwardRef<
       if (!event.target.files || event.target.files.length === 0) return;
 
       const files = Array.from(event.target.files);
-
       // Use the helper function instead of the static method
       handleFiles(
         files,
@@ -217,7 +216,7 @@ export const FileUploadHandler = forwardRef<
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
-                <span className="text-sm">Attachments</span>
+                <span className="text-sm sm:block hidden">Attachments</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">

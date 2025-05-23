@@ -6,24 +6,12 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { ToolView } from './tool-views/wrapper';
 
-// Import tool view components from the tool-views directory
-import { CommandToolView } from './tool-views/CommandToolView';
-import { StrReplaceToolView } from './tool-views/StrReplaceToolView';
-import { GenericToolView } from './tool-views/GenericToolView';
-import { FileOperationToolView } from './tool-views/FileOperationToolView';
-import { BrowserToolView } from './tool-views/BrowserToolView';
-import { WebSearchToolView } from './tool-views/WebSearchToolView';
-import { WebCrawlToolView } from './tool-views/WebCrawlToolView';
-import { WebScrapeToolView } from './tool-views/WebScrapeToolView';
-import { DataProviderToolView } from './tool-views/DataProviderToolView';
-import { ExposePortToolView } from './tool-views/ExposePortToolView';
-
-// Simple input interface
 export interface ToolCallInput {
   assistantCall: {
     content?: string;
@@ -36,169 +24,6 @@ export interface ToolCallInput {
     timestamp?: string;
   };
   messages?: ApiMessageType[];
-}
-
-// Get the specialized tool view component based on the tool name
-function getToolView(
-  toolName: string | undefined,
-  assistantContent: string | undefined,
-  toolContent: string | undefined,
-  assistantTimestamp: string | undefined,
-  toolTimestamp: string | undefined,
-  isSuccess: boolean = true,
-  project?: Project,
-  messages?: ApiMessageType[],
-  agentStatus?: string,
-  currentIndex?: number,
-  totalCalls?: number,
-  isStreaming?: boolean,
-) {
-  if (!toolName) return null;
-
-  const normalizedToolName = toolName.toLowerCase();
-
-  switch (normalizedToolName) {
-    case 'execute-command':
-      return (
-        <CommandToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'str-replace':
-      return (
-        <StrReplaceToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'expose-port':
-      return (
-        <ExposePortToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-    case 'create-file':
-    case 'full-file-rewrite':
-    case 'delete-file':
-      return (
-        <FileOperationToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          name={normalizedToolName}
-          project={project}
-        />
-      );
-    case 'browser-navigate':
-    case 'browser-click':
-    case 'browser-extract':
-    case 'browser-fill':
-    case 'browser-wait':
-      return (
-        <BrowserToolView
-          currentIndex={currentIndex}
-          totalCalls={totalCalls}
-          agentStatus={agentStatus}
-          messages={messages}
-          name={normalizedToolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          project={project}
-        />
-      );
-    case 'web-search':
-      return (
-        <WebSearchToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'crawl-webpage':
-      return (
-        <WebCrawlToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'scrape-webpage':
-      return (
-        <WebScrapeToolView
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-        />
-      );
-    case 'execute-data-provider-call':
-    case 'get-data-provider-endpoints':
-      return (
-        <DataProviderToolView
-          name={normalizedToolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-    default:
-      // Check if it's a browser operation
-      if (normalizedToolName.startsWith('browser-')) {
-        return (
-          <BrowserToolView
-            currentIndex={currentIndex}
-            totalCalls={totalCalls}
-            agentStatus={agentStatus}
-            messages={messages}
-            name={toolName}
-            assistantContent={assistantContent}
-            toolContent={toolContent}
-            assistantTimestamp={assistantTimestamp}
-            toolTimestamp={toolTimestamp}
-            isSuccess={isSuccess}
-            project={project}
-          />
-        );
-      }
-
-      // Fallback to generic view
-      return (
-        <GenericToolView
-          name={toolName}
-          assistantContent={assistantContent}
-          toolContent={toolContent}
-          assistantTimestamp={assistantTimestamp}
-          toolTimestamp={toolTimestamp}
-          isSuccess={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-  }
 }
 
 interface ToolCallSidePanelProps {
@@ -230,12 +55,11 @@ export function ToolCallSidePanel({
   messages,
   agentStatus,
   project,
-  renderAssistantMessage,
-  renderToolResult,
   isLoading = false,
 }: ToolCallSidePanelProps) {
   // Move hooks outside of conditional
   const [dots, setDots] = React.useState('');
+  const [showJumpToLive, setShowJumpToLive] = React.useState(false);
   const currentToolCall = toolCalls[currentIndex];
   const totalCalls = toolCalls.length;
   const currentToolName = currentToolCall?.assistantCall?.name || 'Tool Call';
@@ -245,6 +69,15 @@ export function ToolCallSidePanel({
   const isStreaming = currentToolCall?.toolResult?.content === 'STREAMING';
   const isSuccess = currentToolCall?.toolResult?.isSuccess ?? true;
   const isMobile = useIsMobile();
+
+  // Show jump to live button when agent is running and user is not on the last step
+  React.useEffect(() => {
+    if (agentStatus === 'running' && currentIndex + 1 < totalCalls) {
+      setShowJumpToLive(true);
+    } else {
+      setShowJumpToLive(false);
+    }
+  }, [agentStatus, currentIndex, totalCalls]);
 
   // Add keyboard shortcut for CMD+I to close panel
   React.useEffect(() => {
@@ -284,8 +117,6 @@ export function ToolCallSidePanel({
 
   React.useEffect(() => {
     if (!isStreaming) return;
-
-    // Create a loading animation with dots
     const interval = setInterval(() => {
       setDots((prev) => {
         if (prev === '...') return '';
@@ -296,7 +127,6 @@ export function ToolCallSidePanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  // Handle navigation with safety checks
   const navigateToPrevious = React.useCallback(() => {
     if (currentIndex > 0) {
       onNavigate(currentIndex - 1);
@@ -308,6 +138,12 @@ export function ToolCallSidePanel({
       onNavigate(currentIndex + 1);
     }
   }, [currentIndex, totalCalls, onNavigate]);
+
+  const jumpToLive = React.useCallback(() => {
+    // Jump to the last step (totalCalls - 1)
+    onNavigate(totalCalls - 1);
+    setShowJumpToLive(false);
+  }, [totalCalls, onNavigate]);
 
   if (!isOpen) return null;
 
@@ -326,8 +162,9 @@ export function ToolCallSidePanel({
           <div className="flex flex-col h-full">
             <div className="pt-4 pl-4 pr-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="ml-2 flex items-center gap-2">
+                  <Computer className="h-4 w-4" />
+                  <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                     Suna's Computer
                   </h2>
                 </div>
@@ -359,15 +196,14 @@ export function ToolCallSidePanel({
     if (!currentToolCall) {
       return (
         <div className="flex flex-col h-full">
-          {/* Always show header with close button for empty state */}
           <div className="pt-4 pl-4 pr-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="ml-2 flex items-center gap-2">
+                <Computer className="h-4 w-4" />
+                <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                   Suna's Computer
                 </h2>
               </div>
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -378,71 +214,54 @@ export function ToolCallSidePanel({
               </Button>
             </div>
           </div>
-
-          {/* Empty state message */}
-          <div className="flex items-center justify-center flex-1 p-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
-              No tool call details available.
-            </p>
+          <div className="flex flex-col items-center justify-center flex-1 p-8">
+            <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
+              <div className="relative">
+                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+                  <Computer className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-zinc-400 dark:text-zinc-500 rounded-full"></div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                  No tool activity
+                </h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Tool calls and computer interactions will appear here when they're being executed.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       );
     }
 
-    const toolView = getToolView(
-      currentToolCall.assistantCall.name,
-      currentToolCall.assistantCall.content,
-      currentToolCall.toolResult?.content,
-      currentToolCall.assistantCall.timestamp,
-      currentToolCall.toolResult?.timestamp,
-      isStreaming ? true : (currentToolCall.toolResult?.isSuccess ?? true),
-      project,
-      messages,
-      agentStatus,
-      currentIndex,
-      totalCalls,
-      isStreaming,
+    const toolView = (
+      <ToolView
+        name={currentToolCall.assistantCall.name}
+        assistantContent={currentToolCall.assistantCall.content}
+        toolContent={currentToolCall.toolResult?.content}
+        assistantTimestamp={currentToolCall.assistantCall.timestamp}
+        toolTimestamp={currentToolCall.toolResult?.timestamp}
+        isSuccess={isStreaming ? true : (currentToolCall.toolResult?.isSuccess ?? true)}
+        isStreaming={isStreaming}
+        project={project}
+        messages={messages}
+        agentStatus={agentStatus}
+        currentIndex={currentIndex}
+        totalCalls={totalCalls}
+      />
     );
-
-    if (!toolView) {
-      return (
-        <div className="flex flex-col h-full">
-          {/* Header with close button even when no tool view */}
-          <div className="pt-4 pl-4 pr-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                  Suna's Computer
-                </h2>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Error state message */}
-          <div className="flex items-center justify-center flex-1 p-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
-              Unable to display tool details.
-            </p>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className="flex flex-col h-full">
-        <div className="pt-4 pl-4 pr-4">
+        <div className="p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="ml-2 flex items-center gap-2">
+              <Computer className="h-4 w-4" />
+              <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                 Suna's Computer
               </h2>
             </div>
@@ -455,7 +274,7 @@ export function ToolCallSidePanel({
                 <span
                   className={cn(
                     'text-sm text-zinc-700 dark:text-zinc-300',
-                    isMobile && 'hidden sm:inline', // Hide on small mobile
+                    isMobile && 'hidden sm:inline',
                   )}
                 >
                   {currentToolName}
@@ -470,8 +289,6 @@ export function ToolCallSidePanel({
                 >
                   {isSuccess ? 'Success' : 'Failed'}
                 </div>
-
-                {/* Add close button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -489,8 +306,6 @@ export function ToolCallSidePanel({
                   <CircleDashed className="h-3 w-3 animate-spin" />
                   <span>Running</span>
                 </div>
-
-                {/* Add close button */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -502,7 +317,6 @@ export function ToolCallSidePanel({
               </div>
             )}
 
-            {/* Show close button when no status is available */}
             {!currentToolCall.toolResult?.content && !isStreaming && (
               <Button
                 variant="ghost"
@@ -516,7 +330,6 @@ export function ToolCallSidePanel({
           </div>
         </div>
 
-        {/* Content area */}
         <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           {toolView}
         </div>
@@ -530,7 +343,7 @@ export function ToolCallSidePanel({
         'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
         isMobile
           ? 'w-full'
-          : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+          : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
         !isOpen && 'translate-x-full',
       )}
     >
@@ -538,7 +351,6 @@ export function ToolCallSidePanel({
         {renderContent()}
       </div>
 
-      {/* Navigation controls */}
       {totalCalls > 1 && (
         <div
           className={cn(
@@ -560,9 +372,18 @@ export function ToolCallSidePanel({
                 </span>
               </div>
 
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                Step {currentIndex + 1} of {totalCalls}
-              </span>
+              <div className="flex items-center gap-2">
+                {agentStatus === 'running' && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Live</span>
+                  </div>
+                )}
+                
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
+                  Step {currentIndex + 1} of {totalCalls}
+                </span>
+              </div>
             </div>
           )}
 
@@ -579,9 +400,18 @@ export function ToolCallSidePanel({
                 <span>Previous</span>
               </Button>
 
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {currentIndex + 1} / {totalCalls}
-              </span>
+              <div className="flex items-center gap-2">
+                {agentStatus === 'running' && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Live</span>
+                  </div>
+                )}
+                
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {currentIndex + 1} / {totalCalls}
+                </span>
+              </div>
 
               <Button
                 variant="outline"
@@ -595,7 +425,7 @@ export function ToolCallSidePanel({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
+            <div className="relative flex items-center gap-1.5">
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -615,15 +445,36 @@ export function ToolCallSidePanel({
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
+                
               </div>
-              <Slider
-                min={0}
-                max={totalCalls - 1}
-                step={1}
-                value={[currentIndex]}
-                onValueChange={([newValue]) => onNavigate(newValue)}
-                className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1"
-              />
+              
+              <div className="relative w-full">
+                <Slider
+                  min={0}
+                  max={totalCalls - 1}
+                  step={1}
+                  value={[currentIndex]}
+                  onValueChange={([newValue]) => onNavigate(newValue)}
+                  className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1"
+                />
+                
+                {showJumpToLive && (
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-12 z-50">
+                    <div className="relative">
+                      <Button
+                        onClick={jumpToLive}
+                        size="sm"
+                        className="h-8 px-3 bg-red-500 hover:bg-red-600 text-white shadow-lg border border-red-600 dark:border-red-400 flex items-center gap-1.5"
+                      >
+                        <Radio className="h-3 w-3" />
+                        <span className="text-xs font-medium">Jump to Live</span>
+                      </Button>
+
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-red-500"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

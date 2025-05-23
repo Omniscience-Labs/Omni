@@ -6,7 +6,6 @@ import platform
 import subprocess
 from getpass import getpass
 import re
-from backend.utils.config import Configuration
 
 # ANSI colors for pretty output
 class Colors:
@@ -194,8 +193,8 @@ def collect_daytona_info():
     print_info("Then, generate an API key from 'Keys' menu")
     print_info("After that, go to Images (https://app.daytona.io/dashboard/images)")
     print_info("Click '+ Create Image'")
-    print_info(f"Enter '{Configuration.SANDBOX_IMAGE_NAME}' as the image name")
-    print_info(f"Set '{Configuration.SANDBOX_ENTRYPOINT}' as the Entrypoint")
+    print_info(f"Enter 'kortix/suna:0.1.2.8' as the image name")
+    print_info(f"Set '/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf' as the Entrypoint")
 
     input("Press Enter to continue once you've completed these steps...")
     

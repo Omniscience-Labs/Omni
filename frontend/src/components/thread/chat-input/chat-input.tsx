@@ -12,11 +12,8 @@ import { Loader2, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
-import { FileAttachment } from '../file-attachment';
 import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from 'sonner';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -84,6 +81,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       subscriptionStatus,
       allModels: modelOptions,
       canAccessModel,
+      getActualModelId,
+      refreshCustomModels,
     } = useModelSelection();
 
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -123,10 +122,10 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         message = message ? `${message}\n\n${fileInfo}` : fileInfo;
       }
 
-      let baseModelName = selectedModel;
+      let baseModelName = getActualModelId(selectedModel);
       let thinkingEnabled = false;
       if (selectedModel.endsWith('-thinking')) {
-        baseModelName = selectedModel.replace(/-thinking$/, '');
+        baseModelName = getActualModelId(selectedModel.replace(/-thinking$/, ''));
         thinkingEnabled = true;
       }
 
@@ -235,6 +234,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 modelOptions={modelOptions}
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
+                refreshCustomModels={refreshCustomModels}
               />
             </CardContent>
           </div>

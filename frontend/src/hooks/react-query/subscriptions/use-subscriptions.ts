@@ -35,12 +35,3 @@ export const isPlan = (
   if (!subscriptionData) return planId === 'free';
   return subscriptionData.plan_name === planId;
 };
-
-export const getPlanName = (
-  subscriptionData: SubscriptionStatus | null | undefined,
-): string => {
-  if (isPlan(subscriptionData, 'free')) return 'Free';
-  if (isPlan(subscriptionData, 'base')) return 'Pro';
-  if (isPlan(subscriptionData, 'extra')) return 'Enterprise';
-  return 'Unknown';
-};

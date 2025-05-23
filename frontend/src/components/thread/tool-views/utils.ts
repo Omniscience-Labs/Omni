@@ -29,6 +29,7 @@ export function getToolTitle(toolName: string): string {
     'browser-extract': 'Browser Extract',
     'browser-fill': 'Browser Fill',
     'browser-wait': 'Browser Wait',
+    'see-image': 'View Image',
   };
 
   // Return the mapped title or a formatted version of the name

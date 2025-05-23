@@ -63,6 +63,7 @@
     "flags": "^3.2.0",
     "framer-motion": "^12.6.5",
     "geist": "^1.2.1",
+    "gsap": "^3.13.0",
     "html2pdf.js": "^0.10.3",
     "lucide-react": "^0.479.0",
     "marked": "^15.0.7",

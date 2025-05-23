@@ -296,6 +296,8 @@ export function useAgentStream(
 
       switch (message.type) {
         case 'assistant':
+          console.log('[useAgentStream] test a:', parsedContent.content);
+          console.log('[useAgentStream] test a1:', parsedMetadata);
           if (
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
