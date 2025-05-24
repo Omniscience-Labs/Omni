@@ -136,6 +136,10 @@ app.include_router(sandbox_api.router, prefix="/api")
 # Include the billing router with a prefix
 app.include_router(billing_api.router, prefix="/api")
 
+# Import and include the MCP router
+from mcp import api as mcp_api
+app.include_router(mcp_api.router, prefix="/api")
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint to verify API is working."""

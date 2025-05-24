@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, Search, Settings2, Sparkles } from 'lucide-react';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
+import { MCPConfiguration } from './mcp-configuration';
 
 interface AgentCreateRequest {
   name: string;
   description: string;
   system_prompt: string;
-  configured_mcps: Array<{ name: string; config: any }>;
+  configured_mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
   agentpress_tools: Record<string, { enabled: boolean; description: string }>;
   is_default: boolean;
 }
@@ -74,6 +76,10 @@ export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: Crea
     }));
   };
 
+  const handleMCPConfigurationChange = (mcps: any[]) => {
+    handleInputChange('configured_mcps', mcps);
+  };
+
   const getSelectedToolsCount = (): number => {
     return Object.values(formData.agentpress_tools).filter(tool => tool.enabled).length;
   };
@@ -93,7 +99,6 @@ export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: Crea
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      // You might want to use a more user-friendly validation approach
       return;
     }
 
@@ -103,7 +108,6 @@ export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: Crea
       onAgentCreated?.();
     } catch (error) {
       console.error('Error creating agent:', error);
-      // Error handling is now managed by the mutation hook's onError callback
     }
   };
 
@@ -179,79 +183,105 @@ export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: Crea
             </div>
 
             <div className="border-l w-[60%] bg-muted/30 flex flex-col min-h-0">
-              <div className="px-6 py-4 border-b bg-background flex-shrink-0">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Available Tools</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {getSelectedToolsCount()} selected
-                  </span>
-                </div>
+              <Tabs defaultValue="tools" className="flex flex-col h-full">
+                <TabsList className="w-full justify-start rounded-none border-b h-10">
+                  <TabsTrigger 
+                    value="tools" 
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    AgentPress Tools
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="mcp" 
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    MCP Servers
+                  </TabsTrigger>
+                </TabsList>
 
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search tools..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-10"
-                    disabled={createAgentMutation.isPending}
-                  />
-                </div>
-
-                <div className="flex gap-2 flex-wrap">
-                  {TOOL_CATEGORIES.map((category) => (
-                    <Button
-                      key={category}
-                      variant={selectedCategory === category ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedCategory(category)}
-                      disabled={createAgentMutation.isPending}
-                      className="px-3 py-1.5 h-auto text-xs font-medium rounded-full"
-                    >
-                      {category}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent p-6 min-h-0">
-                <div className="space-y-3">
-                  {getFilteredTools().map(([toolName, toolInfo]) => (
-                    <div 
-                      key={toolName} 
-                      className="flex items-center gap-3 p-3 bg-card rounded-lg border hover:border-border/80 transition-colors"
-                    >
-                      <div className={`w-10 h-10 rounded-lg ${toolInfo.color} flex items-center justify-center flex-shrink-0`}>
-                        <span className="text-lg">{toolInfo.icon}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-sm">
-                            {getToolDisplayName(toolName)}
-                          </h4>
-                          <Switch
-                            checked={formData.agentpress_tools?.[toolName]?.enabled || false}
-                            onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
-                            disabled={createAgentMutation.isPending}
-                            className="flex-shrink-0"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {toolInfo.description}
-                        </p>
-                      </div>
+                <TabsContent value="tools" className="flex-1 flex flex-col m-0 min-h-0">
+                  <div className="px-6 py-4 border-b bg-background flex-shrink-0">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Available Tools</h3>
+                      <span className="text-sm text-muted-foreground">
+                        {getSelectedToolsCount()} selected
+                      </span>
                     </div>
-                  ))}
-                </div>
 
-                {getFilteredTools().length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="text-4xl mb-3">🔍</div>
-                    <h3 className="text-sm font-medium mb-1">No tools found</h3>
-                    <p className="text-xs text-muted-foreground">Try adjusting your search criteria</p>
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search tools..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 h-10"
+                        disabled={createAgentMutation.isPending}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      {TOOL_CATEGORIES.map((category) => (
+                        <Button
+                          key={category}
+                          variant={selectedCategory === category ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setSelectedCategory(category)}
+                          disabled={createAgentMutation.isPending}
+                          className="px-3 py-1.5 h-auto text-xs font-medium rounded-full"
+                        >
+                          {category}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent p-6 min-h-0">
+                    <div className="space-y-3">
+                      {getFilteredTools().map(([toolName, toolInfo]) => (
+                        <div 
+                          key={toolName} 
+                          className="flex items-center gap-3 p-3 bg-card rounded-lg border hover:border-border/80 transition-colors"
+                        >
+                          <div className={`w-10 h-10 rounded-lg ${toolInfo.color} flex items-center justify-center flex-shrink-0`}>
+                            <span className="text-lg">{toolInfo.icon}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-medium text-sm">
+                                {getToolDisplayName(toolName)}
+                              </h4>
+                              <Switch
+                                checked={formData.agentpress_tools?.[toolName]?.enabled || false}
+                                onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
+                                disabled={createAgentMutation.isPending}
+                                className="flex-shrink-0"
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {toolInfo.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {getFilteredTools().length === 0 && (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-3">🔍</div>
+                        <h3 className="text-sm font-medium mb-1">No tools found</h3>
+                        <p className="text-xs text-muted-foreground">Try adjusting your search criteria</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
+                  <MCPConfiguration
+                    configuredMCPs={formData.configured_mcps}
+                    onConfigurationChange={handleMCPConfigurationChange}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
