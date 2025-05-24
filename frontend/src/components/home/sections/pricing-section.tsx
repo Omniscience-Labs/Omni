@@ -74,6 +74,7 @@ interface PricingTierProps {
   onSubscriptionUpdate?: () => void;
   isAuthenticated?: boolean;
   returnUrl: string;
+  insideDialog?: boolean;
 }
 
 // Components
@@ -170,6 +171,7 @@ function PricingTier({
   onSubscriptionUpdate,
   isAuthenticated = false,
   returnUrl,
+  insideDialog = false,
 }: PricingTierProps) {
   const [localSelectedPlan, setLocalSelectedPlan] = useState(
     selectedPlan || DEFAULT_SELECTED_PLAN,
@@ -500,10 +502,10 @@ function PricingTier({
     <div
       className={cn(
         'rounded-xl flex flex-col relative h-fit min-h-[400px] min-[650px]:h-full min-[900px]:h-fit',
-        tier.isPopular
+        tier.isPopular && !insideDialog
           ? 'md:shadow-[0px_61px_24px_-10px_rgba(0,0,0,0.01),0px_34px_20px_-8px_rgba(0,0,0,0.05),0px_15px_15px_-6px_rgba(0,0,0,0.09),0px_4px_8px_-2px_rgba(0,0,0,0.10),0px_0px_0px_1px_rgba(0,0,0,0.08)] bg-accent'
           : 'bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] border border-border',
-        ringClass,
+        !insideDialog && ringClass,
       )}
     >
       <div className="flex flex-col gap-4 p-4">
@@ -601,11 +603,15 @@ function PricingTier({
 interface PricingSectionProps {
   returnUrl?: string;
   showTitleAndTabs?: boolean;
+  hideFree?: boolean;
+  insideDialog?: boolean;
 }
 
 export function PricingSection({
   returnUrl = typeof window !== 'undefined' ? window.location.href : '/',
   showTitleAndTabs = true,
+  hideFree = false,
+  insideDialog = false
 }: PricingSectionProps) {
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
@@ -679,7 +685,7 @@ export function PricingSection({
   return (
     <section
       id="pricing"
-      className="flex flex-col items-center justify-center gap-10 pb-20 w-full relative"
+      className={cn("flex flex-col items-center justify-center gap-10 w-full relative", { "pb-20": !insideDialog })}
     >
       {showTitleAndTabs && (
         <>
@@ -705,8 +711,15 @@ export function PricingSection({
       )}
 
       {deploymentType === 'cloud' && (
-        <div className="grid min-[650px]:grid-cols-2 min-[900px]:grid-cols-3 gap-4 w-full max-w-6xl mx-auto px-6">
-          {siteConfig.cloudPricingItems.map((tier) => (
+        <div className={cn(
+          "grid gap-4 w-full max-w-6xl mx-auto",
+          {
+            "px-6": !insideDialog
+          },
+          (!hideFree || siteConfig.cloudPricingItems.filter((tier) => !hideFree || tier.price !== '$0').length > 2)
+            ? "min-[650px]:grid-cols-2 min-[900px]:grid-cols-3" : "min-[650px]:grid-cols-2"
+        )}>
+          {siteConfig.cloudPricingItems.filter((tier) => !hideFree || tier.price !== '$0').map((tier) => (
             <PricingTier
               key={tier.name}
               tier={tier}
@@ -717,6 +730,7 @@ export function PricingSection({
               onSubscriptionUpdate={handleSubscriptionUpdate}
               isAuthenticated={isAuthenticated}
               returnUrl={returnUrl}
+              insideDialog={insideDialog}
             />
           ))}
         </div>

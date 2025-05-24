@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 function truncateText(text: string, maxLength: number = 40) {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
+
 export function WebScrapeToolView({
   name = 'scrape-webpage',
   assistantContent,
