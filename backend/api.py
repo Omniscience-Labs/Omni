@@ -23,7 +23,6 @@ load_dotenv()
 
 # Initialize managers
 db = DBConnection()
-thread_manager = None
 instance_id = "single"
 
 # Rate limiter state
@@ -33,17 +32,14 @@ MAX_CONCURRENT_IPS = 25
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global thread_manager
     logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
     
     try:
         # Initialize database
         await db.initialize()
-        thread_manager = ThreadManager()
         
         # Initialize the agent API with shared resources
         agent_api.initialize(
-            thread_manager,
             db,
             instance_id
         )
