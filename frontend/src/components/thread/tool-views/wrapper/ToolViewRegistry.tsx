@@ -12,6 +12,7 @@ import { WebScrapeToolView } from '../WebScrapeToolView';
 import { WebSearchToolView } from '../WebSearchToolView';
 import { SeeImageToolView } from '../SeeImageToolView';
 import { TerminateCommandToolView } from '../TerminateCommandToolView';
+import { McpToolView } from '../McpToolView';
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
@@ -55,6 +56,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'expose-port': ExposePortToolView,
 
   'see-image': SeeImageToolView,
+  
+  'call-mcp-tool': GenericToolView,
 
   'default': GenericToolView,
 };

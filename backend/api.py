@@ -137,7 +137,7 @@ app.include_router(sandbox_api.router, prefix="/api")
 app.include_router(billing_api.router, prefix="/api")
 
 # Import and include the MCP router
-from mcp import api as mcp_api
+from mcp_local import api as mcp_api
 app.include_router(mcp_api.router, prefix="/api")
 
 @app.get("/api/health")

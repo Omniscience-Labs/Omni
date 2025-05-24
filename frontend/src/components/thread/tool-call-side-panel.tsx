@@ -1,7 +1,7 @@
 'use client';
 
 import { Project } from '@/lib/api';
-import { getToolIcon } from '@/components/thread/utils';
+import { getToolIcon, getUserFriendlyToolName } from '@/components/thread/utils';
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,9 +107,36 @@ export function ToolCallSidePanel({
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
   
-  const currentToolName = currentToolCall?.assistantCall?.name || 'Tool Call';
+  // Extract meaningful tool name, especially for MCP tools
+  const extractToolName = (toolCall: any) => {
+    const rawName = toolCall?.assistantCall?.name || 'Tool Call';
+    
+    // Handle MCP tools specially
+    if (rawName === 'call-mcp-tool') {
+      const assistantContent = toolCall?.assistantCall?.content;
+      if (assistantContent) {
+        try {
+          // Try to extract the actual MCP tool name from the content
+          const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
+          if (toolNameMatch && toolNameMatch[1]) {
+            const mcpToolName = toolNameMatch[1];
+            // Use the MCP tool name for better display
+            return getUserFriendlyToolName(mcpToolName);
+          }
+        } catch (e) {
+          // Fall back to generic name if parsing fails
+        }
+      }
+      return 'External Tool';
+    }
+    
+    // For all other tools, use the friendly name
+    return getUserFriendlyToolName(rawName);
+  };
+  
+  const currentToolName = extractToolName(currentToolCall);
   const CurrentToolIcon = getToolIcon(
-    currentToolName === 'Tool Call' ? 'unknown' : currentToolName,
+    currentToolCall?.assistantCall?.name || 'unknown',
   );
   const isStreaming = currentToolCall?.toolResult?.content === 'STREAMING';
   const isSuccess = currentToolCall?.toolResult?.isSuccess ?? true;

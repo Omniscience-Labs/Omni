@@ -42,7 +42,8 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'complete',
     'crawl-webpage',
     'web-search',
-    'see-image'
+    'see-image',
+    'call-mcp-tool'
 ]);
 
 // Helper function to render attachments

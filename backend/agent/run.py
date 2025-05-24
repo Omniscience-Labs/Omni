@@ -26,6 +26,7 @@ from agent.tools.sb_vision_tool import SandboxVisionTool
 from services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
 from agent.gemini_prompt import get_gemini_system_prompt
+from agent.tools.mcp_tool_wrapper import MCPToolWrapper
 
 load_dotenv()
 
@@ -119,6 +120,11 @@ async def run_agent(
         if config.RAPID_API_KEY and enabled_tools.get('data_providers_tool', {}).get('enabled', False):
             thread_manager.add_tool(DataProvidersTool)
 
+    # Register MCP tool wrapper if agent has configured MCPs
+    if agent_config and agent_config.get('configured_mcps'):
+        logger.info(f"Registering MCP tool wrapper for {len(agent_config['configured_mcps'])} MCP servers")
+        thread_manager.add_tool(MCPToolWrapper, mcp_configs=agent_config['configured_mcps'])
+
     # Prepare system prompt
     # First, get the default system prompt
     if "gemini-2.5-flash" in model_name.lower():
@@ -146,7 +152,25 @@ async def run_agent(
         # Use just the default system prompt
         system_content = default_system_content
         logger.info("Using default system prompt only")
-
+    
+    # Add MCP tool information to system prompt if MCP tools are configured
+    if agent_config and agent_config.get('configured_mcps'):
+        mcp_info = "\n\n--- MCP Tools Available ---\n"
+        mcp_info += "You have access to external MCP (Model Context Protocol) server tools through the <call-mcp-tool> command.\n"
+        mcp_info += "To use an MCP tool, call it like this:\n"
+        mcp_info += '<call-mcp-tool tool_name="mcp_{server}_{tool}">\n'
+        mcp_info += '{"argument1": "value1", "argument2": "value2"}\n'
+        mcp_info += '</call-mcp-tool>\n'
+        
+        # List configured MCP servers
+        mcp_info += "\nConfigured MCP servers:\n"
+        for mcp_config in agent_config['configured_mcps']:
+            server_name = mcp_config.get('name', 'Unknown')
+            qualified_name = mcp_config.get('qualifiedName', 'unknown')
+            mcp_info += f"- {server_name} (use prefix: mcp_{qualified_name}_)\n"
+        
+        system_content += mcp_info
+    
     system_message = { "role": "system", "content": system_content }
 
     iteration_count = 0
