@@ -39,6 +39,7 @@ export interface ChatInputProps {
   hideAttachments?: boolean;
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
+  agentName?: string;
 }
 
 export interface UploadedFile {
@@ -66,6 +67,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       hideAttachments = false,
       selectedAgentId,
       onAgentSelect,
+      agentName,
     },
     ref,
   ) => {
@@ -263,7 +265,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           >
             <div className="text-xs text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Kortix Suna is working...</span>
+              <span>{agentName ? `${agentName} is working...` : 'Suna is working...'}</span>
             </div>
           </motion.div>
         )}

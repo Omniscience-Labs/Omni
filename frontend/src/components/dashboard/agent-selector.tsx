@@ -129,7 +129,7 @@ export function AgentSelector({
                   )}
                 </div>
                 <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
-                  Your personal AI assistant
+                  Your personal AI employee
                 </span>
               </DropdownMenuItem>
               {agents.length > 0 ? (
@@ -227,7 +227,7 @@ export function AgentSelector({
                     </span>
                   ) : isUsingSuna ? (
                     <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px]">
-                      Your personal AI assistant
+                      Your personal AI employee
                     </span>
                   ) : null}
                 </div>
@@ -254,7 +254,7 @@ export function AgentSelector({
                 )}
               </div>
               <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
-                Your personal AI assistant
+                Your personal AI employee
               </span>
             </DropdownMenuItem>
             {agents.length > 0 ? (

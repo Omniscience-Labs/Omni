@@ -72,6 +72,11 @@ class AgentResponse(BaseModel):
     created_at: str
     updated_at: str
 
+class ThreadAgentResponse(BaseModel):
+    agent: Optional[AgentResponse]
+    source: str  # "thread", "default", "none", "missing"
+    message: str
+
 def initialize(
     _thread_manager: ThreadManager,
     _db: DBConnection,
@@ -400,6 +405,78 @@ async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_us
         "completedAt": agent_run_data['completed_at'],
         "error": agent_run_data['error']
     }
+
+@router.get("/thread/{thread_id}/agent", response_model=ThreadAgentResponse)
+async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Get the agent details for a specific thread."""
+    logger.info(f"Fetching agent details for thread: {thread_id}")
+    client = await db.client
+    
+    try:
+        # Verify thread access and get thread data including agent_id
+        await verify_thread_access(client, thread_id, user_id)
+        thread_result = await client.table('threads').select('agent_id', 'account_id').eq('thread_id', thread_id).execute()
+        
+        if not thread_result.data:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        thread_data = thread_result.data[0]
+        thread_agent_id = thread_data.get('agent_id')
+        account_id = thread_data.get('account_id')
+        
+        # If no agent_id is set in the thread, try to get the default agent
+        effective_agent_id = thread_agent_id
+        agent_source = "thread"
+        
+        if not effective_agent_id:
+            # No agent set in thread, get default agent for the account
+            default_agent_result = await client.table('agents').select('agent_id').eq('account_id', account_id).eq('is_default', True).execute()
+            if default_agent_result.data:
+                effective_agent_id = default_agent_result.data[0]['agent_id']
+                agent_source = "default"
+            else:
+                # No default agent found
+                return {
+                    "agent": None,
+                    "source": "none",
+                    "message": "No agent configured for this thread"
+                }
+        
+        # Fetch the agent details
+        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        
+        if not agent_result.data:
+            # Agent was deleted or doesn't exist
+            return {
+                "agent": None,
+                "source": "missing",
+                "message": f"Agent {effective_agent_id} not found or was deleted"
+            }
+        
+        agent_data = agent_result.data[0]
+        
+        return {
+            "agent": AgentResponse(
+                agent_id=agent_data['agent_id'],
+                account_id=agent_data['account_id'],
+                name=agent_data['name'],
+                description=agent_data.get('description'),
+                system_prompt=agent_data['system_prompt'],
+                configured_mcps=agent_data.get('configured_mcps', []),
+                agentpress_tools=agent_data.get('agentpress_tools', {}),
+                is_default=agent_data.get('is_default', False),
+                created_at=agent_data['created_at'],
+                updated_at=agent_data['updated_at']
+            ),
+            "source": agent_source,
+            "message": f"Using {agent_source} agent: {agent_data['name']}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching agent for thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch thread agent: {str(e)}")
 
 @router.get("/agent-run/{agent_run_id}/stream")
 async def stream_agent_run(

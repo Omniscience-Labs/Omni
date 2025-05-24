@@ -2,7 +2,7 @@ import { createMutationHook, createQueryHook } from '@/hooks/use-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
-import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, updateAgent } from './utils';
+import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent } from './utils';
 
 export const useAgents = createQueryHook(
   agentKeys.list(),
@@ -91,4 +91,16 @@ export const useOptimisticAgentUpdate = () => {
       queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
     },
   };
+};
+
+export const useThreadAgent = (threadId: string) => {
+  return createQueryHook(
+    agentKeys.threadAgent(threadId),
+    () => getThreadAgent(threadId),
+    {
+      enabled: !!threadId,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    }
+  )();
 };

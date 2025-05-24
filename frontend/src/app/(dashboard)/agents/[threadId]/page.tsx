@@ -23,7 +23,6 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { ChatInput } from '@/components/thread/chat-input/chat-input';
-import { AgentSelector } from '@/components/thread/chat-input/agent-selector';
 import { FileViewerModal } from '@/components/thread/file-viewer-modal';
 import { SiteHeader } from '@/components/thread/thread-site-header';
 import {
@@ -47,6 +46,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import {
   UnifiedMessage,
@@ -63,6 +63,7 @@ import { useAgentRunsQuery, useStartAgentMutation, useStopAgentMutation } from '
 import { useBillingStatusQuery } from '@/hooks/react-query/threads/use-billing-status';
 import { useSubscription, isPlan } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
+import { useThreadAgent } from '@/hooks/react-query/agents/use-agents';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -136,6 +137,7 @@ export default function ThreadPage({
   const messagesLoadedRef = useRef(false);
   const agentRunsCheckedRef = useRef(false);
   const previousAgentStatus = useRef<typeof agentStatus>('idle');
+  const { data: threadAgent, isLoading: threadAgentLoading, error: threadAgentError } = useThreadAgent(threadId);
 
   const [externalNavIndex, setExternalNavIndex] = React.useState<number | undefined>(undefined);
 
@@ -1223,19 +1225,27 @@ export default function ThreadPage({
               "mx-auto",
               isMobile ? "w-full px-4" : "max-w-3xl"
             )}>
-              <ChatInput
-                value={newMessage}
-                onChange={setNewMessage}
-                onSubmit={handleSubmitMessage}
-                placeholder="Ask Suna anything..."
-                loading={isSending}
-                disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
-                isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
-                onStopAgent={handleStopAgent}
-                autoFocus={!isLoading}
-                onFileBrowse={handleOpenFileViewer}
-                sandboxId={sandboxId || undefined}
-              />
+              {threadAgentLoading || threadAgentError ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                </div>
+              ) : (
+                <ChatInput
+                  value={newMessage}
+                  onChange={setNewMessage}
+                  onSubmit={handleSubmitMessage}
+                  placeholder={`Ask ${threadAgent?.agent?.name || 'Suna'} anything...`}
+                  loading={isSending}
+                  disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
+                  isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
+                  onStopAgent={handleStopAgent}
+                  autoFocus={!isLoading}
+                  onFileBrowse={handleOpenFileViewer}
+                  sandboxId={sandboxId || undefined}
+                  agentName={threadAgent?.agent?.name || 'Suna'}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1257,6 +1267,7 @@ export default function ThreadPage({
           renderAssistantMessage={toolViewAssistant}
           renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
+          agentName={threadAgentLoading ? 'Loading...' : (threadAgent?.agent?.name || 'Suna')}
         />
 
         {sandboxId && (
