@@ -22,6 +22,7 @@ import {
   getFileType,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { GenericToolView } from './GenericToolView';
 import {
@@ -169,19 +170,23 @@ export function FileOperationToolView({
 
     if (!assistantContent) return 'create'; // default fallback
 
-    if (assistantContent.includes('<create-file>')) return 'create';
-    if (assistantContent.includes('<full-file-rewrite>')) return 'rewrite';
+    // Normalize content to string for checking
+    const contentStr = normalizeContentToString(assistantContent);
+    if (!contentStr) return 'create'; // default if can't get string
+
+    if (contentStr.includes('<create-file>')) return 'create';
+    if (contentStr.includes('<full-file-rewrite>')) return 'rewrite';
     if (
-      assistantContent.includes('delete-file') ||
-      assistantContent.includes('<delete>')
+      contentStr.includes('delete-file') ||
+      contentStr.includes('<delete>')
     )
       return 'delete';
 
     // Check for tool names as a fallback
-    if (assistantContent.toLowerCase().includes('create file')) return 'create';
-    if (assistantContent.toLowerCase().includes('rewrite file'))
+    if (contentStr.toLowerCase().includes('create file')) return 'create';
+    if (contentStr.toLowerCase().includes('rewrite file'))
       return 'rewrite';
-    if (assistantContent.toLowerCase().includes('delete file')) return 'delete';
+    if (contentStr.toLowerCase().includes('delete file')) return 'delete';
 
     // Default to create if we can't determine
     return 'create';
@@ -234,9 +239,11 @@ export function FileOperationToolView({
   );
 
   // Fall back to generic view if file path is missing or if content is missing for non-delete operations
+  // BUT: Allow the view to render during streaming even without complete data
   if (
-    (!filePath && !showDebugInfo) ||
-    (operation !== 'delete' && !fileContent)
+    !isStreaming && (
+      (operation !== 'delete' && !fileContent)
+    )
   ) {
     return (
       <GenericToolView
@@ -313,7 +320,7 @@ export function FileOperationToolView({
                 </div>
                 <div>
                   <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                    {processedFilePath || 'Unknown file path'}
+                    File Operation
                   </CardTitle>
                 </div>
               </div>
@@ -441,7 +448,7 @@ export function FileOperationToolView({
                 </div>
                 <div>
                   <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                    {processedFilePath || 'Unknown file path'}
+                    File Operation
                   </CardTitle>
                 </div>
               </div>

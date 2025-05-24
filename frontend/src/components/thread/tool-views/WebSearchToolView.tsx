@@ -87,7 +87,16 @@ export function WebSearchToolView({
   useEffect(() => {
     if (toolContent) {
       try {
-        const parsedContent = JSON.parse(toolContent);
+        // Handle both string and object formats
+        let parsedContent;
+        if (typeof toolContent === 'string') {
+          parsedContent = JSON.parse(toolContent);
+        } else if (typeof toolContent === 'object' && toolContent !== null) {
+          parsedContent = toolContent;
+        } else {
+          parsedContent = {};
+        }
+        
         // Check if it's the response format with answer
         if (parsedContent.answer && typeof parsedContent.answer === 'string') {
           setAnswer(parsedContent.answer);

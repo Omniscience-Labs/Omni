@@ -21,6 +21,7 @@ import { ToolViewProps } from './types';
 import {
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -50,32 +51,34 @@ export function WebScrapeToolView({
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   // Extract URL from the scrape-webpage tag in assistantContent
-  const extractScrapeUrl = (content: string): string | null => {
-    if (!content) return null;
+  const extractScrapeUrl = (content: string | object | undefined | null): string | null => {
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return null;
     
-    // Look for <scrape-webpage urls="..."> pattern
-    const urlMatch = content.match(/<scrape-webpage\s+urls=["']([^"']+)["']/);
+    // Look for <scrape-webpage urls="..."> pattern (with or without attributes)
+    const urlMatch = contentStr.match(/<scrape-webpage[^>]*\s+urls=["']([^"']+)["']/);
     if (urlMatch) {
       return urlMatch[1];
     }
     
     // Fallback to other URL patterns
-    const httpMatch = content.match(/https?:\/\/[^\s<>"]+/);
+    const httpMatch = contentStr.match(/https?:\/\/[^\s<>"]+/);
     return httpMatch ? httpMatch[0] : null;
   };
 
   // Extract scrape results from tool output
-  const extractScrapeResults = (content: string): { 
+  const extractScrapeResults = (content: string | object | undefined | null): { 
     success: boolean; 
     message: string; 
     files: string[]; 
     urlCount: number;
   } => {
-    if (!content) return { success: false, message: 'No output received', files: [], urlCount: 0 };
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return { success: false, message: 'No output received', files: [], urlCount: 0 };
     
     // Extract just the output content, removing XML tags
-    const outputMatch = content.match(/output='([^']+)'/);
-    const cleanContent = outputMatch ? outputMatch[1].replace(/\\n/g, '\n') : content;
+    const outputMatch = contentStr.match(/output='([^']+)'/);
+    const cleanContent = outputMatch ? outputMatch[1].replace(/\\n/g, '\n') : contentStr;
     
     // Parse the clean content
     const successMatch = cleanContent.match(/Successfully scraped (?:all )?(\d+) URLs?/);

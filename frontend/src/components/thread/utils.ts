@@ -29,10 +29,45 @@ export function safeJsonParse<T>(
   if (!jsonString) {
     return fallback;
   }
+  
   try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    // console.warn('Failed to parse JSON string:', jsonString, e); // Optional: log errors
+    // First attempt: Parse as normal JSON
+    const parsed = JSON.parse(jsonString);
+    
+    // Check if the result is a string that looks like JSON (double-escaped case)
+    if (typeof parsed === 'string' && 
+        (parsed.startsWith('{') || parsed.startsWith('['))) {
+      try {
+        // Second attempt: Parse the string result as JSON (handles double-escaped)
+        return JSON.parse(parsed) as T;
+      } catch (innerError) {
+        // If inner parse fails, return the first parse result
+        return parsed as unknown as T;
+      }
+    }
+    
+    return parsed as T;
+  } catch (outerError) {
+    // If the input is already an object/array (shouldn't happen but just in case)
+    if (typeof jsonString === 'object') {
+      return jsonString as T;
+    }
+    
+    // Try one more time in case it's a plain string that should be returned as-is
+    if (typeof jsonString === 'string') {
+      // Check if it's a string representation of a simple value
+      if (jsonString === 'true') return true as unknown as T;
+      if (jsonString === 'false') return false as unknown as T;
+      if (jsonString === 'null') return null as unknown as T;
+      if (!isNaN(Number(jsonString))) return Number(jsonString) as unknown as T;
+      
+      // Return as string if it doesn't look like JSON
+      if (!jsonString.startsWith('{') && !jsonString.startsWith('[')) {
+        return jsonString as unknown as T;
+      }
+    }
+    
+    // console.warn('Failed to parse JSON string:', jsonString, outerError); // Optional: log errors
     return fallback;
   }
 }

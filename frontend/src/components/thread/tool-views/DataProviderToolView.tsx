@@ -26,6 +26,7 @@ import {
   extractSearchQuery,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -75,8 +76,11 @@ export function DataProviderToolView({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Extract provider name from assistant content
-  const extractProviderName = (content: string): string => {
-    const match = content.match(/provider["\s]*[:=]["\s]*([^"'\s,}]+)/i);
+  const extractProviderName = (content: string | object | undefined | null): string => {
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return 'Unknown Provider';
+    
+    const match = contentStr.match(/provider["\s]*[:=]["\s]*([^"'\s,}]+)/i);
     return match ? match[1] : 'Unknown Provider';
   };
 

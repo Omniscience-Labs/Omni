@@ -62,6 +62,7 @@ import { useAgentRunsQuery, useStartAgentMutation, useStopAgentMutation } from '
 import { useBillingStatusQuery } from '@/hooks/react-query/threads/use-billing-status';
 import { useSubscription, isPlan } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
+import { ParsedContent } from '@/components/thread/types';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -706,7 +707,7 @@ export default function ThreadPage({
       const resultMessage = messages.find(toolMsg => {
         if (toolMsg.type !== 'tool' || !toolMsg.metadata || !assistantMsg.message_id) return false;
         try {
-          const metadata = JSON.parse(toolMsg.metadata);
+          const metadata = safeJsonParse<ParsedMetadata>(toolMsg.metadata, {});
           return metadata.assistant_message_id === assistantMsg.message_id;
         } catch (e) {
           return false;
@@ -717,22 +718,37 @@ export default function ThreadPage({
         // Determine tool name from assistant message content
         let toolName = 'unknown';
         try {
+          // Parse the assistant content first
+          const assistantContent = (() => {
+            try {
+              const parsed = safeJsonParse<ParsedContent>(assistantMsg.content, {});
+              return parsed.content || assistantMsg.content;
+            } catch {
+              return assistantMsg.content;
+            }
+          })();
+          
           // Try to extract tool name from content
-          const xmlMatch = assistantMsg.content.match(
+          const xmlMatch = assistantContent.match(
             /<([a-zA-Z\-_]+)(?:\s+[^>]*)?>|<([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/,
           );
           if (xmlMatch) {
-            toolName = xmlMatch[1] || xmlMatch[2] || 'unknown';
+            // Normalize tool name: replace underscores with hyphens and lowercase
+            const rawToolName = xmlMatch[1] || xmlMatch[2] || 'unknown';
+            toolName = rawToolName.replace(/_/g, '-').toLowerCase();
           } else {
             // Fallback to checking for tool_calls JSON structure
             const assistantContentParsed = safeJsonParse<{
-              tool_calls?: { name: string }[];
+              tool_calls?: Array<{ function?: { name?: string }; name?: string }>;
             }>(assistantMsg.content, {});
             if (
               assistantContentParsed.tool_calls &&
               assistantContentParsed.tool_calls.length > 0
             ) {
-              toolName = assistantContentParsed.tool_calls[0].name || 'unknown';
+              const firstToolCall = assistantContentParsed.tool_calls[0];
+              const rawName = firstToolCall.function?.name || firstToolCall.name || 'unknown';
+              // Normalize tool name here too
+              toolName = rawName.replace(/_/g, '-').toLowerCase();
             }
           }
         } catch { }
@@ -744,7 +760,17 @@ export default function ThreadPage({
 
         let isSuccess = true;
         try {
-          const toolContent = resultMessage.content?.toLowerCase() || '';
+          // Parse tool result content
+          const toolResultContent = (() => {
+            try {
+              const parsed = safeJsonParse<ParsedContent>(resultMessage.content, {});
+              return parsed.content || resultMessage.content;
+            } catch {
+              return resultMessage.content;
+            }
+          })();
+          
+          const toolContent = toolResultContent?.toLowerCase() || '';
           isSuccess = !(toolContent.includes('failed') ||
             toolContent.includes('error') ||
             toolContent.includes('failure'));
@@ -753,11 +779,11 @@ export default function ThreadPage({
         historicalToolPairs.push({
           assistantCall: {
             name: toolName,
-            content: assistantMsg.content,
+            content: assistantMsg.content,  // Store original content
             timestamp: assistantMsg.created_at,
           },
           toolResult: {
-            content: resultMessage.content,
+            content: resultMessage.content,  // Store original content
             isSuccess: isSuccess,
             timestamp: resultMessage.created_at,
           },
@@ -819,7 +845,6 @@ export default function ThreadPage({
       if (!tc.toolResult?.content || tc.toolResult.content === 'STREAMING')
         return false; // Skip streaming or incomplete calls
 
-      // Directly compare assistant message IDs if available in the structure
       // Find the original assistant message based on the ID
       const assistantMessage = messages.find(
         (m) =>
@@ -842,6 +867,7 @@ export default function ThreadPage({
       });
 
       // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
+      // Compare the original content directly without parsing
       return (
         tc.assistantCall?.content === assistantMessage.content &&
         tc.toolResult?.content === toolMessage?.content
@@ -874,14 +900,16 @@ export default function ThreadPage({
     (toolCall: StreamingToolCall | null) => {
       if (!toolCall) return;
 
-      const toolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
+      // Normalize the tool name by replacing underscores with hyphens
+      const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
+      const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
       // Skip <ask> tags from showing in the side panel during streaming
       if (toolName === 'ask' || toolName === 'complete') {
         return;
       }
 
-      console.log('[STREAM] Received tool call:', toolName);
+      console.log('[STREAM] Received tool call:', toolName, '(raw:', rawToolName, ')');
 
       // If user explicitly closed the panel, don't reopen it for streaming calls
       if (userClosedPanelRef.current) return;
@@ -894,27 +922,39 @@ export default function ThreadPage({
       // This ensures the specialized tool views render correctly
       let formattedContent = toolArguments;
       if (
-        toolName.toLowerCase().includes('command') &&
+        toolName.includes('command') &&
         !toolArguments.includes('<execute-command>')
       ) {
         formattedContent = `<execute-command>${toolArguments}</execute-command>`;
       } else if (
-        toolName.toLowerCase().includes('file') &&
-        !toolArguments.includes('<create-file>')
+        toolName.includes('file') ||
+        toolName === 'create-file' ||
+        toolName === 'delete-file' ||
+        toolName === 'full-file-rewrite'
       ) {
-        // For file operations, wrap with appropriate tag if not already wrapped
+        // For file operations, check if toolArguments contains a file path
+        // If it's just a raw file path, format it properly
         const fileOpTags = ['create-file', 'delete-file', 'full-file-rewrite'];
-        const matchingTag = fileOpTags.find((tag) =>
-          toolName.toLowerCase().includes(tag),
-        );
-        if (matchingTag && !toolArguments.includes(`<${matchingTag}>`)) {
-          formattedContent = `<${matchingTag}>${toolArguments}</${matchingTag}>`;
+        const matchingTag = fileOpTags.find((tag) => toolName === tag);
+        if (matchingTag) {
+          // Check if arguments already have the proper XML format
+          if (!toolArguments.includes(`<${matchingTag}>`) && !toolArguments.includes('file_path=')) {
+            // If toolArguments looks like a raw file path, format it properly
+            const filePath = toolArguments.trim();
+            if (filePath && !filePath.startsWith('<')) {
+              formattedContent = `<${matchingTag} file_path="${filePath}">`;
+            } else {
+              formattedContent = `<${matchingTag}>${toolArguments}</${matchingTag}>`;
+            }
+          } else {
+            formattedContent = toolArguments;
+          }
         }
       }
 
       const newToolCall: ToolCallInput = {
         assistantCall: {
-          name: toolName,
+          name: toolName,  // Use normalized tool name
           content: formattedContent,
           timestamp: new Date().toISOString(),
         },

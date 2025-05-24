@@ -10,7 +10,7 @@ import {
   Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp } from './utils';
+import { formatTimestamp, normalizeContentToString } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,28 +32,29 @@ export function ExposePortToolView({
 
   // Parse the assistant content
   const parsedAssistantContent = useMemo(() => {
-    if (!assistantContent) return null;
-    try {
-      const parsed = JSON.parse(assistantContent);
-      return parsed.content;
-    } catch (e) {
-      console.error('Failed to parse assistant content:', e);
-      return null;
-    }
+    const contentStr = normalizeContentToString(assistantContent);
+    return contentStr;
   }, [assistantContent]);
 
   // Parse the tool result
   const toolResult = useMemo(() => {
-    if (!toolContent) return null;
+    const contentStr = normalizeContentToString(toolContent);
+    if (!contentStr) return null;
+    
     try {
-      // First parse the outer JSON
-      const parsed = JSON.parse(toolContent);
-      // Then extract the tool result content
-      const match = parsed.content.match(/output='(.*?)'/);
+      // Try to extract the tool result content
+      const match = contentStr.match(/output='(.*?)'/);
       if (match) {
         const jsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
         return JSON.parse(jsonStr);
       }
+      
+      // If no match, try to parse the content directly (new format)
+      const parsed = JSON.parse(contentStr);
+      if (parsed.url && parsed.port) {
+        return parsed;
+      }
+      
       return null;
     } catch (e) {
       console.error('Failed to parse tool content:', e);
