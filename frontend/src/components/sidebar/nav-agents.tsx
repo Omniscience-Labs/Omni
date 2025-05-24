@@ -484,7 +484,7 @@ export function NavAgents() {
                           <SidebarMenuButton
                             asChild
                             className={
-                              isActive ? 'bg-accent text-accent-foreground' : 
+                              isActive ? 'bg-primary/10 text-accent-foreground' : 
                               isSelected ? 'bg-primary/10' : ''
                             }
                           >
@@ -517,7 +517,7 @@ export function NavAgents() {
                       asChild
                       className={
                         isActive
-                          ? 'bg-accent text-accent-foreground font-medium' 
+                          ? 'bg-primary/10 text-accent-foreground font-medium' 
                           : isSelected 
                           ? 'bg-primary/10' 
                           : ''

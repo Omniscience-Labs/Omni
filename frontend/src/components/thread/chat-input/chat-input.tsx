@@ -14,6 +14,7 @@ import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
+import { AgentSelector } from './agent-selector';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -36,6 +37,8 @@ export interface ChatInputProps {
   onFileBrowse?: () => void;
   sandboxId?: string;
   hideAttachments?: boolean;
+  selectedAgentId?: string;
+  onAgentSelect?: (agentId: string | undefined) => void;
 }
 
 export interface UploadedFile {
@@ -61,6 +64,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onFileBrowse,
       sandboxId,
       hideAttachments = false,
+      selectedAgentId,
+      onAgentSelect,
     },
     ref,
   ) => {
@@ -197,15 +202,25 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             }
           }}
         >
-          <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-            <CardContent className="w-full p-1.5 pb-2 bg-sidebar rounded-2xl border">
-              <AttachmentGroup
-                files={uploadedFiles || []}
-                sandboxId={sandboxId}
-                onRemove={removeUploadedFile}
-                layout="inline"
-                maxHeight="216px"
-                showPreviews={true}
+          <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">            
+            <CardContent className="w-full p-1.5 pb-2 bg-sidebar rounded-2xl border">              
+              {onAgentSelect && (                
+                <div className="mb-2 px-2">                  
+                <AgentSelector                    
+                selectedAgentId={selectedAgentId}                    
+                onAgentSelect={onAgentSelect}                    
+                disabled={loading || disabled}                    
+                className="w-full"                 
+                />                
+                </div>              
+              )}                            
+              <AttachmentGroup                
+              files={uploadedFiles || []}                
+              sandboxId={sandboxId}                
+              onRemove={removeUploadedFile}                
+              layout="inline"                
+              maxHeight="216px"                
+              showPreviews={true}              
               />
 
               <MessageInput

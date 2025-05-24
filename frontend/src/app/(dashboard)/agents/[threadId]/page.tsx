@@ -23,6 +23,7 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { ChatInput } from '@/components/thread/chat-input/chat-input';
+import { AgentSelector } from '@/components/thread/chat-input/agent-selector';
 import { FileViewerModal } from '@/components/thread/file-viewer-modal';
 import { SiteHeader } from '@/components/thread/thread-site-header';
 import {
@@ -143,6 +144,9 @@ export default function ThreadPage({
 
   // Add state for the free tier upgrade dialog
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Add state for selected agent
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
 
   const threadQuery = useThreadQuery(threadId);
   const messagesQuery = useMessagesQuery(threadId);
@@ -522,7 +526,10 @@ export default function ThreadPage({
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options
+          options: {
+            ...options,
+            agent_id: selectedAgentId  // Pass the selected agent ID
+          }
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -584,7 +591,7 @@ export default function ThreadPage({
         setIsSending(false);
       }
     },
-    [threadId, project?.account_id, addUserMessageMutation, startAgentMutation, messagesQuery, agentRunsQuery],
+    [threadId, project?.account_id, addUserMessageMutation, startAgentMutation, messagesQuery, agentRunsQuery, selectedAgentId],
   );
 
   const handleStopAgent = useCallback(async () => {

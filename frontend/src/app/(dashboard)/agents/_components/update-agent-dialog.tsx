@@ -402,12 +402,12 @@ export function UpdateAgentDialog({ agentId, isOpen, onOpenChange, onAgentUpdate
             >
               {updateAgentMutation.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Saving Changes
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-4 w-4" />
                   Save Changes
                 </>
               )}

@@ -75,7 +75,7 @@ export function MaintenancePage() {
             className="w-full"
           >
             <RefreshCw
-              className={cn('mr-2 h-4 w-4', isCheckingHealth && 'animate-spin')}
+              className={cn('h-4 w-4', isCheckingHealth && 'animate-spin')}
             />
             {isCheckingHealth ? 'Checking...' : 'Check Again'}
           </Button>

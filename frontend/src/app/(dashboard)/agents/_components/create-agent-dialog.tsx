@@ -272,7 +272,7 @@ export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: Crea
             >
               {createAgentMutation.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Creating Agent
                 </>
               ) : (

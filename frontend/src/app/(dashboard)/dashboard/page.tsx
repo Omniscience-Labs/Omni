@@ -23,7 +23,6 @@ import { useBillingError } from '@/hooks/useBillingError';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
 import { config } from '@/lib/config';
-import { cn } from '@/lib/utils';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
 import { AgentSelector } from '@/components/dashboard/agent-selector';
@@ -168,12 +167,19 @@ function DashboardContent() {
         )}
 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[650px] max-w-[90%]">
-          <div className="flex flex-col items-center text-center mb-2 w-full">
-            <h1 className={cn('tracking-tight text-4xl font-semibold leading-tight')}>
-              Hey
-            </h1>
-            <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2 flex items-center gap-2">
-              What would you like Suna to do today?
+          <div className="flex flex-col items-center text-center mb-6 w-full">
+            <div className="flex items-center gap-1">
+              <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
+                Hey, I am
+              </h1>
+              <AgentSelector 
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={setSelectedAgentId}
+                variant="heading"
+              />
+            </div>
+            <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">
+              What would you like to do today?
             </p>
           </div>
 
@@ -186,14 +192,6 @@ function DashboardContent() {
             onChange={setInputValue}
             hideAttachments={false}
           />
-          
-          <div className="flex justify-center mt-4">
-            <AgentSelector 
-              selectedAgentId={selectedAgentId}
-              onAgentSelect={setSelectedAgentId}
-              className="max-w-sm"
-            />
-          </div>
         </div>
 
         <BillingErrorAlert

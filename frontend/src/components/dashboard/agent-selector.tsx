@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, Plus, Star, Bot } from 'lucide-react';
+import { ChevronDown, Plus, Star, Bot, Edit, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,34 +14,42 @@ import { Badge } from '@/components/ui/badge';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { CreateAgentDialog } from '@/app/(dashboard)/agents/_components/create-agent-dialog';
 
 interface AgentSelectorProps {
-  onAgentSelect?: (agentId: string) => void;
+  onAgentSelect?: (agentId: string | undefined) => void;
   selectedAgentId?: string;
   className?: string;
+  variant?: 'default' | 'heading';
 }
 
 export function AgentSelector({ 
   onAgentSelect, 
   selectedAgentId, 
-  className 
+  className,
+  variant = 'default'
 }: AgentSelectorProps) {
-  const { data: agents = [], isLoading } = useAgents();
+  const { data: agents = [], isLoading, refetch: loadAgents } = useAgents();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const defaultAgent = agents.find(agent => agent.is_default);
   const currentAgent = selectedAgentId 
     ? agents.find(agent => agent.agent_id === selectedAgentId)
-    : defaultAgent;
+    : null;
 
-  const handleAgentSelect = (agentId: string) => {
+  // Display name logic: show selected agent, default agent, or "Suna" as fallback
+  const displayName = currentAgent?.name || defaultAgent?.name || 'Suna';
+  const isUsingSuna = !currentAgent && !defaultAgent;
+
+  const handleAgentSelect = (agentId: string | undefined) => {
     onAgentSelect?.(agentId);
     setIsOpen(false);
   };
 
-  const handleNewAgent = () => {
-    router.push('/agents');
+  const handleCreateAgent = () => {
+    setCreateDialogOpen(true);
     setIsOpen(false);
   };
 
@@ -50,7 +58,22 @@ export function AgentSelector({
     setIsOpen(false);
   };
 
+  const handleClearSelection = () => {
+    onAgentSelect?.(undefined);
+    setIsOpen(false);
+  };
+
   if (isLoading) {
+    if (variant === 'heading') {
+      return (
+        <div className={cn("flex items-center", className)}>
+          <span className="tracking-tight text-4xl font-semibold leading-tight text-muted-foreground">
+            Loading...
+          </span>
+        </div>
+      );
+    }
+    
     return (
       <div className={cn("flex items-center gap-2", className)}>
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-background">
@@ -61,89 +84,232 @@ export function AgentSelector({
     );
   }
 
-  return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="flex items-center gap-2 px-3 py-2 h-auto min-w-[200px] justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col items-start">
-                <div className="flex items-center gap-1">
-                  <span className="text-sm font-medium">
-                    {currentAgent?.name || 'No agent selected'}
-                  </span>
-                  {currentAgent?.is_default && (
-                    <Badge variant="secondary" className="text-xs px-1 py-0">
-                      <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />
+  if (variant === 'heading') {
+    return (
+      <>
+        <div className={cn("flex items-center", className)}>
+          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex items-center gap-1 px-2 py-1 h-auto hover:bg-transparent hover:text-primary transition-colors group"
+              >
+                <span className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+                  {displayName}
+                </span>
+                <div className="flex items-center opacity-60 group-hover:opacity-100 transition-opacity">
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  <Edit className="h-4 w-4 text-muted-foreground ml-1" />
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            
+            <DropdownMenuContent align="start" className="w-[320px]">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium">Select an agent</p>
+                <p className="text-xs text-muted-foreground">You can create your own agent</p>
+              </div>
+
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem
+                onClick={() => handleClearSelection()}
+                className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <span className="font-medium truncate">Suna</span>
+                    <Badge variant="outline" className="text-xs px-1 py-0 flex-shrink-0">
                       Default
                     </Badge>
+                  </div>
+                  {isUsingSuna && (
+                    <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                   )}
                 </div>
-                {currentAgent?.description && (
-                  <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px]">
-                    {currentAgent.description}
-                  </span>
-                )}
-              </div>
-            </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-        
-        <DropdownMenuContent align="start" className="w-[280px]">
-          {agents.length > 0 ? (
-            <>
-              {agents.map((agent) => (
-                <DropdownMenuItem
-                  key={agent.agent_id}
-                  onClick={() => handleAgentSelect(agent.agent_id)}
-                  className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    <Bot className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex items-center gap-1 flex-1">
-                      <span className="font-medium">{agent.name}</span>
-                      {agent.is_default && (
-                        <Badge variant="secondary" className="text-xs px-1 py-0">
-                          <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />
-                          Default
-                        </Badge>
+                <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
+                  Your personal AI assistant
+                </span>
+              </DropdownMenuItem>
+              {agents.length > 0 ? (
+                <>
+                  {agents.map((agent) => (
+                    <DropdownMenuItem
+                      key={agent.agent_id}
+                      onClick={() => handleAgentSelect(agent.agent_id)}
+                      className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <Bot className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                          <span className="font-medium truncate">{agent.name}</span>
+                          {agent.is_default && (
+                            <Badge variant="secondary" className="text-xs px-1 py-0 flex-shrink-0">
+                              <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />
+                              System
+                            </Badge>
+                          )}
+                        </div>
+                        {currentAgent?.agent_id === agent.agent_id && (
+                          <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                        )}
+                      </div>
+                      {agent.description && (
+                        <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
+                          {agent.description}
+                        </span>
                       )}
-                    </div>
-                    {currentAgent?.agent_id === agent.agent_id && (
-                      <div className="h-2 w-2 rounded-full bg-primary" />
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              ) : null}
+
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onClick={handleCreateAgent} className="cursor-pointer">
+                <Plus className="h-4 w-4" />
+                Create New Agent
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={handleManageAgents} className="cursor-pointer">
+                <Bot className="h-4 w-4" />
+                Manage All Agents
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
+        <CreateAgentDialog
+          isOpen={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onAgentCreated={loadAgents}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className={cn("flex items-center gap-2", className)}>
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 px-3 py-2 h-auto min-w-[200px] justify-between"
+            >
+              <div className="flex items-center gap-2">
+                {isUsingSuna ? (
+                  <User className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                )}
+                <div className="flex flex-col items-start">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-medium">
+                      {displayName}
+                    </span>
+                    {isUsingSuna && (
+                      <Badge variant="outline" className="text-xs px-1 py-0">
+                        Default
+                      </Badge>
+                    )}
+                    {currentAgent?.is_default && (
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />
+                        System
+                      </Badge>
                     )}
                   </div>
-                  {agent.description && (
-                    <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
-                      {agent.description}
+                  {currentAgent?.description ? (
+                    <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px]">
+                      {currentAgent.description}
                     </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-            </>
-          ) : (
-            <DropdownMenuItem disabled className="text-center text-muted-foreground">
-              No agents available
+                  ) : isUsingSuna ? (
+                    <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px]">
+                      Your personal AI assistant
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          
+          <DropdownMenuContent align="start" className="w-[280px]">
+            <DropdownMenuItem
+              onClick={() => handleClearSelection()}
+              className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="font-medium">Suna</span>
+                  <Badge variant="outline" className="text-xs px-1 py-0">
+                    Default
+                  </Badge>
+                </div>
+                {isUsingSuna && (
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
+                Your personal AI assistant
+              </span>
             </DropdownMenuItem>
-          )}
-          
-          <DropdownMenuItem onClick={handleNewAgent} className="cursor-pointer">
-            <Plus className="h-4 w-4" />
-            New Agent
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={handleManageAgents} className="cursor-pointer">
-            <Bot className="h-4 w-4" />
-            Manage Agents
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+            {agents.length > 0 ? (
+              <>
+                {agents.map((agent) => (
+                  <DropdownMenuItem
+                    key={agent.agent_id}
+                    onClick={() => handleAgentSelect(agent.agent_id)}
+                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center gap-1 flex-1">
+                        <span className="font-medium">{agent.name}</span>
+                        {agent.is_default && (
+                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                            <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />
+                            System
+                          </Badge>
+                        )}
+                      </div>
+                      {currentAgent?.agent_id === agent.agent_id && (
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    {agent.description && (
+                      <span className="text-xs text-muted-foreground pl-6 line-clamp-2">
+                        {agent.description}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            ) : null}
+            
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuItem onClick={handleCreateAgent} className="cursor-pointer">
+              <Plus className="h-4 w-4" />
+              Create New Agent
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={handleManageAgents} className="cursor-pointer">
+              <Bot className="h-4 w-4" />
+              Manage All Agents
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
+      <CreateAgentDialog
+        isOpen={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onAgentCreated={loadAgents}
+      />
+    </>
   );
-} 
+}

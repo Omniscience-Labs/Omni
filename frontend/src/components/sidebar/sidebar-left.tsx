@@ -28,6 +28,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 
 export function SidebarLeft({
   ...props
@@ -43,6 +46,8 @@ export function SidebarLeft({
     email: 'loading@example.com',
     avatar: '',
   });
+
+  const pathname = usePathname();
 
   // Fetch user data
   useEffect(() => {
@@ -129,14 +134,21 @@ export function SidebarLeft({
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        <SidebarGroup>
-          <Link href="/agents">
-            <SidebarMenuButton>
-              <Bot className="h-4 w-4" />
+      <SidebarGroup>
+        <Link href="/agents">
+          <SidebarMenuButton className={cn({
+            'bg-primary/10 font-medium': pathname === '/agents',
+          })}>
+            <Bot className="h-4 w-4" />
+            <span className="flex items-center justify-between w-full">
               Agents
-            </SidebarMenuButton>
-          </Link>
-        </SidebarGroup>
+              <Badge variant="secondary" className="ml-2 text-xs border bg-blue-200/50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                New
+              </Badge>
+            </span>
+          </SidebarMenuButton>
+        </Link>
+      </SidebarGroup>
         <NavAgents />
       </SidebarContent>
       {state !== 'collapsed' && (

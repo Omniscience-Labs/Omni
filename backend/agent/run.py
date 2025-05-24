@@ -36,10 +36,13 @@ async def run_agent(
     model_name: str = "anthropic/claude-3-7-sonnet-latest",
     enable_thinking: Optional[bool] = False,
     reasoning_effort: Optional[str] = 'low',
-    enable_context_manager: bool = True
+    enable_context_manager: bool = True,
+    agent_config: Optional[dict] = None 
 ):
     """Run the development agent with specified configuration."""
     logger.info(f"🚀 Starting agent with model: {model_name}")
+    if agent_config:
+        logger.info(f"Using custom agent: {agent_config.get('name', 'Unknown')}")
 
     thread_manager = ThreadManager()
 
@@ -62,30 +65,81 @@ async def run_agent(
 
     # Initialize tools with project_id instead of sandbox object
     # This ensures each tool independently verifies it's operating on the correct project
-    thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
-    thread_manager.add_tool(MessageTool) # we are just doing this via prompt as there is no need to call it as a tool
-    thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
-    thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
-    # Add data providers tool if RapidAPI key is available
-    if config.RAPID_API_KEY:
-        thread_manager.add_tool(DataProvidersTool)
+    
+    # Get enabled tools from agent config, or use defaults
+    enabled_tools = None
+    if agent_config and 'agentpress_tools' in agent_config:
+        enabled_tools = agent_config['agentpress_tools']
+        logger.info(f"Using custom tool configuration from agent")
+    
+    # Register tools based on configuration
+    # If no agent config (enabled_tools is None), register ALL tools for full Suna capabilities
+    # If agent config exists, only register explicitly enabled tools
+    
+    if enabled_tools is None:
+        # No agent specified - register ALL tools for full Suna experience
+        logger.info("No agent specified - registering all tools for full Suna capabilities")
+        thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
+        thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(MessageTool)
+        thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
+        if config.RAPID_API_KEY:
+            thread_manager.add_tool(DataProvidersTool)
+    else:
+        # Agent specified - only register explicitly enabled tools
+        logger.info("Custom agent specified - registering only enabled tools")
+        if enabled_tools.get('sb_shell_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
+        if enabled_tools.get('sb_files_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
+        if enabled_tools.get('sb_browser_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
+        if enabled_tools.get('sb_deploy_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
+        if enabled_tools.get('sb_expose_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
+        if enabled_tools.get('message_tool', {}).get('enabled', False):
+            thread_manager.add_tool(MessageTool)
+        if enabled_tools.get('web_search_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
+        if enabled_tools.get('sb_vision_tool', {}).get('enabled', False):
+            thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
+        if config.RAPID_API_KEY and enabled_tools.get('data_providers_tool', {}).get('enabled', False):
+            thread_manager.add_tool(DataProvidersTool)
 
-
+    # Prepare system prompt
+    # First, get the default system prompt
     if "gemini-2.5-flash" in model_name.lower():
-        system_message = { "role": "system", "content": get_gemini_system_prompt() } # example included
-    elif "anthropic" not in model_name.lower():
-        # Only include sample response if the model name does not contain "anthropic"
+        default_system_content = get_gemini_system_prompt()
+    else:
+        # Use the original prompt - the LLM can only use tools that are registered
+        default_system_content = get_system_prompt()
+        
+    # Add sample response for non-anthropic models
+    if "anthropic" not in model_name.lower():
         sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
         with open(sample_response_path, 'r') as file:
             sample_response = file.read()
+        default_system_content = default_system_content + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>"
+    
+    # Handle custom agent system prompt
+    if agent_config and agent_config.get('system_prompt'):
+        custom_system_prompt = agent_config['system_prompt'].strip()
         
-        system_message = { "role": "system", "content": get_system_prompt() + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>" }
+        # Completely replace the default system prompt with the custom one
+        # This prevents confusion and tool hallucination
+        system_content = custom_system_prompt
+        logger.info(f"Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
     else:
-        system_message = { "role": "system", "content": get_system_prompt() }
+        # Use just the default system prompt
+        system_content = default_system_content
+        logger.info("Using default system prompt only")
+
+    system_message = { "role": "system", "content": system_content }
 
     iteration_count = 0
     continue_execution = True

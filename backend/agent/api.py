@@ -14,7 +14,6 @@ import os
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from services import redis
-from agent.run import run_agent
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
 from utils.logger import logger
 from services.billing import check_billing_status, can_use_model
@@ -39,6 +38,7 @@ class AgentStartRequest(BaseModel):
     reasoning_effort: Optional[str] = 'low'
     stream: Optional[bool] = True
     enable_context_manager: Optional[bool] = False
+    agent_id: Optional[str] = None  # Custom agent to use
 
 class InitiateAgentResponse(BaseModel):
     thread_id: str
@@ -269,12 +269,45 @@ async def start_agent(
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
-    thread_result = await client.table('threads').select('project_id', 'account_id').eq('thread_id', thread_id).execute()
+    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id').eq('thread_id', thread_id).execute()
     if not thread_result.data:
         raise HTTPException(status_code=404, detail="Thread not found")
     thread_data = thread_result.data[0]
     project_id = thread_data.get('project_id')
     account_id = thread_data.get('account_id')
+    thread_agent_id = thread_data.get('agent_id')
+    
+    # Load agent configuration
+    agent_config = None
+    effective_agent_id = body.agent_id or thread_agent_id  # Use provided agent_id or the one stored in thread
+    
+    if effective_agent_id:
+        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        if not agent_result.data:
+            if body.agent_id:
+                raise HTTPException(status_code=404, detail="Agent not found or access denied")
+            else:
+                logger.warning(f"Stored agent_id {effective_agent_id} not found, falling back to default")
+                effective_agent_id = None
+        else:
+            agent_config = agent_result.data[0]
+            source = "request" if body.agent_id else "thread"
+            logger.info(f"Using agent from {source}: {agent_config['name']} ({effective_agent_id})")
+    
+    # If no agent found yet, try to get default agent for the account
+    if not agent_config:
+        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
+        if default_agent_result.data:
+            agent_config = default_agent_result.data[0]
+            logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']})")
+    
+    # Update thread's agent_id if a different agent was explicitly requested
+    if body.agent_id and body.agent_id != thread_agent_id and agent_config:
+        try:
+            await client.table('threads').update({"agent_id": agent_config['agent_id']}).eq('thread_id', thread_id).execute()
+            logger.info(f"Updated thread {thread_id} to use agent {agent_config['agent_id']}")
+        except Exception as e:
+            logger.warning(f"Failed to update thread agent_id: {e}")
 
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
@@ -327,7 +360,8 @@ async def start_agent(
         project_id=project_id,
         model_name=model_name,  # Already resolved above
         enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
-        stream=body.stream, enable_context_manager=body.enable_context_manager
+        stream=body.stream, enable_context_manager=body.enable_context_manager,
+        agent_config=agent_config  # Pass agent configuration
     )
 
     return {"agent_run_id": agent_run_id, "status": "running"}
@@ -600,6 +634,7 @@ async def initiate_agent_with_files(
     reasoning_effort: Optional[str] = Form("low"),
     stream: Optional[bool] = Form(True),
     enable_context_manager: Optional[bool] = Form(False),
+    agent_id: Optional[str] = Form(None),  # Add agent_id parameter
     files: List[UploadFile] = File(default=[]),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
@@ -626,6 +661,21 @@ async def initiate_agent_with_files(
     client = await db.client
     account_id = user_id # In Basejump, personal account_id is the same as user_id
     
+    # Load agent configuration if agent_id is provided
+    agent_config = None
+    if agent_id:
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', account_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found or access denied")
+        agent_config = agent_result.data[0]
+        logger.info(f"Using custom agent: {agent_config['name']} ({agent_id})")
+    else:
+        # Try to get default agent for the account
+        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
+        if default_agent_result.data:
+            agent_config = default_agent_result.data[0]
+            logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']})")
+    
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
         raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
@@ -645,10 +695,19 @@ async def initiate_agent_with_files(
         logger.info(f"Created new project: {project_id}")
 
         # 2. Create Thread
-        thread = await client.table('threads').insert({
-            "thread_id": str(uuid.uuid4()), "project_id": project_id, "account_id": account_id,
+        thread_data = {
+            "thread_id": str(uuid.uuid4()), 
+            "project_id": project_id, 
+            "account_id": account_id,
             "created_at": datetime.now(timezone.utc).isoformat()
-        }).execute()
+        }
+        
+        # Store the agent_id in the thread if we have one
+        if agent_config:
+            thread_data["agent_id"] = agent_config['agent_id']
+            logger.info(f"Storing agent_id {agent_config['agent_id']} in thread")
+        
+        thread = await client.table('threads').insert(thread_data).execute()
         thread_id = thread.data[0]['thread_id']
         logger.info(f"Created new thread: {thread_id}")
 
@@ -771,7 +830,8 @@ async def initiate_agent_with_files(
             project_id=project_id,
             model_name=model_name,  # Already resolved above
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
-            stream=stream, enable_context_manager=enable_context_manager
+            stream=stream, enable_context_manager=enable_context_manager,
+            agent_config=agent_config  # Pass agent configuration
         )
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
