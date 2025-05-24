@@ -63,7 +63,6 @@ export function NavAgents() {
   const isPerformingActionRef = useRef(false);
   const queryClient = useQueryClient();
   
-  const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [selectedThreads, setSelectedThreads] = useState<Set<string>>(new Set());
   const [deleteProgress, setDeleteProgress] = useState(0);
   const [totalToDelete, setTotalToDelete] = useState(0);
@@ -147,10 +146,9 @@ export function NavAgents() {
 
   // Function to handle thread click with loading state
   const handleThreadClick = (e: React.MouseEvent<HTMLAnchorElement>, threadId: string, url: string) => {
-    // If multi-select is active, prevent navigation and toggle selection
-    if (isMultiSelectActive) {
+    // If thread is selected, prevent navigation 
+    if (selectedThreads.has(threadId)) {
       e.preventDefault();
-      toggleThreadSelection(threadId);
       return;
     }
     
@@ -160,7 +158,12 @@ export function NavAgents() {
   }
 
   // Toggle thread selection for multi-select
-  const toggleThreadSelection = (threadId: string) => {
+  const toggleThreadSelection = (threadId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     setSelectedThreads(prev => {
       const newSelection = new Set(prev);
       if (newSelection.has(threadId)) {
@@ -170,15 +173,6 @@ export function NavAgents() {
       }
       return newSelection;
     });
-  };
-
-  // Toggle multi-select mode
-  const toggleMultiSelect = () => {
-    setIsMultiSelectActive(!isMultiSelectActive);
-    // Clear selections when toggling off
-    if (isMultiSelectActive) {
-      setSelectedThreads(new Set());
-    }
   };
 
   // Select all threads
@@ -310,7 +304,6 @@ export function NavAgents() {
               
               // Reset states
               setSelectedThreads(new Set());
-              setIsMultiSelectActive(false);
               setDeleteProgress(0);
               setTotalToDelete(0);
             },
@@ -332,7 +325,6 @@ export function NavAgents() {
         
         // Reset states
         setSelectedThreads(new Set());
-        setIsMultiSelectActive(false);
         setThreadToDelete(null);
         isPerformingActionRef.current = false;
         setDeleteProgress(0);
@@ -352,19 +344,15 @@ export function NavAgents() {
   return (
     <SidebarGroup>
       <div className="flex justify-between items-center">
-        <SidebarGroupLabel>
-          <History className="h-2 w-2 mr-2" />
-          History
-        </SidebarGroupLabel>
+        <SidebarGroupLabel>Tasks</SidebarGroupLabel>
         {state !== 'collapsed' ? (
           <div className="flex items-center space-x-1">
-            {isMultiSelectActive ? (
+            {selectedThreads.size > 0 ? (
               <>
                 <Button 
                   variant="ghost" 
                   size="icon"
                   onClick={deselectAllThreads}
-                  disabled={selectedThreads.size === 0}
                   className="h-7 w-7"
                 >
                   <X className="h-4 w-4" />
@@ -382,56 +370,26 @@ export function NavAgents() {
                   variant="ghost" 
                   size="icon"
                   onClick={handleMultiDelete}
-                  disabled={selectedThreads.size === 0}
                   className="h-7 w-7 text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={toggleMultiSelect}
-                  className="h-7 px-2 text-xs"
-                >
-                  Done
-                </Button>
               </>
             ) : (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleMultiSelect}
-                        className="h-7 w-7"
-                        disabled={combinedThreads.length === 0}
-                      >
-                        <div className="h-4 w-4 border rounded border-foreground/30 flex items-center justify-center">
-                          {isMultiSelectActive && <Check className="h-3 w-3" />}
-                        </div>
-                        <span className="sr-only">Select</span>
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Select Multiple</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Link
-                        href="/dashboard"
-                        className="text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center rounded-md"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span className="sr-only">New Agent</span>
-                      </Link>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>New Agent</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Link
+                      href="/dashboard"
+                      className="text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center rounded-md"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span className="sr-only">New Agent</span>
+                    </Link>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>New Agent</TooltipContent>
+              </Tooltip>
             )}
           </div>
         ) : null}
@@ -476,7 +434,7 @@ export function NavAgents() {
               const isSelected = selectedThreads.has(thread.threadId);
 
               return (
-                <SidebarMenuItem key={`thread-${thread.threadId}`}>
+                <SidebarMenuItem key={`thread-${thread.threadId}`} className="group">
                   {state === 'collapsed' ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -494,13 +452,7 @@ export function NavAgents() {
                                 handleThreadClick(e, thread.threadId, thread.url)
                               }
                             >
-                              {isMultiSelectActive ? (
-                                <div 
-                                  className={`h-4 w-4 border rounded flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-foreground'}`}
-                                >
-                                  {isSelected && <Check className="h-3 w-3 text-white" />}
-                                </div>
-                              ) : isThreadLoading ? (
+                              {isThreadLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <MessagesSquare className="h-4 w-4" />
@@ -513,48 +465,68 @@ export function NavAgents() {
                       <TooltipContent>{thread.projectName}</TooltipContent>
                     </Tooltip>
                   ) : (
-                    <SidebarMenuButton
-                      asChild
-                      className={
-                        isActive
-                          ? 'bg-primary/10 text-accent-foreground font-medium' 
-                          : isSelected 
-                          ? 'bg-primary/10' 
-                          : ''
-                      }
-                    >
-                      <Link
-                        href={thread.url}
-                        onClick={(e) =>
-                          handleThreadClick(e, thread.threadId, thread.url)
-                        }
-                        className="flex items-center"
+                    <div className="relative">
+                      <SidebarMenuButton
+                        asChild
+                        className={`relative ${
+                          isActive
+                            ? 'bg-accent text-accent-foreground font-medium' 
+                            : isSelected 
+                            ? 'bg-primary/10' 
+                            : ''
+                        }`}
                       >
-                            {isMultiSelectActive ? (
-                              <div 
-                                className={`h-4 w-4 border flex-shrink-0 hover:bg-muted transition rounded mr-2 flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-foreground/30'}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  toggleThreadSelection(thread.threadId);
-                                }}
-                              >
-                                {isSelected && <Check className="h-3 w-3 text-white" />}
-                              </div>
-                            ) : null}
-                        {isThreadLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <MessagesSquare className="h-4 w-4" />
-                        )}
-                        <span>{thread.projectName}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                        <Link
+                          href={thread.url}
+                          onClick={(e) =>
+                            handleThreadClick(e, thread.threadId, thread.url)
+                          }
+                          className="flex items-center"
+                        >
+                          <div className="flex items-center group/icon relative">
+                            {/* Show checkbox on hover or when selected, otherwise show MessagesSquare */}
+                            {isThreadLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                {/* MessagesSquare icon - hidden on hover if not selected */}
+                                <MessagesSquare 
+                                  className={`h-4 w-4 transition-opacity duration-150 ${
+                                    isSelected ? 'opacity-0' : 'opacity-100 group-hover/icon:opacity-0'
+                                  }`} 
+                                />
+                                
+                                {/* Checkbox - appears on hover or when selected */}
+                                <div 
+                                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-150 ${
+                                    isSelected 
+                                      ? 'opacity-100' 
+                                      : 'opacity-0 group-hover/icon:opacity-100'
+                                  }`}
+                                  onClick={(e) => toggleThreadSelection(thread.threadId, e)}
+                                >
+                                  <div 
+                                    className={`h-4 w-4 border rounded cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-center ${
+                                      isSelected 
+                                        ? 'bg-primary border-primary' 
+                                        : 'border-muted-foreground/30 bg-background'
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <span className="ml-2">{thread.projectName}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </div>
                   )}
-                  {state !== 'collapsed' && !isMultiSelectActive && (
+                  {state !== 'collapsed' && !isSelected && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <SidebarMenuAction showOnHover>
+                        <SidebarMenuAction showOnHover className="group-hover:opacity-100">
                           <MoreHorizontal />
                           <span className="sr-only">More</span>
                         </SidebarMenuAction>

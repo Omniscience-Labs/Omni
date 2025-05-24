@@ -1226,7 +1226,7 @@ export default function ThreadPage({
               isMobile ? "w-full px-4" : "max-w-3xl"
             )}>
               {threadAgentLoading || threadAgentError ? (
-                <div className="space-y-3">
+                <div className="space-y-3 mb-6">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-12 w-full rounded-lg" />
                 </div>

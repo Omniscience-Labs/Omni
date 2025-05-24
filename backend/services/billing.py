@@ -553,7 +553,8 @@ async def create_checkout_session(
                 metadata={
                         'user_id': current_user_id,
                         'product_id': product_id
-                }
+                },
+                allow_promotion_codes=True
             )
             
             # Update customer status to potentially active (will be confirmed by webhook)
