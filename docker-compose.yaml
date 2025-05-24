@@ -1,6 +1,8 @@
 services:
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
       - ./backend/services/docker/redis.conf:/usr/local/etc/redis/redis.conf:ro
@@ -14,7 +16,7 @@ services:
   rabbitmq:
     image: rabbitmq
     ports:
-      - "5672:5672"  
+      - "5672:5672"
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq

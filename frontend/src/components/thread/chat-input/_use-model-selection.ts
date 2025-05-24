@@ -7,7 +7,7 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 
 export const STORAGE_KEY_MODEL = 'suna-preferred-model';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
-export const DEFAULT_FREE_MODEL_ID = 'gemini-flash-2.5';
+export const DEFAULT_FREE_MODEL_ID = 'deepseek';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
@@ -269,7 +269,7 @@ export const useModelSelection = () => {
       models = [
         { 
           id: DEFAULT_FREE_MODEL_ID, 
-          label: 'Gemini Flash 2.5', 
+          label: 'DeepSeek', 
           requiresSubscription: false,
           description: MODELS[DEFAULT_FREE_MODEL_ID]?.description || MODEL_TIERS.free.baseDescription,
           priority: MODELS[DEFAULT_FREE_MODEL_ID]?.priority || 50
