@@ -18,12 +18,16 @@ export const useInitiateAgentMutation = createMutationHook<
     },
     onError: (error) => {
       if (error instanceof Error) {
-        if (error.message.includes("Cannot connect to backend server")) {
+        const errorMessage = error.message;
+        if (errorMessage.toLowerCase().includes("payment required")) {
+          return;
+        }
+        if (errorMessage.includes("Cannot connect to backend server")) {
           toast.error("Connection error: Please check your internet connection and ensure the backend server is running");
-        } else if (error.message.includes("No access token available")) {
+        } else if (errorMessage.includes("No access token available")) {
           toast.error("Authentication error: Please sign in again");
         } else {
-          toast.error(`Failed to initiate agent: ${error.message}`);
+          toast.error(`Failed to initiate agent: ${errorMessage}`);
         }
       } else {
         toast.error("An unexpected error occurred while initiating the agent");
@@ -40,8 +44,14 @@ export const useInitiateAgentWithInvalidation = () => {
       queryClient.invalidateQueries({ queryKey: dashboardKeys.agents });
     },
     onError: (error) => {
-      if (error instanceof Error && error.message.includes("Payment Required")) {
-        onOpen("paymentRequiredDialog");
+      console.log('Mutation error:', error);
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        if (errorMessage.toLowerCase().includes("payment required")) {
+          console.log('Opening payment required modal');
+          onOpen("paymentRequiredDialog");
+          return; // Don't show other error toasts
+        }
       }
     }
   });
