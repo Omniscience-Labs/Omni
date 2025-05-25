@@ -42,22 +42,48 @@ export function ExposePortToolView({
     if (!contentStr) return null;
     
     try {
-      // Try to extract the tool result content
-      const match = contentStr.match(/output='(.*?)'/);
-      if (match) {
-        const jsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
-        return JSON.parse(jsonStr);
-      }
-      
-      // If no match, try to parse the content directly (new format)
+      // First, try to parse the content directly (new format)
       const parsed = JSON.parse(contentStr);
       if (parsed.url && parsed.port) {
         return parsed;
+      }
+    } catch (e) {
+      // Continue with regex extraction for old format
+    }
+    
+    try {
+      // Look for the ToolResult pattern with better regex that handles escaped quotes
+      const toolResultMatch = contentStr.match(/ToolResult\(success=(?:True|true),\s*output='((?:[^'\\]|\\.)*)'\)/);
+      if (toolResultMatch) {
+        // Extract the JSON string and clean it up
+        let jsonStr = toolResultMatch[1];
+        
+        // Handle double-escaped characters
+        jsonStr = jsonStr
+          .replace(/\\\\n/g, '\n')  // Replace \\n with \n
+          .replace(/\\\\"/g, '"')    // Replace \\" with "
+          .replace(/\\n/g, '\n')     // Replace \n with actual newline
+          .replace(/\\"/g, '"')      // Replace \" with "
+          .replace(/\\'/g, "'")      // Replace \' with '
+          .replace(/\\\\/g, '\\');   // Replace \\ with \
+        
+        const result = JSON.parse(jsonStr);
+        return result;
+      }
+      
+      // Fallback: Try to extract from a simpler pattern
+      const simpleMatch = contentStr.match(/output='([^']+)'/);
+      if (simpleMatch) {
+        const jsonStr = simpleMatch[1]
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"');
+        return JSON.parse(jsonStr);
       }
       
       return null;
     } catch (e) {
       console.error('Failed to parse tool content:', e);
+      console.error('Tool content was:', contentStr);
       return null;
     }
   }, [toolContent]);
