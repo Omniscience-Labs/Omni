@@ -103,10 +103,7 @@ export function NavAgents() {
       }
     };
 
-    // Add event listener
     window.addEventListener('project-updated', handleProjectUpdate as EventListener);
-
-    // Cleanup
     return () => {
       window.removeEventListener(
         'project-updated',
@@ -115,12 +112,10 @@ export function NavAgents() {
     };
   }, [queryClient]);
 
-  // Reset loading state when navigation completes (pathname changes)
   useEffect(() => {
     setLoadingThreadId(null);
   }, [pathname]);
 
-  // Add event handler for completed navigation
   useEffect(() => {
     const handleNavigationComplete = () => {
       console.log('NAVIGATION - Navigation event completed');

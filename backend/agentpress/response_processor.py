@@ -1,28 +1,31 @@
 """
-LLM Response Processor for AgentPress.
+Response processing module for AgentPress.
 
-This module handles processing of LLM responses including:
-- Parsing of content for both streaming and non-streaming responses
-- Detection and extraction of tool calls (both XML-based and native function calling)
-- Tool execution with different strategies
-- Adding tool results back to the conversation thread
+This module handles the processing of LLM responses, including:
+- Streaming and non-streaming response handling
+- XML and native tool call detection and parsing
+- Tool execution orchestration
+- Message formatting and persistence
+- Cost calculation and tracking
 """
 
 import json
-import asyncio
 import re
 import uuid
-from typing import List, Dict, Any, Optional, Tuple, AsyncGenerator, Callable, Union, Literal
-from dataclasses import dataclass
+import asyncio
 from datetime import datetime, timezone
-
-from litellm import completion_cost
-
-from agentpress.tool import Tool, ToolResult
-from agentpress.tool_registry import ToolRegistry
+from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple, Union, Callable, Literal
+from dataclasses import dataclass
 from utils.logger import logger
+from agentpress.tool import ToolResult
+from agentpress.tool_registry import ToolRegistry
+from litellm import completion_cost
 from langfuse.client import StatefulTraceClient
 from services.langfuse import langfuse
+from agentpress.utils.json_helpers import (
+    ensure_dict, ensure_list, safe_json_parse, 
+    to_json_string, format_for_yield
+)
 
 # Type alias for XML result adding strategy
 XmlAddingStrategy = Literal["user_message", "assistant_message", "inline_edit"]
@@ -97,6 +100,14 @@ class ResponseProcessor:
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:response_processor")
         
+    async def _yield_message(self, message_obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Helper to yield a message with proper formatting.
+        
+        Ensures that content and metadata are JSON strings for client compatibility.
+        """
+        if message_obj:
+            return format_for_yield(message_obj)
+
     async def process_streaming_response(
         self,
         llm_response: AsyncGenerator,
@@ -142,14 +153,14 @@ class ResponseProcessor:
                 thread_id=thread_id, type="status", content=start_content, 
                 is_llm_message=False, metadata={"thread_run_id": thread_run_id}
             )
-            if start_msg_obj: yield start_msg_obj
+            if start_msg_obj: yield format_for_yield(start_msg_obj)
 
             assist_start_content = {"status_type": "assistant_response_start"}
             assist_start_msg_obj = await self.add_message(
                 thread_id=thread_id, type="status", content=assist_start_content, 
                 is_llm_message=False, metadata={"thread_run_id": thread_run_id}
             )
-            if assist_start_msg_obj: yield assist_start_msg_obj
+            if assist_start_msg_obj: yield format_for_yield(assist_start_msg_obj)
             # --- End Start Events ---
 
             __sequence = 0
@@ -185,8 +196,8 @@ class ResponseProcessor:
                                 "sequence": __sequence,
                                 "message_id": None, "thread_id": thread_id, "type": "assistant",
                                 "is_llm_message": True,
-                                "content": json.dumps({"role": "assistant", "content": chunk_content}),
-                                "metadata": json.dumps({"stream_status": "chunk", "thread_run_id": thread_run_id}),
+                                "content": to_json_string({"role": "assistant", "content": chunk_content}),
+                                "metadata": to_json_string({"stream_status": "chunk", "thread_run_id": thread_run_id}),
                                 "created_at": now_chunk, "updated_at": now_chunk
                             }
                             __sequence += 1
@@ -212,7 +223,7 @@ class ResponseProcessor:
                                     if config.execute_tools and config.execute_on_stream:
                                         # Save and Yield tool_started status
                                         started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                                        if started_msg_obj: yield started_msg_obj
+                                        if started_msg_obj: yield format_for_yield(started_msg_obj)
                                         yielded_tool_indices.add(tool_index) # Mark status as yielded
 
                                         execution_task = asyncio.create_task(self._execute_tool(tool_call))
@@ -241,14 +252,14 @@ class ResponseProcessor:
                                 if hasattr(tool_call_chunk, 'function'):
                                     tool_call_data_chunk['function'] = {}
                                     if hasattr(tool_call_chunk.function, 'name'): tool_call_data_chunk['function']['name'] = tool_call_chunk.function.name
-                                    if hasattr(tool_call_chunk.function, 'arguments'): tool_call_data_chunk['function']['arguments'] = tool_call_chunk.function.arguments
+                                    if hasattr(tool_call_chunk.function, 'arguments'): tool_call_data_chunk['function']['arguments'] = tool_call_chunk.function.arguments if isinstance(tool_call_chunk.function.arguments, str) else to_json_string(tool_call_chunk.function.arguments)
 
 
                             now_tool_chunk = datetime.now(timezone.utc).isoformat()
                             yield {
                                 "message_id": None, "thread_id": thread_id, "type": "status", "is_llm_message": True,
-                                "content": json.dumps({"role": "assistant", "status_type": "tool_call_chunk", "tool_call_chunk": tool_call_data_chunk}),
-                                "metadata": json.dumps({"thread_run_id": thread_run_id}),
+                                "content": to_json_string({"role": "assistant", "status_type": "tool_call_chunk", "tool_call_chunk": tool_call_data_chunk}),
+                                "metadata": to_json_string({"thread_run_id": thread_run_id}),
                                 "created_at": now_tool_chunk, "updated_at": now_tool_chunk
                             }
 
@@ -263,7 +274,7 @@ class ResponseProcessor:
                                 tool_calls_buffer[idx]['function']['name'] and
                                 tool_calls_buffer[idx]['function']['arguments']):
                                 try:
-                                    json.loads(tool_calls_buffer[idx]['function']['arguments'])
+                                    safe_json_parse(tool_calls_buffer[idx]['function']['arguments'])
                                     has_complete_tool_call = True
                                 except json.JSONDecodeError: pass
 
@@ -272,7 +283,7 @@ class ResponseProcessor:
                                 current_tool = tool_calls_buffer[idx]
                                 tool_call_data = {
                                     "function_name": current_tool['function']['name'],
-                                    "arguments": json.loads(current_tool['function']['arguments']),
+                                    "arguments": safe_json_parse(current_tool['function']['arguments']),
                                     "id": current_tool['id']
                                 }
                                 current_assistant_id = last_assistant_message_object['message_id'] if last_assistant_message_object else None
@@ -282,7 +293,7 @@ class ResponseProcessor:
 
                                 # Save and Yield tool_started status
                                 started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                                if started_msg_obj: yield started_msg_obj
+                                if started_msg_obj: yield format_for_yield(started_msg_obj)
                                 yielded_tool_indices.add(tool_index) # Mark status as yielded
 
                                 execution_task = asyncio.create_task(self._execute_tool(tool_call_data))
@@ -331,7 +342,7 @@ class ResponseProcessor:
                              context.error = e
                              # Save and Yield tool error status message (even if started was yielded)
                              error_msg_obj = await self._yield_and_save_tool_error(context, thread_id, thread_run_id)
-                             if error_msg_obj: yield error_msg_obj
+                             if error_msg_obj: yield format_for_yield(error_msg_obj)
                          continue # Skip further status yielding for this tool index
 
                     # If status wasn't yielded before (shouldn't happen with current logic), yield it now
@@ -344,7 +355,7 @@ class ResponseProcessor:
                             completed_msg_obj = await self._yield_and_save_tool_completed(
                                 context, None, thread_id, thread_run_id
                             )
-                            if completed_msg_obj: yield completed_msg_obj
+                            if completed_msg_obj: yield format_for_yield(completed_msg_obj)
                             yielded_tool_indices.add(tool_idx)
                     except Exception as e:
                         logger.error(f"Error getting result/yielding status for pending tool execution {tool_idx}: {str(e)}")
@@ -352,7 +363,7 @@ class ResponseProcessor:
                         context.error = e
                         # Save and Yield tool error status
                         error_msg_obj = await self._yield_and_save_tool_error(context, thread_id, thread_run_id)
-                        if error_msg_obj: yield error_msg_obj
+                        if error_msg_obj: yield format_for_yield(error_msg_obj)
                         yielded_tool_indices.add(tool_idx)
 
 
@@ -363,7 +374,7 @@ class ResponseProcessor:
                     thread_id=thread_id, type="status", content=finish_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
-                if finish_msg_obj: yield finish_msg_obj
+                if finish_msg_obj: yield format_for_yield(finish_msg_obj)
                 logger.info(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
                 self.trace.event(name="stream_finished_with_reason_xml_tool_limit_reached_after_xml_tool_calls", level="INFO", status_message=(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls"))
 
@@ -382,7 +393,7 @@ class ResponseProcessor:
                     for idx, tc_buf in tool_calls_buffer.items():
                         if tc_buf['id'] and tc_buf['function']['name'] and tc_buf['function']['arguments']:
                             try:
-                                args = json.loads(tc_buf['function']['arguments'])
+                                args = safe_json_parse(tc_buf['function']['arguments'])
                                 complete_native_tool_calls.append({
                                     "id": tc_buf['id'], "type": "function",
                                     "function": {"name": tc_buf['function']['name'],"arguments": args}
@@ -401,9 +412,12 @@ class ResponseProcessor:
 
                 if last_assistant_message_object:
                     # Yield the complete saved object, adding stream_status metadata just for yield
-                    yield_metadata = json.loads(last_assistant_message_object.get('metadata', '{}'))
+                    yield_metadata = ensure_dict(last_assistant_message_object.get('metadata'), {})
                     yield_metadata['stream_status'] = 'complete'
-                    yield {**last_assistant_message_object, 'metadata': json.dumps(yield_metadata)}
+                    # Format the message for yielding
+                    yield_message = last_assistant_message_object.copy()
+                    yield_message['metadata'] = yield_metadata
+                    yield format_for_yield(yield_message)
                 else:
                     logger.error(f"Failed to save final assistant message for thread {thread_id}")
                     self.trace.event(name="failed_to_save_final_assistant_message_for_thread", level="ERROR", status_message=(f"Failed to save final assistant message for thread {thread_id}"))
@@ -413,7 +427,7 @@ class ResponseProcessor:
                         thread_id=thread_id, type="status", content=err_content, 
                         is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                     )
-                    if err_msg_obj: yield err_msg_obj
+                    if err_msg_obj: yield format_for_yield(err_msg_obj)
 
             # --- Process All Tool Results Now ---
             if config.execute_tools:
@@ -513,7 +527,7 @@ class ResponseProcessor:
                         # Yield start status ONLY IF executing non-streamed (already yielded if streamed)
                         if not config.execute_on_stream and tool_idx not in yielded_tool_indices:
                             started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                            if started_msg_obj: yield started_msg_obj
+                            if started_msg_obj: yield format_for_yield(started_msg_obj)
                             yielded_tool_indices.add(tool_idx) # Mark status yielded
 
                         # Save the tool result message to DB
@@ -528,13 +542,13 @@ class ResponseProcessor:
                             saved_tool_result_object['message_id'] if saved_tool_result_object else None,
                             thread_id, thread_run_id
                         )
-                        if completed_msg_obj: yield completed_msg_obj
+                        if completed_msg_obj: yield format_for_yield(completed_msg_obj)
                         # Don't add to yielded_tool_indices here, completion status is separate yield
 
                         # Yield the saved tool result object
                         if saved_tool_result_object:
                             tool_result_message_objects[tool_idx] = saved_tool_result_object
-                            yield saved_tool_result_object
+                            yield format_for_yield(saved_tool_result_object)
                         else:
                              logger.error(f"Failed to save tool result for index {tool_idx}, not yielding result message.")
                              self.trace.event(name="failed_to_save_tool_result_for_index", level="ERROR", status_message=(f"Failed to save tool result for index {tool_idx}, not yielding result message."))
@@ -575,7 +589,7 @@ class ResponseProcessor:
                     thread_id=thread_id, type="status", content=finish_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
-                if finish_msg_obj: yield finish_msg_obj
+                if finish_msg_obj: yield format_for_yield(finish_msg_obj)
 
         except Exception as e:
             logger.error(f"Error processing stream: {str(e)}", exc_info=True)
@@ -586,7 +600,7 @@ class ResponseProcessor:
                 thread_id=thread_id, type="status", content=err_content, 
                 is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
             )
-            if err_msg_obj: yield err_msg_obj # Yield the saved error message
+            if err_msg_obj: yield format_for_yield(err_msg_obj) # Yield the saved error message
             
             # Re-raise the same exception (not a new one) to ensure proper error propagation
             logger.critical(f"Re-raising error to stop further processing: {str(e)}")
@@ -601,7 +615,7 @@ class ResponseProcessor:
                     thread_id=thread_id, type="status", content=end_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
                 )
-                if end_msg_obj: yield end_msg_obj
+                if end_msg_obj: yield format_for_yield(end_msg_obj)
             except Exception as final_e:
                 logger.error(f"Error in finally block: {str(final_e)}", exc_info=True)
                 self.trace.event(name="error_in_finally_block", level="ERROR", status_message=(f"Error in finally block: {str(final_e)}"))
@@ -642,7 +656,7 @@ class ResponseProcessor:
                 thread_id=thread_id, type="status", content=start_content,
                 is_llm_message=False, metadata={"thread_run_id": thread_run_id}
             )
-            if start_msg_obj: yield start_msg_obj
+            if start_msg_obj: yield format_for_yield(start_msg_obj)
 
             # Extract finish_reason, content, tool calls
             if hasattr(llm_response, 'choices') and llm_response.choices:
@@ -674,7 +688,7 @@ class ResponseProcessor:
                              if hasattr(tool_call, 'function'):
                                  exec_tool_call = {
                                      "function_name": tool_call.function.name,
-                                     "arguments": json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments,
+                                     "arguments": safe_json_parse(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments,
                                      "id": tool_call.id if hasattr(tool_call, 'id') else str(uuid.uuid4())
                                  }
                                  all_tool_data.append({"tool_call": exec_tool_call, "parsing_details": None})
@@ -682,7 +696,7 @@ class ResponseProcessor:
                                      "id": exec_tool_call["id"], "type": "function",
                                      "function": {
                                          "name": tool_call.function.name,
-                                         "arguments": tool_call.function.arguments if isinstance(tool_call.function.arguments, str) else json.dumps(tool_call.function.arguments)
+                                         "arguments": tool_call.function.arguments if isinstance(tool_call.function.arguments, str) else to_json_string(tool_call.function.arguments)
                                      }
                                  })
 
@@ -703,7 +717,7 @@ class ResponseProcessor:
                      thread_id=thread_id, type="status", content=err_content, 
                      is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                  )
-                 if err_msg_obj: yield err_msg_obj
+                 if err_msg_obj: yield format_for_yield(err_msg_obj)
 
             # --- Calculate and Store Cost ---
             if assistant_message_object: # Only calculate if assistant message was saved
@@ -761,7 +775,7 @@ class ResponseProcessor:
 
                     # Save and Yield start status
                     started_msg_obj = await self._yield_and_save_tool_started(context, thread_id, thread_run_id)
-                    if started_msg_obj: yield started_msg_obj
+                    if started_msg_obj: yield format_for_yield(started_msg_obj)
 
                     # Save tool result
                     saved_tool_result_object = await self._add_tool_result(
@@ -775,12 +789,12 @@ class ResponseProcessor:
                         saved_tool_result_object['message_id'] if saved_tool_result_object else None,
                         thread_id, thread_run_id
                     )
-                    if completed_msg_obj: yield completed_msg_obj
+                    if completed_msg_obj: yield format_for_yield(completed_msg_obj)
 
                     # Yield the saved tool result object
                     if saved_tool_result_object:
                         tool_result_message_objects[tool_index] = saved_tool_result_object
-                        yield saved_tool_result_object
+                        yield format_for_yield(saved_tool_result_object)
                     else:
                          logger.error(f"Failed to save tool result for index {tool_index}")
                          self.trace.event(name="failed_to_save_tool_result_for_index", level="ERROR", status_message=(f"Failed to save tool result for index {tool_index}"))
@@ -794,7 +808,7 @@ class ResponseProcessor:
                     thread_id=thread_id, type="status", content=finish_content, 
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
-                if finish_msg_obj: yield finish_msg_obj
+                if finish_msg_obj: yield format_for_yield(finish_msg_obj)
 
         except Exception as e:
              logger.error(f"Error processing non-streaming response: {str(e)}", exc_info=True)
@@ -805,7 +819,7 @@ class ResponseProcessor:
                  thread_id=thread_id, type="status", content=err_content, 
                  is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
              )
-             if err_msg_obj: yield err_msg_obj
+             if err_msg_obj: yield format_for_yield(err_msg_obj)
              
              # Re-raise the same exception (not a new one) to ensure proper error propagation
              logger.critical(f"Re-raising error to stop further processing: {str(e)}")
@@ -819,7 +833,7 @@ class ResponseProcessor:
                 thread_id=thread_id, type="status", content=end_content, 
                 is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
             )
-            if end_msg_obj: yield end_msg_obj
+            if end_msg_obj: yield format_for_yield(end_msg_obj)
 
     # XML parsing methods
     def _extract_tag_content(self, xml_chunk: str, tag_name: str) -> Tuple[Optional[str], Optional[str]]:
@@ -1112,7 +1126,7 @@ class ResponseProcessor:
             
             if isinstance(arguments, str):
                 try:
-                    arguments = json.loads(arguments)
+                    arguments = safe_json_parse(arguments)
                 except json.JSONDecodeError:
                     arguments = {"text": arguments}
             

@@ -21,8 +21,9 @@ import { ToolViewProps } from './types';
 import {
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,10 +31,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-function truncateText(text: string, maxLength: number = 40) {
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-}
 
 export function WebScrapeToolView({
   name = 'scrape-webpage',
@@ -50,32 +47,34 @@ export function WebScrapeToolView({
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   // Extract URL from the scrape-webpage tag in assistantContent
-  const extractScrapeUrl = (content: string): string | null => {
-    if (!content) return null;
+  const extractScrapeUrl = (content: string | object | undefined | null): string | null => {
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return null;
     
-    // Look for <scrape-webpage urls="..."> pattern
-    const urlMatch = content.match(/<scrape-webpage\s+urls=["']([^"']+)["']/);
+    // Look for <scrape-webpage urls="..."> pattern (with or without attributes)
+    const urlMatch = contentStr.match(/<scrape-webpage[^>]*\s+urls=["']([^"']+)["']/);
     if (urlMatch) {
       return urlMatch[1];
     }
     
     // Fallback to other URL patterns
-    const httpMatch = content.match(/https?:\/\/[^\s<>"]+/);
+    const httpMatch = contentStr.match(/https?:\/\/[^\s<>"]+/);
     return httpMatch ? httpMatch[0] : null;
   };
 
   // Extract scrape results from tool output
-  const extractScrapeResults = (content: string): { 
+  const extractScrapeResults = (content: string | object | undefined | null): { 
     success: boolean; 
     message: string; 
     files: string[]; 
     urlCount: number;
   } => {
-    if (!content) return { success: false, message: 'No output received', files: [], urlCount: 0 };
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return { success: false, message: 'No output received', files: [], urlCount: 0 };
     
     // Extract just the output content, removing XML tags
-    const outputMatch = content.match(/output='([^']+)'/);
-    const cleanContent = outputMatch ? outputMatch[1].replace(/\\n/g, '\n') : content;
+    const outputMatch = contentStr.match(/output='([^']+)'/);
+    const cleanContent = outputMatch ? outputMatch[1].replace(/\\n/g, '\n') : contentStr;
     
     // Parse the clean content
     const successMatch = cleanContent.match(/Successfully scraped (?:all )?(\d+) URLs?/);
@@ -241,7 +240,7 @@ export function WebScrapeToolView({
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">{truncateText(url)}</p>
+                      <p className="font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">{truncateString(url, 70)}</p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{domain}</p>
                     </div>
                     <Button 

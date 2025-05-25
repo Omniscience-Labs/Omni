@@ -19,9 +19,11 @@ import { ToolViewProps } from './types';
 import {
   extractFilePath,
   extractFileContent,
+  extractStreamingFileContent,
   getFileType,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { GenericToolView } from './GenericToolView';
 import {
@@ -45,14 +47,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Type for operation type
 type FileOperation = 'create' | 'rewrite' | 'delete';
 
-// Map file extensions to language names for syntax highlighting
 const getLanguageFromFileName = (fileName: string): string => {
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
 
-  // Map of file extensions to language names for syntax highlighting
   const extensionMap: Record<string, string> = {
     // Web languages
     html: 'html',
@@ -113,7 +112,6 @@ const getLanguageFromFileName = (fileName: string): string => {
   return extensionMap[extension] || 'text';
 };
 
-// Interface for operation config
 interface OperationConfig {
   icon: LucideIcon;
   color: string;
@@ -140,116 +138,185 @@ export function FileOperationToolView({
   const isDarkTheme = resolvedTheme === 'dark';
   const [progress, setProgress] = useState(0);
 
-  // Simulate progress when streaming
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
-
-  // Determine operation type from content or name
   const getOperationType = (): FileOperation => {
-    // First check tool name if available
     if (name) {
       if (name.includes('create')) return 'create';
       if (name.includes('rewrite')) return 'rewrite';
       if (name.includes('delete')) return 'delete';
     }
 
-    if (!assistantContent) return 'create'; // default fallback
+    if (!assistantContent) return 'create';
 
-    if (assistantContent.includes('<create-file>')) return 'create';
-    if (assistantContent.includes('<full-file-rewrite>')) return 'rewrite';
+    const contentStr = normalizeContentToString(assistantContent);
+    if (!contentStr) return 'create';
+
+    if (contentStr.includes('<create-file>')) return 'create';
+    if (contentStr.includes('<full-file-rewrite>')) return 'rewrite';
     if (
-      assistantContent.includes('delete-file') ||
-      assistantContent.includes('<delete>')
+      contentStr.includes('delete-file') ||
+      contentStr.includes('<delete>')
     )
       return 'delete';
 
-    // Check for tool names as a fallback
-    if (assistantContent.toLowerCase().includes('create file')) return 'create';
-    if (assistantContent.toLowerCase().includes('rewrite file'))
+    if (contentStr.toLowerCase().includes('create file')) return 'create';
+    if (contentStr.toLowerCase().includes('rewrite file'))
       return 'rewrite';
-    if (assistantContent.toLowerCase().includes('delete file')) return 'delete';
+    if (contentStr.toLowerCase().includes('delete file')) return 'delete';
 
-    // Default to create if we can't determine
     return 'create';
   };
 
   const operation = getOperationType();
-  const filePath = extractFilePath(assistantContent);
-  const toolTitle = getToolTitle(name || `file-${operation}`);
+  
+  let filePath: string | null = null;
+  let fileContent: string | null = null;
+  
+  // console.log('[FileOperationToolView] Debug:', {
+  //   isStreaming,
+  //   assistantContent,
+  //   assistantContentType: typeof assistantContent,
+  // });
+  
+  if (assistantContent) {
+    try {
+      const parsed = typeof assistantContent === 'string' ? JSON.parse(assistantContent) : assistantContent;
+      if (parsed && typeof parsed === 'object' && 'role' in parsed && 'content' in parsed) {
+        const messageContent = parsed.content;
+        console.log('[FileOperationToolView] Found message format, content:', messageContent?.substring(0, 200));
 
-  // Only extract content for create and rewrite operations
-  const fileContent =
-    operation !== 'delete'
-      ? extractFileContent(
+        if (typeof messageContent === 'string') {
+          const filePathPatterns = [
+            /file_path=["']([^"']*?)["']/i,
+            /<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']*)/i,
+          ];
+          
+          for (const pattern of filePathPatterns) {
+            const match = messageContent.match(pattern);
+            if (match && match[1]) {
+              filePath = match[1];
+              console.log('[FileOperationToolView] Extracted file path:', filePath);
+              break;
+            }
+          }
+          
+          if (operation !== 'delete' && !fileContent) {
+            const tagName = operation === 'create' ? 'create-file' : 'full-file-rewrite';
+            const openTagMatch = messageContent.match(new RegExp(`<${tagName}[^>]*>`, 'i'));
+            if (openTagMatch) {
+              const tagEndIndex = messageContent.indexOf(openTagMatch[0]) + openTagMatch[0].length;
+              const afterTag = messageContent.substring(tagEndIndex);
+              const closeTagMatch = afterTag.match(new RegExp(`<\\/${tagName}>`, 'i'));
+              fileContent = closeTagMatch 
+                ? afterTag.substring(0, closeTagMatch.index)
+                : afterTag;
+              console.log('[FileOperationToolView] Extracted file content length:', fileContent?.length);
+            }
+          }
+        }
+      }
+      else if (parsed && typeof parsed === 'object') {
+        console.log('[FileOperationToolView] Checking direct object format');
+        if ('file_path' in parsed) {
+          filePath = parsed.file_path;
+        }
+        if ('content' in parsed && operation !== 'delete') {
+          fileContent = parsed.content;
+        }
+        
+        if ('arguments' in parsed && parsed.arguments) {
+          const args = typeof parsed.arguments === 'string' ? JSON.parse(parsed.arguments) : parsed.arguments;
+          if (args.file_path) {
+            filePath = args.file_path;
+          }
+          if (args.content && operation !== 'delete') {
+            fileContent = args.content;
+          }
+        }
+      }
+    } catch (e) {
+      if (typeof assistantContent === 'string') {
+        const filePathPatterns = [
+          /file_path=["']([^"']*)/i,
+          /<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']*)/i,
+          /<file_path>([^<]*)/i,
+        ];
+        
+        for (const pattern of filePathPatterns) {
+          const match = assistantContent.match(pattern);
+          if (match && match[1]) {
+            filePath = match[1];
+            console.log('[FileOperationToolView] Extracted file path from string:', filePath);
+            break;
+          }
+        }
+        
+        if (operation !== 'delete' && !fileContent) {
+          const tagName = operation === 'create' ? 'create-file' : 'full-file-rewrite';
+          const contentAfterTag = assistantContent.split(`<${tagName}`)[1];
+          if (contentAfterTag) {
+            const tagEndIndex = contentAfterTag.indexOf('>');
+            if (tagEndIndex !== -1) {
+              const potentialContent = contentAfterTag.substring(tagEndIndex + 1);
+              const closingTagIndex = potentialContent.indexOf(`</${tagName}>`);
+              fileContent = closingTagIndex !== -1 
+                ? potentialContent.substring(0, closingTagIndex)
+                : potentialContent;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // console.log('[FileOperationToolView] After initial extraction:', { filePath, hasFileContent: !!fileContent });
+  
+  if (!filePath) {
+    filePath = extractFilePath(assistantContent);
+    // console.log('[FileOperationToolView] After extractFilePath utility:', filePath);
+  }
+  
+  if (!fileContent && operation !== 'delete') {
+    fileContent = isStreaming
+      ? extractStreamingFileContent(
           assistantContent,
           operation === 'create' ? 'create-file' : 'full-file-rewrite',
-        )
-      : null;
+        ) || ''
+      : extractFileContent(
+          assistantContent,
+          operation === 'create' ? 'create-file' : 'full-file-rewrite',
+        );
+    // console.log('[FileOperationToolView] After content extraction utilities:', { hasFileContent: !!fileContent, contentLength: fileContent?.length });
+  }
+  
+  const toolTitle = getToolTitle(name || `file-${operation}`);
 
-  // For debugging - show raw content if file path can't be extracted for delete operations
-  const showDebugInfo = !filePath && operation === 'delete';
-
-  // Process file path - handle potential newlines and clean up
   const processedFilePath = filePath
     ? filePath.trim().replace(/\\n/g, '\n').split('\n')[0]
     : null;
 
-  // For create and rewrite, prepare content for display
-  const contentLines = fileContent
-    ? fileContent.replace(/\\n/g, '\n').split('\n')
-    : [];
   const fileName = processedFilePath
     ? processedFilePath.split('/').pop() || processedFilePath
     : '';
-  const fileType = processedFilePath ? getFileType(processedFilePath) : '';
-  const isMarkdown = fileName.endsWith('.md');
-  const isHtml = fileName.endsWith('.html');
-  const isCsv = fileName.endsWith('.csv');
+
+  const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+  const isMarkdown = fileExtension === 'md';
+  const isHtml = fileExtension === 'html' || fileExtension === 'htm';
+  const isCsv = fileExtension === 'csv';
+  
   const language = getLanguageFromFileName(fileName);
   const hasHighlighting = language !== 'text';
   
-  // Construct HTML file preview URL if we have a sandbox and the file is HTML
+  const contentLines = fileContent
+    ? fileContent.replace(/\\n/g, '\n').split('\n')
+    : [];
+  
   const htmlPreviewUrl =
     isHtml && project?.sandbox?.sandbox_url && processedFilePath
       ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, processedFilePath)
       : undefined;
 
-  // Add state for view mode toggle (code or preview)
-  const [viewMode, setViewMode] = useState<'code' | 'preview'>(
-    isHtml || isMarkdown || isCsv ? 'preview' : 'code',
-  );
 
-  // Fall back to generic view if file path is missing or if content is missing for non-delete operations
-  if (
-    (!filePath && !showDebugInfo) ||
-    (operation !== 'delete' && !fileContent)
-  ) {
-    return (
-      <GenericToolView
-        name={name || `file-${operation}`}
-        assistantContent={assistantContent}
-        toolContent={toolContent}
-        assistantTimestamp={assistantTimestamp}
-        toolTimestamp={toolTimestamp}
-        isSuccess={isSuccess}
-        isStreaming={isStreaming}
-      />
-    );
-  }
+  const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview');
 
   const configs: Record<FileOperation, OperationConfig> = {
     create: {
@@ -291,33 +358,108 @@ export function FileOperationToolView({
   const Icon = config.icon;
 
   const getFileIcon = () => {
-    if (isMarkdown) return FileCode;
-    if (isCsv) return FileSpreadsheet;
-    if (isHtml) return FileCode;
+    if (fileName.endsWith('.md')) return FileCode;
+    if (fileName.endsWith('.csv')) return FileSpreadsheet;
+    if (fileName.endsWith('.html')) return FileCode;
     return File;
   };
   
   const FileIcon = getFileIcon();
 
-  const showTabs = operation !== 'delete' && fileContent && !isStreaming && (isHtml || isMarkdown || isCsv);
+  if (!isStreaming && !processedFilePath && !fileContent) {
+    return (
+      <GenericToolView
+        name={name || `file-${operation}`}
+        assistantContent={assistantContent}
+        toolContent={toolContent}
+        assistantTimestamp={assistantTimestamp}
+        toolTimestamp={toolTimestamp}
+        isSuccess={isSuccess}
+        isStreaming={isStreaming}
+      />
+    );
+  }
+
+  const renderFilePreview = () => {
+    if (!fileContent) {
+      return (
+        <div className="flex items-center justify-center h-full p-12">
+          <div className="text-center">
+            <FileIcon className="h-12 w-12 mx-auto mb-4 text-zinc-400" />
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No content to preview</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (isHtml && htmlPreviewUrl) {
+      return (
+        <div className="flex flex-col h-[calc(100vh-16rem)]"> 
+          <iframe 
+            src={htmlPreviewUrl}
+            title={`HTML Preview of ${fileName}`}
+            className="flex-grow border-0" 
+            sandbox="allow-same-origin allow-scripts"
+          />
+        </div>
+      );
+    }
+    
+    if (isMarkdown) {
+      return (
+        <div className="p-1 py-0 prose dark:prose-invert prose-zinc max-w-none">
+          <MarkdownRenderer
+            content={processUnicodeContent(fileContent)}
+          />
+        </div>
+      );
+    }
+    
+    if (isCsv) {
+      return (
+        <div className="h-full w-full p-4">
+          <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
+            <CsvRenderer content={processUnicodeContent(fileContent)} />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4">
+        <div className='w-full h-full bg-muted/20 border rounded-xl px-4 py-2 pb-6'>
+        <pre className="text-sm font-mono text-zinc-800 dark:text-zinc-300 whitespace-pre-wrap break-words">
+          {processUnicodeContent(fileContent)}
+        </pre>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-      {showTabs ? (
-        <Tabs defaultValue={viewMode} onValueChange={(v) => setViewMode(v as 'code' | 'preview')} className="w-full h-full">
-          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
-            <div className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-              <div className={cn("relative p-2 rounded-lg border bg-red-400", config.gradientBg, config.borderColor)}>
-                  <Icon className={cn("h-5 w-5", config.color)} />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                    {processedFilePath || 'Unknown file path'}
-                  </CardTitle>
-                </div>
+      <Tabs defaultValue={'preview'} className="w-full h-full">
+        <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
+          <div className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={cn("relative p-2 rounded-lg border", config.gradientBg, config.borderColor)}>
+                <Icon className={cn("h-5 w-5", config.color)} />
               </div>
-              
+              <div>
+                <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                  {toolTitle}
+                </CardTitle>
+              </div>
+            </div>
+            <div className='flex items-center gap-2'>
+              {isHtml && viewMode === 'preview' && htmlPreviewUrl && !isStreaming && (
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
+                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Open in Browser
+                  </a>
+                </Button>
+              )}
               <TabsList className="-mr-2 h-7 bg-zinc-100/70 dark:bg-zinc-800/70 rounded-lg">
                 <TabsTrigger value="code" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-primary">
                   <Code className="h-4 w-4" />
@@ -329,147 +471,28 @@ export function FileOperationToolView({
                 </TabsTrigger>
               </TabsList>
             </div>
-          </CardHeader>
-
-          <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
-            <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
-              <ScrollArea className="h-full w-full">
-                {hasHighlighting ? (
-                  <div className="relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
-                      {contentLines.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className="h-6 text-right pr-3 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none"
-                        >
-                          {idx + 1}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pl-12">
-                      <CodeBlockCode
-                        code={processUnicodeContent(fileContent)}
-                        language={language}
-                        className="text-xs p-4"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-w-full table">
-                    {contentLines.map((line, idx) => (
-                      <div
-                        key={idx}
-                        className={cn("table-row transition-colors", config.hoverColor)}
-                      >
-                        <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
-                          {idx + 1}
-                        </div>
-                        <div className="table-cell pl-3 text-wrap py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
-                          {processUnicodeContent(line) || ' '}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="table-row h-4"></div>
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            
-            <TabsContent value="preview" className="flex-1 h-full mt-0 p-0 overflow-hidden">
-              <ScrollArea className="h-full w-full">
-                {isHtml && htmlPreviewUrl && (
-                  <div className="flex flex-col h-[calc(100vh-16rem)]"> 
-                  <iframe 
-                    src={htmlPreviewUrl}
-                    title={`HTML Preview of ${fileName}`}
-                    className="flex-grow border-0" 
-                    sandbox="allow-same-origin allow-scripts"
-                  />
-                </div>
-                )}
-                
-                {isMarkdown && (
-                  <div className="p-6 py-0 prose dark:prose-invert prose-zinc max-w-none">
-                    <MarkdownRenderer
-                      content={processUnicodeContent(fileContent)}
-                    />
-                  </div>
-                )}
-                
-                {isCsv && (
-                  <div className="h-full">
-                    <CsvRenderer content={processUnicodeContent(fileContent)} />
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </CardContent>
-          
-          <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
-            <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-              <Badge className="py-0.5 h-6">
-                <FileIcon className="h-3 w-3" />
-                {hasHighlighting ? language.toUpperCase() : fileType || 'TEXT'}
-              </Badge>
-              
-              {isHtml && viewMode === 'preview' && htmlPreviewUrl && (
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
-                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    Open in Browser
-                  </a>
-                </Button>
-              )}
-            </div>
-            
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              {toolTimestamp && !isStreaming
-                ? formatTimestamp(toolTimestamp)
-                : assistantTimestamp
-                  ? formatTimestamp(assistantTimestamp)
-                  : ''}
-            </div>
           </div>
-        </Tabs>
-      ) : (
-        <>
-          <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
-            <div className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={cn("relative p-2 rounded-lg border", config.gradientBg, config.borderColor)}>
-                  <Icon className={cn("h-5 w-5", config.color)} />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                    {processedFilePath || 'Unknown file path'}
-                  </CardTitle>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {!isStreaming ? (
-                  <Badge variant="secondary" className={cn("px-2 py-1 transition-colors", config.badgeColor)}>
-                    {isSuccess ? (
-                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                    ) : (
-                      <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {isSuccess ? config.successMessage : `Failed to ${operation}`}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-1">
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    {config.progressMessage}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+        </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-hidden relative -my-6">
-            {operation !== 'delete' && fileContent && !isStreaming && !isHtml && !isMarkdown && !isCsv && (
-              <ScrollArea className="h-full w-full">
-                {hasHighlighting ? (
+        <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
+          <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
+            <ScrollArea className="h-full w-full">
+              {operation === 'delete' ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 px-6">
+                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+                    <Trash2 className={cn("h-10 w-10", config.color)} />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
+                    Delete Operation
+                  </h3>
+                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center">
+                    <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+                      {processedFilePath || 'Unknown file path'}
+                    </code>
+                  </div>
+                </div>
+              ) : fileContent ? (
+                hasHighlighting ? (
                   <div className="relative">
                     <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
                       {contentLines.map((_, idx) => (
@@ -496,95 +519,31 @@ export function FileOperationToolView({
                         key={idx}
                         className={cn("table-row transition-colors", config.hoverColor)}
                       >
-                        <div className="table-cell text-right pr-3 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                        <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
                           {idx + 1}
                         </div>
-                        <div className="table-cell pl-3 py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
+                        <div className="table-cell pl-3 py-0.5 pr-4 text-xs font-mono whitespace-pre-wrap text-zinc-800 dark:text-zinc-300">
                           {processUnicodeContent(line) || ' '}
                         </div>
                       </div>
                     ))}
                     <div className="table-row h-4"></div>
                   </div>
-                )}
-              </ScrollArea>
-            )}
-            {operation !== 'delete' && isStreaming && (
-              <div className="flex flex-col h-full">
-                <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {fileName || 'file.txt'}
-                    </span>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {language.toUpperCase() || fileType || 'TEXT'}
-                  </Badge>
-                </div>
-
-                <div className="flex-1 flex items-center justify-center p-12 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-                  <div className="text-center w-full max-w-xs">
-                    <div className={cn("w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center", config.bgColor)}>
-                      <Loader2 className={cn("h-8 w-8 animate-spin", config.color)} />
-                    </div>
-                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                      {operation === 'create' ? 'Creating File' : 'Updating File'}
-                    </h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                      {processedFilePath ? (
-                        <span className="font-mono text-xs break-all">{processedFilePath}</span>
-                      ) : (
-                        'Processing file operation'
-                      )}
-                    </p>
-                    <Progress value={progress} className="w-full h-2" />
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
+                )
+              ) : (
+                <div className="flex items-center justify-center h-full p-12">
+                  <div className="text-center">
+                    <FileIcon className="h-12 w-12 mx-auto mb-4 text-zinc-400" />
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No source code to display</p>
                   </div>
                 </div>
-              </div>
-            )}
-            {operation === 'delete' && processedFilePath && !isStreaming && (
-              <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-                <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
-                  <Trash2 className={cn("h-10 w-10", config.color)} />
-                </div>
-                <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
-                  File Deleted
-                </h3>
-                <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
-                  <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
-                    {processedFilePath}
-                  </code>
-                </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  This file has been permanently removed
-                </p>
-              </div>
-            )}
-            {operation === 'delete' && isStreaming && (
-              <div className="flex flex-col items-center justify-center h-full p-12 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-                <div className="text-center w-full max-w-xs">
-                  <div className={cn("w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center", config.bgColor)}>
-                    <Loader2 className={cn("h-8 w-8 animate-spin", config.color)} />
-                  </div>
-                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                    Deleting File
-                  </h3>
-                  {processedFilePath && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                      <span className="font-mono text-xs break-all">{processedFilePath}</span>
-                    </p>
-                  )}
-                  <Progress value={progress} className="w-full h-2" />
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-                </div>
-              </div>
-            )}
-            {operation === 'delete' &&
-              !processedFilePath &&
-              !showDebugInfo &&
-              !isStreaming && (
+              )}
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="preview" className="w-full flex-1 h-full mt-0 p-0 overflow-hidden">
+            <ScrollArea className="h-full w-full">
+              {operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
                     <Trash2 className={cn("h-10 w-10", config.color)} />
@@ -593,43 +552,48 @@ export function FileOperationToolView({
                     File Deleted
                   </h3>
                   <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                      Unknown file path
-                    </p>
+                    <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+                      {processedFilePath || 'Unknown file path'}
+                    </code>
                   </div>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    A file has been deleted but the path could not be determined
+                    This file has been permanently removed
                   </p>
                 </div>
+              ) : (
+                renderFilePreview()
               )}
-          </CardContent>
-          <div className="h-10 px-4 py-2 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-            <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-              <Badge className="py-0.5 h-6">
-                <FileIcon className="h-3 w-3" />
-                {hasHighlighting ? language.toUpperCase() : fileType || 'TEXT'}
-              </Badge>
               
-              {isHtml && viewMode === 'preview' && htmlPreviewUrl && (
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
-                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    Open in Browser
-                  </a>
-                </Button>
+              {/* Streaming indicator overlay */}
+              {isStreaming && fileContent && (
+                <div className="sticky bottom-4 right-4 float-right mr-4 mb-4">
+                  <Badge className="bg-blue-500/90 text-white border-none shadow-lg animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Streaming...
+                  </Badge>
+                </div>
               )}
-            </div>
-            
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              {toolTimestamp && !isStreaming
-                ? formatTimestamp(toolTimestamp)
-                : assistantTimestamp
-                  ? formatTimestamp(assistantTimestamp)
-                  : ''}
-            </div>
+            </ScrollArea>
+          </TabsContent>
+        </CardContent>
+        
+        <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
+          <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+            <Badge variant="outline" className="py-0.5 h-6">
+              <FileIcon className="h-3 w-3" />
+              {hasHighlighting ? language.toUpperCase() : fileExtension.toUpperCase() || 'TEXT'}
+            </Badge>
           </div>
-        </>
-      )}
+          
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            {toolTimestamp && !isStreaming
+              ? formatTimestamp(toolTimestamp)
+              : assistantTimestamp
+                ? formatTimestamp(assistantTimestamp)
+                : ''}
+          </div>
+        </div>
+      </Tabs>
     </Card>
   );
 }

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
+  extractCommand,
+  extractCommandOutput,
   extractExitCode,
   formatTimestamp,
   getToolTitle,
@@ -42,30 +44,8 @@ export function CommandToolView({
   const [progress, setProgress] = useState(0);
   const [showFullOutput, setShowFullOutput] = useState(true);
 
-  const rawCommand = React.useMemo(() => {
-    if (!assistantContent) return null;
-
-    try {
-      const parsed = JSON.parse(assistantContent);
-      if (parsed.content) {
-        const commandMatch = parsed.content.match(
-          /<execute-command[^>]*>([\s\S]*?)<\/execute-command>/,
-        );
-        if (commandMatch) {
-          return commandMatch[1].trim();
-        }
-      }
-    } catch (e) {
-      const commandMatch = assistantContent.match(
-        /<execute-command[^>]*>([\s\S]*?)<\/execute-command>/,
-      );
-      if (commandMatch) {
-        return commandMatch[1].trim();
-      }
-    }
-
-    return null;
-  }, [assistantContent]);
+  // Extract command using the utility function
+  const rawCommand = extractCommand(assistantContent);
 
   const command = rawCommand
     ?.replace(/^suna@computer:~\$\s*/g, '')
@@ -73,65 +53,9 @@ export function CommandToolView({
     ?.replace(/\n/g, '')
     ?.trim();
 
-  const output = React.useMemo(() => {
-    if (!toolContent) return null;
-
-    let extractedOutput = '';
-    let success = true;
-
-    try {
-      if (typeof toolContent === 'string') {
-        if (toolContent.includes('ToolResult')) {
-          const successMatch = toolContent.match(/success=(true|false)/i);
-          success = successMatch ? successMatch[1].toLowerCase() === 'true' : true;
-          
-          //@ts-expect-error IGNORE
-          const outputMatch = toolContent.match(/output=['"](.*)['"]/s);
-          if (outputMatch && outputMatch[1]) {
-            extractedOutput = outputMatch[1]
-              .replace(/\\n/g, '\n')
-              .replace(/\\"/g, '"')
-              .replace(/\\t/g, '\t')
-              .replace(/\\'/g, "'");
-          } else {
-            extractedOutput = toolContent;
-          }
-        } else {
-          try {
-            const parsed = JSON.parse(toolContent);
-            if (parsed.output) {
-              extractedOutput = parsed.output;
-              success = parsed.success !== false;
-            } else if (parsed.content) {
-              extractedOutput = parsed.content;
-            } else {
-              extractedOutput = JSON.stringify(parsed, null, 2);
-            }
-          } catch (e) {
-            extractedOutput = toolContent;
-          }
-        }
-      } else if (typeof toolContent === 'object' && toolContent !== null) {
-        // Handle case where toolContent is already an object
-        const typedToolContent = toolContent as Record<string, any>;
-        if ('output' in typedToolContent) {
-          extractedOutput = typedToolContent.output;
-          success = 'success' in typedToolContent ? !!typedToolContent.success : true;
-        } else {
-          extractedOutput = JSON.stringify(toolContent, null, 2);
-        }
-      } else {
-        extractedOutput = String(toolContent);
-      }
-    } catch (e) {
-      extractedOutput = String(toolContent);
-      console.error('Error parsing tool content:', e);
-    }
-
-    return extractedOutput;
-  }, [toolContent]);
-
-  const exitCode = extractExitCode(output);
+  // Extract output using the utility function
+  const output = extractCommandOutput(toolContent);
+  const exitCode = extractExitCode(toolContent);
   const toolTitle = getToolTitle(name);
   
   useEffect(() => {

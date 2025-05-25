@@ -26,6 +26,7 @@ import {
   extractSearchQuery,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -75,8 +76,11 @@ export function DataProviderToolView({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Extract provider name from assistant content
-  const extractProviderName = (content: string): string => {
-    const match = content.match(/provider["\s]*[:=]["\s]*([^"'\s,}]+)/i);
+  const extractProviderName = (content: string | object | undefined | null): string => {
+    const contentStr = normalizeContentToString(content);
+    if (!contentStr) return 'Unknown Provider';
+    
+    const match = contentStr.match(/provider["\s]*[:=]["\s]*([^"'\s,}]+)/i);
     return match ? match[1] : 'Unknown Provider';
   };
 
@@ -418,7 +422,7 @@ export function DataProviderToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && endpointsData && (
-            <Badge className="h-6 py-0.5">
+            <Badge variant="outline" className="h-6 py-0.5">
               <Network className="h-3 w-3" />
               {filteredEndpoints.length} endpoints
             </Badge>
