@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/ui/markdown';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
-import { FileCache } from '@/hooks/use-cached-file';
+import { useFilePreloader, FileCache } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
 import {
@@ -45,35 +45,12 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'see-image'
 ]);
 
-// Helper function to render attachments
+// Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string, project?: Project) {
     if (!attachments || attachments.length === 0) return null;
 
-    // Preload attachments into cache if we have a sandboxId
-    if (sandboxId) {
-        // Check if we can access localStorage and if there's a valid auth session before trying to preload
-        let hasValidSession = false;
-        let token = null;
-
-        try {
-            const sessionData = localStorage.getItem('auth');
-            if (sessionData) {
-                const session = JSON.parse(sessionData);
-                token = session?.access_token;
-                hasValidSession = !!token;
-            }
-        } catch (err) {
-            // Silent catch - localStorage might be unavailable in some contexts
-        }
-
-        // Only attempt to preload if we have a valid session
-        if (hasValidSession && token) {
-            // Use setTimeout to do this asynchronously without blocking rendering
-            setTimeout(() => {
-                FileCache.preload(sandboxId, attachments, token);
-            }, 0);
-        }
-    }
+    // Note: Preloading is now handled by React Query in the main ThreadContent component
+    // to avoid duplicate requests with different content types
 
     return <FileAttachmentGrid
         attachments={attachments}
@@ -218,6 +195,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const [userHasScrolled, setUserHasScrolled] = useState(false);
     const { session } = useAuth();
 
+    // React Query file preloader
+    const { preloadFiles } = useFilePreloader();
+
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
 
@@ -259,16 +239,18 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             }
         });
 
-        // Only attempt to preload if we have attachments AND a valid token
+        // Use React Query preloading if we have attachments AND a valid token
         if (allAttachments.length > 0 && session?.access_token) {
-            // Preload files in background with authentication token
-            FileCache.preload(sandboxId, allAttachments, session.access_token);
+            // Preload files with React Query in background
+            preloadFiles(sandboxId, allAttachments).catch(err => {
+                console.error('React Query preload failed:', err);
+            });
         }
-    }, [displayMessages, sandboxId, session?.access_token]);
+    }, [displayMessages, sandboxId, session?.access_token, preloadFiles]);
 
     return (
         <>
-            
+
             <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
@@ -285,7 +267,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     ) : (
                         <div className="space-y-8">
                             {(() => {
-                                
+
                                 type MessageGroup = {
                                     type: 'user' | 'assistant_group';
                                     messages: UnifiedMessage[];
@@ -293,7 +275,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 };
                                 const groupedMessages: MessageGroup[] = [];
                                 let currentGroup: MessageGroup | null = null;
-                                
+
                                 displayMessages.forEach((message, index) => {
                                     const messageType = message.type;
                                     const key = message.message_id || `msg-${index}`;
@@ -320,24 +302,26 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         }
                                     }
                                 });
-                                
+
                                 if (currentGroup) {
                                     groupedMessages.push(currentGroup);
                                 }
-                                if(streamingTextContent) {
+                                if (streamingTextContent) {
                                     const lastMessages = groupedMessages.at(-1)
-                                    if(lastMessages.type === 'user'){
-                                            groupedMessages.push({type: 'assistant_group', messages: [{
-                                            content: streamingTextContent,
-                                            type: 'assistant',
-                                            message_id: 'streamingTextContent',
-                                            metadata: 'streamingTextContent',
-                                            created_at: new Date().toISOString(),
-                                            updated_at: new Date().toISOString(),
-                                            is_llm_message: true,
-                                            thread_id: 'streamingTextContent',
-                                            sequence: Infinity,
-                                        }], key: 'streamingTextContent'});
+                                    if (lastMessages.type === 'user') {
+                                        groupedMessages.push({
+                                            type: 'assistant_group', messages: [{
+                                                content: streamingTextContent,
+                                                type: 'assistant',
+                                                message_id: 'streamingTextContent',
+                                                metadata: 'streamingTextContent',
+                                                created_at: new Date().toISOString(),
+                                                updated_at: new Date().toISOString(),
+                                                is_llm_message: true,
+                                                thread_id: 'streamingTextContent',
+                                                sequence: Infinity,
+                                            }], key: 'streamingTextContent'
+                                        });
                                     }
                                     else {
                                         lastMessages.messages.push({
@@ -353,7 +337,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         })
                                     }
                                 }
-                                
+
                                 return groupedMessages.map((group, groupIndex) => {
                                     if (group.type === 'user') {
                                         const message = group.messages[0];
@@ -410,7 +394,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex items-start gap-3">
                                                     <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center ml-auto mr-2">
-                                                    <KortixLogo />
+                                                        <KortixLogo />
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="inline-flex max-w-[90%] rounded-lg px-4 text-sm">
@@ -629,16 +613,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     return null;
                                 });
                             })()}
-                            {((agentStatus === 'running' || agentStatus === 'connecting' ) && !streamingTextContent &&
+                            {((agentStatus === 'running' || agentStatus === 'connecting') && !streamingTextContent &&
                                 !readOnly &&
                                 (messages.length === 0 || messages[messages.length - 1].type === 'user')) && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex items-start gap-3">
                                             <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center bg-primary/10">
-                                            <KortixLogo />
+                                                <KortixLogo />
                                             </div>
                                             <div className="flex-1 space-y-2 w-full h-12">
-                                                <AgentLoader/>
+                                                <AgentLoader />
                                             </div>
                                         </div>
                                     </div>
@@ -668,7 +652,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 <div ref={latestMessageRef}>
                                     <div className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
-                                        <KortixLogo />
+                                            <KortixLogo />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <div className="max-w-[90%] px-4 py-3 text-sm">

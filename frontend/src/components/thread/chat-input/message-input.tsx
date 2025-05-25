@@ -31,6 +31,7 @@ interface MessageInputProps {
   setUploadedFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
   setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
   hideAttachments?: boolean;
+  messages?: any[]; // Add messages prop
 
   selectedModel: string;
   onModelChange: (model: string) => void;
@@ -61,6 +62,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       setUploadedFiles,
       setIsUploading,
       hideAttachments = false,
+      messages = [],
 
       selectedModel,
       onModelChange,
@@ -137,6 +139,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 setPendingFiles={setPendingFiles}
                 setUploadedFiles={setUploadedFiles}
                 setIsUploading={setIsUploading}
+                messages={messages}
               />
             )}
 
