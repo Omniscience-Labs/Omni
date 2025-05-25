@@ -13,7 +13,6 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
-  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -285,7 +284,7 @@ export function WebSearchToolView({
                               rel="noopener noreferrer"
                               className="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline line-clamp-1 mb-1"
                             >
-                              {result.title}
+                              {truncateString(cleanUrl(result.title), 50)}
                             </a>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
                               <Globe className="h-3 w-3 mr-1.5 flex-shrink-0 opacity-70" />
@@ -368,7 +367,7 @@ export function WebSearchToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && searchResults.length > 0 && (
-            <Badge className="h-6 py-0.5">
+            <Badge variant="outline" className="h-6 py-0.5">
               <Globe className="h-3 w-3" />
               {searchResults.length} results
             </Badge>

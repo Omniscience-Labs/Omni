@@ -1,6 +1,6 @@
 import { createMutationHook, createQueryHook } from "@/hooks/use-query";
 import { threadKeys } from "./keys";
-import { getProject, Project, updateProject } from "@/lib/api";
+import { getProject, getPublicProjects, Project, updateProject } from "./utils";
 
 export const useProjectQuery = (projectId: string | undefined) =>
   createQueryHook(
@@ -25,3 +25,13 @@ export const useUpdateProjectMutation = () =>
       data: Partial<Project>;
     }) => updateProject(projectId, data)
   )();
+
+export const usePublicProjectsQuery = () =>
+    createQueryHook(
+      threadKeys.publicProjects(),
+      () =>
+        getPublicProjects(),
+      {
+        retry: 1,
+      }
+    )();

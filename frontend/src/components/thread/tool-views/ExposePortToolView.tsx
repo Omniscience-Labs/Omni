@@ -294,7 +294,7 @@ export function ExposePortToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && toolResult && (
-            <Badge className="h-6 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-none">
+            <Badge variant="outline">
               <Computer className="h-3 w-3 mr-1" />
               Port {portNumber}
             </Badge>

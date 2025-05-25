@@ -45,6 +45,7 @@ interface ToolCallSidePanelProps {
     isSuccess?: boolean,
   ) => React.ReactNode;
   isLoading?: boolean;
+  onFileClick?: (filePath: string) => void;
 }
 
 interface ToolCallSnapshot {
@@ -65,6 +66,7 @@ export function ToolCallSidePanel({
   project,
   isLoading = false,
   externalNavigateToIndex,
+  onFileClick,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
@@ -320,6 +322,7 @@ export function ToolCallSidePanel({
         agentStatus={agentStatus}
         currentIndex={internalIndex}
         totalCalls={totalCalls}
+        onFileClick={onFileClick}
       />
     );
 

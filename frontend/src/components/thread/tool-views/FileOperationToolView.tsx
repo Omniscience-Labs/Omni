@@ -407,7 +407,7 @@ export function FileOperationToolView({
     
     if (isMarkdown) {
       return (
-        <div className="p-6 py-0 prose dark:prose-invert prose-zinc max-w-none">
+        <div className="p-1 py-0 prose dark:prose-invert prose-zinc max-w-none">
           <MarkdownRenderer
             content={processUnicodeContent(fileContent)}
           />
@@ -417,17 +417,21 @@ export function FileOperationToolView({
     
     if (isCsv) {
       return (
-        <div className="h-full">
-          <CsvRenderer content={processUnicodeContent(fileContent)} />
+        <div className="h-full w-full p-4">
+          <div className="h-[calc(100vh-17rem)] w-[41%] bg-muted/20 border rounded-xl overflow-auto">
+            <CsvRenderer content={processUnicodeContent(fileContent)} />
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="p-6">
+      <div className="p-4">
+        <div className='w-full h-full bg-muted/20 border rounded-xl px-4 py-2 pb-6'>
         <pre className="text-sm font-mono text-zinc-800 dark:text-zinc-300 whitespace-pre-wrap break-words">
           {processUnicodeContent(fileContent)}
         </pre>
+        </div>
       </div>
     );
   };
@@ -504,7 +508,7 @@ export function FileOperationToolView({
                       <CodeBlockCode
                         code={processUnicodeContent(fileContent)}
                         language={language}
-                        className="text-xs p-4"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -518,7 +522,7 @@ export function FileOperationToolView({
                         <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
                           {idx + 1}
                         </div>
-                        <div className="table-cell pl-3 text-wrap py-0.5 text-xs font-mono whitespace-pre text-zinc-800 dark:text-zinc-300">
+                        <div className="table-cell pl-3 py-0.5 pr-4 text-xs font-mono whitespace-pre-wrap text-zinc-800 dark:text-zinc-300">
                           {processUnicodeContent(line) || ' '}
                         </div>
                       </div>
@@ -537,7 +541,7 @@ export function FileOperationToolView({
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="preview" className="flex-1 h-full mt-0 p-0 overflow-hidden">
+          <TabsContent value="preview" className="w-full flex-1 h-full mt-0 p-0 overflow-hidden">
             <ScrollArea className="h-full w-full">
               {operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
@@ -575,7 +579,7 @@ export function FileOperationToolView({
         
         <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
           <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <Badge className="py-0.5 h-6">
+            <Badge variant="outline" className="py-0.5 h-6">
               <FileIcon className="h-3 w-3" />
               {hasHighlighting ? language.toUpperCase() : fileExtension.toUpperCase() || 'TEXT'}
             </Badge>

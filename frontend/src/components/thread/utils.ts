@@ -16,6 +16,8 @@ import {
   Network,
   FileSearch,
   FilePlus,
+  MessageCircleQuestion,
+  CheckCircle2,
 } from 'lucide-react';
 
 // Flag to control whether tool result messages are rendered
@@ -132,7 +134,11 @@ export const getToolIcon = (toolName: string): ElementType => {
 
     // User interaction
     case 'ask':
-      return MessageSquare;
+      return MessageCircleQuestion;
+
+    // Task completion
+    case 'complete':
+      return CheckCircle2;
 
     // Default case
     default:
@@ -249,10 +255,13 @@ export const extractPrimaryParam = (
 const TOOL_DISPLAY_NAMES = new Map([
   ['execute-command', 'Executing Command'],
   ['terminate-command', 'Terminating Command'],
+  ['list-commands', 'Listing Commands'],
+  
   ['create-file', 'Creating File'],
   ['delete-file', 'Deleting File'],
   ['full-file-rewrite', 'Rewriting File'],
   ['str-replace', 'Editing Text'],
+  ['str_replace', 'Editing Text'],
   
   ['browser-click-element', 'Clicking Element'],
   ['browser-close-tab', 'Closing Tab'],
@@ -273,7 +282,7 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['execute-data-provider-call', 'Executing data provider all'],
   
   ['deploy', 'Deploying'],
-  ['ask', 'Asking Question'],
+  ['ask', 'Ask'],
   ['complete', 'Completing Task'],
   ['crawl-webpage', 'Crawling Website'],
   ['expose-port', 'Exposing Port'],

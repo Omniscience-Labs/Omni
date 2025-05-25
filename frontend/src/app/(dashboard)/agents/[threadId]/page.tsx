@@ -753,11 +753,6 @@ export default function ThreadPage({
           }
         } catch { }
 
-        // Skip adding <ask> tags to the tool calls
-        if (toolName === 'ask' || toolName === 'complete') {
-          return;
-        }
-
         let isSuccess = true;
         try {
           // Parse tool result content
@@ -828,11 +823,6 @@ export default function ThreadPage({
 
   // Update handleToolClick to respect user closing preference and navigate correctly
   const handleToolClick = useCallback((clickedAssistantMessageId: string | null, clickedToolName: string) => {
-    // Explicitly ignore ask tags from opening the side panel
-    if (clickedToolName === 'ask') {
-      return;
-    }
-
     if (!clickedAssistantMessageId) {
       console.warn("Clicked assistant message ID is null. Cannot open side panel.");
       toast.warning("Cannot view details: Assistant message ID is missing.");
@@ -848,6 +838,12 @@ export default function ThreadPage({
       'Tool Name:',
       clickedToolName,
     );
+
+    console.log('[PAGE] Available tool calls:', toolCalls.map(tc => ({
+      name: tc.assistantCall?.name,
+      hasContent: !!tc.assistantCall?.content,
+      hasResult: !!tc.toolResult?.content && tc.toolResult.content !== 'STREAMING'
+    })));
 
     // Find the index of the tool call associated with the clicked assistant message
     const toolIndex = toolCalls.findIndex((tc) => {
@@ -878,10 +874,20 @@ export default function ThreadPage({
 
       // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
       // Compare the original content directly without parsing
-      return (
+      const matches = (
         tc.assistantCall?.content === assistantMessage.content &&
         tc.toolResult?.content === toolMessage?.content
       );
+
+      if (matches) {
+        console.log('[PAGE] Found matching tool call:', {
+          toolCallName: tc.assistantCall?.name,
+          clickedToolName,
+          assistantMessageId: assistantMessage.message_id
+        });
+      }
+
+      return matches;
     });
 
     if (toolIndex !== -1) {
@@ -897,6 +903,21 @@ export default function ThreadPage({
       console.warn(
         `[PAGE] Could not find matching tool call in toolCalls array for assistant message ID: ${clickedAssistantMessageId}`,
       );
+      console.log('[PAGE] Debug info:', {
+        clickedAssistantMessageId,
+        clickedToolName,
+        totalToolCalls: toolCalls.length,
+        assistantMessage: messages.find(m => m.message_id === clickedAssistantMessageId),
+        toolMessage: messages.find(m => {
+          if (m.type !== 'tool' || !m.metadata) return false;
+          try {
+            const metadata = safeJsonParse<ParsedMetadata>(m.metadata, {});
+            return metadata.assistant_message_id === clickedAssistantMessageId;
+          } catch {
+            return false;
+          }
+        })
+      });
       toast.info('Could not find details for this tool call.');
       // Optionally, still open the panel but maybe at the last index or show a message?
       // setIsSidePanelOpen(true);
@@ -914,8 +935,7 @@ export default function ThreadPage({
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
-      // Skip <ask> tags from showing in the side panel during streaming
-      if (toolName === 'ask' || toolName === 'complete') {
+      if(toolName === 'ask') {
         return;
       }
 
@@ -1192,6 +1212,7 @@ export default function ThreadPage({
           renderAssistantMessage={toolViewAssistant}
           renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
+          onFileClick={handleOpenFileViewer}
         />
 
         {
@@ -1300,6 +1321,7 @@ export default function ThreadPage({
           renderAssistantMessage={toolViewAssistant}
           renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
+          onFileClick={handleOpenFileViewer}
         />
 
         {sandboxId && (
