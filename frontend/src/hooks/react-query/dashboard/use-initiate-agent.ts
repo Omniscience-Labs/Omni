@@ -50,7 +50,7 @@ export const useInitiateAgentWithInvalidation = () => {
         if (errorMessage.toLowerCase().includes("payment required")) {
           console.log('Opening payment required modal');
           onOpen("paymentRequiredDialog");
-          return; // Don't show other error toasts
+          return;
         }
       }
     }
