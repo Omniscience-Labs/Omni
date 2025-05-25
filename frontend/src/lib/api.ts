@@ -1423,7 +1423,6 @@ export const initiateAgent = async (
       throw new Error('No access token available');
     }
 
-    // Check if backend URL is configured
     if (!API_URL) {
       throw new Error(
         'Backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL in your environment.',
@@ -1447,10 +1446,20 @@ export const initiateAgent = async (
       const errorText = await response
         .text()
         .catch(() => 'No error details available');
+      
       console.error(
         `[API] Error initiating agent: ${response.status} ${response.statusText}`,
         errorText,
       );
+    
+      if (response.status === 402) {
+        throw new Error('Payment Required');
+      } else if (response.status === 401) {
+        throw new Error('Authentication error: Please sign in again');
+      } else if (response.status >= 500) {
+        throw new Error('Server error: Please try again later');
+      }
+    
       throw new Error(
         `Error initiating agent: ${response.statusText} (${response.status})`,
       );
@@ -1460,7 +1469,6 @@ export const initiateAgent = async (
   } catch (error) {
     console.error('[API] Failed to initiate agent:', error);
 
-    // Provide clearer error message for network errors
     if (
       error instanceof TypeError &&
       error.message.includes('Failed to fetch')
