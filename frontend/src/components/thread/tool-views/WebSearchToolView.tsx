@@ -23,7 +23,7 @@ import {
   formatTimestamp,
   getToolTitle,
 } from './utils';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +31,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-function truncateText(text: string, maxLength: number = 70) {
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-}
 
 export function WebSearchToolView({
   name = 'web-search',
@@ -187,7 +183,7 @@ export function WebSearchToolView({
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
           </div>
-        ) : searchResults.length > 0 ? (
+        ) : searchResults.length > 0 || answer ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4">
               {answer && (
@@ -243,13 +239,15 @@ export function WebSearchToolView({
                 </div>
               )}
 
-              <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-4 flex items-center justify-between">
-                <span>Search Results ({searchResults.length})</span>
-                <Badge variant="outline" className="text-xs font-normal">
-                  <Clock className="h-3 w-3 mr-1.5 opacity-70" />
-                  {new Date().toLocaleDateString()}
-                </Badge>
-              </div>
+              {searchResults.length > 0 && (
+                <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-4 flex items-center justify-between">
+                  <span>Search Results ({searchResults.length})</span>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    <Clock className="h-3 w-3 mr-1.5 opacity-70" />
+                    {new Date().toLocaleDateString()}
+                  </Badge>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {searchResults.map((result, idx) => {
@@ -291,7 +289,7 @@ export function WebSearchToolView({
                             </a>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
                               <Globe className="h-3 w-3 mr-1.5 flex-shrink-0 opacity-70" />
-                              {truncateText(cleanUrl(result.url))}
+                              {truncateString(cleanUrl(result.url), 70)}
                             </div>
                           </div>
                           <TooltipProvider>

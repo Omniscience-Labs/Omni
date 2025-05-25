@@ -23,7 +23,7 @@ import {
   getToolTitle,
   normalizeContentToString,
 } from './utils';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +31,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-function truncateText(text: string, maxLength: number = 40) {
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-}
 
 export function WebScrapeToolView({
   name = 'scrape-webpage',
@@ -244,7 +240,7 @@ export function WebScrapeToolView({
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">{truncateText(url)}</p>
+                      <p className="font-mono text-sm text-zinc-900 dark:text-zinc-100 truncate">{truncateString(url, 70)}</p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{domain}</p>
                     </div>
                     <Button 

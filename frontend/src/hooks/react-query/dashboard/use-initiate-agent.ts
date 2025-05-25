@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { dashboardKeys } from "./keys";
 import { useQueryClient } from "@tanstack/react-query";
 import { useModal } from "@/hooks/use-modal-store";
+import { projectKeys, threadKeys } from "../sidebar/keys";
 
 export const useInitiateAgentMutation = createMutationHook<
   InitiateAgentResponse, 
@@ -41,6 +42,8 @@ export const useInitiateAgentWithInvalidation = () => {
   const { onOpen } = useModal();
   return useInitiateAgentMutation({
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: threadKeys.all });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.agents });
     },
     onError: (error) => {

@@ -122,10 +122,8 @@ export default function ThreadPage({
 
   const userClosedPanelRef = useRef(false);
 
-  // Initialize as if user already closed panel to prevent auto-opening
   useEffect(() => {
     userClosedPanelRef.current = true;
-    // Initially hide the side panel
     setIsSidePanelOpen(false);
   }, []);
 
@@ -139,7 +137,6 @@ export default function ThreadPage({
   }, []);
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
-    // Log the ID of the message received from the stream
     console.log(
       `[STREAM HANDLER] Received message: ID=${message.message_id}, Type=${message.type}`,
     );
@@ -150,22 +147,18 @@ export default function ThreadPage({
     }
 
     setMessages((prev) => {
-      // First check if the message already exists
       const messageExists = prev.some(
         (m) => m.message_id === message.message_id,
       );
       if (messageExists) {
-        // If it exists, update it instead of adding a new one
         return prev.map((m) =>
           m.message_id === message.message_id ? message : m,
         );
       } else {
-        // If it's a new message, add it to the end
         return [...prev, message];
       }
     });
 
-    // If we received a tool message, refresh the tool panel
     if (message.type === 'tool') {
       setAutoOpenedPanel(false);
     }
@@ -181,7 +174,6 @@ export default function ThreadPage({
         case 'agent_not_running':
           setAgentStatus('idle');
           setAgentRunId(null);
-          // Reset auto-opened state when agent completes to trigger tool detection
           setAutoOpenedPanel(false);
           break;
         case 'connecting':
@@ -192,7 +184,6 @@ export default function ThreadPage({
           break;
         case 'error':
           setAgentStatus('error');
-          // Handle errors by going back to idle state after a short delay
           setTimeout(() => {
             setAgentStatus('idle');
             setAgentRunId(null);
@@ -212,14 +203,12 @@ export default function ThreadPage({
     console.log(`[PAGE] Stream hook closed with final status: ${agentStatus}`);
   }, [agentStatus]);
 
-  // Main playback function
   useEffect(() => {
     if (!isPlaying || messages.length === 0) return;
 
     let playbackTimeout: NodeJS.Timeout;
 
     const playbackNextMessage = async () => {
-      // Ensure we're within bounds
       if (currentMessageIndex >= messages.length) {
         setIsPlaying(false);
         return;
@@ -232,11 +221,8 @@ export default function ThreadPage({
         currentMessage.message_id,
       );
 
-      // Move to the next message
       setCurrentMessageIndex((prevIndex) => prevIndex + 1);
     };
-
-    // Start playback with a small delay
     playbackTimeout = setTimeout(playbackNextMessage, 500);
 
     return () => {
@@ -281,7 +267,6 @@ export default function ThreadPage({
       try {
         if (!threadId) throw new Error('Thread ID is required');
 
-        // Start loading all data in parallel
         const [threadData, messagesData] = await Promise.all([
           getThread(threadId).catch((err) => {
             if (threadErrorCodeMessages[err.code]) {
@@ -299,7 +284,6 @@ export default function ThreadPage({
 
         if (!isMounted) return;
 
-        // Load project data if we have a project ID
         const projectData = threadData?.project_id
           ? await getProject(threadData.project_id).catch((err) => {
               console.warn('[SHARE] Could not load project data:', err);
@@ -309,10 +293,7 @@ export default function ThreadPage({
 
         if (isMounted) {
           if (projectData) {
-            // Set project data
             setProject(projectData);
-
-            // Make sure sandbox ID is set correctly
             if (typeof projectData.sandbox === 'string') {
               setSandboxId(projectData.sandbox);
             } else if (projectData.sandbox?.id) {
@@ -321,11 +302,9 @@ export default function ThreadPage({
 
             setProjectName(projectData.name || '');
           } else {
-            // Set a generic name if we couldn't load the project
             setProjectName('Shared Conversation');
           }
 
-          // Map API message type to UnifiedMessage type
           const unifiedMessages = (messagesData || [])
             .filter((msg) => msg.type !== 'status')
             .map((msg: ApiMessageType) => ({
@@ -340,17 +319,13 @@ export default function ThreadPage({
             }));
 
           setMessages(unifiedMessages);
-
-          // Calculate historical tool pairs
           const historicalToolPairs: ToolCallInput[] = [];
           const assistantMessages = unifiedMessages.filter(
             (m) => m.type === 'assistant' && m.message_id,
           );
 
-          // Map to track which assistant messages have tool results
           const assistantToolMap = new Map<string, UnifiedMessage>();
 
-          // First build a map of assistant message IDs to tool messages
           unifiedMessages.forEach((msg) => {
             if (msg.type === 'tool' && msg.metadata) {
               try {
@@ -359,21 +334,14 @@ export default function ThreadPage({
                   assistantToolMap.set(metadata.assistant_message_id, msg);
                 }
               } catch (e) {
-                // Ignore parsing errors
               }
             }
           });
 
-          // Now process each assistant message
           assistantMessages.forEach((assistantMsg) => {
-            // Get message ID
             const messageId = assistantMsg.message_id;
             if (!messageId) return;
-
-            // Find corresponding tool message
             const toolMessage = assistantToolMap.get(messageId);
-
-            // Check for tool calls in the assistant message content
             let assistantContent: any;
             try {
               assistantContent = JSON.parse(assistantMsg.content);
@@ -383,12 +351,8 @@ export default function ThreadPage({
 
             const assistantMessageText =
               assistantContent.content || assistantMsg.content;
-
-            // Use a regex to find tool calls in the message content
             const toolCalls = extractToolCallsFromMessage(assistantMessageText);
-
             if (toolCalls.length > 0 && toolMessage) {
-              // For each tool call in the message, create a pair
               toolCalls.forEach((toolCall) => {
                 let toolContent: any;
                 try {
@@ -396,6 +360,21 @@ export default function ThreadPage({
                 } catch (e) {
                   toolContent = { content: toolMessage.content };
                 }
+                let isSuccess = true;
+                try {
+                  const toolResultContent = toolContent.content || toolMessage.content;
+                  if (toolResultContent && typeof toolResultContent === 'string') {
+                    const toolResultMatch = toolResultContent.match(/ToolResult\s*\(\s*success\s*=\s*(True|False|true|false)/i);
+                    if (toolResultMatch) {
+                      isSuccess = toolResultMatch[1].toLowerCase() === 'true';
+                    } else {
+                      const toolContentLower = toolResultContent.toLowerCase();
+                      isSuccess = !(toolContentLower.includes('failed') ||
+                        toolContentLower.includes('error') ||
+                        toolContentLower.includes('failure'));
+                    }
+                  }
+                } catch { }
 
                 historicalToolPairs.push({
                   assistantCall: {
@@ -405,7 +384,7 @@ export default function ThreadPage({
                   },
                   toolResult: {
                     content: toolContent.content || toolMessage.content,
-                    isSuccess: true,
+                    isSuccess: isSuccess,
                     timestamp: toolMessage.created_at,
                   },
                 });

@@ -770,10 +770,20 @@ export default function ThreadPage({
             }
           })();
           
-          const toolContent = toolResultContent?.toLowerCase() || '';
-          isSuccess = !(toolContent.includes('failed') ||
-            toolContent.includes('error') ||
-            toolContent.includes('failure'));
+          // Check for ToolResult pattern first
+          if (toolResultContent && typeof toolResultContent === 'string') {
+            // Look for ToolResult(success=True/False) pattern
+            const toolResultMatch = toolResultContent.match(/ToolResult\s*\(\s*success\s*=\s*(True|False|true|false)/i);
+            if (toolResultMatch) {
+              isSuccess = toolResultMatch[1].toLowerCase() === 'true';
+            } else {
+              // Fallback: only check for error keywords if no ToolResult pattern found
+              const toolContent = toolResultContent.toLowerCase();
+              isSuccess = !(toolContent.includes('failed') ||
+                toolContent.includes('error') ||
+                toolContent.includes('failure'));
+            }
+          }
         } catch { }
 
         historicalToolPairs.push({

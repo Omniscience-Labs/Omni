@@ -188,7 +188,60 @@ export function extractFilePath(content: string | object | undefined | null): st
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
 
-  // Try parsing as JSON first
+  // Handle double-escaped JSON (old format)
+  if (typeof content === 'string' && content.startsWith('"{') && content.endsWith('}"')) {
+    try {
+      // First parse to get the inner JSON string
+      const innerString = JSON.parse(content);
+      // Then parse the inner string to get the actual object
+      const parsed = JSON.parse(innerString);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.file_path) {
+          return cleanFilePath(parsed.file_path);
+        }
+        if (parsed.arguments && parsed.arguments.file_path) {
+          return cleanFilePath(parsed.arguments.file_path);
+        }
+      }
+    } catch (e) {
+      // Continue with normal extraction
+    }
+  }
+
+  // First, check if content is already a parsed object (new format after double-escape fix)
+  if (typeof content === 'object' && content !== null) {
+    try {
+      // Check if it's a direct object with content field
+      if ('content' in content && typeof content.content === 'string') {
+        // Look for XML tags in the content string
+        const xmlFilePathMatch =
+          content.content.match(/<(?:create-file|delete-file|full-file-rewrite|str-replace)[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+          content.content.match(/<delete[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+          content.content.match(/<delete-file[^>]*>([^<]+)<\/delete-file>/i) ||
+          content.content.match(/<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']+)/i);
+        if (xmlFilePathMatch) {
+          return cleanFilePath(xmlFilePathMatch[1]);
+        }
+      }
+      
+      // Check for direct file_path property
+      if ('file_path' in content) {
+        return cleanFilePath(content.file_path as string);
+      }
+      
+      // Check for arguments.file_path
+      if ('arguments' in content && content.arguments && typeof content.arguments === 'object') {
+        const args = content.arguments as any;
+        if (args.file_path) {
+          return cleanFilePath(args.file_path);
+        }
+      }
+    } catch (e) {
+      // Continue with string parsing if object parsing fails
+    }
+  }
+
+  // Try parsing as JSON string (old format)
   try {
     const parsedContent = JSON.parse(contentStr);
     if (parsedContent.file_path) {
@@ -297,8 +350,26 @@ export function extractFileContent(
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
 
-  const tagName =
-    toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+  // First, check if content is already a parsed object (new format after double-escape fix)
+  if (typeof content === 'object' && content !== null) {
+    try {
+      // Check if it's a direct object with content field
+      if ('content' in content && typeof content.content === 'string') {
+        const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+        const contentMatch = content.content.match(
+          new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
+        );
+        if (contentMatch && contentMatch[1]) {
+          return processFileContent(contentMatch[1]);
+        }
+      }
+    } catch (e) {
+      // Continue with string parsing if object parsing fails
+    }
+  }
+
+  // Fallback to string-based extraction (old format)
+  const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
   const contentMatch = contentStr.match(
     new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
   );
@@ -801,12 +872,12 @@ export function extractWebpageContent(
     if (typeof parsedContent === 'object' && parsedContent !== null) {
       // Check if it's already the webpage data (new format after double-escape fix)
       if ('Title' in parsedContent || 'title' in parsedContent || 'Text' in parsedContent || 'text' in parsedContent) {
-        return {
-          title: parsedContent.Title || parsedContent.title || 'Webpage Content',
-          text:
-            parsedContent.Text ||
-            parsedContent.text ||
-            parsedContent.content ||
+      return {
+        title: parsedContent.Title || parsedContent.title || 'Webpage Content',
+        text:
+          parsedContent.Text ||
+          parsedContent.text ||
+          parsedContent.content ||
             '',
         };
       }
@@ -990,27 +1061,63 @@ export function normalizeContentToString(content: string | object | undefined | 
   if (!content) return null;
   
   if (typeof content === 'string') {
+    // Check if it's a double-escaped JSON string (old format)
+    if (content.startsWith('"{') && content.endsWith('}"')) {
+      try {
+        // First parse to get the inner JSON string
+        const innerString = JSON.parse(content);
+        // Then parse the inner string to get the actual object
+        const parsed = JSON.parse(innerString);
+        // Return the content field if it exists
+        if (parsed && typeof parsed === 'object' && 'content' in parsed) {
+          return parsed.content;
+        }
+        // Otherwise return the stringified object
+        return JSON.stringify(parsed);
+      } catch (e) {
+        // If parsing fails, return as is
+      }
+    }
     return content;
   }
   
   if (typeof content === 'object' && content !== null) {
     try {
-      // Handle case where content is a parsed object
+      // Handle case where content is a parsed object with content field (new format)
       if ('content' in content && typeof content.content === 'string') {
         return content.content;
-      } else if ('role' in content && 'content' in content && typeof content.content === 'string') {
-        // Handle message format {role: 'tool', content: '...'}
-        return content.content;
-      } else if ('role' in content && 'content' in content && typeof content.content === 'object' && content.content !== null) {
-        // Handle nested message format {role: 'assistant', content: {role: 'assistant', content: '...'}}
+      } 
+      // Handle case where content is a parsed object with content field that's also an object
+      else if ('content' in content && typeof content.content === 'object' && content.content !== null) {
+        // Check if the nested content has a content field
         if ('content' in content.content && typeof content.content.content === 'string') {
           return content.content.content;
         }
         // Try to stringify nested content object
         return JSON.stringify(content.content);
-      } else {
-        // Try to stringify the object
-        return JSON.stringify(content);
+      }
+      // Handle message format {role: 'tool', content: '...'}
+      else if ('role' in content && 'content' in content && typeof content.content === 'string') {
+        return content.content;
+      } 
+      // Handle nested message format {role: 'assistant', content: {role: 'assistant', content: '...'}}
+      else if ('role' in content && 'content' in content && typeof content.content === 'object' && content.content !== null) {
+        if ('content' in content.content && typeof content.content.content === 'string') {
+          return content.content.content;
+        }
+        // Try to stringify nested content object
+        return JSON.stringify(content.content);
+      } 
+      // Handle direct object that might be the content itself (new format)
+      else {
+        // If it looks like it might contain XML or structured content, stringify it
+        const stringified = JSON.stringify(content);
+        // Check if the stringified version contains XML tags or other structured content
+        if (stringified.includes('<') || stringified.includes('file_path') || stringified.includes('command')) {
+          return stringified;
+        }
+        // Otherwise, try to extract meaningful content
+        return stringified;
       }
     } catch (e) {
       console.error('Error in normalizeContentToString:', e, 'Content:', content);
@@ -1018,5 +1125,66 @@ export function normalizeContentToString(content: string | object | undefined | 
     }
   }
   
+  return null;
+}
+
+// Helper function to extract file content for streaming (handles incomplete XML)
+export function extractStreamingFileContent(
+  content: string | object | undefined | null,
+  toolType: 'create-file' | 'full-file-rewrite',
+): string | null {
+  const contentStr = normalizeContentToString(content);
+  if (!contentStr) return null;
+
+  const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+  
+  // First check if content is already a parsed object (new format)
+  if (typeof content === 'object' && content !== null) {
+    try {
+      if ('content' in content && typeof content.content === 'string') {
+        // Look for the opening tag
+        const openTagMatch = content.content.match(new RegExp(`<${tagName}[^>]*>`, 'i'));
+        if (openTagMatch) {
+          // Find where the tag ends
+          const tagEndIndex = content.content.indexOf(openTagMatch[0]) + openTagMatch[0].length;
+          // Extract everything after the opening tag
+          const afterTag = content.content.substring(tagEndIndex);
+          
+          // Check if there's a closing tag
+          const closeTagMatch = afterTag.match(new RegExp(`<\\/${tagName}>`, 'i'));
+          if (closeTagMatch) {
+            // Return content between tags
+            return processFileContent(afterTag.substring(0, closeTagMatch.index));
+          } else {
+            // No closing tag yet (streaming), return what we have
+            return processFileContent(afterTag);
+          }
+        }
+      }
+    } catch (e) {
+      // Continue with string parsing
+    }
+  }
+
+  // Fallback to string-based extraction
+  // Look for the opening tag
+  const openTagMatch = contentStr.match(new RegExp(`<${tagName}[^>]*>`, 'i'));
+  if (openTagMatch) {
+    // Find where the tag ends
+    const tagEndIndex = contentStr.indexOf(openTagMatch[0]) + openTagMatch[0].length;
+    // Extract everything after the opening tag
+    const afterTag = contentStr.substring(tagEndIndex);
+    
+    // Check if there's a closing tag
+    const closeTagMatch = afterTag.match(new RegExp(`<\\/${tagName}>`, 'i'));
+    if (closeTagMatch) {
+      // Return content between tags
+      return processFileContent(afterTag.substring(0, closeTagMatch.index));
+    } else {
+      // No closing tag yet (streaming), return what we have
+      return processFileContent(afterTag);
+    }
+  }
+
   return null;
 }

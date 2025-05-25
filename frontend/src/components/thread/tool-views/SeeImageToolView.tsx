@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { GenericToolView } from './GenericToolView';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -504,7 +504,7 @@ export function SeeImageToolView({
             <div>
               <div className="flex items-center">
                 <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                  {filename}
+                  {truncateString(filename, 25)}
                 </CardTitle>
                 {isAnimated && (
                   <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1.5 h-4 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400">
