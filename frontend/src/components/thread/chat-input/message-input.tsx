@@ -145,7 +145,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
 
           </div>
-          {subscriptionStatus === 'no_subscription' &&
+          {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
