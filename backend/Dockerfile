@@ -38,6 +38,8 @@ ENV WORKERS=33
 ENV THREADS=2
 ENV WORKER_CONNECTIONS=2000
 
+EXPOSE 8000
+
 # Gunicorn configuration
 CMD ["sh", "-c", "gunicorn api:app \
      --workers $WORKERS \

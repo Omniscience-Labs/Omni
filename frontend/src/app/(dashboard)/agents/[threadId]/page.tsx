@@ -1228,6 +1228,7 @@ export default function ThreadPage({
                 autoFocus={!isLoading}
                 onFileBrowse={handleOpenFileViewer}
                 sandboxId={sandboxId || undefined}
+                messages={messages}
               />
             </div>
           </div>
