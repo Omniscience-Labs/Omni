@@ -36,8 +36,9 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/.env:/app/.env:ro
+    env_file:
+      - ./backend/.env
     environment:
-      - ENV_MODE=local
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
@@ -59,8 +60,9 @@ services:
     command: python -m dramatiq run_agent_background
     volumes:
       - ./backend/.env:/app/.env:ro
+    env_file:
+      - ./backend/.env
     environment:
-      - ENV_MODE=local
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
