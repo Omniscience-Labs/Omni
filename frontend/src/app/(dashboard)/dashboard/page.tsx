@@ -26,6 +26,7 @@ import { config } from '@/lib/config';
 import { cn } from '@/lib/utils';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
+import { useModal } from '@/hooks/use-modal-store';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -42,6 +43,7 @@ function DashboardContent() {
   const personalAccount = accounts?.find((account) => account.personal_account);
   const chatInputRef = useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
+  const { onOpen } = useModal();
 
   const secondaryGradient =
     'bg-gradient-to-r from-blue-500 to-blue-500 bg-clip-text text-transparent';
@@ -96,17 +98,7 @@ function DashboardContent() {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
         console.log('Handling BillingError:', error.detail);
-        handleBillingError({
-          message:
-            error.detail.message ||
-            'Monthly usage limit reached. Please upgrade your plan.',
-          currentUsage: error.detail.currentUsage as number | undefined,
-          limit: error.detail.limit as number | undefined,
-          subscription: error.detail.subscription || {
-            price_id: config.SUBSCRIPTION_TIERS.FREE.priceId,
-            plan_name: 'Free',
-          },
-        });
+        onOpen("paymentRequiredDialog");
       }
     } finally {
       setIsSubmitting(false);

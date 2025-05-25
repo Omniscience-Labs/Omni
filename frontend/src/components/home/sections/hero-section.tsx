@@ -33,6 +33,7 @@ import { useBillingError } from '@/hooks/useBillingError';
 import { useAccounts } from '@/hooks/use-accounts';
 import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
+import { useModal } from '@/hooks/use-modal-store';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -57,6 +58,7 @@ export function HeroSection() {
     useBillingError();
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
+  const { onOpen } = useModal();
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -142,17 +144,8 @@ export function HeroSection() {
       // Check specifically for BillingError (402)
       if (error instanceof BillingError) {
         console.log('Handling BillingError from hero section:', error.detail);
-        handleBillingError({
-          message:
-            error.detail.message ||
-            'Monthly usage limit reached. Please upgrade your plan.',
-          currentUsage: error.detail.currentUsage as number | undefined,
-          limit: error.detail.limit as number | undefined,
-          subscription: error.detail.subscription || {
-            price_id: config.SUBSCRIPTION_TIERS.FREE.priceId, // Default Free
-            plan_name: 'Free',
-          },
-        });
+        // Open the payment required dialog modal instead of showing the alert
+        onOpen("paymentRequiredDialog");
         // Don't show toast for billing errors
       } else {
         // Handle other errors (e.g., network, other API errors)
