@@ -119,18 +119,14 @@ export function GenericToolView({
           <ScrollArea className="h-full w-full">
             <div className="p-4 space-y-4">
               {formattedAssistantContent && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center">
                     <Wrench className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
                     Input
                   </div>
-                  <div className="bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                    <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tool Input</span>
-                    </div>
+                  <div className="border-muted bg-muted/20 rounded-lg overflow-hidden border">
                     <div className="p-4">
-                      <pre className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words font-mono">
+                      <pre className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words font-mono">
                         {formattedAssistantContent}
                       </pre>
                     </div>
@@ -139,18 +135,14 @@ export function GenericToolView({
               )}
 
               {formattedToolContent && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center">
                     <Wrench className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
                     Output
                   </div>
-                  <div className="bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                    <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tool Output</span>
-                    </div>
+                  <div className="border-muted bg-muted/20 rounded-lg overflow-hidden border">
                     <div className="p-4">
-                      <pre className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words font-mono">
+                      <pre className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words font-mono">
                         {formattedToolContent}
                       </pre>
                     </div>

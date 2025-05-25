@@ -418,7 +418,7 @@ export function FileOperationToolView({
     if (isCsv) {
       return (
         <div className="h-full w-full p-4">
-          <div className="h-[calc(100vh-17rem)] w-[41%] bg-muted/20 border rounded-xl overflow-auto">
+          <div className="h-[calc(100vh-17rem)] w-full bg-muted/20 border rounded-xl overflow-auto">
             <CsvRenderer content={processUnicodeContent(fileContent)} />
           </div>
         </div>

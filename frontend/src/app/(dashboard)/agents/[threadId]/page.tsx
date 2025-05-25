@@ -215,31 +215,24 @@ export default function ThreadPage({
     }
   }, [setLeftSidebarOpen]);
 
-  // Update keyboard shortcut handlers to manage both panels
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // CMD+I for ToolCall SidePanel
       if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
         event.preventDefault();
-        // If side panel is already open, just close it
         if (isSidePanelOpen) {
           setIsSidePanelOpen(false);
           userClosedPanelRef.current = true;
         } else {
-          // Open side panel and ensure left sidebar is closed
           setIsSidePanelOpen(true);
           setLeftSidebarOpen(false);
         }
       }
 
-      // CMD+B for Left Sidebar
       if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
         event.preventDefault();
-        // If left sidebar is expanded, collapse it
         if (leftSidebarState === 'expanded') {
           setLeftSidebarOpen(false);
         } else {
-          // Otherwise expand the left sidebar and close the side panel
           setLeftSidebarOpen(true);
           if (isSidePanelOpen) {
             setIsSidePanelOpen(false);
@@ -753,6 +746,11 @@ export default function ThreadPage({
           }
         } catch { }
 
+        // Skip adding <ask> tags to the tool calls
+        if (toolName === 'ask' || toolName === 'complete') {
+          return;
+        }
+
         let isSuccess = true;
         try {
           // Parse tool result content
@@ -839,12 +837,6 @@ export default function ThreadPage({
       clickedToolName,
     );
 
-    console.log('[PAGE] Available tool calls:', toolCalls.map(tc => ({
-      name: tc.assistantCall?.name,
-      hasContent: !!tc.assistantCall?.content,
-      hasResult: !!tc.toolResult?.content && tc.toolResult.content !== 'STREAMING'
-    })));
-
     // Find the index of the tool call associated with the clicked assistant message
     const toolIndex = toolCalls.findIndex((tc) => {
       // Check if the assistant message ID matches the one stored in the tool result's metadata
@@ -874,20 +866,10 @@ export default function ThreadPage({
 
       // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
       // Compare the original content directly without parsing
-      const matches = (
+      return (
         tc.assistantCall?.content === assistantMessage.content &&
         tc.toolResult?.content === toolMessage?.content
       );
-
-      if (matches) {
-        console.log('[PAGE] Found matching tool call:', {
-          toolCallName: tc.assistantCall?.name,
-          clickedToolName,
-          assistantMessageId: assistantMessage.message_id
-        });
-      }
-
-      return matches;
     });
 
     if (toolIndex !== -1) {
@@ -903,21 +885,6 @@ export default function ThreadPage({
       console.warn(
         `[PAGE] Could not find matching tool call in toolCalls array for assistant message ID: ${clickedAssistantMessageId}`,
       );
-      console.log('[PAGE] Debug info:', {
-        clickedAssistantMessageId,
-        clickedToolName,
-        totalToolCalls: toolCalls.length,
-        assistantMessage: messages.find(m => m.message_id === clickedAssistantMessageId),
-        toolMessage: messages.find(m => {
-          if (m.type !== 'tool' || !m.metadata) return false;
-          try {
-            const metadata = safeJsonParse<ParsedMetadata>(m.metadata, {});
-            return metadata.assistant_message_id === clickedAssistantMessageId;
-          } catch {
-            return false;
-          }
-        })
-      });
       toast.info('Could not find details for this tool call.');
       // Optionally, still open the panel but maybe at the last index or show a message?
       // setIsSidePanelOpen(true);
@@ -935,7 +902,8 @@ export default function ThreadPage({
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
-      if(toolName === 'ask') {
+      // Skip <ask> tags from showing in the side panel during streaming
+      if (toolName === 'ask' || toolName === 'complete') {
         return;
       }
 
@@ -1212,7 +1180,6 @@ export default function ThreadPage({
           renderAssistantMessage={toolViewAssistant}
           renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
-          onFileClick={handleOpenFileViewer}
         />
 
         {
@@ -1321,7 +1288,6 @@ export default function ThreadPage({
           renderAssistantMessage={toolViewAssistant}
           renderToolResult={toolViewResult}
           isLoading={!initialLoadCompleted.current || isLoading}
-          onFileClick={handleOpenFileViewer}
         />
 
         {sandboxId && (

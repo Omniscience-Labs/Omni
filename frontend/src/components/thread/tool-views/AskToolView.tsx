@@ -16,7 +16,7 @@ import {
   normalizeContentToString,
   getFileIconAndColor,
 } from './utils';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -112,14 +112,13 @@ export function AskToolView({
       <CardContent className="p-0 flex-1 overflow-hidden relative">
         <ScrollArea className="h-full w-full">
           <div className="p-4 space-y-6">
-            {/* Attachments Section */}
             {askData.attachments && askData.attachments.length > 0 ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Paperclip className="h-4 w-4" />
                   Files ({askData.attachments.length})
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {askData.attachments.map((attachment, index) => {
                     const { icon: FileIcon, color, bgColor } = getFileIconAndColor(attachment);
                     const fileName = attachment.split('/').pop() || attachment;
@@ -129,28 +128,28 @@ export function AskToolView({
                       <button
                         key={index}
                         onClick={() => handleFileClick(attachment)}
-                        className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors group cursor-pointer text-left"
+                        className="flex flex-col items-center justify-center gap-3 p-3 h-[15rem] w-full bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors group cursor-pointer text-left"
                       >
                         <div className="flex-shrink-0">
                           <div className={cn(
-                            "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center",
+                            "w-20 h-20 rounded-lg bg-gradient-to-br flex items-center justify-center",
                             bgColor
                           )}>
-                            <FileIcon className={cn("h-5 w-5", color)} />
+                            <FileIcon className={cn("h-10 w-10", color)} />
                           </div>
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex flex-col items-center gap-2 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">
-                            {fileName}
+                            {truncateString(fileName, 30)}
                           </p>
                           {filePath && (
                             <p className="text-xs text-muted-foreground truncate">
                               {filePath}
                             </p>
                           )}
-                        </div>
-                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                            </div>
                         </div>
                       </button>
                     );
