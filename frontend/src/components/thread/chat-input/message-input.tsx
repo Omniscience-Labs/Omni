@@ -145,13 +145,13 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
 
           </div>
-          {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
+          {subscriptionStatus === 'no_subscription' &&
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
                   <p className='text-sm text-amber-500 hidden sm:block'>Upgrade for full performance</p>
                   <div className='sm:hidden absolute bottom-0 left-0 right-0 flex justify-center'>
-                    <p className='text-xs text-amber-500 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm'>
+                    <p className='text-xs text-amber-500 px-2 py-1'>
                       Upgrade for better performance
                     </p>
                   </div>
