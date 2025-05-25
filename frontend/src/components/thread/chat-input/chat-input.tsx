@@ -14,6 +14,8 @@ import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
+import { useFileDelete } from '@/hooks/react-query/files';
+import { useQueryClient } from '@tanstack/react-query';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -36,6 +38,7 @@ export interface ChatInputProps {
   onFileBrowse?: () => void;
   sandboxId?: string;
   hideAttachments?: boolean;
+  messages?: any[]; // Add messages prop to check for existing file references
 }
 
 export interface UploadedFile {
@@ -61,6 +64,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onFileBrowse,
       sandboxId,
       hideAttachments = false,
+      messages = [],
     },
     ref,
   ) => {
@@ -84,6 +88,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       getActualModelId,
       refreshCustomModels,
     } = useModelSelection();
+
+    const deleteFileMutation = useFileDelete();
+    const queryClient = useQueryClient();
 
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -152,13 +159,36 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     const removeUploadedFile = (index: number) => {
       const fileToRemove = uploadedFiles[index];
+
+      // Clean up local URL if it exists
       if (fileToRemove.localUrl) {
         URL.revokeObjectURL(fileToRemove.localUrl);
       }
 
+      // Remove from local state immediately for responsive UI
       setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
       if (!sandboxId && pendingFiles.length > index) {
         setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+      }
+
+      // Check if file is referenced in existing chat messages before deleting from server
+      const isFileUsedInChat = messages.some(message => {
+        const content = typeof message.content === 'string' ? message.content : '';
+        return content.includes(`[Uploaded File: ${fileToRemove.path}]`);
+      });
+
+      // Only delete from server if file is not referenced in chat history
+      if (sandboxId && fileToRemove.path && !isFileUsedInChat) {
+        deleteFileMutation.mutate({
+          sandboxId,
+          filePath: fileToRemove.path,
+        }, {
+          onError: (error) => {
+            console.error('Failed to delete file from server:', error);
+          }
+        });
+      } else if (isFileUsedInChat) {
+        console.log(`Skipping server deletion for ${fileToRemove.path} - file is referenced in chat history`);
       }
     };
 
@@ -193,6 +223,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 setPendingFiles,
                 setUploadedFiles,
                 setIsUploading,
+                messages,
+                queryClient,
               );
             }
           }}
@@ -228,6 +260,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 setUploadedFiles={setUploadedFiles}
                 setIsUploading={setIsUploading}
                 hideAttachments={hideAttachments}
+                messages={messages}
 
                 selectedModel={selectedModel}
                 onModelChange={handleModelChange}

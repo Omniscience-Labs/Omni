@@ -1,9 +1,10 @@
-name: Build and Push Docker Images
+name: Build and Push Docker Image
 
 on:
-  # Remove active triggers to disable the workflow
-  # push:
-  #   branches: [ main ]
+  push:
+    branches:
+      - main
+      - PRODUCTION
   workflow_dispatch:
 
 permissions:
@@ -15,6 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get tag name
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
+            echo "branch=latest" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF#refs/heads/}" == "PRODUCTION" ]]; then
+            echo "branch=prod" >> $GITHUB_OUTPUT
+          else
+            echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          fi
+        id: get_tag_name
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -32,16 +45,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}/suna-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository }}/suna-frontend:latest
+          platforms: linux/arm64, linux/amd64
+          tags: ghcr.io/${{ github.repository }}/suna-backend:${{ steps.get_tag_name.outputs.branch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
