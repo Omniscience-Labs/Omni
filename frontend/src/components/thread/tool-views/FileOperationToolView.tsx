@@ -474,10 +474,27 @@ export function FileOperationToolView({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
+        <CardContent className="p-0 -my-2 h-full flex-1 overflow-hidden relative">
           <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
-            <ScrollArea className="h-full w-full">
-              {operation === 'delete' ? (
+            <ScrollArea className="h-full w-full min-h-0">
+              {isStreaming && !fileContent ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] h-full py-12 px-6">
+                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+                    <Loader2 className={cn("h-10 w-10 animate-spin", config.color)} />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
+                    {config.progressMessage}
+                  </h3>
+                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
+                    <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+                      {processedFilePath || 'Processing file...'}
+                    </code>
+                  </div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Please wait while the file is being processed
+                  </p>
+                </div>
+              ) : operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
                     <Trash2 className={cn("h-10 w-10", config.color)} />
@@ -542,8 +559,25 @@ export function FileOperationToolView({
           </TabsContent>
           
           <TabsContent value="preview" className="w-full flex-1 h-full mt-0 p-0 overflow-hidden">
-            <ScrollArea className="h-full w-full">
-              {operation === 'delete' ? (
+            <ScrollArea className="h-full w-full min-h-0">
+              {isStreaming && !fileContent ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] h-full py-12 px-6 ">
+                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+                    <Loader2 className={cn("h-10 w-10 animate-spin", config.color)} />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
+                    {config.progressMessage}
+                  </h3>
+                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
+                    <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+                      {processedFilePath || 'Processing file...'}
+                    </code>
+                  </div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Please wait while the file is being processed
+                  </p>
+                </div>
+              ) : operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
                     <Trash2 className={cn("h-10 w-10", config.color)} />

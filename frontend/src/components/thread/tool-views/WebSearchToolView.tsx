@@ -178,7 +178,7 @@ export function WebSearchToolView({
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
                 <span className="font-mono text-xs break-all">{query}</span>
               </p>
-              <Progress value={progress} className="w-full h-2" />
+              <Progress value={progress} className="w-full h-1" />
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
           </div>

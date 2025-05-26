@@ -112,6 +112,7 @@ export function ThreadLayout({
         renderAssistantMessage={renderAssistantMessage}
         renderToolResult={renderToolResult}
         isLoading={!initialLoadCompleted || isLoading}
+        onFileClick={onViewFiles}
       />
 
       {sandboxId && (
