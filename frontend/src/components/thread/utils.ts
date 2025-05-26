@@ -281,9 +281,9 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['browser-switch-tab', 'Switching Tab'],
   ['browser-wait', 'Waiting'],
 
-  ['execute-data-provider-call', 'Executing data provider call'],
-  ['execute_data_provider_call', 'Executing data provider call'],
-  ['get-data-provider-endpoints', 'Getting data provider endpoints'],
+  ['execute-data-provider-call', 'Calling data provider'],
+  ['execute_data_provider_call', 'Calling data provider'],
+  ['get-data-provider-endpoints', 'Getting endpoints'],
   
   ['deploy', 'Deploying'],
   ['ask', 'Ask'],
