@@ -23,6 +23,7 @@ from agentpress.response_processor import (
 from services.supabase import DBConnection
 from utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
+from services.langfuse import langfuse
 import datetime
 
 # Type alias for tool choice
@@ -36,15 +37,19 @@ class ThreadManager:
     XML-based tool execution patterns.
     """
 
-    def __init__(self):
+    def __init__(self, trace: Optional[StatefulTraceClient] = None):
         """Initialize ThreadManager.
 
         """
         self.db = DBConnection()
         self.tool_registry = ToolRegistry()
+        self.trace = trace
+        if not self.trace:
+            self.trace = langfuse.trace(name="anonymous:thread_manager")
         self.response_processor = ResponseProcessor(
             tool_registry=self.tool_registry,
-            add_message_callback=self.add_message
+            add_message_callback=self.add_message,
+            trace=self.trace
         )
         self.context_manager = ContextManager()
 
@@ -79,9 +84,9 @@ class ThreadManager:
         data_to_insert = {
             'thread_id': thread_id,
             'type': type,
-            'content': json.dumps(content) if isinstance(content, (dict, list)) else content,
+            'content': content,
             'is_llm_message': is_llm_message,
-            'metadata': json.dumps(metadata or {}), # Ensure metadata is always a JSON object
+            'metadata': metadata or {},
         }
 
         try:
@@ -165,7 +170,6 @@ class ThreadManager:
         reasoning_effort: Optional[str] = 'low',
         enable_context_manager: bool = True,
         generation: Optional[StatefulGenerationClient] = None,
-        trace: Optional[StatefulTraceClient] = None
     ) -> Union[Dict[str, Any], AsyncGenerator]:
         """Run a conversation thread with LLM integration and tool execution.
 
@@ -366,7 +370,6 @@ Here are the XML tools available with examples:
                         config=processor_config,
                         prompt_messages=prepared_messages,
                         llm_model=llm_model,
-                        trace=trace
                     )
 
                     return response_generator
@@ -379,7 +382,6 @@ Here are the XML tools available with examples:
                         config=processor_config,
                         prompt_messages=prepared_messages,
                         llm_model=llm_model,
-                        trace=trace
                     )
                     return response_generator # Return the generator
 

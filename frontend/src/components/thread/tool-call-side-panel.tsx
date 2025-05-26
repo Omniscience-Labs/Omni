@@ -1,7 +1,7 @@
 'use client';
 
 import { Project } from '@/lib/api';
-import { getToolIcon } from '@/components/thread/utils';
+import { getToolIcon, getUserFriendlyToolName } from '@/components/thread/utils';
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +46,7 @@ interface ToolCallSidePanelProps {
   ) => React.ReactNode;
   isLoading?: boolean;
   agentName?: string;
+  onFileClick?: (filePath: string) => void;
 }
 
 interface ToolCallSnapshot {
@@ -66,7 +67,8 @@ export function ToolCallSidePanel({
   project,
   isLoading = false,
   externalNavigateToIndex,
-  agentName
+  agentName,
+  onFileClick,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
@@ -322,6 +324,7 @@ export function ToolCallSidePanel({
         agentStatus={agentStatus}
         currentIndex={internalIndex}
         totalCalls={totalCalls}
+        onFileClick={onFileClick}
       />
     );
 
@@ -347,7 +350,7 @@ export function ToolCallSidePanel({
                     isMobile && 'hidden sm:inline',
                   )}
                 >
-                  {currentToolName}
+                  {getUserFriendlyToolName(currentToolName)}
                 </span>
                 <div
                   className={cn(
@@ -438,7 +441,7 @@ export function ToolCallSidePanel({
                   className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate"
                   title={currentToolName}
                 >
-                  {currentToolName} {isStreaming && `(Running${dots})`}
+                  {getUserFriendlyToolName(currentToolName)} {isStreaming && `(Running${dots})`}
                 </span>
               </div>
 

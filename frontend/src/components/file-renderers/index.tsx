@@ -9,6 +9,7 @@ import { ImageRenderer } from './image-renderer';
 import { BinaryRenderer } from './binary-renderer';
 import { HtmlRenderer } from './html-renderer';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
+import { CsvRenderer } from './csv-renderer';
 
 export type FileType =
   | 'markdown'
@@ -16,7 +17,8 @@ export type FileType =
   | 'pdf'
   | 'image'
   | 'text'
-  | 'binary';
+  | 'binary'
+  | 'csv';
 
 interface FileRendererProps {
   content: string | null;
@@ -88,7 +90,8 @@ export function getFileTypeFromExtension(fileName: string): FileType {
     'ico',
   ];
   const pdfExtensions = ['pdf'];
-  const textExtensions = ['txt', 'csv', 'log', 'env', 'ini'];
+  const csvExtensions = ['csv', 'tsv'];
+  const textExtensions = ['txt', 'log', 'env', 'ini'];
 
   if (markdownExtensions.includes(extension)) {
     return 'markdown';
@@ -98,6 +101,8 @@ export function getFileTypeFromExtension(fileName: string): FileType {
     return 'image';
   } else if (pdfExtensions.includes(extension)) {
     return 'pdf';
+  } else if (csvExtensions.includes(extension)) {
+    return 'csv';
   } else if (textExtensions.includes(extension)) {
     return 'text';
   } else {
@@ -188,6 +193,8 @@ export function FileRenderer({
         <PdfRenderer url={binaryUrl} />
       ) : fileType === 'markdown' ? (
         <MarkdownRenderer content={content || ''} ref={markdownRef} />
+      ) : fileType === 'csv' ? (
+        <CsvRenderer content={content || ''} />
       ) : isHtmlFile ? (
         <HtmlRenderer
           content={content || ''}

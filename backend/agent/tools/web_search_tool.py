@@ -125,14 +125,27 @@ class SandboxWebSearchTool(SandboxToolsBase):
                 search_depth="advanced",
             )
             
+            # Check if we have actual results or an answer
+            results = search_response.get('results', [])
+            answer = search_response.get('answer', '')
+            
             # Return the complete Tavily response 
             # This includes the query, answer, results, images and more
-            logging.info(f"Retrieved search results for query: '{query}' with answer and {len(search_response.get('results', []))} results")
+            logging.info(f"Retrieved search results for query: '{query}' with answer and {len(results)} results")
             
-            return ToolResult(
-                success=True,
-                output=json.dumps(search_response, ensure_ascii=False)
-            )
+            # Consider search successful if we have either results OR an answer
+            if len(results) > 0 or (answer and answer.strip()):
+                return ToolResult(
+                    success=True,
+                    output=json.dumps(search_response, ensure_ascii=False)
+                )
+            else:
+                # No results or answer found
+                logging.warning(f"No search results or answer found for query: '{query}'")
+                return ToolResult(
+                    success=False,
+                    output=json.dumps(search_response, ensure_ascii=False)
+                )
         
         except Exception as e:
             error_message = str(e)
