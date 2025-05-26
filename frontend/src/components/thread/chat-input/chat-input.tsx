@@ -42,7 +42,7 @@ export interface ChatInputProps {
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
   agentName?: string;
-  messages?: any[]; // Add messages prop to check for existing file references
+  messages?: any[];
 }
 
 export interface UploadedFile {
