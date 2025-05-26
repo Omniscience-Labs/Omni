@@ -6,10 +6,6 @@ import {
   CheckCircle,
   AlertTriangle,
   CircleDashed,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -18,15 +14,10 @@ import {
   formatTimestamp,
   getToolTitle,
 } from './utils';
-import { ApiMessageType } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function BrowserToolView({
   name = 'browser-operation',
@@ -46,43 +37,67 @@ export function BrowserToolView({
   const operation = extractBrowserOperation(name);
   const toolTitle = getToolTitle(name);
 
-  // --- message_id Extraction Logic ---
   let browserStateMessageId: string | undefined;
+  let screenshotUrl: string | null = null;
+  let screenshotBase64: string | null = null;
 
   try {
-    // 1. Parse the top-level JSON
     const topLevelParsed = safeJsonParse<{ content?: string }>(toolContent, {});
-    const innerContentString = topLevelParsed?.content;
-
+    const innerContentString = topLevelParsed?.content || toolContent;
     if (innerContentString && typeof innerContentString === 'string') {
-      // 2. Extract the output='...' string using regex
-      const outputMatch = innerContentString.match(/\boutput='(.*?)'(?=\s*\))/);
-      const outputString = outputMatch ? outputMatch[1] : null;
+      const toolResultMatch = innerContentString.match(/ToolResult\([^)]*output='([\s\S]*?)'(?:\s*,|\s*\))/);
+      if (toolResultMatch) {
+        const outputString = toolResultMatch[1];
+        try {
+          const cleanedOutput = outputString.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\u([0-9a-fA-F]{4})/g, (match, grp) => String.fromCharCode(parseInt(grp, 16)));
+          const outputJson = JSON.parse(cleanedOutput);
+    
+          if (outputJson.image_url) {
+            screenshotUrl = outputJson.image_url;
+          }
+          if (outputJson.message_id) {
+            browserStateMessageId = outputJson.message_id;
+          }
+        } catch (parseError) {
+        }
+      }
+      
+      if (!screenshotUrl) {
+        const imageUrlMatch = innerContentString.match(/"image_url":\s*"([^"]+)"/);
+        if (imageUrlMatch) {
+          screenshotUrl = imageUrlMatch[1];
+        }
+      }
+      
+      if (!browserStateMessageId) {
+        const messageIdMatch = innerContentString.match(/"message_id":\s*"([^"]+)"/);
+        if (messageIdMatch) {
+          browserStateMessageId = messageIdMatch[1];
+        }
+      }
+      
+      if (!browserStateMessageId && !screenshotUrl) {
+        const outputMatch = innerContentString.match(/\boutput='(.*?)'(?=\s*\))/);
+        const outputString = outputMatch ? outputMatch[1] : null;
 
-      if (outputString) {
-        // 3. Unescape the JSON string (basic unescaping for \n and \")
-        const unescapedOutput = outputString
-          .replace(/\\n/g, '\n')
-          .replace(/\\"/g, '"');
+        if (outputString) {
+          const unescapedOutput = outputString
+            .replace(/\\n/g, '\n')
+            .replace(/\\"/g, '"');
 
-        // 4. Parse the unescaped JSON to get message_id
-        const finalParsedOutput = safeJsonParse<{ message_id?: string }>(
-          unescapedOutput,
-          {},
-        );
-        browserStateMessageId = finalParsedOutput?.message_id;
+          const finalParsedOutput = safeJsonParse<{ message_id?: string; image_url?: string }>(
+            unescapedOutput,
+            {},
+          );
+          browserStateMessageId = finalParsedOutput?.message_id;
+          screenshotUrl = finalParsedOutput?.image_url || null;
+        }
       }
     }
   } catch (error) {
-    console.error(
-      '[BrowserToolView] Error parsing tool content for message_id:',
-      error,
-    );
   }
 
-  // Find the browser_state message and extract the screenshot
-  let screenshotBase64: string | null = null;
-  if (browserStateMessageId && messages.length > 0) {
+  if (!screenshotUrl && !screenshotBase64 && browserStateMessageId && messages.length > 0) {
     const browserStateMessage = messages.find(
       (msg) =>
         (msg.type as string) === 'browser_state' &&
@@ -90,15 +105,18 @@ export function BrowserToolView({
     );
 
     if (browserStateMessage) {
-      const browserStateContent = safeJsonParse<{ screenshot_base64?: string }>(
+      const browserStateContent = safeJsonParse<{ 
+        screenshot_base64?: string;
+        image_url?: string;
+      }>(
         browserStateMessage.content,
         {},
       );
       screenshotBase64 = browserStateContent?.screenshot_base64 || null;
+      screenshotUrl = browserStateContent?.image_url || null;
     }
   }
 
-  // Check if we have a VNC preview URL from the project
   const vncPreviewUrl = project?.sandbox?.vnc_preview
     ? `${project.sandbox.vnc_preview}/vnc_lite.html?password=${project?.sandbox?.pass}&autoconnect=true&scale=local&width=1024&height=768`
     : undefined;
@@ -106,14 +124,8 @@ export function BrowserToolView({
   const isRunning = isStreaming || agentStatus === 'running';
   const isLastToolCall = currentIndex === totalCalls - 1;
 
-  // Memoize the VNC iframe to prevent reconnections on re-renders
   const vncIframe = useMemo(() => {
     if (!vncPreviewUrl) return null;
-
-    console.log(
-      '[BrowserToolView] Creating memoized VNC iframe with URL:',
-      vncPreviewUrl,
-    );
 
     return (
       <iframe
@@ -123,12 +135,10 @@ export function BrowserToolView({
         style={{ width: '100%', height: '100%', minHeight: '600px' }}
       />
     );
-  }, [vncPreviewUrl]); // Only recreate if the URL changes
+  }, [vncPreviewUrl]);
 
-  // Progress for loading state - only for visual feedback
   const [progress, setProgress] = React.useState(100);
 
-  // Simulate progress when running
   React.useEffect(() => {
     if (isRunning) {
       setProgress(0);
@@ -146,6 +156,31 @@ export function BrowserToolView({
       setProgress(100);
     }
   }, [isRunning]);
+
+  const renderScreenshot = () => {
+    if (screenshotUrl) {
+      return (
+        <div className="flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+          <img
+            src={screenshotUrl}
+            alt="Browser Screenshot"
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+      );
+    } else if (screenshotBase64) {
+      return (
+        <div className="flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+          <img
+            src={`data:image/jpeg;base64,${screenshotBase64}`}
+            alt="Browser Screenshot"
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
@@ -204,14 +239,8 @@ export function BrowserToolView({
                   </div>
                 </div>
               </div>
-            ) : screenshotBase64 ? (
-              <div className="flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
-                <img
-                  src={`data:image/jpeg;base64,${screenshotBase64}`}
-                  alt="Browser Screenshot"
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
+            ) : (screenshotUrl || screenshotBase64) ? (
+              renderScreenshot()
             ) : vncIframe ? (
               // Use the memoized iframe
               <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
@@ -243,13 +272,21 @@ export function BrowserToolView({
               </div>
             )
           ) : // For non-last tool calls, only show screenshot if available, otherwise show "No Browser State"
-          screenshotBase64 ? (
+          (screenshotUrl || screenshotBase64) ? (
             <div className="flex items-center justify-center w-full h-full max-h-[650px] overflow-auto">
-              <img
-                src={`data:image/jpeg;base64,${screenshotBase64}`}
-                alt="Browser Screenshot"
-                className="max-w-full max-h-full object-contain"
-              />
+              {screenshotUrl ? (
+                <img
+                  src={screenshotUrl}
+                  alt="Browser Screenshot"
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <img
+                  src={`data:image/jpeg;base64,${screenshotBase64}`}
+                  alt="Browser Screenshot"
+                  className="max-w-full max-h-full object-contain"
+                />
+              )}
             </div>
           ) : (
             <div className="p-8 h-full flex flex-col items-center justify-center w-full bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900 text-zinc-700 dark:text-zinc-400">

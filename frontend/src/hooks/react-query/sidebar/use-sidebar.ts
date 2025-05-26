@@ -1,10 +1,11 @@
 'use client';
 
-import { createMutationHook, createQueryKeys } from "@/hooks/use-query";
-import { getProjects, getThreads, Project, Thread, deleteThread } from "@/lib/api";
+import { createMutationHook } from "@/hooks/use-query";
+import { getProjects, getThreads, Project, Thread } from "@/lib/api";
 import { createQueryHook } from '@/hooks/use-query';
 import { threadKeys } from "./keys";
 import { projectKeys } from "./keys";
+import { deleteThread } from "../threads/utils";
 
 export const useProjects = createQueryHook(
   projectKeys.lists(),

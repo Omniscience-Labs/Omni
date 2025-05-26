@@ -42,7 +42,13 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'complete',
     'crawl-webpage',
     'web-search',
-    'see-image'
+    'see-image',
+
+    'execute_data_provider_call',
+    'execute_data_provider_endpoint',
+
+    'execute-data-provider-call',
+    'execute-data-provider-endpoint',
 ]);
 
 // Helper function to render attachments (keeping original implementation for now)
@@ -275,42 +281,60 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 };
                                 const groupedMessages: MessageGroup[] = [];
                                 let currentGroup: MessageGroup | null = null;
-
+                                let assistantGroupCounter = 0; // Counter for assistant groups
+                                
                                 displayMessages.forEach((message, index) => {
                                     const messageType = message.type;
                                     const key = message.message_id || `msg-${index}`;
 
                                     if (messageType === 'user') {
+                                        // Finalize any existing assistant group
                                         if (currentGroup) {
                                             groupedMessages.push(currentGroup);
+                                            currentGroup = null;
                                         }
+                                        // Create a new user message group
                                         groupedMessages.push({ type: 'user', messages: [message], key });
-                                        currentGroup = null;
                                     } else if (messageType === 'assistant' || messageType === 'tool' || messageType === 'browser_state') {
                                         if (currentGroup && currentGroup.type === 'assistant_group') {
+                                            // Add to existing assistant group
                                             currentGroup.messages.push(message);
                                         } else {
+                                            // Finalize any existing group
                                             if (currentGroup) {
                                                 groupedMessages.push(currentGroup);
                                             }
-                                            currentGroup = { type: 'assistant_group', messages: [message], key };
+                                            // Create a new assistant group with a group-level key
+                                            assistantGroupCounter++;
+                                            currentGroup = { 
+                                                type: 'assistant_group', 
+                                                messages: [message], 
+                                                key: `assistant-group-${assistantGroupCounter}` 
+                                            };
                                         }
                                     } else if (messageType !== 'status') {
+                                        // For any other message types, finalize current group
                                         if (currentGroup) {
                                             groupedMessages.push(currentGroup);
                                             currentGroup = null;
                                         }
                                     }
                                 });
-
+                                
+                                // Finalize any remaining group
                                 if (currentGroup) {
                                     groupedMessages.push(currentGroup);
                                 }
-                                if (streamingTextContent) {
-                                    const lastMessages = groupedMessages.at(-1)
-                                    if (lastMessages.type === 'user') {
+                                
+                                // Handle streaming content
+                                if(streamingTextContent) {
+                                    const lastGroup = groupedMessages.at(-1);
+                                    if(!lastGroup || lastGroup.type === 'user'){
+                                        // Create new assistant group for streaming content
+                                        assistantGroupCounter++;
                                         groupedMessages.push({
-                                            type: 'assistant_group', messages: [{
+                                            type: 'assistant_group', 
+                                            messages: [{
                                                 content: streamingTextContent,
                                                 type: 'assistant',
                                                 message_id: 'streamingTextContent',
@@ -320,11 +344,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 is_llm_message: true,
                                                 thread_id: 'streamingTextContent',
                                                 sequence: Infinity,
-                                            }], key: 'streamingTextContent'
+                                            }], 
+                                            key: `assistant-group-${assistantGroupCounter}-streaming`
                                         });
-                                    }
-                                    else {
-                                        lastMessages.messages.push({
+                                    } else if (lastGroup.type === 'assistant_group') {
+                                        // Add to existing assistant group
+                                        lastGroup.messages.push({
                                             content: streamingTextContent,
                                             type: 'assistant',
                                             message_id: 'streamingTextContent',
@@ -334,7 +359,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             is_llm_message: true,
                                             thread_id: 'streamingTextContent',
                                             sequence: Infinity,
-                                        })
+                                        });
                                     }
                                 }
 
@@ -441,6 +466,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                     const renderedToolResultIds = new Set<string>();
                                                                     const elements: React.ReactNode[] = [];
+                                                                    let assistantMessageCount = 0; // Track assistant messages for spacing
 
                                                                     group.messages.forEach((message, msgIndex) => {
                                                                         if (message.type === 'assistant') {
@@ -460,12 +486,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             );
 
                                                                             elements.push(
-                                                                                <div key={msgKey} className={msgIndex > 0 ? "mt-2" : ""}>
+                                                                                <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
                                                                                     <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
                                                                                         {renderedContent}
                                                                                     </div>
                                                                                 </div>
                                                                             );
+                                                                            assistantMessageCount++;
                                                                         }
                                                                     });
 

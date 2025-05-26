@@ -7,7 +7,8 @@ import {
 } from "@/components/ui/dialog";
 import { X, Copy, Share2, Link, Link2Off, Check } from "lucide-react";
 import { toast } from "sonner";
-import { getThread, updateProject, updateThread } from "@/lib/api";
+import { getThread, updateProject } from "@/lib/api";
+import { useUpdateThreadMutation } from "@/hooks/react-query/threads/use-threads";
 
 interface SocialShareOption {
     name: string;
@@ -34,6 +35,8 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
             document.body.style.pointerEvents = 'auto';
         }
     }, [isOpen]);
+
+    const updateThreadMutation = useUpdateThreadMutation();
 
     useEffect(() => {
         if (isOpen && threadId) {
@@ -109,8 +112,12 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
     const updatePublicStatus = async (isPublic: boolean) => {
         console.log("Updating public status for thread:", threadId, "and project:", projectId, "to", isPublic);
         if (!threadId) return;
+
         await updateProject(projectId, { is_public: isPublic });
-        await updateThread(threadId, { is_public: isPublic });
+        await updateThreadMutation.mutateAsync({
+            threadId,
+            data: { is_public: isPublic }
+        });
     };
 
     const copyToClipboard = () => {
@@ -241,4 +248,3 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
         </Dialog >
     );
 }
-
