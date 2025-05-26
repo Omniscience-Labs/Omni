@@ -1272,87 +1272,6 @@ export const getSandboxFileContent = async (
   }
 };
 
-export const updateThread = async (
-  threadId: string,
-  data: Partial<Thread>,
-): Promise<Thread> => {
-  const supabase = createClient();
-
-  // Format the data for update
-  const updateData = { ...data };
-
-  // Update the thread
-  const { data: updatedThread, error } = await supabase
-    .from('threads')
-    .update(updateData)
-    .eq('thread_id', threadId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating thread:', error);
-    throw new Error(`Error updating thread: ${error.message}`);
-  }
-
-  return updatedThread;
-};
-
-export const toggleThreadPublicStatus = async (
-  threadId: string,
-  isPublic: boolean,
-): Promise<Thread> => {
-  return updateThread(threadId, { is_public: isPublic });
-};
-
-export const deleteThread = async (threadId: string): Promise<void> => {
-  try {
-    const supabase = createClient();
-
-    // First delete all agent runs associated with this thread
-    console.log(`Deleting all agent runs for thread ${threadId}`);
-    const { error: agentRunsError } = await supabase
-      .from('agent_runs')
-      .delete()
-      .eq('thread_id', threadId);
-
-    if (agentRunsError) {
-      console.error('Error deleting agent runs:', agentRunsError);
-      throw new Error(`Error deleting agent runs: ${agentRunsError.message}`);
-    }
-
-    // Then delete all messages associated with the thread
-    console.log(`Deleting all messages for thread ${threadId}`);
-    const { error: messagesError } = await supabase
-      .from('messages')
-      .delete()
-      .eq('thread_id', threadId);
-
-    if (messagesError) {
-      console.error('Error deleting messages:', messagesError);
-      throw new Error(`Error deleting messages: ${messagesError.message}`);
-    }
-
-    // Finally, delete the thread itself
-    console.log(`Deleting thread ${threadId}`);
-    const { error: threadError } = await supabase
-      .from('threads')
-      .delete()
-      .eq('thread_id', threadId);
-
-    if (threadError) {
-      console.error('Error deleting thread:', threadError);
-      throw new Error(`Error deleting thread: ${threadError.message}`);
-    }
-
-    console.log(
-      `Thread ${threadId} successfully deleted with all related items`,
-    );
-  } catch (error) {
-    console.error('Error deleting thread and related items:', error);
-    throw error;
-  }
-};
-
 // Function to get public projects
 export const getPublicProjects = async (): Promise<Project[]> => {
   try {
@@ -1430,6 +1349,7 @@ export const getPublicProjects = async (): Promise<Project[]> => {
   }
 };
 
+
 export const initiateAgent = async (
   formData: FormData,
 ): Promise<InitiateAgentResponse> => {
@@ -1443,7 +1363,6 @@ export const initiateAgent = async (
       throw new Error('No access token available');
     }
 
-    // Check if backend URL is configured
     if (!API_URL) {
       throw new Error(
         'Backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL in your environment.',
@@ -1467,10 +1386,20 @@ export const initiateAgent = async (
       const errorText = await response
         .text()
         .catch(() => 'No error details available');
+      
       console.error(
         `[API] Error initiating agent: ${response.status} ${response.statusText}`,
         errorText,
       );
+    
+      if (response.status === 402) {
+        throw new Error('Payment Required');
+      } else if (response.status === 401) {
+        throw new Error('Authentication error: Please sign in again');
+      } else if (response.status >= 500) {
+        throw new Error('Server error: Please try again later');
+      }
+    
       throw new Error(
         `Error initiating agent: ${response.statusText} (${response.status})`,
       );
@@ -1480,7 +1409,6 @@ export const initiateAgent = async (
   } catch (error) {
     console.error('[API] Failed to initiate agent:', error);
 
-    // Provide clearer error message for network errors
     if (
       error instanceof TypeError &&
       error.message.includes('Failed to fetch')
@@ -1657,6 +1585,7 @@ export const createCheckoutSession = async (
   }
 };
 
+
 export const createPortalSession = async (
   request: CreatePortalSessionRequest,
 ): Promise<{ url: string }> => {
@@ -1698,6 +1627,7 @@ export const createPortalSession = async (
     throw error;
   }
 };
+
 
 export const getSubscription = async (): Promise<SubscriptionStatus> => {
   try {
@@ -1772,6 +1702,7 @@ export const getAvailableModels = async (): Promise<AvailableModelsResponse> => 
     throw error;
   }
 };
+
 
 export const checkBillingStatus = async (): Promise<BillingStatusResponse> => {
   try {

@@ -24,7 +24,6 @@ from run_agent_background import run_agent_background, _cleanup_redis_response_l
 from utils.constants import MODEL_NAME_ALIASES
 # Initialize shared resources
 router = APIRouter()
-thread_manager = None
 db = None
 instance_id = None # Global instance ID for this backend instance
 
@@ -78,13 +77,11 @@ class ThreadAgentResponse(BaseModel):
     message: str
 
 def initialize(
-    _thread_manager: ThreadManager,
     _db: DBConnection,
     _instance_id: str = None
 ):
     """Initialize the agent API with resources from the main API."""
-    global thread_manager, db, instance_id
-    thread_manager = _thread_manager
+    global db, instance_id
     db = _db
 
     # Use provided instance_id or generate a new one

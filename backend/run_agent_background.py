@@ -22,12 +22,11 @@ dramatiq.set_broker(rabbitmq_broker)
 
 _initialized = False
 db = DBConnection()
-thread_manager = None
 instance_id = "single"
 
 async def initialize():
     """Initialize the agent API with resources from the main API."""
-    global thread_manager, db, instance_id, _initialized
+    global db, instance_id, _initialized
     if _initialized:
         return
 
@@ -37,7 +36,6 @@ async def initialize():
         instance_id = str(uuid.uuid4())[:8]
     await redis.initialize_async()
     await db.initialize()
-    thread_manager = ThreadManager()
 
     _initialized = True
     logger.info(f"Initialized agent API with instance ID: {instance_id}")
@@ -117,7 +115,7 @@ async def run_agent_background(
         # Initialize agent generator
         agent_gen = run_agent(
             thread_id=thread_id, project_id=project_id, stream=stream,
-            thread_manager=thread_manager, model_name=model_name,
+            model_name=model_name,
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             enable_context_manager=enable_context_manager,
             agent_config=agent_config,

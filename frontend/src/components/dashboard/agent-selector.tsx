@@ -94,7 +94,7 @@ export function AgentSelector({
                 variant="ghost"
                 className="flex items-center gap-1 px-2 py-1 h-auto hover:bg-transparent hover:text-primary transition-colors group"
               >
-                <span className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+                <span className="underline decoration-dashed underline-offset-6 decoration-muted-foreground/50 tracking-tight text-4xl font-semibold leading-tight text-primary">
                   {displayName}
                 </span>
                 <div className="flex items-center opacity-60 group-hover:opacity-100 transition-opacity">

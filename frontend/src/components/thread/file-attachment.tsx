@@ -10,8 +10,7 @@ import { AttachmentGroup } from './attachment-group';
 import { HtmlRenderer } from './preview-renderers/html-renderer';
 import { MarkdownRenderer } from './preview-renderers/markdown-renderer';
 import { CsvRenderer } from './preview-renderers/csv-renderer';
-import { useFileContent } from '@/hooks/use-file-content';
-import { useImageContent } from '@/hooks/use-image-content';
+import { useFileContent, useImageContent } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
 
@@ -249,7 +248,7 @@ export function FileAttachment({
                         "bg-black/5 dark:bg-black/20",
                         "p-0 overflow-hidden",
                         "flex items-center justify-center",
-                        isGridLayout ? "w-full" : "inline-block",
+                        isGridLayout ? "w-full" : "min-w-[54px]",
                         className
                     )}
                     style={{
@@ -331,7 +330,26 @@ export function FileAttachment({
 
                         // Only log details in dev environments to avoid console spam
                         if (process.env.NODE_ENV === 'development') {
-                            console.error('Image URL:', sandboxId && session?.access_token ? imageUrl : fileUrl);
+                            const imgSrc = sandboxId && session?.access_token ? imageUrl : fileUrl;
+                            console.error('Image URL:', imgSrc);
+
+                            // Additional debugging for blob URLs
+                            if (typeof imgSrc === 'string' && imgSrc.startsWith('blob:')) {
+                                console.error('Blob URL failed to load. This could indicate:');
+                                console.error('- Blob URL was revoked prematurely');
+                                console.error('- Blob data is corrupted or invalid');
+                                console.error('- MIME type mismatch');
+
+                                // Try to check if the blob URL is still valid
+                                fetch(imgSrc, { method: 'HEAD' })
+                                    .then(response => {
+                                        console.error(`Blob URL HEAD request status: ${response.status}`);
+                                        console.error(`Blob URL content type: ${response.headers.get('content-type')}`);
+                                    })
+                                    .catch(err => {
+                                        console.error('Blob URL HEAD request failed:', err.message);
+                                    });
+                            }
 
                             // Check if the error is potentially due to authentication
                             if (sandboxId && (!session || !session.access_token)) {

@@ -23,7 +23,6 @@ load_dotenv()
 
 # Initialize managers
 db = DBConnection()
-thread_manager = None
 instance_id = "single"
 
 # Rate limiter state
@@ -33,17 +32,14 @@ MAX_CONCURRENT_IPS = 25
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global thread_manager
     logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
     
     try:
         # Initialize database
         await db.initialize()
-        thread_manager = ThreadManager()
         
         # Initialize the agent API with shared resources
         agent_api.initialize(
-            thread_manager,
             db,
             instance_id
         )
@@ -109,19 +105,18 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "https://staging.suna.so", "http://localhost:3000"]
+allowed_origins = ["https://www.suna.so", "https://suna.so", "http://localhost:3000"]
+allow_origin_regex = None
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
-    allowed_origins.append("http://localhost:3000")
-    
-# Add local-specific origins
-if config.ENV_MODE == EnvMode.LOCAL:
-    allowed_origins.append("http://localhost:3000")
+    allowed_origins.append("https://staging.suna.so")
+    allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],

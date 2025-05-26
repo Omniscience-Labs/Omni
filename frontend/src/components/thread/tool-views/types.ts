@@ -13,6 +13,7 @@ export interface ToolViewProps {
   agentStatus?: string;
   currentIndex?: number;
   totalCalls?: number;
+  onFileClick?: (filePath: string) => void;
 }
 
 export interface BrowserToolViewProps extends ToolViewProps {

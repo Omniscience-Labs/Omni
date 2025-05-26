@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, ImageOff, CheckCircle, AlertTriangle, Loader2, Download, ZoomIn, ZoomOut, ExternalLink, Check } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, getToolTitle } from './utils';
+import { formatTimestamp, getToolTitle, normalizeContentToString } from './utils';
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { GenericToolView } from './GenericToolView';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -23,31 +23,47 @@ interface ImageInfo {
   description: string;
 }
 
-function extractImageFilePath(content: string | undefined): string | null {
-  if (!content) return null;
-  console.log('Extracting file path from content:', content);
+function extractImageFilePath(content: string | object | undefined | null): string | null {
+  const contentStr = normalizeContentToString(content);
+  if (!contentStr) return null;
+  
+  console.log('Extracting file path from content:', contentStr);
+  
+  // Try to parse the content one more time to check for nested content field
   try {
-    const parsedContent = JSON.parse(content);
+    const parsedContent = JSON.parse(contentStr);
     if (parsedContent.content && typeof parsedContent.content === 'string') {
-      content = parsedContent.content;
+      const nestedContentStr = parsedContent.content;
+      // Look for the see-image tag in the nested content
+      let filePathMatch = nestedContentStr.match(/<see-image\s+file_path=["']([^"']+)["'][^>]*><\/see-image>/i);
+      if (filePathMatch) {
+        return cleanImagePath(filePathMatch[1]);
+      }
+      filePathMatch = nestedContentStr.match(/<see-image[^>]*>([^<]+)<\/see-image>/i);
+      if (filePathMatch) {
+        return cleanImagePath(filePathMatch[1]);
+      }
     }
   } catch (e) {
+    // Continue with contentStr if parsing fails
   }
-  let filePathMatch = content.match(/<see-image\s+file_path=["']([^"']+)["'][^>]*><\/see-image>/i);
+  
+  // Now check the main contentStr
+  let filePathMatch = contentStr.match(/<see-image\s+file_path=["']([^"']+)["'][^>]*><\/see-image>/i);
   if (filePathMatch) {
     return cleanImagePath(filePathMatch[1]);
   }
-  filePathMatch = content.match(/<see-image[^>]*>([^<]+)<\/see-image>/i);
+  filePathMatch = contentStr.match(/<see-image[^>]*>([^<]+)<\/see-image>/i);
   if (filePathMatch) {
     return cleanImagePath(filePathMatch[1]);
   }
 
-  const embeddedFileMatch = content.match(/image\s*:\s*["']?([^,"'\s]+\.(jpg|jpeg|png|gif|svg|webp))["']?/i);
+  const embeddedFileMatch = contentStr.match(/image\s*:\s*["']?([^,"'\s]+\.(jpg|jpeg|png|gif|svg|webp))["']?/i);
   if (embeddedFileMatch) {
     return cleanImagePath(embeddedFileMatch[1]);
   }
 
-  const extensionMatch = content.match(/["']?([^,"'\s]+\.(jpg|jpeg|png|gif|svg|webp))["']?/i);
+  const extensionMatch = contentStr.match(/["']?([^,"'\s]+\.(jpg|jpeg|png|gif|svg|webp))["']?/i);
   if (extensionMatch) {
     return cleanImagePath(extensionMatch[1]);
   }
@@ -56,17 +72,23 @@ function extractImageFilePath(content: string | undefined): string | null {
   return null;
 }
 
-function extractImageDescription(content: string | undefined): string | null {
-  if (!content) return null;
+function extractImageDescription(content: string | object | undefined | null): string | null {
+  const contentStr = normalizeContentToString(content);
+  if (!contentStr) return null;
+  
   try {
-    const parsedContent = JSON.parse(content);
+    const parsedContent = JSON.parse(contentStr);
     if (parsedContent.content && typeof parsedContent.content === 'string') {
-      content = parsedContent.content;
+      const parts = parsedContent.content.split(/<see-image/i);
+      if (parts.length > 1) {
+        return parts[0].trim();
+      }
     }
   } catch (e) {
+    // Continue with contentStr if parsing fails
   }
 
-  const parts = content.split(/<see-image/i);
+  const parts = contentStr.split(/<see-image/i);
   if (parts.length > 1) {
     return parts[0].trim();
   }
@@ -88,23 +110,26 @@ function cleanImagePath(path: string): string {
     .trim();
 }
 
-function parseToolResult(content: string | undefined): { success: boolean; message: string; filePath?: string } {
-  if (!content) return { success: false, message: 'No tool result available' };
+function parseToolResult(content: string | object | undefined | null): { success: boolean; message: string; filePath?: string } {
+  const contentStr = normalizeContentToString(content);
+  if (!contentStr) return { success: false, message: 'No tool result available' };
   
-  console.log('Parsing tool result content:', content);
+  console.log('Parsing tool result content:', contentStr);
 
   try {
-    let parsedContent;
+    let contentToProcess = contentStr;
+    
     try {
-      parsedContent = JSON.parse(content);
-      if (parsedContent.content) {
-        content = parsedContent.content;
+      const parsedContent = JSON.parse(contentStr);
+      if (parsedContent.content && typeof parsedContent.content === 'string') {
+        contentToProcess = parsedContent.content;
       }
     } catch (e) {
+      // Continue with contentStr if parsing fails
     }
 
     const toolResultPattern = /<tool_result>\s*<see-image>\s*ToolResult\(([^)]+)\)\s*<\/see-image>\s*<\/tool_result>/;
-    const toolResultMatch = content.match(toolResultPattern);
+    const toolResultMatch = contentToProcess.match(toolResultPattern);
     
     if (toolResultMatch) {
       const resultStr = toolResultMatch[1];
@@ -125,7 +150,7 @@ function parseToolResult(content: string | undefined): { success: boolean; messa
       return { success, message, filePath };
     }
     
-    const directToolResultMatch = content.match(/<tool_result>\s*<see-image>\s*([^<]+)<\/see-image>\s*<\/tool_result>/);
+    const directToolResultMatch = contentToProcess.match(/<tool_result>\s*<see-image>\s*([^<]+)<\/see-image>\s*<\/tool_result>/);
     if (directToolResultMatch) {
       const resultContent = directToolResultMatch[1];
       const success = resultContent.includes('success=True') || resultContent.includes('Successfully');
@@ -143,14 +168,14 @@ function parseToolResult(content: string | undefined): { success: boolean; messa
       };
     }
     
-    if (content.includes('success=True') || content.includes('Successfully')) {
-      const filePathMatch = content.match(/Successfully loaded the image ['"]([^'"]+)['"]/i);
+    if (contentToProcess.includes('success=True') || contentToProcess.includes('Successfully')) {
+      const filePathMatch = contentToProcess.match(/Successfully loaded the image ['"]([^'"]+)['"]/i);
       const filePath = filePathMatch ? filePathMatch[1] : undefined;
       
       return { success: true, message: 'Image loaded successfully', filePath };
     }
     
-    if (content.includes('success=False') || content.includes('Failed')) {
+    if (contentToProcess.includes('success=False') || contentToProcess.includes('Failed')) {
       return { success: false, message: 'Failed to load image' };
     }
   } catch (e) {
@@ -479,7 +504,7 @@ export function SeeImageToolView({
             <div>
               <div className="flex items-center">
                 <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                  {filename}
+                  {truncateString(filename, 25)}
                 </CardTitle>
                 {isAnimated && (
                   <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1.5 h-4 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400">

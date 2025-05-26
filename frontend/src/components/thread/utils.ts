@@ -18,6 +18,8 @@ import {
   FilePlus,
   PlugIcon,
   BookOpen,
+  MessageCircleQuestion,
+  CheckCircle2,
 } from 'lucide-react';
 
 // Flag to control whether tool result messages are rendered
@@ -31,10 +33,45 @@ export function safeJsonParse<T>(
   if (!jsonString) {
     return fallback;
   }
+  
   try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    // console.warn('Failed to parse JSON string:', jsonString, e); // Optional: log errors
+    // First attempt: Parse as normal JSON
+    const parsed = JSON.parse(jsonString);
+    
+    // Check if the result is a string that looks like JSON (double-escaped case)
+    if (typeof parsed === 'string' && 
+        (parsed.startsWith('{') || parsed.startsWith('['))) {
+      try {
+        // Second attempt: Parse the string result as JSON (handles double-escaped)
+        return JSON.parse(parsed) as T;
+      } catch (innerError) {
+        // If inner parse fails, return the first parse result
+        return parsed as unknown as T;
+      }
+    }
+    
+    return parsed as T;
+  } catch (outerError) {
+    // If the input is already an object/array (shouldn't happen but just in case)
+    if (typeof jsonString === 'object') {
+      return jsonString as T;
+    }
+    
+    // Try one more time in case it's a plain string that should be returned as-is
+    if (typeof jsonString === 'string') {
+      // Check if it's a string representation of a simple value
+      if (jsonString === 'true') return true as unknown as T;
+      if (jsonString === 'false') return false as unknown as T;
+      if (jsonString === 'null') return null as unknown as T;
+      if (!isNaN(Number(jsonString))) return Number(jsonString) as unknown as T;
+      
+      // Return as string if it doesn't look like JSON
+      if (!jsonString.startsWith('{') && !jsonString.startsWith('[')) {
+        return jsonString as unknown as T;
+      }
+    }
+    
+    // console.warn('Failed to parse JSON string:', jsonString, outerError); // Optional: log errors
     return fallback;
   }
 }
@@ -73,9 +110,10 @@ export const getToolIcon = (toolName: string): ElementType => {
     // Shell commands
     case 'execute-command':
       return Terminal;
+    case 'check-command-output':
+      return Terminal;
     case 'terminate-command':
       return Terminal;
-
 
     // Web operations
     case 'web-search':
@@ -107,7 +145,11 @@ export const getToolIcon = (toolName: string): ElementType => {
 
     // User interaction
     case 'ask':
-      return MessageSquare;
+      return MessageCircleQuestion;
+
+    // Task completion
+    case 'complete':
+      return CheckCircle2;
 
     // MCP tools
     case 'call-mcp-tool':
@@ -245,11 +287,15 @@ export const extractPrimaryParam = (
 
 const TOOL_DISPLAY_NAMES = new Map([
   ['execute-command', 'Executing Command'],
+  ['check-command-output', 'Checking Command Output'],
   ['terminate-command', 'Terminating Command'],
+  ['list-commands', 'Listing Commands'],
+  
   ['create-file', 'Creating File'],
   ['delete-file', 'Deleting File'],
   ['full-file-rewrite', 'Rewriting File'],
   ['str-replace', 'Editing Text'],
+  ['str_replace', 'Editing Text'],
   
   ['browser-click-element', 'Clicking Element'],
   ['browser-close-tab', 'Closing Tab'],
@@ -267,10 +313,12 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['browser-switch-tab', 'Switching Tab'],
   ['browser-wait', 'Waiting'],
 
-  ['execute-data-provider-call', 'Executing data provider all'],
+  ['execute-data-provider-call', 'Calling data provider'],
+  ['execute_data_provider_call', 'Calling data provider'],
+  ['get-data-provider-endpoints', 'Getting endpoints'],
   
   ['deploy', 'Deploying'],
-  ['ask', 'Asking Question'],
+  ['ask', 'Ask'],
   ['complete', 'Completing Task'],
   ['crawl-webpage', 'Crawling Website'],
   ['expose-port', 'Exposing Port'],

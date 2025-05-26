@@ -10,7 +10,7 @@ import {
   Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp } from './utils';
+import { formatTimestamp, normalizeContentToString } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,31 +32,58 @@ export function ExposePortToolView({
 
   // Parse the assistant content
   const parsedAssistantContent = useMemo(() => {
-    if (!assistantContent) return null;
-    try {
-      const parsed = JSON.parse(assistantContent);
-      return parsed.content;
-    } catch (e) {
-      console.error('Failed to parse assistant content:', e);
-      return null;
-    }
+    const contentStr = normalizeContentToString(assistantContent);
+    return contentStr;
   }, [assistantContent]);
 
   // Parse the tool result
   const toolResult = useMemo(() => {
-    if (!toolContent) return null;
+    const contentStr = normalizeContentToString(toolContent);
+    if (!contentStr) return null;
+    
     try {
-      // First parse the outer JSON
-      const parsed = JSON.parse(toolContent);
-      // Then extract the tool result content
-      const match = parsed.content.match(/output='(.*?)'/);
-      if (match) {
-        const jsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
+      // First, try to parse the content directly (new format)
+      const parsed = JSON.parse(contentStr);
+      if (parsed.url && parsed.port) {
+        return parsed;
+      }
+    } catch (e) {
+      // Continue with regex extraction for old format
+    }
+    
+    try {
+      // Look for the ToolResult pattern with better regex that handles escaped quotes
+      const toolResultMatch = contentStr.match(/ToolResult\(success=(?:True|true),\s*output='((?:[^'\\]|\\.)*)'\)/);
+      if (toolResultMatch) {
+        // Extract the JSON string and clean it up
+        let jsonStr = toolResultMatch[1];
+        
+        // Handle double-escaped characters
+        jsonStr = jsonStr
+          .replace(/\\\\n/g, '\n')  // Replace \\n with \n
+          .replace(/\\\\"/g, '"')    // Replace \\" with "
+          .replace(/\\n/g, '\n')     // Replace \n with actual newline
+          .replace(/\\"/g, '"')      // Replace \" with "
+          .replace(/\\'/g, "'")      // Replace \' with '
+          .replace(/\\\\/g, '\\');   // Replace \\ with \
+        
+        const result = JSON.parse(jsonStr);
+        return result;
+      }
+      
+      // Fallback: Try to extract from a simpler pattern
+      const simpleMatch = contentStr.match(/output='([^']+)'/);
+      if (simpleMatch) {
+        const jsonStr = simpleMatch[1]
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"');
         return JSON.parse(jsonStr);
       }
+      
       return null;
     } catch (e) {
       console.error('Failed to parse tool content:', e);
+      console.error('Tool content was:', contentStr);
       return null;
     }
   }, [toolContent]);
@@ -267,7 +294,7 @@ export function ExposePortToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && toolResult && (
-            <Badge className="h-6 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-none">
+            <Badge variant="outline">
               <Computer className="h-3 w-3 mr-1" />
               Port {portNumber}
             </Badge>
