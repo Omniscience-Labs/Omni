@@ -19,6 +19,7 @@ import {
   extractCommand,
   extractCommandOutput,
   extractExitCode,
+  extractSessionName,
   formatTimestamp,
   getToolTitle,
 } from './utils';
@@ -52,6 +53,12 @@ export function CommandToolView({
     ?.replace(/\\n/g, '')
     ?.replace(/\n/g, '')
     ?.trim();
+
+  // For check-command-output, extract session name instead
+  const sessionName = name === 'check-command-output' ? extractSessionName(assistantContent) : null;
+  const displayText = name === 'check-command-output' ? sessionName : command;
+  const displayLabel = name === 'check-command-output' ? 'Session' : 'Command';
+  const displayPrefix = name === 'check-command-output' ? 'tmux:' : '$';
 
   // Extract output using the utility function
   const output = extractCommandOutput(toolContent);
@@ -136,7 +143,10 @@ export function CommandToolView({
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              {isSuccess ? 'Command executed successfully' : 'Command failed'}
+              {isSuccess ? 
+                (name === 'check-command-output' ? 'Output retrieved successfully' : 'Command executed successfully') : 
+                (name === 'check-command-output' ? 'Failed to retrieve output' : 'Command failed')
+              }
             </Badge>
           )}
         </div>
@@ -150,26 +160,26 @@ export function CommandToolView({
                 <Loader2 className="h-8 w-8 animate-spin text-purple-500 dark:text-purple-400" />
               </div>
               <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Executing command
+                {name === 'check-command-output' ? 'Checking command output' : 'Executing command'}
               </h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{command || 'Processing command...'}</span>
+                <span className="font-mono text-xs break-all">{displayText || 'Processing command...'}</span>
               </p>
               <Progress value={progress} className="w-full h-2" />
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
           </div>
-        ) : command ? (
+        ) : displayText ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
               <div className="mb-4 bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
                 <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
                   <Code className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Command</span>
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{displayLabel}</span>
                 </div>
                 <div className="p-4 font-mono text-sm text-zinc-700 dark:text-zinc-300 flex gap-2">
-                  <span className="text-purple-500 dark:text-purple-400 select-none">$</span>
-                  <code className="flex-1 break-all">{command}</code>
+                  <span className="text-purple-500 dark:text-purple-400 select-none">{displayPrefix}</span>
+                  <code className="flex-1 break-all">{displayText}</code>
                 </div>
               </div>
 
@@ -246,10 +256,13 @@ export function CommandToolView({
               <Terminal className="h-10 w-10 text-zinc-400 dark:text-zinc-600" />
             </div>
             <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
-              No Command Found
+              {name === 'check-command-output' ? 'No Session Found' : 'No Command Found'}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md">
-              No command was detected. Please provide a valid command to execute.
+              {name === 'check-command-output' 
+                ? 'No session name was detected. Please provide a valid session name to check.'
+                : 'No command was detected. Please provide a valid command to execute.'
+              }
             </p>
           </div>
         )}
@@ -257,10 +270,10 @@ export function CommandToolView({
       
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {!isStreaming && command && (
+          {!isStreaming && displayText && (
             <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
               <Terminal className="h-3 w-3 mr-1" />
-              Command
+              {displayLabel}
             </Badge>
           )}
         </div>

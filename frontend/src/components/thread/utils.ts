@@ -100,9 +100,10 @@ export const getToolIcon = (toolName: string): ElementType => {
     // Shell commands
     case 'execute-command':
       return Terminal;
+    case 'check-command-output':
+      return Terminal;
     case 'terminate-command':
       return Terminal;
-
 
     // Web operations
     case 'web-search':
@@ -254,6 +255,7 @@ export const extractPrimaryParam = (
 
 const TOOL_DISPLAY_NAMES = new Map([
   ['execute-command', 'Executing Command'],
+  ['check-command-output', 'Checking Command Output'],
   ['terminate-command', 'Terminating Command'],
   ['list-commands', 'Listing Commands'],
   
@@ -279,7 +281,9 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['browser-switch-tab', 'Switching Tab'],
   ['browser-wait', 'Waiting'],
 
-  ['execute-data-provider-call', 'Executing data provider all'],
+  ['execute-data-provider-call', 'Calling data provider'],
+  ['execute_data_provider_call', 'Calling data provider'],
+  ['get-data-provider-endpoints', 'Getting endpoints'],
   
   ['deploy', 'Deploying'],
   ['ask', 'Ask'],
