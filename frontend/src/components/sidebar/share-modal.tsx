@@ -27,6 +27,14 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
     const [isLoading, setIsLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
+
+    // Reset pointer events when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.pointerEvents = 'auto';
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         if (isOpen && threadId) {
             checkShareStatus();
