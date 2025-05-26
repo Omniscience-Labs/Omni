@@ -3,7 +3,6 @@ import { ToolViewProps } from '../types';
 import { GenericToolView } from '../GenericToolView';
 import { BrowserToolView } from '../BrowserToolView';
 import { CommandToolView } from '../CommandToolView';
-import { DataProviderToolView } from '../DataProviderToolView';
 import { ExposePortToolView } from '../ExposePortToolView';
 import { FileOperationToolView } from '../FileOperationToolView';
 import { StrReplaceToolView } from '../StrReplaceToolView';
@@ -14,6 +13,8 @@ import { SeeImageToolView } from '../SeeImageToolView';
 import { TerminateCommandToolView } from '../TerminateCommandToolView';
 import { AskToolView } from '../AskToolView';
 import { CompleteToolView } from '../CompleteToolView';
+import { DataProviderEndpointsToolView } from '../DataProviderEndpointToolView';
+import { ExecuteDataProviderCallToolView } from '../DataProviderToolView';
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
@@ -37,8 +38,9 @@ const defaultRegistry: ToolViewRegistryType = {
   'browser-click-coordinates': BrowserToolView,
 
   'execute-command': CommandToolView,
+  'check-command-output': CommandToolView,
   'terminate-command': TerminateCommandToolView,
-  'list-commands': GenericToolView,
+  'list-commands': CommandToolView,
 
   'create-file': FileOperationToolView,
   'delete-file': FileOperationToolView,
@@ -51,9 +53,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'crawl-webpage': WebCrawlToolView,
   'scrape-webpage': WebScrapeToolView,
 
-  'execute-data-provider-call': DataProviderToolView,
-  'get-data-provider-endpoints': DataProviderToolView,
-  'get_data_provider_endpoints': DataProviderToolView,
+  'execute-data-provider-call': ExecuteDataProviderCallToolView,
+  'get-data-provider-endpoints': DataProviderEndpointsToolView,
 
   'expose-port': ExposePortToolView,
 

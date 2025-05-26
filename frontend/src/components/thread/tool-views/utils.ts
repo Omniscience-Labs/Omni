@@ -33,6 +33,7 @@ export function getToolTitle(toolName: string): string {
   // Map of tool names to their display titles
   const toolTitles: Record<string, string> = {
     'execute-command': 'Execute Command',
+    'check-command-output': 'Check Command Output',
     'str-replace': 'String Replace',
     'create-file': 'Create File',
     'full-file-rewrite': 'Rewrite File',
@@ -48,6 +49,9 @@ export function getToolTitle(toolName: string): string {
     'see-image': 'View Image',
     'ask': 'Ask',
     'complete': 'Task Complete',
+    'execute-data-provider-call': 'Data Provider Call',
+    'get-data-provider-endpoints': 'Data Endpoints',
+
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -123,6 +127,51 @@ export function extractCommand(content: string | object | undefined | null): str
   return null;
 }
 
+// Helper to extract session name from check-command-output content
+export function extractSessionName(content: string | object | undefined | null): string | null {
+  const contentStr = normalizeContentToString(content);
+  if (!contentStr) return null;
+  
+  // First try to extract from XML tags (with or without attributes)
+  const sessionMatch = contentStr.match(
+    /<check-command-output[^>]*session_name=["']([^"']+)["']/,
+  );
+  if (sessionMatch) {
+    return sessionMatch[1].trim();
+  }
+  
+  // Try to find session_name in JSON structure (for native tool calls)
+  try {
+    const parsed = JSON.parse(contentStr);
+    if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
+      const checkCommand = parsed.tool_calls.find(tc => 
+        tc.function?.name === 'check-command-output' || 
+        tc.function?.name === 'check_command_output'
+      );
+      if (checkCommand && checkCommand.function?.arguments) {
+        try {
+          const args = typeof checkCommand.function.arguments === 'string' 
+            ? JSON.parse(checkCommand.function.arguments)
+            : checkCommand.function.arguments;
+          if (args.session_name) return args.session_name;
+        } catch (e) {
+          // If arguments parsing fails, continue
+        }
+      }
+    }
+  } catch (e) {
+    // Not JSON, continue with other checks
+  }
+  
+  // Look for session_name attribute in the content
+  const sessionNameMatch = contentStr.match(/session_name=["']([^"']+)["']/);
+  if (sessionNameMatch) {
+    return sessionNameMatch[1].trim();
+  }
+  
+  return null;
+}
+
 // Helper to extract command output from tool result content
 export function extractCommandOutput(
   content: string | object | undefined | null,
@@ -133,10 +182,16 @@ export function extractCommandOutput(
   try {
     // First try to parse the JSON content
     const parsedContent = JSON.parse(contentStr);
+    
+    // Handle check-command-output specific format
+    if (parsedContent.output && typeof parsedContent.output === 'string') {
+      return parsedContent.output;
+    }
+    
     if (parsedContent.content && typeof parsedContent.content === 'string') {
       // Look for a tool_result tag
       const toolResultMatch = parsedContent.content.match(
-        /<tool_result>\s*<execute-command>([\s\S]*?)<\/execute-command>\s*<\/tool_result>/,
+        /<tool_result>\s*<(?:execute-command|check-command-output)>([\s\S]*?)<\/(?:execute-command|check-command-output)>\s*<\/tool_result>/,
       );
       if (toolResultMatch) {
         return toolResultMatch[1].trim();
@@ -161,7 +216,7 @@ export function extractCommandOutput(
   } catch (e) {
     // If JSON parsing fails, try regex directly
     const toolResultMatch = contentStr.match(
-      /<tool_result>\s*<execute-command>([\s\S]*?)<\/execute-command>\s*<\/tool_result>/,
+      /<tool_result>\s*<(?:execute-command|check-command-output)>([\s\S]*?)<\/(?:execute-command|check-command-output)>\s*<\/tool_result>/,
     );
     if (toolResultMatch) {
       return toolResultMatch[1].trim();

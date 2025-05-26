@@ -42,7 +42,13 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'complete',
     'crawl-webpage',
     'web-search',
-    'see-image'
+    'see-image',
+
+    'execute_data_provider_call',
+    'execute_data_provider_endpoint',
+
+    'execute-data-provider-call',
+    'execute-data-provider-endpoint',
 ]);
 
 // Helper function to render attachments (keeping original implementation for now)
