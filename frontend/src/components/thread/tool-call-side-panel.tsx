@@ -103,7 +103,8 @@ export function ToolCallSidePanel({
     }
   }, [isOpen, currentIndex, isInitialized, toolCallSnapshots.length]);
 
-  const currentSnapshot = toolCallSnapshots[internalIndex];
+  const safeInternalIndex = Math.min(internalIndex, Math.max(0, toolCallSnapshots.length - 1));
+  const currentSnapshot = toolCallSnapshots[safeInternalIndex];
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
   
@@ -139,16 +140,16 @@ export function ToolCallSidePanel({
   const showJumpToLatest = navigationMode === 'manual' && agentStatus !== 'running';
 
   const navigateToPrevious = React.useCallback(() => {
-    if (internalIndex > 0) {
-      internalNavigate(internalIndex - 1, 'user_explicit');
+    if (safeInternalIndex > 0) {
+      internalNavigate(safeInternalIndex - 1, 'user_explicit');
     }
-  }, [internalIndex, internalNavigate]);
+  }, [safeInternalIndex, internalNavigate]);
   
   const navigateToNext = React.useCallback(() => {
-    if (internalIndex < totalCalls - 1) {
-      internalNavigate(internalIndex + 1, 'user_explicit');
+    if (safeInternalIndex < totalCalls - 1) {
+      internalNavigate(safeInternalIndex + 1, 'user_explicit');
     }
-  }, [internalIndex, totalCalls, internalNavigate]);
+  }, [safeInternalIndex, totalCalls, internalNavigate]);
 
   const jumpToLive = React.useCallback(() => {
     setNavigationMode('live');
@@ -263,7 +264,7 @@ export function ToolCallSidePanel({
   }
 
   const renderContent = () => {
-    if (!currentToolCall) {
+    if (!currentToolCall && toolCallSnapshots.length === 0) {
       return (
         <div className="flex flex-col h-full">
           <div className="pt-4 pl-4 pr-4">
@@ -308,6 +309,37 @@ export function ToolCallSidePanel({
       );
     }
 
+    if (!currentToolCall && toolCallSnapshots.length > 0) {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="pt-4 pl-4 pr-4">
+            <div className="flex items-center justify-between">
+              <div className="ml-2 flex items-center gap-2">
+                <Computer className="h-4 w-4" />
+                <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
+                  Suna's Computer
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 p-4 overflow-auto">
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-20 w-full rounded-md" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const toolView = (
       <ToolView
         name={currentToolCall.assistantCall.name}
@@ -320,7 +352,7 @@ export function ToolCallSidePanel({
         project={project}
         messages={messages}
         agentStatus={agentStatus}
-        currentIndex={internalIndex}
+        currentIndex={safeInternalIndex}
         totalCalls={totalCalls}
         onFileClick={onFileClick}
       />
@@ -457,7 +489,7 @@ export function ToolCallSidePanel({
                 )}
                 
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                  Step {internalIndex + 1} of {totalCalls}
+                  Step {safeInternalIndex + 1} of {totalCalls}
                 </span>
               </div>
             </div>
@@ -469,7 +501,7 @@ export function ToolCallSidePanel({
                 variant="outline"
                 size="sm"
                 onClick={navigateToPrevious}
-                disabled={internalIndex <= 0}
+                disabled={safeInternalIndex <= 0}
                 className="h-9 px-3"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
@@ -490,7 +522,7 @@ export function ToolCallSidePanel({
                 )}
                 
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {internalIndex + 1} / {totalCalls}
+                  {safeInternalIndex + 1} / {totalCalls}
                 </span>
               </div>
 
@@ -498,7 +530,7 @@ export function ToolCallSidePanel({
                 variant="outline"
                 size="sm"
                 onClick={navigateToNext}
-                disabled={internalIndex >= totalCalls - 1}
+                disabled={safeInternalIndex >= totalCalls - 1}
                 className="h-9 px-3"
               >
                 <span>Next</span>
@@ -512,7 +544,7 @@ export function ToolCallSidePanel({
                   variant="ghost"
                   size="icon"
                   onClick={navigateToPrevious}
-                  disabled={internalIndex <= 0}
+                  disabled={safeInternalIndex <= 0}
                   className="h-6 w-6 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -521,7 +553,7 @@ export function ToolCallSidePanel({
                   variant="ghost"
                   size="icon"
                   onClick={navigateToNext}
-                  disabled={internalIndex >= totalCalls - 1}
+                  disabled={safeInternalIndex >= totalCalls - 1}
                   className="h-6 w-6 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -533,7 +565,7 @@ export function ToolCallSidePanel({
                   min={0}
                   max={totalCalls - 1}
                   step={1}
-                  value={[internalIndex]}
+                  value={[safeInternalIndex]}
                   onValueChange={handleSliderChange}
                   className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1"
                 />
