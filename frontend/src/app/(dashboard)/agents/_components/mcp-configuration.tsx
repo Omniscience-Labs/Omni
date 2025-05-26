@@ -301,7 +301,7 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
                             <p className="text-xs text-muted-foreground mt-1">
                               {server.description}
                             </p>
-                            <Badge variant="secondary" className="mt-2 text-xs">
+                            <Badge variant="outline" className="mt-2 text-xs">
                               {server.category}
                             </Badge>
                           </div>
