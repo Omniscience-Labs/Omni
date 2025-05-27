@@ -616,7 +616,7 @@ export default function ThreadPage({
     [messages, toolCalls],
   );
 
-  const handleOpenFileViewer = useCallback((filePath?: string) => {
+  const handleOpenFileViewer = useCallback((filePath?: string, filePathList?: string[]) => {
     if (filePath) {
       setFileToView(filePath);
     } else {

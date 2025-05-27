@@ -45,6 +45,7 @@ export default function ThreadPage({
   const [isSending, setIsSending] = useState(false);
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [fileToView, setFileToView] = useState<string | null>(null);
+  const [filePathList, setFilePathList] = useState<string[] | undefined>(undefined);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
@@ -333,12 +334,13 @@ export default function ThreadPage({
     }
   }, [stopStreaming, agentRunId, stopAgentMutation, agentRunsQuery, setAgentStatus]);
 
-  const handleOpenFileViewer = useCallback((filePath?: string) => {
+  const handleOpenFileViewer = useCallback((filePath?: string, filePathList?: string[]) => {
     if (filePath) {
       setFileToView(filePath);
     } else {
       setFileToView(null);
     }
+    setFilePathList(filePathList);
     setFileViewerOpen(true);
   }, []);
 
@@ -527,6 +529,7 @@ export default function ThreadPage({
         fileViewerOpen={fileViewerOpen}
         setFileViewerOpen={setFileViewerOpen}
         fileToView={fileToView}
+        filePathList={filePathList}
         toolCalls={toolCalls}
         messages={messages as ApiMessageType[]}
         externalNavIndex={externalNavIndex}
@@ -568,6 +571,7 @@ export default function ThreadPage({
         fileViewerOpen={fileViewerOpen}
         setFileViewerOpen={setFileViewerOpen}
         fileToView={fileToView}
+        filePathList={filePathList}
         toolCalls={toolCalls}
         messages={messages as ApiMessageType[]}
         externalNavIndex={externalNavIndex}

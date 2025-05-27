@@ -52,7 +52,7 @@ const HIDE_STREAMING_XML_TAGS = new Set([
 ]);
 
 // Helper function to render attachments (keeping original implementation for now)
-export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string, project?: Project) {
+export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
     if (!attachments || attachments.length === 0) return null;
 
     // Note: Preloading is now handled by React Query in the main ThreadContent component
@@ -72,7 +72,7 @@ export function renderMarkdownContent(
     content: string,
     handleToolClick: (assistantMessageId: string | null, toolName: string) => void,
     messageId: string | null,
-    fileViewerHandler?: (filePath?: string) => void,
+    fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void,
     sandboxId?: string,
     project?: Project,
     debugMode?: boolean
@@ -165,7 +165,7 @@ export interface ThreadContentProps {
     streamingToolCall?: any;
     agentStatus: 'idle' | 'running' | 'connecting' | 'error';
     handleToolClick: (assistantMessageId: string | null, toolName: string) => void;
-    handleOpenFileViewer: (filePath?: string) => void;
+    handleOpenFileViewer: (filePath?: string, filePathList?: string[]) => void;
     readOnly?: boolean;
     visibleMessages?: UnifiedMessage[]; // For playback mode
     streamingText?: string; // For playback mode
@@ -282,7 +282,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 const groupedMessages: MessageGroup[] = [];
                                 let currentGroup: MessageGroup | null = null;
                                 let assistantGroupCounter = 0; // Counter for assistant groups
-                                
+
                                 displayMessages.forEach((message, index) => {
                                     const messageType = message.type;
                                     const key = message.message_id || `msg-${index}`;
@@ -306,10 +306,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             }
                                             // Create a new assistant group with a group-level key
                                             assistantGroupCounter++;
-                                            currentGroup = { 
-                                                type: 'assistant_group', 
-                                                messages: [message], 
-                                                key: `assistant-group-${assistantGroupCounter}` 
+                                            currentGroup = {
+                                                type: 'assistant_group',
+                                                messages: [message],
+                                                key: `assistant-group-${assistantGroupCounter}`
                                             };
                                         }
                                     } else if (messageType !== 'status') {
@@ -320,20 +320,20 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         }
                                     }
                                 });
-                                
+
                                 // Finalize any remaining group
                                 if (currentGroup) {
                                     groupedMessages.push(currentGroup);
                                 }
-                                
+
                                 // Handle streaming content
-                                if(streamingTextContent) {
+                                if (streamingTextContent) {
                                     const lastGroup = groupedMessages.at(-1);
-                                    if(!lastGroup || lastGroup.type === 'user'){
+                                    if (!lastGroup || lastGroup.type === 'user') {
                                         // Create new assistant group for streaming content
                                         assistantGroupCounter++;
                                         groupedMessages.push({
-                                            type: 'assistant_group', 
+                                            type: 'assistant_group',
                                             messages: [{
                                                 content: streamingTextContent,
                                                 type: 'assistant',
@@ -344,7 +344,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 is_llm_message: true,
                                                 thread_id: 'streamingTextContent',
                                                 sequence: Infinity,
-                                            }], 
+                                            }],
                                             key: `assistant-group-${assistantGroupCounter}-streaming`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {

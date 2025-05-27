@@ -29,7 +29,7 @@ interface AttachmentGroupProps {
     onRemove?: (index: number) => void;
     layout?: LayoutStyle;
     className?: string;
-    onFileClick?: (path: string) => void;
+    onFileClick?: (path: string, filePathList?: string[]) => void;
     showPreviews?: boolean;
     maxHeight?: string;
     gridImageHeight?: number; // New prop for grid image height
@@ -101,8 +101,10 @@ export function AttachmentGroup({
     // Ensure path has proper format when clicking
     const handleFileClick = (path: string) => {
         if (onFileClick) {
-            // Just pass the path to the parent handler which will call getFileUrl
-            onFileClick(path);
+            // Create the file path list from all files in the group
+            const filePathList = uniqueFiles.map(file => getFilePath(file));
+            // Pass both the clicked path and the complete list
+            onFileClick(path, filePathList);
         }
     };
 

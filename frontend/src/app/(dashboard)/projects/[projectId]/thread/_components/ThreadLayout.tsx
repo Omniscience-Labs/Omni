@@ -17,10 +17,11 @@ interface ThreadLayoutProps {
   isSidePanelOpen: boolean;
   onToggleSidePanel: () => void;
   onProjectRenamed?: (newName: string) => void;
-  onViewFiles: (filePath?: string) => void;
+  onViewFiles: (filePath?: string, filePathList?: string[]) => void;
   fileViewerOpen: boolean;
   setFileViewerOpen: (open: boolean) => void;
   fileToView: string | null;
+  filePathList?: string[];
   toolCalls: ToolCallInput[];
   messages: ApiMessageType[];
   externalNavIndex?: number;
@@ -53,6 +54,7 @@ export function ThreadLayout({
   fileViewerOpen,
   setFileViewerOpen,
   fileToView,
+  filePathList,
   toolCalls,
   messages,
   externalNavIndex,
@@ -79,11 +81,10 @@ export function ThreadLayout({
       )}
 
       <div
-        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${
-          (!initialLoadCompleted || isSidePanelOpen) 
-            ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' 
-            : ''
-        }`}
+        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${(!initialLoadCompleted || isSidePanelOpen)
+          ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]'
+          : ''
+          }`}
       >
         <SiteHeader
           threadId={threadId}
@@ -122,6 +123,7 @@ export function ThreadLayout({
           sandboxId={sandboxId}
           initialFilePath={fileToView}
           project={project || undefined}
+          filePathList={filePathList}
         />
       )}
 
