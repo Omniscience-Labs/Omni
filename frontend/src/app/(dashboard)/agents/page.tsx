@@ -6,7 +6,8 @@ import { PlusCircle, MessagesSquare, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getProjects, getThreads, type Project } from '@/lib/api';
+import { useProjects, useAllThreads } from '@/hooks/react-query';
+import type { Project } from '@/lib/api';
 
 // Define the Agent type that combines project and thread data
 interface Agent {
@@ -20,50 +21,40 @@ interface Agent {
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Use React Query hooks
+  const { data: projectsData = [], isLoading: projectsLoading, error: projectsError } = useProjects();
+  const { data: allThreads = [], isLoading: threadsLoading } = useAllThreads();
+  
+  const isLoading = projectsLoading || threadsLoading;
+  const error = projectsError ? (projectsError instanceof Error ? projectsError.message : 'An error occurred loading agents') : null;
 
   useEffect(() => {
-    async function loadAgents() {
-      setIsLoading(true);
-      try {
-        // Get projects from API - now only fetches the user's projects
-        const projectsData = await getProjects();
-
-        // We'll fetch threads for each project to create our agent abstraction
-        const agentsData: Agent[] = [];
-
-        for (const project of projectsData) {
-          // For each project, get its threads
-          const threads = await getThreads(project.id);
-
-          // Create an agent entry with the first thread (or null if none exists)
-          agentsData.push({
-            id: project.id,
-            name: project.name,
-            description: project.description,
-            created_at: project.created_at,
-            threadId:
-              threads && threads.length > 0 ? threads[0].thread_id : null,
-            is_public: false, // Default to false for user's projects
-          });
-        }
-
-        setAgents(agentsData);
-      } catch (err) {
-        console.error('Error loading agents:', err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'An error occurred loading agents',
-        );
-      } finally {
-        setIsLoading(false);
-      }
+    if (!projectsData.length || isLoading) {
+      setAgents([]);
+      return;
     }
 
-    loadAgents();
-  }, []);
+    // Create agents data from projects and threads
+    const agentsData: Agent[] = [];
+
+    for (const project of projectsData) {
+      // Find threads for this project
+      const projectThreads = allThreads.filter(thread => thread.project_id === project.id);
+
+      // Create an agent entry with the first thread (or null if none exists)
+      agentsData.push({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        created_at: project.created_at,
+        threadId: projectThreads.length > 0 ? projectThreads[0].thread_id : null,
+        is_public: false, // Default to false for user's projects
+      });
+    }
+
+    setAgents(agentsData);
+  }, [projectsData, allThreads, isLoading]);
 
   if (error) {
     return (

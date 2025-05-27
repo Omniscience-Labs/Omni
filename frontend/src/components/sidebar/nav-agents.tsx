@@ -98,7 +98,7 @@ export function NavAgents() {
       const customEvent = event as CustomEvent;
       if (customEvent.detail) {
         const { projectId, updatedData } = customEvent.detail;
-        queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+        queryClient.invalidateQueries({ queryKey: projectKeys.details(projectId) });
         queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
       }
     };
