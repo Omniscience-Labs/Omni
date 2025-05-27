@@ -1,3 +1,4 @@
+import sentry
 from fastapi import HTTPException, Request
 from typing import Optional
 import jwt
@@ -45,7 +46,8 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
                 detail="Invalid token payload",
                 headers={"WWW-Authenticate": "Bearer"}
             )
-        
+
+        sentry.sentry.set_user({ "id": user_id })
         return user_id
         
     except PyJWTError:
@@ -119,6 +121,7 @@ async def get_user_id_from_stream_auth(
             # For Supabase JWT, we just need to decode and extract the user ID
             payload = jwt.decode(token, options={"verify_signature": False})
             user_id = payload.get('sub')
+            sentry.sentry.set_user({ "id": user_id })
             if user_id:
                 return user_id
         except Exception:

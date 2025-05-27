@@ -54,6 +54,7 @@ pika = "^1.3.2"
 prometheus-client = "^0.21.1"
 langfuse = "^2.60.5"
 Pillow = "^10.0.0"
+sentry-sdk = {extras = ["fastapi"], version = "^2.29.1"}
 
 [tool.poetry.scripts]
 agentpress = "agentpress.cli:main"
