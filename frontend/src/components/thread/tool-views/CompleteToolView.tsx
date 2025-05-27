@@ -54,7 +54,7 @@ export function CompleteToolView({
     if (assistantContent) {
       try {
         const contentStr = normalizeContentToString(assistantContent);
-        
+
         // Try to extract content from <complete> tag
         const completeMatch = contentStr.match(/<complete[^>]*>([^<]*)<\/complete>/);
         if (completeMatch) {
@@ -88,7 +88,7 @@ export function CompleteToolView({
     if (toolContent && !isStreaming) {
       try {
         const contentStr = normalizeContentToString(toolContent);
-        
+
         // Try to extract from ToolResult pattern
         const toolResultMatch = contentStr.match(/ToolResult\([^)]*output=['"]([^'"]+)['"]/);
         if (toolResultMatch) {
@@ -143,13 +143,13 @@ export function CompleteToolView({
               </CardTitle>
             </div>
           </div>
-          
+
           {!isStreaming && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={
-                isSuccess 
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                isSuccess
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
@@ -211,7 +211,7 @@ export function CompleteToolView({
                     const { icon: FileIcon, color, bgColor } = getFileIconAndColor(attachment);
                     const fileName = attachment.split('/').pop() || attachment;
                     const filePath = attachment.includes('/') ? attachment.substring(0, attachment.lastIndexOf('/')) : '';
-                    
+
                     return (
                       <button
                         key={index}
@@ -255,7 +255,7 @@ export function CompleteToolView({
                 </div>
                 <div className="space-y-2">
                   {completeData.tasksCompleted.map((task, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border/50"
                     >
@@ -314,7 +314,7 @@ export function CompleteToolView({
             Task Completion
           </Badge>
         </div>
-        
+
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
           {toolTimestamp && !isStreaming
             ? formatTimestamp(toolTimestamp)
