@@ -84,6 +84,16 @@ export function FileViewerModal({
   const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1);
   const isFileListMode = Boolean(filePathList && filePathList.length > 0);
 
+  // Debug filePathList changes
+  useEffect(() => {
+    console.log('[FILE VIEWER DEBUG] filePathList changed:', {
+      filePathList,
+      length: filePathList?.length,
+      isFileListMode,
+      currentFileIndex
+    });
+  }, [filePathList, isFileListMode, currentFileIndex]);
+
   // Use React Query for directory listing
   const {
     data: files = [],
@@ -182,12 +192,20 @@ export function FileViewerModal({
 
   // Helper function to clear the selected file
   const clearSelectedFile = useCallback(() => {
+    console.log(`[FILE VIEWER DEBUG] clearSelectedFile called, isFileListMode: ${isFileListMode}`);
     setSelectedFilePath(null);
     setRawContent(null);
     setTextContentForRenderer(null); // Clear derived text content
     setBlobUrlForRenderer(null); // Clear derived blob URL
     setContentError(null);
-  }, []);
+    // Only reset file list mode index when not in file list mode
+    if (!isFileListMode) {
+      console.log(`[FILE VIEWER DEBUG] Resetting currentFileIndex in clearSelectedFile`);
+      setCurrentFileIndex(-1);
+    } else {
+      console.log(`[FILE VIEWER DEBUG] Keeping currentFileIndex in clearSelectedFile because in file list mode`);
+    }
+  }, [isFileListMode]);
 
   // Core file opening function
   const openFile = useCallback(
@@ -233,6 +251,14 @@ export function FileViewerModal({
       clearSelectedFile();
       setSelectedFilePath(file.path);
 
+      // Only reset file index if we're NOT in file list mode or the file is not in the list
+      if (!isFileListMode || !filePathList?.includes(file.path)) {
+        console.log(`[FILE VIEWER DEBUG] Resetting currentFileIndex because not in file list mode or file not in list`);
+        setCurrentFileIndex(-1);
+      } else {
+        console.log(`[FILE VIEWER DEBUG] Keeping currentFileIndex because file is in file list mode`);
+      }
+
       // The useFileContentQuery hook will automatically handle loading the content
       // No need to manually fetch here - React Query will handle it
     },
@@ -240,6 +266,8 @@ export function FileViewerModal({
       selectedFilePath,
       clearSelectedFile,
       normalizePath,
+      isFileListMode,
+      filePathList,
     ],
   );
 
@@ -384,11 +412,20 @@ export function FileViewerModal({
 
   // Navigation functions for file list mode
   const navigateToFileByIndex = useCallback((index: number) => {
+    console.log('[FILE VIEWER DEBUG] navigateToFileByIndex called:', {
+      index,
+      isFileListMode,
+      filePathList,
+      filePathListLength: filePathList?.length
+    });
+
     if (!isFileListMode || !filePathList || index < 0 || index >= filePathList.length) {
+      console.log('[FILE VIEWER DEBUG] navigateToFileByIndex early return - invalid conditions');
       return;
     }
 
     const filePath = filePathList[index];
+    console.log('[FILE VIEWER DEBUG] Setting currentFileIndex to:', index, 'for file:', filePath);
     setCurrentFileIndex(index);
 
     // Create a temporary FileInfo object for the file
@@ -428,8 +465,21 @@ export function FileViewerModal({
 
       // If we're in file list mode, find the index and navigate to it
       if (isFileListMode && filePathList) {
+        console.log('[FILE VIEWER DEBUG] Initial file path - file list mode detected:', {
+          isFileListMode,
+          filePathList,
+          safeInitialFilePath,
+          filePathListLength: filePathList.length
+        });
+
         const normalizedInitialPath = normalizePath(safeInitialFilePath);
         const index = filePathList.findIndex(path => normalizePath(path) === normalizedInitialPath);
+
+        console.log('[FILE VIEWER DEBUG] Found index for initial file:', {
+          normalizedInitialPath,
+          index,
+          foundPath: index !== -1 ? filePathList[index] : 'not found'
+        });
 
         if (index !== -1) {
           console.log(`[FILE VIEWER] File list mode: navigating to index ${index} for ${normalizedInitialPath}`);
@@ -930,6 +980,13 @@ export function FileViewerModal({
     [currentPath, sandboxId, refetchFiles],
   );
 
+  // Reset file list mode when modal opens without filePathList
+  useEffect(() => {
+    if (open && !filePathList) {
+      setCurrentFileIndex(-1);
+    }
+  }, [open, filePathList]);
+
   // --- Render --- //
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -940,33 +997,46 @@ export function FileViewerModal({
           </DialogTitle>
           <div className="flex items-center gap-2">
             {/* Navigation arrows for file list mode */}
-            {isFileListMode && selectedFilePath && filePathList && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={navigatePrevious}
-                  disabled={currentFileIndex <= 0}
-                  className="h-8 w-8 p-0"
-                  title="Previous file (←)"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="text-xs text-muted-foreground px-1">
-                  {currentFileIndex + 1} / {filePathList.length}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={navigateNext}
-                  disabled={currentFileIndex >= filePathList.length - 1}
-                  className="h-8 w-8 p-0"
-                  title="Next file (→)"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            )}</div>
+            {(() => {
+              // Debug logging
+              console.log('[FILE VIEWER DEBUG] Navigation visibility check:', {
+                isFileListMode,
+                selectedFilePath,
+                filePathList,
+                filePathListLength: filePathList?.length,
+                currentFileIndex,
+                shouldShow: isFileListMode && selectedFilePath && filePathList && filePathList.length > 1 && currentFileIndex >= 0
+              });
+
+              return isFileListMode && selectedFilePath && filePathList && filePathList.length > 1 && currentFileIndex >= 0;
+            })() && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigatePrevious}
+                    disabled={currentFileIndex <= 0}
+                    className="h-8 w-8 p-0"
+                    title="Previous file (←)"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-xs text-muted-foreground px-1">
+                    {currentFileIndex + 1} / {filePathList.length}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateNext}
+                    disabled={currentFileIndex >= filePathList.length - 1}
+                    className="h-8 w-8 p-0"
+                    title="Next file (→)"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+          </div>
         </DialogHeader>
 
         {/* Navigation Bar */}
