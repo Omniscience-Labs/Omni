@@ -189,7 +189,7 @@ export function BrowserToolView({
           {imageLoading && (
             <ImageLoader />
           )}
-          <Card className={`p-0 overflow-hidden shadow-lg border ${imageLoading ? 'hidden' : 'block'}`}>
+          <Card className={`p-0 overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
             <img
               src={screenshotUrl}
               alt="Browser Screenshot"
@@ -214,7 +214,7 @@ export function BrowserToolView({
           {imageLoading && (
             <ImageLoader />
           )}
-          <Card className={`overflow-hidden shadow-lg border ${imageLoading ? 'hidden' : 'block'}`}>
+          <Card className={`overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
             <img
               src={`data:image/jpeg;base64,${screenshotBase64}`}
               alt="Browser Screenshot"
