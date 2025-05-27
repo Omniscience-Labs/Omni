@@ -30,7 +30,6 @@ import { safeJsonParse } from '@/components/thread/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { threadErrorCodeMessages } from '@/lib/constants/errorCodeMessages';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
-import { useVncPreloader } from '@/hooks/useVncPreloader';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -101,9 +100,6 @@ export default function ThreadPage({
   const [streamingTextContent, setStreamingTextContent] = useState('');
 
   const userClosedPanelRef = useRef(false);
-
-  // Preload VNC iframe as soon as project data is available
-  useVncPreloader(project);
 
   useEffect(() => {
     userClosedPanelRef.current = true;
