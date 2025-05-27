@@ -63,6 +63,7 @@ import { useBillingStatusQuery } from '@/hooks/react-query/threads/use-billing-s
 import { useSubscription, isPlan } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
 import { ParsedContent } from '@/components/thread/types';
+import { useVncPreloader } from '@/hooks/useVncPreloader';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
@@ -161,6 +162,8 @@ export default function ThreadPage({
     ? 'active'
     : 'no_subscription';
 
+  // Preload VNC iframe as soon as project data is available
+  useVncPreloader(project);
 
   const handleProjectRenamed = useCallback((newName: string) => {
     setProjectName(newName);
@@ -720,7 +723,7 @@ export default function ThreadPage({
               return assistantMsg.content;
             }
           })();
-          
+
           // Try to extract tool name from content
           const xmlMatch = assistantContent.match(
             /<([a-zA-Z\-_]+)(?:\s+[^>]*)?>|<([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/,
@@ -762,7 +765,7 @@ export default function ThreadPage({
               return resultMessage.content;
             }
           })();
-          
+
           // Check for ToolResult pattern first
           if (toolResultContent && typeof toolResultContent === 'string') {
             // Look for ToolResult(success=True/False) pattern
