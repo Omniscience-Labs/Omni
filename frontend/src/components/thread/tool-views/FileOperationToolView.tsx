@@ -46,6 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingState } from './shared/LoadingState';
 
 type FileOperation = 'create' | 'rewrite' | 'delete';
 
@@ -474,10 +475,20 @@ export function FileOperationToolView({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0 -my-2 flex-1 overflow-hidden relative">
+        <CardContent className="p-0 -my-2 h-full flex-1 overflow-hidden relative">
           <TabsContent value="code" className="flex-1 h-full mt-0 p-0 overflow-hidden">
-            <ScrollArea className="h-full w-full">
-              {operation === 'delete' ? (
+            <ScrollArea className="h-screen w-full min-h-0">
+              {isStreaming && !fileContent ? (
+                <LoadingState 
+                  icon={Icon}
+                  iconColor={config.color}
+                  bgColor={config.bgColor}
+                  title={config.progressMessage}
+                  filePath={processedFilePath || 'Processing file...'}
+                  subtitle="Please wait while the file is being processed"
+                  showProgress={false}
+                />
+              ) : operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
                     <Trash2 className={cn("h-10 w-10", config.color)} />
@@ -542,8 +553,18 @@ export function FileOperationToolView({
           </TabsContent>
           
           <TabsContent value="preview" className="w-full flex-1 h-full mt-0 p-0 overflow-hidden">
-            <ScrollArea className="h-full w-full">
-              {operation === 'delete' ? (
+            <ScrollArea className="h-full w-full min-h-0">
+              {isStreaming && !fileContent ? (
+                <LoadingState 
+                  icon={Icon}
+                  iconColor={config.color}
+                  bgColor={config.bgColor}
+                  title={config.progressMessage}
+                  filePath={processedFilePath || 'Processing file...'}
+                  subtitle="Please wait while the file is being processed"
+                  showProgress={false}
+                />
+              ) : operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
                     <Trash2 className={cn("h-10 w-10", config.color)} />

@@ -1061,16 +1061,7 @@ class ResponseProcessor:
                     logger.error(f"Error processing mapping {mapping}: {e}")
                     self.trace.event(name="error_processing_mapping", level="ERROR", status_message=(f"Error processing mapping {mapping}: {e}"))
                     continue
-            
-            # Validate required parameters
-            missing = [mapping.param_name for mapping in schema.mappings if mapping.required and mapping.param_name not in params]
-            if missing:
-                logger.error(f"Missing required parameters: {missing}")
-                logger.error(f"Current params: {params}")
-                logger.error(f"XML chunk: {xml_chunk}")
-                self.trace.event(name="missing_required_parameters", level="ERROR", status_message=(f"Missing required parameters: {missing}"), metadata={"current_params": params, "xml_chunk": xml_chunk})
-                return None
-            
+
             # Create tool call with clear separation between function_name and xml_tag_name
             tool_call = {
                 "function_name": function_name,  # The actual method to call (e.g., create_file)

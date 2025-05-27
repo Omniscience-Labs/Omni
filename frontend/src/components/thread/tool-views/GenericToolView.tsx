@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingState } from './shared/LoadingState';
 
 export function GenericToolView({
   name = 'generic-tool',
@@ -29,8 +30,6 @@ export function GenericToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
-  const [progress, setProgress] = useState(0);
-
   const toolTitle = getToolTitle(name);
 
   const formatContent = (content: any) => {
@@ -100,21 +99,14 @@ export function GenericToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-orange-100 to-orange-50 shadow-inner dark:from-orange-800/40 dark:to-orange-900/60 dark:shadow-orange-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500 dark:text-orange-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Executing tool
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{name}</span>
-              </p>
-              <Progress value={progress} className="w-full h-2" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
+          <LoadingState 
+            icon={Wrench}
+            iconColor="text-orange-500 dark:text-orange-400"
+            bgColor="bg-gradient-to-b from-orange-100 to-orange-50 shadow-inner dark:from-orange-800/40 dark:to-orange-900/60 dark:shadow-orange-950/20"
+            title="Executing tool"
+            filePath={name}
+            showProgress={true}
+          />
         ) : formattedAssistantContent || formattedToolContent ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 space-y-4">

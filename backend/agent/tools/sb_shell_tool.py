@@ -253,10 +253,10 @@ class SandboxShellTool(SandboxToolsBase):
         ],
         example='''
         <!-- Example 1: Check output without killing session -->
-        <check-command-output session_name="dev_server"/>
+        <check-command-output session_name="dev_server"></check-command-output>
         
         <!-- Example 2: Check final output and kill session -->
-        <check-command-output session_name="build_process" kill_session="true"/>
+        <check-command-output session_name="build_process" kill_session="true"></check-command-output>
         '''
     )
     async def check_command_output(
@@ -317,7 +317,7 @@ class SandboxShellTool(SandboxToolsBase):
         ],
         example='''
         <!-- Example: Terminate a running server -->
-        <terminate-command session_name="dev_server"/>
+        <terminate-command session_name="dev_server"></terminate-command>
         '''
     )
     async def terminate_command(
@@ -359,7 +359,7 @@ class SandboxShellTool(SandboxToolsBase):
         mappings=[],
         example='''
         <!-- Example: List all running commands -->
-        <list-commands/>
+        <list-commands></list-commands>
         '''
     )
     async def list_commands(self) -> ToolResult:
