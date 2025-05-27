@@ -332,7 +332,7 @@ export function BrowserToolView({
               {imageLoading && (
                 <ImageLoader />
               )}
-              <Card className={`p-0 overflow-hidden shadow-lg border ${imageLoading ? 'hidden' : 'block'}`}>
+              <Card className={`p-0 overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
                 {screenshotUrl ? (
                   <img
                     src={screenshotUrl}
