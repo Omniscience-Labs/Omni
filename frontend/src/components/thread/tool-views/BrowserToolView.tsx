@@ -124,6 +124,15 @@ export function BrowserToolView({
   const isRunning = isStreaming || agentStatus === 'running';
   const isLastToolCall = currentIndex === totalCalls - 1;
 
+  const [isIframeLoading, setIsIframeLoading] = React.useState(true);
+
+  // Reset loading state when VNC URL changes
+  React.useEffect(() => {
+    if (vncPreviewUrl) {
+      setIsIframeLoading(true);
+    }
+  }, [vncPreviewUrl]);
+
   const vncIframe = useMemo(() => {
     if (!vncPreviewUrl) return null;
 
@@ -133,6 +142,7 @@ export function BrowserToolView({
         title="Browser preview"
         className="w-full h-full border-0 min-h-[600px]"
         style={{ width: '100%', height: '100%', minHeight: '600px' }}
+        onLoad={() => setIsIframeLoading(false)}
       />
     );
   }, [vncPreviewUrl]);
@@ -157,24 +167,53 @@ export function BrowserToolView({
     }
   }, [isRunning]);
 
+  const [isScreenshotLoading, setIsScreenshotLoading] = React.useState(true);
+
+  // Reset screenshot loading state when screenshot data changes
+  React.useEffect(() => {
+    if (screenshotUrl || screenshotBase64) {
+      setIsScreenshotLoading(true);
+    }
+  }, [screenshotUrl, screenshotBase64]);
+
   const renderScreenshot = () => {
     if (screenshotUrl) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+        <div className="relative flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+          {isScreenshotLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+              <div className="flex flex-col items-center gap-4">
+                <CircleDashed className="h-8 w-8 animate-spin text-white" />
+                <p className="text-white text-sm">Loading screenshot...</p>
+              </div>
+            </div>
+          )}
           <img
             src={screenshotUrl}
             alt="Browser Screenshot"
             className="max-w-full max-h-full object-contain"
+            onLoad={() => setIsScreenshotLoading(false)}
+            onError={() => setIsScreenshotLoading(false)}
           />
         </div>
       );
     } else if (screenshotBase64) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+        <div className="relative flex items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+          {isScreenshotLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+              <div className="flex flex-col items-center gap-4">
+                <CircleDashed className="h-8 w-8 animate-spin text-white" />
+                <p className="text-white text-sm">Loading screenshot...</p>
+              </div>
+            </div>
+          )}
           <img
             src={`data:image/jpeg;base64,${screenshotBase64}`}
             alt="Browser Screenshot"
             className="max-w-full max-h-full object-contain"
+            onLoad={() => setIsScreenshotLoading(false)}
+            onError={() => setIsScreenshotLoading(false)}
           />
         </div>
       );
@@ -230,6 +269,14 @@ export function BrowserToolView({
             isRunning && vncIframe ? (
               <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
                 <div className="relative w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+                  {isIframeLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black z-20">
+                      <div className="flex flex-col items-center gap-4">
+                        <CircleDashed className="h-8 w-8 animate-spin text-white" />
+                        <p className="text-white text-sm">Loading browser preview...</p>
+                      </div>
+                    </div>
+                  )}
                   {vncIframe}
                   <div className="absolute top-4 right-4 z-10">
                     <Badge className="bg-blue-500/90 text-white border-none shadow-lg animate-pulse">
@@ -243,7 +290,15 @@ export function BrowserToolView({
               renderScreenshot()
             ) : vncIframe ? (
               // Use the memoized iframe
-              <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+              <div className="relative flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
+                {isIframeLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+                    <div className="flex flex-col items-center gap-4">
+                      <CircleDashed className="h-8 w-8 animate-spin text-white" />
+                      <p className="text-white text-sm">Loading browser preview...</p>
+                    </div>
+                  </div>
+                )}
                 {vncIframe}
               </div>
             ) : (
@@ -273,18 +328,30 @@ export function BrowserToolView({
             )
           ) : // For non-last tool calls, only show screenshot if available, otherwise show "No Browser State"
           (screenshotUrl || screenshotBase64) ? (
-            <div className="flex items-center justify-center w-full h-full max-h-[650px] overflow-auto">
+            <div className="relative flex items-center justify-center w-full h-full max-h-[650px] overflow-auto">
+              {isScreenshotLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+                  <div className="flex flex-col items-center gap-4">
+                    <CircleDashed className="h-8 w-8 animate-spin text-white" />
+                    <p className="text-white text-sm">Loading screenshot...</p>
+                  </div>
+                </div>
+              )}
               {screenshotUrl ? (
                 <img
                   src={screenshotUrl}
                   alt="Browser Screenshot"
                   className="max-w-full max-h-full object-contain"
+                  onLoad={() => setIsScreenshotLoading(false)}
+                  onError={() => setIsScreenshotLoading(false)}
                 />
               ) : (
                 <img
                   src={`data:image/jpeg;base64,${screenshotBase64}`}
                   alt="Browser Screenshot"
                   className="max-w-full max-h-full object-contain"
+                  onLoad={() => setIsScreenshotLoading(false)}
+                  onError={() => setIsScreenshotLoading(false)}
                 />
               )}
             </div>
