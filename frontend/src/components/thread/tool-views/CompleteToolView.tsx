@@ -284,7 +284,7 @@ export function CompleteToolView({
                     {progress}%
                   </span>
                 </div>
-                <Progress value={progress} className="h-2" />
+                <Progress value={progress} className="h-1" />
               </div>
             )}
 

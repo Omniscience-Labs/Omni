@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingState } from './shared/LoadingState';
 
 export function CommandToolView({
   name = 'execute-command',
@@ -42,7 +43,6 @@ export function CommandToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
-  const [progress, setProgress] = useState(0);
   const [showFullOutput, setShowFullOutput] = useState(true);
 
   // Extract command using the utility function
@@ -64,23 +64,6 @@ export function CommandToolView({
   const output = extractCommandOutput(toolContent);
   const exitCode = extractExitCode(toolContent);
   const toolTitle = getToolTitle(name);
-  
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
 
   const formattedOutput = React.useMemo(() => {
     if (!output) return [];
@@ -154,21 +137,14 @@ export function CommandToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500 dark:text-purple-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                {name === 'check-command-output' ? 'Checking command output' : 'Executing command'}
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{displayText || 'Processing command...'}</span>
-              </p>
-              <Progress value={progress} className="w-full h-2" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
+          <LoadingState 
+            icon={Terminal}
+            iconColor="text-purple-500 dark:text-purple-400"
+            bgColor="bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20"
+            title={name === 'check-command-output' ? 'Checking command output' : 'Executing command'}
+            filePath={displayText || 'Processing command...'}
+            showProgress={true}
+          />
         ) : displayText ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4">

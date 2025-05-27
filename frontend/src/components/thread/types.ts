@@ -5,6 +5,7 @@ import { Message as BaseApiMessageType } from '@/lib/api';
 // Define a type for the params to make React.use() work properly
 export type ThreadParams = {
   threadId: string;
+  projectId: string;
 };
 
 // Unified Message Interface matching the backend/database schema
