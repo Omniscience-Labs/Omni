@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build, push and deploy
 
 on:
   push:
@@ -22,10 +22,13 @@ jobs:
         run: |
           if [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
             echo "branch=latest" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           elif [[ "${GITHUB_REF#refs/heads/}" == "PRODUCTION" ]]; then
             echo "branch=prod" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
           else
             echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           fi
         id: get_tag_name
 
@@ -49,3 +52,27 @@ jobs:
           tags: ghcr.io/${{ github.repository }}/suna-backend:${{ steps.get_tag_name.outputs.branch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to staging
+        if: steps.get_tag_name.outputs.environment == 'staging'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USERNAME }}
+          key: ${{ secrets.STAGING_KEY }}
+          script: |
+            cd /home/suna/backend
+            git pull
+            docker compose up -d --build
+
+      - name: Deploy to prod
+        if: steps.get_tag_name.outputs.environment == 'prod'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          script: |
+            cd /home/suna/backend
+            git pull
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

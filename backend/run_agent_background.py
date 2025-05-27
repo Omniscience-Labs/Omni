@@ -1,3 +1,4 @@
+import sentry
 import asyncio
 import json
 import traceback
@@ -55,6 +56,8 @@ async def run_agent_background(
 ):
     """Run the agent in the background using Redis for state."""
     await initialize()
+
+    sentry.sentry.set_tag("thread_id", thread_id)
 
     logger.info(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
     logger.info(f"🚀 Using model: {model_name} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")

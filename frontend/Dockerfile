@@ -24,6 +24,8 @@ RUN npm install
 # Copy the frontend code
 COPY . .
 
+ENV NEXT_PUBLIC_VERCEL_ENV production
+
 RUN npm run build
 
 EXPOSE 3000
