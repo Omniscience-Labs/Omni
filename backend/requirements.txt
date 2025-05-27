@@ -34,3 +34,4 @@ pika>=1.3.2
 prometheus-client>=0.21.1
 langfuse>=2.60.5
 Pillow>=10.0.0
+sentry-sdk[fastapi]>=2.29.1
