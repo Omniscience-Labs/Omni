@@ -84,9 +84,9 @@ class ThreadManager:
         data_to_insert = {
             'thread_id': thread_id,
             'type': type,
-            'content': json.dumps(content) if isinstance(content, (dict, list)) else content,
+            'content': content,
             'is_llm_message': is_llm_message,
-            'metadata': json.dumps(metadata or {}), # Ensure metadata is always a JSON object
+            'metadata': metadata or {},
         }
 
         try:

@@ -13,7 +13,6 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
-  Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -23,7 +22,7 @@ import {
   formatTimestamp,
   getToolTitle,
 } from './utils';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-function truncateText(text: string, maxLength: number = 70) {
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-}
+import { LoadingState } from './shared/LoadingState';
 
 export function WebSearchToolView({
   name = 'web-search',
@@ -47,7 +43,6 @@ export function WebSearchToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
-  const [progress, setProgress] = useState(0);
   const [expandedResults, setExpandedResults] = useState<Record<number, boolean>>({});
 
   const query = extractSearchQuery(assistantContent);
@@ -66,28 +61,19 @@ export function WebSearchToolView({
     }));
   };
 
-  // Simulate progress when streaming
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
-
   useEffect(() => {
     if (toolContent) {
       try {
-        const parsedContent = JSON.parse(toolContent);
+        // Handle both string and object formats
+        let parsedContent;
+        if (typeof toolContent === 'string') {
+          parsedContent = JSON.parse(toolContent);
+        } else if (typeof toolContent === 'object' && toolContent !== null) {
+          parsedContent = toolContent;
+        } else {
+          parsedContent = {};
+        }
+        
         // Check if it's the response format with answer
         if (parsedContent.answer && typeof parsedContent.answer === 'string') {
           setAnswer(parsedContent.answer);
@@ -163,22 +149,15 @@ export function WebSearchToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Searching the web
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{query}</span>
-              </p>
-              <Progress value={progress} className="w-full h-2" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
-        ) : searchResults.length > 0 ? (
+          <LoadingState 
+            icon={Search}
+            iconColor="text-blue-500 dark:text-blue-400"
+            bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
+            title="Searching the web"
+            filePath={query}
+            showProgress={true}
+          />
+        ) : searchResults.length > 0 || answer ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4">
               {answer && (
@@ -234,13 +213,15 @@ export function WebSearchToolView({
                 </div>
               )}
 
-              <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-4 flex items-center justify-between">
-                <span>Search Results ({searchResults.length})</span>
-                <Badge variant="outline" className="text-xs font-normal">
-                  <Clock className="h-3 w-3 mr-1.5 opacity-70" />
-                  {new Date().toLocaleDateString()}
-                </Badge>
-              </div>
+              {searchResults.length > 0 && (
+                <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-4 flex items-center justify-between">
+                  <span>Search Results ({searchResults.length})</span>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    <Clock className="h-3 w-3 mr-1.5 opacity-70" />
+                    {new Date().toLocaleDateString()}
+                  </Badge>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {searchResults.map((result, idx) => {
@@ -278,11 +259,11 @@ export function WebSearchToolView({
                               rel="noopener noreferrer"
                               className="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline line-clamp-1 mb-1"
                             >
-                              {result.title}
+                              {truncateString(cleanUrl(result.title), 50)}
                             </a>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center">
                               <Globe className="h-3 w-3 mr-1.5 flex-shrink-0 opacity-70" />
-                              {truncateText(cleanUrl(result.url))}
+                              {truncateString(cleanUrl(result.url), 70)}
                             </div>
                           </div>
                           <TooltipProvider>
@@ -361,7 +342,7 @@ export function WebSearchToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && searchResults.length > 0 && (
-            <Badge className="h-6 py-0.5">
+            <Badge variant="outline" className="h-6 py-0.5">
               <Globe className="h-3 w-3" />
               {searchResults.length} results
             </Badge>

@@ -10,7 +10,7 @@ import {
   Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp } from './utils';
+import { formatTimestamp, normalizeContentToString } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
+import { LoadingState } from './shared/LoadingState';
 
 export function ExposePortToolView({
   name = 'expose-port',
@@ -28,35 +29,60 @@ export function ExposePortToolView({
   assistantTimestamp,
   toolTimestamp,
 }: ToolViewProps) {
-  const [progress, setProgress] = useState(0);
-
   // Parse the assistant content
   const parsedAssistantContent = useMemo(() => {
-    if (!assistantContent) return null;
-    try {
-      const parsed = JSON.parse(assistantContent);
-      return parsed.content;
-    } catch (e) {
-      console.error('Failed to parse assistant content:', e);
-      return null;
-    }
+    const contentStr = normalizeContentToString(assistantContent);
+    return contentStr;
   }, [assistantContent]);
 
   // Parse the tool result
   const toolResult = useMemo(() => {
-    if (!toolContent) return null;
+    const contentStr = normalizeContentToString(toolContent);
+    if (!contentStr) return null;
+    
     try {
-      // First parse the outer JSON
-      const parsed = JSON.parse(toolContent);
-      // Then extract the tool result content
-      const match = parsed.content.match(/output='(.*?)'/);
-      if (match) {
-        const jsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
+      // First, try to parse the content directly (new format)
+      const parsed = JSON.parse(contentStr);
+      if (parsed.url && parsed.port) {
+        return parsed;
+      }
+    } catch (e) {
+      // Continue with regex extraction for old format
+    }
+    
+    try {
+      // Look for the ToolResult pattern with better regex that handles escaped quotes
+      const toolResultMatch = contentStr.match(/ToolResult\(success=(?:True|true),\s*output='((?:[^'\\]|\\.)*)'\)/);
+      if (toolResultMatch) {
+        // Extract the JSON string and clean it up
+        let jsonStr = toolResultMatch[1];
+        
+        // Handle double-escaped characters
+        jsonStr = jsonStr
+          .replace(/\\\\n/g, '\n')  // Replace \\n with \n
+          .replace(/\\\\"/g, '"')    // Replace \\" with "
+          .replace(/\\n/g, '\n')     // Replace \n with actual newline
+          .replace(/\\"/g, '"')      // Replace \" with "
+          .replace(/\\'/g, "'")      // Replace \' with '
+          .replace(/\\\\/g, '\\');   // Replace \\ with \
+        
+        const result = JSON.parse(jsonStr);
+        return result;
+      }
+      
+      // Fallback: Try to extract from a simpler pattern
+      const simpleMatch = contentStr.match(/output='([^']+)'/);
+      if (simpleMatch) {
+        const jsonStr = simpleMatch[1]
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"');
         return JSON.parse(jsonStr);
       }
+      
       return null;
     } catch (e) {
       console.error('Failed to parse tool content:', e);
+      console.error('Tool content was:', contentStr);
       return null;
     }
   }, [toolContent]);
@@ -74,24 +100,6 @@ export function ExposePortToolView({
       return null;
     }
   }, [parsedAssistantContent]);
-
-  // Simulate progress when streaming
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
@@ -130,23 +138,14 @@ export function ExposePortToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-500 dark:text-emerald-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Exposing port
-              </h3>
-              <div className="mb-4">
-                <Badge className="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 text-xs font-mono px-3 py-1 rounded-md">
-                  {portNumber}
-                </Badge>
-              </div>
-              <Progress value={progress} className="w-full h-2" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
+          <LoadingState 
+            icon={Computer}
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            bgColor="bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20"
+            title="Exposing port"
+            filePath={portNumber}
+            showProgress={true}
+          />
         ) : (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4 space-y-6">
@@ -267,7 +266,7 @@ export function ExposePortToolView({
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && toolResult && (
-            <Badge className="h-6 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-none">
+            <Badge variant="outline">
               <Computer className="h-3 w-3 mr-1" />
               Port {portNumber}
             </Badge>

@@ -22,6 +22,7 @@ import {
   extractExitCode,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -48,8 +49,11 @@ export function TerminateCommandToolView({
   const rawSessionName = React.useMemo(() => {
     if (!assistantContent) return null;
 
+    const contentStr = normalizeContentToString(assistantContent);
+    if (!contentStr) return null;
+
     try {
-      const parsed = JSON.parse(assistantContent);
+      const parsed = JSON.parse(contentStr);
       if (parsed.content) {
         const sessionMatch = parsed.content.match(
           /<terminate-command[^>]*session_name=["']([^"']+)["'][^>]*>/,
@@ -59,7 +63,7 @@ export function TerminateCommandToolView({
         }
       }
     } catch (e) {
-      const sessionMatch = assistantContent.match(
+      const sessionMatch = contentStr.match(
         /<terminate-command[^>]*session_name=["']([^"']+)["'][^>]*>/,
       );
       if (sessionMatch) {
@@ -258,7 +262,7 @@ export function TerminateCommandToolView({
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
                 <span className="font-mono text-xs break-all">{sessionName || 'Processing termination...'}</span>
               </p>
-              <Progress value={progress} className="w-full h-2" />
+              <Progress value={progress} className="w-full h-1" />
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
           </div>

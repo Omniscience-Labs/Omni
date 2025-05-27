@@ -124,7 +124,7 @@ async def run_agent(
             message_type = latest_message.data[0].get('type')
             if message_type == 'assistant':
                 logger.info(f"Last message was from assistant, stopping execution")
-                trace.event(name="last_message_from_assistant", level="INFO", status_message=(f"Last message was from assistant, stopping execution"))
+                trace.event(name="last_message_from_assistant", level="DEFAULT", status_message=(f"Last message was from assistant, stopping execution"))
                 continue_execution = False
                 break
 
@@ -291,7 +291,7 @@ async def run_agent(
 
                                    last_tool_call = xml_tool
                                    logger.info(f"Agent used XML tool: {xml_tool}")
-                                   trace.event(name="agent_used_xml_tool", level="INFO", status_message=(f"Agent used XML tool: {xml_tool}"))
+                                   trace.event(name="agent_used_xml_tool", level="DEFAULT", status_message=(f"Agent used XML tool: {xml_tool}"))
                         except json.JSONDecodeError:
                             # Handle cases where content might not be valid JSON
                             logger.warning(f"Warning: Could not parse assistant content JSON: {chunk.get('content')}")
@@ -305,13 +305,13 @@ async def run_agent(
                 # Check if we should stop based on the last tool call or error
                 if error_detected:
                     logger.info(f"Stopping due to error detected in response")
-                    trace.event(name="stopping_due_to_error_detected_in_response", level="INFO", status_message=(f"Stopping due to error detected in response"))
+                    trace.event(name="stopping_due_to_error_detected_in_response", level="DEFAULT", status_message=(f"Stopping due to error detected in response"))
                     generation.end(output=full_response, status_message="error_detected", level="ERROR")
                     break
                     
                 if last_tool_call in ['ask', 'complete', 'web-browser-takeover']:
                     logger.info(f"Agent decided to stop with tool: {last_tool_call}")
-                    trace.event(name="agent_decided_to_stop_with_tool", level="INFO", status_message=(f"Agent decided to stop with tool: {last_tool_call}"))
+                    trace.event(name="agent_decided_to_stop_with_tool", level="DEFAULT", status_message=(f"Agent decided to stop with tool: {last_tool_call}"))
                     generation.end(output=full_response, status_message="agent_stopped")
                     continue_execution = False
 

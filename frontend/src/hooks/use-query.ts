@@ -7,7 +7,7 @@ import {
   UseMutationOptions,
   QueryKey,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { handleApiError, ErrorContext } from '@/lib/error-handler';
 
 type QueryKeyValue = readonly unknown[];
 type QueryKeyFunction = (...args: any[]) => QueryKeyValue;
@@ -54,25 +54,33 @@ export function createMutationHook<
   options?: Omit<
     UseMutationOptions<TData, TError, TVariables, TContext>,
     'mutationFn'
-  >,
+  > & {
+    errorContext?: ErrorContext;
+  },
 ) {
   return (
     customOptions?: Omit<
       UseMutationOptions<TData, TError, TVariables, TContext>,
       'mutationFn'
-    >,
+    > & {
+      errorContext?: ErrorContext;
+    },
   ) => {
+    const { errorContext: baseErrorContext, ...baseOptions } = options || {};
+    const { errorContext: customErrorContext, ...customMutationOptions } = customOptions || {};
+    
     return useMutation<TData, TError, TVariables, TContext>({
       mutationFn,
       onError: (error, variables, context) => {
-        toast.error(
-          `An error occurred: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        options?.onError?.(error, variables, context);
-        customOptions?.onError?.(error, variables, context);
+        const errorContext = customErrorContext || baseErrorContext;
+        if (!customMutationOptions?.onError && !baseOptions?.onError) {
+          handleApiError(error, errorContext);
+        }
+        baseOptions?.onError?.(error, variables, context);
+        customMutationOptions?.onError?.(error, variables, context);
       },
-      ...options,
-      ...customOptions,
+      ...baseOptions,
+      ...customMutationOptions,
     });
   };
 }

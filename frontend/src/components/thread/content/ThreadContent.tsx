@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/ui/markdown';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
-import { FileCache } from '@/hooks/use-cached-file';
+import { useFilePreloader, FileCache } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
 import {
@@ -42,38 +42,21 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'complete',
     'crawl-webpage',
     'web-search',
-    'see-image'
+    'see-image',
+
+    'execute_data_provider_call',
+    'execute_data_provider_endpoint',
+
+    'execute-data-provider-call',
+    'execute-data-provider-endpoint',
 ]);
 
-// Helper function to render attachments
+// Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string) => void, sandboxId?: string, project?: Project) {
     if (!attachments || attachments.length === 0) return null;
 
-    // Preload attachments into cache if we have a sandboxId
-    if (sandboxId) {
-        // Check if we can access localStorage and if there's a valid auth session before trying to preload
-        let hasValidSession = false;
-        let token = null;
-
-        try {
-            const sessionData = localStorage.getItem('auth');
-            if (sessionData) {
-                const session = JSON.parse(sessionData);
-                token = session?.access_token;
-                hasValidSession = !!token;
-            }
-        } catch (err) {
-            // Silent catch - localStorage might be unavailable in some contexts
-        }
-
-        // Only attempt to preload if we have a valid session
-        if (hasValidSession && token) {
-            // Use setTimeout to do this asynchronously without blocking rendering
-            setTimeout(() => {
-                FileCache.preload(sandboxId, attachments, token);
-            }, 0);
-        }
-    }
+    // Note: Preloading is now handled by React Query in the main ThreadContent component
+    // to avoid duplicate requests with different content types
 
     return <FileAttachmentGrid
         attachments={attachments}
@@ -218,6 +201,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const [userHasScrolled, setUserHasScrolled] = useState(false);
     const { session } = useAuth();
 
+    // React Query file preloader
+    const { preloadFiles } = useFilePreloader();
+
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
 
@@ -259,16 +245,18 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             }
         });
 
-        // Only attempt to preload if we have attachments AND a valid token
+        // Use React Query preloading if we have attachments AND a valid token
         if (allAttachments.length > 0 && session?.access_token) {
-            // Preload files in background with authentication token
-            FileCache.preload(sandboxId, allAttachments, session.access_token);
+            // Preload files with React Query in background
+            preloadFiles(sandboxId, allAttachments).catch(err => {
+                console.error('React Query preload failed:', err);
+            });
         }
-    }, [displayMessages, sandboxId, session?.access_token]);
+    }, [displayMessages, sandboxId, session?.access_token, preloadFiles]);
 
     return (
         <>
-            
+
             <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
@@ -285,7 +273,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     ) : (
                         <div className="space-y-8">
                             {(() => {
-                                
+
                                 type MessageGroup = {
                                     type: 'user' | 'assistant_group';
                                     messages: UnifiedMessage[];
@@ -293,27 +281,39 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 };
                                 const groupedMessages: MessageGroup[] = [];
                                 let currentGroup: MessageGroup | null = null;
+                                let assistantGroupCounter = 0; // Counter for assistant groups
                                 
                                 displayMessages.forEach((message, index) => {
                                     const messageType = message.type;
                                     const key = message.message_id || `msg-${index}`;
 
                                     if (messageType === 'user') {
+                                        // Finalize any existing assistant group
                                         if (currentGroup) {
                                             groupedMessages.push(currentGroup);
+                                            currentGroup = null;
                                         }
+                                        // Create a new user message group
                                         groupedMessages.push({ type: 'user', messages: [message], key });
-                                        currentGroup = null;
                                     } else if (messageType === 'assistant' || messageType === 'tool' || messageType === 'browser_state') {
                                         if (currentGroup && currentGroup.type === 'assistant_group') {
+                                            // Add to existing assistant group
                                             currentGroup.messages.push(message);
                                         } else {
+                                            // Finalize any existing group
                                             if (currentGroup) {
                                                 groupedMessages.push(currentGroup);
                                             }
-                                            currentGroup = { type: 'assistant_group', messages: [message], key };
+                                            // Create a new assistant group with a group-level key
+                                            assistantGroupCounter++;
+                                            currentGroup = { 
+                                                type: 'assistant_group', 
+                                                messages: [message], 
+                                                key: `assistant-group-${assistantGroupCounter}` 
+                                            };
                                         }
                                     } else if (messageType !== 'status') {
+                                        // For any other message types, finalize current group
                                         if (currentGroup) {
                                             groupedMessages.push(currentGroup);
                                             currentGroup = null;
@@ -321,13 +321,35 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     }
                                 });
                                 
+                                // Finalize any remaining group
                                 if (currentGroup) {
                                     groupedMessages.push(currentGroup);
                                 }
+                                
+                                // Handle streaming content
                                 if(streamingTextContent) {
-                                    const lastMessages = groupedMessages.at(-1)
-                                    if(lastMessages.type === 'user'){
-                                            groupedMessages.push({type: 'assistant_group', messages: [{
+                                    const lastGroup = groupedMessages.at(-1);
+                                    if(!lastGroup || lastGroup.type === 'user'){
+                                        // Create new assistant group for streaming content
+                                        assistantGroupCounter++;
+                                        groupedMessages.push({
+                                            type: 'assistant_group', 
+                                            messages: [{
+                                                content: streamingTextContent,
+                                                type: 'assistant',
+                                                message_id: 'streamingTextContent',
+                                                metadata: 'streamingTextContent',
+                                                created_at: new Date().toISOString(),
+                                                updated_at: new Date().toISOString(),
+                                                is_llm_message: true,
+                                                thread_id: 'streamingTextContent',
+                                                sequence: Infinity,
+                                            }], 
+                                            key: `assistant-group-${assistantGroupCounter}-streaming`
+                                        });
+                                    } else if (lastGroup.type === 'assistant_group') {
+                                        // Add to existing assistant group
+                                        lastGroup.messages.push({
                                             content: streamingTextContent,
                                             type: 'assistant',
                                             message_id: 'streamingTextContent',
@@ -337,23 +359,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             is_llm_message: true,
                                             thread_id: 'streamingTextContent',
                                             sequence: Infinity,
-                                        }], key: 'streamingTextContent'});
-                                    }
-                                    else {
-                                        lastMessages.messages.push({
-                                            content: streamingTextContent,
-                                            type: 'assistant',
-                                            message_id: 'streamingTextContent',
-                                            metadata: 'streamingTextContent',
-                                            created_at: new Date().toISOString(),
-                                            updated_at: new Date().toISOString(),
-                                            is_llm_message: true,
-                                            thread_id: 'streamingTextContent',
-                                            sequence: Infinity,
-                                        })
+                                        });
                                     }
                                 }
-                                
+
                                 return groupedMessages.map((group, groupIndex) => {
                                     if (group.type === 'user') {
                                         const message = group.messages[0];
@@ -410,7 +419,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex items-start gap-3">
                                                     <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center ml-auto mr-2">
-                                                    <KortixLogo />
+                                                        <KortixLogo />
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="inline-flex max-w-[90%] rounded-lg px-4 text-sm">
@@ -457,6 +466,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                     const renderedToolResultIds = new Set<string>();
                                                                     const elements: React.ReactNode[] = [];
+                                                                    let assistantMessageCount = 0; // Track assistant messages for spacing
 
                                                                     group.messages.forEach((message, msgIndex) => {
                                                                         if (message.type === 'assistant') {
@@ -476,12 +486,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             );
 
                                                                             elements.push(
-                                                                                <div key={msgKey} className={msgIndex > 0 ? "mt-2" : ""}>
+                                                                                <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
                                                                                     <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
                                                                                         {renderedContent}
                                                                                     </div>
                                                                                 </div>
                                                                             );
+                                                                            assistantMessageCount++;
                                                                         }
                                                                     });
 
@@ -532,9 +543,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     {detectedTag && (
                                                                                         <div className="mt-2 mb-1">
                                                                                             <button
-                                                                                                className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
                                                                                             >
-                                                                                                <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                                                                                    <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                </div>
                                                                                                 <span className="font-mono text-xs text-primary">{getUserFriendlyToolName(detectedTag)}</span>
                                                                                             </button>
                                                                                         </div>
@@ -548,9 +561,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
                                                                                                 return (
                                                                                                     <button
-                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
                                                                                                     >
-                                                                                                        <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                        <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                                                                                            <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                        </div>
                                                                                                         <span className="font-mono text-xs text-primary">{toolName}</span>
                                                                                                         {paramDisplay && <span className="ml-1 text-primary/70 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                                                                                                     </button>
@@ -629,16 +644,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     return null;
                                 });
                             })()}
-                            {((agentStatus === 'running' || agentStatus === 'connecting' ) && !streamingTextContent &&
+                            {((agentStatus === 'running' || agentStatus === 'connecting') && !streamingTextContent &&
                                 !readOnly &&
                                 (messages.length === 0 || messages[messages.length - 1].type === 'user')) && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
                                         <div className="flex items-start gap-3">
                                             <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center bg-primary/10">
-                                            <KortixLogo />
+                                                <KortixLogo />
                                             </div>
                                             <div className="flex-1 space-y-2 w-full h-12">
-                                                <AgentLoader/>
+                                                <AgentLoader />
                                             </div>
                                         </div>
                                     </div>
@@ -668,7 +683,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 <div ref={latestMessageRef}>
                                     <div className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
-                                        <KortixLogo />
+                                            <KortixLogo />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <div className="max-w-[90%] px-4 py-3 text-sm">
