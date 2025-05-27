@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build, push and deploy
 
 on:
   push:
@@ -63,8 +63,7 @@ jobs:
           script: |
             cd /home/suna/backend
             git pull
-            # docker compose up -d --build
-            ls -al
+            docker compose up -d --build
 
       - name: Deploy to prod
         if: steps.get_tag_name.outputs.environment == 'prod'
@@ -76,5 +75,4 @@ jobs:
           script: |
             cd /home/suna/backend
             git pull
-            # docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-            ls -al
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
