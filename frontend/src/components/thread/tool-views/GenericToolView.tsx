@@ -30,6 +30,8 @@ export function GenericToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
+  const [progress, setProgress] = useState(0);
+
   const toolTitle = getToolTitle(name);
 
   const formatContent = (content: any) => {
