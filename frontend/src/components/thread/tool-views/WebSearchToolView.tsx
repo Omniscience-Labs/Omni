@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { LoadingState } from './shared/LoadingState';
 
 export function WebSearchToolView({
   name = 'web-search',
@@ -42,7 +43,6 @@ export function WebSearchToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
-  const [progress, setProgress] = useState(0);
   const [expandedResults, setExpandedResults] = useState<Record<number, boolean>>({});
 
   const query = extractSearchQuery(assistantContent);
@@ -60,24 +60,6 @@ export function WebSearchToolView({
       [idx]: !prev[idx]
     }));
   };
-
-  // Simulate progress when streaming
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
 
   useEffect(() => {
     if (toolContent) {
@@ -167,21 +149,14 @@ export function WebSearchToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Searching the web
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{query}</span>
-              </p>
-              <Progress value={progress} className="w-full h-1" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
+          <LoadingState 
+            icon={Search}
+            iconColor="text-blue-500 dark:text-blue-400"
+            bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
+            title="Searching the web"
+            filePath={query}
+            showProgress={true}
+          />
         ) : searchResults.length > 0 || answer ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4">

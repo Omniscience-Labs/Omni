@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
+import { LoadingState } from './shared/LoadingState';
 
 export function ExposePortToolView({
   name = 'expose-port',
@@ -28,8 +29,6 @@ export function ExposePortToolView({
   assistantTimestamp,
   toolTimestamp,
 }: ToolViewProps) {
-  const [progress, setProgress] = useState(0);
-
   // Parse the assistant content
   const parsedAssistantContent = useMemo(() => {
     const contentStr = normalizeContentToString(assistantContent);
@@ -102,24 +101,6 @@ export function ExposePortToolView({
     }
   }, [parsedAssistantContent]);
 
-  // Simulate progress when streaming
-  useEffect(() => {
-    if (isStreaming) {
-      const timer = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(timer);
-            return prevProgress;
-          }
-          return prevProgress + 5;
-        });
-      }, 300);
-      return () => clearInterval(timer);
-    } else {
-      setProgress(100);
-    }
-  }, [isStreaming]);
-
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
@@ -157,23 +138,14 @@ export function ExposePortToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-            <div className="text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-500 dark:text-emerald-400" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
-                Exposing port
-              </h3>
-              <div className="mb-4">
-                <Badge className="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 text-xs font-mono px-3 py-1 rounded-md">
-                  {portNumber}
-                </Badge>
-              </div>
-              <Progress value={progress} className="w-full h-2" />
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
-            </div>
-          </div>
+          <LoadingState 
+            icon={Computer}
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            bgColor="bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20"
+            title="Exposing port"
+            filePath={portNumber}
+            showProgress={true}
+          />
         ) : (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4 space-y-6">

@@ -213,7 +213,7 @@ export function WebScrapeToolView({
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
                 Analyzing and processing <span className="font-mono text-xs break-all">{domain}</span>
               </p>
-              <Progress value={progress} className="w-full h-2" />
+              <Progress value={progress} className="w-full h-1" />
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}% complete</p>
             </div>
           </div>

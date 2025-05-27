@@ -38,9 +38,9 @@ const defaultRegistry: ToolViewRegistryType = {
   'browser-click-coordinates': BrowserToolView,
 
   'execute-command': CommandToolView,
-  'check-command-output': CommandToolView,
+  'check-command-output': GenericToolView,
   'terminate-command': TerminateCommandToolView,
-  'list-commands': CommandToolView,
+  'list-commands': GenericToolView,
 
   'create-file': FileOperationToolView,
   'delete-file': FileOperationToolView,
