@@ -189,15 +189,15 @@ export function BrowserToolView({
           {imageLoading && (
             <ImageLoader />
           )}
-          <img
-            src={screenshotUrl}
-            alt="Browser Screenshot"
-            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-              imageLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
+          {!imageLoading && !imageError && (
+            <img
+              src={screenshotUrl}
+              alt="Browser Screenshot"
+              className="max-w-full max-h-full object-contain"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          )}
           {imageError && !imageLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
               <div className="text-center text-zinc-500 dark:text-zinc-400">
@@ -214,15 +214,15 @@ export function BrowserToolView({
           {imageLoading && (
             <ImageLoader />
           )}
-          <img
-            src={`data:image/jpeg;base64,${screenshotBase64}`}
-            alt="Browser Screenshot"
-            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-              imageLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
+          {!imageLoading && !imageError && (
+            <img
+              src={`data:image/jpeg;base64,${screenshotBase64}`}
+              alt="Browser Screenshot"
+              className="max-w-full max-h-full object-contain"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          )}
           {imageError && !imageLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
               <div className="text-center text-zinc-500 dark:text-zinc-400">
@@ -332,26 +332,24 @@ export function BrowserToolView({
               {imageLoading && (
                 <ImageLoader />
               )}
-              {screenshotUrl ? (
-                <img
-                  src={screenshotUrl}
-                  alt="Browser Screenshot"
-                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-                    imageLoading ? 'opacity-0' : 'opacity-100'
-                  }`}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                />
-              ) : (
-                <img
-                  src={`data:image/jpeg;base64,${screenshotBase64}`}
-                  alt="Browser Screenshot"
-                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-                    imageLoading ? 'opacity-0' : 'opacity-100'
-                  }`}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                />
+              {!imageLoading && !imageError && (
+                screenshotUrl ? (
+                  <img
+                    src={screenshotUrl}
+                    alt="Browser Screenshot"
+                    className="max-w-full max-h-full object-contain"
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                  />
+                ) : (
+                  <img
+                    src={`data:image/jpeg;base64,${screenshotBase64}`}
+                    alt="Browser Screenshot"
+                    className="max-w-full max-h-full object-contain"
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                  />
+                )
               )}
               {imageError && !imageLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
@@ -378,7 +376,6 @@ export function BrowserToolView({
         </div>
       </CardContent>
 
-      {/* Footer */}
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isRunning && (
