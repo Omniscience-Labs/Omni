@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ImageLoader } from './shared/ImageLoader';
 
 export function BrowserToolView({
   name = 'browser-operation',
@@ -186,9 +187,7 @@ export function BrowserToolView({
       return (
         <div className="flex items-center justify-center w-full h-full min-h-[600px] relative" style={{ minHeight: '600px' }}>
           {imageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Skeleton className="w-full h-full min-h-[600px]" />
-            </div>
+            <ImageLoader />
           )}
           <img
             src={screenshotUrl}
@@ -213,9 +212,7 @@ export function BrowserToolView({
       return (
         <div className="flex items-center justify-center w-full h-full min-h-[600px] relative" style={{ minHeight: '600px' }}>
           {imageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Skeleton className="w-full h-full min-h-[600px]" />
-            </div>
+            <ImageLoader />
           )}
           <img
             src={`data:image/jpeg;base64,${screenshotBase64}`}
@@ -329,13 +326,11 @@ export function BrowserToolView({
                 )}
               </div>
             )
-          ) : // For non-last tool calls, only show screenshot if available, otherwise show "No Browser State"
+          ) :
           (screenshotUrl || screenshotBase64) ? (
-            <div className="flex items-center justify-center w-full h-full max-h-[650px] overflow-auto relative">
+            <div className="flex items-center justify-center w-full h-full overflow-auto relative">
               {imageLoading && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Skeleton className="w-full h-full min-h-[400px]" />
-                </div>
+                <ImageLoader />
               )}
               {screenshotUrl ? (
                 <img
