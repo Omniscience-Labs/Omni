@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -32,6 +32,13 @@ export function DeleteConfirmationDialog({
   threadName,
   isDeleting,
 }: DeleteConfirmationDialogProps) {
+  // Reset pointer events when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.pointerEvents = 'auto';
+    }
+  }, [isOpen]);
+
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>

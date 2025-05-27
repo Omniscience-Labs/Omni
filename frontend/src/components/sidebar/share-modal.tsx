@@ -28,7 +28,14 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
     const [isLoading, setIsLoading] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
-    
+
+    // Reset pointer events when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.pointerEvents = 'auto';
+        }
+    }, [isOpen]);
+
     const updateThreadMutation = useUpdateThreadMutation();
 
     useEffect(() => {
@@ -105,7 +112,7 @@ export function ShareModal({ isOpen, onClose, threadId, projectId }: ShareModalP
     const updatePublicStatus = async (isPublic: boolean) => {
         console.log("Updating public status for thread:", threadId, "and project:", projectId, "to", isPublic);
         if (!threadId) return;
-        
+
         await updateProject(projectId, { is_public: isPublic });
         await updateThreadMutation.mutateAsync({
             threadId,
