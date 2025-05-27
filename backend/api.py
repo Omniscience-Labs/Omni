@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import sentry
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
@@ -12,18 +13,6 @@ from utils.logger import logger
 import uuid
 import time
 from collections import OrderedDict
-import sentry_sdk
-import os
-
-sentry_dsn = os.getenv("SENTRY_DSN", None)
-if sentry_dsn:
-  sentry_sdk.init(
-      dsn=sentry_dsn,
-      send_default_pii=True,
-      _experiments={
-          "enable_logs": True,
-      },
-  )
 
 # Import the agent API module
 from agent import api as agent_api
