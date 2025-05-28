@@ -2,12 +2,16 @@
 
 import subprocess
 import sys
+import platform
+
+IS_WINDOWS = platform.system() == 'Windows'
 
 def check_docker_compose_up():
     result = subprocess.run(
         ["docker", "compose", "ps", "-q"],
         capture_output=True,
-        text=True
+        text=True,
+        shell=IS_WINDOWS
     )
     return len(result.stdout.strip()) > 0
 
@@ -47,9 +51,9 @@ def main():
                 return
 
     if action == "stop":
-        subprocess.run(["docker", "compose", "down"])
+        subprocess.run(["docker", "compose", "down"], shell=IS_WINDOWS)
     else:
-        subprocess.run(["docker", "compose", "up", "-d"])
+        subprocess.run(["docker", "compose", "up", "-d"], shell=IS_WINDOWS)
 
 if __name__ == "__main__":
     main()
