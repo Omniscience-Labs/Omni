@@ -729,7 +729,7 @@ def start_suna():
             #     subprocess.run(['docker', 'compose', 'up', '-d'], check=True)
 
             print_info("Building images locally...")
-            subprocess.run(['docker', 'compose', 'up', '-d'], check=True, shell=IS_WINDOWS)
+            subprocess.run(['docker', 'compose', 'up', '-d', '--build'], check=True, shell=IS_WINDOWS)
 
             # Wait for services to be ready
             print_info("Waiting for services to start...")
