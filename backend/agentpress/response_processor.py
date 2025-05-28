@@ -1516,6 +1516,20 @@ class ResponseProcessor:
         arguments = tool_call.get("arguments", {})
         tool_call_id = tool_call.get("id")
         
+        # Process the output - if it's a JSON string, parse it back to an object
+        output = result.output if hasattr(result, 'output') else str(result)
+        if isinstance(output, str):
+            try:
+                # Try to parse as JSON to provide structured data to frontend
+                parsed_output = safe_json_parse(output)
+                # If parsing succeeded and we got a dict/list, use the parsed version
+                if isinstance(parsed_output, (dict, list)):
+                    output = parsed_output
+                # Otherwise keep the original string
+            except Exception:
+                # If parsing fails, keep the original string
+                pass
+        
         # Create the structured result
         structured_result = {
             "tool_execution": {
@@ -1525,7 +1539,7 @@ class ResponseProcessor:
                 "arguments": arguments,
                 "result": {
                     "success": result.success if hasattr(result, 'success') else True,
-                    "output": result.output if hasattr(result, 'output') else str(result),
+                    "output": output,  # Now properly structured for frontend
                     "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
                 },
                 "execution_details": {
@@ -1536,14 +1550,16 @@ class ResponseProcessor:
         }
         
         # For backwards compatibility with LLM, also include a human-readable summary
+        # Use the original string output for the summary to avoid complex object representation
+        summary_output = result.output if hasattr(result, 'output') else str(result)
         if xml_tag_name:
             # For XML tools, create a readable summary
             status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
-            summary = f"Tool '{xml_tag_name}' {status}. Output: {structured_result['tool_execution']['result']['output']}"
+            summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
         else:
             # For native tools, create a readable summary
             status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
-            summary = f"Function '{function_name}' {status}. Output: {structured_result['tool_execution']['result']['output']}"
+            summary = f"Function '{function_name}' {status}. Output: {summary_output}"
         
         structured_result["summary"] = summary
         

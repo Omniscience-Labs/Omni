@@ -1,32 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  FileCode,
-  Replace,
   CheckCircle,
   AlertTriangle,
   ExternalLink,
   Loader2,
   Code,
   Eye,
-  FileSpreadsheet,
   File,
-  Trash2,
-  LucideIcon,
-  FilePen,
-  Check,
 } from 'lucide-react';
-import { ToolViewProps } from './types';
 import {
   extractFilePath,
   extractFileContent,
   extractStreamingFileContent,
-  getFileType,
   formatTimestamp,
   getToolTitle,
   normalizeContentToString,
   extractToolData,
-} from './utils';
-import { GenericToolView } from './GenericToolView';
+} from '../utils';
 import {
   MarkdownRenderer,
   processUnicodeContent,
@@ -45,86 +35,25 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LoadingState } from './shared/LoadingState';
 
-type FileOperation = 'create' | 'rewrite' | 'delete';
-
-const getLanguageFromFileName = (fileName: string): string => {
-  const extension = fileName.split('.').pop()?.toLowerCase() || '';
-
-  const extensionMap: Record<string, string> = {
-    // Web languages
-    html: 'html',
-    htm: 'html',
-    css: 'css',
-    scss: 'scss',
-    sass: 'scss',
-    less: 'less',
-    js: 'javascript',
-    jsx: 'jsx',
-    ts: 'typescript',
-    tsx: 'tsx',
-    json: 'json',
-    jsonc: 'json',
-
-    // Build and config files
-    xml: 'xml',
-    yml: 'yaml',
-    yaml: 'yaml',
-    toml: 'toml',
-    ini: 'ini',
-    env: 'bash',
-    gitignore: 'bash',
-    dockerignore: 'bash',
-
-    // Scripting languages
-    py: 'python',
-    rb: 'ruby',
-    php: 'php',
-    go: 'go',
-    java: 'java',
-    kt: 'kotlin',
-    c: 'c',
-    cpp: 'cpp',
-    h: 'c',
-    hpp: 'cpp',
-    cs: 'csharp',
-    swift: 'swift',
-    rs: 'rust',
-
-    // Shell scripts
-    sh: 'bash',
-    bash: 'bash',
-    zsh: 'bash',
-    ps1: 'powershell',
-    bat: 'batch',
-    cmd: 'batch',
-
-    // Markup languages (excluding markdown which has its own renderer)
-    svg: 'svg',
-    tex: 'latex',
-
-    // Data formats
-    graphql: 'graphql',
-    gql: 'graphql',
-  };
-
-  return extensionMap[extension] || 'text';
-};
-
-interface OperationConfig {
-  icon: LucideIcon;
-  color: string;
-  successMessage: string;
-  progressMessage: string;
-  bgColor: string;
-  gradientBg: string;
-  borderColor: string;
-  badgeColor: string;
-  hoverColor: string;
-}
+import {
+  getLanguageFromFileName,
+  getOperationType,
+  getOperationConfigs,
+  getFileIcon,
+  processFilePath,
+  getFileName,
+  getFileExtension,
+  isFileType,
+  hasLanguageHighlighting,
+  splitContentIntoLines,
+  type FileOperation,
+  type OperationConfig,
+} from './_utils';
+import { ToolViewProps } from '../types';
+import { GenericToolView } from '../GenericToolView';
+import { LoadingState } from '../shared/LoadingState';
 
 export function FileOperationToolView({
   assistantContent,
@@ -138,46 +67,18 @@ export function FileOperationToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
-  const [progress, setProgress] = useState(0);
 
-  const getOperationType = (): FileOperation => {
-    if (name) {
-      if (name.includes('create')) return 'create';
-      if (name.includes('rewrite')) return 'rewrite';
-      if (name.includes('delete')) return 'delete';
-    }
-
-    if (!assistantContent) return 'create';
-
-    const contentStr = normalizeContentToString(assistantContent);
-    if (!contentStr) return 'create';
-
-    if (contentStr.includes('<create-file>')) return 'create';
-    if (contentStr.includes('<full-file-rewrite>')) return 'rewrite';
-    if (
-      contentStr.includes('delete-file') ||
-      contentStr.includes('<delete>')
-    )
-      return 'delete';
-
-    if (contentStr.toLowerCase().includes('create file')) return 'create';
-    if (contentStr.toLowerCase().includes('rewrite file'))
-      return 'rewrite';
-    if (contentStr.toLowerCase().includes('delete file')) return 'delete';
-
-    return 'create';
-  };
-
-  const operation = getOperationType();
+  const operation = getOperationType(name, assistantContent);
+  const configs = getOperationConfigs();
+  const config = configs[operation];
+  const Icon = config.icon;
 
   let filePath: string | null = null;
   let fileContent: string | null = null;
 
-  // Try to extract data using the new parser first
   const assistantToolData = extractToolData(assistantContent);
   const toolToolData = extractToolData(toolContent);
 
-  // Use data from the new format if available
   if (assistantToolData.toolResult) {
     filePath = assistantToolData.filePath;
     fileContent = assistantToolData.fileContent;
@@ -186,7 +87,6 @@ export function FileOperationToolView({
     fileContent = toolToolData.fileContent;
   }
 
-  // If not found in new format, fall back to legacy extraction methods
   if (!filePath) {
     filePath = extractFilePath(assistantContent);
   }
@@ -204,82 +104,24 @@ export function FileOperationToolView({
   }
 
   const toolTitle = getToolTitle(name || `file-${operation}`);
-
-  const processedFilePath = filePath
-    ? filePath.trim().replace(/\\n/g, '\n').split('\n')[0]
-    : null;
-
-  const fileName = processedFilePath
-    ? processedFilePath.split('/').pop() || processedFilePath
-    : '';
-
-  const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-  const isMarkdown = fileExtension === 'md';
-  const isHtml = fileExtension === 'html' || fileExtension === 'htm';
-  const isCsv = fileExtension === 'csv';
+  const processedFilePath = processFilePath(filePath);
+  const fileName = getFileName(processedFilePath);
+  const fileExtension = getFileExtension(fileName);
+  
+  const isMarkdown = isFileType.markdown(fileExtension);
+  const isHtml = isFileType.html(fileExtension);
+  const isCsv = isFileType.csv(fileExtension);
 
   const language = getLanguageFromFileName(fileName);
-  const hasHighlighting = language !== 'text';
-
-  const contentLines = fileContent
-    ? fileContent.replace(/\\n/g, '\n').split('\n')
-    : [];
+  const hasHighlighting = hasLanguageHighlighting(language);
+  const contentLines = splitContentIntoLines(fileContent);
 
   const htmlPreviewUrl =
     isHtml && project?.sandbox?.sandbox_url && processedFilePath
       ? constructHtmlPreviewUrl(project.sandbox.sandbox_url, processedFilePath)
       : undefined;
 
-
-  const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview');
-
-  const configs: Record<FileOperation, OperationConfig> = {
-    create: {
-      icon: FilePen,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      successMessage: 'File created successfully',
-      progressMessage: 'Creating file...',
-      bgColor: 'bg-gradient-to-b from-emerald-100 to-emerald-50 shadow-inner dark:from-emerald-800/40 dark:to-emerald-900/60 dark:shadow-emerald-950/20',
-      gradientBg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10',
-      borderColor: 'border-emerald-500/20',
-      badgeColor: 'bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 shadow-sm dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300',
-      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
-    },
-    rewrite: {
-      icon: Replace,
-      color: 'text-blue-600 dark:text-blue-400',
-      successMessage: 'File rewritten successfully',
-      progressMessage: 'Rewriting file...',
-      bgColor: 'bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20',
-      gradientBg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/10',
-      borderColor: 'border-blue-500/20',
-      badgeColor: 'bg-gradient-to-b from-blue-200 to-blue-100 text-blue-700 shadow-sm dark:from-blue-800/50 dark:to-blue-900/60 dark:text-blue-300',
-      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
-    },
-    delete: {
-      icon: Trash2,
-      color: 'text-rose-600 dark:text-rose-400',
-      successMessage: 'File deleted successfully',
-      progressMessage: 'Deleting file...',
-      bgColor: 'bg-gradient-to-b from-rose-100 to-rose-50 shadow-inner dark:from-rose-800/40 dark:to-rose-900/60 dark:shadow-rose-950/20',
-      gradientBg: 'bg-gradient-to-br from-rose-500/20 to-rose-600/10',
-      borderColor: 'border-rose-500/20',
-      badgeColor: 'bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 shadow-sm dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300',
-      hoverColor: 'hover:bg-neutral-200 dark:hover:bg-neutral-800'
-    },
-  };
-
-  const config = configs[operation];
-  const Icon = config.icon;
-
-  const getFileIcon = () => {
-    if (fileName.endsWith('.md')) return FileCode;
-    if (fileName.endsWith('.csv')) return FileSpreadsheet;
-    if (fileName.endsWith('.html')) return FileCode;
-    return File;
-  };
-
-  const FileIcon = getFileIcon();
+  const FileIcon = getFileIcon(fileName);
 
   if (!isStreaming && !processedFilePath && !fileContent) {
     return (
@@ -351,6 +193,81 @@ export function FileOperationToolView({
     );
   };
 
+  const renderDeleteOperation = () => (
+    <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+      <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
+        <Icon className={cn("h-10 w-10", config.color)} />
+      </div>
+      <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
+        File Deleted
+      </h3>
+      <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
+        <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
+          {processedFilePath || 'Unknown file path'}
+        </code>
+      </div>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        This file has been permanently removed
+      </p>
+    </div>
+  );
+
+  const renderSourceCode = () => {
+    if (!fileContent) {
+      return (
+        <div className="flex items-center justify-center h-full p-12">
+          <div className="text-center">
+            <FileIcon className="h-12 w-12 mx-auto mb-4 text-zinc-400" />
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No source code to display</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (hasHighlighting) {
+      return (
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
+            {contentLines.map((_, idx) => (
+              <div
+                key={idx}
+                className="h-6 text-right pr-3 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none"
+              >
+                {idx + 1}
+              </div>
+            ))}
+          </div>
+          <div className="pl-12">
+            <CodeBlockCode
+              code={processUnicodeContent(fileContent)}
+              language={language}
+              className="text-xs"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-w-full table">
+        {contentLines.map((line, idx) => (
+          <div
+            key={idx}
+            className={cn("table-row transition-colors", config.hoverColor)}
+          >
+            <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+              {idx + 1}
+            </div>
+            <div className="table-cell pl-3 py-0.5 pr-4 text-xs font-mono whitespace-pre-wrap text-zinc-800 dark:text-zinc-300">
+              {processUnicodeContent(line) || ' '}
+            </div>
+          </div>
+        ))}
+        <div className="table-row h-4"></div>
+      </div>
+    );
+  };
+
   return (
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       <Tabs defaultValue={'preview'} className="w-full h-full">
@@ -367,7 +284,7 @@ export function FileOperationToolView({
               </div>
             </div>
             <div className='flex items-center gap-2'>
-              {isHtml && viewMode === 'preview' && htmlPreviewUrl && !isStreaming && (
+              {isHtml && htmlPreviewUrl && !isStreaming && (
                 <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800" asChild>
                   <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
@@ -405,7 +322,7 @@ export function FileOperationToolView({
               ) : operation === 'delete' ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 px-6">
                   <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
-                    <Trash2 className={cn("h-10 w-10", config.color)} />
+                    <Icon className={cn("h-10 w-10", config.color)} />
                   </div>
                   <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
                     Delete Operation
@@ -416,52 +333,8 @@ export function FileOperationToolView({
                     </code>
                   </div>
                 </div>
-              ) : fileContent ? (
-                hasHighlighting ? (
-                  <div className="relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-12 border-r border-zinc-200 dark:border-zinc-800 z-10 flex flex-col bg-zinc-50 dark:bg-zinc-900">
-                      {contentLines.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className="h-6 text-right pr-3 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none"
-                        >
-                          {idx + 1}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pl-12">
-                      <CodeBlockCode
-                        code={processUnicodeContent(fileContent)}
-                        language={language}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-w-full table">
-                    {contentLines.map((line, idx) => (
-                      <div
-                        key={idx}
-                        className={cn("table-row transition-colors", config.hoverColor)}
-                      >
-                        <div className="table-cell text-right pr-3 pl-6 py-0.5 text-xs font-mono text-zinc-500 dark:text-zinc-500 select-none w-12 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
-                          {idx + 1}
-                        </div>
-                        <div className="table-cell pl-3 py-0.5 pr-4 text-xs font-mono whitespace-pre-wrap text-zinc-800 dark:text-zinc-300">
-                          {processUnicodeContent(line) || ' '}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="table-row h-4"></div>
-                  </div>
-                )
               ) : (
-                <div className="flex items-center justify-center h-full p-12">
-                  <div className="text-center">
-                    <FileIcon className="h-12 w-12 mx-auto mb-4 text-zinc-400" />
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No source code to display</p>
-                  </div>
-                </div>
+                renderSourceCode()
               )}
             </ScrollArea>
           </TabsContent>
@@ -479,27 +352,10 @@ export function FileOperationToolView({
                   showProgress={false}
                 />
               ) : operation === 'delete' ? (
-                <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
-                  <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", config.bgColor)}>
-                    <Trash2 className={cn("h-10 w-10", config.color)} />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-6 text-zinc-900 dark:text-zinc-100">
-                    File Deleted
-                  </h3>
-                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 w-full max-w-md text-center mb-4 shadow-sm">
-                    <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-all">
-                      {processedFilePath || 'Unknown file path'}
-                    </code>
-                  </div>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    This file has been permanently removed
-                  </p>
-                </div>
+                renderDeleteOperation()
               ) : (
                 renderFilePreview()
               )}
-
-              {/* Streaming indicator overlay */}
               {isStreaming && fileContent && (
                 <div className="sticky bottom-4 right-4 float-right mr-4 mb-4">
                   <Badge className="bg-blue-500/90 text-white border-none shadow-lg animate-pulse">

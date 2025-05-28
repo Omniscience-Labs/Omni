@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   FileDiff,
   CheckCircle,
@@ -10,46 +10,27 @@ import {
   ChevronUp,
   Minus,
   Plus,
-  Check
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import {
-  extractFilePath,
-  extractStrReplaceContent,
-  getFileType,
-  formatTimestamp,
-  getToolTitle,
-  normalizeContentToString,
-  extractToolData,
-} from './utils';
+
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoadingState } from './shared/LoadingState';
-
-type DiffType = 'unchanged' | 'added' | 'removed';
-
-interface LineDiff {
-  type: DiffType;
-  oldLine: string | null;
-  newLine: string | null;
-  lineNumber: number;
-}
-
-interface CharDiffPart {
-  text: string;
-  type: DiffType;
-}
-
-interface DiffStats {
-  additions: number;
-  deletions: number;
-}
+import {
+  LineDiff,
+  DiffStats,
+  extractFromNewFormat,
+  extractFromLegacyFormat,
+  generateLineDiff,
+  generateCharDiff,
+  calculateDiffStats
+} from './_utils';
+import { extractFilePath, extractStrReplaceContent, extractToolData, formatTimestamp, getToolTitle } from '../utils';
+import { ToolViewProps } from '../types';
+import { LoadingState } from '../shared/LoadingState';
 
 const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
   <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto -mt-2">
@@ -179,72 +160,6 @@ export function StrReplaceToolView({
   let actualToolTimestamp = toolTimestamp;
   let actualAssistantTimestamp = assistantTimestamp;
 
-  const extractFromNewFormat = (content: any): { filePath: string | null; oldStr: string | null; newStr: string | null; success?: boolean; timestamp?: string } => {
-    if (!content || typeof content !== 'object') return { filePath: null, oldStr: null, newStr: null };
-
-    if ('tool_execution' in content && typeof content.tool_execution === 'object') {
-      const toolExecution = content.tool_execution;
-      const args = toolExecution.arguments || {};
-      
-      console.debug('StrReplaceToolView: Extracted from new format:', {
-        filePath: args.file_path,
-        oldStr: args.old_str ? `${args.old_str.substring(0, 50)}...` : null,
-        newStr: args.new_str ? `${args.new_str.substring(0, 50)}...` : null,
-        success: toolExecution.result?.success
-      });
-      
-      return {
-        filePath: args.file_path || null,
-        oldStr: args.old_str || null,
-        newStr: args.new_str || null,
-        success: toolExecution.result?.success,
-        timestamp: toolExecution.execution_details?.timestamp
-      };
-    }
-
-    if ('role' in content && 'content' in content && typeof content.content === 'object') {
-      return extractFromNewFormat(content.content);
-    }
-
-    return { filePath: null, oldStr: null, newStr: null };
-  };
-
-
-  const extractFromLegacyFormat = (content: any): { filePath: string | null; oldStr: string | null; newStr: string | null } => {
-    const assistantToolData = extractToolData(content);
-    
-    if (assistantToolData.toolResult) {
-      const args = assistantToolData.arguments || {};
-      
-      console.debug('StrReplaceToolView: Extracted from legacy format (extractToolData):', {
-        filePath: assistantToolData.filePath || args.file_path,
-        oldStr: args.old_str ? `${args.old_str.substring(0, 50)}...` : null,
-        newStr: args.new_str ? `${args.new_str.substring(0, 50)}...` : null
-      });
-      
-      return {
-        filePath: assistantToolData.filePath || args.file_path || null,
-        oldStr: args.old_str || null,
-        newStr: args.new_str || null
-      };
-    }
-
-    const legacyFilePath = extractFilePath(content);
-    const strReplaceContent = extractStrReplaceContent(content);
-    
-    console.debug('StrReplaceToolView: Extracted from legacy format (fallback):', {
-      filePath: legacyFilePath,
-      oldStr: strReplaceContent.oldStr ? `${strReplaceContent.oldStr.substring(0, 50)}...` : null,
-      newStr: strReplaceContent.newStr ? `${strReplaceContent.newStr.substring(0, 50)}...` : null
-    });
-    
-    return {
-      filePath: legacyFilePath,
-      oldStr: strReplaceContent.oldStr,
-      newStr: strReplaceContent.newStr
-    };
-  };
-
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
@@ -270,8 +185,8 @@ export function StrReplaceToolView({
     }
   } else {
     // Fall back to legacy format extraction
-    const assistantLegacy = extractFromLegacyFormat(assistantContent);
-    const toolLegacy = extractFromLegacyFormat(toolContent);
+    const assistantLegacy = extractFromLegacyFormat(assistantContent, extractToolData, extractFilePath, extractStrReplaceContent);
+    const toolLegacy = extractFromLegacyFormat(toolContent, extractToolData, extractFilePath, extractStrReplaceContent);
 
     // Use assistant content first, then tool content as fallback
     filePath = assistantLegacy.filePath || toolLegacy.filePath;
@@ -293,108 +208,12 @@ export function StrReplaceToolView({
 
   const toolTitle = getToolTitle(name);
 
-  // Parse text for newlines
-  const parseNewlines = (text: string): string => {
-    return text.replace(/\\n/g, '\n');
-  };
-
-  // Perform line-by-line diff
-  const generateLineDiff = (oldText: string, newText: string): LineDiff[] => {
-    const parsedOldText = parseNewlines(oldText);
-    const parsedNewText = parseNewlines(newText);
-    
-    const oldLines = parsedOldText.split('\n');
-    const newLines = parsedNewText.split('\n');
-    
-    const diffLines: LineDiff[] = [];
-    const maxLines = Math.max(oldLines.length, newLines.length);
-    
-    for (let i = 0; i < maxLines; i++) {
-      const oldLine = i < oldLines.length ? oldLines[i] : null;
-      const newLine = i < newLines.length ? newLines[i] : null;
-      
-      if (oldLine === newLine) {
-        diffLines.push({ type: 'unchanged', oldLine, newLine, lineNumber: i + 1 });
-      } else {
-        if (oldLine !== null) {
-          diffLines.push({ type: 'removed', oldLine, newLine: null, lineNumber: i + 1 });
-        }
-        if (newLine !== null) {
-          diffLines.push({ type: 'added', oldLine: null, newLine, lineNumber: i + 1 });
-        }
-      }
-    }
-    
-    return diffLines;
-  };
-
-  // Character-level diff for more precise display
-  const generateCharDiff = (oldText: string, newText: string): CharDiffPart[] => {
-    const parsedOldText = parseNewlines(oldText);
-    const parsedNewText = parseNewlines(newText);
-    
-    // Find common prefix length
-    let prefixLength = 0;
-    while (
-      prefixLength < parsedOldText.length &&
-      prefixLength < parsedNewText.length &&
-      parsedOldText[prefixLength] === parsedNewText[prefixLength]
-    ) {
-      prefixLength++;
-    }
-
-    let oldSuffixStart = parsedOldText.length;
-    let newSuffixStart = parsedNewText.length;
-    while (
-      oldSuffixStart > prefixLength &&
-      newSuffixStart > prefixLength &&
-      parsedOldText[oldSuffixStart - 1] === parsedNewText[newSuffixStart - 1]
-    ) {
-      oldSuffixStart--;
-      newSuffixStart--;
-    }
-
-    const parts: CharDiffPart[] = [];
-
-    if (prefixLength > 0) {
-      parts.push({
-        text: parsedOldText.substring(0, prefixLength),
-        type: 'unchanged',
-      });
-    }
-
-    if (oldSuffixStart > prefixLength) {
-      parts.push({
-        text: parsedOldText.substring(prefixLength, oldSuffixStart),
-        type: 'removed',
-      });
-    }
-    if (newSuffixStart > prefixLength) {
-      parts.push({
-        text: parsedNewText.substring(prefixLength, newSuffixStart),
-        type: 'added',
-      });
-    }
-
-    if (oldSuffixStart < parsedOldText.length) {
-      parts.push({
-        text: parsedOldText.substring(oldSuffixStart),
-        type: 'unchanged',
-      });
-    }
-
-    return parts;
-  };
-
   // Generate diff data (only if we have both strings)
   const lineDiff = oldStr && newStr ? generateLineDiff(oldStr, newStr) : [];
   const charDiff = oldStr && newStr ? generateCharDiff(oldStr, newStr) : [];
   
   // Calculate stats on changes
-  const stats: DiffStats = {
-    additions: lineDiff.filter(line => line.type === 'added').length,
-    deletions: lineDiff.filter(line => line.type === 'removed').length
-  };
+  const stats: DiffStats = calculateDiffStats(lineDiff);
 
   // Check if we should show error state (only when not streaming and we have content but can't extract strings)
   const shouldShowError = !isStreaming && (!oldStr || !newStr) && (assistantContent || toolContent);
@@ -404,7 +223,7 @@ export function StrReplaceToolView({
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-          <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+            <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
               <FileDiff className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
