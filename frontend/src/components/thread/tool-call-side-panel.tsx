@@ -544,27 +544,6 @@ export function ToolCallSidePanel({
 
             {displayToolCall.toolResult?.content && !isStreaming && (
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <CurrentToolIcon className="h-3.5 w-3.5 text-zinc-800 dark:text-zinc-300" />
-                </div>
-                <span
-                  className={cn(
-                    'text-sm text-zinc-700 dark:text-zinc-300',
-                    isMobile && 'hidden sm:inline',
-                  )}
-                >
-                  {getUserFriendlyToolName(currentToolName)}
-                </span>
-                <div
-                  className={cn(
-                    'px-2.5 py-0.5 rounded-full text-xs font-medium',
-                    isSuccess
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                      : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-                  )}
-                >
-                  {isSuccess ? 'Success' : 'Failed'}
-                </div>
                 <Button
                   variant="ghost"
                   size="icon"

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   CheckCircle,
   AlertTriangle,
   ExternalLink,
   Image as ImageIcon,
-  Loader2,
   Globe,
   FileText,
   Clock,
@@ -14,23 +13,17 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import {
-  extractSearchQuery,
-  extractSearchResults,
-  cleanUrl,
-  formatTimestamp,
-  getToolTitle,
-} from './utils';
+import { ToolViewProps } from '../types';
+import { cleanUrl, formatTimestamp, getToolTitle } from '../utils';
 import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { LoadingState } from './shared/LoadingState';
+import { LoadingState } from '../shared/LoadingState';
+import { extractWebSearchData } from './_utils';
 
 export function WebSearchToolView({
   name = 'web-search',
@@ -45,16 +38,24 @@ export function WebSearchToolView({
   const isDarkTheme = resolvedTheme === 'dark';
   const [expandedResults, setExpandedResults] = useState<Record<number, boolean>>({});
 
-  const query = extractSearchQuery(assistantContent);
-  console.log('toolContent', toolContent);
-  const searchResults = extractSearchResults(toolContent);
+  const {
+    query,
+    searchResults,
+    answer,
+    images,
+    actualIsSuccess,
+    actualToolTimestamp,
+    actualAssistantTimestamp
+  } = extractWebSearchData(
+    assistantContent,
+    toolContent,
+    isSuccess,
+    toolTimestamp,
+    assistantTimestamp
+  );
+
   const toolTitle = getToolTitle(name);
 
-  // Extract additional data from response
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [images, setImages] = useState<string[]>([]);
-
-  // Toggle result expansion
   const toggleExpand = (idx: number) => {
     setExpandedResults(prev => ({
       ...prev,
@@ -62,34 +63,6 @@ export function WebSearchToolView({
     }));
   };
 
-  useEffect(() => {
-    if (toolContent) {
-      try {
-        // Handle both string and object formats
-        let parsedContent;
-        if (typeof toolContent === 'string') {
-          parsedContent = JSON.parse(toolContent);
-        } else if (typeof toolContent === 'object' && toolContent !== null) {
-          parsedContent = toolContent;
-        } else {
-          parsedContent = {};
-        }
-
-        // Check if it's the response format with answer
-        if (parsedContent.answer && typeof parsedContent.answer === 'string') {
-          setAnswer(parsedContent.answer);
-        }
-        // Check for images array
-        if (parsedContent.images && Array.isArray(parsedContent.images)) {
-          setImages(parsedContent.images);
-        }
-      } catch (e) {
-        // Silently fail - the view will work without these extras
-      }
-    }
-  }, [toolContent]);
-
-  // Helper to determine favicon 
   const getFavicon = (url: string) => {
     try {
       const domain = new URL(url).hostname;
@@ -132,24 +105,24 @@ export function WebSearchToolView({
             <Badge
               variant="secondary"
               className={
-                isSuccess
+                actualIsSuccess
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5" />
               )}
-              {isSuccess ? 'Search completed successfully' : 'Search failed'}
+              {actualIsSuccess ? 'Search completed successfully' : 'Search failed'}
             </Badge>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
-        {isStreaming ? (
+        {isStreaming && searchResults.length === 0 && !answer ? (
           <LoadingState
             icon={Search}
             iconColor="text-blue-500 dark:text-blue-400"
@@ -161,18 +134,6 @@ export function WebSearchToolView({
         ) : searchResults.length > 0 || answer ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4">
-              {answer && (
-                <div className="mb-6 bg-blue-50/70 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 shadow-sm">
-                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center">
-                    <Search className="h-4 w-4 mr-2 opacity-70" />
-                    Answer
-                  </h3>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans">
-                    {answer}
-                  </p>
-                </div>
-              )}
-
               {images.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3 flex items-center">
@@ -227,7 +188,6 @@ export function WebSearchToolView({
               <div className="space-y-4">
                 {searchResults.map((result, idx) => {
                   const { icon: ResultTypeIcon, label: resultTypeLabel } = getResultType(result);
-                  console.log('result', result);
                   const isExpanded = expandedResults[idx] || false;
                   const favicon = getFavicon(result.url);
 
@@ -363,13 +323,13 @@ export function WebSearchToolView({
         </div>
 
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>
     </Card>
   );
-}
+} 

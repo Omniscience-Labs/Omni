@@ -4,33 +4,22 @@ import {
   CheckCircle,
   AlertTriangle,
   CircleDashed,
-  ExternalLink,
-  Code,
   Clock,
-  ChevronDown,
-  ChevronUp,
   Loader2,
   ArrowRight,
   TerminalIcon,
-  Check,
-  X,
   Power,
   StopCircle
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import {
-  extractExitCode,
-  formatTimestamp,
-  getToolTitle,
-  normalizeContentToString,
-} from './utils';
+import { ToolViewProps } from '../types';
+import { formatTimestamp, getToolTitle, normalizeContentToString } from '../utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { extractCommandData } from './_utils';
 
 export function TerminateCommandToolView({
   name = 'terminate-command',
@@ -46,7 +35,23 @@ export function TerminateCommandToolView({
   const [progress, setProgress] = useState(0);
   const [showFullOutput, setShowFullOutput] = useState(true);
 
+  const {
+    sessionName,
+    output,
+    actualIsSuccess,
+    actualToolTimestamp,
+    actualAssistantTimestamp
+  } = extractCommandData(
+    assistantContent,
+    toolContent,
+    isSuccess,
+    toolTimestamp,
+    assistantTimestamp
+  );
+
   const rawSessionName = React.useMemo(() => {
+    if (sessionName) return sessionName;
+    
     if (!assistantContent) return null;
 
     const contentStr = normalizeContentToString(assistantContent);
@@ -72,88 +77,19 @@ export function TerminateCommandToolView({
     }
 
     return null;
-  }, [assistantContent]);
+  }, [assistantContent, sessionName]);
 
-  const sessionName = rawSessionName?.trim();
+  const finalSessionName = rawSessionName?.trim() || sessionName;
 
-  const output = React.useMemo(() => {
-    if (!toolContent) return null;
-
-    let extractedOutput = '';
-    let success = true;
-
-    try {
-      if (typeof toolContent === 'string') {
-        // Handle ToolResult format: ToolResult(success=False, output="message")
-        const toolResultMatch = toolContent.match(/ToolResult\(success=(true|false),\s*output="([^"]+)"\)/i);
-        if (toolResultMatch) {
-          success = toolResultMatch[1].toLowerCase() === 'true';
-          extractedOutput = toolResultMatch[2];
-        }
-        // Handle other formats
-        else if (toolContent.includes('ToolResult')) {
-          const successMatch = toolContent.match(/success=(true|false)/i);
-          success = successMatch ? successMatch[1].toLowerCase() === 'true' : true;
-          
-          //@ts-expect-error IGNORE
-          const outputMatch = toolContent.match(/output=['"](.*)['"]/s);
-          if (outputMatch && outputMatch[1]) {
-            extractedOutput = outputMatch[1]
-              .replace(/\\n/g, '\n')
-              .replace(/\\"/g, '"')
-              .replace(/\\t/g, '\t')
-              .replace(/\\'/g, "'");
-          } else {
-            extractedOutput = toolContent;
-          }
-        } else {
-          try {
-            const parsed = JSON.parse(toolContent);
-            if (parsed.output) {
-              extractedOutput = parsed.output;
-              success = parsed.success !== false;
-            } else if (parsed.content) {
-              extractedOutput = parsed.content;
-            } else {
-              extractedOutput = JSON.stringify(parsed, null, 2);
-            }
-          } catch (e) {
-            extractedOutput = toolContent;
-          }
-        }
-      } else if (typeof toolContent === 'object' && toolContent !== null) {
-        // Handle case where toolContent is already an object
-        const typedToolContent = toolContent as Record<string, any>;
-        if ('output' in typedToolContent) {
-          extractedOutput = typedToolContent.output;
-          success = 'success' in typedToolContent ? !!typedToolContent.success : true;
-        } else {
-          extractedOutput = JSON.stringify(toolContent, null, 2);
-        }
-      } else {
-        extractedOutput = String(toolContent);
-      }
-    } catch (e) {
-      extractedOutput = String(toolContent);
-      console.error('Error parsing tool content:', e);
-    }
-
-    return extractedOutput;
-  }, [toolContent]);
-
-  const exitCode = extractExitCode(output);
   const toolTitle = getToolTitle(name) || 'Terminate Session';
   
-  // Determine if the termination was successful based on output content
   const terminationSuccess = React.useMemo(() => {
     if (!output) return false;
     
-    // Check if the output indicates success or failure
     const outputLower = output.toLowerCase();
     if (outputLower.includes('does not exist')) return false;
     if (outputLower.includes('terminated') || outputLower.includes('killed')) return true;
     
-    // Check if toolContent contains ToolResult with success=false
     if (typeof toolContent === 'string') {
       const toolResultMatch = toolContent.match(/ToolResult\(success=(true|false)/i);
       if (toolResultMatch) {
@@ -161,9 +97,8 @@ export function TerminateCommandToolView({
       }
     }
     
-    // Default to checking the success flag
-    return isSuccess;
-  }, [output, isSuccess, toolContent]);
+    return actualIsSuccess;
+  }, [output, actualIsSuccess, toolContent]);
   
   useEffect(() => {
     if (isStreaming) {
@@ -260,13 +195,13 @@ export function TerminateCommandToolView({
                 Terminating session
               </h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                <span className="font-mono text-xs break-all">{sessionName || 'Processing termination...'}</span>
+                <span className="font-mono text-xs break-all">{finalSessionName || 'Processing termination...'}</span>
               </p>
               <Progress value={progress} className="w-full h-1" />
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2">{progress}%</p>
             </div>
           </div>
-        ) : sessionName ? (
+        ) : finalSessionName ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
               <div className="mb-4 bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
@@ -276,7 +211,7 @@ export function TerminateCommandToolView({
                 </div>
                 <div className="p-4 font-mono text-sm text-zinc-700 dark:text-zinc-300 flex gap-2">
                   <span className="text-red-500 dark:text-red-400 select-none">●</span>
-                  <code className="flex-1 break-all">{sessionName}</code>
+                  <code className="flex-1 break-all">{finalSessionName}</code>
                 </div>
               </div>
 
@@ -317,9 +252,7 @@ export function TerminateCommandToolView({
                         {linesToShow.map((line, index) => (
                           <div 
                             key={index} 
-                            className={cn(
-                              "py-0.5 bg-transparent",
-                            )}
+                            className="py-0.5 bg-transparent"
                           >
                             {line || ' '}
                           </div>
@@ -362,7 +295,7 @@ export function TerminateCommandToolView({
       
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {!isStreaming && sessionName && (
+          {!isStreaming && finalSessionName && (
             <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
               <StopCircle className="h-3 w-3 mr-1" />
               Terminate
@@ -372,13 +305,13 @@ export function TerminateCommandToolView({
         
         <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5" />
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>
     </Card>
   );
-}
+} 

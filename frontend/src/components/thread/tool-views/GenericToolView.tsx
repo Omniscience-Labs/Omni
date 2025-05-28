@@ -13,7 +13,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, getToolTitle } from './utils';
+import { formatTimestamp, getToolTitle, extractToolData } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -37,12 +37,76 @@ export function GenericToolView({
   const formatContent = (content: any) => {
     if (!content) return null;
 
+    // Use the new parser for backwards compatibility
+    const { toolResult } = extractToolData(content);
+    
+    if (toolResult) {
+      // Format the structured content nicely
+      const formatted: any = {
+        tool: toolResult.xmlTagName || toolResult.functionName,
+      };
+      
+      if (toolResult.arguments && Object.keys(toolResult.arguments).length > 0) {
+        formatted.parameters = toolResult.arguments;
+      }
+      
+      if (toolResult.toolOutput) {
+        formatted.output = toolResult.toolOutput;
+      }
+      
+      if (toolResult.isSuccess !== undefined) {
+        formatted.success = toolResult.isSuccess;
+      }
+      
+      return JSON.stringify(formatted, null, 2);
+    }
+
+    // Fallback to legacy format handling
     if (typeof content === 'object') {
+      // Check for direct structured format (legacy)
+      if ('tool_name' in content || 'xml_tag_name' in content) {
+        const formatted: any = {
+          tool: content.tool_name || content.xml_tag_name || 'unknown',
+        };
+        
+        if (content.parameters && Object.keys(content.parameters).length > 0) {
+          formatted.parameters = content.parameters;
+        }
+        
+        if (content.result) {
+          formatted.result = content.result;
+        }
+        
+        return JSON.stringify(formatted, null, 2);
+      }
+      
+      // Check if it has a content field that might contain the structured data (legacy)
+      if ('content' in content && typeof content.content === 'object') {
+        const innerContent = content.content;
+        if ('tool_name' in innerContent || 'xml_tag_name' in innerContent) {
+          const formatted: any = {
+            tool: innerContent.tool_name || innerContent.xml_tag_name || 'unknown',
+          };
+          
+          if (innerContent.parameters && Object.keys(innerContent.parameters).length > 0) {
+            formatted.parameters = innerContent.parameters;
+          }
+          
+          if (innerContent.result) {
+            formatted.result = innerContent.result;
+          }
+          
+          return JSON.stringify(formatted, null, 2);
+        }
+      }
+      
+      // Fall back to old format handling
       if (content.content && typeof content.content === 'string') {
         return content.content;
       }
       return JSON.stringify(content, null, 2);
     }
+    
     if (typeof content === 'string') {
       try {
         const parsedJson = JSON.parse(content);

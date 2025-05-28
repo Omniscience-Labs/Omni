@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   FileDiff,
   CheckCircle,
@@ -10,43 +10,27 @@ import {
   ChevronUp,
   Minus,
   Plus,
-  Check
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import {
-  extractFilePath,
-  extractStrReplaceContent,
-  formatTimestamp,
-  getToolTitle,
-} from './utils';
+
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoadingState } from './shared/LoadingState';
-
-type DiffType = 'unchanged' | 'added' | 'removed';
-
-interface LineDiff {
-  type: DiffType;
-  oldLine: string | null;
-  newLine: string | null;
-  lineNumber: number;
-}
-
-interface CharDiffPart {
-  text: string;
-  type: DiffType;
-}
-
-interface DiffStats {
-  additions: number;
-  deletions: number;
-}
+import {
+  LineDiff,
+  DiffStats,
+  extractFromNewFormat,
+  extractFromLegacyFormat,
+  generateLineDiff,
+  generateCharDiff,
+  calculateDiffStats
+} from './_utils';
+import { extractFilePath, extractStrReplaceContent, extractToolData, formatTimestamp, getToolTitle } from '../utils';
+import { ToolViewProps } from '../types';
+import { LoadingState } from '../shared/LoadingState';
 
 const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
   <div className="bg-white dark:bg-zinc-950 font-mono text-sm overflow-x-auto -mt-2">
@@ -143,8 +127,6 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
   </div>
 );
 
-
-
 const ErrorState: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
     <div className="text-center w-full max-w-xs">
@@ -159,7 +141,6 @@ const ErrorState: React.FC = () => (
   </div>
 );
 
-// Main component
 export function StrReplaceToolView({
   name = 'str-replace',
   assistantContent,
@@ -172,143 +153,77 @@ export function StrReplaceToolView({
   const [expanded, setExpanded] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
   
-  const filePath = extractFilePath(assistantContent);
-  const { oldStr, newStr } = extractStrReplaceContent(assistantContent);
-  const toolTitle = getToolTitle(name);
+  let filePath: string | null = null;
+  let oldStr: string | null = null;
+  let newStr: string | null = null;
+  let actualIsSuccess = isSuccess;
+  let actualToolTimestamp = toolTimestamp;
+  let actualAssistantTimestamp = assistantTimestamp;
 
-  // Parse text for newlines
-  const parseNewlines = (text: string): string => {
-    return text.replace(/\\n/g, '\n');
-  };
+  const assistantNewFormat = extractFromNewFormat(assistantContent);
+  const toolNewFormat = extractFromNewFormat(toolContent);
 
-  // Perform line-by-line diff
-  const generateLineDiff = (oldText: string, newText: string): LineDiff[] => {
-    const parsedOldText = parseNewlines(oldText);
-    const parsedNewText = parseNewlines(newText);
-    
-    const oldLines = parsedOldText.split('\n');
-    const newLines = parsedNewText.split('\n');
-    
-    const diffLines: LineDiff[] = [];
-    const maxLines = Math.max(oldLines.length, newLines.length);
-    
-    for (let i = 0; i < maxLines; i++) {
-      const oldLine = i < oldLines.length ? oldLines[i] : null;
-      const newLine = i < newLines.length ? newLines[i] : null;
-      
-      if (oldLine === newLine) {
-        diffLines.push({ type: 'unchanged', oldLine, newLine, lineNumber: i + 1 });
-      } else {
-        if (oldLine !== null) {
-          diffLines.push({ type: 'removed', oldLine, newLine: null, lineNumber: i + 1 });
-        }
-        if (newLine !== null) {
-          diffLines.push({ type: 'added', oldLine: null, newLine, lineNumber: i + 1 });
-        }
-      }
+  if (assistantNewFormat.filePath || assistantNewFormat.oldStr || assistantNewFormat.newStr) {
+    filePath = assistantNewFormat.filePath;
+    oldStr = assistantNewFormat.oldStr;
+    newStr = assistantNewFormat.newStr;
+    if (assistantNewFormat.success !== undefined) {
+      actualIsSuccess = assistantNewFormat.success;
     }
-    
-    return diffLines;
-  };
-
-  // Character-level diff for more precise display
-  const generateCharDiff = (oldText: string, newText: string): CharDiffPart[] => {
-    const parsedOldText = parseNewlines(oldText);
-    const parsedNewText = parseNewlines(newText);
-    
-    // Find common prefix length
-    let prefixLength = 0;
-    while (
-      prefixLength < parsedOldText.length &&
-      prefixLength < parsedNewText.length &&
-      parsedOldText[prefixLength] === parsedNewText[prefixLength]
-    ) {
-      prefixLength++;
+    if (assistantNewFormat.timestamp) {
+      actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-
-    let oldSuffixStart = parsedOldText.length;
-    let newSuffixStart = parsedNewText.length;
-    while (
-      oldSuffixStart > prefixLength &&
-      newSuffixStart > prefixLength &&
-      parsedOldText[oldSuffixStart - 1] === parsedNewText[newSuffixStart - 1]
-    ) {
-      oldSuffixStart--;
-      newSuffixStart--;
+  } else if (toolNewFormat.filePath || toolNewFormat.oldStr || toolNewFormat.newStr) {
+    filePath = toolNewFormat.filePath;
+    oldStr = toolNewFormat.oldStr;
+    newStr = toolNewFormat.newStr;
+    if (toolNewFormat.success !== undefined) {
+      actualIsSuccess = toolNewFormat.success;
     }
-
-    const parts: CharDiffPart[] = [];
-
-    if (prefixLength > 0) {
-      parts.push({
-        text: parsedOldText.substring(0, prefixLength),
-        type: 'unchanged',
-      });
+    if (toolNewFormat.timestamp) {
+      actualToolTimestamp = toolNewFormat.timestamp;
     }
+  } else {
+    // Fall back to legacy format extraction
+    const assistantLegacy = extractFromLegacyFormat(assistantContent, extractToolData, extractFilePath, extractStrReplaceContent);
+    const toolLegacy = extractFromLegacyFormat(toolContent, extractToolData, extractFilePath, extractStrReplaceContent);
 
-    if (oldSuffixStart > prefixLength) {
-      parts.push({
-        text: parsedOldText.substring(prefixLength, oldSuffixStart),
-        type: 'removed',
-      });
-    }
-    if (newSuffixStart > prefixLength) {
-      parts.push({
-        text: parsedNewText.substring(prefixLength, newSuffixStart),
-        type: 'added',
-      });
-    }
-
-    if (oldSuffixStart < parsedOldText.length) {
-      parts.push({
-        text: parsedOldText.substring(oldSuffixStart),
-        type: 'unchanged',
-      });
-    }
-
-    return parts;
-  };
-
-  // If we don't have valid strings to compare and we're not streaming
-  if (!isStreaming && (!oldStr || !newStr)) {
-    return (
-      <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-        <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
-          <div className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-                <FileDiff className="h-5 w-5 text-purple-500 dark:text-purple-400" />
-              </div>
-              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                {toolTitle}
-              </CardTitle>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
-          <ErrorState />
-        </CardContent>
-      </Card>
-    );
+    // Use assistant content first, then tool content as fallback
+    filePath = assistantLegacy.filePath || toolLegacy.filePath;
+    oldStr = assistantLegacy.oldStr || toolLegacy.oldStr;
+    newStr = assistantLegacy.newStr || toolLegacy.newStr;
   }
+
+  // Additional legacy extraction for edge cases
+  if (!filePath) {
+    filePath = extractFilePath(assistantContent) || extractFilePath(toolContent);
+  }
+  
+  if (!oldStr || !newStr) {
+    const assistantStrReplace = extractStrReplaceContent(assistantContent);
+    const toolStrReplace = extractStrReplaceContent(toolContent);
+    oldStr = oldStr || assistantStrReplace.oldStr || toolStrReplace.oldStr;
+    newStr = newStr || assistantStrReplace.newStr || toolStrReplace.newStr;
+  }
+
+  const toolTitle = getToolTitle(name);
 
   // Generate diff data (only if we have both strings)
   const lineDiff = oldStr && newStr ? generateLineDiff(oldStr, newStr) : [];
   const charDiff = oldStr && newStr ? generateCharDiff(oldStr, newStr) : [];
   
   // Calculate stats on changes
-  const stats: DiffStats = {
-    additions: lineDiff.filter(line => line.type === 'added').length,
-    deletions: lineDiff.filter(line => line.type === 'removed').length
-  };
+  const stats: DiffStats = calculateDiffStats(lineDiff);
+
+  // Check if we should show error state (only when not streaming and we have content but can't extract strings)
+  const shouldShowError = !isStreaming && (!oldStr || !newStr) && (assistantContent || toolContent);
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-          <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+            <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
               <FileDiff className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
             <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
@@ -320,17 +235,17 @@ export function StrReplaceToolView({
             <Badge 
               variant="secondary" 
               className={
-                isSuccess 
+                actualIsSuccess 
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              {isSuccess ? 'Replacement completed' : 'Replacement failed'}
+              {actualIsSuccess ? 'Replacement completed' : 'Replacement failed'}
             </Badge>
           )}
 
@@ -354,6 +269,8 @@ export function StrReplaceToolView({
             progressText="Analyzing text patterns"
             subtitle="Please wait while the replacement is being processed"
           />
+        ) : shouldShowError ? (
+          <ErrorState />
         ) : (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
@@ -428,13 +345,13 @@ export function StrReplaceToolView({
         <div className="h-full flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           {!isStreaming && (
             <div className="flex items-center gap-1">
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mr-1" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 text-red-500 mr-1" />
               )}
               <span>
-                {isSuccess
+                {actualIsSuccess
                   ? 'String replacement successful'
                   : 'String replacement failed'}
               </span>
@@ -450,10 +367,10 @@ export function StrReplaceToolView({
         </div>
         
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>

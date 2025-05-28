@@ -2,20 +2,20 @@ import React, { useMemo } from 'react';
 import { ToolViewProps } from '../types';
 import { GenericToolView } from '../GenericToolView';
 import { BrowserToolView } from '../BrowserToolView';
-import { CommandToolView } from '../CommandToolView';
-import { ExposePortToolView } from '../ExposePortToolView';
-import { FileOperationToolView } from '../FileOperationToolView';
-import { StrReplaceToolView } from '../StrReplaceToolView';
+import { CommandToolView } from '../command-tool/CommandToolView';
+import { ExposePortToolView } from '../expose-port-tool/ExposePortToolView';
+import { FileOperationToolView } from '../file-operation/FileOperationToolView';
+import { StrReplaceToolView } from '../str-replace/StrReplaceToolView';
 import { WebCrawlToolView } from '../WebCrawlToolView';
-import { WebScrapeToolView } from '../WebScrapeToolView';
-import { WebSearchToolView } from '../WebSearchToolView';
-import { SeeImageToolView } from '../SeeImageToolView';
-import { TerminateCommandToolView } from '../TerminateCommandToolView';
-import { McpToolView } from '../McpToolView';
-import { AskToolView } from '../AskToolView';
+import { WebScrapeToolView } from '../web-scrape-tool/WebScrapeToolView';
+import { WebSearchToolView } from '../web-search-tool/WebSearchToolView';
+import { SeeImageToolView } from '../see-image-tool/SeeImageToolView';
+import { TerminateCommandToolView } from '../command-tool/TerminateCommandToolView';
+import { AskToolView } from '../ask-tool/AskToolView';
 import { CompleteToolView } from '../CompleteToolView';
-import { DataProviderEndpointsToolView } from '../DataProviderEndpointToolView';
-import { ExecuteDataProviderCallToolView } from '../DataProviderToolView';
+import { ExecuteDataProviderCallToolView } from '../data-provider-tool/ExecuteDataProviderCallToolView';
+import { DataProviderEndpointsToolView } from '../data-provider-tool/DataProviderEndpointsToolView';
+
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
