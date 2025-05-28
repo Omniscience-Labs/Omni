@@ -18,6 +18,7 @@ from collections import OrderedDict
 from agent import api as agent_api
 from sandbox import api as sandbox_api
 from services import billing as billing_api
+from services import transcription as transcription_api
 
 # Load environment variables (these will be available through config)
 load_dotenv()
@@ -131,6 +132,9 @@ app.include_router(sandbox_api.router, prefix="/api")
 
 # Include the billing router with a prefix
 app.include_router(billing_api.router, prefix="/api")
+
+# Include the transcription router with a prefix
+app.include_router(transcription_api.router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():

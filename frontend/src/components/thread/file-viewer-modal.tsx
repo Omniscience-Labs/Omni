@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   FileText,
   ChevronDown,
+  Archive,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -49,6 +50,7 @@ import {
   useFileUpload,
   FileCache
 } from '@/hooks/react-query/files';
+import JSZip from 'jszip';
 
 // Define API_URL
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -161,6 +163,14 @@ export function FileViewerModal({
   // Add a ref to track active download URLs
   const activeDownloadUrls = useRef<Set<string>>(new Set());
 
+  // Add state for download all functionality
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    current: number;
+    total: number;
+    currentFile: string;
+  } | null>(null);
+
   // Setup project with sandbox URL if not provided directly
   useEffect(() => {
     if (project) {
@@ -184,6 +194,188 @@ export function FileViewerModal({
       ? path
       : `/workspace/${path.replace(/^\//, '')}`;
   }, []);
+
+  // Recursive function to discover all files in the workspace
+  const discoverAllFiles = useCallback(async (
+    startPath: string = '/workspace'
+  ): Promise<{ files: FileInfo[], totalSize: number }> => {
+    const allFiles: FileInfo[] = [];
+    let totalSize = 0;
+    const visited = new Set<string>();
+
+    const exploreDirectory = async (dirPath: string) => {
+      if (visited.has(dirPath)) return;
+      visited.add(dirPath);
+
+      try {
+        console.log(`[DOWNLOAD ALL] Exploring directory: ${dirPath}`);
+        const files = await listSandboxFiles(sandboxId, dirPath);
+
+        for (const file of files) {
+          if (file.is_dir) {
+            // Recursively explore subdirectories
+            await exploreDirectory(file.path);
+          } else {
+            // Add file to collection
+            allFiles.push(file);
+            totalSize += file.size || 0;
+          }
+        }
+      } catch (error) {
+        console.error(`[DOWNLOAD ALL] Error exploring directory ${dirPath}:`, error);
+        toast.error(`Failed to read directory: ${dirPath}`);
+      }
+    };
+
+    await exploreDirectory(startPath);
+
+    console.log(`[DOWNLOAD ALL] Discovered ${allFiles.length} files, total size: ${totalSize} bytes`);
+    return { files: allFiles, totalSize };
+  }, [sandboxId]);
+
+  // Function to download all files as a zip
+  const handleDownloadAll = useCallback(async () => {
+    if (!session?.access_token || isDownloadingAll) return;
+
+    try {
+      setIsDownloadingAll(true);
+      setDownloadProgress({ current: 0, total: 0, currentFile: 'Discovering files...' });
+
+      // Step 1: Discover all files
+      const { files } = await discoverAllFiles();
+
+      if (files.length === 0) {
+        toast.error('No files found to download');
+        return;
+      }
+
+      console.log(`[DOWNLOAD ALL] Starting download of ${files.length} files`);
+
+      // Step 2: Create zip and load files
+      const zip = new JSZip();
+      setDownloadProgress({ current: 0, total: files.length, currentFile: 'Creating archive...' });
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const relativePath = file.path.replace(/^\/workspace\//, ''); // Remove /workspace/ prefix
+
+        setDownloadProgress({
+          current: i + 1,
+          total: files.length,
+          currentFile: relativePath
+        });
+
+        try {
+          // Determine content type for proper loading
+          const contentType = FileCache.getContentTypeFromPath(file.path);
+
+          // Check cache first
+          const cacheKey = `${sandboxId}:${file.path}:${contentType}`;
+          let content = FileCache.get(cacheKey);
+
+          if (!content) {
+            // Load from server if not cached
+            console.log(`[DOWNLOAD ALL] Loading file from server: ${file.path}`);
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(file.path)}`,
+              {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+              }
+            );
+
+            if (!response.ok) {
+              console.warn(`[DOWNLOAD ALL] Failed to load file: ${file.path} (${response.status})`);
+              continue; // Skip this file and continue with others
+            }
+
+            if (contentType === 'blob') {
+              content = await response.blob();
+            } else if (contentType === 'json') {
+              content = JSON.stringify(await response.json(), null, 2);
+            } else {
+              content = await response.text();
+            }
+
+            // Cache the content
+            FileCache.set(cacheKey, content);
+          }
+
+          // Add to zip with proper structure
+          if (content instanceof Blob) {
+            zip.file(relativePath, content);
+          } else if (typeof content === 'string') {
+            // Handle blob URLs by fetching the actual content
+            if (content.startsWith('blob:')) {
+              try {
+                const blobResponse = await fetch(content);
+                const blobContent = await blobResponse.blob();
+                zip.file(relativePath, blobContent);
+              } catch (blobError) {
+                console.warn(`[DOWNLOAD ALL] Failed to fetch blob content for: ${file.path}`, blobError);
+                // Fallback: try to fetch from server directly
+                const fallbackResponse = await fetch(
+                  `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(file.path)}`,
+                  { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+                );
+                if (fallbackResponse.ok) {
+                  const fallbackBlob = await fallbackResponse.blob();
+                  zip.file(relativePath, fallbackBlob);
+                }
+              }
+            } else {
+              // Regular text content
+              zip.file(relativePath, content);
+            }
+          } else {
+            // Handle other content types (convert to JSON string)
+            zip.file(relativePath, JSON.stringify(content, null, 2));
+          }
+
+          console.log(`[DOWNLOAD ALL] Added to zip: ${relativePath} (${i + 1}/${files.length})`);
+
+        } catch (fileError) {
+          console.error(`[DOWNLOAD ALL] Error processing file ${file.path}:`, fileError);
+          // Continue with other files
+        }
+      }
+
+      // Step 3: Generate and download the zip
+      setDownloadProgress({
+        current: files.length,
+        total: files.length,
+        currentFile: 'Generating zip file...'
+      });
+
+      console.log('[DOWNLOAD ALL] Generating zip file...');
+      const zipBlob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+
+      // Download the zip file
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `workspace-${sandboxId}-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      toast.success(`Downloaded ${files.length} files as zip archive`);
+      console.log(`[DOWNLOAD ALL] Successfully created zip with ${files.length} files`);
+
+    } catch (error) {
+      console.error('[DOWNLOAD ALL] Error creating zip:', error);
+      toast.error(`Failed to create zip archive: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsDownloadingAll(false);
+      setDownloadProgress(null);
+    }
+  }, [sandboxId, session?.access_token, isDownloadingAll, discoverAllFiles]);
 
   // Helper function to check if a value is a Blob (type-safe version of instanceof)
   const isBlob = (value: any): value is Blob => {
@@ -646,6 +838,10 @@ export function FileViewerModal({
         setInitialPathProcessed(false);
         setIsInitialLoad(true);
         setCurrentFileIndex(-1); // Reset file index
+
+        // Reset download all state
+        setIsDownloadingAll(false);
+        setDownloadProgress(null);
       }
       onOpenChange(open);
     },
@@ -995,6 +1191,25 @@ export function FileViewerModal({
           <DialogTitle className="text-lg font-semibold">
             Workspace Files
           </DialogTitle>
+
+          {/* Download progress display */}
+          {downloadProgress && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Loader className="h-3 w-3 animate-spin" />
+                <span>
+                  {downloadProgress.total > 0
+                    ? `${downloadProgress.current}/${downloadProgress.total}`
+                    : 'Preparing...'
+                  }
+                </span>
+              </div>
+              <span className="max-w-[200px] truncate">
+                {downloadProgress.currentFile}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             {/* Navigation arrows for file list mode */}
             {(() => {
@@ -1152,20 +1367,40 @@ export function FileViewerModal({
             )}
 
             {!selectedFilePath && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleUpload}
-                disabled={isUploading}
-                className="h-8 gap-1"
-              >
-                {isUploading ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
+              <>
+                {/* Download All button - only show when in home directory */}
+                {currentPath === '/workspace' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadAll}
+                    disabled={isDownloadingAll || isLoadingFiles}
+                    className="h-8 gap-1"
+                  >
+                    {isDownloadingAll ? (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Archive className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Download All</span>
+                  </Button>
                 )}
-                <span className="hidden sm:inline">Upload</span>
-              </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUpload}
+                  disabled={isUploading}
+                  className="h-8 gap-1"
+                >
+                  {isUploading ? (
+                    <Loader className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Upload</span>
+                </Button>
+              </>
             )}
 
             <input

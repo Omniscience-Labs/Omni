@@ -1767,3 +1767,52 @@ export const checkBillingStatus = async (): Promise<BillingStatusResponse> => {
     throw error;
   }
 };
+
+// Transcription API Types
+export interface TranscriptionResponse {
+  text: string;
+}
+
+// Transcription API Functions
+export const transcribeAudio = async (audioFile: File): Promise<TranscriptionResponse> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new Error('No access token available');
+    }
+
+    const formData = new FormData();
+    formData.append('audio_file', audioFile);
+
+    const response = await fetch(`${API_URL}/transcription`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => 'No error details available');
+      console.error(
+        `Error transcribing audio: ${response.status} ${response.statusText}`,
+        errorText,
+      );
+      throw new Error(
+        `Error transcribing audio: ${response.statusText} (${response.status})`,
+      );
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Failed to transcribe audio:', error);
+    handleApiError(error, { operation: 'transcribe audio', resource: 'speech-to-text' });
+    throw error;
+  }
+};
