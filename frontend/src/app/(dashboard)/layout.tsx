@@ -13,6 +13,7 @@ import { checkApiHealth } from '@/lib/api';
 import { MaintenancePage } from '@/components/maintenance/maintenance-page';
 import { DeleteOperationProvider } from '@/contexts/DeleteOperationContext';
 import { StatusOverlay } from '@/components/ui/status-overlay';
+import { VSentry } from '@/components/sentry';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -99,6 +100,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           onOpenChange={setShowMaintenanceAlert}
           closeable={true}
         />
+        <VSentry />
 
         {/* Status overlay for deletion operations */}
         <StatusOverlay />

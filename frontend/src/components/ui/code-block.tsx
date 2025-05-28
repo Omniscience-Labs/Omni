@@ -41,13 +41,26 @@ function CodeBlockCode({
 
   useEffect(() => {
     async function highlight() {
-      const html = await codeToHtml(code, { lang: language, theme });
+      const html = await codeToHtml(code, {
+        lang: language,
+        theme,
+        transformers: [
+          {
+            pre(node) {
+              if (node.properties.style) {
+                node.properties.style = (node.properties.style as string)
+                  .replace(/background-color:[^;]+;?/g, '');
+              }
+            }
+          }
+        ]
+      });
       setHighlightedHtml(html);
     }
     highlight();
   }, [code, language, theme]);
 
-  const classNames = cn('', className);
+  const classNames = cn('[&_pre]:!bg-background/95 [&_pre]:rounded-lg [&_pre]:p-4', className);
 
   // SSR fallback: render plain code if not hydrated yet
   return highlightedHtml ? (

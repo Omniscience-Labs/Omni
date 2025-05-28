@@ -25,6 +25,7 @@ import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-se
 import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_types';
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
+import { useVncPreloader } from '@/hooks/useVncPreloader';
 
 export default function ThreadPage({
   params,
@@ -44,6 +45,7 @@ export default function ThreadPage({
   const [isSending, setIsSending] = useState(false);
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [fileToView, setFileToView] = useState<string | null>(null);
+  const [filePathList, setFilePathList] = useState<string[] | undefined>(undefined);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
@@ -124,6 +126,9 @@ export default function ThreadPage({
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
     ? 'active'
     : 'no_subscription';
+
+  useVncPreloader(project);
+
 
   const handleProjectRenamed = useCallback((newName: string) => {
   }, []);
@@ -329,12 +334,13 @@ export default function ThreadPage({
     }
   }, [stopStreaming, agentRunId, stopAgentMutation, agentRunsQuery, setAgentStatus]);
 
-  const handleOpenFileViewer = useCallback((filePath?: string) => {
+  const handleOpenFileViewer = useCallback((filePath?: string, filePathList?: string[]) => {
     if (filePath) {
       setFileToView(filePath);
     } else {
       setFileToView(null);
     }
+    setFilePathList(filePathList);
     setFileViewerOpen(true);
   }, []);
 
@@ -523,6 +529,7 @@ export default function ThreadPage({
         fileViewerOpen={fileViewerOpen}
         setFileViewerOpen={setFileViewerOpen}
         fileToView={fileToView}
+        filePathList={filePathList}
         toolCalls={toolCalls}
         messages={messages as ApiMessageType[]}
         externalNavIndex={externalNavIndex}
@@ -564,6 +571,7 @@ export default function ThreadPage({
         fileViewerOpen={fileViewerOpen}
         setFileViewerOpen={setFileViewerOpen}
         fileToView={fileToView}
+        filePathList={filePathList}
         toolCalls={toolCalls}
         messages={messages as ApiMessageType[]}
         externalNavIndex={externalNavIndex}

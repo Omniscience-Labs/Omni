@@ -2,35 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, Server, RefreshCw, AlertCircle } from 'lucide-react';
-import { checkApiHealth } from '@/lib/api';
+import { useApiHealth } from '@/hooks/react-query';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { isLocalMode } from '@/lib/config';
 
 export function MaintenancePage() {
-  const [isCheckingHealth, setIsCheckingHealth] = useState(true);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  
+  const { data: healthData, isLoading: isCheckingHealth, refetch } = useApiHealth();
 
   const checkHealth = async () => {
-    setIsCheckingHealth(true);
     try {
-      await checkApiHealth();
-      // If we get here, the API is healthy
-      window.location.reload();
+      const result = await refetch();
+      if (result.data) {
+        window.location.reload();
+      }
     } catch (error) {
       console.error('API health check failed:', error);
     } finally {
-      setIsCheckingHealth(false);
       setLastChecked(new Date());
     }
   };
 
   useEffect(() => {
-    checkHealth();
-    // Check health every 30 seconds
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
+    setLastChecked(new Date());
   }, []);
 
   return (
