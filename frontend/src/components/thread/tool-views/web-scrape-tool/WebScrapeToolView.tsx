@@ -17,12 +17,12 @@ import {
   ArrowUpRight,
   Zap
 } from 'lucide-react';
-import { ToolViewProps } from './types';
+import { ToolViewProps } from '../types';
 import {
   formatTimestamp,
   getToolTitle,
-  normalizeContentToString,
-} from './utils';
+} from '../utils';
+import { extractWebScrapeData } from './_utils';
 import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,59 +46,25 @@ export function WebScrapeToolView({
   const [progress, setProgress] = useState(0);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
-  // Extract URL from the scrape-webpage tag in assistantContent
-  const extractScrapeUrl = (content: string | object | undefined | null): string | null => {
-    const contentStr = normalizeContentToString(content);
-    if (!contentStr) return null;
-    
-    // Look for <scrape-webpage urls="..."> pattern (with or without attributes)
-    const urlMatch = contentStr.match(/<scrape-webpage[^>]*\s+urls=["']([^"']+)["']/);
-    if (urlMatch) {
-      return urlMatch[1];
-    }
-    
-    // Fallback to other URL patterns
-    const httpMatch = contentStr.match(/https?:\/\/[^\s<>"]+/);
-    return httpMatch ? httpMatch[0] : null;
-  };
+  const {
+    url,
+    urls,
+    success,
+    message,
+    files,
+    urlCount,
+    actualIsSuccess,
+    actualToolTimestamp,
+    actualAssistantTimestamp
+  } = extractWebScrapeData(
+    assistantContent,
+    toolContent,
+    isSuccess,
+    toolTimestamp,
+    assistantTimestamp
+  );
 
-  // Extract scrape results from tool output
-  const extractScrapeResults = (content: string | object | undefined | null): { 
-    success: boolean; 
-    message: string; 
-    files: string[]; 
-    urlCount: number;
-  } => {
-    const contentStr = normalizeContentToString(content);
-    if (!contentStr) return { success: false, message: 'No output received', files: [], urlCount: 0 };
-    
-    // Extract just the output content, removing XML tags
-    const outputMatch = contentStr.match(/output='([^']+)'/);
-    const cleanContent = outputMatch ? outputMatch[1].replace(/\\n/g, '\n') : contentStr;
-    
-    // Parse the clean content
-    const successMatch = cleanContent.match(/Successfully scraped (?:all )?(\d+) URLs?/);
-    const urlCount = successMatch ? parseInt(successMatch[1]) : 0;
-    
-    // Extract file paths
-    const fileMatches = cleanContent.match(/- ([^\n]+\.json)/g);
-    const files = fileMatches ? fileMatches.map(match => match.replace('- ', '')) : [];
-    
-    const success = cleanContent.includes('Successfully scraped');
-    
-    return {
-      success,
-      message: cleanContent,
-      files,
-      urlCount
-    };
-  };
-
-  const url = extractScrapeUrl(assistantContent);
-  const scrapeResults = extractScrapeResults(toolContent);
   const toolTitle = getToolTitle(name);
-
-  // Format domain for display
   const formatDomain = (url: string): string => {
     try {
       const urlObj = new URL(url);
@@ -110,7 +76,6 @@ export function WebScrapeToolView({
 
   const domain = url ? formatDomain(url) : 'Unknown';
 
-  // Get favicon
   const getFavicon = (url: string) => {
     try {
       const domain = new URL(url).hostname;
@@ -122,7 +87,6 @@ export function WebScrapeToolView({
 
   const favicon = url ? getFavicon(url) : null;
 
-  // Simulate progress when streaming
   useEffect(() => {
     if (isStreaming) {
       const timer = setInterval(() => {
@@ -151,7 +115,6 @@ export function WebScrapeToolView({
   };
 
   const formatFileInfo = (filePath: string) => {
-    // Extract timestamp and domain from filename for display
     const timestampMatch = filePath.match(/(\d{8}_\d{6})/);
     const domainMatch = filePath.match(/(\w+)_com\.json$/);
     const fileName = filePath.split('/').pop() || filePath;
@@ -184,17 +147,17 @@ export function WebScrapeToolView({
             <Badge 
               variant="secondary"
               className={
-                scrapeResults.success 
+                actualIsSuccess 
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {scrapeResults.success ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5" />
               )}
-              {scrapeResults.success ? 'Scraping completed' : 'Scraping failed'}
+              {actualIsSuccess ? 'Scraping completed' : 'Scraping failed'}
             </Badge>
           )}
         </div>
@@ -265,14 +228,14 @@ export function WebScrapeToolView({
                     Generated Files
                   </div>
                   <Badge variant="outline" className="gap-1">
-                    {scrapeResults.files.length} file{scrapeResults.files.length !== 1 ? 's' : ''}
+                    {files.length} file{files.length !== 1 ? 's' : ''}
                   </Badge>
                 </div>
 
                 {/* File List */}
-                {scrapeResults.files.length > 0 ? (
+                {files.length > 0 ? (
                   <div className="space-y-3">
-                    {scrapeResults.files.map((filePath, idx) => {
+                    {files.map((filePath, idx) => {
                       const fileInfo = formatFileInfo(filePath);
                       const isCopied = copiedFile === filePath;
                       
@@ -365,19 +328,19 @@ export function WebScrapeToolView({
       {/* Footer */}
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {!isStreaming && scrapeResults.files.length > 0 && (
+          {!isStreaming && files.length > 0 && (
             <Badge className="h-6 py-0.5">
               <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-              {scrapeResults.files.length} file{scrapeResults.files.length !== 1 ? 's' : ''} saved
+              {files.length} file{files.length !== 1 ? 's' : ''} saved
             </Badge>
           )}
         </div>
         
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>

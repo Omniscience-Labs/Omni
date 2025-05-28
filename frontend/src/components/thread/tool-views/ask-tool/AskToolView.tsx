@@ -7,24 +7,18 @@ import {
   Clock,
   MessageSquare,
   Paperclip,
-  ExternalLink,
 } from 'lucide-react';
-import { ToolViewProps } from './types';
+import { ToolViewProps } from '../types';
 import {
   formatTimestamp,
   getToolTitle,
-  normalizeContentToString,
-  getFileIconAndColor,
-} from './utils';
+} from '../utils';
+import { extractAskData } from './_utils';
 import { cn, truncateString } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileAttachment } from '../file-attachment';
-
-interface AskContent {
-  attachments?: string[];
-}
+import { FileAttachment } from '../../file-attachment';
 
 interface AskToolViewProps extends ToolViewProps {
   onFileClick?: (filePath: string) => void;
@@ -41,7 +35,22 @@ export function AskToolView({
   onFileClick,
   project,
 }: AskToolViewProps) {
-  const [askData, setAskData] = useState<AskContent>({});
+  
+  const {
+    text,
+    attachments,
+    status,
+    actualIsSuccess,
+    actualToolTimestamp,
+    actualAssistantTimestamp
+  } = extractAskData(
+    assistantContent,
+    toolContent,
+    isSuccess,
+    toolTimestamp,
+    assistantTimestamp
+  );
+
   const isImageFile = (filePath: string): boolean => {
     const filename = filePath.split('/').pop() || '';
     return filename.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) !== null;
@@ -51,24 +60,6 @@ export function AskToolView({
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
     return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv';
   };
-
-  // Extract attachments from assistant content
-  useEffect(() => {
-    if (assistantContent) {
-      try {
-        const contentStr = normalizeContentToString(assistantContent);
-
-        // Extract attachments if present
-        const attachmentsMatch = contentStr.match(/attachments=["']([^"']*)["']/i);
-        if (attachmentsMatch) {
-          const attachments = attachmentsMatch[1].split(',').map(a => a.trim()).filter(a => a.length > 0);
-          setAskData(prev => ({ ...prev, attachments }));
-        }
-      } catch (e) {
-        console.error('Error parsing ask content:', e);
-      }
-    }
-  }, [assistantContent]);
 
   const toolTitle = getToolTitle(name) || 'Ask User';
 
@@ -97,17 +88,17 @@ export function AskToolView({
             <Badge
               variant="secondary"
               className={
-                isSuccess
+                actualIsSuccess
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              {isSuccess ? 'Success' : 'Failed'}
+              {actualIsSuccess ? 'Success' : 'Failed'}
             </Badge>
           )}
 
@@ -123,20 +114,20 @@ export function AskToolView({
       <CardContent className="p-0 flex-1 overflow-hidden relative">
         <ScrollArea className="h-full w-full">
           <div className="p-4 space-y-6">
-            {askData.attachments && askData.attachments.length > 0 ? (
+            {attachments && attachments.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Paperclip className="h-4 w-4" />
-                  Files ({askData.attachments.length})
+                  Files ({attachments.length})
                 </div>
 
                 <div className={cn(
                   "grid gap-3",
-                  askData.attachments.length === 1 ? "grid-cols-1" :
-                    askData.attachments.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
+                  attachments.length === 1 ? "grid-cols-1" :
+                    attachments.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
                       "grid-cols-1 sm:grid-cols-2"
                 )}>
-                  {askData.attachments
+                  {attachments
                     .sort((a, b) => {
                       const aIsImage = isImageFile(a);
                       const bIsImage = isImageFile(b);
@@ -152,9 +143,9 @@ export function AskToolView({
                     .map((attachment, index) => {
                       const isImage = isImageFile(attachment);
                       const isPreviewable = isPreviewableFile(attachment);
-                      const shouldSpanFull = (askData.attachments!.length % 2 === 1 &&
-                        askData.attachments!.length > 1 &&
-                        index === askData.attachments!.length - 1);
+                      const shouldSpanFull = (attachments!.length % 2 === 1 &&
+                        attachments!.length > 1 &&
+                        index === attachments!.length - 1);
 
                       return (
                         <div
@@ -199,10 +190,10 @@ export function AskToolView({
                     })}
                 </div>
 
-                {assistantTimestamp && (
+                {actualAssistantTimestamp && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {formatTimestamp(assistantTimestamp)}
+                    {formatTimestamp(actualAssistantTimestamp)}
                   </div>
                 )}
               </div>
@@ -232,7 +223,7 @@ export function AskToolView({
         </div>
 
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {assistantTimestamp ? formatTimestamp(assistantTimestamp) : ''}
+          {actualAssistantTimestamp ? formatTimestamp(actualAssistantTimestamp) : ''}
         </div>
       </div>
     </Card>

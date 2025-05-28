@@ -81,27 +81,30 @@ class SandboxShellTool(SandboxToolsBase):
             {"param_name": "timeout", "node_type": "attribute", "path": ".", "required": False}
         ],
         example='''
-        <!-- NON-BLOCKING COMMANDS (Default) -->
-        <!-- Example 1: Start a development server -->
-        <execute-command session_name="dev_server">
-        npm run dev
-        </execute-command>
+        <function_calls>
+        <invoke name="execute_command">
+        <parameter name="command">npm run dev</parameter>
+        <parameter name="session_name">dev_server</parameter>
+        </invoke>
+        </function_calls>
 
         <!-- Example 2: Running in Specific Directory -->
-        <execute-command session_name="build_process" folder="frontend">
-        npm run build
-        </execute-command>
+        <function_calls>
+        <invoke name="execute_command">
+        <parameter name="command">npm run build</parameter>
+        <parameter name="folder">frontend</parameter>
+        <parameter name="session_name">build_process</parameter>
+        </invoke>
+        </function_calls>
 
-        <!-- BLOCKING COMMANDS (Wait for completion) -->
-        <!-- Example 3: Install dependencies and wait for completion -->
-        <execute-command blocking="true" timeout="300">
-        npm install
-        </execute-command>
-
-        <!-- Example 4: Complex Command with Environment Variables -->
-        <execute-command blocking="true">
-        export NODE_ENV=production && npm run build
-        </execute-command>
+        <!-- Example 3: Blocking command (wait for completion) -->
+        <function_calls>
+        <invoke name="execute_command">
+        <parameter name="command">npm install</parameter>
+        <parameter name="blocking">true</parameter>
+        <parameter name="timeout">300</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def execute_command(
@@ -252,11 +255,19 @@ class SandboxShellTool(SandboxToolsBase):
             {"param_name": "kill_session", "node_type": "attribute", "path": ".", "required": False}
         ],
         example='''
-        <!-- Example 1: Check output without killing session -->
-        <check-command-output session_name="dev_server"></check-command-output>
+        <function_calls>
+        <invoke name="check_command_output">
+        <parameter name="session_name">dev_server</parameter>
+        </invoke>
+        </function_calls>
         
         <!-- Example 2: Check final output and kill session -->
-        <check-command-output session_name="build_process" kill_session="true"></check-command-output>
+        <function_calls>
+        <invoke name="check_command_output">
+        <parameter name="session_name">build_process</parameter>
+        <parameter name="kill_session">true</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def check_command_output(
@@ -316,8 +327,11 @@ class SandboxShellTool(SandboxToolsBase):
             {"param_name": "session_name", "node_type": "attribute", "path": ".", "required": True}
         ],
         example='''
-        <!-- Example: Terminate a running server -->
-        <terminate-command session_name="dev_server"></terminate-command>
+        <function_calls>
+        <invoke name="terminate_command">
+        <parameter name="session_name">dev_server</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def terminate_command(
@@ -358,8 +372,10 @@ class SandboxShellTool(SandboxToolsBase):
         tag_name="list-commands",
         mappings=[],
         example='''
-        <!-- Example: List all running commands -->
-        <list-commands></list-commands>
+        <function_calls>
+        <invoke name="list_commands">
+        </invoke>
+        </function_calls>
         '''
     )
     async def list_commands(self) -> ToolResult:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Database,
   CheckCircle,
@@ -13,20 +13,12 @@ import {
   Globe,
   ChevronRight
 } from 'lucide-react';
-import { ToolViewProps } from './types';
-import {
-  formatTimestamp,
-  normalizeContentToString,
-} from './utils';
+import { ToolViewProps } from '../types';
+import { formatTimestamp, getToolTitle } from '../utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-function extractServiceName(message: string): string | null {
-  const regex = /<get-data-provider-endpoints\s+service_name="([^"]+)"\s*>/;
-  const match = message.match(regex);
-  return match ? match[1] : null;
-}
+import { extractDataProviderEndpointsData } from './_utils';
 
 const PROVIDER_CONFIG = {
   'linkedin': {
@@ -82,36 +74,27 @@ export function DataProviderEndpointsToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
-  const [detectedProvider, setDetectedProvider] = useState<string | null>(null);
+  
+  const {
+    serviceName,
+    endpoints,
+    actualIsSuccess,
+    actualToolTimestamp,
+    actualAssistantTimestamp
+  } = extractDataProviderEndpointsData(
+    assistantContent,
+    toolContent,
+    isSuccess,
+    toolTimestamp,
+    assistantTimestamp
+  );
 
-  const extractProviderName = (content: string | object | undefined | null): string => {
-    const contentStr = normalizeContentToString(content);
-    const serviceName = extractServiceName(contentStr || '');
-    if (serviceName) {
-      return serviceName.toLowerCase();
-    }
-
-    if (!contentStr) return 'linkedin';
-
-    const content_lower = contentStr.toLowerCase();
-    
-    if (content_lower.includes('linkedin')) return 'linkedin';
-    if (content_lower.includes('twitter')) return 'twitter';
-    if (content_lower.includes('zillow')) return 'zillow';
-    if (content_lower.includes('amazon')) return 'amazon';
-    if (content_lower.includes('yahoo') || content_lower.includes('finance')) return 'yahoo_finance';
-    if (content_lower.includes('jobs') || content_lower.includes('active')) return 'active_jobs';
-    
-    return 'linkedin';
-  };
-
-  useEffect(() => {
-    const provider = extractProviderName(assistantContent || toolContent);
-    setDetectedProvider(provider);
-  }, [assistantContent, toolContent]);
-
-  const providerConfig = detectedProvider ? PROVIDER_CONFIG[detectedProvider] : PROVIDER_CONFIG['linkedin'];
+  const providerConfig = serviceName && PROVIDER_CONFIG[serviceName] 
+    ? PROVIDER_CONFIG[serviceName] 
+    : PROVIDER_CONFIG['linkedin'];
   const IconComponent = providerConfig.icon;
+
+  const endpointCount = endpoints && typeof endpoints === 'object' ? Object.keys(endpoints).length : 0;
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
@@ -133,17 +116,17 @@ export function DataProviderEndpointsToolView({
               variant="secondary" 
               className={cn(
                 "text-xs font-medium",
-                isSuccess 
+                actualIsSuccess 
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800" 
                   : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
               )}
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3 w-3 mr-1" />
               ) : (
                 <AlertTriangle className="h-3 w-3 mr-1" />
               )}
-              {isSuccess ? 'Loaded' : 'Failed'}
+              {actualIsSuccess ? 'Loaded' : 'Failed'}
             </Badge>
           )}
         </div>
@@ -180,7 +163,7 @@ export function DataProviderEndpointsToolView({
                   {providerConfig.name}
                 </h3>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Endpoints loaded and ready
+                  {endpointCount > 0 ? `${endpointCount} endpoints loaded and ready` : 'Endpoints loaded and ready'}
                 </p>
               </div>
               
@@ -188,17 +171,17 @@ export function DataProviderEndpointsToolView({
                 variant="secondary" 
                 className={cn(
                   "text-xs font-medium",
-                  isSuccess 
+                  actualIsSuccess 
                     ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800" 
                     : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
                 )}
               >
-                {isSuccess ? (
+                {actualIsSuccess ? (
                   <CheckCircle className="h-3 w-3 mr-1" />
                 ) : (
                   <AlertTriangle className="h-3 w-3 mr-1" />
                 )}
-                {isSuccess ? 'Connected' : 'Failed'}
+                {actualIsSuccess ? 'Connected' : 'Failed'}
               </Badge>
             </div>
             <div className="space-y-4">
@@ -219,17 +202,17 @@ export function DataProviderEndpointsToolView({
                     variant="secondary" 
                     className={cn(
                       "text-xs font-medium",
-                      isSuccess 
+                      actualIsSuccess 
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800" 
                         : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
                     )}
                   >
-                    {isSuccess ? (
+                    {actualIsSuccess ? (
                       <CheckCircle className="h-3 w-3 mr-1" />
                     ) : (
                       <AlertTriangle className="h-3 w-3 mr-1" />
                     )}
-                    {isSuccess ? 'Active' : 'Inactive'}
+                    {actualIsSuccess ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
                 
@@ -241,7 +224,7 @@ export function DataProviderEndpointsToolView({
                     </span>
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    Ready
+                    {endpointCount > 0 ? `${endpointCount} endpoints` : 'Ready'}
                   </Badge>
                 </div>
                 
@@ -253,11 +236,11 @@ export function DataProviderEndpointsToolView({
                     </span>
                   </div>
                   <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
-                    {detectedProvider || 'linkedin'}
+                    {serviceName || 'linkedin'}
                   </span>
                 </div>
               </div>
-              {isSuccess && (
+              {actualIsSuccess && (
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400/70" />
@@ -286,13 +269,13 @@ export function DataProviderEndpointsToolView({
         </div>
         
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>
     </Card>
   );
-}
+} 
