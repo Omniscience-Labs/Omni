@@ -185,19 +185,19 @@ export function BrowserToolView({
 
     if (screenshotUrl) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative" style={{ minHeight: '600px' }}>
+        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4" style={{ minHeight: '600px' }}>
           {imageLoading && (
             <ImageLoader />
           )}
-          <img
-            src={screenshotUrl}
-            alt="Browser Screenshot"
-            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-              imageLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
+          <Card className={`p-0 overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
+            <img
+              src={screenshotUrl}
+              alt="Browser Screenshot"
+              className="max-w-full max-h-full object-contain"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          </Card>
           {imageError && !imageLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
               <div className="text-center text-zinc-500 dark:text-zinc-400">
@@ -210,19 +210,19 @@ export function BrowserToolView({
       );
     } else if (screenshotBase64) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative" style={{ minHeight: '600px' }}>
+        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4" style={{ minHeight: '600px' }}>
           {imageLoading && (
             <ImageLoader />
           )}
-          <img
-            src={`data:image/jpeg;base64,${screenshotBase64}`}
-            alt="Browser Screenshot"
-            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-              imageLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
+          <Card className={`overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
+            <img
+              src={`data:image/jpeg;base64,${screenshotBase64}`}
+              alt="Browser Screenshot"
+              className="max-w-full max-h-full object-contain"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          </Card>
           {imageError && !imageLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
               <div className="text-center text-zinc-500 dark:text-zinc-400">
@@ -280,7 +280,7 @@ export function BrowserToolView({
       </CardHeader>
 
       <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)', minHeight: '600px' }}>
-        <div className="flex-1 flex h-full items-stretch bg-black">
+        <div className="flex-1 flex h-full items-stretch bg-white dark:bg-black">
           {isLastToolCall ? (
             isRunning && vncIframe ? (
               <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px]" style={{ minHeight: '600px' }}>
@@ -328,31 +328,29 @@ export function BrowserToolView({
             )
           ) :
           (screenshotUrl || screenshotBase64) ? (
-            <div className="flex items-center justify-center w-full h-full overflow-auto relative">
+            <div className="flex items-center justify-center w-full h-full overflow-auto relative p-4">
               {imageLoading && (
                 <ImageLoader />
               )}
-              {screenshotUrl ? (
-                <img
-                  src={screenshotUrl}
-                  alt="Browser Screenshot"
-                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-                    imageLoading ? 'opacity-0' : 'opacity-100'
-                  }`}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                />
-              ) : (
-                <img
-                  src={`data:image/jpeg;base64,${screenshotBase64}`}
-                  alt="Browser Screenshot"
-                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-                    imageLoading ? 'opacity-0' : 'opacity-100'
-                  }`}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                />
-              )}
+              <Card className={`p-0 overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
+                {screenshotUrl ? (
+                  <img
+                    src={screenshotUrl}
+                    alt="Browser Screenshot"
+                    className="max-w-full max-h-full object-contain"
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                  />
+                ) : (
+                  <img
+                    src={`data:image/jpeg;base64,${screenshotBase64}`}
+                    alt="Browser Screenshot"
+                    className="max-w-full max-h-full object-contain"
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                  />
+                )}
+              </Card>
               {imageError && !imageLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
                   <div className="text-center text-zinc-500 dark:text-zinc-400">
@@ -378,7 +376,6 @@ export function BrowserToolView({
         </div>
       </CardContent>
 
-      {/* Footer */}
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isRunning && (

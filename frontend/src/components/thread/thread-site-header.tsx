@@ -12,12 +12,15 @@ import {
 } from "@/components/ui/tooltip"
 import { useState, useRef, KeyboardEvent } from "react"
 import { Input } from "@/components/ui/input"
-import { updateProject } from "@/lib/api"
+import { useUpdateProject } from "@/hooks/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { useSidebar } from "@/components/ui/sidebar"
 import { ShareModal } from "@/components/sidebar/share-modal"
+import { useQueryClient } from "@tanstack/react-query";
+import { projectKeys } from "@/hooks/react-query/sidebar/keys";
+import { threadKeys } from "@/hooks/react-query/threads/keys";
 
 interface ThreadSiteHeaderProps {
   threadId: string;
@@ -44,10 +47,12 @@ export function SiteHeader({
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(projectName)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [showShareModal, setShowShareModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false);
+  const queryClient = useQueryClient();
 
   const isMobile = useIsMobile() || isMobileView
   const { setOpenMobile } = useSidebar()
+  const updateProjectMutation = useUpdateProject()
 
   const openShareModal = () => {
     setShowShareModal(true)
@@ -83,10 +88,13 @@ export function SiteHeader({
           return;
         }
 
-        const updatedProject = await updateProject(projectId, { name: editName })
+        const updatedProject = await updateProjectMutation.mutateAsync({
+          projectId,
+          data: { name: editName }
+        })
         if (updatedProject) {
           onProjectRenamed?.(editName);
-          toast.success('Project renamed successfully');
+          queryClient.invalidateQueries({ queryKey: threadKeys.project(projectId) });
         } else {
           throw new Error('Failed to update project');
         }

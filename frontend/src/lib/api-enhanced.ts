@@ -156,10 +156,6 @@ export const projectsApi = {
       { operation: 'create project', resource: 'project' }
     );
 
-    if (result.success && result.data) {
-      handleApiSuccess('Project created successfully', `"${result.data.name}" is ready to use`);
-    }
-
     return result.data || null;
   },
 
@@ -215,11 +211,6 @@ export const projectsApi = {
       },
       { operation: 'update project', resource: `project ${projectId}` }
     );
-
-    if (result.success && result.data) {
-      handleApiSuccess('Project updated successfully');
-    }
-
     return result.data || null;
   },
 
@@ -236,11 +227,6 @@ export const projectsApi = {
       },
       { operation: 'delete project', resource: `project ${projectId}` }
     );
-
-    if (result.success) {
-      handleApiSuccess('Project deleted successfully');
-    }
-
     return result.success;
   },
 };
@@ -321,11 +307,6 @@ export const threadsApi = {
       },
       { operation: 'create thread', resource: 'thread' }
     );
-
-    if (result.success && result.data) {
-      handleApiSuccess('New conversation started');
-    }
-
     return result.data || null;
   },
 };
@@ -348,11 +329,6 @@ export const agentApi = {
         timeout: 60000,
       }
     );
-
-    if (result.success && result.data) {
-      handleApiSuccess('AI assistant started', 'Your request is being processed');
-    }
-
     return result.data || null;
   },
 

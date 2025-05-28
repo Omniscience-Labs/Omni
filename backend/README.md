@@ -80,3 +80,13 @@ REDIS_PASSWORD=
 RABBITMQ_HOST=localhost (instead of 'rabbitmq')
 RABBITMQ_PORT=5672
 ```
+
+---
+
+## Production Setup
+
+For production deployments, use the following command to set resource limits
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```

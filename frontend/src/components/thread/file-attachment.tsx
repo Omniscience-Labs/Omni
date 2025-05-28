@@ -521,7 +521,7 @@ export function FileAttachment({
 
 interface FileAttachmentGridProps {
     attachments: string[];
-    onFileClick?: (path: string) => void;
+    onFileClick?: (path: string, filePathList?: string[]) => void;
     className?: string;
     sandboxId?: string;
     showPreviews?: boolean;

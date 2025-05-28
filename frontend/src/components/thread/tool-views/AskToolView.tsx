@@ -57,7 +57,7 @@ export function AskToolView({
     if (assistantContent) {
       try {
         const contentStr = normalizeContentToString(assistantContent);
-        
+
         // Extract attachments if present
         const attachmentsMatch = contentStr.match(/attachments=["']([^"']*)["']/i);
         if (attachmentsMatch) {
@@ -92,13 +92,13 @@ export function AskToolView({
               </CardTitle>
             </div>
           </div>
-          
+
           {!isStreaming && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={
-                isSuccess 
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                isSuccess
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
@@ -129,12 +129,12 @@ export function AskToolView({
                   <Paperclip className="h-4 w-4" />
                   Files ({askData.attachments.length})
                 </div>
-                
+
                 <div className={cn(
                   "grid gap-3",
                   askData.attachments.length === 1 ? "grid-cols-1" :
-                  askData.attachments.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
-                  "grid-cols-1 sm:grid-cols-2"
+                    askData.attachments.length > 4 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" :
+                      "grid-cols-1 sm:grid-cols-2"
                 )}>
                   {askData.attachments
                     .sort((a, b) => {
@@ -142,7 +142,7 @@ export function AskToolView({
                       const bIsImage = isImageFile(b);
                       const aIsPreviewable = isPreviewableFile(a);
                       const bIsPreviewable = isPreviewableFile(b);
-                      
+
                       if (aIsImage && !bIsImage) return -1;
                       if (!aIsImage && bIsImage) return 1;
                       if (aIsPreviewable && !bIsPreviewable) return -1;
@@ -152,10 +152,10 @@ export function AskToolView({
                     .map((attachment, index) => {
                       const isImage = isImageFile(attachment);
                       const isPreviewable = isPreviewableFile(attachment);
-                      const shouldSpanFull = (askData.attachments!.length % 2 === 1 && 
-                                            askData.attachments!.length > 1 && 
-                                            index === askData.attachments!.length - 1);
-                      
+                      const shouldSpanFull = (askData.attachments!.length % 2 === 1 &&
+                        askData.attachments!.length > 1 &&
+                        index === askData.attachments!.length - 1);
+
                       return (
                         <div
                           key={index}
@@ -174,7 +174,7 @@ export function AskToolView({
                             className={cn(
                               "w-full",
                               isImage ? "h-auto min-h-[54px]" :
-                              isPreviewable ? "min-h-[240px] max-h-[400px] overflow-auto" : "h-[54px]"
+                                isPreviewable ? "min-h-[240px] max-h-[400px] overflow-auto" : "h-[54px]"
                             )}
                             customStyle={
                               isImage ? {
@@ -182,14 +182,14 @@ export function AskToolView({
                                 height: 'auto',
                                 '--attachment-height': shouldSpanFull ? '240px' : '180px'
                               } as React.CSSProperties :
-                              isPreviewable ? {
-                                gridColumn: '1 / -1'
-                              } :
-                              shouldSpanFull ? {
-                                gridColumn: '1 / -1'
-                              } : {
-                                width: '100%'
-                              }
+                                isPreviewable ? {
+                                  gridColumn: '1 / -1'
+                                } :
+                                  shouldSpanFull ? {
+                                    gridColumn: '1 / -1'
+                                  } : {
+                                    width: '100%'
+                                  }
                             }
                             collapsed={false}
                             project={project}
@@ -198,7 +198,7 @@ export function AskToolView({
                       );
                     })}
                 </div>
-                
+
                 {assistantTimestamp && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
@@ -230,7 +230,7 @@ export function AskToolView({
             User Interaction
           </Badge>
         </div>
-        
+
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
           {assistantTimestamp ? formatTimestamp(assistantTimestamp) : ''}
         </div>

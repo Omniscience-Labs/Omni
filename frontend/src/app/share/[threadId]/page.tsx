@@ -361,9 +361,9 @@ export default function ThreadPage({
 
         const projectData = threadData?.project_id
           ? await getProject(threadData.project_id).catch((err) => {
-              console.warn('[SHARE] Could not load project data:', err);
-              return null;
-            })
+            console.warn('[SHARE] Could not load project data:', err);
+            return null;
+          })
           : null;
 
         if (isMounted) {
@@ -423,7 +423,7 @@ export default function ThreadPage({
                     return assistantMsg.content;
                   }
                 })();
-                
+
                 // Try to extract tool name from content
                 const xmlMatch = assistantContent.match(
                   /<([a-zA-Z\-_]+)(?:\s+[^>]*)?>|<([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/,
@@ -460,7 +460,7 @@ export default function ThreadPage({
                     return resultMessage.content;
                   }
                 })();
-                
+
                 // Check for ToolResult pattern first
                 if (toolResultContent && typeof toolResultContent === 'string') {
                   // Look for ToolResult(success=True/False) pattern
@@ -612,7 +612,7 @@ export default function ThreadPage({
     [messages, toolCalls],
   );
 
-  const handleOpenFileViewer = useCallback((filePath?: string) => {
+  const handleOpenFileViewer = useCallback((filePath?: string, filePathList?: string[]) => {
     if (filePath) {
       setFileToView(filePath);
     } else {
@@ -721,7 +721,7 @@ export default function ThreadPage({
               (m) => m.message_id === assistantId && m.type === 'assistant'
             );
             if (!assistantMessage) return false;
-            
+
             // Check if this tool call matches
             return tc.assistantCall?.content === assistantMessage.content;
           });
