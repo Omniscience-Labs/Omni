@@ -21,6 +21,7 @@ import {
   cleanUrl,
   formatTimestamp,
   getToolTitle,
+  extractToolData,
 } from './utils';
 import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -45,24 +46,204 @@ export function WebSearchToolView({
   const isDarkTheme = resolvedTheme === 'dark';
   const [expandedResults, setExpandedResults] = useState<Record<number, boolean>>({});
 
-  const query = extractSearchQuery(assistantContent);
-  console.log('toolContent', toolContent);
-  const searchResults = extractSearchResults(toolContent);
-  const toolTitle = getToolTitle(name);
+  // Enhanced data extraction with support for both old and new formats
+  let query: string | null = null;
+  let searchResults: Array<{ title: string; url: string; snippet?: string }> = [];
+  let answer: string | null = null;
+  let images: string[] = [];
+  let actualIsSuccess = isSuccess;
+  let actualToolTimestamp = toolTimestamp;
+  let actualAssistantTimestamp = assistantTimestamp;
 
-  // Extract additional data from response
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [images, setImages] = useState<string[]>([]);
+  // Debug logging
+  console.log('WebSearchToolView: Input data:', {
+    assistantContent,
+    toolContent,  
+    isStreaming
+  });
 
-  // Toggle result expansion
-  const toggleExpand = (idx: number) => {
-    setExpandedResults(prev => ({
-      ...prev,
-      [idx]: !prev[idx]
-    }));
+  // Helper function to extract web search data from new format
+  const extractFromNewFormat = (content: any): { 
+    query: string | null; 
+    results: Array<{ title: string; url: string; snippet?: string }>; 
+    answer: string | null; 
+    images: string[]; 
+    success?: boolean; 
+    timestamp?: string 
+  } => {
+    if (!content) {
+      return { query: null, results: [], answer: null, images: [], success: undefined, timestamp: undefined };
+    }
+
+    // If content is a string, try to parse it as JSON first
+    let parsedContent = content;
+    if (typeof content === 'string') {
+      try {
+        parsedContent = JSON.parse(content);
+      } catch (e) {
+        console.warn('WebSearchToolView: Failed to parse content as JSON:', e);
+        return { query: null, results: [], answer: null, images: [], success: undefined, timestamp: undefined };
+      }
+    }
+
+    if (typeof parsedContent !== 'object' || parsedContent === null) {
+      return { query: null, results: [], answer: null, images: [], success: undefined, timestamp: undefined };
+    }
+
+    // Check for new structured format with tool_execution
+    if ('tool_execution' in parsedContent && typeof parsedContent.tool_execution === 'object') {
+      const toolExecution = parsedContent.tool_execution;
+      const args = toolExecution.arguments || {};
+      
+      let parsedOutput = null;
+      try {
+        // Parse the output JSON string
+        if (toolExecution.result?.output) {
+          parsedOutput = JSON.parse(toolExecution.result.output);
+        }
+      } catch (e) {
+        console.warn('WebSearchToolView: Failed to parse tool execution output:', e);
+        console.warn('Raw output:', toolExecution.result?.output);
+      }
+
+      const extractedData = {
+        query: args.query || parsedOutput?.query || null,
+        results: parsedOutput?.results?.map((result: any) => ({
+          title: result.title || '',
+          url: result.url || '',
+          snippet: result.content || result.snippet || ''
+        })) || [],
+        answer: parsedOutput?.answer || null,
+        images: parsedOutput?.images || [],
+        success: toolExecution.result?.success,
+        timestamp: toolExecution.execution_details?.timestamp
+      };
+
+      console.log('WebSearchToolView: Extracted from new format:', {
+        query: extractedData.query,
+        resultsCount: extractedData.results.length,
+        hasAnswer: !!extractedData.answer,
+        imagesCount: extractedData.images.length,
+        success: extractedData.success,
+        firstResult: extractedData.results[0]
+      });
+      
+      return extractedData;
+    }
+
+    // Check for nested format with role and content
+    if ('role' in parsedContent && 'content' in parsedContent) {
+      return extractFromNewFormat(parsedContent.content);
+    }
+
+    return { query: null, results: [], answer: null, images: [], success: undefined, timestamp: undefined };
   };
 
-  useEffect(() => {
+  // Helper function to extract web search data from legacy format
+  const extractFromLegacyFormat = (content: any): { 
+    query: string | null; 
+    results: Array<{ title: string; url: string; snippet?: string }>; 
+    answer: string | null; 
+    images: string[] 
+  } => {
+    // Try to extract data using the existing parser first
+    const toolData = extractToolData(content);
+    
+    if (toolData.toolResult) {
+      const args = toolData.arguments || {};
+      
+      console.log('WebSearchToolView: Extracted from legacy format (extractToolData):', {
+        query: toolData.query || args.query,
+        resultsCount: 0 // Will be extracted separately
+      });
+      
+      return {
+        query: toolData.query || args.query || null,
+        results: [], // Will be extracted using extractSearchResults
+        answer: null, // Will be extracted separately
+        images: [] // Will be extracted separately
+      };
+    }
+
+    // Fall back to legacy extraction methods
+    const legacyQuery = extractSearchQuery(content);
+    
+    console.log('WebSearchToolView: Extracted from legacy format (fallback):', {
+      query: legacyQuery,
+      resultsCount: 0 // Will be extracted separately
+    });
+    
+    return {
+      query: legacyQuery,
+      results: [], // Will be extracted using extractSearchResults
+      answer: null, // Will be extracted separately
+      images: [] // Will be extracted separately
+    };
+  };
+
+  // Try to extract from new format first (both assistant and tool content)
+  const assistantNewFormat = extractFromNewFormat(assistantContent);
+  const toolNewFormat = extractFromNewFormat(toolContent);
+
+  console.log('WebSearchToolView: Format detection results:', {
+    assistantNewFormat: {
+      hasQuery: !!assistantNewFormat.query,
+      resultsCount: assistantNewFormat.results.length,
+      hasAnswer: !!assistantNewFormat.answer,
+      imagesCount: assistantNewFormat.images.length
+    },
+    toolNewFormat: {
+      hasQuery: !!toolNewFormat.query,
+      resultsCount: toolNewFormat.results.length,
+      hasAnswer: !!toolNewFormat.answer,
+      imagesCount: toolNewFormat.images.length
+    }
+  });
+
+  // Use new format data if available
+  if (assistantNewFormat.query || assistantNewFormat.results.length > 0) {
+    query = assistantNewFormat.query;
+    searchResults = assistantNewFormat.results;
+    answer = assistantNewFormat.answer;
+    images = assistantNewFormat.images;
+    if (assistantNewFormat.success !== undefined) {
+      actualIsSuccess = assistantNewFormat.success;
+    }
+    if (assistantNewFormat.timestamp) {
+      actualAssistantTimestamp = assistantNewFormat.timestamp;
+    }
+    console.log('WebSearchToolView: Using assistant new format data');
+  } else if (toolNewFormat.query || toolNewFormat.results.length > 0) {
+    query = toolNewFormat.query;
+    searchResults = toolNewFormat.results;
+    answer = toolNewFormat.answer;
+    images = toolNewFormat.images;
+    if (toolNewFormat.success !== undefined) {
+      actualIsSuccess = toolNewFormat.success;
+    }
+    if (toolNewFormat.timestamp) {
+      actualToolTimestamp = toolNewFormat.timestamp;
+    }
+    console.log('WebSearchToolView: Using tool new format data');
+  } else {
+    // Fall back to legacy format extraction
+    const assistantLegacy = extractFromLegacyFormat(assistantContent);
+    const toolLegacy = extractFromLegacyFormat(toolContent);
+
+    // Use assistant content first, then tool content as fallback
+    query = assistantLegacy.query || toolLegacy.query;
+    
+    // Extract search results using legacy method
+    const legacyResults = extractSearchResults(toolContent);
+    searchResults = legacyResults;
+    
+    console.log('WebSearchToolView: Using legacy format data:', {
+      query,
+      legacyResultsCount: legacyResults.length,
+      firstLegacyResult: legacyResults[0]
+    });
+    
+    // Extract additional data from legacy format
     if (toolContent) {
       try {
         // Handle both string and object formats
@@ -77,17 +258,47 @@ export function WebSearchToolView({
 
         // Check if it's the response format with answer
         if (parsedContent.answer && typeof parsedContent.answer === 'string') {
-          setAnswer(parsedContent.answer);
+          answer = parsedContent.answer;
         }
         // Check for images array
         if (parsedContent.images && Array.isArray(parsedContent.images)) {
-          setImages(parsedContent.images);
+          images = parsedContent.images;
         }
       } catch (e) {
         // Silently fail - the view will work without these extras
       }
     }
-  }, [toolContent]);
+  }
+
+  // Additional legacy extraction for edge cases
+  if (!query) {
+    query = extractSearchQuery(assistantContent) || extractSearchQuery(toolContent);
+  }
+  
+  if (searchResults.length === 0) {
+    const fallbackResults = extractSearchResults(toolContent);
+    searchResults = fallbackResults;
+    console.log('WebSearchToolView: Fallback extraction results:', fallbackResults.length);
+  }
+
+  console.log('WebSearchToolView: Final extracted data:', {
+    query,
+    searchResultsCount: searchResults.length,
+    hasAnswer: !!answer,
+    imagesCount: images.length,
+    actualIsSuccess,
+    firstResult: searchResults[0]
+  });
+
+  const toolTitle = getToolTitle(name);
+
+  // Toggle result expansion
+  const toggleExpand = (idx: number) => {
+    setExpandedResults(prev => ({
+      ...prev,
+      [idx]: !prev[idx]
+    }));
+  };
 
   // Helper to determine favicon 
   const getFavicon = (url: string) => {
@@ -132,24 +343,24 @@ export function WebSearchToolView({
             <Badge
               variant="secondary"
               className={
-                isSuccess
+                actualIsSuccess
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5" />
               )}
-              {isSuccess ? 'Search completed successfully' : 'Search failed'}
+              {actualIsSuccess ? 'Search completed successfully' : 'Search failed'}
             </Badge>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
-        {isStreaming ? (
+        {isStreaming && searchResults.length === 0 && !answer ? (
           <LoadingState
             icon={Search}
             iconColor="text-blue-500 dark:text-blue-400"
@@ -161,18 +372,6 @@ export function WebSearchToolView({
         ) : searchResults.length > 0 || answer ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4 py-0 my-4">
-              {answer && (
-                <div className="mb-6 bg-blue-50/70 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 shadow-sm">
-                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center">
-                    <Search className="h-4 w-4 mr-2 opacity-70" />
-                    Answer
-                  </h3>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans">
-                    {answer}
-                  </p>
-                </div>
-              )}
-
               {images.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3 flex items-center">
@@ -227,7 +426,6 @@ export function WebSearchToolView({
               <div className="space-y-4">
                 {searchResults.map((result, idx) => {
                   const { icon: ResultTypeIcon, label: resultTypeLabel } = getResultType(result);
-                  console.log('result', result);
                   const isExpanded = expandedResults[idx] || false;
                   const favicon = getFavicon(result.url);
 
@@ -363,10 +561,10 @@ export function WebSearchToolView({
         </div>
 
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>

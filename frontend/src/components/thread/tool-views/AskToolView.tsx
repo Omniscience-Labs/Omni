@@ -15,6 +15,7 @@ import {
   getToolTitle,
   normalizeContentToString,
   getFileIconAndColor,
+  extractToolData,
 } from './utils';
 import { cn, truncateString } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +57,20 @@ export function AskToolView({
   useEffect(() => {
     if (assistantContent) {
       try {
+        // Try to extract data using the new parser first
+        const { toolResult } = extractToolData(assistantContent);
+        
+        if (toolResult && toolResult.arguments) {
+          // New format - attachments are in arguments
+          const attachments = toolResult.arguments.attachments;
+          if (attachments) {
+            const attachmentList = Array.isArray(attachments) ? attachments : [attachments];
+            setAskData(prev => ({ ...prev, attachments: attachmentList }));
+            return;
+          }
+        }
+        
+        // Fall back to legacy extraction
         const contentStr = normalizeContentToString(assistantContent);
 
         // Extract attachments if present

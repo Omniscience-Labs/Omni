@@ -22,6 +22,9 @@ import {
   formatTimestamp,
   getToolTitle,
   normalizeContentToString,
+  extractCrawlUrl,
+  extractWebpageContent,
+  extractToolData,
 } from './utils';
 import { cn, truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -46,6 +49,21 @@ export function WebScrapeToolView({
   const [progress, setProgress] = useState(0);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
+  // Try to extract data using the new parser first
+  const assistantToolData = extractToolData(assistantContent);
+  const toolToolData = extractToolData(toolContent);
+
+  let url: string | null = null;
+
+  // Use data from the new format if available
+  if (assistantToolData.toolResult) {
+    url = assistantToolData.url;
+  } else if (toolToolData.toolResult) {
+    url = toolToolData.url;
+  }
+
+  // If not found in new format, fall back to legacy extraction
+  
   // Extract URL from the scrape-webpage tag in assistantContent
   const extractScrapeUrl = (content: string | object | undefined | null): string | null => {
     const contentStr = normalizeContentToString(content);
@@ -61,6 +79,10 @@ export function WebScrapeToolView({
     const httpMatch = contentStr.match(/https?:\/\/[^\s<>"]+/);
     return httpMatch ? httpMatch[0] : null;
   };
+
+  if (!url) {
+    url = extractScrapeUrl(assistantContent);
+  }
 
   // Extract scrape results from tool output
   const extractScrapeResults = (content: string | object | undefined | null): { 
@@ -94,7 +116,6 @@ export function WebScrapeToolView({
     };
   };
 
-  const url = extractScrapeUrl(assistantContent);
   const scrapeResults = extractScrapeResults(toolContent);
   const toolTitle = getToolTitle(name);
 

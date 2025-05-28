@@ -24,6 +24,7 @@ import {
   formatTimestamp,
   getToolTitle,
   normalizeContentToString,
+  extractToolData,
 } from './utils';
 import { GenericToolView } from './GenericToolView';
 import {
@@ -172,108 +173,22 @@ export function FileOperationToolView({
   let filePath: string | null = null;
   let fileContent: string | null = null;
 
-  // console.log('[FileOperationToolView] Debug:', {
-  //   isStreaming,
-  //   assistantContent,
-  //   assistantContentType: typeof assistantContent,
-  // });
+  // Try to extract data using the new parser first
+  const assistantToolData = extractToolData(assistantContent);
+  const toolToolData = extractToolData(toolContent);
 
-  if (assistantContent) {
-    try {
-      const parsed = typeof assistantContent === 'string' ? JSON.parse(assistantContent) : assistantContent;
-      if (parsed && typeof parsed === 'object' && 'role' in parsed && 'content' in parsed) {
-        const messageContent = parsed.content;
-        console.log('[FileOperationToolView] Found message format, content:', messageContent?.substring(0, 200));
-
-        if (typeof messageContent === 'string') {
-          const filePathPatterns = [
-            /file_path=["']([^"']*?)["']/i,
-            /<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']*)/i,
-          ];
-
-          for (const pattern of filePathPatterns) {
-            const match = messageContent.match(pattern);
-            if (match && match[1]) {
-              filePath = match[1];
-              console.log('[FileOperationToolView] Extracted file path:', filePath);
-              break;
-            }
-          }
-
-          if (operation !== 'delete' && !fileContent) {
-            const tagName = operation === 'create' ? 'create-file' : 'full-file-rewrite';
-            const openTagMatch = messageContent.match(new RegExp(`<${tagName}[^>]*>`, 'i'));
-            if (openTagMatch) {
-              const tagEndIndex = messageContent.indexOf(openTagMatch[0]) + openTagMatch[0].length;
-              const afterTag = messageContent.substring(tagEndIndex);
-              const closeTagMatch = afterTag.match(new RegExp(`<\\/${tagName}>`, 'i'));
-              fileContent = closeTagMatch
-                ? afterTag.substring(0, closeTagMatch.index)
-                : afterTag;
-              console.log('[FileOperationToolView] Extracted file content length:', fileContent?.length);
-            }
-          }
-        }
-      }
-      else if (parsed && typeof parsed === 'object') {
-        console.log('[FileOperationToolView] Checking direct object format');
-        if ('file_path' in parsed) {
-          filePath = parsed.file_path;
-        }
-        if ('content' in parsed && operation !== 'delete') {
-          fileContent = parsed.content;
-        }
-
-        if ('arguments' in parsed && parsed.arguments) {
-          const args = typeof parsed.arguments === 'string' ? JSON.parse(parsed.arguments) : parsed.arguments;
-          if (args.file_path) {
-            filePath = args.file_path;
-          }
-          if (args.content && operation !== 'delete') {
-            fileContent = args.content;
-          }
-        }
-      }
-    } catch (e) {
-      if (typeof assistantContent === 'string') {
-        const filePathPatterns = [
-          /file_path=["']([^"']*)/i,
-          /<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']*)/i,
-          /<file_path>([^<]*)/i,
-        ];
-
-        for (const pattern of filePathPatterns) {
-          const match = assistantContent.match(pattern);
-          if (match && match[1]) {
-            filePath = match[1];
-            console.log('[FileOperationToolView] Extracted file path from string:', filePath);
-            break;
-          }
-        }
-
-        if (operation !== 'delete' && !fileContent) {
-          const tagName = operation === 'create' ? 'create-file' : 'full-file-rewrite';
-          const contentAfterTag = assistantContent.split(`<${tagName}`)[1];
-          if (contentAfterTag) {
-            const tagEndIndex = contentAfterTag.indexOf('>');
-            if (tagEndIndex !== -1) {
-              const potentialContent = contentAfterTag.substring(tagEndIndex + 1);
-              const closingTagIndex = potentialContent.indexOf(`</${tagName}>`);
-              fileContent = closingTagIndex !== -1
-                ? potentialContent.substring(0, closingTagIndex)
-                : potentialContent;
-            }
-          }
-        }
-      }
-    }
+  // Use data from the new format if available
+  if (assistantToolData.toolResult) {
+    filePath = assistantToolData.filePath;
+    fileContent = assistantToolData.fileContent;
+  } else if (toolToolData.toolResult) {
+    filePath = toolToolData.filePath;
+    fileContent = toolToolData.fileContent;
   }
 
-  // console.log('[FileOperationToolView] After initial extraction:', { filePath, hasFileContent: !!fileContent });
-
+  // If not found in new format, fall back to legacy extraction methods
   if (!filePath) {
     filePath = extractFilePath(assistantContent);
-    // console.log('[FileOperationToolView] After extractFilePath utility:', filePath);
   }
 
   if (!fileContent && operation !== 'delete') {
@@ -286,7 +201,6 @@ export function FileOperationToolView({
         assistantContent,
         operation === 'create' ? 'create-file' : 'full-file-rewrite',
       );
-    // console.log('[FileOperationToolView] After content extraction utilities:', { hasFileContent: !!fileContent, contentLength: fileContent?.length });
   }
 
   const toolTitle = getToolTitle(name || `file-${operation}`);

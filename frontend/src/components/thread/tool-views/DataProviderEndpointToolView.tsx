@@ -16,7 +16,9 @@ import {
 import { ToolViewProps } from './types';
 import {
   formatTimestamp,
+  getToolTitle,
   normalizeContentToString,
+  extractToolData,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

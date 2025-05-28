@@ -62,31 +62,20 @@ class SandboxWebSearchTool(SandboxToolsBase):
             {"param_name": "num_results", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <!-- 
-        The web-search tool allows you to search the internet for real-time information.
-        Use this tool when you need to find current information, research topics, or verify facts.
-        
-        THE TOOL NOW RETURNS:
-        - Direct answer to your query from search results
-        - Relevant images when available
-        - Detailed search results including titles, URLs, and snippets
-        
-        WORKFLOW RECOMMENDATION:
-        1. Use web-search first with a specific question to get direct answers
-        2. Only use scrape-webpage if you need more detailed information from specific pages
-        -->
-        
-        <!-- Simple search example -->
-        <web-search 
-            query="what is Kortix AI and what are they building?" 
-            num_results="20">
-        </web-search>
+        <function_calls>
+        <invoke name="web_search">
+        <parameter name="query">what is Kortix AI and what are they building?</parameter>
+        <parameter name="num_results">20</parameter>
+        </invoke>
+        </function_calls>
         
         <!-- Another search example -->
-        <web-search 
-            query="latest AI research on transformer models" 
-            num_results="20">
-        </web-search>
+        <function_calls>
+        <invoke name="web_search">
+        <parameter name="query">latest AI research on transformer models</parameter>
+        <parameter name="num_results">20</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def web_search(
@@ -178,50 +167,11 @@ class SandboxWebSearchTool(SandboxToolsBase):
             {"param_name": "urls", "node_type": "attribute", "path": "."}
         ],
         example='''
-  <!-- 
-        IMPORTANT: The scrape-webpage tool should ONLY be used when you absolutely need
-        the full content of specific web pages that can't be answered by web-search alone.
-        
-        WORKFLOW PRIORITY:
-        1. ALWAYS use web-search first - it now provides direct answers to questions
-        2. Only use scrape-webpage when you need specific details not found in the search results
-        3. Remember that web-search now returns:
-           - Direct answers to your query
-           - Relevant images
-           - Detailed search result snippets
-        
-        When to use scrape-webpage:
-        - When you need complete article text beyond what search snippets provide
-        - For extracting structured data from specific pages
-        - When analyzing lengthy documentation or guides
-        - For comparing detailed content across multiple sources
-        
-        When NOT to use scrape-webpage:
-        - When web-search already answers the query
-        - For simple fact-checking or basic information
-        - When only a high-level overview is needed
-        -->
-        
-        <!-- Example workflow: -->
-        <!-- 1. First search for relevant content with a specific question -->
-        <web-search 
-            query="what is Kortix AI and what are they building?" 
-            num_results="20">
-        </web-search>
-        
-        <!-- 2. Only if you need specific details not in the search results, then scrape -->
-        <scrape-webpage 
-            urls="https://www.kortix.ai/,https://github.com/kortix-ai/suna">
-        </scrape-webpage>
-        
-        <!-- 3. Only if scrape fails or interaction needed, use browser tools -->
-        <!-- Example of when to use browser tools:
-             - Dynamic content loading
-             - JavaScript-heavy sites
-             - Pages requiring login
-             - Interactive elements
-             - Infinite scroll pages
-        -->
+        <function_calls>
+        <invoke name="scrape_webpage">
+        <parameter name="urls">https://www.kortix.ai/,https://github.com/kortix-ai/suna</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def scrape_webpage(

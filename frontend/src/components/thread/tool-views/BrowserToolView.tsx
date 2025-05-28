@@ -13,6 +13,7 @@ import {
   extractBrowserOperation,
   formatTimestamp,
   getToolTitle,
+  extractToolData,
 } from './utils';
 import { safeJsonParse } from '@/components/thread/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +36,24 @@ export function BrowserToolView({
   currentIndex = 0,
   totalCalls = 1,
 }: ToolViewProps) {
-  const url = extractBrowserUrl(assistantContent);
+  // Try to extract data using the new parser first
+  const assistantToolData = extractToolData(assistantContent);
+  const toolToolData = extractToolData(toolContent);
+
+  let url: string | null = null;
+
+  // Use data from the new format if available
+  if (assistantToolData.toolResult) {
+    url = assistantToolData.url;
+  } else if (toolToolData.toolResult) {
+    url = toolToolData.url;
+  }
+
+  // If not found in new format, fall back to legacy extraction
+  if (!url) {
+    url = extractBrowserUrl(assistantContent);
+  }
+
   const operation = extractBrowserOperation(name);
   const toolTitle = getToolTitle(name);
 

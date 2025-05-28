@@ -252,6 +252,7 @@ async def run_agent(
 
             # Track if we see ask, complete, or web-browser-takeover tool calls
             last_tool_call = None
+            agent_should_terminate = False
 
             # Process the response
             error_detected = False
@@ -265,6 +266,32 @@ async def run_agent(
                         error_detected = True
                         yield chunk  # Forward the error chunk
                         continue     # Continue processing other chunks but don't break yet
+                    
+                    # Check for termination signal in status messages
+                    if chunk.get('type') == 'status':
+                        try:
+                            # Parse the metadata to check for termination signal
+                            metadata = chunk.get('metadata', {})
+                            if isinstance(metadata, str):
+                                metadata = json.loads(metadata)
+                            
+                            if metadata.get('agent_should_terminate'):
+                                agent_should_terminate = True
+                                logger.info("Agent termination signal detected in status message")
+                                trace.event(name="agent_termination_signal_detected", level="DEFAULT", status_message="Agent termination signal detected in status message")
+                                
+                                # Extract the tool name from the status content if available
+                                content = chunk.get('content', {})
+                                if isinstance(content, str):
+                                    content = json.loads(content)
+                                
+                                if content.get('function_name'):
+                                    last_tool_call = content['function_name']
+                                elif content.get('xml_tag_name'):
+                                    last_tool_call = content['xml_tag_name']
+                                    
+                        except Exception as e:
+                            logger.debug(f"Error parsing status message for termination check: {e}")
                         
                     # Check for XML versions like <ask>, <complete>, or <web-browser-takeover> in assistant content chunks
                     if chunk.get('type') == 'assistant' and 'content' in chunk:
@@ -279,8 +306,7 @@ async def run_agent(
                             # The actual text content is nested within
                             assistant_text = assistant_content_json.get('content', '')
                             full_response += assistant_text
-                            if isinstance(assistant_text, str): # Ensure it's a string
-                                 # Check for the closing tags as they signal the end of the tool usage
+                            if isinstance(assistant_text, str):
                                 if '</ask>' in assistant_text or '</complete>' in assistant_text or '</web-browser-takeover>' in assistant_text:
                                    if '</ask>' in assistant_text:
                                        xml_tool = 'ask'
@@ -309,7 +335,7 @@ async def run_agent(
                     generation.end(output=full_response, status_message="error_detected", level="ERROR")
                     break
                     
-                if last_tool_call in ['ask', 'complete', 'web-browser-takeover']:
+                if agent_should_terminate or last_tool_call in ['ask', 'complete', 'web-browser-takeover']:
                     logger.info(f"Agent decided to stop with tool: {last_tool_call}")
                     trace.event(name="agent_decided_to_stop_with_tool", level="DEFAULT", status_message=(f"Agent decided to stop with tool: {last_tool_call}"))
                     generation.end(output=full_response, status_message="agent_stopped")

@@ -10,7 +10,12 @@ import {
   Check
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, normalizeContentToString } from './utils';
+import {
+  formatTimestamp,
+  getToolTitle,
+  normalizeContentToString,
+  extractToolData,
+} from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

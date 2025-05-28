@@ -20,14 +20,15 @@ import {
 import { ToolViewProps } from './types';
 import {
   formatTimestamp,
+  getToolTitle,
   normalizeContentToString,
+  extractToolData,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-function parseDataProviderCall(message) {
-  // Match the opening tag and capture service_name & route in *any* order
+function parseDataProviderCall(message: string) {
   const tagRegex = /<execute-data-provider-call\b(?=[^>]*\bservice_name="([^"]+)")(?=[^>]*\broute="([^"]+)")[^>]*>/;
   const tagMatch = message.match(tagRegex);
 
@@ -35,19 +36,16 @@ function parseDataProviderCall(message) {
   let route = null;
 
   if (tagMatch) {
-    // tagMatch[1] is service_name, tagMatch[2] is route
     serviceName = tagMatch[1];
     route = tagMatch[2];
   }
 
-  // Capture the JSON payload between the tags
   const contentRegex = /<execute-data-provider-call\b[^>]*>\s*(\{[\s\S]*?\})\s*<\/execute-data-provider-call>/;
   const contentMatch = message.match(contentRegex);
 
   let jsonContent = null;
   if (contentMatch) {
     let jsonString = contentMatch[1].trim();
-    // unescape any \" sequences if needed
     jsonString = jsonString.replace(/\\"/g, '"');
     try {
       jsonContent = JSON.parse(jsonString);
@@ -130,9 +128,30 @@ export function ExecuteDataProviderCallToolView({
   }>({ serviceName: null, route: null, jsonContent: null });
 
   useEffect(() => {
-    const contentStr = normalizeContentToString(assistantContent || toolContent);
-    const parsed = parseDataProviderCall(contentStr || '');
-    setParsedCall(parsed);
+    // Try to extract data using the new parser first
+    const assistantToolData = extractToolData(assistantContent);
+    const toolToolData = extractToolData(toolContent);
+    
+    if (assistantToolData.toolResult && assistantToolData.arguments) {
+      // New format - extract from arguments
+      setParsedCall({
+        serviceName: assistantToolData.arguments.service_name || null,
+        route: assistantToolData.arguments.route || null,
+        jsonContent: assistantToolData.arguments
+      });
+    } else if (toolToolData.toolResult && toolToolData.arguments) {
+      // New format from tool content
+      setParsedCall({
+        serviceName: toolToolData.arguments.service_name || null,
+        route: toolToolData.arguments.route || null,
+        jsonContent: toolToolData.arguments
+      });
+    } else {
+      // Fall back to legacy parsing
+      const contentStr = normalizeContentToString(assistantContent || toolContent);
+      const parsed = parseDataProviderCall(contentStr || '');
+      setParsedCall(parsed);
+    }
   }, [assistantContent, toolContent]);
 
   const providerKey = parsedCall.serviceName?.toLowerCase() as keyof typeof PROVIDER_CONFIG;

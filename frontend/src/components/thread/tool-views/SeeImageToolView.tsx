@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, ImageOff, CheckCircle, AlertTriangle, Loader2, Download, ZoomIn, ZoomOut, ExternalLink, Check } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, getToolTitle, normalizeContentToString } from './utils';
+import {
+  formatTimestamp,
+  getToolTitle,
+  normalizeContentToString,
+  extractToolData,
+} from './utils';
 import {
   Card,
   CardContent,

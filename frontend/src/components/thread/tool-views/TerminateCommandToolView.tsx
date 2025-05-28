@@ -19,9 +19,13 @@ import {
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
+  extractCommand,
+  extractCommandOutput,
   extractExitCode,
+  extractSessionName,
   formatTimestamp,
   getToolTitle,
+  extractToolData,
   normalizeContentToString,
 } from './utils';
 import { cn } from '@/lib/utils';

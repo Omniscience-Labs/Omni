@@ -16,8 +16,11 @@ import { ToolViewProps } from './types';
 import {
   extractFilePath,
   extractStrReplaceContent,
+  getFileType,
   formatTimestamp,
   getToolTitle,
+  normalizeContentToString,
+  extractToolData,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -143,8 +146,6 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
   </div>
 );
 
-
-
 const ErrorState: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
     <div className="text-center w-full max-w-xs">
@@ -159,7 +160,6 @@ const ErrorState: React.FC = () => (
   </div>
 );
 
-// Main component
 export function StrReplaceToolView({
   name = 'str-replace',
   assistantContent,
@@ -172,8 +172,125 @@ export function StrReplaceToolView({
   const [expanded, setExpanded] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
   
-  const filePath = extractFilePath(assistantContent);
-  const { oldStr, newStr } = extractStrReplaceContent(assistantContent);
+  let filePath: string | null = null;
+  let oldStr: string | null = null;
+  let newStr: string | null = null;
+  let actualIsSuccess = isSuccess;
+  let actualToolTimestamp = toolTimestamp;
+  let actualAssistantTimestamp = assistantTimestamp;
+
+  const extractFromNewFormat = (content: any): { filePath: string | null; oldStr: string | null; newStr: string | null; success?: boolean; timestamp?: string } => {
+    if (!content || typeof content !== 'object') return { filePath: null, oldStr: null, newStr: null };
+
+    if ('tool_execution' in content && typeof content.tool_execution === 'object') {
+      const toolExecution = content.tool_execution;
+      const args = toolExecution.arguments || {};
+      
+      console.debug('StrReplaceToolView: Extracted from new format:', {
+        filePath: args.file_path,
+        oldStr: args.old_str ? `${args.old_str.substring(0, 50)}...` : null,
+        newStr: args.new_str ? `${args.new_str.substring(0, 50)}...` : null,
+        success: toolExecution.result?.success
+      });
+      
+      return {
+        filePath: args.file_path || null,
+        oldStr: args.old_str || null,
+        newStr: args.new_str || null,
+        success: toolExecution.result?.success,
+        timestamp: toolExecution.execution_details?.timestamp
+      };
+    }
+
+    if ('role' in content && 'content' in content && typeof content.content === 'object') {
+      return extractFromNewFormat(content.content);
+    }
+
+    return { filePath: null, oldStr: null, newStr: null };
+  };
+
+
+  const extractFromLegacyFormat = (content: any): { filePath: string | null; oldStr: string | null; newStr: string | null } => {
+    const assistantToolData = extractToolData(content);
+    
+    if (assistantToolData.toolResult) {
+      const args = assistantToolData.arguments || {};
+      
+      console.debug('StrReplaceToolView: Extracted from legacy format (extractToolData):', {
+        filePath: assistantToolData.filePath || args.file_path,
+        oldStr: args.old_str ? `${args.old_str.substring(0, 50)}...` : null,
+        newStr: args.new_str ? `${args.new_str.substring(0, 50)}...` : null
+      });
+      
+      return {
+        filePath: assistantToolData.filePath || args.file_path || null,
+        oldStr: args.old_str || null,
+        newStr: args.new_str || null
+      };
+    }
+
+    const legacyFilePath = extractFilePath(content);
+    const strReplaceContent = extractStrReplaceContent(content);
+    
+    console.debug('StrReplaceToolView: Extracted from legacy format (fallback):', {
+      filePath: legacyFilePath,
+      oldStr: strReplaceContent.oldStr ? `${strReplaceContent.oldStr.substring(0, 50)}...` : null,
+      newStr: strReplaceContent.newStr ? `${strReplaceContent.newStr.substring(0, 50)}...` : null
+    });
+    
+    return {
+      filePath: legacyFilePath,
+      oldStr: strReplaceContent.oldStr,
+      newStr: strReplaceContent.newStr
+    };
+  };
+
+  const assistantNewFormat = extractFromNewFormat(assistantContent);
+  const toolNewFormat = extractFromNewFormat(toolContent);
+
+  if (assistantNewFormat.filePath || assistantNewFormat.oldStr || assistantNewFormat.newStr) {
+    filePath = assistantNewFormat.filePath;
+    oldStr = assistantNewFormat.oldStr;
+    newStr = assistantNewFormat.newStr;
+    if (assistantNewFormat.success !== undefined) {
+      actualIsSuccess = assistantNewFormat.success;
+    }
+    if (assistantNewFormat.timestamp) {
+      actualAssistantTimestamp = assistantNewFormat.timestamp;
+    }
+  } else if (toolNewFormat.filePath || toolNewFormat.oldStr || toolNewFormat.newStr) {
+    filePath = toolNewFormat.filePath;
+    oldStr = toolNewFormat.oldStr;
+    newStr = toolNewFormat.newStr;
+    if (toolNewFormat.success !== undefined) {
+      actualIsSuccess = toolNewFormat.success;
+    }
+    if (toolNewFormat.timestamp) {
+      actualToolTimestamp = toolNewFormat.timestamp;
+    }
+  } else {
+    // Fall back to legacy format extraction
+    const assistantLegacy = extractFromLegacyFormat(assistantContent);
+    const toolLegacy = extractFromLegacyFormat(toolContent);
+
+    // Use assistant content first, then tool content as fallback
+    filePath = assistantLegacy.filePath || toolLegacy.filePath;
+    oldStr = assistantLegacy.oldStr || toolLegacy.oldStr;
+    newStr = assistantLegacy.newStr || toolLegacy.newStr;
+  }
+
+  // Additional legacy extraction for edge cases
+  if (!filePath) {
+    filePath = extractFilePath(assistantContent) || extractFilePath(toolContent);
+  }
+  
+  if (!oldStr || !newStr) {
+    const assistantStrReplace = extractStrReplaceContent(assistantContent);
+    const toolStrReplace = extractStrReplaceContent(toolContent);
+    oldStr = oldStr || assistantStrReplace.oldStr || toolStrReplace.oldStr;
+    newStr = newStr || assistantStrReplace.newStr || toolStrReplace.newStr;
+  }
+
   const toolTitle = getToolTitle(name);
 
   // Parse text for newlines
@@ -269,30 +386,6 @@ export function StrReplaceToolView({
     return parts;
   };
 
-  // If we don't have valid strings to compare and we're not streaming
-  if (!isStreaming && (!oldStr || !newStr)) {
-    return (
-      <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
-        <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
-          <div className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20">
-                <FileDiff className="h-5 w-5 text-purple-500 dark:text-purple-400" />
-              </div>
-              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                {toolTitle}
-              </CardTitle>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
-          <ErrorState />
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Generate diff data (only if we have both strings)
   const lineDiff = oldStr && newStr ? generateLineDiff(oldStr, newStr) : [];
   const charDiff = oldStr && newStr ? generateCharDiff(oldStr, newStr) : [];
@@ -302,6 +395,9 @@ export function StrReplaceToolView({
     additions: lineDiff.filter(line => line.type === 'added').length,
     deletions: lineDiff.filter(line => line.type === 'removed').length
   };
+
+  // Check if we should show error state (only when not streaming and we have content but can't extract strings)
+  const shouldShowError = !isStreaming && (!oldStr || !newStr) && (assistantContent || toolContent);
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
@@ -320,17 +416,17 @@ export function StrReplaceToolView({
             <Badge 
               variant="secondary" 
               className={
-                isSuccess 
+                actualIsSuccess 
                   ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              {isSuccess ? 'Replacement completed' : 'Replacement failed'}
+              {actualIsSuccess ? 'Replacement completed' : 'Replacement failed'}
             </Badge>
           )}
 
@@ -354,6 +450,8 @@ export function StrReplaceToolView({
             progressText="Analyzing text patterns"
             subtitle="Please wait while the replacement is being processed"
           />
+        ) : shouldShowError ? (
+          <ErrorState />
         ) : (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
@@ -428,13 +526,13 @@ export function StrReplaceToolView({
         <div className="h-full flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           {!isStreaming && (
             <div className="flex items-center gap-1">
-              {isSuccess ? (
+              {actualIsSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mr-1" />
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 text-red-500 mr-1" />
               )}
               <span>
-                {isSuccess
+                {actualIsSuccess
                   ? 'String replacement successful'
                   : 'String replacement failed'}
               </span>
@@ -450,10 +548,10 @@ export function StrReplaceToolView({
         </div>
         
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
+          {actualToolTimestamp && !isStreaming
+            ? formatTimestamp(actualToolTimestamp)
+            : actualAssistantTimestamp
+              ? formatTimestamp(actualAssistantTimestamp)
               : ''}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { ToolCallInput } from '@/components/thread/tool-call-side-panel';
 import { UnifiedMessage, ParsedMetadata, StreamingToolCall, AgentStatus } from '../_types';
 import { safeJsonParse } from '@/components/thread/utils';
 import { ParsedContent } from '@/components/thread/types';
+import { extractToolName } from '@/components/thread/tool-views/xml-parser';
 
 interface UseToolCallsReturn {
   toolCalls: ToolCallInput[];
@@ -21,6 +22,46 @@ interface UseToolCallsReturn {
   toggleSidePanel: () => void;
   handleSidePanelNavigate: (newIndex: number) => void;
   userClosedPanelRef: React.MutableRefObject<boolean>;
+}
+
+// Helper function to parse tool content from the new format
+function parseToolContent(content: any): {
+  toolName: string;
+  parameters: any;
+  result: any;
+} | null {
+  try {
+    // First try to parse as JSON if it's a string
+    const parsed = typeof content === 'string' ? safeJsonParse(content, content) : content;
+    
+    // Check if it's the new structured format
+    if (parsed && typeof parsed === 'object') {
+      // New format: { tool_name, xml_tag_name, parameters, result }
+      if ('tool_name' in parsed || 'xml_tag_name' in parsed) {
+        return {
+          toolName: parsed.tool_name || parsed.xml_tag_name || 'unknown',
+          parameters: parsed.parameters || {},
+          result: parsed.result || null
+        };
+      }
+      
+      // Check if it has a content field that might contain the structured data
+      if ('content' in parsed && typeof parsed.content === 'object') {
+        const innerContent = parsed.content;
+        if ('tool_name' in innerContent || 'xml_tag_name' in innerContent) {
+          return {
+            toolName: innerContent.tool_name || innerContent.xml_tag_name || 'unknown',
+            parameters: innerContent.parameters || {},
+            result: innerContent.result || null
+          };
+        }
+      }
+    }
+  } catch (e) {
+    // Continue with old format parsing
+  }
+  
+  return null;
 }
 
 export function useToolCalls(
@@ -75,60 +116,73 @@ export function useToolCalls(
 
       if (resultMessage) {
         let toolName = 'unknown';
-        try {
-          const assistantContent = (() => {
-            try {
-              const parsed = safeJsonParse<ParsedContent>(assistantMsg.content, {});
-              return parsed.content || assistantMsg.content;
-            } catch {
-              return assistantMsg.content;
-            }
-          })();
-          
-          const xmlMatch = assistantContent.match(
-            /<([a-zA-Z\-_]+)(?:\s+[^>]*)?>|<([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/,
-          );
-          if (xmlMatch) {
-            const rawToolName = xmlMatch[1] || xmlMatch[2] || 'unknown';
-            toolName = rawToolName.replace(/_/g, '-').toLowerCase();
-          } else {
-            const assistantContentParsed = safeJsonParse<{
-              tool_calls?: Array<{ function?: { name?: string }; name?: string }>;
-            }>(assistantMsg.content, {});
-            if (
-              assistantContentParsed.tool_calls &&
-              assistantContentParsed.tool_calls.length > 0
-            ) {
-              const firstToolCall = assistantContentParsed.tool_calls[0];
-              const rawName = firstToolCall.function?.name || firstToolCall.name || 'unknown';
-              toolName = rawName.replace(/_/g, '-').toLowerCase();
-            }
-          }
-        } catch { }
-
         let isSuccess = true;
-        try {
-          const toolResultContent = (() => {
-            try {
-              const parsed = safeJsonParse<ParsedContent>(resultMessage.content, {});
-              return parsed.content || resultMessage.content;
-            } catch {
-              return resultMessage.content;
-            }
-          })();
+        
+        // First try to parse the new format from the tool message
+        const toolContentParsed = parseToolContent(resultMessage.content);
+        
+        if (toolContentParsed) {
+          // New format detected
+          toolName = toolContentParsed.toolName.replace(/_/g, '-').toLowerCase();
           
-          if (toolResultContent && typeof toolResultContent === 'string') {
-            const toolResultMatch = toolResultContent.match(/ToolResult\s*\(\s*success\s*=\s*(True|False|true|false)/i);
-            if (toolResultMatch) {
-              isSuccess = toolResultMatch[1].toLowerCase() === 'true';
-            } else {
-              const toolContent = toolResultContent.toLowerCase();
-              isSuccess = !(toolContent.includes('failed') ||
-                toolContent.includes('error') ||
-                toolContent.includes('failure'));
-            }
+          // Extract success status from the result
+          if (toolContentParsed.result && typeof toolContentParsed.result === 'object') {
+            isSuccess = toolContentParsed.result.success !== false;
           }
-        } catch { }
+        } else {
+          // Fall back to old format parsing
+          try {
+            const assistantContent = (() => {
+              try {
+                const parsed = safeJsonParse<ParsedContent>(assistantMsg.content, {});
+                return parsed.content || assistantMsg.content;
+              } catch {
+                return assistantMsg.content;
+              }
+            })();
+            
+            const extractedToolName = extractToolName(assistantContent);
+            if (extractedToolName) {
+              toolName = extractedToolName;
+            } else {
+              const assistantContentParsed = safeJsonParse<{
+                tool_calls?: Array<{ function?: { name?: string }; name?: string }>;
+              }>(assistantMsg.content, {});
+              if (
+                assistantContentParsed.tool_calls &&
+                assistantContentParsed.tool_calls.length > 0
+              ) {
+                const firstToolCall = assistantContentParsed.tool_calls[0];
+                const rawName = firstToolCall.function?.name || firstToolCall.name || 'unknown';
+                toolName = rawName.replace(/_/g, '-').toLowerCase();
+              }
+            }
+          } catch { }
+
+          // Parse success status from old format
+          try {
+            const toolResultContent = (() => {
+              try {
+                const parsed = safeJsonParse<ParsedContent>(resultMessage.content, {});
+                return parsed.content || resultMessage.content;
+              } catch {
+                return resultMessage.content;
+              }
+            })();
+            
+            if (toolResultContent && typeof toolResultContent === 'string') {
+              const toolResultMatch = toolResultContent.match(/ToolResult\s*\(\s*success\s*=\s*(True|False|true|false)/i);
+              if (toolResultMatch) {
+                isSuccess = toolResultMatch[1].toLowerCase() === 'true';
+              } else {
+                const toolContent = toolResultContent.toLowerCase();
+                isSuccess = !(toolContent.includes('failed') ||
+                  toolContent.includes('error') ||
+                  toolContent.includes('failure'));
+              }
+            }
+          } catch { }
+        }
 
         const toolIndex = historicalToolPairs.length;
         historicalToolPairs.push({
@@ -248,6 +302,7 @@ export function useToolCalls(
     (toolCall: StreamingToolCall | null) => {
       if (!toolCall) return;
 
+      // Get the raw tool name and ensure it uses hyphens
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
@@ -351,3 +406,5 @@ export function useToolCalls(
     userClosedPanelRef,
   };
 }
+
+

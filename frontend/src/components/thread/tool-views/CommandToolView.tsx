@@ -22,6 +22,7 @@ import {
   extractSessionName,
   formatTimestamp,
   getToolTitle,
+  extractToolData,
 } from './utils';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
@@ -45,14 +46,60 @@ export function CommandToolView({
   const isDarkTheme = resolvedTheme === 'dark';
   const [showFullOutput, setShowFullOutput] = useState(true);
 
-  // Extract command using the utility function
-  const rawCommand = extractCommand(assistantContent);
+  // Try to extract data using the new parser first
+  const assistantToolData = extractToolData(assistantContent);
+  const toolToolData = extractToolData(toolContent);
 
-  const command = rawCommand
-    ?.replace(/^suna@computer:~\$\s*/g, '')
-    ?.replace(/\\n/g, '')
-    ?.replace(/\n/g, '')
-    ?.trim();
+  let command: string | null = null;
+  let output: string | null = null;
+  let exitCode: number | null = null;
+
+  // Use data from the new format if available
+  if (assistantToolData.toolResult) {
+    command = assistantToolData.command;
+    if (assistantToolData.toolResult.toolOutput) {
+      output = assistantToolData.toolResult.toolOutput;
+      // Extract exit code from the output if it contains ToolResult format
+      if (output && typeof output === 'string' && output.includes('exit_code=')) {
+        const exitCodeMatch = output.match(/exit_code=(\d+)/);
+        if (exitCodeMatch) {
+          exitCode = parseInt(exitCodeMatch[1], 10);
+        }
+      }
+    }
+  } else if (toolToolData.toolResult) {
+    command = toolToolData.command;
+    if (toolToolData.toolResult.toolOutput) {
+      output = toolToolData.toolResult.toolOutput;
+      // Extract exit code from the output if it contains ToolResult format
+      if (output && typeof output === 'string' && output.includes('exit_code=')) {
+        const exitCodeMatch = output.match(/exit_code=(\d+)/);
+        if (exitCodeMatch) {
+          exitCode = parseInt(exitCodeMatch[1], 10);
+        }
+      }
+    }
+  }
+
+  // If not found in new format, fall back to legacy extraction methods
+  if (!command) {
+    // Extract command using the utility function
+    const rawCommand = extractCommand(assistantContent);
+    command = rawCommand
+      ?.replace(/^suna@computer:~\$\s*/g, '')
+      ?.replace(/\\n/g, '')
+      ?.replace(/\n/g, '')
+      ?.trim() || null;
+  }
+  
+  if (!output && toolContent) {
+    // Extract output using the utility function
+    output = extractCommandOutput(toolContent);
+  }
+  
+  if (exitCode === null && toolContent) {
+    exitCode = extractExitCode(toolContent);
+  }
 
   // For check-command-output, extract session name instead
   const sessionName = name === 'check-command-output' ? extractSessionName(assistantContent) : null;
@@ -60,9 +107,6 @@ export function CommandToolView({
   const displayLabel = name === 'check-command-output' ? 'Session' : 'Command';
   const displayPrefix = name === 'check-command-output' ? 'tmux:' : '$';
 
-  // Extract output using the utility function
-  const output = extractCommandOutput(toolContent);
-  const exitCode = extractExitCode(toolContent);
   const toolTitle = getToolTitle(name);
 
   const formattedOutput = React.useMemo(() => {
