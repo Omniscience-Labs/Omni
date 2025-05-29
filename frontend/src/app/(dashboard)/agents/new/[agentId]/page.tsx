@@ -14,6 +14,22 @@ import { AgentPreview } from '../../_components/agent-preview';
 import { cn } from '@/lib/utils';
 import { getAgentAvatar } from '../../_utils/get-agent-style';
 import { EditableText } from '@/components/ui/editable';
+import { StylePicker } from '../../_components/style-picker';
+
+// Extended agent interface for styling
+interface AgentWithStyling {
+  agent_id: string;
+  name?: string;
+  description?: string;
+  system_prompt?: string;
+  agentpress_tools?: Record<string, { enabled: boolean; description: string }>;
+  configured_mcps?: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
+  is_default?: boolean;
+  avatar?: string;
+  avatar_color?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -33,6 +49,8 @@ export default function AgentConfigurationPage() {
     agentpress_tools: {},
     configured_mcps: [],
     is_default: false,
+    avatar: '',
+    avatar_color: '',
   });
 
   const originalDataRef = useRef<typeof formData | null>(null);
@@ -42,13 +60,16 @@ export default function AgentConfigurationPage() {
 
   useEffect(() => {
     if (agent) {
+      const agentData = agent as any; // Safe casting for extended properties
       const initialData = {
-        name: agent.name || '',
-        description: agent.description || '',
-        system_prompt: agent.system_prompt || '',
-        agentpress_tools: agent.agentpress_tools || {},
-        configured_mcps: agent.configured_mcps || [],
-        is_default: agent.is_default || false,
+        name: agentData.name || '',
+        description: agentData.description || '',
+        system_prompt: agentData.system_prompt || '',
+        agentpress_tools: agentData.agentpress_tools || {},
+        configured_mcps: agentData.configured_mcps || [],
+        is_default: agentData.is_default || false,
+        avatar: agentData.avatar || '',
+        avatar_color: agentData.avatar_color || '',
       };
       setFormData(initialData);
       originalDataRef.current = { ...initialData };
@@ -127,6 +148,29 @@ export default function AgentConfigurationPage() {
       });
     }
   }, []);
+
+  const handleStyleChange = useCallback((emoji: string, color: string) => {
+    const newFormData = {
+      ...formData,
+      avatar: emoji,
+      avatar_color: color,
+    };
+    setFormData(newFormData);
+    debouncedSave(newFormData);
+  }, [formData, debouncedSave]);
+
+  // Get current style with fallback to generated defaults
+  const getCurrentStyle = useCallback(() => {
+    if (formData.avatar && formData.avatar_color) {
+      return {
+        avatar: formData.avatar,
+        color: formData.avatar_color,
+      };
+    }
+    return getAgentAvatar(agentId);
+  }, [formData.avatar, formData.avatar_color, agentId]);
+
+  const currentStyle = getCurrentStyle();
 
   const getSaveStatusBadge = () => {
     const showSaved = saveStatus === 'idle' && !hasDataChanged(formData, originalDataRef.current);
@@ -212,9 +256,19 @@ export default function AgentConfigurationPage() {
             </div>
 
             <div className='flex items-center'>
-              <div className={cn(color, 'h-16 w-16 flex items-center justify-center rounded-md text-2xl')}>
-                {avatar}
-              </div>
+              <StylePicker 
+                agentId={agentId} 
+                currentEmoji={currentStyle.avatar}
+                currentColor={currentStyle.color}
+                onStyleChange={handleStyleChange}
+              >
+                <div 
+                  className="h-16 w-16 flex items-center justify-center rounded-2xl text-2xl cursor-pointer hover:opacity-80 transition-opacity"
+                  style={{ backgroundColor: currentStyle.color }}
+                >
+                  {currentStyle.avatar}
+                </div>
+              </StylePicker>
               <div className='flex flex-col ml-3'>
                 <EditableText
                   value={formData.name}
@@ -285,14 +339,8 @@ export default function AgentConfigurationPage() {
           </div>
         </div>
 
-        <div className="w-1/2 bg-muted/30 overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Preview</h2>
-            </div>
-            <AgentPreview agent={{ ...agent, ...formData }} />
-          </div>
+        <div className="w-1/2 overflow-y-auto">
+          <AgentPreview agent={{ ...agent, ...formData }} />
         </div>
       </div>
     </div>

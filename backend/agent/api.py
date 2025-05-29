@@ -51,6 +51,8 @@ class AgentCreateRequest(BaseModel):
     configured_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
     is_default: Optional[bool] = False
+    avatar: Optional[str] = None
+    avatar_color: Optional[str] = None
 
 class AgentUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -59,6 +61,8 @@ class AgentUpdateRequest(BaseModel):
     configured_mcps: Optional[List[Dict[str, Any]]] = None
     agentpress_tools: Optional[Dict[str, Any]] = None
     is_default: Optional[bool] = None
+    avatar: Optional[str] = None
+    avatar_color: Optional[str] = None
 
 class AgentResponse(BaseModel):
     agent_id: str
@@ -69,6 +73,8 @@ class AgentResponse(BaseModel):
     configured_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     is_default: bool
+    avatar: Optional[str]
+    avatar_color: Optional[str]
     created_at: str
     updated_at: str
 
@@ -528,6 +534,8 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 configured_mcps=agent_data.get('configured_mcps', []),
                 agentpress_tools=agent_data.get('agentpress_tools', {}),
                 is_default=agent_data.get('is_default', False),
+                avatar=agent_data.get('avatar'),
+                avatar_color=agent_data.get('avatar_color'),
                 created_at=agent_data['created_at'],
                 updated_at=agent_data['updated_at']
             ),
@@ -1007,6 +1015,8 @@ async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
                 configured_mcps=agent.get('configured_mcps', []),
                 agentpress_tools=agent.get('agentpress_tools', {}),
                 is_default=agent.get('is_default', False),
+                avatar=agent.get('avatar'),
+                avatar_color=agent.get('avatar_color'),
                 created_at=agent['created_at'],
                 updated_at=agent['updated_at']
             ))
@@ -1041,6 +1051,8 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             configured_mcps=agent_data.get('configured_mcps', []),
             agentpress_tools=agent_data.get('agentpress_tools', {}),
             is_default=agent_data.get('is_default', False),
+            avatar=agent_data.get('avatar'),
+            avatar_color=agent_data.get('avatar_color'),
             created_at=agent_data['created_at'],
             updated_at=agent_data['updated_at']
         )
@@ -1078,7 +1090,9 @@ async def create_agent(
             "system_prompt": agent_data.system_prompt, 
             "configured_mcps": agent_data.configured_mcps or [],
             "agentpress_tools": agent_data.agentpress_tools or {},
-            "is_default": agent_data.is_default or False
+            "is_default": agent_data.is_default or False,
+            "avatar": agent_data.avatar,
+            "avatar_color": agent_data.avatar_color
         }
         
         new_agent = await client.table('agents').insert(insert_data).execute()
@@ -1098,6 +1112,8 @@ async def create_agent(
             configured_mcps=agent.get('configured_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
+            avatar=agent.get('avatar'),
+            avatar_color=agent.get('avatar_color'),
             created_at=agent['created_at'],
             updated_at=agent['updated_at']
         )
@@ -1150,6 +1166,10 @@ async def update_agent(
             # If setting as default, unset other defaults first
             if agent_data.is_default:
                 await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).neq("agent_id", agent_id).execute()
+        if agent_data.avatar is not None:
+            update_data["avatar"] = agent_data.avatar
+        if agent_data.avatar_color is not None:
+            update_data["avatar_color"] = agent_data.avatar_color
         
         if not update_data:
             # No fields to update, return existing agent
@@ -1180,6 +1200,8 @@ async def update_agent(
             configured_mcps=agent.get('configured_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
+            avatar=agent.get('avatar'),
+            avatar_color=agent.get('avatar_color'),
             created_at=agent['created_at'],
             updated_at=agent['updated_at']
         )

@@ -43,6 +43,7 @@ export interface ChatInputProps {
   onAgentSelect?: (agentId: string | undefined) => void;
   agentName?: string;
   messages?: any[];
+  bgColor?: string;
 }
 
 export interface UploadedFile {
@@ -72,6 +73,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onAgentSelect,
       agentName,
       messages = [],
+      bgColor = 'bg-sidebar',
     },
     ref,
   ) => {
@@ -237,7 +239,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           }}
         >
           <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">            
-            <CardContent className="w-full p-1.5 pb-2 bg-sidebar rounded-2xl border">              
+            <CardContent className={`w-full p-1.5 pb-2 ${bgColor} rounded-2xl border`}>              
               {onAgentSelect && (                
                 <div className="mb-2 px-2">                  
                 <AgentSelector                    

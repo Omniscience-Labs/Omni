@@ -16,7 +16,7 @@ interface Agent {
   configured_mcps?: Array<{ name: string }>;
   agentpress_tools?: Record<string, any>;
   avatar?: string;
-  color?: string;
+  avatar_color?: string;
 }
 
 interface AgentsGridProps {
@@ -28,7 +28,17 @@ interface AgentsGridProps {
 }
 
 const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat }) => {
-  const { avatar, color } = getAgentAvatar(agent.agent_id);
+  const getAgentStyling = (agent: Agent) => {
+    if (agent.avatar && agent.avatar_color) {
+      return {
+        avatar: agent.avatar,
+        color: agent.avatar_color,
+      };
+    }
+    return getAgentAvatar(agent.agent_id);
+  };
+
+  const { avatar, color } = getAgentStyling(agent);
   
   const truncateDescription = (text, maxLength = 120) => {
     if (!text || text.length <= maxLength) return text || 'Try out this agent';
@@ -40,9 +50,9 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat }) => {
       <DialogContent className="max-w-md p-0 overflow-hidden border-none">
         <DialogTitle className="sr-only">Agent actions</DialogTitle>
         <div className="relative">
-          <div className={`${color} h-32 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100`}>
+          <div className={`h-32 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100`} style={{ backgroundColor: color }}>
             <div className="text-6xl drop-shadow-sm">
-              {agent.avatar || avatar}
+              {avatar}
             </div>
             {agent.is_default && (
               <div className="absolute top-4 right-4">
@@ -109,11 +119,21 @@ export const AgentsGrid = ({
     setSelectedAgent(null);
   };
 
+  const getAgentStyling = (agent: Agent) => {
+    if (agent.avatar && agent.avatar_color) {
+      return {
+        avatar: agent.avatar,
+        color: agent.avatar_color,
+      };
+    }
+    return getAgentAvatar(agent.agent_id);
+  };
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {agents.map((agent) => {
-          const { avatar, color } = getAgentAvatar(agent.agent_id);
+          const { avatar, color } = getAgentStyling(agent);
           
           return (
             <div 
@@ -121,9 +141,9 @@ export const AgentsGrid = ({
               className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group"
               onClick={() => handleAgentClick(agent)}
             >
-              <div className={`${color} h-50 flex items-center justify-center relative`}>
+              <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
                 <div className="text-4xl">
-                  {agent.avatar || avatar}
+                  {avatar}
                 </div>
                 {agent.is_default && (
                   <div className="absolute top-3 right-3">

@@ -255,6 +255,7 @@ export interface ThreadContentProps {
     sandboxId?: string; // Add sandboxId prop
     project?: Project; // Add project prop
     debugMode?: boolean; // Add debug mode parameter
+    isPreviewMode?: boolean;
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -272,7 +273,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     streamHookStatus = "idle",
     sandboxId,
     project,
-    debugMode = false
+    debugMode = false,
+    isPreviewMode = false,
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -283,6 +285,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     // React Query file preloader
     const { preloadFiles } = useFilePreloader();
+
+    const containerClassName = isPreviewMode 
+        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72"
+        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
@@ -339,7 +345,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
             <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                className={containerClassName}
                 onScroll={handleScroll}
             >
                 <div className="mx-auto max-w-3xl">

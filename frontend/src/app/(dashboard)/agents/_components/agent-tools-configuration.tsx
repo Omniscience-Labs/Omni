@@ -61,7 +61,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConf
           />
         </div>
 
-        <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+        <div className="gap-4 grid grid-cols-1 md:grid-cols-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           {getFilteredTools().map(([toolName, toolInfo]) => (
             <div 
               key={toolName} 
