@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS agents (
     configured_mcps JSONB DEFAULT '[]'::jsonb,
     agentpress_tools JSONB DEFAULT '{}'::jsonb,
     is_default BOOLEAN DEFAULT false,
+    avatar VARCHAR(10),
+    avatar_color VARCHAR(7),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu } from 'lucide-react';
+import { Bot, Menu, Store } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -143,6 +143,20 @@ export function SidebarLeft({
             <span className="flex items-center justify-between w-full">
               Agents
               <Badge variant="secondary" className="ml-2 text-xs border bg-blue-200/50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                New
+              </Badge>
+            </span>
+          </SidebarMenuButton>
+        </Link>
+        
+        <Link href="/marketplace">
+          <SidebarMenuButton className={cn({
+            'bg-primary/10 font-medium': pathname === '/marketplace',
+          })}>
+            <Store className="h-4 w-4" />
+            <span className="flex items-center justify-between w-full">
+              Marketplace
+              <Badge variant="secondary" className="ml-2 text-xs border bg-green-200/50 dark:bg-green-900/40 text-green-700 dark:text-green-300">
                 New
               </Badge>
             </span>

@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Star, MessageCircle, Wrench } from 'lucide-react';
+import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { getAgentAvatar } from '../_utils/get-agent-style';
+import { usePublishAgent, useUnpublishAgent } from '@/hooks/react-query/marketplace/use-marketplace';
+import { toast } from 'sonner';
 
 interface Agent {
   agent_id: string;
   name: string;
   description?: string;
   is_default: boolean;
+  is_public?: boolean;
+  marketplace_published_at?: string;
+  download_count?: number;
+  tags?: string[];
   created_at: string;
   updated_at?: string;
   configured_mcps?: Array<{ name: string }>;
@@ -27,7 +34,7 @@ interface AgentsGridProps {
   deleteAgentMutation: { isPending: boolean };
 }
 
-const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat }) => {
+const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, onUnpublish, isPublishing, isUnpublishing }) => {
   const getAgentStyling = (agent: Agent) => {
     if (agent.avatar && agent.avatar_color) {
       return {
@@ -54,18 +61,32 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat }) => {
             <div className="text-6xl drop-shadow-sm">
               {avatar}
             </div>
-            {agent.is_default && (
-              <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 flex gap-2">
+              {agent.is_default && (
                 <Star className="h-5 w-5 text-white fill-white drop-shadow-sm" />
-              </div>
-            )}
+              )}
+              {agent.is_public && (
+                <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                  <Globe className="h-4 w-4 text-white" />
+                  <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="p-4 space-y-4">
             <div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                {agent.name}
-              </h2>
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {agent.name}
+                </h2>
+                {agent.is_public && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Globe className="h-3 w-3 mr-1" />
+                    Public
+                  </Badge>
+                )}
+              </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {truncateDescription(agent.description)}
               </p>
@@ -88,6 +109,58 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat }) => {
                 Chat
               </Button>
             </div>
+
+            {/* Marketplace Actions */}
+            <div className="pt-2 border-t">
+              {agent.is_public ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Published to marketplace</span>
+                    <div className="flex items-center gap-1">
+                      <Download className="h-3 w-3" />
+                      {agent.download_count || 0} downloads
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => onUnpublish(agent.agent_id)}
+                    disabled={isUnpublishing}
+                    variant="outline"
+                    className="w-full gap-2"
+                  >
+                    {isUnpublishing ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        Unpublishing...
+                      </>
+                    ) : (
+                      <>
+                        <GlobeLock className="h-4 w-4" />
+                        Make Private
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => onPublish(agent.agent_id)}
+                  disabled={isPublishing}
+                  variant="outline"
+                  className="w-full gap-2"
+                >
+                  {isPublishing ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="h-4 w-4" />
+                      Publish to Marketplace
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -104,6 +177,9 @@ export const AgentsGrid = ({
 }: AgentsGridProps) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const router = useRouter();
+  
+  const publishAgentMutation = usePublishAgent();
+  const unpublishAgentMutation = useUnpublishAgent();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -117,6 +193,26 @@ export const AgentsGrid = ({
   const handleChat = (agentId: string) => {
     router.push(`/agents/new/${agentId}`);
     setSelectedAgent(null);
+  };
+
+  const handlePublish = async (agentId: string) => {
+    try {
+      await publishAgentMutation.mutateAsync({ agentId, tags: [] });
+      toast.success('Agent published to marketplace successfully!');
+      setSelectedAgent(null);
+    } catch (error: any) {
+      toast.error('Failed to publish agent to marketplace');
+    }
+  };
+
+  const handleUnpublish = async (agentId: string) => {
+    try {
+      await unpublishAgentMutation.mutateAsync(agentId);
+      toast.success('Agent removed from marketplace');
+      setSelectedAgent(null);
+    } catch (error: any) {
+      toast.error('Failed to remove agent from marketplace');
+    }
   };
 
   const getAgentStyling = (agent: Agent) => {
@@ -145,17 +241,31 @@ export const AgentsGrid = ({
                 <div className="text-4xl">
                   {avatar}
                 </div>
-                {agent.is_default && (
-                  <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex gap-2">
+                  {agent.is_default && (
                     <Star className="h-4 w-4 text-white fill-white drop-shadow-sm" />
-                  </div>
-                )}
+                  )}
+                  {agent.is_public && (
+                    <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                      <Globe className="h-3 w-3 text-white" />
+                      <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="p-4">
-                <h3 className="text-foreground font-medium text-lg mb-1 line-clamp-1">
-                  {agent.name}
-                </h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
+                    {agent.name}
+                  </h3>
+                  {agent.is_public && (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Public
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                   {agent.description || 'Try out this agent'}
                 </p>
@@ -185,6 +295,11 @@ export const AgentsGrid = ({
                             <AlertDialogTitle className="text-xl">Delete Agent</AlertDialogTitle>
                             <AlertDialogDescription>
                               Are you sure you want to delete &quot;{agent.name}&quot;? This action cannot be undone.
+                              {agent.is_public && (
+                                <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                                  Note: This agent is currently published to the marketplace and will be removed from there as well.
+                                </span>
+                              )}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -217,6 +332,10 @@ export const AgentsGrid = ({
           onClose={() => setSelectedAgent(null)}
           onCustomize={handleCustomize}
           onChat={handleChat}
+          onPublish={handlePublish}
+          onUnpublish={handleUnpublish}
+          isPublishing={publishAgentMutation.isPending}
+          isUnpublishing={unpublishAgentMutation.isPending}
         />
       )}
     </>

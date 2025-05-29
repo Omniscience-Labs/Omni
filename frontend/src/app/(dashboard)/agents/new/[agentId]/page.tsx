@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Loader2, Settings2, Sparkles, MessageSquare, Check, Cl
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { AgentMCPConfiguration } from '../../_components/agent-mcp-configuration';
 import { toast } from 'sonner';
@@ -75,12 +76,25 @@ export default function AgentConfigurationPage() {
     }
   }, [agent]);
 
+  useEffect(() => {
+    if (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Access denied') || errorMessage.includes('403')) {
+        toast.error('You don\'t have permission to edit this agent');
+        router.push('/agents');
+        return;
+      }
+    }
+  }, [error, router]);
+
   const hasDataChanged = useCallback((newData: typeof formData, originalData: typeof formData | null): boolean => {
     if (!originalData) return true;
     if (newData.name !== originalData.name ||
         newData.description !== originalData.description ||
         newData.system_prompt !== originalData.system_prompt ||
-        newData.is_default !== originalData.is_default) {
+        newData.is_default !== originalData.is_default ||
+        newData.avatar !== originalData.avatar ||
+        newData.avatar_color !== originalData.avatar_color) {
       return true;
     }
     if (JSON.stringify(newData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools) ||
@@ -231,11 +245,24 @@ export default function AgentConfigurationPage() {
   }
 
   if (error || !agent) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isAccessDenied = errorMessage.includes('Access denied') || errorMessage.includes('403');
+    
     return (
       <div className="container mx-auto max-w-7xl px-4 py-8">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Agent not found</h2>
-          <p className="text-muted-foreground mb-4">The agent you're looking for doesn't exist.</p>
+        <div className="text-center space-y-4">
+          {isAccessDenied ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                You don't have permission to edit this agent. You can only edit agents that you created.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold mb-2">Agent not found</h2>
+              <p className="text-muted-foreground mb-4">The agent you're looking for doesn't exist.</p>
+            </>
+          )}
           <Button onClick={handleBack} variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Agents

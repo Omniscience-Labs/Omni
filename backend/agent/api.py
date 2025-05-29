@@ -73,6 +73,10 @@ class AgentResponse(BaseModel):
     configured_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     is_default: bool
+    is_public: Optional[bool] = False
+    marketplace_published_at: Optional[str] = None
+    download_count: Optional[int] = 0
+    tags: Optional[List[str]] = []
     avatar: Optional[str]
     avatar_color: Optional[str]
     created_at: str
@@ -534,6 +538,10 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 configured_mcps=agent_data.get('configured_mcps', []),
                 agentpress_tools=agent_data.get('agentpress_tools', {}),
                 is_default=agent_data.get('is_default', False),
+                is_public=agent_data.get('is_public', False),
+                marketplace_published_at=agent_data.get('marketplace_published_at'),
+                download_count=agent_data.get('download_count', 0),
+                tags=agent_data.get('tags', []),
                 avatar=agent_data.get('avatar'),
                 avatar_color=agent_data.get('avatar_color'),
                 created_at=agent_data['created_at'],
@@ -1015,6 +1023,10 @@ async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
                 configured_mcps=agent.get('configured_mcps', []),
                 agentpress_tools=agent.get('agentpress_tools', {}),
                 is_default=agent.get('is_default', False),
+                is_public=agent.get('is_public', False),
+                marketplace_published_at=agent.get('marketplace_published_at'),
+                download_count=agent.get('download_count', 0),
+                tags=agent.get('tags', []),
                 avatar=agent.get('avatar'),
                 avatar_color=agent.get('avatar_color'),
                 created_at=agent['created_at'],
@@ -1030,18 +1042,23 @@ async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get a specific agent by ID."""
+    """Get a specific agent by ID. Only the owner can access non-public agents."""
     logger.info(f"Fetching agent {agent_id} for user: {user_id}")
     client = await db.client
     
     try:
-        # Get agent with access check
-        agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+        # Get agent with access check - only owner or public agents
+        agent = await client.table('agents').select('*').eq("agent_id", agent_id).execute()
         
         if not agent.data:
             raise HTTPException(status_code=404, detail="Agent not found")
         
-        agent_data = agent.data
+        agent_data = agent.data[0]
+        
+        # Check ownership - only owner can access non-public agents
+        if agent_data['account_id'] != user_id and not agent_data.get('is_public', False):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         return AgentResponse(
             agent_id=agent_data['agent_id'],
             account_id=agent_data['account_id'],
@@ -1051,6 +1068,10 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             configured_mcps=agent_data.get('configured_mcps', []),
             agentpress_tools=agent_data.get('agentpress_tools', {}),
             is_default=agent_data.get('is_default', False),
+            is_public=agent_data.get('is_public', False),
+            marketplace_published_at=agent_data.get('marketplace_published_at'),
+            download_count=agent_data.get('download_count', 0),
+            tags=agent_data.get('tags', []),
             avatar=agent_data.get('avatar'),
             avatar_color=agent_data.get('avatar_color'),
             created_at=agent_data['created_at'],
@@ -1112,6 +1133,10 @@ async def create_agent(
             configured_mcps=agent.get('configured_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
+            is_public=agent.get('is_public', False),
+            marketplace_published_at=agent.get('marketplace_published_at'),
+            download_count=agent.get('download_count', 0),
+            tags=agent.get('tags', []),
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             created_at=agent['created_at'],
@@ -1200,6 +1225,10 @@ async def update_agent(
             configured_mcps=agent.get('configured_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
+            is_public=agent.get('is_public', False),
+            marketplace_published_at=agent.get('marketplace_published_at'),
+            download_count=agent.get('download_count', 0),
+            tags=agent.get('tags', []),
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             created_at=agent['created_at'],
@@ -1215,25 +1244,228 @@ async def update_agent(
 @router.delete("/agents/{agent_id}")
 async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Delete an agent."""
-    logger.info(f"Deleting agent {agent_id} for user: {user_id}")
+    logger.info(f"Deleting agent: {agent_id}")
     client = await db.client
     
     try:
-        existing_agent = await client.table('agents').select('is_default').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
-        
-        if not existing_agent.data:
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+        if not agent_result.data:
             raise HTTPException(status_code=404, detail="Agent not found")
         
-        if existing_agent.data.get('is_default'):
+        agent = agent_result.data[0]
+        if agent['account_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Check if agent is default
+        if agent['is_default']:
             raise HTTPException(status_code=400, detail="Cannot delete default agent")
         
-        delete_result = await client.table('agents').delete().eq("agent_id", agent_id).eq("account_id", user_id).execute()
+        # Delete the agent
+        await client.table('agents').delete().eq('agent_id', agent_id).execute()
         
-        logger.info(f"Deleted agent {agent_id} for user: {user_id}")
+        logger.info(f"Successfully deleted agent: {agent_id}")
         return {"message": "Agent deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting agent {agent_id} for user {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete agent: {str(e)}")
+        logger.error(f"Error deleting agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# Marketplace Models
+class MarketplaceAgent(BaseModel):
+    agent_id: str
+    name: str
+    description: Optional[str]
+    system_prompt: str
+    configured_mcps: List[Dict[str, Any]]
+    agentpress_tools: Dict[str, Any]
+    tags: Optional[List[str]]
+    download_count: int
+    marketplace_published_at: str
+    created_at: str
+    creator_name: str
+    avatar: Optional[str]
+    avatar_color: Optional[str]
+
+class MarketplaceAgentsResponse(BaseModel):
+    agents: List[MarketplaceAgent]
+
+class PublishAgentRequest(BaseModel):
+    tags: Optional[List[str]] = []
+
+# Marketplace Endpoints
+
+@router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
+async def get_marketplace_agents(
+    search: Optional[str] = None,
+    tags: Optional[str] = None,  # Comma-separated string
+    limit: Optional[int] = 50,
+    offset: Optional[int] = 0
+):
+    """Get public agents from the marketplace."""
+    logger.info(f"Fetching marketplace agents with search='{search}', tags='{tags}', limit={limit}, offset={offset}")
+    client = await db.client
+    
+    try:
+        # Convert tags string to array if provided
+        tags_array = None
+        if tags:
+            tags_array = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
+        # Call the database function
+        result = await client.rpc('get_marketplace_agents', {
+            'p_search': search,
+            'p_tags': tags_array,
+            'p_limit': limit,
+            'p_offset': offset
+        }).execute()
+        
+        if result.data is None:
+            result.data = []
+        
+        logger.info(f"Found {len(result.data)} marketplace agents")
+        return {"agents": result.data}
+        
+    except Exception as e:
+        logger.error(f"Error fetching marketplace agents: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/agents/{agent_id}/publish")
+async def publish_agent_to_marketplace(
+    agent_id: str,
+    publish_data: PublishAgentRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Publish an agent to the marketplace."""
+    logger.info(f"Publishing agent {agent_id} to marketplace")
+    client = await db.client
+    
+    try:
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        if agent['account_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Update agent with marketplace data
+        update_data = {
+            'is_public': True,
+            'marketplace_published_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        if publish_data.tags:
+            update_data['tags'] = publish_data.tags
+        
+        await client.table('agents').update(update_data).eq('agent_id', agent_id).execute()
+        
+        logger.info(f"Successfully published agent {agent_id} to marketplace")
+        return {"message": "Agent published to marketplace successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error publishing agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/agents/{agent_id}/unpublish")
+async def unpublish_agent_from_marketplace(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Unpublish an agent from the marketplace."""
+    logger.info(f"Unpublishing agent {agent_id} from marketplace")
+    client = await db.client
+    
+    try:
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        if agent['account_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Update agent to remove from marketplace
+        await client.table('agents').update({
+            'is_public': False,
+            'marketplace_published_at': None
+        }).eq('agent_id', agent_id).execute()
+        
+        logger.info(f"Successfully unpublished agent {agent_id} from marketplace")
+        return {"message": "Agent removed from marketplace successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unpublishing agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/marketplace/agents/{agent_id}/add-to-library")
+async def add_agent_to_library(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Add an agent from the marketplace to user's library."""
+    logger.info(f"Adding marketplace agent {agent_id} to user {user_id} library")
+    client = await db.client
+    
+    try:
+        # Call the database function with user_id
+        result = await client.rpc('add_agent_to_library', {
+            'p_original_agent_id': agent_id,
+            'p_user_account_id': user_id
+        }).execute()
+        
+        if result.data:
+            new_agent_id = result.data
+            logger.info(f"Successfully added agent {agent_id} to library as {new_agent_id}")
+            return {"message": "Agent added to library successfully", "new_agent_id": new_agent_id}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to add agent to library")
+        
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Error adding agent {agent_id} to library: {error_msg}")
+        
+        if "Agent not found or not public" in error_msg:
+            raise HTTPException(status_code=404, detail="Agent not found or not public")
+        elif "Agent already in your library" in error_msg:
+            raise HTTPException(status_code=409, detail="Agent already in your library")
+        else:
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/user/agent-library")
+async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Get user's agent library (agents added from marketplace)."""
+    logger.info(f"Fetching agent library for user {user_id}")
+    client = await db.client
+    
+    try:
+        result = await client.table('user_agent_library').select("""
+            *,
+            original_agent:agents!user_agent_library_original_agent_id_fkey(
+                agent_id,
+                name,
+                description,
+                download_count
+            ),
+            agent:agents!user_agent_library_agent_id_fkey(
+                agent_id,
+                name,
+                description,
+                system_prompt
+            )
+        """).eq('user_account_id', user_id).order('added_at', desc=True).execute()
+        
+        logger.info(f"Found {len(result.data or [])} agents in user library")
+        return {"library": result.data or []}
+        
+    except Exception as e:
+        logger.error(f"Error fetching user agent library: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
