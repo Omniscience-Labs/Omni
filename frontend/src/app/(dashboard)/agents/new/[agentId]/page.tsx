@@ -16,7 +16,6 @@ import { getAgentAvatar } from '../../_utils/get-agent-style';
 import { EditableText } from '@/components/ui/editable';
 import { StylePicker } from '../../_components/style-picker';
 
-// Extended agent interface for styling
 interface AgentWithStyling {
   agent_id: string;
   name?: string;
@@ -324,6 +323,7 @@ export default function AgentConfigurationPage() {
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
                       MCP Servers
+                      <Badge className="ml-auto bg-purple-600/30 text-purple-600 dark:text-purple-300">New</Badge>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pb-4">
