@@ -325,7 +325,7 @@ Here are the XML tools available with examples:
 
                 uncompressed_total_token_count = token_counter(model=llm_model, messages=prepared_messages)
 
-                if uncompressed_total_token_count > llm_max_tokens:
+                if uncompressed_total_token_count > (llm_max_tokens or (100 * 1000)):
                     _i = 0 # Count the number of ToolResult messages
                     for msg in reversed(prepared_messages): # Start from the end and work backwards
                         if "content" in msg and msg['content'] and "ToolResult" in msg['content']: # Only compress ToolResult messages
