@@ -120,7 +120,7 @@ class ThreadManager:
 
         try:
             # result = await client.rpc('get_llm_formatted_messages', {'p_thread_id': thread_id}).execute()
-            result = await client.table('messages').select('*').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').execute()
+            result = await client.table('messages').select('message_id, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').execute()
 
             # Parse the returned data which might be stringified JSON
             if not result.data:
