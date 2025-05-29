@@ -5,6 +5,7 @@ import { Square, Loader2, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
+import { VoiceRecorder } from './voice-recorder';
 import { ModelSelector } from './model-selector';
 import { SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
@@ -16,6 +17,7 @@ interface MessageInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onTranscription: (text: string) => void;
   placeholder: string;
   loading: boolean;
   disabled: boolean;
@@ -47,6 +49,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       value,
       onChange,
       onSubmit,
+      onTranscription,
       placeholder,
       loading,
       disabled,
@@ -142,8 +145,10 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 messages={messages}
               />
             )}
-
-
+            <VoiceRecorder
+              onTranscription={onTranscription}
+              disabled={loading || (disabled && !isAgentRunning)}
+            />
           </div>
           {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
             <TooltipProvider>

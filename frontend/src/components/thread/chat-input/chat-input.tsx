@@ -166,6 +166,17 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     };
 
+    const handleTranscription = (transcribedText: string) => {
+      const currentValue = isControlled ? controlledValue : uncontrolledValue;
+      const newValue = currentValue ? `${currentValue} ${transcribedText}` : transcribedText;
+
+      if (isControlled) {
+        controlledOnChange(newValue);
+      } else {
+        setUncontrolledValue(newValue);
+      }
+    };
+
     const removeUploadedFile = (index: number) => {
       const fileToRemove = uploadedFiles[index];
 
@@ -264,6 +275,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 value={value}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
+                onTranscription={handleTranscription}
                 placeholder={placeholder}
                 loading={loading}
                 disabled={disabled}
