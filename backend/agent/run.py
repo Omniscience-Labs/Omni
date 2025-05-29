@@ -18,6 +18,7 @@ from agent.tools.sb_shell_tool import SandboxShellTool
 from agent.tools.sb_files_tool import SandboxFilesTool
 from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
+from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompt import get_system_prompt
 from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
@@ -75,6 +76,7 @@ async def run_agent(
     thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
     thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
     thread_manager.add_tool(MessageTool) # we are just doing this via prompt as there is no need to call it as a tool
+    thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
     thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
     thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
     # Add data providers tool if RapidAPI key is available
