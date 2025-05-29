@@ -51,8 +51,6 @@ export const useUpdateAgent = () => {
       onSuccess: (data, variables) => {
         queryClient.setQueryData(agentKeys.detail(variables.agentId), data);
         queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
-        
-        toast.success('Agent updated successfully');
       },
     }
   )();

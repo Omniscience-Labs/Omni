@@ -42,7 +42,7 @@ const initialFormData: AgentCreateRequest = {
   is_default: false,
 };
 
-export function CreateAgentDialog({ isOpen, onOpenChange, onAgentCreated }: CreateAgentDialogProps) {
+export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: CreateAgentDialogProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [formData, setFormData] = useState<AgentCreateRequest>(initialFormData);

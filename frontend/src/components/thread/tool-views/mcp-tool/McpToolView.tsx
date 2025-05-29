@@ -3,216 +3,31 @@ import {
   PlugIcon,
   CheckCircle,
   AlertTriangle,
-  ExternalLink,
   Loader2,
-  Server,
-  Code,
   ChevronDown,
   ChevronUp,
-  Network,
-  Search,
-  BookOpen,
-  FileText,
-  Database,
   Zap,
   Clock,
   Settings,
-  Globe,
-  Copy,
-  Link2
 } from 'lucide-react';
-import { ToolViewProps } from './types';
+import { ToolViewProps } from '../types';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatTimestamp } from './utils';
-import { detectMCPFormat } from './mcp-format-detector';
-import { MCPContentRenderer } from './mcp-content-renderer';
-
-interface ParsedMCPTool {
-  serverName: string;
-  toolName: string;
-  fullToolName: string;
-  displayName: string;
-  arguments: Record<string, any>;
-}
-
-interface MCPResult {
-  success: boolean;
-  data: any;
-  isError?: boolean;
-  content?: string;
-  mcp_metadata?: {
-    server_name: string;
-    tool_name: string;
-    full_tool_name: string;
-    arguments_count: number;
-    is_mcp_tool: boolean;
-  };
-  error_type?: string;
-  raw_result?: any;
-}
-
-
-
-function getMCPServerIcon(serverName: string) {
-  switch (serverName.toLowerCase()) {
-    case 'exa':
-      return Search;
-    case 'github':
-      return Code;
-    case 'notion':
-      return FileText;
-    case 'slack':
-      return Network;
-    case 'filesystem':
-      return Database;
-    default:
-      return Server;
-  }
-}
-
-function getMCPServerColor(serverName: string) {
-  switch (serverName.toLowerCase()) {
-    case 'exa':
-      return 'from-blue-500/20 to-blue-600/10 border-blue-500/20';
-    case 'github':
-      return 'from-purple-500/20 to-purple-600/10 border-purple-500/20';
-    case 'notion':
-      return 'from-gray-500/20 to-gray-600/10 border-gray-500/20';
-    case 'slack':
-      return 'from-green-500/20 to-green-600/10 border-green-500/20';
-    case 'filesystem':
-      return 'from-orange-500/20 to-orange-600/10 border-orange-500/20';
-    default:
-      return 'from-indigo-500/20 to-indigo-600/10 border-indigo-500/20';
-  }
-}
-
-function parseMCPToolCall(assistantContent: string): ParsedMCPTool {
-  try {
-    // Extract tool name from the XML tag
-    const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
-    const fullToolName = toolNameMatch ? toolNameMatch[1] : 'unknown_mcp_tool';
-    
-    // Extract arguments from the content
-    const contentMatch = assistantContent.match(/<call-mcp-tool[^>]*>([\s\S]*?)<\/call-mcp-tool>/);
-    let args = {};
-    
-    if (contentMatch && contentMatch[1]) {
-      try {
-        args = JSON.parse(contentMatch[1].trim());
-      } catch (e) {
-        // If parsing fails, show raw content
-        args = { raw: contentMatch[1].trim() };
-      }
-    }
-    
-    // Parse the MCP tool name format: mcp_{server}_{tool}
-    const parts = fullToolName.split('_');
-    const serverName = parts.length > 1 ? parts[1] : 'unknown';
-    const toolName = parts.length > 2 ? parts.slice(2).join('_') : fullToolName;
-    
-    // Generate display name
-    const serverDisplayName = serverName.charAt(0).toUpperCase() + serverName.slice(1);
-    const toolDisplayName = toolName.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-    
-    return {
-      serverName,
-      toolName,
-      fullToolName,
-      displayName: `${serverDisplayName}: ${toolDisplayName}`,
-      arguments: args
-    };
-  } catch (e) {
-    return {
-      serverName: 'unknown',
-      toolName: 'unknown',
-      fullToolName: 'unknown_mcp_tool',
-      displayName: 'MCP Tool',
-      arguments: {}
-    };
-  }
-}
-
-function parseMCPResult(toolContent: string): MCPResult {
-  try {
-    // First, try to extract content from XML wrapper if present
-    let contentToParse = toolContent;
-    
-    // Check if content is wrapped in XML tags like <tool_result><call-mcp-tool>...</call-mcp-tool></tool_result>
-    const xmlMatch = toolContent.match(/<tool_result>\s*<call-mcp-tool>\s*([\s\S]*?)\s*<\/call-mcp-tool>\s*<\/tool_result>/);
-    if (xmlMatch && xmlMatch[1]) {
-      contentToParse = xmlMatch[1].trim();
-    }
-    
-    // Check if it's a ToolResult object format
-    const toolResultMatch = contentToParse.match(/ToolResult\(success=(\w+),\s*output='([\s\S]*)'\)/);
-    if (toolResultMatch) {
-      const isSuccess = toolResultMatch[1] === 'True';
-      let output = toolResultMatch[2];
-      
-      // Unescape the output content
-      output = output.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"');
-      
-      return {
-        success: isSuccess,
-        data: output,
-        isError: !isSuccess,
-        content: output
-      };
-    }
-    
-    // Try to parse as JSON (enhanced format from backend)
-    const parsed = JSON.parse(contentToParse);
-    
-    // Check if this is the enhanced result format from backend
-    if (parsed.mcp_metadata) {
-      // If content is a string, try to parse it as JSON
-      let actualContent = parsed.content;
-      if (typeof actualContent === 'string') {
-        try {
-          // Attempt to parse the escaped JSON string
-          actualContent = JSON.parse(actualContent);
-        } catch (e) {
-          // If parsing fails, keep it as string
-        }
-      }
-      
-      return {
-        success: !parsed.isError,
-        data: actualContent,
-        isError: parsed.isError,
-        content: actualContent,
-        mcp_metadata: parsed.mcp_metadata,
-        error_type: parsed.error_type,
-        raw_result: parsed.raw_result
-      };
-    }
-    
-    // Fallback to old format
-    return {
-      success: !parsed.isError,
-      data: parsed.content || parsed,
-      isError: parsed.isError,
-      content: parsed.content
-    };
-  } catch (e) {
-    return {
-      success: true,
-      data: toolContent,
-      content: toolContent
-    };
-  }
-}
-
-
+import { formatTimestamp } from '../utils';
+import { detectMCPFormat } from '../mcp-format-detector';
+import { MCPContentRenderer } from '../mcp-content-renderer';
+import { 
+  parseMCPResult, 
+  parseMCPToolCall, 
+  getMCPServerIcon, 
+  getMCPServerColor,
+  MCPResult,
+  ParsedMCPTool
+} from './_utils';
 
 export function McpToolView({
   name = 'call-mcp-tool',
@@ -231,13 +46,11 @@ export function McpToolView({
   const parsedTool = parseMCPToolCall(assistantContent || '');
   const result = toolContent ? parseMCPResult(toolContent) : null;
   
-  // Use backend metadata if available, otherwise fall back to parsed data
   const serverName = result?.mcp_metadata?.server_name || parsedTool.serverName;
   const toolName = result?.mcp_metadata?.tool_name || parsedTool.toolName;
   const fullToolName = result?.mcp_metadata?.full_tool_name || parsedTool.fullToolName;
   const argumentsCount = result?.mcp_metadata?.arguments_count ?? Object.keys(parsedTool.arguments).length;
   
-  // Generate display name with backend data if available
   const displayName = result?.mcp_metadata ? 
     `${serverName.charAt(0).toUpperCase() + serverName.slice(1)}: ${toolName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}` :
     parsedTool.displayName;
@@ -245,7 +58,6 @@ export function McpToolView({
   const ServerIcon = getMCPServerIcon(serverName);
   const serverColor = getMCPServerColor(serverName);
 
-  // Simulate progress when streaming
   useEffect(() => {
     if (isStreaming) {
       const timer = setInterval(() => {

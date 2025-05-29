@@ -155,11 +155,14 @@ async def run_agent(
     # Add MCP tool information to system prompt if MCP tools are configured
     if agent_config and agent_config.get('configured_mcps'):
         mcp_info = "\n\n--- MCP Tools Available ---\n"
-        mcp_info += "You have access to external MCP (Model Context Protocol) server tools through the <call-mcp-tool> command.\n"
-        mcp_info += "To use an MCP tool, call it like this:\n"
-        mcp_info += '<call-mcp-tool tool_name="mcp_{server}_{tool}">\n'
-        mcp_info += '{"argument1": "value1", "argument2": "value2"}\n'
-        mcp_info += '</call-mcp-tool>\n'
+        mcp_info += "You have access to external MCP (Model Context Protocol) server tools through the call_mcp_tool function.\n"
+        mcp_info += "To use an MCP tool, call it using the standard function calling format:\n"
+        mcp_info += '<function_calls>\n'
+        mcp_info += '<invoke name={server}_{tool}>\n'
+        mcp_info += '<parameter name="tool_name">mcp_{server}_{tool}</parameter>\n'
+        mcp_info += '<parameter name="arguments">{"argument1": "value1", "argument2": "value2"}</parameter>\n'
+        mcp_info += '</invoke>\n'
+        mcp_info += '</function_calls>\n'
         
         # List configured MCP servers
         mcp_info += "\nConfigured MCP servers:\n"

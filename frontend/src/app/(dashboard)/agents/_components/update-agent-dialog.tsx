@@ -31,7 +31,7 @@ interface UpdateAgentDialogProps {
 
 const TOOL_CATEGORIES = ['All', 'AI', 'Code', 'Integration', 'Search', 'File', 'Data'];
 
-export function UpdateAgentDialog({ agentId, isOpen, onOpenChange, onAgentUpdated }: UpdateAgentDialogProps) {
+export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdated }: UpdateAgentDialogProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [formData, setFormData] = useState<AgentUpdateRequest>({});

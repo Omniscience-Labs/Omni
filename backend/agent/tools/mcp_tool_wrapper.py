@@ -82,24 +82,12 @@ class MCPToolWrapper(Tool):
             {"param_name": "arguments", "node_type": "content", "path": "."}
         ],
         example='''
-        <!-- Call any MCP server tool through this generic wrapper -->
-        <!-- The tool_name should include the mcp prefix and server name -->
-        
-        <!-- Example: Calling Exa search tool -->
-        <call-mcp-tool tool_name="mcp_exa_web_search_exa">
-        {
-            "query": "latest developments in AI",
-            "num_results": 10
-        }
-        </call-mcp-tool>
-        
-        <!-- Example: Calling a research paper search -->
-        <call-mcp-tool tool_name="mcp_exa_research_paper_search">
-        {
-            "query": "transformer architecture improvements",
-            "start_date": "2023-01-01"
-        }
-        </call-mcp-tool>
+        <function_calls>
+        <invoke name="exa_web_search">
+        <parameter name="tool_name">mcp_exa_web_search_exa</parameter>
+        <parameter name="arguments">{"query": "latest developments in AI", "num_results": 10}</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
