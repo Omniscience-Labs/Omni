@@ -262,7 +262,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                 onScroll={handleScroll}
             >
-                <div className="mx-auto max-w-3xl">
+                <div className="mx-auto max-w-3xl min-w-0">
                     {displayMessages.length === 0 && !streamingTextContent && !streamingToolCall &&
                         !streamingText && !currentToolCall && agentStatus === 'idle' ? (
                         <div className="flex h-full items-center justify-center">
@@ -271,7 +271,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-8">
+                        <div className="space-y-8 min-w-0">
                             {(() => {
 
                                 type MessageGroup = {
@@ -379,8 +379,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         if (debugMode) {
                                             return (
                                                 <div key={group.key} className="flex justify-end">
-                                                    <div className="inline-flex max-w-[85%] rounded-xl bg-primary/10 px-4 py-3">
-                                                        <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                                    <div className="flex max-w-[85%] rounded-xl bg-primary/10 px-4 py-3 break-words overflow-hidden">
+                                                        <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto min-w-0 flex-1">
                                                             {message.content}
                                                         </pre>
                                                     </div>
@@ -402,10 +402,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         return (
                                             <div key={group.key} className="flex justify-end">
-                                                <div className="inline-flex max-w-[85%] rounded-xl bg-primary/10 px-4 py-3">
-                                                    <div className="space-y-3">
+                                                <div className="flex max-w-[85%] rounded-xl bg-primary/10 px-4 py-3 break-words overflow-hidden">
+                                                    <div className="space-y-3 min-w-0 flex-1">
                                                         {cleanContent && (
-                                                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">{cleanContent}</Markdown>
+                                                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{cleanContent}</Markdown>
                                                         )}
 
                                                         {/* Use the helper function to render user attachments */}
@@ -422,8 +422,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                         <KortixLogo />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <div className="inline-flex max-w-[90%] rounded-lg px-4 text-sm">
-                                                            <div className="space-y-2">
+                                                        <div className="flex max-w-[90%] rounded-lg px-4 text-sm break-words overflow-hidden">
+                                                            <div className="space-y-2 min-w-0 flex-1">
                                                                 {(() => {
                                                                     // In debug mode, just show raw messages content
                                                                     if (debugMode) {
@@ -487,7 +487,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                             elements.push(
                                                                                 <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
-                                                                                    <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">
+                                                                                    <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                         {renderedContent}
                                                                                     </div>
                                                                                 </div>
@@ -534,7 +534,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                             return (
                                                                                 <>
                                                                                     {textBeforeTag && (
-                                                                                        <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">{textBeforeTag}</Markdown>
+                                                                                        <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
                                                                                     )}
                                                                                     {showCursor && (
                                                                                         <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
@@ -611,7 +611,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     ) : (
                                                                                         <>
                                                                                             {textBeforeTag && (
-                                                                                                <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3">{textBeforeTag}</Markdown>
+                                                                                                <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
                                                                                             )}
                                                                                             {showCursor && (
                                                                                                 <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
