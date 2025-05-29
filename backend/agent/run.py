@@ -158,13 +158,12 @@ async def run_agent(
         mcp_info += "You have access to external MCP (Model Context Protocol) server tools through the call_mcp_tool function.\n"
         mcp_info += "To use an MCP tool, call it using the standard function calling format:\n"
         mcp_info += '<function_calls>\n'
-        mcp_info += '<invoke name={server}_{tool}>\n'
-        mcp_info += '<parameter name="tool_name">mcp_{server}_{tool}</parameter>\n'
+        mcp_info += '<invoke name="call_mcp_tool">\n'
+        mcp_info += '<parameter name="tool_name">{server}_{tool}</parameter>\n'
         mcp_info += '<parameter name="arguments">{"argument1": "value1", "argument2": "value2"}</parameter>\n'
         mcp_info += '</invoke>\n'
         mcp_info += '</function_calls>\n'
-        
-        # List configured MCP servers
+
         mcp_info += "\nConfigured MCP servers:\n"
         for mcp_config in agent_config['configured_mcps']:
             server_name = mcp_config.get('name', 'Unknown')
