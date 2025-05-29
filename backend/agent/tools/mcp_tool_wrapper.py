@@ -134,26 +134,41 @@ class MCPToolWrapper(Tool):
             server_name = parts[1] if len(parts) > 1 else "unknown"
             original_tool_name = parts[2] if len(parts) > 2 else tool_name
             
-            # Enhance the result with metadata for better frontend display
-            enhanced_result = {
-                "mcp_metadata": {
-                    "server_name": server_name,
-                    "tool_name": original_tool_name,
-                    "full_tool_name": tool_name,
-                    "arguments_count": len(arguments) if isinstance(arguments, dict) else 0,
-                    "is_mcp_tool": True
-                },
-                "content": result.get("content", ""),
-                "isError": result.get("isError", False),
-                "raw_result": result
-            }
-            
             # Check if it's an error
             if result.get("isError", False):
-                return self.fail_response(json.dumps(enhanced_result, indent=2))
+                error_result = {
+                    "mcp_metadata": {
+                        "server_name": server_name,
+                        "tool_name": original_tool_name,
+                        "full_tool_name": tool_name,
+                        "arguments_count": len(arguments) if isinstance(arguments, dict) else 0,
+                        "is_mcp_tool": True
+                    },
+                    "content": result.get("content", ""),
+                    "isError": True,
+                    "raw_result": result
+                }
+                return self.fail_response(json.dumps(error_result, indent=2))
+            
+            # Format the result in an LLM-friendly way with content first
+            actual_content = result.get("content", "")
+            
+            # Create a clear, LLM-friendly response that puts the content first
+            llm_friendly_result = f"""MCP Tool Result from {server_name.upper()}:
+
+{actual_content}
+
+---
+Tool Metadata: {json.dumps({
+    "server": server_name,
+    "tool": original_tool_name,
+    "full_tool_name": tool_name,
+    "arguments_used": arguments,
+    "is_mcp_tool": True
+}, indent=2)}"""
                 
-            # Return successful result with enhanced metadata
-            return self.success_response(json.dumps(enhanced_result, indent=2))
+            # Return successful result with LLM-friendly formatting
+            return self.success_response(llm_friendly_result)
             
         except ValueError as e:
             # Handle specific MCP errors (like invalid tool name format)

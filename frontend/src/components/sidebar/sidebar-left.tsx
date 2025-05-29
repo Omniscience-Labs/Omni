@@ -156,7 +156,7 @@ export function SidebarLeft({
             <Store className="h-4 w-4" />
             <span className="flex items-center justify-between w-full">
               Marketplace
-              <Badge variant="secondary" className="ml-2 text-xs border bg-green-200/50 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+              <Badge variant="secondary" className="ml-2 text-xs border bg-blue-200/50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
                 New
               </Badge>
             </span>

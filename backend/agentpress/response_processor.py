@@ -1456,6 +1456,36 @@ class ResponseProcessor:
                 )
                 return message_obj # Return the full message object
             
+            # Check if this is an MCP tool (function_name starts with "call_mcp_tool")
+            function_name = tool_call.get("function_name", "")
+            if function_name == "call_mcp_tool":
+                # Special handling for MCP tools - make content prominent and LLM-friendly
+                result_role = "user" if strategy == "user_message" else "assistant"
+                
+                # Extract the actual content from the ToolResult
+                if hasattr(result, 'output'):
+                    mcp_content = str(result.output)
+                else:
+                    mcp_content = str(result)
+                
+                # Create a simple, LLM-friendly message format that puts content first
+                simple_message = {
+                    "role": result_role,
+                    "content": mcp_content  # Direct content, no complex nesting
+                }
+                
+                logger.info(f"Adding MCP tool result with simplified format for LLM visibility")
+                self.trace.event(name="adding_mcp_tool_result_simplified", level="DEFAULT", status_message="Adding MCP tool result with simplified format for LLM visibility")
+                
+                message_obj = await self.add_message(
+                    thread_id=thread_id, 
+                    type="tool",
+                    content=simple_message,
+                    is_llm_message=True,
+                    metadata=metadata
+                )
+                return message_obj
+            
             # For XML and other non-native tools, use the new structured format
             # Determine message role based on strategy
             result_role = "user" if strategy == "user_message" else "assistant"
