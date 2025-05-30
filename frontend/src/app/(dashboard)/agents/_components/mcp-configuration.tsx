@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus, Settings, ExternalLink, Shield, X, Sparkles, ChevronRight, Database, Cloud, Code, FileText, Puzzle, Globe, Bot, Zap, GitBranch, MessageCircle, Calendar, ShoppingCart, HeadphonesIcon, Wrench } from 'lucide-react';
+import { Loader2, Search, Plus, Settings, ExternalLink, Shield, X, Sparkles, ChevronRight } from 'lucide-react';
 import { usePopularMCPServers, usePopularMCPServersV2, useMCPServers, useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { cn } from '@/lib/utils';
 
@@ -30,32 +30,32 @@ interface ConfigDialogProps {
 }
 
 const categoryIcons = {
-  "AI & Search": Bot,
-  "Development & Version Control": GitBranch,
-  "Automation & Productivity": Zap,
-  "Communication & Collaboration": MessageCircle,
-  "Project Management": Calendar,
-  "Data & Analytics": Database,
-  "Cloud & Infrastructure": Cloud,
-  "File Storage": FileText,
-  "Marketing & Sales": ShoppingCart,
-  "Customer Support": HeadphonesIcon,
-  "Finance": Database,
-  "Utilities": Wrench,
-  "Other": Puzzle,
+  "AI & Search": "🤖",
+  "Development & Version Control": "🔧",
+  "Automation & Productivity": "⚡",
+  "Communication & Collaboration": "💬",
+  "Project Management": "📅",
+  "Data & Analytics": "📊",
+  "Cloud & Infrastructure": "☁️",
+  "File Storage": "📁",
+  "Marketing & Sales": "🛒",
+  "Customer Support": "🎧",
+  "Finance": "💰",
+  "Utilities": "🔨",
+  "Other": "🧩",
   // Legacy fallbacks
-  "development": GitBranch,
-  "ai": Bot,
-  "automation": Zap,
-  "search": Bot,
-  "Database": Database,
-  "Web": Globe,
-  "File": FileText,
-  "Development": Code,
-  "AI": Bot,
-  "Cloud": Cloud,
-  "Utility": Zap,
-  "Integration": Puzzle,
+  "development": "🔧",
+  "ai": "🤖",
+  "automation": "⚡",
+  "search": "🔍",
+  "Database": "📊",
+  "Web": "🌐",
+  "File": "📄",
+  "Development": "💻",
+  "AI": "🤖",
+  "Cloud": "☁️",
+  "Utility": "⚡",
+  "Integration": "🧩",
 };
 
 const ConfigDialog: React.FC<ConfigDialogProps> = ({ server, existingConfig, onSave, onCancel }) => {
@@ -337,13 +337,11 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
                       className={cn("w-full justify-start shadow-none bg-transparent text-primary hover:bg-muted hover:text-primary", selectedCategory === null && "bg-primary/5 text-foreground")}
                       onClick={() => setSelectedCategory(null)}
                     >
-                      <Globe className="h-4 w-4 mr-2" />
+                      <span className="mr-2">🌐</span>
                       All Categories
                     </Button>
                     {categories.map((category) => {
-                      const IconComponent = categoryIcons[category] || Puzzle;
                       const count = popularServersV2?.categorized[category]?.length || 0;
-                      
                       return (
                         <Button
                           key={category}
@@ -351,7 +349,7 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
                           className={cn("w-full justify-start shadow-none bg-transparent text-primary hover:bg-muted hover:text-primary", selectedCategory === category && "bg-primary/5 text-foreground")}
                           onClick={() => setSelectedCategory(category)}
                         >
-                          <IconComponent className="h-4 w-4 mr-2" />
+                          <span className="mr-2">{categoryIcons[category] || "🧩"}</span>
                           <span className="flex-1 text-left">{category}</span>
                           <Badge variant="outline" className="ml-auto text-xs">
                             {count}
@@ -444,7 +442,7 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
                             // Show single category
                             <div className="space-y-3">
                               <div className="flex items-center gap-2">
-                                {React.createElement(categoryIcons[selectedCategory] || Puzzle, { className: "h-5 w-5" })}
+                                <span className="text-lg">{categoryIcons[selectedCategory] || "🧩"}</span>
                                 <h3 className="text-lg font-semibold">{selectedCategory}</h3>
                                 <Badge variant="outline" className="ml-auto">
                                   {popularServersV2.categorized[selectedCategory]?.length || 0} servers
@@ -496,7 +494,7 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
                               <div key={category} className="space-y-3">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    {React.createElement(categoryIcons[category] || Puzzle, { className: "h-4 w-4" })}
+                                    <span className="text-lg">{categoryIcons[category] || "🧩"}</span>
                                     <h3 className="text-sm font-semibold text-muted-foreground">{category}</h3>
                                   </div>
                                   <div className="flex items-center gap-2">
