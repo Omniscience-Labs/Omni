@@ -33,14 +33,26 @@ class ExpandMessageTool(Tool):
             {"param_name": "message_id", "node_type": "attribute", "path": "."}
         ],
         example='''
-Expand a message from the previous conversation with the user. Use this tool to expand a message that was truncated in the earlier conversation. The message_id must be a valid UUID.
+        <!-- Example 1: Expand a message that was truncated in the previous conversation -->
+        <function_calls>
+        <invoke name="expand_message">
+        <parameter name="message_id">ecde3a4c-c7dc-4776-ae5c-8209517c5576</parameter>
+        </invoke>
+        </function_calls>
 
-        <!-- Use expand-message when you need to expand a message that was truncated in the previous conversation -->
-        <!-- Use this tool when you need to create reports or analyze the data that resides in a truncated message -->
-        <!-- Examples of when to use expand-message: -->
-        <!-- The message was truncated in the earlier conversation -->
+        <!-- Example 2: Expand a message to create reports or analyze truncated data -->
+        <function_calls>
+        <invoke name="expand_message">
+        <parameter name="message_id">f47ac10b-58cc-4372-a567-0e02b2c3d479</parameter>
+        </invoke>
+        </function_calls>
 
-        <expand-message message_id="ecde3a4c-c7dc-4776-ae5c-8209517c5576"></expand-message>
+        <!-- Example 3: Expand a message when you need the full content for analysis -->
+        <function_calls>
+        <invoke name="expand_message">
+        <parameter name="message_id">550e8400-e29b-41d4-a716-446655440000</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def expand_message(self, message_id: str) -> ToolResult:
