@@ -47,11 +47,11 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     const language = extractLanguage(className);
 
     return (
-      <CodeBlock className="rounded-md overflow-hidden my-4 border border-zinc-200 dark:border-zinc-800">
+      <CodeBlock className="rounded-md overflow-hidden my-4 border border-zinc-200 dark:border-zinc-800 max-w-full min-w-0 w-full">
         <CodeBlockCode
           code={children as string}
           language={language}
-          className="text-sm overflow-x-auto"
+          className="text-sm"
         />
       </CodeBlock>
     );
