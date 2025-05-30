@@ -57,7 +57,6 @@ export default function MarketplacePage() {
     return getAgentAvatar(agent.agent_id);
   };
 
-  // Get all unique tags from agents
   const allTags = React.useMemo(() => {
     const tags = new Set<string>();
     agents.forEach(agent => {
@@ -208,16 +207,11 @@ export default function MarketplacePage() {
                       <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                         {agent.name}
                       </h3>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        <Globe className="h-3 w-3 mr-1" />
-                        Public
-                      </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                       {agent.description || 'No description available'}
                     </p>
                     
-                    {/* Tags */}
                     {agent.tags && agent.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
                         {agent.tags.slice(0, 2).map(tag => (
@@ -232,8 +226,7 @@ export default function MarketplacePage() {
                         )}
                       </div>
                     )}
-                    
-                    {/* Metadata */}
+
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <User className="h-3 w-3" />
@@ -244,8 +237,7 @@ export default function MarketplacePage() {
                         <span>{new Date(agent.marketplace_published_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    
-                    {/* Add to Library Button */}
+
                     <Button 
                       onClick={(e) => {
                         e.stopPropagation();

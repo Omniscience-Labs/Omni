@@ -87,6 +87,16 @@ class ThreadAgentResponse(BaseModel):
     source: str  # "thread", "default", "none", "missing"
     message: str
 
+class AgentBuilderChatRequest(BaseModel):
+    message: str
+    conversation_history: List[Dict[str, str]] = []
+    partial_config: Optional[Dict[str, Any]] = None
+
+class AgentBuilderChatResponse(BaseModel):
+    response: str
+    suggested_config: Optional[Dict[str, Any]] = None
+    next_step: Optional[str] = None
+
 def initialize(
     _db: DBConnection,
     _instance_id: str = None
@@ -1295,8 +1305,6 @@ class MarketplaceAgentsResponse(BaseModel):
 class PublishAgentRequest(BaseModel):
     tags: Optional[List[str]] = []
 
-# Marketplace Endpoints
-
 @router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
 async def get_marketplace_agents(
     search: Optional[str] = None,
@@ -1469,3 +1477,184 @@ async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from
     except Exception as e:
         logger.error(f"Error fetching user agent library: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/agents/builder/chat/{agent_id}")
+async def agent_builder_chat(
+    agent_id: str,
+    request: AgentBuilderChatRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Stream chat responses from the agent builder assistant that uses tools to update agent configuration."""
+    logger.info(f"Agent builder chat request from user: {user_id} for agent: {agent_id}")
+    
+    async def stream_generator():
+        try:
+            # Import UpdateAgentTool
+            from agent.tools.update_agent_tool import UpdateAgentTool
+            
+            # Initialize the update agent tool
+            agent_update_tool = UpdateAgentTool(db, agent_id)
+            
+            # System prompt for the agent builder assistant
+            system_prompt = """You are an expert AI assistant helping users configure custom AI agents. You have access to tools that let you update the agent's configuration and get its current state.
+
+Your role is to:
+1. Understand what kind of agent the user wants to build
+2. Use the get_current_agent_config tool to see what's already configured
+3. Ask clarifying questions when needed
+4. Use the update_agent tool to progressively update the agent's configuration based on user requirements
+5. Guide the user through the entire process until the agent is fully configured
+
+Key guidelines:
+- Always check the current config first before making updates
+- Update only the fields that the user is discussing
+- Provide helpful suggestions for names, descriptions, and system prompts
+- Recommend appropriate tools based on the agent's purpose
+- Be encouraging and make the process feel intuitive
+- Keep responses concise but informative
+
+Available tools:
+- get_current_agent_config: Check what's already configured
+- update_agent: Update any aspect of the agent (name, description, system_prompt, tools, etc.)
+
+Tool selection guidelines:
+- For web research, data analysis: web_search tool
+- For file operations, code execution: sb_files tool  
+- For external integrations: suggest MCP servers
+
+Always use tools to make actual updates to the agent configuration."""
+
+            # Build messages array
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add conversation history
+            for msg in request.conversation_history:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+            
+            # Add current message
+            messages.append({"role": "user", "content": request.message})
+            
+            # Prepare tools for the agent
+            tools = [agent_update_tool]
+            tool_schemas = []
+            for tool in tools:
+                # Get XML schema for each tool method
+                for method_name in dir(tool):
+                    if hasattr(getattr(tool, method_name), '_xml_schema'):
+                        schema = getattr(getattr(tool, method_name), '_xml_schema')
+                        tool_schemas.append(schema)
+            
+            # Make streaming API call to GPT-4o with tools
+            response = await make_llm_api_call(
+                messages=messages,
+                model_name="openai/gpt-4o",
+                temperature=0.7,
+                max_tokens=2000,
+                stream=True,
+                tools=tool_schemas,
+                tool_choice="auto"
+            )
+            
+            full_response = ""
+            tool_calls_buffer = ""
+            in_tool_call = False
+            
+            # Stream the response and handle tool calls
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta:
+                    delta = chunk.choices[0].delta
+                    
+                    # Handle regular content
+                    if delta.content:
+                        content = delta.content
+                        full_response += content
+                        
+                        # Check for tool call markers
+                        if "<function_calls>" in content:
+                            in_tool_call = True
+                            tool_calls_buffer += content
+                        elif "</function_calls>" in content:
+                            in_tool_call = False
+                            tool_calls_buffer += content
+                            
+                            # Process tool call
+                            try:
+                                # Extract and execute tool calls
+                                import re
+                                from xml.etree import ElementTree as ET
+                                
+                                # Find all invoke blocks
+                                invoke_pattern = r'<invoke name="([^"]+)">(.*?)</invoke>'
+                                matches = re.findall(invoke_pattern, tool_calls_buffer, re.DOTALL)
+                                
+                                for tool_name, params_xml in matches:
+                                    # Parse parameters
+                                    params = {}
+                                    param_pattern = r'<parameter name="([^"]+)">(.*?)</parameter>'
+                                    param_matches = re.findall(param_pattern, params_xml, re.DOTALL)
+                                    
+                                    for param_name, param_value in param_matches:
+                                        params[param_name] = param_value.strip()
+                                    
+                                    # Execute tool call
+                                    if hasattr(agent_update_tool, tool_name):
+                                        tool_method = getattr(agent_update_tool, tool_name)
+                                        result = await tool_method(**params)
+                                        
+                                        # Send tool result as content
+                                        tool_result_content = f"\n\n[Tool executed: {tool_name}]\nResult: {result.content}\n\n"
+                                        yield f"data: {json.dumps({'type': 'content', 'content': tool_result_content})}\n\n"
+                                        
+                            except Exception as e:
+                                logger.error(f"Error processing tool call: {str(e)}")
+                                error_content = f"\n\n[Tool execution error: {str(e)}]\n\n"
+                                yield f"data: {json.dumps({'type': 'content', 'content': error_content})}\n\n"
+                            
+                            tool_calls_buffer = ""
+                        elif in_tool_call:
+                            tool_calls_buffer += content
+                        else:
+                            # Send regular content
+                            yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                    
+                    # Handle tool calls from the API (if supported)
+                    elif hasattr(delta, 'tool_calls') and delta.tool_calls:
+                        for tool_call in delta.tool_calls:
+                            if tool_call.function:
+                                tool_name = tool_call.function.name
+                                try:
+                                    tool_args = json.loads(tool_call.function.arguments)
+                                    
+                                    # Execute tool
+                                    if hasattr(agent_update_tool, tool_name):
+                                        tool_method = getattr(agent_update_tool, tool_name)
+                                        result = await tool_method(**tool_args)
+                                        
+                                        # Send tool result
+                                        tool_result_content = f"\n\n[Tool executed: {tool_name}]\nResult: {result.content}\n\n"
+                                        yield f"data: {json.dumps({'type': 'content', 'content': tool_result_content})}\n\n"
+                                        
+                                except Exception as e:
+                                    logger.error(f"Error executing tool {tool_name}: {str(e)}")
+                                    error_content = f"\n\n[Tool execution error: {str(e)}]\n\n"
+                                    yield f"data: {json.dumps({'type': 'content', 'content': error_content})}\n\n"
+            
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error in agent builder chat: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

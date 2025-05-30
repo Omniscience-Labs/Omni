@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Settings, Zap } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
@@ -50,28 +50,68 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">MCP Servers</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            Connect Model Context Protocol servers to extend agent capabilities
+    <div className="space-y-6">
+      <div className="rounded-xl p-6 border">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Settings className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
+                Connect Model Context Protocol servers to extend agent capabilities with external tools and data sources
+              </p>
+              {configuredMCPs.length > 0 && (
+                <div className="flex items-center mt-3 space-x-2">
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      {configuredMCPs.length} server{configuredMCPs.length !== 1 ? 's' : ''} configured
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowBrowseDialog(true)}
+            className="transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            Add Server
+          </Button>
+        </div>
+      </div>
+      {configuredMCPs.length === 0 && (
+        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+            <Zap className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h4 className="text-sm font-medium text-foreground mb-2">
+            No MCP servers configured
+          </h4>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+            Add your first MCP server to unlock powerful integrations and extend your agent's capabilities
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setShowBrowseDialog(true)}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add MCP
-        </Button>
-      </div>
-      <ConfiguredMcpList
-        configuredMCPs={configuredMCPs}
-        onEdit={handleEditMCP}
-        onRemove={handleRemoveMCP}
-      />
+      )}
+      {configuredMCPs.length > 0 && (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border bg-muted/30">
+            <h4 className="text-sm font-medium text-foreground">
+              Configured Servers
+            </h4>
+          </div>
+          <div className="p-2 divide-y divide-border">
+            <ConfiguredMcpList
+              configuredMCPs={configuredMCPs}
+              onEdit={handleEditMCP}
+              onRemove={handleRemoveMCP}
+            />
+          </div>
+        </div>
+      )}
       <BrowseDialog
         open={showBrowseDialog}
         onOpenChange={setShowBrowseDialog}

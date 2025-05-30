@@ -24,7 +24,7 @@ Example MCP configuration stored in agent's configured_mcps:
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, validator, HttpUrl
 import httpx
 import os
 from urllib.parse import quote
@@ -38,6 +38,7 @@ router = APIRouter()
 SMITHERY_API_BASE_URL = "https://registry.smithery.ai"
 SMITHERY_SERVER_BASE_URL = "https://server.smithery.ai" 
 SMITHERY_API_KEY = os.getenv("SMITHERY_API_KEY")
+
 
 class MCPServer(BaseModel):
     """Represents an MCP server from Smithery"""
@@ -76,6 +77,28 @@ class PopularServersV2Response(BaseModel):
     categorized: Dict[str, List[Dict[str, Any]]]
     total: int
     categoryCount: int
+
+class CustomMCPConnectionRequest(BaseModel):
+    """Request model for connecting to a custom MCP server"""
+    url: str
+    config: Optional[Dict[str, Any]] = {}
+    
+    @validator('url')
+    def validate_smithery_url(cls, v):
+        """Validate that the URL is a Smithery server URL"""
+        if not v.startswith('https://server.smithery.ai/'):
+            raise ValueError('URL must be a Smithery server URL starting with https://server.smithery.ai/')
+        return v
+
+class CustomMCPConnectionResponse(BaseModel):
+    """Response model for custom MCP connection"""
+    success: bool
+    qualifiedName: str
+    displayName: str
+    tools: list[Dict[str, Any]]
+    config: Dict[str, Any]
+    url: str
+    message: str
 
 @router.get("/mcp/servers", response_model=MCPServerListResponse)
 async def list_mcp_servers(
@@ -521,3 +544,4 @@ async def get_popular_mcp_servers_v2(
             total=0,
             categoryCount=0
         ) 
+    

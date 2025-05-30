@@ -213,7 +213,7 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      throw new Error('You must be logged in to get thread agent details');
+      throw new Error('You must be logged in to get thread agent');
     }
 
     const response = await fetch(`${API_URL}/thread/${threadId}/agent`, {
@@ -229,11 +229,111 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const threadAgent = await response.json();
-    console.log('[API] Fetched thread agent:', threadAgent.source, threadAgent.agent?.name);
-    return threadAgent;
+    const agent = await response.json();
+    console.log('[API] Fetched thread agent:', threadId);
+    return agent;
   } catch (err) {
     console.error('Error fetching thread agent:', err);
+    throw err;
+  }
+};
+
+// Agent Builder Chat Types
+export type AgentBuilderMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type AgentBuilderConfig = {
+  name?: string;
+  description?: string;
+  system_prompt?: string;
+  agentpress_tools?: Record<string, { enabled: boolean; description: string }>;
+  configured_mcps?: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
+  avatar?: string;
+  avatar_color?: string;
+};
+
+export type AgentBuilderChatRequest = {
+  message: string;
+  conversation_history: AgentBuilderMessage[];
+  agent_id: string;
+  partial_config?: AgentBuilderConfig;
+};
+
+export type AgentBuilderStreamData = {
+  type: 'content' | 'config' | 'done' | 'error';
+  content?: string;
+  config?: AgentBuilderConfig;
+  next_step?: string;
+  error?: string;
+};
+
+export const startAgentBuilderChat = async (
+  request: AgentBuilderChatRequest,
+  onData: (data: AgentBuilderStreamData) => void,
+  onComplete: () => void,
+  signal?: AbortSignal
+): Promise<void> => {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to use the agent builder');
+    }
+
+    const response = await fetch(`${API_URL}/agents/builder/chat/${request.agent_id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        message: request.message,
+        conversation_history: request.conversation_history,
+        partial_config: request.partial_config
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('No response body');
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            onData(data);
+            
+            if (data.type === 'done') {
+              onComplete();
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error in agent builder chat:', err);
     throw err;
   }
 };

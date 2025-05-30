@@ -2,7 +2,8 @@ import { createMutationHook, createQueryHook } from '@/hooks/use-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
-import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent } from './utils';
+import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat } from './utils';
+import { useRef, useCallback } from 'react';
 
 export const useAgents = createQueryHook(
   agentKeys.list(),
@@ -101,4 +102,53 @@ export const useThreadAgent = (threadId: string) => {
       gcTime: 10 * 60 * 1000,
     }
   )();
+};
+
+export const useAgentBuilderChat = () => {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const sendMessage = useCallback(async (
+    request: AgentBuilderChatRequest,
+    callbacks: {
+      onData: (data: AgentBuilderStreamData) => void;
+      onComplete: () => void;
+      onError?: (error: Error) => void;
+    }
+  ) => {
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+
+    try {
+      await startAgentBuilderChat(
+        request,
+        callbacks.onData,
+        callbacks.onComplete,
+        abortControllerRef.current.signal
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error in agent builder chat:', error);
+        callbacks.onError?.(error);
+      }
+    } finally {
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  const cancelStream = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  return {
+    sendMessage,
+    cancelStream,
+  };
 };

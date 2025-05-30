@@ -2,35 +2,22 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, Settings2, Sparkles, MessageSquare, Check, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { AgentMCPConfiguration } from '../../_components/agent-mcp-configuration';
 import { toast } from 'sonner';
 import { AgentToolsConfiguration } from '../../_components/agent-tools-configuration';
 import { AgentPreview } from '../../_components/agent-preview';
-import { cn } from '@/lib/utils';
 import { getAgentAvatar } from '../../_utils/get-agent-style';
 import { EditableText } from '@/components/ui/editable';
 import { StylePicker } from '../../_components/style-picker';
-
-interface AgentWithStyling {
-  agent_id: string;
-  name?: string;
-  description?: string;
-  system_prompt?: string;
-  agentpress_tools?: Record<string, { enabled: boolean; description: string }>;
-  configured_mcps?: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
-  is_default?: boolean;
-  avatar?: string;
-  avatar_color?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import { useSidebar } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -41,7 +28,7 @@ export default function AgentConfigurationPage() {
 
   const { data: agent, isLoading, error } = useAgent(agentId);
   const updateAgentMutation = useUpdateAgent();
-  const { avatar, color } = getAgentAvatar(agentId);
+  const { state, setOpen, setOpenMobile } = useSidebar();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -57,11 +44,12 @@ export default function AgentConfigurationPage() {
   const originalDataRef = useRef<typeof formData | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const accordionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (agent) {
-      const agentData = agent as any; // Safe casting for extended properties
+      const agentData = agent as any;
       const initialData = {
         name: agentData.name || '',
         description: agentData.description || '',
@@ -273,128 +261,152 @@ export default function AgentConfigurationPage() {
     );
   }
 
+  const ConfigurationContent = () => (
+    <div className="p-4 md:p-12 flex flex-col min-h-full justify-between">
+      <div className="flex-1">
+        <div className="flex-1 flex flex-col">
+          <div className="md:hidden flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setOpenMobile(true)}
+                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Open menu</TooltipContent>
+              </Tooltip>
+              <Button onClick={handleBack} variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <div className="md:hidden flex justify-center">
+                {getSaveStatusBadge()}
+              </div>
+            </div>
+            <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4" />
+                  Preview
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[90vh] bg-muted">
+                <DrawerHeader>
+                  <DrawerTitle>Agent Preview</DrawerTitle>
+                </DrawerHeader>
+                <div className="flex-1 overflow-y-auto px-4 pb-4">
+                  <AgentPreview agent={{ ...agent, ...formData }} />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          </div>
+
+          <div className="hidden md:flex justify-end mb-4">
+            {getSaveStatusBadge()}
+          </div>
+
+          <div className='flex items-start md:items-center flex-col md:flex-row'>
+            <StylePicker 
+              agentId={agentId} 
+              currentEmoji={currentStyle.avatar}
+              currentColor={currentStyle.color}
+              onStyleChange={handleStyleChange}
+            >
+              <div 
+                className="flex-shrink-0 h-12 w-12 md:h-16 md:w-16 flex items-center justify-center rounded-2xl text-xl md:text-2xl cursor-pointer hover:opacity-80 transition-opacity mb-3 md:mb-0"
+                style={{ backgroundColor: currentStyle.color }}
+              >
+                {currentStyle.avatar}
+              </div>
+            </StylePicker>
+            <div className='flex flex-col md:ml-3 w-full'>
+              <EditableText
+                value={formData.name}
+                onSave={(value) => handleFieldChange('name', value)}
+                className="text-lg md:text-xl font-semibold bg-transparent"
+                placeholder="Click to add agent name..."
+              />
+              <EditableText
+                value={formData.description}
+                onSave={(value) => handleFieldChange('description', value)}
+                className="text-muted-foreground text-sm md:text-base"
+                placeholder="Click to add description..."
+              />
+            </div>
+          </div>
+
+          <div className='flex flex-col mt-6 md:mt-8'>
+            <div className='text-sm font-semibold text-muted-foreground mb-2'>Instructions</div>
+            <EditableText
+              value={formData.system_prompt}
+              onSave={(value) => handleFieldChange('system_prompt', value)}
+              className='bg-transparent hover:bg-transparent border-none focus-visible:ring-0 shadow-none text-sm md:text-base'
+              placeholder='Click to set system instructions...'
+              multiline={true}
+              minHeight="150px"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div ref={accordionRef} className="mt-6 border-t">
+        <Accordion 
+          type="multiple" 
+          defaultValue={[]} 
+          className="space-y-2"
+          onValueChange={scrollToAccordion}
+        >
+          <AccordionItem value="tools" className="border-b">
+            <AccordionTrigger className="hover:no-underline text-sm md:text-base">
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4" />
+                AgentPress Tools
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <AgentToolsConfiguration
+                tools={formData.agentpress_tools}
+                onToolsChange={(tools) => handleFieldChange('agentpress_tools', tools)}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="mcp" className="border-b">
+            <AccordionTrigger className="hover:no-underline text-sm md:text-base">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                MCP Servers
+                <Badge className="ml-auto bg-purple-600/30 text-purple-600 dark:text-purple-300 text-xs">New</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <AgentMCPConfiguration
+                mcps={formData.configured_mcps}
+                onMCPsChange={(mcps) => handleFieldChange('configured_mcps', mcps)}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-1/2 border-r bg-background overflow-y-auto scrollbar-hide">
-          <div className="p-12 flex flex-col min-h-full justify-between">
-            <div className="flex-1">
-              <Tabs defaultValue="custom" className="w-full flex flex-col">
-                <div className='w-full flex items-center justify-center'>
-                  <div className='w-56'>
-                  <TabsList className="grid w-full grid-cols-2 -mt-2">
-                    <TabsTrigger value="custom">Custom</TabsTrigger>
-                    <TabsTrigger value="agent-builder">Agent Builder</TabsTrigger>
-                  </TabsList>
-                  </div>
-                  
-                </div>
-                <TabsContent value="custom" className="flex-1 flex flex-col">
-                  <div className="flex justify-end mb-4">
-                    {getSaveStatusBadge()}
-                  </div>
-
-                  <div className='flex items-center'>
-                    <StylePicker 
-                      agentId={agentId} 
-                      currentEmoji={currentStyle.avatar}
-                      currentColor={currentStyle.color}
-                      onStyleChange={handleStyleChange}
-                    >
-                      <div 
-                        className="h-16 w-16 flex items-center justify-center rounded-2xl text-2xl cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ backgroundColor: currentStyle.color }}
-                      >
-                        {currentStyle.avatar}
-                      </div>
-                    </StylePicker>
-                    <div className='flex flex-col ml-3'>
-                      <EditableText
-                        value={formData.name}
-                        onSave={(value) => handleFieldChange('name', value)}
-                        className="text-xl font-semibold bg-transparent"
-                        placeholder="Click to add agent name..."
-                      />
-                      <EditableText
-                        value={formData.description}
-                        onSave={(value) => handleFieldChange('description', value)}
-                        className="text-muted-foreground"
-                        placeholder="Click to add description..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className='flex flex-col mt-8'>
-                    <div className='text-sm font-semibold text-muted-foreground mb-2'>Instructions</div>
-                    <EditableText
-                      value={formData.system_prompt}
-                      onSave={(value) => handleFieldChange('system_prompt', value)}
-                      className='bg-transparent hover:bg-transparent border-none focus-visible:ring-0 shadow-none'
-                      placeholder='Click to set system instructions...'
-                      multiline={true}
-                      minHeight="200px"
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="agent-builder" className="flex-1 flex flex-col">
-                  <div className="flex items-center justify-center h-64">
-                    <div className="text-center space-y-4">
-                      <div className="text-6xl">🚧</div>
-                      <h3 className="text-lg font-medium">Agent Builder Coming Soon</h3>
-                      <p className="text-sm text-muted-foreground">
-                        We're working on an intuitive agent builder interface.
-                      </p>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <div ref={accordionRef} className="mt-6 pt-6 border-t">
-              <Accordion 
-                type="multiple" 
-                defaultValue={[]} 
-                className="space-y-2"
-                onValueChange={scrollToAccordion}
-              >
-                <AccordionItem value="tools" className="border-b">
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Settings2 className="h-4 w-4" />
-                      AgentPress Tools
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-4">
-                    <AgentToolsConfiguration
-                      tools={formData.agentpress_tools}
-                      onToolsChange={(tools) => handleFieldChange('agentpress_tools', tools)}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="mcp" className="border-b">
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      MCP Servers
-                      <Badge className="ml-auto bg-purple-600/30 text-purple-600 dark:text-purple-300">New</Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-4">
-                    <AgentMCPConfiguration
-                      mcps={formData.configured_mcps}
-                      onMCPsChange={(mcps) => handleFieldChange('configured_mcps', mcps)}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
+        <div className="hidden md:flex w-full">
+          <div className="w-1/2 border-r bg-background overflow-y-auto scrollbar-hide">
+            <ConfigurationContent />
+          </div>
+          <div className="w-1/2 overflow-y-auto">
+            <AgentPreview agent={{ ...agent, ...formData }} />
           </div>
         </div>
-
-        <div className="w-1/2 overflow-y-auto">
-          <AgentPreview agent={{ ...agent, ...formData }} />
+        <div className="md:hidden w-full overflow-y-auto">
+          <ConfigurationContent />
         </div>
       </div>
     </div>

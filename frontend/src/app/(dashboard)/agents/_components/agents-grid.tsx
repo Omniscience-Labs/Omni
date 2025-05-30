@@ -65,12 +65,6 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
               {agent.is_default && (
                 <Star className="h-5 w-5 text-white fill-white drop-shadow-sm" />
               )}
-              {agent.is_public && (
-                <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                  <Globe className="h-4 w-4 text-white" />
-                  <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -81,8 +75,8 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                   {agent.name}
                 </h2>
                 {agent.is_public && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Globe className="h-3 w-3 mr-1" />
+                  <Badge variant="outline" className="text-xs">
+                    <Globe className="h-3 w-3" />
                     Public
                   </Badge>
                 )}
@@ -260,8 +254,8 @@ export const AgentsGrid = ({
                     {agent.name}
                   </h3>
                   {agent.is_public && (
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      <Globe className="h-3 w-3 mr-1" />
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      <Globe className="h-3 w-3" />
                       Public
                     </Badge>
                   )}
