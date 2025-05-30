@@ -28,6 +28,7 @@ from langfuse.client import StatefulTraceClient
 from services.langfuse import langfuse
 from agent.gemini_prompt import get_gemini_system_prompt
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
+from agentpress.tool import SchemaType
 
 load_dotenv()
 
@@ -120,9 +121,42 @@ async def run_agent(
             thread_manager.add_tool(DataProvidersTool)
 
     # Register MCP tool wrapper if agent has configured MCPs
+    mcp_wrapper_instance = None
     if agent_config and agent_config.get('configured_mcps'):
         logger.info(f"Registering MCP tool wrapper for {len(agent_config['configured_mcps'])} MCP servers")
+        # Register the tool
         thread_manager.add_tool(MCPToolWrapper, mcp_configs=agent_config['configured_mcps'])
+        
+        # Get the tool instance from the registry
+        # The tool is registered with method names as keys
+        for tool_name, tool_info in thread_manager.tool_registry.tools.items():
+            if isinstance(tool_info['instance'], MCPToolWrapper):
+                mcp_wrapper_instance = tool_info['instance']
+                break
+        
+        # Initialize the MCP tools asynchronously
+        if mcp_wrapper_instance:
+            try:
+                await mcp_wrapper_instance.initialize_and_register_tools()
+                logger.info("MCP tools initialized successfully")
+                
+                # Re-register the updated schemas with the tool registry
+                # This ensures the dynamically created tools are available for function calling
+                updated_schemas = mcp_wrapper_instance.get_schemas()
+                for method_name, schema_list in updated_schemas.items():
+                    if method_name != 'call_mcp_tool':  # Skip the fallback method
+                        # Register each dynamic tool in the registry
+                        for schema in schema_list:
+                            if schema.schema_type == SchemaType.OPENAPI:
+                                thread_manager.tool_registry.tools[method_name] = {
+                                    "instance": mcp_wrapper_instance,
+                                    "schema": schema
+                                }
+                                logger.debug(f"Registered dynamic MCP tool: {method_name}")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize MCP tools: {e}")
+                # Continue without MCP tools if initialization fails
 
     # Prepare system prompt
     # First, get the default system prompt
@@ -153,22 +187,50 @@ async def run_agent(
         logger.info("Using default system prompt only")
     
     # Add MCP tool information to system prompt if MCP tools are configured
-    if agent_config and agent_config.get('configured_mcps'):
+    if agent_config and agent_config.get('configured_mcps') and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
         mcp_info = "\n\n--- MCP Tools Available ---\n"
-        mcp_info += "You have access to external MCP (Model Context Protocol) server tools through the call_mcp_tool function.\n"
-        mcp_info += "To use an MCP tool, call it using the standard function calling format:\n"
+        mcp_info += "You have access to external MCP (Model Context Protocol) server tools.\n"
+        mcp_info += "MCP tools can be called directly using their native function names in the standard function calling format:\n"
         mcp_info += '<function_calls>\n'
-        mcp_info += '<invoke name="call_mcp_tool">\n'
-        mcp_info += '<parameter name="tool_name">{server}_{tool}</parameter>\n'
-        mcp_info += '<parameter name="arguments">{"argument1": "value1", "argument2": "value2"}</parameter>\n'
+        mcp_info += '<invoke name="{tool_name}">\n'
+        mcp_info += '<parameter name="param1">value1</parameter>\n'
+        mcp_info += '<parameter name="param2">value2</parameter>\n'
         mcp_info += '</invoke>\n'
-        mcp_info += '</function_calls>\n'
-
-        mcp_info += "\nConfigured MCP servers:\n"
-        for mcp_config in agent_config['configured_mcps']:
-            server_name = mcp_config.get('name', 'Unknown')
-            qualified_name = mcp_config.get('qualifiedName', 'unknown')
-            mcp_info += f"- {server_name} (use prefix: mcp_{qualified_name}_)\n"
+        mcp_info += '</function_calls>\n\n'
+        
+        # List available MCP tools
+        mcp_info += "Available MCP tools:\n"
+        try:
+            # Get the actual registered schemas from the wrapper
+            registered_schemas = mcp_wrapper_instance.get_schemas()
+            for method_name, schema_list in registered_schemas.items():
+                if method_name == 'call_mcp_tool':
+                    continue  # Skip the fallback method
+                    
+                # Get the schema info
+                for schema in schema_list:
+                    if schema.schema_type == SchemaType.OPENAPI:
+                        func_info = schema.schema.get('function', {})
+                        description = func_info.get('description', 'No description available')
+                        # Extract server name from description if available
+                        server_match = description.find('(MCP Server: ')
+                        if server_match != -1:
+                            server_end = description.find(')', server_match)
+                            server_info = description[server_match:server_end+1]
+                        else:
+                            server_info = ''
+                        
+                        mcp_info += f"- **{method_name}**: {description}\n"
+                        
+                        # Show parameter info
+                        params = func_info.get('parameters', {})
+                        props = params.get('properties', {})
+                        if props:
+                            mcp_info += f"  Parameters: {', '.join(props.keys())}\n"
+                            
+        except Exception as e:
+            logger.error(f"Error listing MCP tools: {e}")
+            mcp_info += "- Error loading MCP tool list\n"
         
         # Add critical instructions for using search results
         mcp_info += "\n🚨 CRITICAL MCP TOOL RESULT INSTRUCTIONS 🚨\n"
