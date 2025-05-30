@@ -133,6 +133,9 @@ app.include_router(sandbox_api.router, prefix="/api")
 # Include the billing router with a prefix
 app.include_router(billing_api.router, prefix="/api")
 
+# Import and include the MCP router
+from mcp_local import api as mcp_api
+app.include_router(mcp_api.router, prefix="/api")
 # Include the transcription router with a prefix
 app.include_router(transcription_api.router, prefix="/api")
 

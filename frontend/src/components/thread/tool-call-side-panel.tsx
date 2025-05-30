@@ -45,6 +45,7 @@ interface ToolCallSidePanelProps {
     isSuccess?: boolean,
   ) => React.ReactNode;
   isLoading?: boolean;
+  agentName?: string;
   onFileClick?: (filePath: string) => void;
 }
 
@@ -66,6 +67,7 @@ export function ToolCallSidePanel({
   project,
   isLoading = false,
   externalNavigateToIndex,
+  agentName,
   onFileClick,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
@@ -145,6 +147,33 @@ export function ToolCallSidePanel({
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
   
+  // Extract meaningful tool name, especially for MCP tools
+  const extractToolName = (toolCall: any) => {
+    const rawName = toolCall?.assistantCall?.name || 'Tool Call';
+    
+    // Handle MCP tools specially
+    if (rawName === 'call-mcp-tool') {
+      const assistantContent = toolCall?.assistantCall?.content;
+      if (assistantContent) {
+        try {
+          // Try to extract the actual MCP tool name from the content
+          const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
+          if (toolNameMatch && toolNameMatch[1]) {
+            const mcpToolName = toolNameMatch[1];
+            // Use the MCP tool name for better display
+            return getUserFriendlyToolName(mcpToolName);
+          }
+        } catch (e) {
+          // Fall back to generic name if parsing fails
+        }
+      }
+      return 'External Tool';
+    }
+    
+    // For all other tools, use the friendly name
+    return getUserFriendlyToolName(rawName);
+  };
+  
   const completedToolCalls = toolCallSnapshots.filter(snapshot => 
     snapshot.toolCall.toolResult?.content && 
     snapshot.toolCall.toolResult.content !== 'STREAMING'
@@ -171,7 +200,7 @@ export function ToolCallSidePanel({
   
   const currentToolName = displayToolCall?.assistantCall?.name || 'Tool Call';
   const CurrentToolIcon = getToolIcon(
-    currentToolName === 'Tool Call' ? 'unknown' : currentToolName,
+    currentToolCall?.assistantCall?.name || 'unknown',
   );
   const isStreaming = displayToolCall?.toolResult?.content === 'STREAMING';
   const isSuccess = displayToolCall?.toolResult?.isSuccess ?? true;
@@ -331,7 +360,7 @@ export function ToolCallSidePanel({
                 <div className="ml-2 flex items-center gap-2">
                   <Computer className="h-4 w-4" />
                   <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                    Suna's Computer
+                    {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
                   </h2>
                 </div>
                 <Button
@@ -367,7 +396,7 @@ export function ToolCallSidePanel({
               <div className="ml-2 flex items-center gap-2">
                 <Computer className="h-4 w-4" />
                 <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                  Suna's Computer
+                  {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
                 </h2>
               </div>
               <Button
@@ -509,33 +538,12 @@ export function ToolCallSidePanel({
             <div className="ml-2 flex items-center gap-2">
               <Computer className="h-4 w-4" />
               <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                Suna's Computer
+                {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
               </h2>
             </div>
 
             {displayToolCall.toolResult?.content && !isStreaming && (
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <CurrentToolIcon className="h-3.5 w-3.5 text-zinc-800 dark:text-zinc-300" />
-                </div>
-                <span
-                  className={cn(
-                    'text-sm text-zinc-700 dark:text-zinc-300',
-                    isMobile && 'hidden sm:inline',
-                  )}
-                >
-                  {getUserFriendlyToolName(currentToolName)}
-                </span>
-                <div
-                  className={cn(
-                    'px-2.5 py-0.5 rounded-full text-xs font-medium',
-                    isSuccess
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                      : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-                  )}
-                >
-                  {isSuccess ? 'Success' : 'Failed'}
-                </div>
                 <Button
                   variant="ghost"
                   size="icon"

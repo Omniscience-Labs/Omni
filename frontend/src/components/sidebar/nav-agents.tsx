@@ -12,7 +12,8 @@ import {
   Loader2,
   Share2,
   X,
-  Check
+  Check,
+  History
 } from "lucide-react"
 import { toast } from "sonner"
 import { usePathname, useRouter } from "next/navigation"

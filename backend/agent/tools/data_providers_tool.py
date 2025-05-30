@@ -50,8 +50,11 @@ Use this tool when you need to discover what endpoints are available.
 -->
 
 <!-- Example to get LinkedIn API endpoints -->
-<get-data-provider-endpoints service_name="linkedin">
-</get-data-provider-endpoints>
+<function_calls>
+<invoke name="get_data_provider_endpoints">
+<parameter name="service_name">linkedin</parameter>
+</invoke>
+</function_calls>
         '''
     )
     async def get_data_provider_endpoints(
@@ -121,9 +124,13 @@ Use this tool when you need to discover what endpoints are available.
         -->
         
         <!-- Example to call linkedIn service with the specific route person -->
-        <execute-data-provider-call service_name="linkedin" route="person">
-            {"link": "https://www.linkedin.com/in/johndoe/"}
-        </execute-data-provider-call>
+        <function_calls>
+        <invoke name="execute_data_provider_call">
+        <parameter name="service_name">linkedin</parameter>
+        <parameter name="route">person</parameter>
+        <parameter name="payload">{"link": "https://www.linkedin.com/in/johndoe/"}</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def execute_data_provider_call(

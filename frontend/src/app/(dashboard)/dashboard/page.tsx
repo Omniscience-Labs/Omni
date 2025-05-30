@@ -23,9 +23,10 @@ import { useBillingError } from '@/hooks/useBillingError';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
 import { config } from '@/lib/config';
-import { cn } from '@/lib/utils';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
+import { AgentSelector } from '@/components/dashboard/agent-selector';
+import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
 import { Examples } from './_components/suggestions/examples';
 
@@ -35,6 +36,7 @@ function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const router = useRouter();
@@ -73,6 +75,11 @@ function DashboardContent() {
 
       const formData = new FormData();
       formData.append('prompt', message);
+
+      // Add selected agent if one is chosen
+      if (selectedAgentId) {
+        formData.append('agent_id', selectedAgentId);
+      }
 
       files.forEach((file, index) => {
         formData.append('files', file, file.name);
@@ -153,29 +160,20 @@ function DashboardContent() {
           </div>
         )}
 
-        <div className={cn(
-          "flex-1 flex flex-col items-center justify-center px-4",
-          "lg:justify-center",
-          "sm:justify-center sm:px-6"
-        )}>
-          <div className={cn(
-            "flex flex-col items-center text-center w-full",
-            "max-w-full",
-            "sm:max-w-3xl"
-          )}>
-            <h1 className={cn(
-              'tracking-tight font-semibold leading-tight',
-              'text-3xl',
-              'sm:text-4xl'
-            )}>
-              Hey
-            </h1>
-            <p className={cn(
-              "tracking-tight font-normal text-muted-foreground/80 mt-2 flex items-center gap-2",
-              "text-2xl",
-              "sm:text-3xl sm:mt-3 sm:px-4"
-            )}>
-              What would you like Suna to do today?
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[650px] max-w-[90%]">
+          <div className="flex flex-col items-center text-center w-full">
+            <div className="flex items-center gap-1">
+              <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
+                Hey, I am
+              </h1>
+              <AgentSelector 
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={setSelectedAgentId}
+                variant="heading"
+              />
+            </div>
+            <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">
+              What would you like to do today?
             </p>
           </div>
           

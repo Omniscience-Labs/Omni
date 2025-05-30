@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from utils.logger import logger
 from agentpress.tool import ToolResult
 from agentpress.tool_registry import ToolRegistry
+from agentpress.xml_tool_parser import XMLToolParser
 from litellm import completion_cost
 from langfuse.client import StatefulTraceClient
 from services.langfuse import langfuse
@@ -99,6 +100,8 @@ class ResponseProcessor:
         self.trace = trace
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:response_processor")
+        # Initialize the XML parser with backwards compatibility
+        self.xml_parser = XMLToolParser(strict_mode=False)
         
     async def _yield_message(self, message_obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Helper to yield a message with proper formatting.
@@ -140,6 +143,7 @@ class ResponseProcessor:
         last_assistant_message_object = None # Store the final saved assistant message object
         tool_result_message_objects = {} # tool_index -> full saved message object
         has_printed_thinking_prefix = False # Flag for printing thinking prefix only once
+        agent_should_terminate = False # Flag to track if a terminating tool has been executed
 
         logger.info(f"Streaming Config: XML={config.xml_tool_calling}, Native={config.native_tool_calling}, "
                    f"Execute on stream={config.execute_on_stream}, Strategy={config.tool_execution_strategy}")
@@ -324,6 +328,8 @@ class ResponseProcessor:
                 for execution in pending_tool_executions:
                     tool_idx = execution.get("tool_index", -1)
                     context = execution["context"]
+                    tool_name = context.function_name
+                    
                     # Check if status was already yielded during stream run
                     if tool_idx in yielded_tool_indices:
                          logger.debug(f"Status for tool index {tool_idx} already yielded.")
@@ -333,6 +339,12 @@ class ResponseProcessor:
                                  result = execution["task"].result()
                                  context.result = result
                                  tool_results_buffer.append((execution["tool_call"], result, tool_idx, context))
+                                 
+                                 if tool_name in ['ask', 'complete']:
+                                     logger.info(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
+                                     self.trace.event(name="terminating_tool_completed_during_streaming", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag."))
+                                     agent_should_terminate = True
+                                     
                              else: # Should not happen with asyncio.wait
                                 logger.warning(f"Task for tool index {tool_idx} not done after wait.")
                                 self.trace.event(name="task_for_tool_index_not_done_after_wait", level="WARNING", status_message=(f"Task for tool index {tool_idx} not done after wait."))
@@ -351,6 +363,13 @@ class ResponseProcessor:
                             result = execution["task"].result()
                             context.result = result
                             tool_results_buffer.append((execution["tool_call"], result, tool_idx, context))
+                            
+                            # Check if this is a terminating tool
+                            if tool_name in ['ask', 'complete']:
+                                logger.info(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
+                                self.trace.event(name="terminating_tool_completed_during_streaming", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag."))
+                                agent_should_terminate = True
+                                
                             # Save and Yield tool completed/failed status
                             completed_msg_obj = await self._yield_and_save_tool_completed(
                                 context, None, thread_id, thread_run_id
@@ -590,6 +609,25 @@ class ResponseProcessor:
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
                 if finish_msg_obj: yield format_for_yield(finish_msg_obj)
+
+            # Check if agent should terminate after processing pending tools
+            if agent_should_terminate:
+                logger.info("Agent termination requested after executing ask/complete tool. Stopping further processing.")
+                self.trace.event(name="agent_termination_requested", level="DEFAULT", status_message="Agent termination requested after executing ask/complete tool. Stopping further processing.")
+                
+                # Set finish reason to indicate termination
+                finish_reason = "agent_terminated"
+                
+                # Save and yield termination status
+                finish_content = {"status_type": "finish", "finish_reason": "agent_terminated"}
+                finish_msg_obj = await self.add_message(
+                    thread_id=thread_id, type="status", content=finish_content, 
+                    is_llm_message=False, metadata={"thread_run_id": thread_run_id}
+                )
+                if finish_msg_obj: yield format_for_yield(finish_msg_obj)
+                
+                # Skip all remaining processing and go to finally block
+                return
 
         except Exception as e:
             logger.error(f"Error processing stream: {str(e)}", exc_info=True)
@@ -916,58 +954,84 @@ class ResponseProcessor:
         pos = 0
         
         try:
+            # First, look for new format <function_calls> blocks
+            start_pattern = '<function_calls>'
+            end_pattern = '</function_calls>'
+            
             while pos < len(content):
-                # Find the next tool tag
-                next_tag_start = -1
-                current_tag = None
-                
-                # Find the earliest occurrence of any registered tag
-                for tag_name in self.tool_registry.xml_tools.keys():
-                    start_pattern = f'<{tag_name}'
-                    tag_pos = content.find(start_pattern, pos)
-                    
-                    if tag_pos != -1 and (next_tag_start == -1 or tag_pos < next_tag_start):
-                        next_tag_start = tag_pos
-                        current_tag = tag_name
-                
-                if next_tag_start == -1 or not current_tag:
+                # Find the next function_calls block
+                start_pos = content.find(start_pattern, pos)
+                if start_pos == -1:
                     break
                 
                 # Find the matching end tag
-                end_pattern = f'</{current_tag}>'
-                tag_stack = []
-                chunk_start = next_tag_start
-                current_pos = next_tag_start
-                
-                while current_pos < len(content):
-                    # Look for next start or end tag of the same type
-                    next_start = content.find(f'<{current_tag}', current_pos + 1)
-                    next_end = content.find(end_pattern, current_pos)
-                    
-                    if next_end == -1:  # No closing tag found
-                        break
-                    
-                    if next_start != -1 and next_start < next_end:
-                        # Found nested start tag
-                        tag_stack.append(next_start)
-                        current_pos = next_start + 1
-                    else:
-                        # Found end tag
-                        if not tag_stack:  # This is our matching end tag
-                            chunk_end = next_end + len(end_pattern)
-                            chunk = content[chunk_start:chunk_end]
-                            chunks.append(chunk)
-                            pos = chunk_end
-                            break
-                        else:
-                            # Pop nested tag
-                            tag_stack.pop()
-                            current_pos = next_end + 1
-                
-                if current_pos >= len(content):  # Reached end without finding closing tag
+                end_pos = content.find(end_pattern, start_pos)
+                if end_pos == -1:
                     break
                 
-                pos = max(pos + 1, current_pos)
+                # Extract the complete block including tags
+                chunk_end = end_pos + len(end_pattern)
+                chunk = content[start_pos:chunk_end]
+                chunks.append(chunk)
+                
+                # Move position past this chunk
+                pos = chunk_end
+            
+            # If no new format found, fall back to old format for backwards compatibility
+            if not chunks:
+                pos = 0
+                while pos < len(content):
+                    # Find the next tool tag
+                    next_tag_start = -1
+                    current_tag = None
+                    
+                    # Find the earliest occurrence of any registered tag
+                    for tag_name in self.tool_registry.xml_tools.keys():
+                        start_pattern = f'<{tag_name}'
+                        tag_pos = content.find(start_pattern, pos)
+                        
+                        if tag_pos != -1 and (next_tag_start == -1 or tag_pos < next_tag_start):
+                            next_tag_start = tag_pos
+                            current_tag = tag_name
+                    
+                    if next_tag_start == -1 or not current_tag:
+                        break
+                    
+                    # Find the matching end tag
+                    end_pattern = f'</{current_tag}>'
+                    tag_stack = []
+                    chunk_start = next_tag_start
+                    current_pos = next_tag_start
+                    
+                    while current_pos < len(content):
+                        # Look for next start or end tag of the same type
+                        next_start = content.find(f'<{current_tag}', current_pos + 1)
+                        next_end = content.find(end_pattern, current_pos)
+                        
+                        if next_end == -1:  # No closing tag found
+                            break
+                        
+                        if next_start != -1 and next_start < next_end:
+                            # Found nested start tag
+                            tag_stack.append(next_start)
+                            current_pos = next_start + 1
+                        else:
+                            # Found end tag
+                            if not tag_stack:  # This is our matching end tag
+                                chunk_end = next_end + len(end_pattern)
+                                chunk = content[chunk_start:chunk_end]
+                                chunks.append(chunk)
+                                pos = chunk_end
+                                break
+                            else:
+                                # Pop nested tag
+                                tag_stack.pop()
+                                current_pos = next_end + 1
+                    
+                    if current_pos >= len(content):  # Reached end without finding closing tag
+                        break
+                    
+                    pos = max(pos + 1, current_pos)
         
         except Exception as e:
             logger.error(f"Error extracting XML chunks: {e}")
@@ -985,6 +1049,33 @@ class ResponseProcessor:
             - parsing_details: Dict with 'attributes', 'elements', 'text_content', 'root_content'
         """
         try:
+            # Check if this is the new format (contains <function_calls>)
+            if '<function_calls>' in xml_chunk and '<invoke' in xml_chunk:
+                # Use the new XML parser
+                parsed_calls = self.xml_parser.parse_content(xml_chunk)
+                
+                if not parsed_calls:
+                    logger.error(f"No tool calls found in XML chunk: {xml_chunk}")
+                    return None
+                
+                # Take the first tool call (should only be one per chunk)
+                xml_tool_call = parsed_calls[0]
+                
+                # Convert to the expected format
+                tool_call = {
+                    "function_name": xml_tool_call.function_name,
+                    "xml_tag_name": xml_tool_call.function_name.replace('_', '-'),  # For backwards compatibility
+                    "arguments": xml_tool_call.parameters
+                }
+                
+                # Include the parsing details
+                parsing_details = xml_tool_call.parsing_details
+                parsing_details["raw_xml"] = xml_tool_call.raw_xml
+                
+                logger.debug(f"Parsed new format tool call: {tool_call}")
+                return tool_call, parsing_details
+            
+            # Fall back to old format parsing
             # Extract tag name and validate
             tag_match = re.match(r'<([^\s>]+)', xml_chunk)
             if not tag_match:
@@ -1069,7 +1160,7 @@ class ResponseProcessor:
                 "arguments": params              # The extracted parameters
             }
             
-            logger.debug(f"Created tool call: {tool_call}")
+            logger.debug(f"Parsed old format tool call: {tool_call}")
             return tool_call, parsing_details # Return both dicts
             
         except Exception as e:
@@ -1200,14 +1291,21 @@ class ResponseProcessor:
                     result = await self._execute_tool(tool_call)
                     results.append((tool_call, result))
                     logger.debug(f"Completed tool {tool_name} with success={result.success}")
+                    
+                    # Check if this is a terminating tool (ask or complete)
+                    if tool_name in ['ask', 'complete']:
+                        logger.info(f"Terminating tool '{tool_name}' executed. Stopping further tool execution.")
+                        self.trace.event(name="terminating_tool_executed", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' executed. Stopping further tool execution."))
+                        break  # Stop executing remaining tools
+                        
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {str(e)}")
                     self.trace.event(name="error_executing_tool", level="ERROR", status_message=(f"Error executing tool {tool_name}: {str(e)}"))
                     error_result = ToolResult(success=False, output=f"Error executing tool: {str(e)}")
                     results.append((tool_call, error_result))
             
-            logger.info(f"Sequential execution completed for {len(tool_calls)} tools")
-            self.trace.event(name="sequential_execution_completed", level="DEFAULT", status_message=(f"Sequential execution completed for {len(tool_calls)} tools"))
+            logger.info(f"Sequential execution completed for {len(results)} tools (out of {len(tool_calls)} total)")
+            self.trace.event(name="sequential_execution_completed", level="DEFAULT", status_message=(f"Sequential execution completed for {len(results)} tools (out of {len(tool_calls)} total)"))
             return results
             
         except Exception as e:
@@ -1279,7 +1377,7 @@ class ResponseProcessor:
         strategy: Union[XmlAddingStrategy, str] = "assistant_message",
         assistant_message_id: Optional[str] = None,
         parsing_details: Optional[Dict[str, Any]] = None
-    ) -> Optional[str]: # Return the message ID
+    ) -> Optional[Dict[str, Any]]: # Return the full message object
         """Add a tool result to the conversation thread based on the specified format.
         
         This method formats tool results and adds them to the conversation history,
@@ -1297,7 +1395,7 @@ class ResponseProcessor:
             parsing_details: Detailed parsing info for XML calls (attributes, elements, etc.)
         """
         try:
-            message_id = None # Initialize message_id
+            message_obj = None # Initialize message_obj
             
             # Create metadata with assistant_message_id if provided
             metadata = {}
@@ -1349,40 +1447,81 @@ class ResponseProcessor:
                 
                 # Add as a tool message to the conversation history
                 # This makes the result visible to the LLM in the next turn
-                message_id = await self.add_message(
+                message_obj = await self.add_message(
                     thread_id=thread_id,
                     type="tool",  # Special type for tool responses
                     content=tool_message,
                     is_llm_message=True,
                     metadata=metadata
                 )
-                return message_id # Return the message ID
+                return message_obj # Return the full message object
             
-            # For XML and other non-native tools, continue with the original logic
+            # Check if this is an MCP tool (function_name starts with "call_mcp_tool")
+            function_name = tool_call.get("function_name", "")
+            
+            # Check if this is an MCP tool - either the old call_mcp_tool or a dynamically registered MCP tool
+            is_mcp_tool = False
+            if function_name == "call_mcp_tool":
+                is_mcp_tool = True
+            else:
+                # Check if the result indicates it's an MCP tool by looking for MCP metadata
+                if hasattr(result, 'output') and isinstance(result.output, str):
+                    # Check for MCP metadata pattern in the output
+                    if "MCP Tool Result from" in result.output and "Tool Metadata:" in result.output:
+                        is_mcp_tool = True
+                    # Also check for MCP metadata in JSON format
+                    elif "mcp_metadata" in result.output:
+                        is_mcp_tool = True
+            
+            if is_mcp_tool:
+                # Special handling for MCP tools - make content prominent and LLM-friendly
+                result_role = "user" if strategy == "user_message" else "assistant"
+                
+                # Extract the actual content from the ToolResult
+                if hasattr(result, 'output'):
+                    mcp_content = str(result.output)
+                else:
+                    mcp_content = str(result)
+                
+                # Create a simple, LLM-friendly message format that puts content first
+                simple_message = {
+                    "role": result_role,
+                    "content": mcp_content  # Direct content, no complex nesting
+                }
+                
+                logger.info(f"Adding MCP tool result with simplified format for LLM visibility")
+                self.trace.event(name="adding_mcp_tool_result_simplified", level="DEFAULT", status_message="Adding MCP tool result with simplified format for LLM visibility")
+                
+                message_obj = await self.add_message(
+                    thread_id=thread_id, 
+                    type="tool",
+                    content=simple_message,
+                    is_llm_message=True,
+                    metadata=metadata
+                )
+                return message_obj
+            
+            # For XML and other non-native tools, use the new structured format
             # Determine message role based on strategy
             result_role = "user" if strategy == "user_message" else "assistant"
             
-            # Create a context for consistent formatting
-            context = self._create_tool_context(tool_call, 0, assistant_message_id, parsing_details)
-            context.result = result
-            
-            # Format the content using the formatting helper
-            content = self._format_xml_tool_result(tool_call, result)
+            # Create the new structured tool result format
+            structured_result = self._create_structured_tool_result(tool_call, result, parsing_details)
             
             # Add the message with the appropriate role to the conversation history
             # This allows the LLM to see the tool result in subsequent interactions
             result_message = {
                 "role": result_role,
-                "content": content
+                "content": structured_result
             }
-            message_id = await self.add_message(
+            message_obj = await self.add_message(
                 thread_id=thread_id, 
                 type="tool",
                 content=result_message,
                 is_llm_message=True,
                 metadata=metadata
             )
-            return message_id # Return the message ID
+            return message_obj # Return the full message object
         except Exception as e:
             logger.error(f"Error adding tool result: {str(e)}", exc_info=True)
             self.trace.event(name="error_adding_tool_result", level="ERROR", status_message=(f"Error adding tool result: {str(e)}"), metadata={"tool_call": tool_call, "result": result, "strategy": strategy, "assistant_message_id": assistant_message_id, "parsing_details": parsing_details})
@@ -1392,21 +1531,90 @@ class ResponseProcessor:
                     "role": "user",
                     "content": str(result)
                 }
-                message_id = await self.add_message(
+                message_obj = await self.add_message(
                     thread_id=thread_id, 
                     type="tool", 
                     content=fallback_message,
                     is_llm_message=True,
                     metadata={"assistant_message_id": assistant_message_id} if assistant_message_id else {}
                 )
-                return message_id # Return the message ID
+                return message_obj # Return the full message object
             except Exception as e2:
                 logger.error(f"Failed even with fallback message: {str(e2)}", exc_info=True)
                 self.trace.event(name="failed_even_with_fallback_message", level="ERROR", status_message=(f"Failed even with fallback message: {str(e2)}"), metadata={"tool_call": tool_call, "result": result, "strategy": strategy, "assistant_message_id": assistant_message_id, "parsing_details": parsing_details})
                 return None # Return None on error
 
+    def _create_structured_tool_result(self, tool_call: Dict[str, Any], result: ToolResult, parsing_details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create a structured tool result format that's tool-agnostic and provides rich information.
+        
+        Args:
+            tool_call: The original tool call that was executed
+            result: The result from the tool execution
+            parsing_details: Optional parsing details for XML calls
+            
+        Returns:
+            Structured dictionary containing tool execution information
+        """
+        # Extract tool information
+        function_name = tool_call.get("function_name", "unknown")
+        xml_tag_name = tool_call.get("xml_tag_name")
+        arguments = tool_call.get("arguments", {})
+        tool_call_id = tool_call.get("id")
+        
+        # Process the output - if it's a JSON string, parse it back to an object
+        output = result.output if hasattr(result, 'output') else str(result)
+        if isinstance(output, str):
+            try:
+                # Try to parse as JSON to provide structured data to frontend
+                parsed_output = safe_json_parse(output)
+                # If parsing succeeded and we got a dict/list, use the parsed version
+                if isinstance(parsed_output, (dict, list)):
+                    output = parsed_output
+                # Otherwise keep the original string
+            except Exception:
+                # If parsing fails, keep the original string
+                pass
+        
+        # Create the structured result
+        structured_result = {
+            "tool_execution": {
+                "function_name": function_name,
+                "xml_tag_name": xml_tag_name,
+                "tool_call_id": tool_call_id,
+                "arguments": arguments,
+                "result": {
+                    "success": result.success if hasattr(result, 'success') else True,
+                    "output": output,  # Now properly structured for frontend
+                    "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
+                },
+                "execution_details": {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "parsing_details": parsing_details
+                }
+            }
+        }
+        
+        # For backwards compatibility with LLM, also include a human-readable summary
+        # Use the original string output for the summary to avoid complex object representation
+        summary_output = result.output if hasattr(result, 'output') else str(result)
+        if xml_tag_name:
+            # For XML tools, create a readable summary
+            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
+            summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
+        else:
+            # For native tools, create a readable summary
+            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
+            summary = f"Function '{function_name}' {status}. Output: {summary_output}"
+        
+        structured_result["summary"] = summary
+        
+        return structured_result
+
     def _format_xml_tool_result(self, tool_call: Dict[str, Any], result: ToolResult) -> str:
         """Format a tool result wrapped in a <tool_result> tag.
+        
+        DEPRECATED: This method is kept for backwards compatibility.
+        New implementations should use _create_structured_tool_result instead.
 
         Args:
             tool_call: The tool call that was executed
