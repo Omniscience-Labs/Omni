@@ -531,6 +531,7 @@ export const startAgent = async (
     enable_thinking?: boolean;
     reasoning_effort?: string;
     stream?: boolean;
+    agent_id?: string;
   },
 ): Promise<{ agent_run_id: string }> => {
   try {
@@ -554,16 +555,35 @@ export const startAgent = async (
       `[API] Starting agent for thread ${threadId} using ${API_URL}/thread/${threadId}/agent/start`,
     );
 
+    const defaultOptions = {
+      model_name: 'claude-3-7-sonnet-latest',
+      enable_thinking: false,
+      reasoning_effort: 'low',
+      stream: true,
+      agent_id: undefined,
+    };
+
+    const finalOptions = { ...defaultOptions, ...options };
+
+    const body: any = {
+      model_name: finalOptions.model_name,
+      enable_thinking: finalOptions.enable_thinking,
+      reasoning_effort: finalOptions.reasoning_effort,
+      stream: finalOptions.stream,
+    };
+    
+    // Only include agent_id if it's provided
+    if (finalOptions.agent_id) {
+      body.agent_id = finalOptions.agent_id;
+    }
+
     const response = await fetch(`${API_URL}/thread/${threadId}/agent/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      // Add cache: 'no-store' to prevent caching
-      cache: 'no-store',
-      // Add the body, stringifying the options or an empty object
-      body: JSON.stringify(options || {}),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

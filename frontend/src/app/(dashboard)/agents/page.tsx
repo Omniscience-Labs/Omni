@@ -1,153 +1,203 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { PlusCircle, MessagesSquare, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useProjects, useAllThreads } from '@/hooks/react-query';
-import type { Project } from '@/lib/api';
+import { UpdateAgentDialog } from './_components/update-agent-dialog';
+import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useCreateAgent } from '@/hooks/react-query/agents/use-agents';
+import { SearchAndFilters } from './_components/search-and-filters';
+import { ResultsInfo } from './_components/results-info';
+import { EmptyState } from './_components/empty-state';
+import { AgentsGrid } from './_components/agents-grid';
+import { AgentsList } from './_components/agents-list';
+import { LoadingState } from './_components/loading-state';
+import { useAgentsFiltering } from './_hooks/use-agents-filtering';
+import { useRouter } from 'next/navigation';
+import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 
-// Define the Agent type that combines project and thread data
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  threadId: string | null;
-  is_public?: boolean;
-}
+type ViewMode = 'grid' | 'list';
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  
-  // Use React Query hooks
-  const { data: projectsData = [], isLoading: projectsLoading, error: projectsError } = useProjects();
-  const { data: allThreads = [], isLoading: threadsLoading } = useAllThreads();
-  
-  const isLoading = projectsLoading || threadsLoading;
-  const error = projectsError ? (projectsError instanceof Error ? projectsError.message : 'An error occurred loading agents') : null;
+  const router = useRouter();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
-  useEffect(() => {
-    if (!projectsData.length || isLoading) {
-      setAgents([]);
-      return;
+  const { 
+    data: agents = [], 
+    isLoading, 
+    error,
+    refetch: loadAgents 
+  } = useAgents();
+  
+  const updateAgentMutation = useUpdateAgent();
+  const deleteAgentMutation = useDeleteAgent();
+  const createAgentMutation = useCreateAgent();
+  const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    filters,
+    setFilters,
+    filteredAndSortedAgents,
+    allTools,
+    activeFiltersCount,
+    clearFilters
+  } = useAgentsFiltering(agents);
+
+  const handleDeleteAgent = async (agentId: string) => {
+    try {
+      await deleteAgentMutation.mutateAsync(agentId);
+    } catch (error) {
+      console.error('Error deleting agent:', error);
     }
+  };
 
-    // Create agents data from projects and threads
-    const agentsData: Agent[] = [];
-
-    for (const project of projectsData) {
-      // Find threads for this project
-      const projectThreads = allThreads.filter(thread => thread.project_id === project.id);
-
-      // Create an agent entry with the first thread (or null if none exists)
-      agentsData.push({
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        created_at: project.created_at,
-        threadId: projectThreads.length > 0 ? projectThreads[0].thread_id : null,
-        is_public: false, // Default to false for user's projects
+  const handleToggleDefault = async (agentId: string, currentDefault: boolean) => {
+    optimisticallyUpdateAgent(agentId, { is_default: !currentDefault });
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId,
+        is_default: !currentDefault
       });
+    } catch (error) {
+      revertOptimisticUpdate(agentId);
+      console.error('Error updating agent:', error);
     }
+  };
 
-    setAgents(agentsData);
-  }, [projectsData, allThreads, isLoading]);
+  const handleEditAgent = (agentId: string) => {
+    setEditingAgentId(agentId);
+    setEditDialogOpen(true);
+  };
+
+  const handleCreateNewAgent = async () => {
+    try {
+      const defaultAgentData = {
+        name: 'New Agent',
+        description: 'A newly created agent',
+        system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
+        configured_mcps: [],
+        agentpress_tools: Object.fromEntries(
+          Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
+            key, 
+            { enabled: value.enabled, description: value.description }
+          ])
+        ),
+        is_default: false,
+      };
+
+      const newAgent = await createAgentMutation.mutateAsync(defaultAgentData);
+      router.push(`/agents/new/${newAgent.agent_id}`);
+    } catch (error) {
+      console.error('Error creating agent:', error);
+    }
+  };
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error instanceof Error ? error.message : 'An error occurred loading agents'}
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Your Agents</h1>
-          <p className="text-muted-foreground mt-2">
-            Create and manage your AI agents
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/agents/new">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Agent
-          </Link>
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="p-4 border rounded-md">
-              <div className="flex flex-col space-y-2">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <div className="flex justify-between items-center pt-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-9 w-36" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center border rounded-md">
-          <MessagesSquare className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No agents yet</h2>
-          <p className="text-muted-foreground max-w-md mb-4">
-            Create your first agent to start automating tasks and getting help
-            from AI.
-          </p>
-          <Button asChild>
-            <Link href="/agents/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create your first agent
-            </Link>
+    <div className="container mx-auto max-w-7xl px-4 py-8">
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Your Agents
+            </h1>
+            <p className="text-md text-muted-foreground max-w-2xl">
+              Create and manage your AI agents with custom instructions and tools
+            </p>
+          </div>
+          <Button 
+            onClick={handleCreateNewAgent}
+            disabled={createAgentMutation.isPending}
+            className="self-start sm:self-center"
+          >
+            {createAgentMutation.isPending ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-5 w-5" />
+                New Agent
+              </>
+            )}
           </Button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {agents.map((agent) => (
-            <div
-              key={agent.id}
-              className="p-4 border rounded-md hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex flex-col">
-                <h3 className="font-medium">{agent.name}</h3>
-                <p className="text-sm text-muted-foreground truncate mb-3">
-                  {agent.description || 'No description provided'}
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(agent.created_at).toLocaleDateString()}
-                  </span>
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={
-                        agent.threadId
-                          ? `/agents/${agent.threadId}`
-                          : `/dashboard`
-                      }
-                    >
-                      Continue Conversation
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+
+        <SearchAndFilters
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          filters={filters}
+          setFilters={setFilters}
+          activeFiltersCount={activeFiltersCount}
+          clearFilters={clearFilters}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          allTools={allTools}
+        />
+
+        <ResultsInfo
+          isLoading={isLoading}
+          totalAgents={agents.length}
+          filteredCount={filteredAndSortedAgents.length}
+          searchQuery={searchQuery}
+          activeFiltersCount={activeFiltersCount}
+          clearFilters={clearFilters}
+        />
+
+        {isLoading ? (
+          <LoadingState viewMode={viewMode} />
+        ) : filteredAndSortedAgents.length === 0 ? (
+          <EmptyState
+            hasAgents={agents.length > 0}
+            onCreateAgent={handleCreateNewAgent}
+            onClearFilters={clearFilters}
+          />
+        ) : (
+          <AgentsGrid
+            agents={filteredAndSortedAgents}
+            onEditAgent={handleEditAgent}
+            onDeleteAgent={handleDeleteAgent}
+            onToggleDefault={handleToggleDefault}
+            deleteAgentMutation={deleteAgentMutation}
+          />
+        )}
+
+        <UpdateAgentDialog
+          agentId={editingAgentId}
+          isOpen={editDialogOpen}
+          onOpenChange={(open) => {
+            setEditDialogOpen(open);
+            if (!open) setEditingAgentId(null);
+          }}
+          onAgentUpdated={loadAgents}
+        />
+      </div>
     </div>
   );
 }

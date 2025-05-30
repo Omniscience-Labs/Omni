@@ -136,9 +136,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "url", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-navigate-to>
-        https://example.com
-        </browser-navigate-to>
+        <function_calls>
+        <invoke name="browser_navigate_to">
+        <parameter name="url">https://example.com</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_navigate_to(self, url: str) -> ToolResult:
@@ -207,7 +209,10 @@ class SandboxBrowserTool(SandboxToolsBase):
         tag_name="browser-go-back",
         mappings=[],
         example='''
-        <browser-go-back></browser-go-back>
+        <function_calls>
+        <invoke name="browser_go_back">
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_go_back(self) -> ToolResult:
@@ -241,9 +246,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "seconds", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-wait>
-        5
-        </browser-wait>
+        <function_calls>
+        <invoke name="browser_wait">
+        <parameter name="seconds">5</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_wait(self, seconds: int = 3) -> ToolResult:
@@ -281,9 +288,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "index", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-click-element>
-        2
-        </browser-click-element>
+        <function_calls>
+        <invoke name="browser_click_element">
+        <parameter name="index">2</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_click_element(self, index: int) -> ToolResult:
@@ -326,9 +335,12 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "text", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-input-text index="2">
-        Hello, world!
-        </browser-input-text>
+        <function_calls>
+        <invoke name="browser_input_text">
+        <parameter name="index">2</parameter>
+        <parameter name="text">Hello, world!</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_input_text(self, index: int, text: str) -> ToolResult:
@@ -367,9 +379,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "keys", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-send-keys>
-        Enter
-        </browser-send-keys>
+        <function_calls>
+        <invoke name="browser_send_keys">
+        <parameter name="keys">Enter</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_send_keys(self, keys: str) -> ToolResult:
@@ -407,9 +421,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "page_id", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-switch-tab>
-        1
-        </browser-switch-tab>
+        <function_calls>
+        <invoke name="browser_switch_tab">
+        <parameter name="page_id">1</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_switch_tab(self, page_id: int) -> ToolResult:
@@ -487,9 +503,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "page_id", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-close-tab>
-        1
-        </browser-close-tab>
+        <function_calls>
+        <invoke name="browser_close_tab">
+        <parameter name="page_id">1</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_close_tab(self, page_id: int) -> ToolResult:
@@ -585,9 +603,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "amount", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-scroll-down>
-        500
-        </browser-scroll-down>
+        <function_calls>
+        <invoke name="browser_scroll_down">
+        <parameter name="amount">500</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_scroll_down(self, amount: int = None) -> ToolResult:
@@ -630,9 +650,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "amount", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-scroll-up>
-        500
-        </browser-scroll-up>
+        <function_calls>
+        <invoke name="browser_scroll_up">
+        <parameter name="amount">500</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_scroll_up(self, amount: int = None) -> ToolResult:
@@ -676,9 +698,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "text", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-scroll-to-text>
-        Contact Us
-        </browser-scroll-to-text>
+        <function_calls>
+        <invoke name="browser_scroll_to_text">
+        <parameter name="text">Contact Us</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_scroll_to_text(self, text: str) -> ToolResult:
@@ -716,9 +740,11 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "index", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-get-dropdown-options>
-        2
-        </browser-get-dropdown-options>
+        <function_calls>
+        <invoke name="browser_get_dropdown_options">
+        <parameter name="index">2</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_get_dropdown_options(self, index: int) -> ToolResult:
@@ -761,9 +787,12 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "text", "node_type": "content", "path": "."}
         ],
         example='''
-        <browser-select-dropdown-option index="2">
-        Option 1
-        </browser-select-dropdown-option>
+        <function_calls>
+        <invoke name="browser_select_dropdown_option">
+        <parameter name="index">2</parameter>
+        <parameter name="text">Option 1</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_select_dropdown_option(self, index: int, text: str) -> ToolResult:
@@ -826,7 +855,12 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "coord_target_y", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <browser-drag-drop element_source="#draggable" element_target="#droppable"></browser-drag-drop>
+        <function_calls>
+        <invoke name="browser_drag_drop">
+        <parameter name="element_source">#draggable</parameter>
+        <parameter name="element_target">#droppable</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_drag_drop(self, element_source: str = None, element_target: str = None, 
@@ -890,7 +924,12 @@ class SandboxBrowserTool(SandboxToolsBase):
             {"param_name": "y", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <browser-click-coordinates x="100" y="200"></browser-click-coordinates>
+        <function_calls>
+        <invoke name="browser_click_coordinates">
+        <parameter name="x">100</parameter>
+        <parameter name="y">200</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def browser_click_coordinates(self, x: int, y: int) -> ToolResult:

@@ -104,9 +104,19 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "file_contents", "node_type": "content", "path": "."}
         ],
         example='''
-        <create-file file_path="src/main.py">
-        File contents go here
-        </create-file>
+        <function_calls>
+        <invoke name="create_file">
+        <parameter name="file_path">src/main.py</parameter>
+        <parameter name="file_contents">
+        # This is the file content
+        def main():
+            print("Hello, World!")
+        
+        if __name__ == "__main__":
+            main()
+        </parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def create_file(self, file_path: str, file_contents: str, permissions: str = "644") -> ToolResult:
@@ -177,10 +187,13 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "new_str", "node_type": "element", "path": "new_str"}
         ],
         example='''
-        <str-replace file_path="src/main.py">
-            <old_str>text to replace (must appear exactly once in the file)</old_str>
-            <new_str>replacement text that will be inserted instead</new_str>
-        </str-replace>
+        <function_calls>
+        <invoke name="str_replace">
+        <parameter name="file_path">src/main.py</parameter>
+        <parameter name="old_str">text to replace (must appear exactly once in the file)</parameter>
+        <parameter name="new_str">replacement text that will be inserted instead</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def str_replace(self, file_path: str, old_str: str, new_str: str) -> ToolResult:
@@ -258,12 +271,17 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "file_contents", "node_type": "content", "path": "."}
         ],
         example='''
-        <full-file-rewrite file_path="src/main.py">
+        <function_calls>
+        <invoke name="full_file_rewrite">
+        <parameter name="file_path">src/main.py</parameter>
+        <parameter name="file_contents">
         This completely replaces the entire file content.
         Use when making major changes to a file or when the changes
         are too extensive for str-replace.
         All previous content will be lost and replaced with this text.
-        </full-file-rewrite>
+        </parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def full_file_rewrite(self, file_path: str, file_contents: str, permissions: str = "644") -> ToolResult:
@@ -318,8 +336,11 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "file_path", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <delete-file file_path="src/main.py">
-        </delete-file>
+        <function_calls>
+        <invoke name="delete_file">
+        <parameter name="file_path">src/main.py</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def delete_file(self, file_path: str) -> ToolResult:
