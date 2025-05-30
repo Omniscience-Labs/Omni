@@ -30,6 +30,7 @@ import os
 from urllib.parse import quote
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
+from collections import OrderedDict
 
 router = APIRouter()
 
@@ -67,6 +68,14 @@ class MCPServerDetailResponse(BaseModel):
     connections: List[Dict[str, Any]]
     security: Optional[Dict[str, Any]] = None
     tools: Optional[List[Dict[str, Any]]] = None
+
+class PopularServersV2Response(BaseModel):
+    """Response model for v2 popular servers with categorization"""
+    success: bool
+    servers: List[Dict[str, Any]]
+    categorized: Dict[str, List[Dict[str, Any]]]
+    total: int
+    categoryCount: int
 
 @router.get("/mcp/servers", response_model=MCPServerListResponse)
 async def list_mcp_servers(
@@ -265,4 +274,250 @@ async def get_popular_mcp_servers(
         }
     ]
     
-    return {"servers": popular_servers} 
+    return {"servers": popular_servers}
+
+@router.get("/mcp/popular-servers/v2", response_model=PopularServersV2Response)
+async def get_popular_mcp_servers_v2(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """
+    Get a comprehensive categorized list of popular MCP servers from Smithery Registry.
+    
+    Returns servers grouped by category with proper metadata and usage statistics.
+    This endpoint fetches real data from the Smithery registry API and categorizes it.
+    """
+    logger.info(f"Fetching v2 popular MCP servers for user {user_id}")
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Accept": "application/json",
+                "User-Agent": "Suna-MCP-Integration/1.0"
+            }
+            
+            # Add API key if available
+            if SMITHERY_API_KEY:
+                headers["Authorization"] = f"Bearer {SMITHERY_API_KEY}"
+                logger.debug("Using Smithery API key for authentication")
+            else:
+                logger.warning("No Smithery API key found in environment variables")
+            
+            # Fetch more servers for better coverage
+            params = {
+                "page": 1,
+                "pageSize": 100  # Get more servers
+            }
+            
+            response = await client.get(
+                f"{SMITHERY_API_BASE_URL}/servers",
+                headers=headers,
+                params=params,
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch MCP servers: {response.status_code} - {response.text}")
+                return PopularServersV2Response(
+                    success=False,
+                    servers=[],
+                    categorized={},
+                    total=0,
+                    categoryCount=0
+                )
+            
+            data = response.json()
+            servers = data.get("servers", [])
+            
+            # Category mappings based on server types and names
+            category_mappings = {
+                # AI & Search
+                "exa": "AI & Search",
+                "perplexity": "AI & Search", 
+                "openai": "AI & Search",
+                "anthropic": "AI & Search",
+                "duckduckgo": "AI & Search",
+                "brave": "AI & Search",
+                "google": "AI & Search",
+                "search": "AI & Search",
+                
+                # Development & Version Control
+                "github": "Development & Version Control",
+                "gitlab": "Development & Version Control",
+                "bitbucket": "Development & Version Control",
+                "git": "Development & Version Control",
+                
+                # Communication & Collaboration
+                "slack": "Communication & Collaboration",
+                "discord": "Communication & Collaboration",
+                "teams": "Communication & Collaboration",
+                "zoom": "Communication & Collaboration",
+                "telegram": "Communication & Collaboration",
+                
+                # Project Management
+                "linear": "Project Management",
+                "jira": "Project Management",
+                "asana": "Project Management",
+                "notion": "Project Management",
+                "trello": "Project Management",
+                "monday": "Project Management",
+                "clickup": "Project Management",
+                
+                # Data & Analytics
+                "postgres": "Data & Analytics",
+                "mysql": "Data & Analytics",
+                "mongodb": "Data & Analytics",
+                "bigquery": "Data & Analytics",
+                "snowflake": "Data & Analytics",
+                "sqlite": "Data & Analytics",
+                "redis": "Data & Analytics",
+                "database": "Data & Analytics",
+                
+                # Cloud & Infrastructure
+                "aws": "Cloud & Infrastructure",
+                "gcp": "Cloud & Infrastructure",
+                "azure": "Cloud & Infrastructure",
+                "vercel": "Cloud & Infrastructure",
+                "netlify": "Cloud & Infrastructure",
+                "cloudflare": "Cloud & Infrastructure",
+                "docker": "Cloud & Infrastructure",
+                
+                # File Storage
+                "gdrive": "File Storage",
+                "google-drive": "File Storage",
+                "dropbox": "File Storage",
+                "box": "File Storage",
+                "onedrive": "File Storage",
+                "s3": "File Storage",
+                "drive": "File Storage",
+                
+                # Customer Support
+                "zendesk": "Customer Support",
+                "intercom": "Customer Support",
+                "freshdesk": "Customer Support",
+                "helpscout": "Customer Support",
+                
+                # Marketing & Sales
+                "hubspot": "Marketing & Sales",
+                "salesforce": "Marketing & Sales",
+                "mailchimp": "Marketing & Sales",
+                "sendgrid": "Marketing & Sales",
+                
+                # Finance
+                "stripe": "Finance",
+                "quickbooks": "Finance",
+                "xero": "Finance",
+                "plaid": "Finance",
+                
+                # Automation & Productivity
+                "playwright": "Automation & Productivity",
+                "puppeteer": "Automation & Productivity",
+                "selenium": "Automation & Productivity",
+                "desktop-commander": "Automation & Productivity",
+                "sequential-thinking": "Automation & Productivity",
+                "automation": "Automation & Productivity",
+                
+                # Utilities
+                "filesystem": "Utilities",
+                "memory": "Utilities",
+                "fetch": "Utilities",
+                "time": "Utilities",
+                "weather": "Utilities",
+                "currency": "Utilities",
+                "file": "Utilities",
+            }
+            
+            # Categorize servers
+            categorized_servers = {}
+            
+            for server in servers:
+                qualified_name = server.get("qualifiedName", "")
+                display_name = server.get("displayName", server.get("name", "Unknown"))
+                description = server.get("description", "")
+                
+                # Determine category based on qualified name and description
+                category = "Other"
+                qualified_lower = qualified_name.lower()
+                description_lower = description.lower()
+                
+                # Check qualified name first (most reliable)
+                for key, cat in category_mappings.items():
+                    if key in qualified_lower:
+                        category = cat
+                        break
+                
+                # If no match found, check description for category hints
+                if category == "Other":
+                    for key, cat in category_mappings.items():
+                        if key in description_lower:
+                            category = cat
+                            break
+                
+                if category not in categorized_servers:
+                    categorized_servers[category] = []
+                
+                categorized_servers[category].append({
+                    "name": display_name,
+                    "qualifiedName": qualified_name,
+                    "description": description,
+                    "iconUrl": server.get("iconUrl"),
+                    "homepage": server.get("homepage"),
+                    "useCount": server.get("useCount", 0),
+                    "createdAt": server.get("createdAt"),
+                    "isDeployed": server.get("isDeployed", False)
+                })
+            
+            # Sort categories and servers within each category
+            sorted_categories = OrderedDict()
+            
+            # Define priority order for categories
+            priority_categories = [
+                "AI & Search",
+                "Development & Version Control", 
+                "Automation & Productivity",
+                "Communication & Collaboration",
+                "Project Management",
+                "Data & Analytics",
+                "Cloud & Infrastructure",
+                "File Storage",
+                "Marketing & Sales",
+                "Customer Support",
+                "Finance",
+                "Utilities",
+                "Other"
+            ]
+            
+            # Add categories in priority order
+            for cat in priority_categories:
+                if cat in categorized_servers:
+                    sorted_categories[cat] = sorted(
+                        categorized_servers[cat],
+                        key=lambda x: (-x.get("useCount", 0), x["name"].lower())  # Sort by useCount desc, then name
+                    )
+            
+            # Add any remaining categories
+            for cat in sorted(categorized_servers.keys()):
+                if cat not in sorted_categories:
+                    sorted_categories[cat] = sorted(
+                        categorized_servers[cat],
+                        key=lambda x: (-x.get("useCount", 0), x["name"].lower())
+                    )
+            
+            logger.info(f"Successfully categorized {len(servers)} servers into {len(sorted_categories)} categories")
+            
+            return PopularServersV2Response(
+                success=True,
+                servers=servers,
+                categorized=sorted_categories,
+                total=len(servers),
+                categoryCount=len(sorted_categories)
+            )
+            
+    except Exception as e:
+        logger.error(f"Error fetching v2 popular MCP servers: {str(e)}")
+        return PopularServersV2Response(
+            success=False,
+            servers=[],
+            categorized={},
+            total=0,
+            categoryCount=0
+        ) 
