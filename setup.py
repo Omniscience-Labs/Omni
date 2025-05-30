@@ -8,6 +8,7 @@ from getpass import getpass
 import re
 
 IS_WINDOWS = platform.system() == 'Windows'
+PROGRESS_FILE = '.setup_progress'
 
 # ANSI colors for pretty output
 class Colors:
@@ -35,6 +36,24 @@ def print_banner():
    Setup Wizard
 {Colors.ENDC}
 """)
+
+# Progress tracking
+def save_progress(step):
+    with open(PROGRESS_FILE, 'w') as f:
+        f.write(str(step))
+
+def load_progress():
+    if os.path.exists(PROGRESS_FILE):
+        with open(PROGRESS_FILE, 'r') as f:
+            try:
+                return int(f.read().strip())
+            except ValueError:
+                return 0
+    return 0
+
+def clear_progress():
+    if os.path.exists(PROGRESS_FILE):
+        os.remove(PROGRESS_FILE)
 
 def print_step(step_num, total_steps, step_name):
     """Print a step header"""
@@ -806,54 +825,66 @@ def final_instructions(use_docker=True, env_vars=None):
         print_info("4. Once all services are running, access Suna at: http://localhost:3000")
         print_info("5. Create an account using Supabase authentication to start using Suna")
 
+# Then update your main() function as follows:
+
 def main():
-    total_steps = 8  # Reduced by 1 since we're skipping the clone step
-    current_step = 1
-    
-    # Print banner
+    total_steps = 8
+    current_step = load_progress() + 1
+
     print_banner()
     print("This wizard will guide you through setting up Suna, an open-source generalist AI agent.\n")
-    
-    # Step 1: Check requirements
-    print_step(current_step, total_steps, "Checking requirements")
-    check_requirements()
-    check_docker_running()
-    
-    # Check if we're in the Suna repository
-    if not check_suna_directory():
-        print_error("This setup script must be run from the Suna repository root directory.")
-        print_info("Please clone the repository first with:")
-        print_info("  git clone https://github.com/kortix-ai/suna.git")
-        print_info("  cd suna")
-        print_info("Then run this setup script again.")
-        sys.exit(1)
-    
-    current_step += 1
-    
-    # Collect all environment variables
-    print_step(current_step, total_steps, "Collecting Supabase information")
-    supabase_info = collect_supabase_info()
-    # Set Supabase URL in environment for later use
-    os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
-    current_step += 1
-    
-    print_step(current_step, total_steps, "Collecting Daytona information")
-    daytona_info = collect_daytona_info()
-    current_step += 1
-    
-    print_step(current_step, total_steps, "Collecting LLM API keys")
-    llm_api_keys = collect_llm_api_keys()
-    current_step += 1
-    
-    print_step(current_step, total_steps, "Collecting search and web scraping API keys")
-    search_api_keys = collect_search_api_keys()
-    current_step += 1
-    
-    print_step(current_step, total_steps, "Collecting RapidAPI key")
-    rapidapi_keys = collect_rapidapi_keys()
-    current_step += 1
-    
-    # Combine all environment variables
+
+    if current_step <= 1:
+        print_step(current_step, total_steps, "Checking requirements")
+        check_requirements()
+        check_docker_running()
+        if not check_suna_directory():
+            print_error("This setup script must be run from the Suna repository root directory.")
+            sys.exit(1)
+        save_progress(current_step)
+        current_step += 1
+
+    if current_step <= 2:
+        print_step(current_step, total_steps, "Collecting Supabase information")
+        supabase_info = collect_supabase_info()
+        os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
+        save_progress(current_step)
+        current_step += 1
+    else:
+        supabase_info = {}
+
+    if current_step <= 3:
+        print_step(current_step, total_steps, "Collecting Daytona information")
+        daytona_info = collect_daytona_info()
+        save_progress(current_step)
+        current_step += 1
+    else:
+        daytona_info = {}
+
+    if current_step <= 4:
+        print_step(current_step, total_steps, "Collecting LLM API keys")
+        llm_api_keys = collect_llm_api_keys()
+        save_progress(current_step)
+        current_step += 1
+    else:
+        llm_api_keys = {}
+
+    if current_step <= 5:
+        print_step(current_step, total_steps, "Collecting search and web scraping API keys")
+        search_api_keys = collect_search_api_keys()
+        save_progress(current_step)
+        current_step += 1
+    else:
+        search_api_keys = {}
+
+    if current_step <= 6:
+        print_step(current_step, total_steps, "Collecting RapidAPI key")
+        rapidapi_keys = collect_rapidapi_keys()
+        save_progress(current_step)
+        current_step += 1
+    else:
+        rapidapi_keys = {}
+
     env_vars = {
         'supabase': supabase_info,
         'daytona': daytona_info,
@@ -861,32 +892,26 @@ def main():
         'search': search_api_keys,
         'rapidapi': rapidapi_keys,
     }
-    
-    # Setup Supabase database
-    setup_supabase()
-    current_step += 1
-    
-    # Install dependencies before starting Suna
-    print_step(current_step, total_steps, "Installing dependencies")
-    install_dependencies()
-    
-    # Configure environment files with the correct settings before starting
-    print_info("Configuring environment files...")
-    configure_backend_env(env_vars, True)  # Always create for Docker first
-    configure_frontend_env(env_vars, True)
-    
-    # Now ask how to start Suna
-    print_step(current_step, total_steps, "Starting Suna")
-    use_docker = start_suna()
-    
-    # Update environment files if needed for non-Docker setup
-    if not use_docker:
-        print_info("Updating environment files for manual startup...")
-        configure_backend_env(env_vars, use_docker)
-        configure_frontend_env(env_vars, use_docker)
-    
-    # Final instructions
-    final_instructions(use_docker, env_vars)
+
+    if current_step <= 7:
+        print_step(current_step, total_steps, "Setting up Supabase")
+        setup_supabase()
+        save_progress(current_step)
+        current_step += 1
+
+    if current_step <= 8:
+        print_step(current_step, total_steps, "Installing dependencies")
+        install_dependencies()
+        print_info("Configuring environment files...")
+        configure_backend_env(env_vars, True)
+        configure_frontend_env(env_vars, True)
+        print_step(current_step, total_steps, "Starting Suna")
+        use_docker = start_suna()
+        if not use_docker:
+            configure_backend_env(env_vars, use_docker)
+            configure_frontend_env(env_vars, use_docker)
+        final_instructions(use_docker, env_vars)
+        clear_progress()
 
 if __name__ == "__main__":
     try:

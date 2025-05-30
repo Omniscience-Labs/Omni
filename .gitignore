@@ -194,3 +194,5 @@ supabase/.temp/storage-version
 
 redis_data
 rabbitmq_data
+
+.setup_progress
