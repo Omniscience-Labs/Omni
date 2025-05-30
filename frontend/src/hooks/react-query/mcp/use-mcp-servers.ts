@@ -47,6 +47,32 @@ interface PopularServersResponse {
   }>;
 }
 
+interface PopularServersV2Response {
+  success: boolean;
+  servers: Array<{
+    qualifiedName: string;
+    displayName: string;
+    description: string;
+    iconUrl?: string;
+    homepage?: string;
+    useCount: number;
+    createdAt: string;
+    isDeployed: boolean;
+  }>;
+  categorized: Record<string, Array<{
+    name: string;
+    qualifiedName: string;
+    description: string;
+    iconUrl?: string;
+    homepage?: string;
+    useCount: number;
+    createdAt: string;
+    isDeployed: boolean;
+  }>>;
+  total: number;
+  categoryCount: number;
+}
+
 export const useMCPServers = (query?: string, page: number = 1, pageSize: number = 20) => {
   const supabase = createClient();
 
@@ -130,6 +156,34 @@ export const usePopularMCPServers = () => {
 
       if (!response.ok) {
         throw new Error('Failed to fetch popular MCP servers');
+      }
+
+      return response.json();
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+};
+
+export const usePopularMCPServersV2 = () => {
+  const supabase = createClient();
+
+  return useQuery({
+    queryKey: ['mcp-servers-popular-v2'],
+    queryFn: async (): Promise<PopularServersV2Response> => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(
+        `${API_URL}/mcp/popular-servers/v2`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch popular MCP servers v2');
       }
 
       return response.json();

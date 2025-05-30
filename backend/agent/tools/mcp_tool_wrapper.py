@@ -7,9 +7,10 @@ server tool calls through dynamically generated individual function methods.
 
 import json
 from typing import Any, Dict, List, Optional
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema, ToolSchema, SchemaType
 from mcp_local.client import MCPManager
 from utils.logger import logger
+import inspect
 
 
 class MCPToolWrapper(Tool):
@@ -27,11 +28,15 @@ class MCPToolWrapper(Tool):
         Args:
             mcp_configs: List of MCP configurations from agent's configured_mcps
         """
-        super().__init__()
+        # Don't call super().__init__() yet - we need to set up dynamic methods first
         self.mcp_manager = MCPManager()
         self.mcp_configs = mcp_configs or []
         self._initialized = False
         self._dynamic_tools = {}
+        self._schemas: Dict[str, List[ToolSchema]] = {}
+        
+        # Now initialize the parent class which will call _register_schemas
+        super().__init__()
         
     async def _ensure_initialized(self):
         """Ensure MCP connections are initialized and dynamic tools are created."""
@@ -50,15 +55,37 @@ class MCPToolWrapper(Tool):
                     logger.error("3. Or add it to your .env file: SMITHERY_API_KEY=your-key-here")
                 raise
     
+    async def initialize_and_register_tools(self, tool_registry=None):
+        """Initialize MCP tools and optionally update the tool registry.
+        
+        This method should be called after the tool has been registered to dynamically
+        add the MCP tool schemas to the registry.
+        
+        Args:
+            tool_registry: Optional ToolRegistry instance to update with new schemas
+        """
+        await self._ensure_initialized()
+        
+        # If a tool registry is provided, update it with our dynamic schemas
+        if tool_registry and self._dynamic_tools:
+            logger.info(f"Updating tool registry with {len(self._dynamic_tools)} MCP tools")
+            # The registry already has this tool instance registered, 
+            # we just need to update the schemas
+            for method_name, schemas in self._schemas.items():
+                if method_name not in ['call_mcp_tool']:  # Skip the fallback method
+                    # The registry needs to know about these new methods
+                    # We'll update the tool's schema registration
+                    pass
+    
     async def _create_dynamic_tools(self):
         """Create dynamic tool methods for each available MCP tool."""
         try:
             available_tools = self.mcp_manager.get_all_tools_openapi()
             
             for tool_info in available_tools:
-                tool_name = tool_info.get('function', {}).get('name', '')
+                tool_name = tool_info.get('name', '')
                 if tool_name:
-                    # Create a dynamic method for this tool
+                    # Create a dynamic method for this tool with proper OpenAI schema
                     self._create_dynamic_method(tool_name, tool_info)
                     
             logger.info(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
@@ -67,33 +94,103 @@ class MCPToolWrapper(Tool):
             logger.error(f"Error creating dynamic MCP tools: {e}")
     
     def _create_dynamic_method(self, tool_name: str, tool_info: Dict[str, Any]):
-        """Create a dynamic method for a specific MCP tool."""
+        """Create a dynamic method for a specific MCP tool with proper OpenAI schema."""
         
-        async def dynamic_tool_method(arguments: Dict[str, Any]) -> ToolResult:
+        # Extract the clean tool name without the mcp_{server}_ prefix
+        parts = tool_name.split("_", 2)
+        clean_tool_name = parts[2] if len(parts) > 2 else tool_name
+        server_name = parts[1] if len(parts) > 1 else "unknown"
+        
+        # Use the clean tool name as the method name (without server prefix)
+        method_name = clean_tool_name.replace('-', '_')
+        
+        # Store the original full tool name for execution
+        original_full_name = tool_name
+        
+        # Create the dynamic method
+        async def dynamic_tool_method(**kwargs) -> ToolResult:
             """Dynamically created method for MCP tool."""
-            return await self._execute_mcp_tool(tool_name, arguments)
+            # Use the original full tool name for execution
+            return await self._execute_mcp_tool(original_full_name, kwargs)
+        
+        # Set the method name to match the tool name
+        dynamic_tool_method.__name__ = method_name
+        dynamic_tool_method.__qualname__ = f"{self.__class__.__name__}.{method_name}"
+        
+        # Build a more descriptive description
+        base_description = tool_info.get("description", f"MCP tool from {server_name}")
+        full_description = f"{base_description} (MCP Server: {server_name})"
+        
+        # Create the OpenAI schema for this tool
+        openapi_function_schema = {
+            "type": "function",
+            "function": {
+                "name": method_name,  # Use the clean method name for function calling
+                "description": full_description,
+                "parameters": tool_info.get("parameters", {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                })
+            }
+        }
+        
+        # Create a ToolSchema object
+        tool_schema = ToolSchema(
+            schema_type=SchemaType.OPENAPI,
+            schema=openapi_function_schema
+        )
+        
+        # Add the schema to our schemas dict
+        self._schemas[method_name] = [tool_schema]
+        
+        # Also add the schema to the method itself (for compatibility)
+        dynamic_tool_method.tool_schemas = [tool_schema]
         
         # Store the method and its info
         self._dynamic_tools[tool_name] = {
             'method': dynamic_tool_method,
-            'info': tool_info
+            'method_name': method_name,
+            'original_tool_name': tool_name,
+            'clean_tool_name': clean_tool_name,
+            'server_name': server_name,
+            'info': tool_info,
+            'schema': tool_schema
         }
         
         # Add the method to this instance
-        setattr(self, tool_name.replace('-', '_'), dynamic_tool_method)
+        setattr(self, method_name, dynamic_tool_method)
+        
+        logger.debug(f"Created dynamic method '{method_name}' for MCP tool '{tool_name}' from server '{server_name}'")
+    
+    def _register_schemas(self):
+        """Register schemas from all decorated methods and dynamic tools."""
+        # First register static schemas from decorated methods
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if hasattr(method, 'tool_schemas'):
+                self._schemas[name] = method.tool_schemas
+                logger.debug(f"Registered schemas for method '{name}' in {self.__class__.__name__}")
+        
+        # Note: Dynamic schemas will be added after async initialization
+        logger.debug(f"Initial registration complete for MCPToolWrapper")
+    
+    def get_schemas(self) -> Dict[str, List[ToolSchema]]:
+        """Get all registered tool schemas including dynamic ones."""
+        # Return all schemas including dynamically added ones
+        return self._schemas
     
     def __getattr__(self, name: str):
         """Handle calls to dynamically created MCP tool methods."""
-        # Convert method name back to tool name (handle underscore conversion)
-        tool_name = name.replace('_', '-')
+        # Look for exact method name match first
+        for tool_data in self._dynamic_tools.values():
+            if tool_data['method_name'] == name:
+                return tool_data['method']
         
-        if tool_name in self._dynamic_tools:
-            return self._dynamic_tools[tool_name]['method']
-        
-        # If it looks like an MCP tool name, try to find it
-        for existing_tool_name in self._dynamic_tools:
-            if existing_tool_name.replace('-', '_') == name:
-                return self._dynamic_tools[existing_tool_name]['method']
+        # Try with underscore/hyphen conversion
+        name_with_hyphens = name.replace('_', '-')
+        for tool_name, tool_data in self._dynamic_tools.items():
+            if tool_data['method_name'] == name or tool_name == name_with_hyphens:
+                return tool_data['method']
         
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
             

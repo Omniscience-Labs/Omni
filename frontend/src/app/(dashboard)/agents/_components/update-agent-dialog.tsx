@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { MCPConfiguration } from './mcp-configuration';
+import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentUpdateRequest {
   name?: string;
@@ -347,7 +348,7 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
                 </TabsContent>
 
                 <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
-                  <MCPConfiguration
+                  <MCPConfigurationNew
                     configuredMCPs={formData.configured_mcps || []}
                     onConfigurationChange={handleMCPConfigurationChange}
                   />

@@ -1458,7 +1458,22 @@ class ResponseProcessor:
             
             # Check if this is an MCP tool (function_name starts with "call_mcp_tool")
             function_name = tool_call.get("function_name", "")
+            
+            # Check if this is an MCP tool - either the old call_mcp_tool or a dynamically registered MCP tool
+            is_mcp_tool = False
             if function_name == "call_mcp_tool":
+                is_mcp_tool = True
+            else:
+                # Check if the result indicates it's an MCP tool by looking for MCP metadata
+                if hasattr(result, 'output') and isinstance(result.output, str):
+                    # Check for MCP metadata pattern in the output
+                    if "MCP Tool Result from" in result.output and "Tool Metadata:" in result.output:
+                        is_mcp_tool = True
+                    # Also check for MCP metadata in JSON format
+                    elif "mcp_metadata" in result.output:
+                        is_mcp_tool = True
+            
+            if is_mcp_tool:
                 # Special handling for MCP tools - make content prominent and LLM-friendly
                 result_role = "user" if strategy == "user_message" else "assistant"
                 

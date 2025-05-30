@@ -10,6 +10,7 @@ import { Loader2, Search, Settings2, Sparkles } from 'lucide-react';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
 import { MCPConfiguration } from './mcp-configuration';
+import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentCreateRequest {
   name: string;
@@ -276,7 +277,7 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
                 </TabsContent>
 
                 <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
-                  <MCPConfiguration
+                  <MCPConfigurationNew
                     configuredMCPs={formData.configured_mcps}
                     onConfigurationChange={handleMCPConfigurationChange}
                   />
