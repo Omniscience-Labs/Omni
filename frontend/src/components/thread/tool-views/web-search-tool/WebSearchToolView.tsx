@@ -194,7 +194,7 @@ export function WebSearchToolView({
                   return (
                     <div
                       key={idx}
-                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm hover:shadow transition-shadow overflow-hidden"
+                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm hover:shadow transition-shadow"
                     >
                       <div className="p-4">
                         <div className="flex items-start gap-3 mb-2">
@@ -228,7 +228,7 @@ export function WebSearchToolView({
                               {truncateString(cleanUrl(result.url), 70)}
                             </div>
                           </div>
-                          <TooltipProvider>
+                          {/* <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -244,28 +244,44 @@ export function WebSearchToolView({
                                 <p>{isExpanded ? 'Show less' : 'Show more'}</p>
                               </TooltipContent>
                             </Tooltip>
-                          </TooltipProvider>
+                          </TooltipProvider> */}
                         </div>
 
-                        {result.snippet && (
-                          <p className={cn(
+                        {/* {result.snippet && (
+                          <div className={cn(
                             "text-sm text-zinc-600 dark:text-zinc-400",
-                            isExpanded ? "" : "line-clamp-2"
+                            isExpanded ? "whitespace-pre-wrap break-words max-h-96 overflow-y-auto" : "line-clamp-2"
                           )}>
-                            {result?.snippet
-                              ?.replace(/\\\\\n/g, ' ')
-                              ?.replace(/\\\\n/g, ' ')
-                              ?.replace(/\\n/g, ' ')
-                              ?.replace(/\\\\\t/g, ' ')
-                              ?.replace(/\\\\t/g, ' ')
-                              ?.replace(/\\t/g, ' ')
-                              ?.replace(/\\\\\r/g, ' ')
-                              ?.replace(/\\\\r/g, ' ')
-                              ?.replace(/\\r/g, ' ')
-                              ?.replace(/\s+/g, ' ')
-                              ?.trim()}
-                          </p>
-                        )}
+                            {isExpanded ? (
+                              // When expanded, preserve line breaks and show full content
+                              result.snippet
+                                ?.replace(/\\\\\n/g, '\n')
+                                ?.replace(/\\\\n/g, '\n')
+                                ?.replace(/\\n/g, '\n')
+                                ?.replace(/\\\\\t/g, '\t')
+                                ?.replace(/\\\\t/g, '\t')
+                                ?.replace(/\\t/g, '\t')
+                                ?.replace(/\\\\\r/g, '\r')
+                                ?.replace(/\\\\r/g, '\r')
+                                ?.replace(/\\r/g, '\r')
+                                ?.trim()
+                            ) : (
+                              // When collapsed, convert to single line
+                              result.snippet
+                                ?.replace(/\\\\\n/g, ' ')
+                                ?.replace(/\\\\n/g, ' ')
+                                ?.replace(/\\n/g, ' ')
+                                ?.replace(/\\\\\t/g, ' ')
+                                ?.replace(/\\\\t/g, ' ')
+                                ?.replace(/\\t/g, ' ')
+                                ?.replace(/\\\\\r/g, ' ')
+                                ?.replace(/\\\\r/g, ' ')
+                                ?.replace(/\\r/g, ' ')
+                                ?.replace(/\s+/g, ' ')
+                                ?.trim()
+                            )}
+                          </div>
+                        )} */}
                       </div>
 
                       {isExpanded && (

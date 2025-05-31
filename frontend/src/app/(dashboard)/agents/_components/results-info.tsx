@@ -8,6 +8,8 @@ interface ResultsInfoProps {
   searchQuery: string;
   activeFiltersCount: number;
   clearFilters: () => void;
+  currentPage?: number;
+  totalPages?: number;
 }
 
 export const ResultsInfo = ({
@@ -16,16 +18,25 @@ export const ResultsInfo = ({
   filteredCount,
   searchQuery,
   activeFiltersCount,
-  clearFilters
+  clearFilters,
+  currentPage,
+  totalPages
 }: ResultsInfoProps) => {
   if (isLoading || totalAgents === 0) {
     return null;
   }
 
+  const showingText = () => {
+    if (currentPage && totalPages && totalPages > 1) {
+      return `Showing page ${currentPage} of ${totalPages} (${totalAgents} total agents)`;
+    }
+    return `Showing ${filteredCount} of ${totalAgents} agents`;
+  };
+
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
       <span>
-        Showing {filteredCount} of {totalAgents} agents
+        {showingText()}
         {searchQuery && ` for "${searchQuery}"`}
       </span>
       {activeFiltersCount > 0 && (

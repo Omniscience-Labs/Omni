@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, AlertCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UpdateAgentDialog } from './_components/update-agent-dialog';
@@ -12,44 +12,119 @@ import { EmptyState } from './_components/empty-state';
 import { AgentsGrid } from './_components/agents-grid';
 import { AgentsList } from './_components/agents-list';
 import { LoadingState } from './_components/loading-state';
-import { useAgentsFiltering } from './_hooks/use-agents-filtering';
+import { Pagination } from './_components/pagination';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
+import { AgentsParams } from '@/hooks/react-query/agents/utils';
 
 type ViewMode = 'grid' | 'list';
+type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
+type SortOrder = 'asc' | 'desc';
+
+interface FilterOptions {
+  hasDefaultAgent: boolean;
+  hasMcpTools: boolean;
+  hasAgentpressTools: boolean;
+  selectedTools: string[];
+}
 
 export default function AgentsPage() {
   const router = useRouter();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  
+  // Server-side parameters
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [filters, setFilters] = useState<FilterOptions>({
+    hasDefaultAgent: false,
+    hasMcpTools: false,
+    hasAgentpressTools: false,
+    selectedTools: []
+  });
+
+  // Build query parameters
+  const queryParams: AgentsParams = useMemo(() => {
+    const params: AgentsParams = {
+      page,
+      limit: 20,
+      search: searchQuery || undefined,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    };
+
+    if (filters.hasDefaultAgent) {
+      params.has_default = true;
+    }
+    if (filters.hasMcpTools) {
+      params.has_mcp_tools = true;
+    }
+    if (filters.hasAgentpressTools) {
+      params.has_agentpress_tools = true;
+    }
+    if (filters.selectedTools.length > 0) {
+      params.tools = filters.selectedTools.join(',');
+    }
+
+    return params;
+  }, [page, searchQuery, sortBy, sortOrder, filters]);
 
   const { 
-    data: agents = [], 
+    data: agentsResponse, 
     isLoading, 
     error,
     refetch: loadAgents 
-  } = useAgents();
+  } = useAgents(queryParams);
   
   const updateAgentMutation = useUpdateAgent();
   const deleteAgentMutation = useDeleteAgent();
   const createAgentMutation = useCreateAgent();
   const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
-    filters,
-    setFilters,
-    filteredAndSortedAgents,
-    allTools,
-    activeFiltersCount,
-    clearFilters
-  } = useAgentsFiltering(agents);
+  const agents = agentsResponse?.agents || [];
+  const pagination = agentsResponse?.pagination;
+
+  // Get all tools for filter options (we'll need to fetch this separately or compute from current page)
+  const allTools = useMemo(() => {
+    const toolsSet = new Set<string>();
+    agents.forEach(agent => {
+      agent.configured_mcps?.forEach(mcp => toolsSet.add(`mcp:${mcp.name}`));
+      Object.entries(agent.agentpress_tools || {}).forEach(([tool, toolData]) => {
+        if (toolData && typeof toolData === 'object' && 'enabled' in toolData && toolData.enabled) {
+          toolsSet.add(`agentpress:${tool}`);
+        }
+      });
+    });
+    return Array.from(toolsSet).sort();
+  }, [agents]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.hasDefaultAgent) count++;
+    if (filters.hasMcpTools) count++;
+    if (filters.hasAgentpressTools) count++;
+    count += filters.selectedTools.length;
+    return count;
+  }, [filters]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilters({
+      hasDefaultAgent: false,
+      hasMcpTools: false,
+      hasAgentpressTools: false,
+      selectedTools: []
+    });
+    setPage(1);
+  };
+
+  // Reset page when search or filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQuery, sortBy, sortOrder, filters]);
 
   const handleDeleteAgent = async (agentId: string) => {
     try {
@@ -133,7 +208,7 @@ export default function AgentsPage() {
           >
             {createAgentMutation.isPending ? (
               <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Creating...
               </>
             ) : (
@@ -163,28 +238,39 @@ export default function AgentsPage() {
 
         <ResultsInfo
           isLoading={isLoading}
-          totalAgents={agents.length}
-          filteredCount={filteredAndSortedAgents.length}
+          totalAgents={pagination?.total || 0}
+          filteredCount={agents.length}
           searchQuery={searchQuery}
           activeFiltersCount={activeFiltersCount}
           clearFilters={clearFilters}
+          currentPage={pagination?.page || 1}
+          totalPages={pagination?.pages || 1}
         />
 
         {isLoading ? (
           <LoadingState viewMode={viewMode} />
-        ) : filteredAndSortedAgents.length === 0 ? (
+        ) : agents.length === 0 ? (
           <EmptyState
-            hasAgents={agents.length > 0}
+            hasAgents={(pagination?.total || 0) > 0}
             onCreateAgent={handleCreateNewAgent}
             onClearFilters={clearFilters}
           />
         ) : (
           <AgentsGrid
-            agents={filteredAndSortedAgents}
+            agents={agents}
             onEditAgent={handleEditAgent}
             onDeleteAgent={handleDeleteAgent}
             onToggleDefault={handleToggleDefault}
             deleteAgentMutation={deleteAgentMutation}
+          />
+        )}
+
+        {pagination && pagination.pages > 1 && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.pages}
+            onPageChange={setPage}
+            isLoading={isLoading}
           />
         )}
 

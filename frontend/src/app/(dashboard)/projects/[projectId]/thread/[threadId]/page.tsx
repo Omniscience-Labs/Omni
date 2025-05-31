@@ -27,6 +27,7 @@ import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_type
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
 
 export default function ThreadPage({
   params,
@@ -122,6 +123,7 @@ export default function ThreadPage({
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
+  const { data: agent } = useAgent(threadQuery.data?.agent_id);
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
@@ -609,6 +611,8 @@ export default function ThreadPage({
           sandboxId={sandboxId}
           project={project}
           debugMode={debugMode}
+          agentName={agent && agent.name}
+          agentAvatar={agent && agent.avatar}
         />
 
         <div
@@ -620,7 +624,7 @@ export default function ThreadPage({
           )}>
           <div className={cn(
             "mx-auto",
-            isMobile ? "w-full px-4" : "max-w-3xl"
+            isMobile ? "w-full" : "max-w-3xl"
           )}>
             <ChatInput
               value={newMessage}

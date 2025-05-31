@@ -139,10 +139,10 @@ export function SidebarLeft({
           <SidebarMenuButton className={cn({
             'bg-primary/10 font-medium': pathname === '/agents',
           })}>
-            <Bot className="h-4 w-4" />
+            <Bot className="h-4 w-4 mr-2" />
             <span className="flex items-center justify-between w-full">
-              Agents
-              <Badge variant="secondary" className="ml-2 text-xs border bg-blue-200/50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+              Agent Playground
+              <Badge variant="new">
                 New
               </Badge>
             </span>
@@ -153,10 +153,10 @@ export function SidebarLeft({
           <SidebarMenuButton className={cn({
             'bg-primary/10 font-medium': pathname === '/marketplace',
           })}>
-            <Store className="h-4 w-4" />
+            <Store className="h-4 w-4 mr-2" />
             <span className="flex items-center justify-between w-full">
               Marketplace
-              <Badge variant="secondary" className="ml-2 text-xs border bg-blue-200/50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+              <Badge variant="new">
                 New
               </Badge>
             </span>

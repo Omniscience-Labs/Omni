@@ -30,6 +30,7 @@ import { safeJsonParse } from '@/components/thread/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { threadErrorCodeMessages } from '@/lib/constants/errorCodeMessages';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
 
 // Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {

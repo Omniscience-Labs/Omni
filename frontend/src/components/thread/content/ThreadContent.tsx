@@ -256,6 +256,9 @@ export interface ThreadContentProps {
     project?: Project; // Add project prop
     debugMode?: boolean; // Add debug mode parameter
     isPreviewMode?: boolean;
+    agentName?: string;
+    agentAvatar?: React.ReactNode;
+    emptyStateComponent?: React.ReactNode; // Add custom empty state component prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -275,6 +278,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     project,
     debugMode = false,
     isPreviewMode = false,
+    agentName = 'Suna',
+    agentAvatar = <KortixLogo size={16} />,
+    emptyStateComponent,
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -342,21 +348,24 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     return (
         <>
-
-            <div
-                ref={messagesContainerRef}
-                className={containerClassName}
-                onScroll={handleScroll}
-            >
-                <div className="mx-auto max-w-3xl min-w-0">
-                    {displayMessages.length === 0 && !streamingTextContent && !streamingToolCall &&
-                        !streamingText && !currentToolCall && agentStatus === 'idle' ? (
-                        <div className="flex h-full items-center justify-center">
-                            <div className="text-center text-muted-foreground">
-                                {readOnly ? "No messages to display." : "Send a message to start."}
-                            </div>
+            {displayMessages.length === 0 && !streamingTextContent && !streamingToolCall &&
+                !streamingText && !currentToolCall && agentStatus === 'idle' ? (
+                // Render empty state outside scrollable container
+                <div className="flex-1 min-h-[60vh] flex items-center justify-center">
+                    {emptyStateComponent || (
+                        <div className="text-center text-muted-foreground">
+                            {readOnly ? "No messages to display." : "Send a message to start."}
                         </div>
-                    ) : (
+                    )}
+                </div>
+            ) : (
+                // Render scrollable content container
+                <div
+                    ref={messagesContainerRef}
+                    className={containerClassName}
+                    onScroll={handleScroll}
+                >
+                    <div className="mx-auto max-w-3xl md:px-8 min-w-0">
                         <div className="space-y-8 min-w-0">
                             {(() => {
 
@@ -503,257 +512,261 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     } else if (group.type === 'assistant_group') {
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
-                                                <div className="flex items-start gap-3">
-                                                    <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center ml-auto mr-2">
-                                                        <KortixLogo />
+                                                <div className="flex flex-col gap-2">
+                                                    {/* Logo positioned above the message content */}
+                                                    <div className="flex items-center">
+                                                        <div className="rounded-md flex items-center justify-center">
+                                                            {agentAvatar}
+                                                        </div>
+                                                        <p className='ml-2 text-sm text-muted-foreground'>{agentName ? agentName : 'Suna'}</p>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex max-w-[90%] rounded-lg px-4 text-sm break-words overflow-hidden">
-                                                            <div className="space-y-2 min-w-0 flex-1">
-                                                                {(() => {
-                                                                    // In debug mode, just show raw messages content
-                                                                    if (debugMode) {
-                                                                        return group.messages.map((message, msgIndex) => {
-                                                                            const msgKey = message.message_id || `raw-msg-${msgIndex}`;
-                                                                            return (
-                                                                                <div key={msgKey} className="mb-4">
-                                                                                    <div className="text-xs font-medium text-muted-foreground mb-1">
-                                                                                        Type: {message.type} | ID: {message.message_id || 'no-id'}
-                                                                                    </div>
-                                                                                    <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                        {message.content}
-                                                                                    </pre>
-                                                                                    {message.metadata && message.metadata !== '{}' && (
-                                                                                        <div className="mt-2">
-                                                                                            <div className="text-xs font-medium text-muted-foreground mb-1">
-                                                                                                Metadata:
-                                                                                            </div>
-                                                                                            <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                                {message.metadata}
-                                                                                            </pre>
-                                                                                        </div>
-                                                                                    )}
+                                                    
+                                                    {/* Message content */}
+                                                    <div className="flex  max-w-[90%] rounded-lg text-sm break-words overflow-hidden">
+                                                        <div className="space-y-2 min-w-0 flex-1">
+                                                            {(() => {
+                                                                // In debug mode, just show raw messages content
+                                                                if (debugMode) {
+                                                                    return group.messages.map((message, msgIndex) => {
+                                                                        const msgKey = message.message_id || `raw-msg-${msgIndex}`;
+                                                                        return (
+                                                                            <div key={msgKey} className="mb-4">
+                                                                                <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                                    Type: {message.type} | ID: {message.message_id || 'no-id'}
                                                                                 </div>
-                                                                            );
-                                                                        });
-                                                                    }
-
-                                                                    const toolResultsMap = new Map<string | null, UnifiedMessage[]>();
-                                                                    group.messages.forEach(msg => {
-                                                                        if (msg.type === 'tool') {
-                                                                            const meta = safeJsonParse<ParsedMetadata>(msg.metadata, {});
-                                                                            const assistantId = meta.assistant_message_id || null;
-                                                                            if (!toolResultsMap.has(assistantId)) {
-                                                                                toolResultsMap.set(assistantId, []);
-                                                                            }
-                                                                            toolResultsMap.get(assistantId)?.push(msg);
-                                                                        }
-                                                                    });
-
-                                                                    const renderedToolResultIds = new Set<string>();
-                                                                    const elements: React.ReactNode[] = [];
-                                                                    let assistantMessageCount = 0; // Track assistant messages for spacing
-
-                                                                    group.messages.forEach((message, msgIndex) => {
-                                                                        if (message.type === 'assistant') {
-                                                                            const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
-                                                                            const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
-
-                                                                            if (!parsedContent.content) return;
-
-                                                                            const renderedContent = renderMarkdownContent(
-                                                                                parsedContent.content,
-                                                                                handleToolClick,
-                                                                                message.message_id,
-                                                                                handleOpenFileViewer,
-                                                                                sandboxId,
-                                                                                project,
-                                                                                debugMode
-                                                                            );
-
-                                                                            elements.push(
-                                                                                <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
-                                                                                    <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
-                                                                                        {renderedContent}
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                            assistantMessageCount++;
-                                                                        }
-                                                                    });
-
-                                                                    return elements;
-                                                                })()}
-
-                                                                {groupIndex === groupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
-                                                                    <div className="mt-2">
-                                                                        {(() => {
-                                                                            // In debug mode, show raw streaming content
-                                                                            if (debugMode && streamingTextContent) {
-                                                                                return (
-                                                                                    <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                        {streamingTextContent}
-                                                                                    </pre>
-                                                                                );
-                                                                            }
-
-                                                                            let detectedTag: string | null = null;
-                                                                            let tagStartIndex = -1;
-                                                                            if (streamingTextContent) {
-                                                                                // First check for new format
-                                                                                const functionCallsIndex = streamingTextContent.indexOf('<function_calls>');
-                                                                                if (functionCallsIndex !== -1) {
-                                                                                    detectedTag = 'function_calls';
-                                                                                    tagStartIndex = functionCallsIndex;
-                                                                                } else {
-                                                                                    // Fall back to old format detection
-                                                                                    for (const tag of HIDE_STREAMING_XML_TAGS) {
-                                                                                        const openingTagPattern = `<${tag}`;
-                                                                                        const index = streamingTextContent.indexOf(openingTagPattern);
-                                                                                        if (index !== -1) {
-                                                                                            detectedTag = tag;
-                                                                                            tagStartIndex = index;
-                                                                                            break;
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-
-
-                                                                            const textToRender = streamingTextContent || '';
-                                                                            const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                            const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
-                                                                            const IconComponent = detectedTag && detectedTag !== 'function_calls' ? getToolIcon(detectedTag) : null;
-
-                                                                            return (
-                                                                                <>
-                                                                                    {textBeforeTag && (
-                                                                                        <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
-                                                                                    )}
-                                                                                    {showCursor && (
-                                                                                        <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
-                                                                                    )}
-
-                                                                                    {detectedTag && detectedTag !== 'function_calls' && (
-                                                                                        <div className="mt-2 mb-1">
-                                                                                            <button
-                                                                                                className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
-                                                                                            >
-                                                                                                <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
-                                                                                                    <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                </div>
-                                                                                                <span className="font-mono text-xs text-primary">{getUserFriendlyToolName(detectedTag)}</span>
-                                                                                            </button>
+                                                                                <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                                                                    {message.content}
+                                                                                </pre>
+                                                                                {message.metadata && message.metadata !== '{}' && (
+                                                                                    <div className="mt-2">
+                                                                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                                            Metadata:
                                                                                         </div>
-                                                                                    )}
-
-                                                                                    {detectedTag === 'function_calls' && (
-                                                                                        <div className="mt-2 mb-1">
-                                                                                            <button
-                                                                                                className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
-                                                                                            >
-                                                                                                <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
-                                                                                                    <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                </div>
-                                                                                                <span className="font-mono text-xs text-primary">
-                                                                                                    {extractToolNameFromStream(streamingTextContent) || 'Using Tool...'}
-                                                                                                </span>
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {streamingToolCall && !detectedTag && (
-                                                                                        <div className="mt-2 mb-1">
-                                                                                            {(() => {
-                                                                                                const toolName = streamingToolCall.name || streamingToolCall.xml_tag_name || 'Tool';
-                                                                                                const IconComponent = getToolIcon(toolName);
-                                                                                                const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
-                                                                                                return (
-                                                                                                    <button
-                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
-                                                                                                    >
-                                                                                                        <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
-                                                                                                            <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                        </div>
-                                                                                                        <span className="font-mono text-xs text-primary">{toolName}</span>
-                                                                                                        {paramDisplay && <span className="ml-1 text-primary/70 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
-                                                                                                    </button>
-                                                                                                );
-                                                                                            })()}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                )}
-
-                                                                {/* For playback mode, show streaming text and tool calls */}
-                                                                {readOnly && groupIndex === groupedMessages.length - 1 && isStreamingText && (
-                                                                    <div className="mt-2">
-                                                                        {(() => {
-                                                                            let detectedTag: string | null = null;
-                                                                            let tagStartIndex = -1;
-                                                                            if (streamingText) {
-                                                                                // First check for new format
-                                                                                const functionCallsIndex = streamingText.indexOf('<function_calls>');
-                                                                                if (functionCallsIndex !== -1) {
-                                                                                    detectedTag = 'function_calls';
-                                                                                    tagStartIndex = functionCallsIndex;
-                                                                                } else {
-                                                                                    // Fall back to old format detection
-                                                                                    for (const tag of HIDE_STREAMING_XML_TAGS) {
-                                                                                        const openingTagPattern = `<${tag}`;
-                                                                                        const index = streamingText.indexOf(openingTagPattern);
-                                                                                        if (index !== -1) {
-                                                                                            detectedTag = tag;
-                                                                                            tagStartIndex = index;
-                                                                                            break;
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-
-                                                                            const textToRender = streamingText || '';
-                                                                            const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                            const showCursor = isStreamingText && !detectedTag;
-
-                                                                            return (
-                                                                                <>
-                                                                                    {/* In debug mode, show raw streaming content */}
-                                                                                    {debugMode && streamingText ? (
                                                                                         <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                            {streamingText}
+                                                                                            {message.metadata}
                                                                                         </pre>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            {textBeforeTag && (
-                                                                                                <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
-                                                                                            )}
-                                                                                            {showCursor && (
-                                                                                                <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
-                                                                                            )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    });
+                                                                }
 
-                                                                                            {detectedTag && (
-                                                                                                <div className="mt-2 mb-1">
-                                                                                                    <button
-                                                                                                        className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
-                                                                                                    >
-                                                                                                        <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                        <span className="font-mono text-xs text-primary">
-                                                                                                            {detectedTag === 'function_calls' ? (extractToolNameFromStream(streamingText) || 'Using Tool...') : detectedTag}
-                                                                                                        </span>
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </>
-                                                                                    )}
-                                                                                </>
+                                                                const toolResultsMap = new Map<string | null, UnifiedMessage[]>();
+                                                                group.messages.forEach(msg => {
+                                                                    if (msg.type === 'tool') {
+                                                                        const meta = safeJsonParse<ParsedMetadata>(msg.metadata, {});
+                                                                        const assistantId = meta.assistant_message_id || null;
+                                                                        if (!toolResultsMap.has(assistantId)) {
+                                                                            toolResultsMap.set(assistantId, []);
+                                                                        }
+                                                                        toolResultsMap.get(assistantId)?.push(msg);
+                                                                    }
+                                                                });
+
+                                                                const renderedToolResultIds = new Set<string>();
+                                                                const elements: React.ReactNode[] = [];
+                                                                let assistantMessageCount = 0; // Track assistant messages for spacing
+
+                                                                group.messages.forEach((message, msgIndex) => {
+                                                                    if (message.type === 'assistant') {
+                                                                        const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
+                                                                        const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
+
+                                                                        if (!parsedContent.content) return;
+
+                                                                        const renderedContent = renderMarkdownContent(
+                                                                            parsedContent.content,
+                                                                            handleToolClick,
+                                                                            message.message_id,
+                                                                            handleOpenFileViewer,
+                                                                            sandboxId,
+                                                                            project,
+                                                                            debugMode
+                                                                        );
+
+                                                                        elements.push(
+                                                                            <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
+                                                                                <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
+                                                                                    {renderedContent}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                        assistantMessageCount++;
+                                                                    }
+                                                                });
+
+                                                                return elements;
+                                                            })()}
+
+                                                            {groupIndex === groupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
+                                                                <div className="mt-2">
+                                                                    {(() => {
+                                                                        // In debug mode, show raw streaming content
+                                                                        if (debugMode && streamingTextContent) {
+                                                                            return (
+                                                                                <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                                                                    {streamingTextContent}
+                                                                                </pre>
                                                                             );
-                                                                        })()}
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                                        }
+
+                                                                        let detectedTag: string | null = null;
+                                                                        let tagStartIndex = -1;
+                                                                        if (streamingTextContent) {
+                                                                            // First check for new format
+                                                                            const functionCallsIndex = streamingTextContent.indexOf('<function_calls>');
+                                                                            if (functionCallsIndex !== -1) {
+                                                                                detectedTag = 'function_calls';
+                                                                                tagStartIndex = functionCallsIndex;
+                                                                            } else {
+                                                                                // Fall back to old format detection
+                                                                                for (const tag of HIDE_STREAMING_XML_TAGS) {
+                                                                                    const openingTagPattern = `<${tag}`;
+                                                                                    const index = streamingTextContent.indexOf(openingTagPattern);
+                                                                                    if (index !== -1) {
+                                                                                        detectedTag = tag;
+                                                                                        tagStartIndex = index;
+                                                                                        break;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+
+
+                                                                        const textToRender = streamingTextContent || '';
+                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
+                                                                        const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
+                                                                        const IconComponent = detectedTag && detectedTag !== 'function_calls' ? getToolIcon(detectedTag) : null;
+
+                                                                        return (
+                                                                            <>
+                                                                                {textBeforeTag && (
+                                                                                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
+                                                                                )}
+                                                                                {showCursor && (
+                                                                                    <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
+                                                                                )}
+
+                                                                                {detectedTag && detectedTag !== 'function_calls' && (
+                                                                                    <div className="mt-2 mb-1">
+                                                                                        <button
+                                                                                            className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                        >
+                                                                                            <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                                                                                <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                            </div>
+                                                                                            <span className="font-mono text-xs text-primary">{getUserFriendlyToolName(detectedTag)}</span>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {detectedTag === 'function_calls' && (
+                                                                                    <div className="mt-2 mb-1">
+                                                                                        <button
+                                                                                            className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                        >
+                                                                                            <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                                                                                <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                            </div>
+                                                                                            <span className="font-mono text-xs text-primary">
+                                                                                                {extractToolNameFromStream(streamingTextContent) || 'Using Tool...'}
+                                                                                            </span>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {streamingToolCall && !detectedTag && (
+                                                                                    <div className="mt-2 mb-1">
+                                                                                        {(() => {
+                                                                                            const toolName = streamingToolCall.name || streamingToolCall.xml_tag_name || 'Tool';
+                                                                                            const IconComponent = getToolIcon(toolName);
+                                                                                            const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
+                                                                                            return (
+                                                                                                <button
+                                                                                                    className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                >
+                                                                                                    <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                                                                                        <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                    </div>
+                                                                                                    <span className="font-mono text-xs text-primary">{toolName}</span>
+                                                                                                    {paramDisplay && <span className="ml-1 text-primary/70 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
+                                                                                                </button>
+                                                                                            );
+                                                                                        })()}
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            )}
+
+                                                            {/* For playback mode, show streaming text and tool calls */}
+                                                            {readOnly && groupIndex === groupedMessages.length - 1 && isStreamingText && (
+                                                                <div className="mt-2">
+                                                                    {(() => {
+                                                                        let detectedTag: string | null = null;
+                                                                        let tagStartIndex = -1;
+                                                                        if (streamingText) {
+                                                                            // First check for new format
+                                                                            const functionCallsIndex = streamingText.indexOf('<function_calls>');
+                                                                            if (functionCallsIndex !== -1) {
+                                                                                detectedTag = 'function_calls';
+                                                                                tagStartIndex = functionCallsIndex;
+                                                                            } else {
+                                                                                // Fall back to old format detection
+                                                                                for (const tag of HIDE_STREAMING_XML_TAGS) {
+                                                                                    const openingTagPattern = `<${tag}`;
+                                                                                    const index = streamingText.indexOf(openingTagPattern);
+                                                                                    if (index !== -1) {
+                                                                                        detectedTag = tag;
+                                                                                        tagStartIndex = index;
+                                                                                        break;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+
+                                                                        const textToRender = streamingText || '';
+                                                                        const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
+                                                                        const showCursor = isStreamingText && !detectedTag;
+
+                                                                        return (
+                                                                            <>
+                                                                                {/* In debug mode, show raw streaming content */}
+                                                                                {debugMode && streamingText ? (
+                                                                                    <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
+                                                                                        {streamingText}
+                                                                                    </pre>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {textBeforeTag && (
+                                                                                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
+                                                                                        )}
+                                                                                        {showCursor && (
+                                                                                            <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
+                                                                                        )}
+
+                                                                                        {detectedTag && (
+                                                                                            <div className="mt-2 mb-1">
+                                                                                                <button
+                                                                                                    className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-2.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer border border-primary/20"
+                                                                                                >
+                                                                                                    <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
+                                                                                                    <span className="font-mono text-xs text-primary">
+                                                                                                        {detectedTag === 'function_calls' ? (extractToolNameFromStream(streamingText) || 'Using Tool...') : detectedTag}
+                                                                                                    </span>
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
+                                                                                )}
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -767,11 +780,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 !readOnly &&
                                 (messages.length === 0 || messages[messages.length - 1].type === 'user')) && (
                                     <div ref={latestMessageRef} className='w-full h-22 rounded'>
-                                        <div className="flex items-start gap-3">
-                                            <div className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center bg-primary/10">
-                                                <KortixLogo />
+                                        <div className="flex flex-col gap-2">
+                                            {/* Logo positioned above the loader */}
+                                            <div className="flex items-center">
+                                                <div className="rounded-md flex items-center justify-center">
+                                                    {agentAvatar}
+                                                </div>
+                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
                                             </div>
-                                            <div className="flex-1 space-y-2 w-full h-12">
+                                            
+                                            {/* Loader content */}
+                                            <div className="space-y-2 w-full h-12">
                                                 <AgentLoader />
                                             </div>
                                         </div>
@@ -781,11 +800,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             {/* For playback mode - Show tool call animation if active */}
                             {readOnly && currentToolCall && (
                                 <div ref={latestMessageRef}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
-                                            <KortixLogo />
+                                    <div className="flex flex-col gap-2">
+                                        {/* Logo positioned above the tool call */}
+                                        <div className="flex justify-start">
+                                            <div className="rounded-md flex items-center justify-center">
+                                                {agentAvatar}
+                                            </div>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
                                         </div>
-                                        <div className="flex-1 space-y-2">
+                                        
+                                        {/* Tool call content */}
+                                        <div className="space-y-2">
                                             <div className="animate-shimmer inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium text-primary bg-primary/10 rounded-md border border-primary/20">
                                                 <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                 <span className="font-mono text-xs text-primary">
@@ -800,27 +825,31 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             {/* For playback mode - Show streaming indicator if no messages yet */}
                             {readOnly && visibleMessages && visibleMessages.length === 0 && isStreamingText && (
                                 <div ref={latestMessageRef}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 w-5 h-5 mt-2 rounded-md flex items-center justify-center bg-primary/10">
-                                            <KortixLogo />
+                                    <div className="flex flex-col gap-2">
+                                        {/* Logo positioned above the streaming indicator */}
+                                        <div className="flex justify-start">
+                                            <div className="rounded-md flex items-center justify-center">
+                                                {agentAvatar}
+                                            </div>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
                                         </div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="max-w-[90%] px-4 py-3 text-sm">
-                                                <div className="flex items-center gap-1.5 py-1">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse" />
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-150" />
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-300" />
-                                                </div>
+                                        
+                                        {/* Streaming indicator content */}
+                                        <div className="max-w-[90%] px-4 py-3 text-sm">
+                                            <div className="flex items-center gap-1.5 py-1">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse" />
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-150" />
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse delay-300" />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
                     <div ref={messagesEndRef} className="h-1" />
                 </div>
-            </div>
+            )}
 
             {/* Scroll to bottom button */}
             {showScrollButton && (

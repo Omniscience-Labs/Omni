@@ -87,7 +87,7 @@ class ProcessorConfig:
 class ResponseProcessor:
     """Processes LLM responses, extracting and executing tool calls."""
     
-    def __init__(self, tool_registry: ToolRegistry, add_message_callback: Callable, trace: Optional[StatefulTraceClient] = None):
+    def __init__(self, tool_registry: ToolRegistry, add_message_callback: Callable, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None):
         """Initialize the ResponseProcessor.
         
         Args:
@@ -102,7 +102,9 @@ class ResponseProcessor:
             self.trace = langfuse.trace(name="anonymous:response_processor")
         # Initialize the XML parser with backwards compatibility
         self.xml_parser = XMLToolParser(strict_mode=False)
-        
+        self.is_agent_builder = is_agent_builder
+        self.target_agent_id = target_agent_id
+
     async def _yield_message(self, message_obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Helper to yield a message with proper formatting.
         
@@ -1544,7 +1546,7 @@ class ResponseProcessor:
                 self.trace.event(name="failed_even_with_fallback_message", level="ERROR", status_message=(f"Failed even with fallback message: {str(e2)}"), metadata={"tool_call": tool_call, "result": result, "strategy": strategy, "assistant_message_id": assistant_message_id, "parsing_details": parsing_details})
                 return None # Return None on error
 
-    def _create_structured_tool_result(self, tool_call: Dict[str, Any], result: ToolResult, parsing_details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _create_structured_tool_result(self, tool_call: Dict[str, Any], result: ToolResult, parsing_details: Optional[Dict[str, Any]] = None):
         """Create a structured tool result format that's tool-agnostic and provides rich information.
         
         Args:
@@ -1560,6 +1562,7 @@ class ResponseProcessor:
         xml_tag_name = tool_call.get("xml_tag_name")
         arguments = tool_call.get("arguments", {})
         tool_call_id = tool_call.get("id")
+        logger.info(f"Creating structured tool result for tool_call: {tool_call}")
         
         # Process the output - if it's a JSON string, parse it back to an object
         output = result.output if hasattr(result, 'output') else str(result)
@@ -1576,7 +1579,25 @@ class ResponseProcessor:
                 pass
         
         # Create the structured result
-        structured_result = {
+        structured_result_v1 = {
+            "tool_execution": {
+                "function_name": function_name,
+                "xml_tag_name": xml_tag_name,
+                "tool_call_id": tool_call_id,
+                "arguments": arguments,
+                "result": {
+                    "success": result.success if hasattr(result, 'success') else True,
+                    "output": output,  # Now properly structured for frontend
+                    "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
+                },
+                "execution_details": {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "parsing_details": parsing_details
+                }
+            }
+        }
+
+        structured_result_v2 = {
             "tool_execution": {
                 "function_name": function_name,
                 "xml_tag_name": xml_tag_name,
@@ -1599,16 +1620,20 @@ class ResponseProcessor:
         summary_output = result.output if hasattr(result, 'output') else str(result)
         if xml_tag_name:
             # For XML tools, create a readable summary
-            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
+            status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
             summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
         else:
             # For native tools, create a readable summary
-            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
+            status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
             summary = f"Function '{function_name}' {status}. Output: {summary_output}"
         
-        structured_result["summary"] = summary
-        
-        return structured_result
+        if self.is_agent_builder:
+            return summary
+        elif function_name == "get_data_provider_endpoints":
+            logger.info(f"Returning sumnary for data provider call: {summary}")
+            return summary
+        else:
+            return structured_result_v1
 
     def _format_xml_tool_result(self, tool_call: Dict[str, Any], result: ToolResult) -> str:
         """Format a tool result wrapped in a <tool_result> tag.
