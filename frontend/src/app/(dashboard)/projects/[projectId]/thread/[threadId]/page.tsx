@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useMemo,
 } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BillingError } from '@/lib/api';
@@ -129,7 +130,10 @@ export default function ThreadPage({
     ? 'active'
     : 'no_subscription';
 
-  useVncPreloader(project);
+  // Memoize project for VNC preloader to prevent re-preloading on every render
+  const memoizedProject = useMemo(() => project, [project?.id, project?.sandbox?.vnc_preview, project?.sandbox?.pass]);
+
+  useVncPreloader(memoizedProject);
 
 
   const handleProjectRenamed = useCallback((newName: string) => {

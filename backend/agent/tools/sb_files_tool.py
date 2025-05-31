@@ -138,11 +138,17 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.upload_file(full_path, file_contents.encode())
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
-            # Get preview URL if it's an HTML file
-            # preview_url = self._get_preview_url(file_path)
             message = f"File '{file_path}' created successfully."
-            # if preview_url:
-            #     message += f"\n\nYou can preview this HTML file at the automatically served HTTP server: {preview_url}"
+            
+            # Check if index.html was created and add 8080 server info (only in root workspace)
+            if file_path.lower() == 'index.html':
+                try:
+                    website_link = self.sandbox.get_preview_link(8080)
+                    website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+                    message += f"\n\n[Auto-detected index.html - HTTP server available at: {website_url}]"
+                    message += "\n[Note: Use the provided HTTP server URL above instead of starting a new server]"
+                except Exception as e:
+                    logger.warning(f"Failed to get website URL for index.html: {str(e)}")
             
             return self.success_response(message)
         except Exception as e:
@@ -291,11 +297,17 @@ class SandboxFilesTool(SandboxToolsBase):
             self.sandbox.fs.upload_file(full_path, file_contents.encode())
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
-            # Get preview URL if it's an HTML file
-            # preview_url = self._get_preview_url(file_path)
             message = f"File '{file_path}' completely rewritten successfully."
-            # if preview_url:
-            #     message += f"\n\nYou can preview this HTML file at: {preview_url}"
+            
+            # Check if index.html was rewritten and add 8080 server info (only in root workspace)
+            if file_path.lower() == 'index.html':
+                try:
+                    website_link = self.sandbox.get_preview_link(8080)
+                    website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+                    message += f"\n\n[Auto-detected index.html - HTTP server available at: {website_url}]"
+                    message += "\n[Note: Use the provided HTTP server URL above instead of starting a new server]"
+                except Exception as e:
+                    logger.warning(f"Failed to get website URL for index.html: {str(e)}")
             
             return self.success_response(message)
         except Exception as e:
