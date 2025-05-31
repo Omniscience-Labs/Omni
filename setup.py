@@ -6,9 +6,10 @@ import platform
 import subprocess
 from getpass import getpass
 import re
+import json
+
 
 IS_WINDOWS = platform.system() == 'Windows'
-PROGRESS_FILE = '.setup_progress'
 
 # ANSI colors for pretty output
 class Colors:
@@ -37,7 +38,8 @@ def print_banner():
 {Colors.ENDC}
 """)
 
-# Progress tracking
+PROGRESS_FILE = '.setup_progress'
+
 def save_progress(step):
     with open(PROGRESS_FILE, 'w') as f:
         f.write(str(step))
@@ -54,6 +56,25 @@ def load_progress():
 def clear_progress():
     if os.path.exists(PROGRESS_FILE):
         os.remove(PROGRESS_FILE)
+
+ENV_DATA_FILE = '.setup_env.json'
+
+def save_env_data(env_data):
+    with open(ENV_DATA_FILE, 'w') as f:
+        json.dump(env_data, f)
+
+def load_env_data():
+    if os.path.exists(ENV_DATA_FILE):
+        with open(ENV_DATA_FILE, 'r') as f:
+            return json.load(f)
+    return {
+        'supabase': {},
+        'daytona': {},
+        'llm': {},
+        'search': {},
+        'rapidapi': {}
+    }
+
 
 def print_step(step_num, total_steps, step_name):
     """Print a step header"""
@@ -834,6 +855,8 @@ def main():
     print_banner()
     print("This wizard will guide you through setting up Suna, an open-source generalist AI agent.\n")
 
+    env_vars = load_env_data()
+
     if current_step <= 1:
         print_step(current_step, total_steps, "Checking requirements")
         check_requirements()
@@ -846,52 +869,39 @@ def main():
 
     if current_step <= 2:
         print_step(current_step, total_steps, "Collecting Supabase information")
-        supabase_info = collect_supabase_info()
-        os.environ['SUPABASE_URL'] = supabase_info['SUPABASE_URL']
+        env_vars['supabase'] = collect_supabase_info()
+        os.environ['SUPABASE_URL'] = env_vars['supabase']['SUPABASE_URL']
+        save_env_data(env_vars)
         save_progress(current_step)
         current_step += 1
-    else:
-        supabase_info = {}
 
     if current_step <= 3:
         print_step(current_step, total_steps, "Collecting Daytona information")
-        daytona_info = collect_daytona_info()
+        env_vars['daytona'] = collect_daytona_info()
+        save_env_data(env_vars)
         save_progress(current_step)
         current_step += 1
-    else:
-        daytona_info = {}
 
     if current_step <= 4:
         print_step(current_step, total_steps, "Collecting LLM API keys")
-        llm_api_keys = collect_llm_api_keys()
+        env_vars['llm'] = collect_llm_api_keys()
+        save_env_data(env_vars)
         save_progress(current_step)
         current_step += 1
-    else:
-        llm_api_keys = {}
 
     if current_step <= 5:
         print_step(current_step, total_steps, "Collecting search and web scraping API keys")
-        search_api_keys = collect_search_api_keys()
+        env_vars['search'] = collect_search_api_keys()
+        save_env_data(env_vars)
         save_progress(current_step)
         current_step += 1
-    else:
-        search_api_keys = {}
 
     if current_step <= 6:
         print_step(current_step, total_steps, "Collecting RapidAPI key")
-        rapidapi_keys = collect_rapidapi_keys()
+        env_vars['rapidapi'] = collect_rapidapi_keys()
+        save_env_data(env_vars)
         save_progress(current_step)
         current_step += 1
-    else:
-        rapidapi_keys = {}
-
-    env_vars = {
-        'supabase': supabase_info,
-        'daytona': daytona_info,
-        'llm': llm_api_keys,
-        'search': search_api_keys,
-        'rapidapi': rapidapi_keys,
-    }
 
     if current_step <= 7:
         print_step(current_step, total_steps, "Setting up Supabase")
@@ -912,6 +922,8 @@ def main():
             configure_frontend_env(env_vars, use_docker)
         final_instructions(use_docker, env_vars)
         clear_progress()
+        if os.path.exists(ENV_DATA_FILE):
+            os.remove(ENV_DATA_FILE)
 
 if __name__ == "__main__":
     try:
