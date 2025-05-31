@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,22 +11,34 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '../agents/_components/pagination';
 
-type SortOption = 'newest' | 'popular' | 'most_downloaded';
+type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
 export default function MarketplacePage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [addingAgentId, setAddingAgentId] = useState<string | null>(null);
   
-  const { data: agents = [], isLoading, error } = useMarketplaceAgents({
-    search: searchQuery,
+  const queryParams = useMemo(() => ({
+    page,
+    limit: 20,
+    search: searchQuery || undefined,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
-    sort: sortBy
-  });
-  
+    sort_by: sortBy
+  }), [page, searchQuery, selectedTags, sortBy]);
+
+  const { data: agentsResponse, isLoading, error } = useMarketplaceAgents(queryParams);
   const addToLibraryMutation = useAddAgentToLibrary();
+
+  const agents = agentsResponse?.agents || [];
+  const pagination = agentsResponse?.pagination;
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedTags, sortBy]);
 
   const handleAddToLibrary = async (agentId: string, agentName: string) => {
     try {
@@ -156,6 +168,8 @@ export default function MarketplacePage() {
         <div className="text-sm text-muted-foreground">
           {isLoading ? (
             "Loading agents..."
+          ) : pagination ? (
+            `Showing page ${pagination.page} of ${pagination.pages} (${pagination.total} total agents)`
           ) : (
             `${agents.length} agent${agents.length !== 1 ? 's' : ''} found`
           )}
@@ -163,7 +177,7 @@ export default function MarketplacePage() {
 
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden">
                 <Skeleton className="h-50" />
                 <div className="p-4 space-y-3">
@@ -193,7 +207,7 @@ export default function MarketplacePage() {
               return (
                 <div 
                   key={agent.agent_id} 
-                  className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group"
+                  className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
                 >
                   <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
                     <div className="text-4xl">
@@ -207,7 +221,7 @@ export default function MarketplacePage() {
                     </div>
                   </div>
                   
-                  <div className="p-4">
+                  <div className="p-4 flex flex-col flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                         {agent.name}
@@ -249,7 +263,7 @@ export default function MarketplacePage() {
                         handleAddToLibrary(agent.agent_id, agent.name);
                       }}
                       disabled={addingAgentId === agent.agent_id}
-                      className="w-full transition-opacity"
+                      className="w-full transition-opacity mt-auto"
                       size="sm"
                       key={agent.agent_id} 
                     >
@@ -270,6 +284,15 @@ export default function MarketplacePage() {
               );
             })}
           </div>
+        )}
+
+        {pagination && pagination.pages > 1 && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.pages}
+            onPageChange={setPage}
+            isLoading={isLoading}
+          />
         )}
       </div>
     </div>

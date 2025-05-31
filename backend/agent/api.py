@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form, Query
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
@@ -81,6 +81,16 @@ class AgentResponse(BaseModel):
     avatar_color: Optional[str]
     created_at: str
     updated_at: str
+
+class PaginationInfo(BaseModel):
+    page: int
+    limit: int
+    total: int
+    pages: int
+
+class AgentsResponse(BaseModel):
+    agents: List[AgentResponse]
+    pagination: PaginationInfo
 
 class ThreadAgentResponse(BaseModel):
     agent: Optional[AgentResponse]
@@ -1032,23 +1042,141 @@ async def initiate_agent_with_files(
         # TODO: Clean up created project/thread if initiation fails mid-way
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
 
-@router.get("/agents", response_model=List[AgentResponse])
-async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get all agents for the current user."""
-    logger.info(f"Fetching agents for user: {user_id}")
+@router.get("/agents", response_model=AgentsResponse)
+async def get_agents(
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    sort_by: Optional[str] = Query("created_at", description="Sort field: name, created_at, updated_at, tools_count"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
+    has_default: Optional[bool] = Query(None, description="Filter by default agents"),
+    has_mcp_tools: Optional[bool] = Query(None, description="Filter by agents with MCP tools"),
+    has_agentpress_tools: Optional[bool] = Query(None, description="Filter by agents with AgentPress tools"),
+    tools: Optional[str] = Query(None, description="Comma-separated list of tools to filter by")
+):
+    """Get agents for the current user with pagination, search, sort, and filter support."""
+    logger.info(f"Fetching agents for user: {user_id} with page={page}, limit={limit}, search='{search}', sort_by={sort_by}, sort_order={sort_order}")
     client = await db.client
     
     try:
-        # Get agents for the current user's account
-        agents = await client.table('agents').select('*').eq("account_id", user_id).order('created_at', desc=True).execute()
+        # Calculate offset
+        offset = (page - 1) * limit
         
-        if not agents.data:
+        # Start building the query
+        query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
+        
+        # Apply search filter
+        if search:
+            search_term = f"%{search}%"
+            query = query.or_(f"name.ilike.{search_term},description.ilike.{search_term}")
+        
+        # Apply filters
+        if has_default is not None:
+            query = query.eq("is_default", has_default)
+        
+        # For MCP and AgentPress tools filtering, we'll need to do post-processing
+        # since Supabase doesn't have great JSON array/object filtering
+        
+        # Apply sorting
+        if sort_by == "name":
+            query = query.order("name", desc=(sort_order == "desc"))
+        elif sort_by == "updated_at":
+            query = query.order("updated_at", desc=(sort_order == "desc"))
+        elif sort_by == "created_at":
+            query = query.order("created_at", desc=(sort_order == "desc"))
+        else:
+            # Default to created_at
+            query = query.order("created_at", desc=(sort_order == "desc"))
+        
+        # Execute query to get total count first
+        count_result = await query.execute()
+        total_count = count_result.count
+        
+        # Now get the actual data with pagination
+        query = query.range(offset, offset + limit - 1)
+        agents_result = await query.execute()
+        
+        if not agents_result.data:
             logger.info(f"No agents found for user: {user_id}")
-            return []
+            return {
+                "agents": [],
+                "pagination": {
+                    "page": page,
+                    "limit": limit,
+                    "total": 0,
+                    "pages": 0
+                }
+            }
+        
+        # Post-process for tool filtering and tools_count sorting
+        agents_data = agents_result.data
+        
+        # Apply tool-based filters
+        if has_mcp_tools is not None or has_agentpress_tools is not None or tools:
+            filtered_agents = []
+            tools_filter = []
+            if tools:
+                tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+            
+            for agent in agents_data:
+                # Check MCP tools filter
+                if has_mcp_tools is not None:
+                    has_mcp = bool(agent.get('configured_mcps') and len(agent.get('configured_mcps', [])) > 0)
+                    if has_mcp_tools != has_mcp:
+                        continue
+                
+                # Check AgentPress tools filter
+                if has_agentpress_tools is not None:
+                    agentpress_tools = agent.get('agentpress_tools', {})
+                    has_enabled_tools = any(
+                        tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False)
+                        for tool_data in agentpress_tools.values()
+                    )
+                    if has_agentpress_tools != has_enabled_tools:
+                        continue
+                
+                # Check specific tools filter
+                if tools_filter:
+                    agent_tools = set()
+                    # Add MCP tools
+                    for mcp in agent.get('configured_mcps', []):
+                        if isinstance(mcp, dict) and 'name' in mcp:
+                            agent_tools.add(f"mcp:{mcp['name']}")
+                    
+                    # Add enabled AgentPress tools
+                    for tool_name, tool_data in agent.get('agentpress_tools', {}).items():
+                        if tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False):
+                            agent_tools.add(f"agentpress:{tool_name}")
+                    
+                    # Check if any of the requested tools are present
+                    if not any(tool in agent_tools for tool in tools_filter):
+                        continue
+                
+                filtered_agents.append(agent)
+            
+            agents_data = filtered_agents
+        
+        # Handle tools_count sorting (post-processing required)
+        if sort_by == "tools_count":
+            def get_tools_count(agent):
+                mcp_count = len(agent.get('configured_mcps', []))
+                agentpress_count = sum(
+                    1 for tool_data in agent.get('agentpress_tools', {}).values()
+                    if tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False)
+                )
+                return mcp_count + agentpress_count
+            
+            agents_data.sort(key=get_tools_count, reverse=(sort_order == "desc"))
+        
+        # Apply pagination to filtered results if we did post-processing
+        if has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count":
+            total_count = len(agents_data)
+            agents_data = agents_data[offset:offset + limit]
         
         # Format the response
         agent_list = []
-        for agent in agents.data:
+        for agent in agents_data:
             agent_list.append(AgentResponse(
                 agent_id=agent['agent_id'],
                 account_id=agent['account_id'],
@@ -1068,8 +1196,18 @@ async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
                 updated_at=agent['updated_at']
             ))
         
-        logger.info(f"Found {len(agent_list)} agents for user: {user_id}")
-        return agent_list
+        total_pages = (total_count + limit - 1) // limit
+        
+        logger.info(f"Found {len(agent_list)} agents for user: {user_id} (page {page}/{total_pages})")
+        return {
+            "agents": agent_list,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": total_pages
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error fetching agents for user {user_id}: {str(e)}")
@@ -1326,40 +1464,75 @@ class MarketplaceAgent(BaseModel):
 
 class MarketplaceAgentsResponse(BaseModel):
     agents: List[MarketplaceAgent]
+    pagination: PaginationInfo
 
 class PublishAgentRequest(BaseModel):
     tags: Optional[List[str]] = []
 
 @router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
 async def get_marketplace_agents(
-    search: Optional[str] = None,
-    tags: Optional[str] = None,  # Comma-separated string
-    limit: Optional[int] = 50,
-    offset: Optional[int] = 0
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    tags: Optional[str] = Query(None, description="Comma-separated string of tags"),
+    sort_by: Optional[str] = Query("newest", description="Sort by: newest, popular, most_downloaded, name"),
+    creator: Optional[str] = Query(None, description="Filter by creator name")
 ):
-    """Get public agents from the marketplace."""
-    logger.info(f"Fetching marketplace agents with search='{search}', tags='{tags}', limit={limit}, offset={offset}")
+    """Get public agents from the marketplace with pagination, search, sort, and filter support."""
+    logger.info(f"Fetching marketplace agents with page={page}, limit={limit}, search='{search}', tags='{tags}', sort_by={sort_by}")
     client = await db.client
     
     try:
-        # Convert tags string to array if provided
+        offset = (page - 1) * limit
         tags_array = None
         if tags:
             tags_array = [tag.strip() for tag in tags.split(',') if tag.strip()]
         
-        # Call the database function
         result = await client.rpc('get_marketplace_agents', {
             'p_search': search,
             'p_tags': tags_array,
-            'p_limit': limit,
+            'p_limit': limit + 1,
             'p_offset': offset
         }).execute()
         
         if result.data is None:
             result.data = []
         
-        logger.info(f"Found {len(result.data)} marketplace agents")
-        return {"agents": result.data}
+        has_more = len(result.data) > limit
+        agents_data = result.data[:limit] 
+        if creator:
+            agents_data = [
+                agent for agent in agents_data 
+                if creator.lower() in agent.get('creator_name', '').lower()
+            ]
+
+        if sort_by == "most_downloaded":
+            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+        elif sort_by == "popular":
+            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+        elif sort_by == "name":
+            agents_data = sorted(agents_data, key=lambda x: x.get('name', '').lower())
+        else:
+            agents_data = sorted(agents_data, key=lambda x: x.get('marketplace_published_at', ''), reverse=True)
+        
+        estimated_total = (page - 1) * limit + len(agents_data)
+        if has_more:
+            estimated_total += 1
+        
+        total_pages = max(page, (estimated_total + limit - 1) // limit)
+        if has_more:
+            total_pages = page + 1
+        
+        logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
+        return {
+            "agents": agents_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": estimated_total,
+                "pages": total_pages
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error fetching marketplace agents: {str(e)}")

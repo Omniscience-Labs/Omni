@@ -33,6 +33,9 @@ export default function AgentConfigurationPage() {
   const updateAgentMutation = useUpdateAgent();
   const { state, setOpen, setOpenMobile } = useSidebar();
 
+  // Ref to track if initial layout has been applied (for sidebar closing)
+  const initialLayoutAppliedRef = useRef(false);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,6 +54,14 @@ export default function AgentConfigurationPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agent-builder');
   const accordionRef = useRef<HTMLDivElement>(null);
+
+  // Effect to automatically close sidebar on page load
+  useEffect(() => {
+    if (!initialLayoutAppliedRef.current) {
+      setOpen(false);
+      initialLayoutAppliedRef.current = true;
+    }
+  }, [setOpen]);
 
   useEffect(() => {
     if (agent) {

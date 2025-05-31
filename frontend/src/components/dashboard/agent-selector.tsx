@@ -29,18 +29,24 @@ export function AgentSelector({
   className,
   variant = 'default'
 }: AgentSelectorProps) {
-  const { data: agents = [], isLoading, refetch: loadAgents } = useAgents();
+  const { data: agentsResponse, isLoading, refetch: loadAgents } = useAgents({
+    limit: 100,
+    sort_by: 'name',
+    sort_order: 'asc'
+  });
+  
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+  const agents = agentsResponse?.agents || [];
   const defaultAgent = agents.find(agent => agent.is_default);
   const currentAgent = selectedAgentId 
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
 
-  // Display name logic: show selected agent, default agent, or "Suna" as fallback
   const displayName = currentAgent?.name || defaultAgent?.name || 'Suna';
+  const agentAvatar = currentAgent?.avatar;
   const isUsingSuna = !currentAgent && !defaultAgent;
 
   const handleAgentSelect = (agentId: string | undefined) => {
@@ -96,6 +102,9 @@ export function AgentSelector({
               >
                 <span className="underline decoration-dashed underline-offset-6 decoration-muted-foreground/50 tracking-tight text-4xl font-semibold leading-tight text-primary">
                   {displayName}
+                  <span className="text-muted-foreground ml-2">
+                    {agentAvatar && agentAvatar}
+                  </span>
                 </span>
                 <div className="flex items-center opacity-60 group-hover:opacity-100 transition-opacity">
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
