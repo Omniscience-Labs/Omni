@@ -37,19 +37,27 @@ class ThreadManager:
     XML-based tool execution patterns.
     """
 
-    def __init__(self, trace: Optional[StatefulTraceClient] = None):
+    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None):
         """Initialize ThreadManager.
 
+        Args:
+            trace: Optional trace client for logging
+            is_agent_builder: Whether this is an agent builder session
+            target_agent_id: ID of the agent being built (if in agent builder mode)
         """
         self.db = DBConnection()
         self.tool_registry = ToolRegistry()
         self.trace = trace
+        self.is_agent_builder = is_agent_builder
+        self.target_agent_id = target_agent_id
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:thread_manager")
         self.response_processor = ResponseProcessor(
             tool_registry=self.tool_registry,
             add_message_callback=self.add_message,
-            trace=self.trace
+            trace=self.trace,
+            is_agent_builder=self.is_agent_builder,
+            target_agent_id=self.target_agent_id
         )
         self.context_manager = ContextManager()
 

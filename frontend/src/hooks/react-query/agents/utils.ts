@@ -166,7 +166,7 @@ export const updateAgent = async (agentId: string, agentData: AgentUpdateRequest
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(errorData.message || `HTTP ${response.status}: {response.statusText}`);
     }
 
     const agent = await response.json();
@@ -234,6 +234,37 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
     return agent;
   } catch (err) {
     console.error('Error fetching thread agent:', err);
+    throw err;
+  }
+};
+
+export const getAgentBuilderChatHistory = async (agentId: string): Promise<{messages: any[], thread_id: string | null}> => {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to get agent builder chat history');
+    }
+
+    const response = await fetch(`${API_URL}/agents/${agentId}/builder-chat-history`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[API] Fetched agent builder chat history:', agentId, data.messages.length);
+    return data;
+  } catch (err) {
+    console.error('Error fetching agent builder chat history:', err);
     throw err;
   }
 };

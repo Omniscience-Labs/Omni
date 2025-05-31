@@ -8,4 +8,5 @@ export const agentKeys = createQueryKeys({
   detail: (id: string) => [...agentKeys.details(), id] as const,
   threadAgents: () => [...agentKeys.all, 'thread-agent'] as const,
   threadAgent: (threadId: string) => [...agentKeys.threadAgents(), threadId] as const,
+  builderChatHistory: (agentId: string) => [...agentKeys.all, 'builderChatHistory', agentId] as const,
 });

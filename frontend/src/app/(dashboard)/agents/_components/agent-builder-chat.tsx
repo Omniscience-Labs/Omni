@@ -1,223 +1,414 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Sparkles, Settings2, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2 } from 'lucide-react';
+import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
+import { ThreadContent } from '@/components/thread/content/ThreadContent';
+import { useAgentStream } from '@/hooks/useAgentStream';
+import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messages';
+import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
+import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
+import { useAgentBuilderChatHistory } from '@/hooks/react-query/agents/use-agents';
 import { toast } from 'sonner';
-import { useAgentBuilderChat } from '@/hooks/react-query/agents/use-agents';
-import { AgentBuilderConfig } from '@/hooks/react-query/agents/utils';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { UnifiedMessage } from '@/components/thread/types';
+import { StylePicker } from './style-picker';
+import { EditableText } from '@/components/ui/editable';
+import { Badge } from '@/components/ui/badge';
+import { Check, Clock } from 'lucide-react';
+import { BillingError } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
 
 interface AgentBuilderChatProps {
   agentId: string;
-  onConfigUpdate: (config: AgentBuilderConfig) => void;
-  onComplete?: (config: AgentBuilderConfig) => void;
-  currentConfig: AgentBuilderConfig;
+  formData: any;
+  handleFieldChange: (field: string, value: any) => void;
+  handleStyleChange: (emoji: string, color: string) => void;
+  currentStyle: { avatar: string; color: string };
 }
 
-export function AgentBuilderChat({ agentId, onConfigUpdate, onComplete, currentConfig }: AgentBuilderChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: "Hi! I'm here to help you create a custom AI agent. What kind of agent would you like to build? Tell me about what you want it to do.",
-      timestamp: new Date()
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentStep, setCurrentStep] = useState<string>('purpose');
+export const AgentBuilderChat = React.memo(function AgentBuilderChat({ 
+  agentId, 
+  formData,
+  handleFieldChange,
+  handleStyleChange,
+  currentStyle
+}: AgentBuilderChatProps) {
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [agentRunId, setAgentRunId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<UnifiedMessage[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'connecting' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasStartedConversation, setHasStartedConversation] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<ChatInputHandles>(null);
+  const previousMessageCountRef = useRef(0);
+  const hasInitiallyLoadedRef = useRef(false);
+  const previousAgentIdRef = useRef<string | null>(null);
 
-  const { sendMessage, cancelStream } = useAgentBuilderChat();
+  // Debug mount/unmount
+  useEffect(() => {
+    console.log('[AgentBuilderChat] Component mounted');
+    return () => {
+      console.log('[AgentBuilderChat] Component unmounted');
+    };
+  }, []);
+
+  // Reset hasInitiallyLoadedRef when agentId changes
+  useEffect(() => {
+    if (previousAgentIdRef.current !== null && previousAgentIdRef.current !== agentId) {
+      console.log('[AgentBuilderChat] Agent ID changed, resetting state');
+      hasInitiallyLoadedRef.current = false;
+      setMessages([]);
+      setThreadId(null);
+      setAgentRunId(null);
+      setHasStartedConversation(false);
+      previousMessageCountRef.current = 0;
+    }
+    previousAgentIdRef.current = agentId;
+  }, [agentId]);
+
+  const initiateAgentMutation = useInitiateAgentWithInvalidation();
+  const addUserMessageMutation = useAddUserMessageMutation();
+  const startAgentMutation = useStartAgentMutation();
+  const stopAgentMutation = useStopAgentMutation();
+  const chatHistoryQuery = useAgentBuilderChatHistory(agentId);
+  const queryClient = useQueryClient();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (messages && messages.length > previousMessageCountRef.current) {
+      scrollToBottom();
+    }
+    previousMessageCountRef.current = messages?.length || 0;
+  }, [messages, messages?.length]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isStreaming) return;
+  useEffect(() => {
+    if (chatHistoryQuery.data && chatHistoryQuery.status === 'success' && !hasInitiallyLoadedRef.current) {
+      console.log('[AgentBuilderChat] Loading chat history for agent:', agentId);
+      const { messages: historyMessages, thread_id } = chatHistoryQuery.data;
+      if (historyMessages && historyMessages.length > 0) {
+        const unifiedMessages = historyMessages
+          .filter((msg) => msg.type !== 'status')
+          .map((msg: any) => ({
+            message_id: msg.message_id || `msg-${Date.now()}-${Math.random()}`,
+            thread_id: msg.thread_id || thread_id,
+            type: (msg.type || 'system') as UnifiedMessage['type'],
+            is_llm_message: Boolean(msg.is_llm_message),
+            content: msg.content || '',
+            metadata: msg.metadata || '{}',
+            created_at: msg.created_at || new Date().toISOString(),
+            updated_at: msg.updated_at || new Date().toISOString(),
+            sequence: 0,
+          }));
+        setMessages(unifiedMessages);
+        setHasStartedConversation(unifiedMessages.length > 0);
+        previousMessageCountRef.current = unifiedMessages.length;
+        if (thread_id) {
+          setThreadId(thread_id);
+        }
+      }
+      
+      hasInitiallyLoadedRef.current = true;
+    } else if (chatHistoryQuery.status === 'error') {
+      console.error('[AgentBuilderChat] Error loading chat history:', chatHistoryQuery.error);
+      hasInitiallyLoadedRef.current = true;
+    }
+  }, [chatHistoryQuery.data, chatHistoryQuery.status, chatHistoryQuery.error, agentId]);
 
-    const userMessage = input.trim();
-    setInput('');
-    setIsStreaming(true);
+  const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
+    setMessages((prev) => {
+      if (!prev) prev = [];
+      
+      if (message.type === 'user') {
+        const optimisticIndex = prev.findIndex(m => 
+          m.message_id.startsWith('temp-user-') && 
+          m.content === message.content &&
+          m.type === 'user'
+        );
+        
+        if (optimisticIndex !== -1) {
+          console.log(`[AGENT BUILDER] Replacing optimistic message with real message`);
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = message;
+          return newMessages;
+        }
+      }
+      const messageExists = prev.some(m => m.message_id === message.message_id);
+      if (messageExists) {
+        return prev.map(m => m.message_id === message.message_id ? message : m);
+      }
+      return [...prev, message];
+    });
+  }, []);
 
-    // Add user message
-    const newUserMessage: Message = {
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, newUserMessage]);
+  const handleStreamStatusChange = useCallback((status: string) => {
+    switch (status) {
+      case 'idle':
+      case 'completed':
+      case 'stopped':
+      case 'agent_not_running':
+      case 'error':
+      case 'failed':
+        setAgentStatus('idle');
+        setAgentRunId(null);
+        if (status === 'completed') {
+          setSaveStatus('saved');
+          queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
+          queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
+          queryClient.invalidateQueries({ queryKey: agentKeys.builderChatHistory(agentId) });
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        }
+        break;
+      case 'connecting':
+        setAgentStatus('connecting');
+        break;
+      case 'streaming':
+        setAgentStatus('running');
+        break;
+    }
+  }, []);
 
-    let assistantMessage = '';
-    let messageAdded = false;
+  const handleStreamError = useCallback((errorMessage: string) => {
+    if (!errorMessage.toLowerCase().includes('not found') && 
+        !errorMessage.toLowerCase().includes('agent run is not running')) {
+      toast.error(`Stream Error: ${errorMessage}`);
+    }
+  }, []);
+
+  const handleStreamClose = useCallback(() => {
+    console.log(`[AGENT BUILDER] Stream closed`);
+  }, []);
+
+  const {
+    status: streamHookStatus,
+    textContent: streamingTextContent,
+    toolCall: streamingToolCall,
+    error: streamError,
+    agentRunId: currentHookRunId,
+    startStreaming,
+    stopStreaming,
+  } = useAgentStream(
+    {
+      onMessage: handleNewMessageFromStream,
+      onStatusChange: handleStreamStatusChange,
+      onError: handleStreamError,
+      onClose: handleStreamClose,
+    },
+    threadId,
+    setMessages,
+  );
+
+  useEffect(() => {
+    if (agentRunId && agentRunId !== currentHookRunId && threadId) {
+      startStreaming(agentRunId);
+    }
+  }, [agentRunId, startStreaming, currentHookRunId, threadId]);
+
+  const handleSubmitFirstMessage = async (
+    message: string,
+    options?: {
+      model_name?: string;
+      enable_thinking?: boolean;
+      reasoning_effort?: string;
+      stream?: boolean;
+      enable_context_manager?: boolean;
+    },
+  ) => {
+    if (!message.trim() && !chatInputRef.current?.getPendingFiles().length) return;
+
+    setIsSubmitting(true);
+    setHasStartedConversation(true);
+    setSaveStatus('saving');
 
     try {
-      await sendMessage(
-        {
-          message: userMessage,
-          agent_id: agentId,
-          conversation_history: messages.map(m => ({
-            role: m.role,
-            content: m.content
-          })),
-          partial_config: currentConfig
-        },
-        {
-          onData: (data) => {
-            if (data.type === 'content' && data.content) {
-              assistantMessage += data.content;
-              
-              if (!messageAdded) {
-                setMessages(prev => [...prev, {
-                  role: 'assistant',
-                  content: assistantMessage,
-                  timestamp: new Date()
-                }]);
-                messageAdded = true;
-              } else {
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1].content = assistantMessage;
-                  return updated;
-                });
-              }
-            } else if (data.type === 'config' && data.config) {
-              onConfigUpdate(data.config);
-              if (data.next_step) {
-                setCurrentStep(data.next_step);
-              }
-            } else if (data.type === 'error') {
-              toast.error(data.error || 'An error occurred');
-            }
-          },
-          onComplete: () => {
-            if (currentStep === 'complete' && onComplete) {
-              onComplete(currentConfig);
-            }
-          },
-          onError: (error) => {
-            toast.error('Failed to get response. Please try again.');
-          }
+      const files = chatInputRef.current?.getPendingFiles() || [];
+      
+      const agentFormData = new FormData();
+      agentFormData.append('prompt', message);
+      agentFormData.append('is_agent_builder', String(true));
+      agentFormData.append('target_agent_id', agentId);
+      
+      files.forEach((file) => {
+        agentFormData.append('files', file, file.name);
+      });
+
+      if (options?.model_name) agentFormData.append('model_name', options.model_name);
+      agentFormData.append('enable_thinking', String(options?.enable_thinking ?? false));
+      agentFormData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
+      agentFormData.append('stream', String(options?.stream ?? true));
+      agentFormData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
+
+      const result = await initiateAgentMutation.mutateAsync(agentFormData);
+
+      if (result.thread_id) {
+        setThreadId(result.thread_id);
+        if (result.agent_run_id) {
+          console.log('[AGENT BUILDER] Setting agent run ID:', result.agent_run_id);
+          setAgentRunId(result.agent_run_id);
         }
-      );
-    } catch (error) {
-      console.error('Error in agent builder chat:', error);
-      toast.error('Failed to get response. Please try again.');
+        
+        const userMessage: UnifiedMessage = {
+          message_id: `user-${Date.now()}`,
+          thread_id: result.thread_id,
+          type: 'user',
+          is_llm_message: false,
+          content: message,
+          metadata: '{}',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          sequence: 0,
+        };
+        setMessages(prev => [...prev, userMessage]);
+      }
+
+      chatInputRef.current?.clearPendingFiles();
+      setInputValue('');
+    } catch (error: any) {
+      if (error instanceof BillingError) {
+        toast.error('Billing limit reached. Please upgrade your plan.');
+      } else {
+        toast.error('Failed to start agent builder session');
+      }
+      setHasStartedConversation(false);
+      setSaveStatus('idle');
     } finally {
-      setIsStreaming(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      cancelStream();
-    };
-  }, [cancelStream]);
+  const handleSubmitMessage = useCallback(
+    async (
+      message: string,
+      options?: { model_name?: string; enable_thinking?: boolean; reasoning_effort?: string; enable_context_manager?: boolean },
+    ) => {
+      if (!message.trim() || !threadId) return;
+      setIsSubmitting(true);
+      setSaveStatus('saving');
 
-  const getStepBadge = () => {
-    const steps = {
-      purpose: { label: 'Understanding Purpose', icon: Sparkles },
-      name: { label: 'Naming Agent', icon: Settings2 },
-      description: { label: 'Adding Description', icon: Settings2 },
-      instructions: { label: 'Writing Instructions', icon: Settings2 },
-      tools: { label: 'Configuring Tools', icon: Settings2 },
-      complete: { label: 'Complete', icon: Check }
-    };
+      const optimisticUserMessage: UnifiedMessage = {
+        message_id: `temp-user-${Date.now()}-${Math.random()}`,
+        thread_id: threadId,
+        type: 'user',
+        is_llm_message: false,
+        content: message,
+        metadata: '{}',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sequence: messages.length,
+      };
 
-    const step = steps[currentStep as keyof typeof steps] || steps.purpose;
-    const Icon = step.icon;
+      setMessages((prev) => [...prev, optimisticUserMessage]);
+      setInputValue('');
 
-    return (
-      <Badge variant="secondary" className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {step.label}
-      </Badge>
-    );
-  };
+      try {
+        const messagePromise = addUserMessageMutation.mutateAsync({
+          threadId,
+          message
+        });
+
+        const agentPromise = startAgentMutation.mutateAsync({
+          threadId,
+          options
+        });
+
+        const results = await Promise.allSettled([messagePromise, agentPromise]);
+
+        if (results[0].status === 'rejected') {
+          throw new Error(`Failed to send message: ${results[0].reason?.message || results[0].reason}`);
+        }
+        if (results[1].status === 'rejected') {
+          const error = results[1].reason;
+          if (error instanceof BillingError) {
+            toast.error('Billing limit reached. Please upgrade your plan.');
+            setMessages(prev => prev.filter(m => m.message_id !== optimisticUserMessage.message_id));
+            return;
+          }
+          throw new Error(`Failed to start agent: ${error?.message || error}`);
+        }
+        const agentResult = results[1].value;
+        setAgentRunId(agentResult.agent_run_id);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Operation failed');
+        setMessages((prev) => prev.map((m) => 
+          m.message_id === optimisticUserMessage.message_id 
+            ? { ...m, message_id: `user-error-${Date.now()}` }
+            : m
+        ));
+        setSaveStatus('idle');
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [threadId, messages?.length, addUserMessageMutation, startAgentMutation],
+  );
+
+  const handleStopAgent = useCallback(async () => {
+    setAgentStatus('idle');
+    await stopStreaming();
+
+    if (agentRunId) {
+      try {
+        await stopAgentMutation.mutateAsync(agentRunId);
+      } catch (error) {
+        console.error('[AGENT BUILDER] Error stopping agent:', error);
+      }
+    }
+  }, [stopStreaming, agentRunId, stopAgentMutation]);
+
+
+  const handleOpenFileViewer = useCallback(() => {}, []);
+
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Agent Builder Assistant</h3>
-          {getStepBadge()}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto scrollbar-hide">
+          <ThreadContent
+            messages={messages || []}
+            streamingTextContent={streamingTextContent}
+            streamingToolCall={streamingToolCall}
+            agentStatus={agentStatus}
+            handleToolClick={() => {}}
+            handleOpenFileViewer={handleOpenFileViewer}
+            streamHookStatus={streamHookStatus}
+          />
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex",
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              )}
-            >
-              <Card className={cn(
-                "max-w-[80%]",
-                message.role === 'user' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted'
-              )}>
-                <CardContent className="p-3">
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className={cn(
-                    "text-xs mt-1",
-                    message.role === 'user' 
-                      ? 'text-primary-foreground/70' 
-                      : 'text-muted-foreground'
-                  )}>
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-          {isStreaming && (
-            <div className="flex justify-start">
-              <Card className="bg-muted">
-                <CardContent className="p-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-
-      <form onSubmit={handleSubmit} className="p-4 border-t">
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            disabled={isStreaming}
-            className="flex-1"
+      <div className="flex-shrink-0 md:pb-4 md:px-12">
+        <ChatInput
+            ref={chatInputRef}
+            onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
+            loading={isSubmitting}
+            placeholder="Tell me how you'd like to configure your agent..."
+            value={inputValue}
+            onChange={setInputValue}
+            disabled={isSubmitting}
+            isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
+            onStopAgent={handleStopAgent}
+            agentName="Agent Builder"
+            hideAttachments={true}
+            bgColor='bg-muted-foreground/10'
           />
-          <Button type="submit" disabled={!input.trim() || isStreaming}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
+      </div>
     </div>
   );
-} 
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.agentId === nextProps.agentId &&
+    JSON.stringify(prevProps.formData) === JSON.stringify(nextProps.formData) &&
+    prevProps.currentStyle.avatar === nextProps.currentStyle.avatar &&
+    prevProps.currentStyle.color === nextProps.currentStyle.color &&
+    prevProps.handleFieldChange === nextProps.handleFieldChange &&
+    prevProps.handleStyleChange === nextProps.handleStyleChange
+  );
+}); 

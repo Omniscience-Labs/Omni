@@ -357,13 +357,21 @@ async def start_agent(
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
-    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id').eq('thread_id', thread_id).execute()
+    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id', 'metadata').eq('thread_id', thread_id).execute()
     if not thread_result.data:
         raise HTTPException(status_code=404, detail="Thread not found")
     thread_data = thread_result.data[0]
     project_id = thread_data.get('project_id')
     account_id = thread_data.get('account_id')
     thread_agent_id = thread_data.get('agent_id')
+    thread_metadata = thread_data.get('metadata', {})
+    
+    # Check if this is an agent builder thread
+    is_agent_builder = thread_metadata.get('is_agent_builder', False)
+    target_agent_id = thread_metadata.get('target_agent_id')
+    
+    if is_agent_builder:
+        logger.info(f"Thread {thread_id} is in agent builder mode, target_agent_id: {target_agent_id}")
     
     # Load agent configuration
     agent_config = None
@@ -449,7 +457,9 @@ async def start_agent(
         model_name=model_name,  # Already resolved above
         enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
         stream=body.stream, enable_context_manager=body.enable_context_manager,
-        agent_config=agent_config  # Pass agent configuration
+        agent_config=agent_config,  # Pass agent configuration
+        is_agent_builder=is_agent_builder,
+        target_agent_id=target_agent_id
     )
 
     return {"agent_run_id": agent_run_id, "status": "running"}
@@ -803,6 +813,7 @@ async def initiate_agent_with_files(
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
     files: List[UploadFile] = File(default=[]),
     is_agent_builder: Optional[bool] = Form(False),
+    target_agent_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Initiate a new agent session with optional file attachments."""
@@ -812,6 +823,7 @@ async def initiate_agent_with_files(
 
     # Use model from config if not specified in the request
     logger.info(f"Original model_name from request: {model_name}")
+    
 
     if model_name is None:
         model_name = config.MODEL_TO_USE
@@ -823,6 +835,8 @@ async def initiate_agent_with_files(
 
     # Update model_name to use the resolved version
     model_name = resolved_model
+
+    logger.info(f"Starting new agent in agent builder mode: {is_agent_builder}, target_agent_id: {target_agent_id}")
 
     logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
@@ -873,6 +887,14 @@ async def initiate_agent_with_files(
         if agent_config:
             thread_data["agent_id"] = agent_config['agent_id']
             logger.info(f"Storing agent_id {agent_config['agent_id']} in thread")
+        
+        # Store agent builder metadata if this is an agent builder session
+        if is_agent_builder:
+            thread_data["metadata"] = {
+                "is_agent_builder": True,
+                "target_agent_id": target_agent_id
+            }
+            logger.info(f"Storing agent builder metadata in thread: target_agent_id={target_agent_id}")
         
         thread = await client.table('threads').insert(thread_data).execute()
         thread_id = thread.data[0]['thread_id']
@@ -999,7 +1021,8 @@ async def initiate_agent_with_files(
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             stream=stream, enable_context_manager=enable_context_manager,
             agent_config=agent_config,  # Pass agent configuration
-            is_agent_builder=is_agent_builder
+            is_agent_builder=is_agent_builder,
+            target_agent_id=target_agent_id
         )
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
@@ -1479,3 +1502,55 @@ async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from
     except Exception as e:
         logger.error(f"Error fetching user agent library: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/agents/{agent_id}/builder-chat-history")
+async def get_agent_builder_chat_history(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get chat history for agent builder sessions for a specific agent."""
+    logger.info(f"Fetching agent builder chat history for agent: {agent_id}")
+    client = await db.client
+    
+    try:
+        # First verify the agent exists and belongs to the user
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found or access denied")
+        
+        # Get all threads for this user with metadata field included
+        threads_result = await client.table('threads').select('thread_id, created_at, metadata').eq('account_id', user_id).order('created_at', desc=True).execute()
+        
+        agent_builder_threads = []
+        for thread in threads_result.data:
+            metadata = thread.get('metadata', {})
+            # Check if this is an agent builder thread for the specific agent
+            if (metadata.get('is_agent_builder') and 
+                metadata.get('target_agent_id') == agent_id):
+                agent_builder_threads.append({
+                    'thread_id': thread['thread_id'],
+                    'created_at': thread['created_at']
+                })
+        
+        if not agent_builder_threads:
+            logger.info(f"No agent builder threads found for agent {agent_id}")
+            return {"messages": [], "thread_id": None}
+        
+        # Get the most recent thread (already ordered by created_at desc)
+        latest_thread_id = agent_builder_threads[0]['thread_id']
+        logger.info(f"Found {len(agent_builder_threads)} agent builder threads, using latest: {latest_thread_id}")
+        
+        # Get messages from the latest thread, excluding status and summary messages
+        messages_result = await client.table('messages').select('*').eq('thread_id', latest_thread_id).neq('type', 'status').neq('type', 'summary').order('created_at', desc=False).execute()
+        
+        logger.info(f"Found {len(messages_result.data)} messages for agent builder chat history")
+        return {
+            "messages": messages_result.data,
+            "thread_id": latest_thread_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching agent builder chat history for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")

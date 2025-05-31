@@ -12,6 +12,7 @@ from agent.tools.web_search_tool import SandboxWebSearchTool
 from dotenv import load_dotenv
 from utils.config import config
 
+from agent.agent_builder_prompt import get_agent_builder_prompt
 from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
 from agent.tools.sb_shell_tool import SandboxShellTool
@@ -46,7 +47,8 @@ async def run_agent(
     enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
-    is_agent_builder: Optional[bool] = False
+    is_agent_builder: Optional[bool] = False,
+    target_agent_id: Optional[str] = None
 ):
     """Run the development agent with specified configuration."""
     logger.info(f"🚀 Starting agent with model: {model_name}")
@@ -55,7 +57,7 @@ async def run_agent(
 
     if not trace:
         trace = langfuse.trace(name="run_agent", session_id=thread_id, metadata={"project_id": project_id})
-    thread_manager = ThreadManager(trace=trace)
+    thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder, target_agent_id=target_agent_id)
 
     client = await thread_manager.db.client
 
@@ -91,8 +93,7 @@ async def run_agent(
         from agent.tools.update_agent_tool import UpdateAgentTool
         from services.supabase import DBConnection
         db = DBConnection()
-        target_agent_id = agent_config.get('target_agent_id') if agent_config else None
-        update_tool = UpdateAgentTool(db, target_agent_id)
+        thread_manager.add_tool(UpdateAgentTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
 
     if enabled_tools is None:
         # No agent specified - register ALL tools for full Suna experience
@@ -111,6 +112,7 @@ async def run_agent(
     else:
         logger.info("Custom agent specified - registering only enabled tools")
         thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
+        thread_manager.add_tool(MessageTool)
         if enabled_tools.get('sb_shell_tool', {}).get('enabled', False):
             thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_files_tool', {}).get('enabled', False):
@@ -121,8 +123,6 @@ async def run_agent(
             thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_expose_tool', {}).get('enabled', False):
             thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('message_tool', {}).get('enabled', False):
-            thread_manager.add_tool(MessageTool)
         if enabled_tools.get('web_search_tool', {}).get('enabled', False):
             thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_vision_tool', {}).get('enabled', False):
@@ -191,6 +191,9 @@ async def run_agent(
         # This prevents confusion and tool hallucination
         system_content = custom_system_prompt
         logger.info(f"Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
+    elif is_agent_builder:
+        system_content = get_agent_builder_prompt()
+        logger.info("Using agent builder system prompt")
     else:
         # Use just the default system prompt
         system_content = default_system_content

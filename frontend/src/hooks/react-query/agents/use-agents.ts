@@ -2,7 +2,7 @@ import { createMutationHook, createQueryHook } from '@/hooks/use-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
-import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat } from './utils';
+import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat, getAgentBuilderChatHistory } from './utils';
 import { useRef, useCallback } from 'react';
 
 export const useAgents = createQueryHook(
@@ -152,3 +152,13 @@ export const useAgentBuilderChat = () => {
     cancelStream,
   };
 };
+
+export const useAgentBuilderChatHistory = (agentId: string) =>
+  createQueryHook(
+    agentKeys.builderChatHistory(agentId),
+    () => getAgentBuilderChatHistory(agentId),
+    {
+      enabled: !!agentId,
+      retry: 1,
+    }
+  )();

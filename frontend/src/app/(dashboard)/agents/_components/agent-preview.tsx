@@ -336,9 +336,6 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
         </div>
         <div className="flex-1">
           <h3 className="font-semibold">{agent.name || 'Unnamed Agent'}</h3>
-          {agent.description && (
-            <p className="text-sm text-muted-foreground">{agent.description}</p>
-          )}
         </div>
         <Badge variant="outline" className="text-xs">Preview Mode</Badge>
       </div>
@@ -358,7 +355,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
         </div>
       </div>
       <div className="flex-shrink-0">
-        <div className="p-4">
+        <div className="p-0 md:p-4 md:px-10">
           <ChatInput
             ref={chatInputRef}
             onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
