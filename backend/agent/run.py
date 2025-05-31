@@ -44,7 +44,8 @@ async def run_agent(
     reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,    
-    trace: Optional[StatefulTraceClient] = None
+    trace: Optional[StatefulTraceClient] = None,
+    is_agent_builder: Optional[bool] = False
 ):
     """Run the development agent with specified configuration."""
     logger.info(f"🚀 Starting agent with model: {model_name}")
@@ -84,7 +85,14 @@ async def run_agent(
     # Register tools based on configuration
     # If no agent config (enabled_tools is None), register ALL tools for full Suna capabilities
     # If agent config exists, only register explicitly enabled tools
-    
+    if is_agent_builder:
+        logger.info("Agent builder mode - registering only update agent tool")
+        from agent.tools.update_agent_tool import UpdateAgentTool
+        from services.supabase import DBConnection
+        db = DBConnection()
+        target_agent_id = agent_config.get('target_agent_id') if agent_config else None
+        update_tool = UpdateAgentTool(db, target_agent_id)
+
     if enabled_tools is None:
         # No agent specified - register ALL tools for full Suna experience
         logger.info("No agent specified - registering all tools for full Suna capabilities")
