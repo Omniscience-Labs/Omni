@@ -20,6 +20,7 @@ import { StylePicker } from '../../_components/style-picker';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentBuilderChat } from '../../_components/agent-builder-chat';
+import { useFeatureAlertHelpers } from '@/hooks/use-feature-alerts';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -48,7 +49,7 @@ export default function AgentConfigurationPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('manual');
+  const [activeTab, setActiveTab] = useState('agent-builder');
   const accordionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function AgentConfigurationPage() {
       originalDataRef.current = { ...initialData };
     }
   }, [agent]);
+
 
   useEffect(() => {
     if (error) {
@@ -264,14 +266,18 @@ export default function AgentConfigurationPage() {
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <div className='w-full flex items-center justify-center flex-shrink-0 px-4 md:px-12 md:mt-10'>
-            <div className='w-56 flex items-center gap-2'>
-              <TabsList className="grid w-full grid-cols-2">
+            <div className='w-auto flex items-center gap-2'>
+              <TabsList className="grid h-auto w-full grid-cols-2 bg-muted-foreground/10">
+                <TabsTrigger value="agent-builder" className="w-48 flex items-center gap-1.5 px-2">
+                  <span className="truncate">Agent Builder</span>
+                  <Badge variant="beta">
+                    Beta
+                  </Badge>
+                </TabsTrigger>
                 <TabsTrigger value="manual">Manual</TabsTrigger>
-                <TabsTrigger value="agent-builder">Agent Builder</TabsTrigger>
               </TabsList>
             </div>
           </div>
-          
           <TabsContent value="manual" className="mt-0 flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-12 pb-4 md:pb-12 scrollbar-hide">
             <div className="max-w-full">
               <div className="hidden md:flex justify-end mb-4 mt-4">
@@ -346,7 +352,7 @@ export default function AgentConfigurationPage() {
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
                         MCP Servers
-                        <Badge className="ml-auto bg-purple-600/30 text-purple-600 dark:text-purple-300 text-xs">New</Badge>
+                        <Badge variant='new'>New</Badge>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 overflow-x-hidden">

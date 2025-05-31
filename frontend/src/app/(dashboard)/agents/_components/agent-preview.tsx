@@ -337,7 +337,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
         <div className="flex-1">
           <h3 className="font-semibold">{agent.name || 'Unnamed Agent'}</h3>
         </div>
-        <Badge variant="outline" className="text-xs">Preview Mode</Badge>
+        <Badge variant="highlight" className="text-sm">Preview Mode</Badge>
       </div>
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto scrollbar-hide">
@@ -350,6 +350,16 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
             handleOpenFileViewer={() => {}}
             streamHookStatus={streamHookStatus}
             isPreviewMode={true}
+            agentName={agent.name}
+            agentAvatar={avatar}
+            emptyStateComponent={
+              <div className="flex flex-col items-center text-center text-muted-foreground/80">
+                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
+                  <div className="text-4xl">{avatar}</div>
+                </div>
+                <p className='w-[60%] text-2xl'>Start conversation with your new agent <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
+              </div>
+            }
           />
           <div ref={messagesEndRef} />
         </div>

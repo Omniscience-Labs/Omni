@@ -20,6 +20,8 @@ export type Agent = {
   tags?: string[];
   created_at: string;
   updated_at: string;
+  avatar?: string;
+  avatar_color?: string;
 };
 
 export type ThreadAgentResponse = {

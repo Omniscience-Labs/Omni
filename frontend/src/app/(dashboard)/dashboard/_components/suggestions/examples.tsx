@@ -45,7 +45,7 @@ export const Examples = ({
   onSelectPrompt?: (query: string) => void;
 }) => {
   return (
-    <div className="w-full max-w-3xl mx-auto px-4">
+    <div className="w-full max-w-3xl mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {prompts.map((prompt, index) => (
           <Card

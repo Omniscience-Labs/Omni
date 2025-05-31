@@ -10,6 +10,7 @@ import { useMarketplaceAgents, useAddAgentToLibrary } from '@/hooks/react-query/
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded';
 
@@ -17,6 +18,7 @@ export default function MarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [addingAgentId, setAddingAgentId] = useState<string | null>(null);
   
   const { data: agents = [], isLoading, error } = useMarketplaceAgents({
     search: searchQuery,
@@ -28,6 +30,7 @@ export default function MarketplacePage() {
 
   const handleAddToLibrary = async (agentId: string, agentName: string) => {
     try {
+      setAddingAgentId(agentId);
       await addToLibraryMutation.mutateAsync(agentId);
       toast.success(`${agentName} has been added to your library!`);
     } catch (error: any) {
@@ -36,6 +39,8 @@ export default function MarketplacePage() {
       } else {
         toast.error('Failed to add agent to library');
       }
+    } finally {
+      setAddingAgentId(null);
     }
   };
 
@@ -158,16 +163,16 @@ export default function MarketplacePage() {
 
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden animate-pulse">
-                <div className="h-50 bg-muted" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden">
+                <Skeleton className="h-50" />
                 <div className="p-4 space-y-3">
-                  <div className="h-5 bg-muted rounded" />
+                  <Skeleton className="h-5 rounded" />
                   <div className="space-y-2">
-                    <div className="h-4 bg-muted rounded" />
-                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <Skeleton className="h-4 rounded" />
+                    <Skeleton className="h-4 rounded w-3/4" />
                   </div>
-                  <div className="h-8 bg-muted rounded" />
+                  <Skeleton className="h-8" />
                 </div>
               </div>
             ))}
@@ -243,11 +248,12 @@ export default function MarketplacePage() {
                         e.stopPropagation();
                         handleAddToLibrary(agent.agent_id, agent.name);
                       }}
-                      disabled={addToLibraryMutation.isPending}
+                      disabled={addingAgentId === agent.agent_id}
                       className="w-full transition-opacity"
                       size="sm"
+                      key={agent.agent_id} 
                     >
-                      {addToLibraryMutation.isPending ? (
+                      {addingAgentId === agent.agent_id ? (
                         <>
                           <div className="h-3 w-3 animate-spin rounded-full border-2 border-background border-t-transparent mr-2" />
                           Adding...

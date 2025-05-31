@@ -378,6 +378,16 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
             handleToolClick={() => {}}
             handleOpenFileViewer={handleOpenFileViewer}
             streamHookStatus={streamHookStatus}
+            agentName="Agent Builder"
+            agentAvatar={'🤖'}
+            emptyStateComponent={
+              <div className="mt-6 flex flex-col items-center text-center text-muted-foreground/80">
+                <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
+                  <div className="text-4xl">🤖</div>
+                </div>
+                <p className='w-[60%] text-2xl'>Lets start with a brief <span className='text-primary/80 font-semibold'>description</span> of what you'd like to build</p>
+              </div>
+            }
           />
           <div ref={messagesEndRef} />
         </div>

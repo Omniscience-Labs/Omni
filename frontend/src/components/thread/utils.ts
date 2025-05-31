@@ -334,6 +334,7 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['get-mcp-server-tools', 'Getting MCP Server Tools'],
   ['configure-mcp-server', 'Configuring MCP Server'],
   ['get-popular-mcp-servers', 'Getting Popular MCP Servers'],
+  ['test-mcp-server-connection', 'Testing MCP Server Connection'],
 
 
   //V2
@@ -384,7 +385,8 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['get_mcp_server_tools', 'Getting MCP Server Tools'],
   ['configure_mcp_server', 'Configuring MCP Server'],
   ['get_popular_mcp_servers', 'Getting Popular MCP Servers'],
-  
+  ['test_mcp_server_connection', 'Testing MCP Server Connection'],
+
 ]);
 
 

@@ -141,7 +141,7 @@ export function AgentSelector({
                       className="flex flex-col items-start gap-1 p-3 cursor-pointer"
                     >
                       <div className="flex items-center gap-2 w-full">
-                        <Bot className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        {agent.avatar}
                         <div className="flex items-center gap-1 flex-1 min-w-0">
                           <span className="font-medium truncate">{agent.name}</span>
                           {agent.is_default && (
@@ -168,23 +168,11 @@ export function AgentSelector({
               <DropdownMenuSeparator />
               
               <DropdownMenuItem onClick={handleCreateAgent} className="cursor-pointer">
-                <Plus className="h-4 w-4" />
-                Create New Agent
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={handleManageAgents} className="cursor-pointer">
-                <Bot className="h-4 w-4" />
-                Manage All Agents
+                Agent Playground
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
-        <CreateAgentDialog
-          isOpen={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-          onAgentCreated={loadAgents}
-        />
       </>
     );
   }
