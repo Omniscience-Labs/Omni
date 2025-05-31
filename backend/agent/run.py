@@ -18,6 +18,7 @@ from agent.tools.sb_shell_tool import SandboxShellTool
 from agent.tools.sb_files_tool import SandboxFilesTool
 from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
+from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompt import get_system_prompt
 from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
@@ -101,14 +102,15 @@ async def run_agent(
         thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
+        thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
         thread_manager.add_tool(MessageTool)
         thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
         if config.RAPID_API_KEY:
             thread_manager.add_tool(DataProvidersTool)
     else:
-        # Agent specified - only register explicitly enabled tools
         logger.info("Custom agent specified - registering only enabled tools")
+        thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_shell_tool', {}).get('enabled', False):
             thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_files_tool', {}).get('enabled', False):

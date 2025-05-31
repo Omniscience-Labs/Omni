@@ -12,7 +12,7 @@ export type CodeBlockProps = {
 
 function CodeBlock({ children, className, ...props }: CodeBlockProps) {
   return (
-    <div className={cn(className)} {...props}>
+    <div className={cn('w-px flex-grow min-w-0 overflow-hidden flex', className)} {...props}>
       {children}
     </div>
   );
@@ -41,6 +41,10 @@ function CodeBlockCode({
 
   useEffect(() => {
     async function highlight() {
+      if (!code || typeof code !== 'string') {
+        setHighlightedHtml(null);
+        return;
+      }
       const html = await codeToHtml(code, {
         lang: language,
         theme,
@@ -60,7 +64,7 @@ function CodeBlockCode({
     highlight();
   }, [code, language, theme]);
 
-  const classNames = cn('[&_pre]:!bg-background/95 [&_pre]:rounded-lg [&_pre]:p-4', className);
+  const classNames = cn('[&_pre]:!bg-background/95 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:!overflow-x-auto [&_pre]:!w-px [&_pre]:!flex-grow [&_pre]:!min-w-0 [&_pre]:!box-border [&_.shiki]:!overflow-x-auto [&_.shiki]:!w-px [&_.shiki]:!flex-grow [&_.shiki]:!min-w-0 [&_code]:!min-w-0 [&_code]:!whitespace-pre', 'w-px flex-grow min-w-0 overflow-hidden flex w-full', className);
 
   // SSR fallback: render plain code if not hydrated yet
   return highlightedHtml ? (
@@ -71,7 +75,7 @@ function CodeBlockCode({
     />
   ) : (
     <div className={classNames} {...props}>
-      <pre>
+      <pre className="!overflow-x-auto !w-px !flex-grow !min-w-0 !box-border">
         <code>{code}</code>
       </pre>
     </div>

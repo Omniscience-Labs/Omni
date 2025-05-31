@@ -128,15 +128,33 @@ export function useCachedFile<T = string>(
       url.searchParams.append('path', normalizedPath);
       
       // Fetch with authentication
-      const response = await fetch(url.toString(), {
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-      });
+      const attemptFetch = async (isRetry: boolean = false): Promise<Response> => {
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
+        
+        if (!response.ok) {
+          const responseText = await response.text();
+          const errorMessage = `Failed to load file: ${response.status} ${response.statusText}`;
+          
+          // Check if this is a workspace initialization error and we haven't retried yet
+          const isWorkspaceNotRunning = responseText.includes('Workspace is not running');
+          if (isWorkspaceNotRunning && !isRetry) {
+            console.log(`[FILE CACHE] Workspace not ready, retrying in 2s for ${normalizedPath}`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return attemptFetch(true);
+          }
+          
+          console.error(`[FILE CACHE] Failed response for ${normalizedPath}: Status ${response.status}`);
+          throw new Error(errorMessage);
+        }
+        
+        return response;
+      };
       
-      if (!response.ok) {
-        throw new Error(`Failed to load file: ${response.status} ${response.statusText}`);
-      }
+      const response = await attemptFetch();
       
       // Process content based on contentType
       let content;
@@ -502,13 +520,32 @@ export const FileCache = {
           // Properly encode the path parameter for UTF-8 support
           url.searchParams.append('path', normalizedPath);
           
-          const response = await fetch(url.toString(), {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-          });
+          const attemptFetch = async (isRetry: boolean = false): Promise<Response> => {
+            const response = await fetch(url.toString(), {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              },
+            });
+            
+            if (!response.ok) {
+              const responseText = await response.text();
+              const errorMessage = `Failed to preload file: ${response.status}`;
+              
+              // Check if this is a workspace initialization error and we haven't retried yet
+              const isWorkspaceNotRunning = responseText.includes('Workspace is not running');
+              if (isWorkspaceNotRunning && !isRetry) {
+                console.log(`[FILE CACHE] Workspace not ready during preload, retrying in 2s for ${normalizedPath}`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return attemptFetch(true);
+              }
+              
+              throw new Error(errorMessage);
+            }
+            
+            return response;
+          };
           
-          if (!response.ok) throw new Error(`Failed to preload file: ${response.status}`);
+          const response = await attemptFetch();
           
           // Determine how to process the content based on file type
           const extension = path.split('.').pop()?.toLowerCase();
@@ -623,16 +660,33 @@ export async function getCachedFile(
     
     console.log(`[FILE CACHE] Fetching file: ${url.toString()}`);
     
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${options.token}`
+    const attemptFetch = async (isRetry: boolean = false): Promise<Response> => {
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${options.token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const responseText = await response.text();
+        const errorMessage = `Failed to load file: ${response.status} ${response.statusText}`;
+        
+        // Check if this is a workspace initialization error and we haven't retried yet
+        const isWorkspaceNotRunning = responseText.includes('Workspace is not running');
+        if (isWorkspaceNotRunning && !isRetry) {
+          console.log(`[FILE CACHE] Workspace not ready, retrying in 2s for ${normalizedPath}`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return attemptFetch(true);
+        }
+        
+        console.error(`[FILE CACHE] Failed response for ${normalizedPath}: Status ${response.status}`);
+        throw new Error(errorMessage);
       }
-    });
+      
+      return response;
+    };
     
-    if (!response.ok) {
-      console.error(`[FILE CACHE] Failed response for ${normalizedPath}: Status ${response.status}`);
-      throw new Error(`Failed to load file: ${response.status} ${response.statusText}`);
-    }
+    const response = await attemptFetch();
     
     // Process content based on type
     let content;
@@ -688,51 +742,66 @@ export async function fetchFileContent(
   const requestId = Math.random().toString(36).substring(2, 9);
   console.log(`[FILE CACHE] Fetching fresh content for ${sandboxId}:${filePath}`);
   
-  try {
-    // Prepare the API URL
-    const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`;
-    const url = new URL(apiUrl);
-    url.searchParams.append('path', filePath);
-    
-    // Set up fetch options
-    const fetchOptions: RequestInit = {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-    
-    // Execute fetch
-    const response = await fetch(url.toString(), fetchOptions);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to fetch file content: ${response.status} ${errorText}`);
-    }
-    
-    // CRITICAL: Detect correct response handling based on file type
-    // Excel files, PDFs and other binary documents should be handled as blobs
-    const extension = filePath.split('.').pop()?.toLowerCase();
-    const isBinaryFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip'].includes(extension || '');
-    
-    // Handle response based on content type
-    if (contentType === 'blob' || isBinaryFile) {
-      const blob = await response.blob();
+  const attemptFetch = async (isRetry: boolean = false): Promise<string | Blob | any> => {
+    try {
+      // Prepare the API URL
+      const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`;
+      const url = new URL(apiUrl);
+      url.searchParams.append('path', filePath);
       
-      // Set correct MIME type for known file types
-      if (extension) {
-        const mimeType = FileCache.getMimeType(filePath);
-        if (mimeType && mimeType !== blob.type) {
-          // Create a new blob with correct type
-          return new Blob([blob], { type: mimeType });
-        }
+      // Set up fetch options
+      const fetchOptions: RequestInit = {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      
+      // Execute fetch
+      const response = await fetch(url.toString(), fetchOptions);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch file content: ${response.status} ${errorText}`);
       }
       
-      return blob;
-    } else if (contentType === 'json') {
-      return await response.json();
-    } else {
-      return await response.text();
+      // CRITICAL: Detect correct response handling based on file type
+      // Excel files, PDFs and other binary documents should be handled as blobs
+      const extension = filePath.split('.').pop()?.toLowerCase();
+      const isBinaryFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip'].includes(extension || '');
+      
+      // Handle response based on content type
+      if (contentType === 'blob' || isBinaryFile) {
+        const blob = await response.blob();
+        
+        // Set correct MIME type for known file types
+        if (extension) {
+          const mimeType = FileCache.getMimeType(filePath);
+          if (mimeType && mimeType !== blob.type) {
+            // Create a new blob with correct type
+            return new Blob([blob], { type: mimeType });
+          }
+        }
+        
+        return blob;
+      } else if (contentType === 'json') {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
+    } catch (error: any) {
+      // Check if this is a workspace initialization error and we haven't retried yet
+      const isWorkspaceNotRunning = error.message?.includes('Workspace is not running');
+      if (isWorkspaceNotRunning && !isRetry) {
+        console.log(`[FILE CACHE] Workspace not ready, retrying in 2s for ${filePath}`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return attemptFetch(true);
+      }
+      throw error;
     }
+  };
+  
+  try {
+    return await attemptFetch();
   } catch (error) {
     console.error(`[FILE CACHE] Error fetching file content:`, error);
     throw error;
