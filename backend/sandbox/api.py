@@ -6,7 +6,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter, Form, D
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from sandbox.sandbox import get_or_start_sandbox
+from sandbox.sandbox import get_or_start_sandbox, delete_sandbox
 from utils.logger import logger
 from utils.auth_utils import get_optional_user_id
 from services.supabase import DBConnection
@@ -303,6 +303,28 @@ async def delete_file(
         return {"status": "success", "deleted": True, "path": path}
     except Exception as e:
         logger.error(f"Error deleting file in sandbox {sandbox_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/sandboxes/{sandbox_id}")
+async def delete_sandbox_route(
+    sandbox_id: str,
+    request: Request = None,
+    user_id: Optional[str] = Depends(get_optional_user_id)
+):
+    """Delete an entire sandbox"""
+    logger.info(f"Received sandbox delete request for sandbox {sandbox_id}, user_id: {user_id}")
+    client = await db.client
+    
+    # Verify the user has access to this sandbox
+    await verify_sandbox_access(client, sandbox_id, user_id)
+    
+    try:
+        # Delete the sandbox using the sandbox module function
+        await delete_sandbox(sandbox_id)
+        
+        return {"status": "success", "deleted": True, "sandbox_id": sandbox_id}
+    except Exception as e:
+        logger.error(f"Error deleting sandbox {sandbox_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Should happen on server-side fully
