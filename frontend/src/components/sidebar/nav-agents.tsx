@@ -225,10 +225,16 @@ export function NavAgents() {
       // Store threadToDelete in a local variable since it might be cleared
       const deletedThread = { ...threadToDelete };
 
+      // Get sandbox ID from projects data
+      const thread = combinedThreads.find(t => t.threadId === threadId);
+      const project = projects.find(p => p.id === thread?.projectId);
+      const sandboxId = project?.sandbox?.id;
+
       // Log operation start
       console.log('DELETION - Starting thread deletion process', {
         threadId: deletedThread.id,
         isCurrentThread: isActive,
+        sandboxId
       });
 
       // Use the centralized deletion system with completion callback
@@ -236,9 +242,9 @@ export function NavAgents() {
         threadId,
         isActive,
         async () => {
-          // Delete the thread using the mutation
+          // Delete the thread using the mutation with sandbox ID
           deleteThreadMutation(
-            { threadId },
+            { threadId, sandboxId },
             {
               onSuccess: () => {
                 // Invalidate queries to refresh the list
@@ -282,6 +288,13 @@ export function NavAgents() {
         deleteMultipleThreadsMutation(
           {
             threadIds: threadIdsToDelete,
+            threadSandboxMap: Object.fromEntries(
+              threadIdsToDelete.map(threadId => {
+                const thread = combinedThreads.find(t => t.threadId === threadId);
+                const project = projects.find(p => p.id === thread?.projectId);
+                return [threadId, project?.sandbox?.id || ''];
+              }).filter(([, sandboxId]) => sandboxId)
+            ),
             onProgress: handleDeletionProgress
           },
           {
