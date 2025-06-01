@@ -556,6 +556,7 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
         <ThreadError error={error} />
       </ThreadLayout>
@@ -598,6 +599,7 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
         <ThreadContent
           messages={messages}
@@ -630,7 +632,7 @@ export default function ThreadPage({
               value={newMessage}
               onChange={setNewMessage}
               onSubmit={handleSubmitMessage}
-              placeholder="Ask Suna anything..."
+              placeholder={`Ask ${agent && agent.name} anything...`}
               loading={isSending}
               disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
               isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
@@ -639,6 +641,7 @@ export default function ThreadPage({
               onFileBrowse={handleOpenFileViewer}
               sandboxId={sandboxId || undefined}
               messages={messages}
+              agentName={agent && agent.name}
             />
           </div>
         </div>
