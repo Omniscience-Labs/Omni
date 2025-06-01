@@ -37,8 +37,8 @@ const UnifiedDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
     <table className="w-full border-collapse">
       <tbody>
         {lineDiff.map((line, i) => (
-          <tr 
-            key={i} 
+          <tr
+            key={i}
             className={cn(
               "hover:bg-zinc-50 dark:hover:bg-zinc-900",
               line.type === 'removed' && "bg-red-50 dark:bg-red-950/30",
@@ -78,9 +78,9 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
       <tbody>
         {lineDiff.map((line, i) => (
           <tr key={i}>
-            <td 
+            <td
               className={cn(
-                "p-2 align-top", 
+                "p-2 align-top",
                 line.type === 'removed' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400' : '',
                 line.oldLine === null ? 'bg-zinc-100 dark:bg-zinc-900' : ''
               )}
@@ -90,7 +90,7 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
                   <div className="w-8 text-right pr-2 select-none text-xs text-zinc-500 dark:text-zinc-400">
                     {line.lineNumber}
                   </div>
-                  {line.type === 'removed' && 
+                  {line.type === 'removed' &&
                     <Minus className="h-3.5 w-3.5 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
                   }
                   <div className="overflow-x-auto">
@@ -99,7 +99,7 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
                 </div>
               ) : null}
             </td>
-            <td 
+            <td
               className={cn(
                 "p-2 align-top",
                 line.type === 'added' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : '',
@@ -111,7 +111,7 @@ const SplitDiffView: React.FC<{ lineDiff: LineDiff[] }> = ({ lineDiff }) => (
                   <div className="w-8 text-right pr-2 select-none text-xs text-zinc-500 dark:text-zinc-400">
                     {line.lineNumber}
                   </div>
-                  {line.type === 'added' && 
+                  {line.type === 'added' &&
                     <Plus className="h-3.5 w-3.5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0" />
                   }
                   <div className="overflow-x-auto">
@@ -152,7 +152,7 @@ export function StrReplaceToolView({
 }: ToolViewProps): JSX.Element {
   const [expanded, setExpanded] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
-  
+
   let filePath: string | null = null;
   let oldStr: string | null = null;
   let newStr: string | null = null;
@@ -198,7 +198,7 @@ export function StrReplaceToolView({
   if (!filePath) {
     filePath = extractFilePath(assistantContent) || extractFilePath(toolContent);
   }
-  
+
   if (!oldStr || !newStr) {
     const assistantStrReplace = extractStrReplaceContent(assistantContent);
     const toolStrReplace = extractStrReplaceContent(toolContent);
@@ -211,7 +211,7 @@ export function StrReplaceToolView({
   // Generate diff data (only if we have both strings)
   const lineDiff = oldStr && newStr ? generateLineDiff(oldStr, newStr) : [];
   const charDiff = oldStr && newStr ? generateCharDiff(oldStr, newStr) : [];
-  
+
   // Calculate stats on changes
   const stats: DiffStats = calculateDiffStats(lineDiff);
 
@@ -230,13 +230,13 @@ export function StrReplaceToolView({
               {toolTitle}
             </CardTitle>
           </div>
-          
+
           {!isStreaming && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={
-                actualIsSuccess 
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                actualIsSuccess
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
@@ -260,7 +260,7 @@ export function StrReplaceToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <LoadingState 
+          <LoadingState
             icon={FileDiff}
             iconColor="text-purple-500 dark:text-purple-400"
             bgColor="bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20"
@@ -282,7 +282,7 @@ export function StrReplaceToolView({
                       {filePath || 'Unknown file'}
                     </code>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400 gap-3">
                       <div className="flex items-center">
@@ -294,7 +294,7 @@ export function StrReplaceToolView({
                         <span>{stats.deletions}</span>
                       </div>
                     </div>
-                    
+
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -314,7 +314,7 @@ export function StrReplaceToolView({
                     </TooltipProvider>
                   </div>
                 </div>
-                
+
                 {expanded && (
                   <div>
                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'unified' | 'split')} className="w-auto">
@@ -324,11 +324,11 @@ export function StrReplaceToolView({
                           <TabsTrigger value="split" className="text-xs h-6 px-2">Split</TabsTrigger>
                         </TabsList>
                       </div>
-                    
+
                       <TabsContent value="unified" className="m-0 pb-4">
                         <UnifiedDiffView lineDiff={lineDiff} />
                       </TabsContent>
-                      
+
                       <TabsContent value="split" className="m-0">
                         <SplitDiffView lineDiff={lineDiff} />
                       </TabsContent>
@@ -340,7 +340,7 @@ export function StrReplaceToolView({
           </ScrollArea>
         )}
       </CardContent>
-      
+
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
         <div className="h-full flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           {!isStreaming && (
@@ -365,7 +365,7 @@ export function StrReplaceToolView({
             </div>
           )}
         </div>
-        
+
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
           {actualToolTimestamp && !isStreaming
             ? formatTimestamp(actualToolTimestamp)
