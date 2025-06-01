@@ -101,7 +101,9 @@ async def run_agent(
 
     latest_user_message = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'user').order('created_at', desc=True).limit(1).execute()
     if latest_user_message.data and len(latest_user_message.data) > 0:
-        data = json.loads(latest_user_message.data[0]['content'])
+        data = latest_user_message.data[0]['content']
+        if isinstance(data, str):
+            data = json.loads(data)
         trace.update(input=data['content'])
 
     while continue_execution and iteration_count < max_iterations:
@@ -138,7 +140,9 @@ async def run_agent(
         latest_browser_state_msg = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'browser_state').order('created_at', desc=True).limit(1).execute()
         if latest_browser_state_msg.data and len(latest_browser_state_msg.data) > 0:
             try:
-                browser_content = json.loads(latest_browser_state_msg.data[0]["content"])
+                browser_content = latest_browser_state_msg.data[0]["content"]
+                if isinstance(browser_content, str):
+                    browser_content = json.loads(browser_content)
                 screenshot_base64 = browser_content.get("screenshot_base64")
                 screenshot_url = browser_content.get("image_url")
                 
