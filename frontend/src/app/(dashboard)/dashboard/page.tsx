@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import {
   ChatInput,
@@ -40,6 +40,7 @@ function DashboardContent() {
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
   const { data: accounts } = useAccounts();
@@ -47,6 +48,16 @@ function DashboardContent() {
   const chatInputRef = useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const { onOpen } = useModal();
+
+  useEffect(() => {
+    const agentIdFromUrl = searchParams.get('agent_id');
+    if (agentIdFromUrl && agentIdFromUrl !== selectedAgentId) {
+      setSelectedAgentId(agentIdFromUrl);
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('agent_id');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
+  }, [searchParams, selectedAgentId, router]);
 
   const secondaryGradient =
     'bg-gradient-to-r from-blue-500 to-blue-500 bg-clip-text text-transparent';

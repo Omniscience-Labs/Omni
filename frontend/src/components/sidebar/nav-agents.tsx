@@ -574,7 +574,7 @@ export function NavAgents() {
           <SidebarMenuItem>
             <SidebarMenuButton className="text-sidebar-foreground/70">
               <MessagesSquare className="h-4 w-4" />
-              <span>No agents yet</span>
+              <span>No tasks yet</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )}

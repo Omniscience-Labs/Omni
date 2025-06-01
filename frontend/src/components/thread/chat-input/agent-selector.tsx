@@ -36,13 +36,18 @@ export function AgentSelector({
 }: AgentSelectorProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const { data: agents, isLoading } = useAgents();
   
-  // Find the selected agent or default agent
+  const { data: agentsResponse, isLoading } = useAgents({
+    limit: 100,
+    sort_by: 'name',
+    sort_order: 'asc'
+  });
+  
+  const agents = agentsResponse?.agents || [];
+  
   const selectedAgent = agents?.find(a => a.agent_id === selectedAgentId);
   const defaultAgent = agents?.find(a => a.is_default);
   
-  // Set default agent on mount if no agent is selected
   useEffect(() => {
     if (!selectedAgentId && defaultAgent && !isLoading) {
       onAgentSelect(defaultAgent.agent_id);

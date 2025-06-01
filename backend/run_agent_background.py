@@ -53,7 +53,9 @@ async def run_agent_background(
     reasoning_effort: Optional[str],
     stream: bool,
     enable_context_manager: bool,
-    agent_config: Optional[dict] = None  # Add agent configuration parameter
+    agent_config: Optional[dict] = None,
+    is_agent_builder: Optional[bool] = False,
+    target_agent_id: Optional[str] = None
 ):
     """Run the agent in the background using Redis for state."""
     await initialize()
@@ -122,7 +124,9 @@ async def run_agent_background(
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             enable_context_manager=enable_context_manager,
             agent_config=agent_config,
-            trace=trace
+            trace=trace,
+            is_agent_builder=is_agent_builder,
+            target_agent_id=target_agent_id
         )
 
         final_status = "running"

@@ -326,11 +326,70 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['web-search', 'Searching Web'],
   ['see-image', 'Viewing Image'],
   
-  // MCP tools
   ['call-mcp-tool', 'External Tool'],
+
+  ['update-agent', 'Updating Agent'],
+  ['get-current-agent-config', 'Getting Agent Config'],
+  ['search-mcp-servers', 'Searching MCP Servers'],
+  ['get-mcp-server-tools', 'Getting MCP Server Tools'],
+  ['configure-mcp-server', 'Configuring MCP Server'],
+  ['get-popular-mcp-servers', 'Getting Popular MCP Servers'],
+  ['test-mcp-server-connection', 'Testing MCP Server Connection'],
+
+
+  //V2
+
+  ['execute_command', 'Executing Command'],
+  ['check_command_output', 'Checking Command Output'],
+  ['terminate_command', 'Terminating Command'],
+  ['list_commands', 'Listing Commands'],
+  
+  ['create_file', 'Creating File'],
+  ['delete_file', 'Deleting File'],
+  ['full_file_rewrite', 'Rewriting File'],
+  ['str_replace', 'Editing Text'],
+  
+  ['browser_click_element', 'Clicking Element'],
+  ['browser_close_tab', 'Closing Tab'],
+  ['browser_drag_drop', 'Dragging Element'],
+  ['browser_get_dropdown_options', 'Getting Options'],
+  ['browser_go_back', 'Going Back'],
+  ['browser_input_text', 'Entering Text'],
+  ['browser_navigate_to', 'Navigating to Page'],
+  ['browser_scroll_down', 'Scrolling Down'],
+  ['browser_scroll_to_text', 'Scrolling to Text'],
+  ['browser_scroll_up', 'Scrolling Up'],
+  ['browser_select_dropdown_option', 'Selecting Option'],
+  ['browser_click_coordinates', 'Clicking Coordinates'],
+  ['browser_send_keys', 'Pressing Keys'],
+  ['browser_switch_tab', 'Switching Tab'],
+  ['browser_wait', 'Waiting'],
+
+  ['execute_data_provider_call', 'Calling data provider'],
+  ['get_data_provider_endpoints', 'Getting endpoints'],
+  
+  ['deploy', 'Deploying'],
+  ['ask', 'Ask'],
+  ['complete', 'Completing Task'],
+  ['crawl_webpage', 'Crawling Website'],
+  ['expose_port', 'Exposing Port'],
+  ['scrape_webpage', 'Scraping Website'],
+  ['web_search', 'Searching Web'],
+  ['see_image', 'Viewing Image'],
+  
+  ['call_mcp_tool', 'External Tool'],
+
+  ['update_agent', 'Updating Agent'],
+  ['get_current_agent_config', 'Getting Agent Config'],
+  ['search_mcp_servers', 'Searching MCP Servers'],
+  ['get_mcp_server_tools', 'Getting MCP Server Tools'],
+  ['configure_mcp_server', 'Configuring MCP Server'],
+  ['get_popular_mcp_servers', 'Getting Popular MCP Servers'],
+  ['test_mcp_server_connection', 'Testing MCP Server Connection'],
+
 ]);
 
-// MCP server display names
+
 const MCP_SERVER_NAMES = new Map([
   ['exa', 'Exa Search'],
   ['github', 'GitHub'],
@@ -340,7 +399,6 @@ const MCP_SERVER_NAMES = new Map([
   ['memory', 'Memory'],
 ]);
 
-// MCP tool name mappings for better display
 const MCP_TOOL_MAPPINGS = new Map([
   ['web_search_exa', 'Web Search'],
   ['research_paper_search', 'Research Papers'],
@@ -353,7 +411,6 @@ const MCP_TOOL_MAPPINGS = new Map([
 ]);
 
 export function getUserFriendlyToolName(toolName: string): string {
-  // Handle MCP tools specifically
   if (toolName?.startsWith('mcp_')) {
     const parts = toolName.split('_');
     if (parts.length >= 3) {

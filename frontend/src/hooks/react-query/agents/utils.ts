@@ -20,6 +20,32 @@ export type Agent = {
   tags?: string[];
   created_at: string;
   updated_at: string;
+  avatar?: string;
+  avatar_color?: string;
+};
+
+export type PaginationInfo = {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+};
+
+export type AgentsResponse = {
+  agents: Agent[];
+  pagination: PaginationInfo;
+};
+
+export type AgentsParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sort_by?: string;
+  sort_order?: string;
+  has_default?: boolean;
+  has_mcp_tools?: boolean;
+  has_agentpress_tools?: boolean;
+  tools?: string;
 };
 
 export type ThreadAgentResponse = {
@@ -52,7 +78,7 @@ export type AgentUpdateRequest = {
   is_default?: boolean;
 };
 
-export const getAgents = async (): Promise<Agent[]> => {
+export const getAgents = async (params: AgentsParams = {}): Promise<AgentsResponse> => {
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -61,7 +87,20 @@ export const getAgents = async (): Promise<Agent[]> => {
       throw new Error('You must be logged in to get agents');
     }
 
-    const response = await fetch(`${API_URL}/agents`, {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params.has_default !== undefined) queryParams.append('has_default', params.has_default.toString());
+    if (params.has_mcp_tools !== undefined) queryParams.append('has_mcp_tools', params.has_mcp_tools.toString());
+    if (params.has_agentpress_tools !== undefined) queryParams.append('has_agentpress_tools', params.has_agentpress_tools.toString());
+    if (params.tools) queryParams.append('tools', params.tools);
+
+    const url = `${API_URL}/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -74,9 +113,9 @@ export const getAgents = async (): Promise<Agent[]> => {
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const agents = await response.json();
-    console.log('[API] Fetched agents:', agents.length);
-    return agents;
+    const result = await response.json();
+    console.log('[API] Fetched agents:', result.agents?.length || 0, 'total:', result.pagination?.total || 0);
+    return result;
   } catch (err) {
     console.error('Error fetching agents:', err);
     throw err;
@@ -166,7 +205,7 @@ export const updateAgent = async (agentId: string, agentData: AgentUpdateRequest
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(errorData.message || `HTTP ${response.status}: {response.statusText}`);
     }
 
     const agent = await response.json();
@@ -234,6 +273,37 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
     return agent;
   } catch (err) {
     console.error('Error fetching thread agent:', err);
+    throw err;
+  }
+};
+
+export const getAgentBuilderChatHistory = async (agentId: string): Promise<{messages: any[], thread_id: string | null}> => {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to get agent builder chat history');
+    }
+
+    const response = await fetch(`${API_URL}/agents/${agentId}/builder-chat-history`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[API] Fetched agent builder chat history:', agentId, data.messages.length);
+    return data;
+  } catch (err) {
+    console.error('Error fetching agent builder chat history:', err);
     throw err;
   }
 };

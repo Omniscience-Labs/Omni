@@ -2,17 +2,19 @@ import { createMutationHook, createQueryHook } from '@/hooks/use-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
-import { Agent, AgentUpdateRequest, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat } from './utils';
+import { Agent, AgentUpdateRequest, AgentsParams, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat, getAgentBuilderChatHistory } from './utils';
 import { useRef, useCallback } from 'react';
 
-export const useAgents = createQueryHook(
-  agentKeys.list(),
-  getAgents,
-  {
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  }
-);
+export const useAgents = (params: AgentsParams = {}) => {
+  return createQueryHook(
+    agentKeys.list(params),
+    () => getAgents(params),
+    {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    }
+  )();
+};
 
 export const useAgent = (agentId: string) => {
   return createQueryHook(
@@ -152,3 +154,13 @@ export const useAgentBuilderChat = () => {
     cancelStream,
   };
 };
+
+export const useAgentBuilderChatHistory = (agentId: string) =>
+  createQueryHook(
+    agentKeys.builderChatHistory(agentId),
+    () => getAgentBuilderChatHistory(agentId),
+    {
+      enabled: !!agentId,
+      retry: 1,
+    }
+  )();

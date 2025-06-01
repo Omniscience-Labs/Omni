@@ -185,7 +185,7 @@ export const AgentsGrid = ({
   };
 
   const handleChat = (agentId: string) => {
-    router.push(`/agents/new/${agentId}`);
+    router.push(`/dashboard?agent_id=${agentId}`);
     setSelectedAgent(null);
   };
 
@@ -297,11 +297,14 @@ export const AgentsGrid = ({
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>
+                            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
                               Cancel
                             </AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => onDeleteAgent(agent.agent_id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteAgent(agent.agent_id);
+                              }}
                               disabled={deleteAgentMutation.isPending}
                               className="bg-destructive hover:bg-destructive/90 text-white"
                             >

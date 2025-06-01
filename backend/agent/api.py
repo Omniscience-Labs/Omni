@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, Depends, Request, Body, File, UploadFile, Form, Query
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
@@ -81,6 +81,16 @@ class AgentResponse(BaseModel):
     avatar_color: Optional[str]
     created_at: str
     updated_at: str
+
+class PaginationInfo(BaseModel):
+    page: int
+    limit: int
+    total: int
+    pages: int
+
+class AgentsResponse(BaseModel):
+    agents: List[AgentResponse]
+    pagination: PaginationInfo
 
 class ThreadAgentResponse(BaseModel):
     agent: Optional[AgentResponse]
@@ -357,13 +367,21 @@ async def start_agent(
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
-    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id').eq('thread_id', thread_id).execute()
+    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id', 'metadata').eq('thread_id', thread_id).execute()
     if not thread_result.data:
         raise HTTPException(status_code=404, detail="Thread not found")
     thread_data = thread_result.data[0]
     project_id = thread_data.get('project_id')
     account_id = thread_data.get('account_id')
     thread_agent_id = thread_data.get('agent_id')
+    thread_metadata = thread_data.get('metadata', {})
+    
+    # Check if this is an agent builder thread
+    is_agent_builder = thread_metadata.get('is_agent_builder', False)
+    target_agent_id = thread_metadata.get('target_agent_id')
+    
+    if is_agent_builder:
+        logger.info(f"Thread {thread_id} is in agent builder mode, target_agent_id: {target_agent_id}")
     
     # Load agent configuration
     agent_config = None
@@ -449,7 +467,9 @@ async def start_agent(
         model_name=model_name,  # Already resolved above
         enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
         stream=body.stream, enable_context_manager=body.enable_context_manager,
-        agent_config=agent_config  # Pass agent configuration
+        agent_config=agent_config,  # Pass agent configuration
+        is_agent_builder=is_agent_builder,
+        target_agent_id=target_agent_id
     )
 
     return {"agent_run_id": agent_run_id, "status": "running"}
@@ -802,6 +822,8 @@ async def initiate_agent_with_files(
     enable_context_manager: Optional[bool] = Form(False),
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
     files: List[UploadFile] = File(default=[]),
+    is_agent_builder: Optional[bool] = Form(False),
+    target_agent_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Initiate a new agent session with optional file attachments."""
@@ -811,6 +833,7 @@ async def initiate_agent_with_files(
 
     # Use model from config if not specified in the request
     logger.info(f"Original model_name from request: {model_name}")
+    
 
     if model_name is None:
         model_name = config.MODEL_TO_USE
@@ -822,6 +845,8 @@ async def initiate_agent_with_files(
 
     # Update model_name to use the resolved version
     model_name = resolved_model
+
+    logger.info(f"Starting new agent in agent builder mode: {is_agent_builder}, target_agent_id: {target_agent_id}")
 
     logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
@@ -872,6 +897,14 @@ async def initiate_agent_with_files(
         if agent_config:
             thread_data["agent_id"] = agent_config['agent_id']
             logger.info(f"Storing agent_id {agent_config['agent_id']} in thread")
+        
+        # Store agent builder metadata if this is an agent builder session
+        if is_agent_builder:
+            thread_data["metadata"] = {
+                "is_agent_builder": True,
+                "target_agent_id": target_agent_id
+            }
+            logger.info(f"Storing agent builder metadata in thread: target_agent_id={target_agent_id}")
         
         thread = await client.table('threads').insert(thread_data).execute()
         thread_id = thread.data[0]['thread_id']
@@ -997,7 +1030,9 @@ async def initiate_agent_with_files(
             model_name=model_name,  # Already resolved above
             enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             stream=stream, enable_context_manager=enable_context_manager,
-            agent_config=agent_config  # Pass agent configuration
+            agent_config=agent_config,  # Pass agent configuration
+            is_agent_builder=is_agent_builder,
+            target_agent_id=target_agent_id
         )
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
@@ -1007,23 +1042,141 @@ async def initiate_agent_with_files(
         # TODO: Clean up created project/thread if initiation fails mid-way
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
 
-@router.get("/agents", response_model=List[AgentResponse])
-async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get all agents for the current user."""
-    logger.info(f"Fetching agents for user: {user_id}")
+@router.get("/agents", response_model=AgentsResponse)
+async def get_agents(
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    sort_by: Optional[str] = Query("created_at", description="Sort field: name, created_at, updated_at, tools_count"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
+    has_default: Optional[bool] = Query(None, description="Filter by default agents"),
+    has_mcp_tools: Optional[bool] = Query(None, description="Filter by agents with MCP tools"),
+    has_agentpress_tools: Optional[bool] = Query(None, description="Filter by agents with AgentPress tools"),
+    tools: Optional[str] = Query(None, description="Comma-separated list of tools to filter by")
+):
+    """Get agents for the current user with pagination, search, sort, and filter support."""
+    logger.info(f"Fetching agents for user: {user_id} with page={page}, limit={limit}, search='{search}', sort_by={sort_by}, sort_order={sort_order}")
     client = await db.client
     
     try:
-        # Get agents for the current user's account
-        agents = await client.table('agents').select('*').eq("account_id", user_id).order('created_at', desc=True).execute()
+        # Calculate offset
+        offset = (page - 1) * limit
         
-        if not agents.data:
+        # Start building the query
+        query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
+        
+        # Apply search filter
+        if search:
+            search_term = f"%{search}%"
+            query = query.or_(f"name.ilike.{search_term},description.ilike.{search_term}")
+        
+        # Apply filters
+        if has_default is not None:
+            query = query.eq("is_default", has_default)
+        
+        # For MCP and AgentPress tools filtering, we'll need to do post-processing
+        # since Supabase doesn't have great JSON array/object filtering
+        
+        # Apply sorting
+        if sort_by == "name":
+            query = query.order("name", desc=(sort_order == "desc"))
+        elif sort_by == "updated_at":
+            query = query.order("updated_at", desc=(sort_order == "desc"))
+        elif sort_by == "created_at":
+            query = query.order("created_at", desc=(sort_order == "desc"))
+        else:
+            # Default to created_at
+            query = query.order("created_at", desc=(sort_order == "desc"))
+        
+        # Execute query to get total count first
+        count_result = await query.execute()
+        total_count = count_result.count
+        
+        # Now get the actual data with pagination
+        query = query.range(offset, offset + limit - 1)
+        agents_result = await query.execute()
+        
+        if not agents_result.data:
             logger.info(f"No agents found for user: {user_id}")
-            return []
+            return {
+                "agents": [],
+                "pagination": {
+                    "page": page,
+                    "limit": limit,
+                    "total": 0,
+                    "pages": 0
+                }
+            }
+        
+        # Post-process for tool filtering and tools_count sorting
+        agents_data = agents_result.data
+        
+        # Apply tool-based filters
+        if has_mcp_tools is not None or has_agentpress_tools is not None or tools:
+            filtered_agents = []
+            tools_filter = []
+            if tools:
+                tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+            
+            for agent in agents_data:
+                # Check MCP tools filter
+                if has_mcp_tools is not None:
+                    has_mcp = bool(agent.get('configured_mcps') and len(agent.get('configured_mcps', [])) > 0)
+                    if has_mcp_tools != has_mcp:
+                        continue
+                
+                # Check AgentPress tools filter
+                if has_agentpress_tools is not None:
+                    agentpress_tools = agent.get('agentpress_tools', {})
+                    has_enabled_tools = any(
+                        tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False)
+                        for tool_data in agentpress_tools.values()
+                    )
+                    if has_agentpress_tools != has_enabled_tools:
+                        continue
+                
+                # Check specific tools filter
+                if tools_filter:
+                    agent_tools = set()
+                    # Add MCP tools
+                    for mcp in agent.get('configured_mcps', []):
+                        if isinstance(mcp, dict) and 'name' in mcp:
+                            agent_tools.add(f"mcp:{mcp['name']}")
+                    
+                    # Add enabled AgentPress tools
+                    for tool_name, tool_data in agent.get('agentpress_tools', {}).items():
+                        if tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False):
+                            agent_tools.add(f"agentpress:{tool_name}")
+                    
+                    # Check if any of the requested tools are present
+                    if not any(tool in agent_tools for tool in tools_filter):
+                        continue
+                
+                filtered_agents.append(agent)
+            
+            agents_data = filtered_agents
+        
+        # Handle tools_count sorting (post-processing required)
+        if sort_by == "tools_count":
+            def get_tools_count(agent):
+                mcp_count = len(agent.get('configured_mcps', []))
+                agentpress_count = sum(
+                    1 for tool_data in agent.get('agentpress_tools', {}).values()
+                    if tool_data and isinstance(tool_data, dict) and tool_data.get('enabled', False)
+                )
+                return mcp_count + agentpress_count
+            
+            agents_data.sort(key=get_tools_count, reverse=(sort_order == "desc"))
+        
+        # Apply pagination to filtered results if we did post-processing
+        if has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count":
+            total_count = len(agents_data)
+            agents_data = agents_data[offset:offset + limit]
         
         # Format the response
         agent_list = []
-        for agent in agents.data:
+        for agent in agents_data:
             agent_list.append(AgentResponse(
                 agent_id=agent['agent_id'],
                 account_id=agent['account_id'],
@@ -1043,8 +1196,18 @@ async def get_agents(user_id: str = Depends(get_current_user_id_from_jwt)):
                 updated_at=agent['updated_at']
             ))
         
-        logger.info(f"Found {len(agent_list)} agents for user: {user_id}")
-        return agent_list
+        total_pages = (total_count + limit - 1) // limit
+        
+        logger.info(f"Found {len(agent_list)} agents for user: {user_id} (page {page}/{total_pages})")
+        return {
+            "agents": agent_list,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": total_pages
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error fetching agents for user {user_id}: {str(e)}")
@@ -1301,40 +1464,75 @@ class MarketplaceAgent(BaseModel):
 
 class MarketplaceAgentsResponse(BaseModel):
     agents: List[MarketplaceAgent]
+    pagination: PaginationInfo
 
 class PublishAgentRequest(BaseModel):
     tags: Optional[List[str]] = []
 
 @router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
 async def get_marketplace_agents(
-    search: Optional[str] = None,
-    tags: Optional[str] = None,  # Comma-separated string
-    limit: Optional[int] = 50,
-    offset: Optional[int] = 0
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    tags: Optional[str] = Query(None, description="Comma-separated string of tags"),
+    sort_by: Optional[str] = Query("newest", description="Sort by: newest, popular, most_downloaded, name"),
+    creator: Optional[str] = Query(None, description="Filter by creator name")
 ):
-    """Get public agents from the marketplace."""
-    logger.info(f"Fetching marketplace agents with search='{search}', tags='{tags}', limit={limit}, offset={offset}")
+    """Get public agents from the marketplace with pagination, search, sort, and filter support."""
+    logger.info(f"Fetching marketplace agents with page={page}, limit={limit}, search='{search}', tags='{tags}', sort_by={sort_by}")
     client = await db.client
     
     try:
-        # Convert tags string to array if provided
+        offset = (page - 1) * limit
         tags_array = None
         if tags:
             tags_array = [tag.strip() for tag in tags.split(',') if tag.strip()]
         
-        # Call the database function
         result = await client.rpc('get_marketplace_agents', {
             'p_search': search,
             'p_tags': tags_array,
-            'p_limit': limit,
+            'p_limit': limit + 1,
             'p_offset': offset
         }).execute()
         
         if result.data is None:
             result.data = []
         
-        logger.info(f"Found {len(result.data)} marketplace agents")
-        return {"agents": result.data}
+        has_more = len(result.data) > limit
+        agents_data = result.data[:limit] 
+        if creator:
+            agents_data = [
+                agent for agent in agents_data 
+                if creator.lower() in agent.get('creator_name', '').lower()
+            ]
+
+        if sort_by == "most_downloaded":
+            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+        elif sort_by == "popular":
+            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+        elif sort_by == "name":
+            agents_data = sorted(agents_data, key=lambda x: x.get('name', '').lower())
+        else:
+            agents_data = sorted(agents_data, key=lambda x: x.get('marketplace_published_at', ''), reverse=True)
+        
+        estimated_total = (page - 1) * limit + len(agents_data)
+        if has_more:
+            estimated_total += 1
+        
+        total_pages = max(page, (estimated_total + limit - 1) // limit)
+        if has_more:
+            total_pages = page + 1
+        
+        logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
+        return {
+            "agents": agents_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": estimated_total,
+                "pages": total_pages
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error fetching marketplace agents: {str(e)}")
@@ -1478,183 +1676,54 @@ async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from
         logger.error(f"Error fetching user agent library: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/agents/builder/chat/{agent_id}")
-async def agent_builder_chat(
+@router.get("/agents/{agent_id}/builder-chat-history")
+async def get_agent_builder_chat_history(
     agent_id: str,
-    request: AgentBuilderChatRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Stream chat responses from the agent builder assistant that uses tools to update agent configuration."""
-    logger.info(f"Agent builder chat request from user: {user_id} for agent: {agent_id}")
+    """Get chat history for agent builder sessions for a specific agent."""
+    logger.info(f"Fetching agent builder chat history for agent: {agent_id}")
+    client = await db.client
     
-    async def stream_generator():
-        try:
-            # Import UpdateAgentTool
-            from agent.tools.update_agent_tool import UpdateAgentTool
-            
-            # Initialize the update agent tool
-            agent_update_tool = UpdateAgentTool(db, agent_id)
-            
-            # System prompt for the agent builder assistant
-            system_prompt = """You are an expert AI assistant helping users configure custom AI agents. You have access to tools that let you update the agent's configuration and get its current state.
-
-Your role is to:
-1. Understand what kind of agent the user wants to build
-2. Use the get_current_agent_config tool to see what's already configured
-3. Ask clarifying questions when needed
-4. Use the update_agent tool to progressively update the agent's configuration based on user requirements
-5. Guide the user through the entire process until the agent is fully configured
-
-Key guidelines:
-- Always check the current config first before making updates
-- Update only the fields that the user is discussing
-- Provide helpful suggestions for names, descriptions, and system prompts
-- Recommend appropriate tools based on the agent's purpose
-- Be encouraging and make the process feel intuitive
-- Keep responses concise but informative
-
-Available tools:
-- get_current_agent_config: Check what's already configured
-- update_agent: Update any aspect of the agent (name, description, system_prompt, tools, etc.)
-
-Tool selection guidelines:
-- For web research, data analysis: web_search tool
-- For file operations, code execution: sb_files tool  
-- For external integrations: suggest MCP servers
-
-Always use tools to make actual updates to the agent configuration."""
-
-            # Build messages array
-            messages = [{"role": "system", "content": system_prompt}]
-            
-            # Add conversation history
-            for msg in request.conversation_history:
-                messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
+    try:
+        # First verify the agent exists and belongs to the user
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found or access denied")
+        
+        # Get all threads for this user with metadata field included
+        threads_result = await client.table('threads').select('thread_id, created_at, metadata').eq('account_id', user_id).order('created_at', desc=True).execute()
+        
+        agent_builder_threads = []
+        for thread in threads_result.data:
+            metadata = thread.get('metadata', {})
+            # Check if this is an agent builder thread for the specific agent
+            if (metadata.get('is_agent_builder') and 
+                metadata.get('target_agent_id') == agent_id):
+                agent_builder_threads.append({
+                    'thread_id': thread['thread_id'],
+                    'created_at': thread['created_at']
                 })
-            
-            # Add current message
-            messages.append({"role": "user", "content": request.message})
-            
-            # Prepare tools for the agent
-            tools = [agent_update_tool]
-            tool_schemas = []
-            for tool in tools:
-                # Get XML schema for each tool method
-                for method_name in dir(tool):
-                    if hasattr(getattr(tool, method_name), '_xml_schema'):
-                        schema = getattr(getattr(tool, method_name), '_xml_schema')
-                        tool_schemas.append(schema)
-            
-            # Make streaming API call to GPT-4o with tools
-            response = await make_llm_api_call(
-                messages=messages,
-                model_name="openai/gpt-4o",
-                temperature=0.7,
-                max_tokens=2000,
-                stream=True,
-                tools=tool_schemas,
-                tool_choice="auto"
-            )
-            
-            full_response = ""
-            tool_calls_buffer = ""
-            in_tool_call = False
-            
-            # Stream the response and handle tool calls
-            async for chunk in response:
-                if chunk.choices and chunk.choices[0].delta:
-                    delta = chunk.choices[0].delta
-                    
-                    # Handle regular content
-                    if delta.content:
-                        content = delta.content
-                        full_response += content
-                        
-                        # Check for tool call markers
-                        if "<function_calls>" in content:
-                            in_tool_call = True
-                            tool_calls_buffer += content
-                        elif "</function_calls>" in content:
-                            in_tool_call = False
-                            tool_calls_buffer += content
-                            
-                            # Process tool call
-                            try:
-                                # Extract and execute tool calls
-                                import re
-                                from xml.etree import ElementTree as ET
-                                
-                                # Find all invoke blocks
-                                invoke_pattern = r'<invoke name="([^"]+)">(.*?)</invoke>'
-                                matches = re.findall(invoke_pattern, tool_calls_buffer, re.DOTALL)
-                                
-                                for tool_name, params_xml in matches:
-                                    # Parse parameters
-                                    params = {}
-                                    param_pattern = r'<parameter name="([^"]+)">(.*?)</parameter>'
-                                    param_matches = re.findall(param_pattern, params_xml, re.DOTALL)
-                                    
-                                    for param_name, param_value in param_matches:
-                                        params[param_name] = param_value.strip()
-                                    
-                                    # Execute tool call
-                                    if hasattr(agent_update_tool, tool_name):
-                                        tool_method = getattr(agent_update_tool, tool_name)
-                                        result = await tool_method(**params)
-                                        
-                                        # Send tool result as content
-                                        tool_result_content = f"\n\n[Tool executed: {tool_name}]\nResult: {result.content}\n\n"
-                                        yield f"data: {json.dumps({'type': 'content', 'content': tool_result_content})}\n\n"
-                                        
-                            except Exception as e:
-                                logger.error(f"Error processing tool call: {str(e)}")
-                                error_content = f"\n\n[Tool execution error: {str(e)}]\n\n"
-                                yield f"data: {json.dumps({'type': 'content', 'content': error_content})}\n\n"
-                            
-                            tool_calls_buffer = ""
-                        elif in_tool_call:
-                            tool_calls_buffer += content
-                        else:
-                            # Send regular content
-                            yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
-                    
-                    # Handle tool calls from the API (if supported)
-                    elif hasattr(delta, 'tool_calls') and delta.tool_calls:
-                        for tool_call in delta.tool_calls:
-                            if tool_call.function:
-                                tool_name = tool_call.function.name
-                                try:
-                                    tool_args = json.loads(tool_call.function.arguments)
-                                    
-                                    # Execute tool
-                                    if hasattr(agent_update_tool, tool_name):
-                                        tool_method = getattr(agent_update_tool, tool_name)
-                                        result = await tool_method(**tool_args)
-                                        
-                                        # Send tool result
-                                        tool_result_content = f"\n\n[Tool executed: {tool_name}]\nResult: {result.content}\n\n"
-                                        yield f"data: {json.dumps({'type': 'content', 'content': tool_result_content})}\n\n"
-                                        
-                                except Exception as e:
-                                    logger.error(f"Error executing tool {tool_name}: {str(e)}")
-                                    error_content = f"\n\n[Tool execution error: {str(e)}]\n\n"
-                                    yield f"data: {json.dumps({'type': 'content', 'content': error_content})}\n\n"
-            
-            # Send completion signal
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            
-        except Exception as e:
-            logger.error(f"Error in agent builder chat: {str(e)}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        stream_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
+        
+        if not agent_builder_threads:
+            logger.info(f"No agent builder threads found for agent {agent_id}")
+            return {"messages": [], "thread_id": None}
+        
+        # Get the most recent thread (already ordered by created_at desc)
+        latest_thread_id = agent_builder_threads[0]['thread_id']
+        logger.info(f"Found {len(agent_builder_threads)} agent builder threads, using latest: {latest_thread_id}")
+        
+        # Get messages from the latest thread, excluding status and summary messages
+        messages_result = await client.table('messages').select('*').eq('thread_id', latest_thread_id).neq('type', 'status').neq('type', 'summary').order('created_at', desc=False).execute()
+        
+        logger.info(f"Found {len(messages_result.data)} messages for agent builder chat history")
+        return {
+            "messages": messages_result.data,
+            "thread_id": latest_thread_id
         }
-    )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching agent builder chat history for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")

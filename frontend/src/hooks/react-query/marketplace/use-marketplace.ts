@@ -19,29 +19,44 @@ export interface MarketplaceAgent {
   avatar_color?: string;
 }
 
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface MarketplaceAgentsResponse {
+  agents: MarketplaceAgent[];
+  pagination: PaginationInfo;
+}
+
 interface MarketplaceAgentsParams {
+  page?: number;
+  limit?: number;
   search?: string;
   tags?: string[];
-  sort?: 'newest' | 'popular' | 'most_downloaded';
-  limit?: number;
-  offset?: number;
+  sort_by?: 'newest' | 'popular' | 'most_downloaded' | 'name';
+  creator?: string;
 }
 
 export function useMarketplaceAgents(params: MarketplaceAgentsParams = {}) {
   return useQuery({
     queryKey: ['marketplace-agents', params],
-    queryFn: async (): Promise<MarketplaceAgent[]> => {
+    queryFn: async (): Promise<MarketplaceAgentsResponse> => {
       try {
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
         const queryParams = new URLSearchParams();
+        if (params.page) queryParams.append('page', params.page.toString());
+        if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.search) queryParams.append('search', params.search);
         if (params.tags && params.tags.length > 0) {
           queryParams.append('tags', params.tags.join(','));
         }
-        if (params.limit) queryParams.append('limit', params.limit.toString());
-        if (params.offset) queryParams.append('offset', params.offset.toString());
+        if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+        if (params.creator) queryParams.append('creator', params.creator);
 
         const url = `${API_URL}/marketplace/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
         
@@ -64,25 +79,8 @@ export function useMarketplaceAgents(params: MarketplaceAgentsParams = {}) {
         }
 
         const data = await response.json();
-        let agents = data.agents || [];
-
-        // Sort the results based on the sort parameter
-        switch (params.sort) {
-          case 'most_downloaded':
-            agents = agents.sort((a, b) => b.download_count - a.download_count);
-            break;
-          case 'popular':
-            agents = agents.sort((a, b) => b.download_count - a.download_count);
-            break;
-          case 'newest':
-          default:
-            agents = agents.sort((a, b) => 
-              new Date(b.marketplace_published_at).getTime() - new Date(a.marketplace_published_at).getTime()
-            );
-            break;
-        }
-
-        return agents;
+        console.log('[API] Fetched marketplace agents:', data.agents?.length || 0, 'total:', data.pagination?.total || 0);
+        return data;
       } catch (err) {
         console.error('Error fetching marketplace agents:', err);
         throw err;
