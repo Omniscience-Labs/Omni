@@ -38,6 +38,7 @@ interface ThreadLayoutProps {
   debugMode: boolean;
   isMobile: boolean;
   initialLoadCompleted: boolean;
+  agentName?: string;
 }
 
 export function ThreadLayout({
@@ -71,6 +72,7 @@ export function ThreadLayout({
   debugMode,
   isMobile,
   initialLoadCompleted,
+  agentName
 }: ThreadLayoutProps) {
   return (
     <div className="flex h-screen">
@@ -114,6 +116,7 @@ export function ThreadLayout({
         renderToolResult={renderToolResult}
         isLoading={!initialLoadCompleted || isLoading}
         onFileClick={onViewFiles}
+        agentName={agentName}
       />
 
       {sandboxId && (
