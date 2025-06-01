@@ -180,7 +180,7 @@ async def run_agent(
         latest_image_context_msg = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'image_context').order('created_at', desc=True).limit(1).execute()
         if latest_image_context_msg.data and len(latest_image_context_msg.data) > 0:
             try:
-                image_context_content = json.loads(latest_image_context_msg.data[0]["content"])
+                image_context_content = latest_image_context_msg.data[0]["content"] if isinstance(latest_image_context_msg.data[0]["content"], dict) else json.loads(latest_image_context_msg.data[0]["content"])
                 base64_image = image_context_content.get("base64")
                 mime_type = image_context_content.get("mime_type")
                 file_path = image_context_content.get("file_path", "unknown file")
