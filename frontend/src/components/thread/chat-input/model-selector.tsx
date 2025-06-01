@@ -27,6 +27,7 @@ import {
   MODELS // Import the centralized MODELS constant
 } from './_use-model-selection';
 import { PaywallDialog } from '@/components/payment/paywall-dialog';
+import { BillingModal } from '@/components/billing/billing-modal';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { isLocalMode } from '@/lib/config';
@@ -56,6 +57,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   refreshCustomModels,
 }) => {
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [lockedModel, setLockedModel] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,7 +197,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   };
 
   const handleUpgradeClick = () => {
-    router.push('/settings/billing');
+    setBillingModalOpen(true);
   };
 
   const closeDialog = () => {
@@ -754,6 +756,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         onSave={handleSaveCustomModel}
         initialData={dialogInitialData}
         mode={dialogMode}
+      />
+
+      {/* Billing Modal */}
+      <BillingModal
+        open={billingModalOpen}
+        onOpenChange={setBillingModalOpen}
+        returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
       />
 
       {paywallOpen && (

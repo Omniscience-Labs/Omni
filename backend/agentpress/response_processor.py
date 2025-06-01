@@ -1512,7 +1512,7 @@ class ResponseProcessor:
             # This allows the LLM to see the tool result in subsequent interactions
             result_message = {
                 "role": result_role,
-                "content": structured_result
+                "content":  json.dumps(structured_result)
             }
             message_obj = await self.add_message(
                 thread_id=thread_id, 
@@ -1597,14 +1597,29 @@ class ResponseProcessor:
         # For backwards compatibility with LLM, also include a human-readable summary
         # Use the original string output for the summary to avoid complex object representation
         summary_output = result.output if hasattr(result, 'output') else str(result)
+        success_status = structured_result["tool_execution"]["result"]["success"]
+        
+        # Create a more comprehensive summary for the LLM
         if xml_tag_name:
-            # For XML tools, create a readable summary
-            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
-            summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
+            # For XML tools, create a detailed readable summary
+            status = "completed successfully" if success_status else "failed"
+            summary = f"""[Tool Execution Result]
+Tool: {xml_tag_name} ({function_name})
+Status: {status}
+Arguments: {json.dumps(arguments)}
+Output: {summary_output}"""
+            if not success_status and structured_result["tool_execution"]["result"].get("error"):
+                summary += f"\nError: {structured_result['tool_execution']['result']['error']}"
         else:
-            # For native tools, create a readable summary
-            status = "completed successfully" if structured_result["tool_execution"]["result"]["success"] else "failed"
-            summary = f"Function '{function_name}' {status}. Output: {summary_output}"
+            # For native tools, create a detailed readable summary
+            status = "completed successfully" if success_status else "failed"
+            summary = f"""[Function Call Result]
+Function: {function_name}
+Status: {status}
+Arguments: {json.dumps(arguments)}
+Output: {summary_output}"""
+            if not success_status and structured_result["tool_execution"]["result"].get("error"):
+                summary += f"\nError: {structured_result['tool_execution']['result']['error']}"
         
         structured_result["summary"] = summary
         

@@ -27,7 +27,32 @@ export interface ExtractedData {
 
 
 export const extractFromNewFormat = (content: any): ExtractedData => {
-  if (!content || typeof content !== 'object') return { filePath: null, oldStr: null, newStr: null };
+  if (!content) {
+    return { filePath: null, oldStr: null, newStr: null };
+  }
+
+  if (typeof content === 'string') {
+    // Only try to parse if it looks like JSON
+    const trimmed = content.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        console.debug('StrReplaceToolView: Attempting to parse JSON string:', content.substring(0, 100) + '...');
+        const parsed = JSON.parse(content);
+        console.debug('StrReplaceToolView: Successfully parsed JSON:', parsed);
+        return extractFromNewFormat(parsed);
+      } catch (error) {
+        console.error('StrReplaceToolView: JSON parse error:', error, 'Content:', content.substring(0, 200));
+        return { filePath: null, oldStr: null, newStr: null };
+      }
+    } else {
+      console.debug('StrReplaceToolView: String content does not look like JSON, skipping parse');
+      return { filePath: null, oldStr: null, newStr: null };
+    }
+  }
+
+  if (typeof content !== 'object') {
+    return { filePath: null, oldStr: null, newStr: null };
+  }
 
   if ('tool_execution' in content && typeof content.tool_execution === 'object') {
     const toolExecution = content.tool_execution;
@@ -49,7 +74,13 @@ export const extractFromNewFormat = (content: any): ExtractedData => {
     };
   }
 
+  if ('role' in content && 'content' in content && typeof content.content === 'string') {
+    console.debug('StrReplaceToolView: Found role/content structure with string content, parsing...');
+    return extractFromNewFormat(content.content);
+  }
+
   if ('role' in content && 'content' in content && typeof content.content === 'object') {
+    console.debug('StrReplaceToolView: Found role/content structure with object content');
     return extractFromNewFormat(content.content);
   }
 
