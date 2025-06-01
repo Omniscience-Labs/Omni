@@ -11,7 +11,7 @@ services:
       - "6080:6080"  # noVNC web interface
       - "5901:5901"  # VNC port
       - "9222:9222"  # Chrome remote debugging port
-      - "8000:8000"  # API server port
+      - "8003:8003"  # API server port
       - "8080:8080"  # HTTP server port
     environment:
       - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-false}

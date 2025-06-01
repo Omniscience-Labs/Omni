@@ -140,12 +140,12 @@ async def run_agent(
             try:
                 browser_content = json.loads(latest_browser_state_msg.data[0]["content"])
                 screenshot_base64 = browser_content.get("screenshot_base64")
-                screenshot_url = browser_content.get("screenshot_url")
+                screenshot_url = browser_content.get("image_url")
                 
                 # Create a copy of the browser state without screenshot data
                 browser_state_text = browser_content.copy()
                 browser_state_text.pop('screenshot_base64', None)
-                browser_state_text.pop('screenshot_url', None)
+                browser_state_text.pop('image_url', None)
 
                 if browser_state_text:
                     temp_message_content_list.append({
@@ -159,6 +159,7 @@ async def run_agent(
                         "type": "image_url",
                         "image_url": {
                             "url": screenshot_url,
+                            "format": "image/jpeg"
                         }
                     })
                 elif screenshot_base64:
