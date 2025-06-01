@@ -185,7 +185,7 @@ export const AgentsGrid = ({
   };
 
   const handleChat = (agentId: string) => {
-    router.push(`/agents/new/${agentId}`);
+    router.push(`/dashboard?agent_id=${agentId}`);
     setSelectedAgent(null);
   };
 
