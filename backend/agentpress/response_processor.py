@@ -1514,7 +1514,7 @@ class ResponseProcessor:
             # This allows the LLM to see the tool result in subsequent interactions
             result_message = {
                 "role": result_role,
-                "content": structured_result
+                "content":  json.dumps(structured_result)
             }
             message_obj = await self.add_message(
                 thread_id=thread_id, 
@@ -1619,6 +1619,9 @@ class ResponseProcessor:
         #     return summary
 
         summary_output = result.output if hasattr(result, 'output') else str(result)
+        success_status = structured_result["tool_execution"]["result"]["success"]
+        
+        # Create a more comprehensive summary for the LLM
         if xml_tag_name:
             status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
             summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
