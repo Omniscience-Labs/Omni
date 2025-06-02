@@ -3,6 +3,8 @@ export interface MCPConfiguration {
   qualifiedName: string;
   config: Record<string, any>;
   enabledTools?: string[];
+  isCustom?: boolean;
+  customType?: 'http' | 'sse';
 }
   
 export interface MCPConfigurationProps {

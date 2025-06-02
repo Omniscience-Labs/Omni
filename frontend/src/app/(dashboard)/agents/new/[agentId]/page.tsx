@@ -42,6 +42,7 @@ export default function AgentConfigurationPage() {
     system_prompt: '',
     agentpress_tools: {},
     configured_mcps: [],
+    custom_mcps: [],
     is_default: false,
     avatar: '',
     avatar_color: '',
@@ -55,7 +56,6 @@ export default function AgentConfigurationPage() {
   const [activeTab, setActiveTab] = useState('agent-builder');
   const accordionRef = useRef<HTMLDivElement>(null);
 
-  // Effect to automatically close sidebar on page load
   useEffect(() => {
     if (!initialLayoutAppliedRef.current) {
       setOpen(false);
@@ -72,6 +72,7 @@ export default function AgentConfigurationPage() {
         system_prompt: agentData.system_prompt || '',
         agentpress_tools: agentData.agentpress_tools || {},
         configured_mcps: agentData.configured_mcps || [],
+        custom_mcps: agentData.custom_mcps || [],
         is_default: agentData.is_default || false,
         avatar: agentData.avatar || '',
         avatar_color: agentData.avatar_color || '',
@@ -108,7 +109,8 @@ export default function AgentConfigurationPage() {
       return true;
     }
     if (JSON.stringify(newData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools) ||
-        JSON.stringify(newData.configured_mcps) !== JSON.stringify(originalData.configured_mcps)) {
+        JSON.stringify(newData.configured_mcps) !== JSON.stringify(originalData.configured_mcps) ||
+        JSON.stringify(newData.custom_mcps) !== JSON.stringify(originalData.custom_mcps)) {
       return true;
     }
     return false;
@@ -158,6 +160,16 @@ export default function AgentConfigurationPage() {
     debouncedSave(newFormData);
   }, [debouncedSave]);
 
+  const handleBatchMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    const newFormData = {
+      ...currentFormDataRef.current,
+      configured_mcps: updates.configured_mcps,
+      custom_mcps: updates.custom_mcps
+    };
+    
+    setFormData(newFormData);
+    debouncedSave(newFormData);
+  }, [debouncedSave]);
 
   const scrollToAccordion = useCallback(() => {
     if (accordionRef.current) {
@@ -369,7 +381,10 @@ export default function AgentConfigurationPage() {
                     <AccordionContent className="pb-4 overflow-x-hidden">
                       <AgentMCPConfiguration
                         mcps={formData.configured_mcps}
-                        onMCPsChange={(mcps) => handleFieldChange('configured_mcps', mcps)}
+                        customMcps={formData.custom_mcps}
+                        onMCPsChange={(mcps) => handleBatchMCPChange({ configured_mcps: mcps, custom_mcps: formData.custom_mcps })}
+                        onCustomMCPsChange={(customMcps) => handleBatchMCPChange({ configured_mcps: formData.configured_mcps, custom_mcps: customMcps })}
+                        onBatchMCPChange={handleBatchMCPChange}
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -398,7 +413,8 @@ export default function AgentConfigurationPage() {
     setIsPreviewOpen,
     setActiveTab,
     scrollToAccordion,
-    getSaveStatusBadge
+    getSaveStatusBadge,
+    handleBatchMCPChange
   ]);
 
   useEffect(() => {

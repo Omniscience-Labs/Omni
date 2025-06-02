@@ -49,6 +49,7 @@ class AgentCreateRequest(BaseModel):
     description: Optional[str] = None
     system_prompt: str
     configured_mcps: Optional[List[Dict[str, Any]]] = []
+    custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
     is_default: Optional[bool] = False
     avatar: Optional[str] = None
@@ -59,6 +60,7 @@ class AgentUpdateRequest(BaseModel):
     description: Optional[str] = None
     system_prompt: Optional[str] = None
     configured_mcps: Optional[List[Dict[str, Any]]] = None
+    custom_mcps: Optional[List[Dict[str, Any]]] = None
     agentpress_tools: Optional[Dict[str, Any]] = None
     is_default: Optional[bool] = None
     avatar: Optional[str] = None
@@ -71,6 +73,7 @@ class AgentResponse(BaseModel):
     description: Optional[str]
     system_prompt: str
     configured_mcps: List[Dict[str, Any]]
+    custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Dict[str, Any]
     is_default: bool
     is_public: Optional[bool] = False
@@ -566,6 +569,7 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 description=agent_data.get('description'),
                 system_prompt=agent_data['system_prompt'],
                 configured_mcps=agent_data.get('configured_mcps', []),
+                custom_mcps=agent_data.get('custom_mcps', []),
                 agentpress_tools=agent_data.get('agentpress_tools', {}),
                 is_default=agent_data.get('is_default', False),
                 is_public=agent_data.get('is_public', False),
@@ -1184,6 +1188,7 @@ async def get_agents(
                 description=agent.get('description'),
                 system_prompt=agent['system_prompt'],
                 configured_mcps=agent.get('configured_mcps', []),
+                custom_mcps=agent.get('custom_mcps', []),
                 agentpress_tools=agent.get('agentpress_tools', {}),
                 is_default=agent.get('is_default', False),
                 is_public=agent.get('is_public', False),
@@ -1239,6 +1244,7 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             description=agent_data.get('description'),
             system_prompt=agent_data['system_prompt'],
             configured_mcps=agent_data.get('configured_mcps', []),
+            custom_mcps=agent_data.get('custom_mcps', []),
             agentpress_tools=agent_data.get('agentpress_tools', {}),
             is_default=agent_data.get('is_default', False),
             is_public=agent_data.get('is_public', False),
@@ -1283,6 +1289,7 @@ async def create_agent(
             "description": agent_data.description,
             "system_prompt": agent_data.system_prompt, 
             "configured_mcps": agent_data.configured_mcps or [],
+            "custom_mcps": agent_data.custom_mcps or [],
             "agentpress_tools": agent_data.agentpress_tools or {},
             "is_default": agent_data.is_default or False,
             "avatar": agent_data.avatar,
@@ -1304,6 +1311,7 @@ async def create_agent(
             description=agent.get('description'),
             system_prompt=agent['system_prompt'],
             configured_mcps=agent.get('configured_mcps', []),
+            custom_mcps=agent.get('custom_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
             is_public=agent.get('is_public', False),
@@ -1357,6 +1365,8 @@ async def update_agent(
             update_data["system_prompt"] = agent_data.system_prompt
         if agent_data.configured_mcps is not None:
             update_data["configured_mcps"] = agent_data.configured_mcps
+        if agent_data.custom_mcps is not None:
+            update_data["custom_mcps"] = agent_data.custom_mcps
         if agent_data.agentpress_tools is not None:
             update_data["agentpress_tools"] = agent_data.agentpress_tools
         if agent_data.is_default is not None:
@@ -1396,6 +1406,7 @@ async def update_agent(
             description=agent.get('description'),
             system_prompt=agent['system_prompt'],
             configured_mcps=agent.get('configured_mcps', []),
+            custom_mcps=agent.get('custom_mcps', []),
             agentpress_tools=agent.get('agentpress_tools', {}),
             is_default=agent.get('is_default', False),
             is_public=agent.get('is_public', False),
