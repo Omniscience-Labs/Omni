@@ -3,6 +3,7 @@ import warnings
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 from mcp import StdioServerParameters
 import aiohttp
 import json
@@ -28,8 +29,9 @@ async def list_mcp_tools_mixed(config, timeout=15):
         try:
             if "url" in server_config:
                 url = server_config["url"]
-                if "/sse" in url or server_config.get("transport") == "sse":
-                    await connect_sse_server(server_name, server_config, all_tools, timeout)
+                await connect_streamable_http_server(url)
+                # if "/sse" in url or server_config.get("transport") == "sse":
+                #     await connect_sse_server(server_name, server_config, all_tools, timeout)
             else:
                 await connect_stdio_server(server_name, server_config, all_tools, timeout)
                     
@@ -69,6 +71,18 @@ def extract_tools_from_response(data):
     
     return []
 
+
+async def connect_streamable_http_server(url):
+    async with streamablehttp_client(url) as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            tool_result = await session.list_tools()
+            print(f"Connected via SSE ({len(tool_result.tools)} tools)")
+            return tool_result
 
 async def connect_sse_server(server_name, server_config, all_tools, timeout):
     url = server_config["url"]
@@ -200,14 +214,14 @@ def print_mcp_tools(all_tools):
 async def main():
     config = {
         "mcpServers": {
-            # "mem0": {
-            #     "url": "https://mcp.composio.dev/partner/composio/mem0/sse?customerId=f22eba6f-07d9-4913-8be6-4d80c02b3dec",
-            #     "transport": "sse"
-            # },
-            "airbnb": {
-                "command": "npx",
-                "args": ["-y", "@openbnb/mcp-server-airbnb", "--ignore-robots-txt"]
+            "mem0": {
+                "url": "https://mcp.composio.dev/composio/server/8f56a575-1a7d-422a-a383-0e9701af9d61/mcp?useComposioHelperActions=true",
+                # "transport": "sse"
             },
+            # "airbnb": {
+            #     "command": "npx",
+            #     "args": ["-y", "@openbnb/mcp-server-airbnb", "--ignore-robots-txt"]
+            # },
             # "playwright": {
             #     "command": "npx",
             #     "args": ["@playwright/mcp@latest"],

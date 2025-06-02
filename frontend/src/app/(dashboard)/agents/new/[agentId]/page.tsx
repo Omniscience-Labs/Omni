@@ -56,7 +56,6 @@ export default function AgentConfigurationPage() {
   const [activeTab, setActiveTab] = useState('agent-builder');
   const accordionRef = useRef<HTMLDivElement>(null);
 
-  // Effect to automatically close sidebar on page load
   useEffect(() => {
     if (!initialLayoutAppliedRef.current) {
       setOpen(false);
@@ -161,6 +160,16 @@ export default function AgentConfigurationPage() {
     debouncedSave(newFormData);
   }, [debouncedSave]);
 
+  const handleBatchMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    const newFormData = {
+      ...currentFormDataRef.current,
+      configured_mcps: updates.configured_mcps,
+      custom_mcps: updates.custom_mcps
+    };
+    
+    setFormData(newFormData);
+    debouncedSave(newFormData);
+  }, [debouncedSave]);
 
   const scrollToAccordion = useCallback(() => {
     if (accordionRef.current) {
@@ -373,8 +382,9 @@ export default function AgentConfigurationPage() {
                       <AgentMCPConfiguration
                         mcps={formData.configured_mcps}
                         customMcps={formData.custom_mcps}
-                        onMCPsChange={(mcps) => handleFieldChange('configured_mcps', mcps)}
-                        onCustomMCPsChange={(customMcps) => handleFieldChange('custom_mcps', customMcps)}
+                        onMCPsChange={(mcps) => handleBatchMCPChange({ configured_mcps: mcps, custom_mcps: formData.custom_mcps })}
+                        onCustomMCPsChange={(customMcps) => handleBatchMCPChange({ configured_mcps: formData.configured_mcps, custom_mcps: customMcps })}
+                        onBatchMCPChange={handleBatchMCPChange}
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -403,7 +413,8 @@ export default function AgentConfigurationPage() {
     setIsPreviewOpen,
     setActiveTab,
     scrollToAccordion,
-    getSaveStatusBadge
+    getSaveStatusBadge,
+    handleBatchMCPChange
   ]);
 
   useEffect(() => {

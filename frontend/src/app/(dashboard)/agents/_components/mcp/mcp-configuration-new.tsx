@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings, Zap, Code2 } from 'lucide-react';
+import { Plus, Settings, Zap, Code2, Server } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
@@ -46,12 +46,18 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   const handleSaveConfiguration = (config: MCPConfigurationType) => {
+    const regularMCPConfig = {
+      ...config,
+      isCustom: false,
+      customType: undefined
+    };
+    
     if (editingIndex !== null) {
       const newMCPs = [...configuredMCPs];
-      newMCPs[editingIndex] = config;
+      newMCPs[editingIndex] = regularMCPConfig;
       onConfigurationChange(newMCPs);
     } else {
-      onConfigurationChange([...configuredMCPs, config]);
+      onConfigurationChange([...configuredMCPs, regularMCPConfig]);
     }
     setConfiguringServer(null);
     setEditingIndex(null);
@@ -61,11 +67,11 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
     console.log('Saving custom MCP config:', customConfig);
     const mcpConfig: MCPConfigurationType = {
       name: customConfig.name,
-      qualifiedName: `custom_${customConfig.type}_${Date.now()}`, // Unique identifier for custom MCPs
+      qualifiedName: `custom_${customConfig.type}_${Date.now()}`,
       config: customConfig.config,
       enabledTools: customConfig.enabledTools,
       isCustom: true,
-      customType: customConfig.type
+      customType: customConfig.type as 'http' | 'sse'
     };
     console.log('Transformed MCP config:', mcpConfig);
     onConfigurationChange([...configuredMCPs, mcpConfig]);
@@ -103,7 +109,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
               onClick={() => setShowCustomDialog(true)}
               className="transition-all duration-200"
             >
-              <Code2 className="h-4 w-4" />
+              <Server className="h-4 w-4" />
               Custom
             </Button>
             <Button

@@ -4,7 +4,7 @@ export interface MCPConfiguration {
   config: Record<string, any>;
   enabledTools?: string[];
   isCustom?: boolean;
-  customType?: 'json' | 'sse';
+  customType?: 'http' | 'sse';
 }
   
 export interface MCPConfigurationProps {

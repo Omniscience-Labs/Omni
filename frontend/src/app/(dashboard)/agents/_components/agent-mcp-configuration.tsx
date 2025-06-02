@@ -5,13 +5,14 @@ import { MCPConfiguration } from './mcp-configuration';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentMCPConfigurationProps {
-  mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'json' | 'sse' }>;
-  customMcps?: Array<{ name: string; type: 'json' | 'sse'; config: any; enabledTools: string[] }>;
-  onMCPsChange: (mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'json' | 'sse' }>) => void;
-  onCustomMCPsChange?: (customMcps: Array<{ name: string; type: 'json' | 'sse'; config: any; enabledTools: string[] }>) => void;
+  mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'http' | 'sse' }>;
+  customMcps?: Array<{ name: string; type: 'http' | 'sse'; config: any; enabledTools: string[] }>;
+  onMCPsChange: (mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'http' | 'sse' }>) => void;
+  onCustomMCPsChange?: (customMcps: Array<{ name: string; type: 'http' | 'sse'; config: any; enabledTools: string[] }>) => void;
+  onBatchMCPChange?: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
 }
 
-export const AgentMCPConfiguration = ({ mcps, customMcps = [], onMCPsChange, onCustomMCPsChange }: AgentMCPConfigurationProps) => {
+export const AgentMCPConfiguration = ({ mcps, customMcps = [], onMCPsChange, onCustomMCPsChange, onBatchMCPChange }: AgentMCPConfigurationProps) => {
   const allMcps = React.useMemo(() => {
     const combined = [...mcps];
     customMcps.forEach(customMcp => {
@@ -21,26 +22,34 @@ export const AgentMCPConfiguration = ({ mcps, customMcps = [], onMCPsChange, onC
         config: customMcp.config,
         enabledTools: customMcp.enabledTools,
         isCustom: true,
-        customType: customMcp.type as 'json' | 'sse'
+        customType: customMcp.type as 'http' | 'sse'
       });
     });
     
     return combined;
   }, [mcps, customMcps]);
 
-  const handleConfigurationChange = (updatedMcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'json' | 'sse' }>) => {
+  const handleConfigurationChange = (updatedMcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[]; isCustom?: boolean; customType?: 'http' | 'sse' }>) => {
     const standardMcps = updatedMcps.filter(mcp => !mcp.isCustom);
     const customMcpsList = updatedMcps.filter(mcp => mcp.isCustom);
     
-    onMCPsChange(standardMcps);
-    if (onCustomMCPsChange) {
-      const transformedCustomMcps = customMcpsList.map(mcp => ({
-        name: mcp.name,
-        type: (mcp.customType || 'json') as 'json' | 'sse',
-        config: mcp.config,
-        enabledTools: mcp.enabledTools || []
-      }));
-      onCustomMCPsChange(transformedCustomMcps);
+    const transformedCustomMcps = customMcpsList.map(mcp => ({
+      name: mcp.name,
+      type: (mcp.customType || 'http') as 'http' | 'sse',
+      config: mcp.config,
+      enabledTools: mcp.enabledTools || []
+    }));
+
+    if (onBatchMCPChange) {
+      onBatchMCPChange({
+        configured_mcps: standardMcps,
+        custom_mcps: transformedCustomMcps
+      });
+    } else {
+      onMCPsChange(standardMcps);
+      if (onCustomMCPsChange) {
+        onCustomMCPsChange(transformedCustomMcps);
+      }
     }
   };
 

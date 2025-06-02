@@ -628,22 +628,16 @@ export function ToolCallSidePanel({
               </div>
 
               <div className="flex items-center gap-2">
-                {showJumpToLive && (
-                  <div className="flex cursor-pointer items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" onClick={jumpToLive}>
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Jump to Live</span>
-                  </div>
-                )}
-                {showJumpToLatest && (
-                  <div className="flex cursor-pointer items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800" onClick={jumpToLatest}>
-                    <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-neutral-700 dark:text-neutral-400">Jump to Latest</span>
-                  </div>
-                )}
-                {isLiveMode && agentStatus === 'running' && !showJumpToLive && (
+                {isLiveMode && agentStatus === 'running' && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs font-medium text-green-700 dark:text-green-400">Live</span>
+                  </div>
+                )}
+                {!isLiveMode && agentStatus !== 'running' && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800">
+                    <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full"></div>
+                    <span className="text-xs font-medium text-neutral-700 dark:text-neutral-400">Live</span>
                   </div>
                 )}
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
@@ -722,6 +716,21 @@ export function ToolCallSidePanel({
               </div>
 
               <div className="relative w-full">
+                {(showJumpToLive || showJumpToLatest) && (
+                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10">
+                    {showJumpToLive && (
+                      <Button className='rounded-full bg-red-500 hover:bg-red-400 text-white' onClick={jumpToLive}>
+                        Jump to Live
+                      </Button>
+                    )}
+                    {showJumpToLatest && (
+                      <Button className='rounded-full' onClick={jumpToLive}>
+                        Jump to Latest
+                      </Button>
+                    )}
+                  </div>
+                )}
+                
                 <Slider
                   min={0}
                   max={displayTotalCalls - 1}
@@ -730,8 +739,6 @@ export function ToolCallSidePanel({
                   onValueChange={handleSliderChange}
                   className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1"
                 />
-
-
               </div>
             </div>
           )}

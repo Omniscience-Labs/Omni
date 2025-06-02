@@ -14,6 +14,7 @@ import inspect
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 from mcp import StdioServerParameters
 import asyncio
 
@@ -55,11 +56,7 @@ class MCPToolWrapper(Tool):
             if standard_configs:
                 for config in standard_configs:
                     try:
-                        await self.mcp_manager.connect_server(
-                            config['qualifiedName'],
-                            config.get('config', {}),
-                            config.get('enabledTools', [])
-                        )
+                        await self.mcp_manager.connect_server(config)
                     except Exception as e:
                         logger.error(f"Failed to connect to MCP server {config['qualifiedName']}: {e}")
             
@@ -122,7 +119,29 @@ class MCPToolWrapper(Tool):
                             logger.info(f"  {server_name}: Connected via SSE ({len(tools_info)} tools)")
                 else:
                     raise
-
+    
+    async def _connect_streamable_http_server(self, url):
+        async with streamablehttp_client(url) as (
+            read_stream,
+            write_stream,
+            _,
+        ):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                tool_result = await session.list_tools()
+                print(f"Connected via HTTP ({len(tool_result.tools)} tools)")
+                
+                tools_info = []
+                for tool in tool_result.tools:
+                    tool_info = {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "inputSchema": tool.inputSchema
+                    }
+                    tools_info.append(tool_info)
+                
+                return tools_info
+        
     async def _connect_stdio_server(self, server_name, server_config, all_tools, timeout):
         """Connect to a stdio-based MCP server."""
         server_params = StdioServerParameters(
@@ -157,7 +176,8 @@ class MCPToolWrapper(Tool):
         """Initialize custom MCP servers."""
         for config in custom_configs:
             try:
-                custom_type = config.get('type', 'sse')
+                logger.info(f"Initializing custom MCP: {config}")
+                custom_type = config.get('customType', 'sse')
                 server_config = config.get('config', {})
                 enabled_tools = config.get('enabledTools', [])
                 server_name = config.get('name', 'Unknown')
@@ -206,6 +226,42 @@ class MCPToolWrapper(Tool):
                     except Exception as e:
                         logger.error(f"Custom MCP {server_name}: Connection failed - {str(e)}")
                         continue
+                
+                elif custom_type == 'http':
+                    if 'url' not in server_config:
+                        logger.error(f"Custom MCP {server_name}: Missing 'url' in config")
+                        continue
+                        
+                    url = server_config['url']
+                    logger.info(f"Initializing custom MCP {url} with HTTP type")
+                    
+                    try:
+
+                        tools_info = await self._connect_streamable_http_server(url)
+                        tools_registered = 0
+                        
+                        for tool_info in tools_info:
+                            tool_name_from_server = tool_info['name']
+                            if not enabled_tools or tool_name_from_server in enabled_tools:
+                                tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                                self._custom_tools[tool_name] = {
+                                    'name': tool_name,
+                                    'description': tool_info['description'],
+                                    'parameters': tool_info['inputSchema'],
+                                    'server': server_name,
+                                    'original_name': tool_name_from_server,
+                                    'is_custom': True,
+                                    'custom_type': custom_type,
+                                    'custom_config': server_config
+                                }
+                                tools_registered += 1
+                                logger.debug(f"Registered custom tool: {tool_name}")
+                        
+                        logger.info(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
+                            
+                    except Exception as e:
+                        logger.error(f"Custom MCP {server_name}: Connection failed - {str(e)}")
+                        continue
                         
                 elif custom_type == 'json':
                     if 'command' not in server_config:
@@ -250,7 +306,7 @@ class MCPToolWrapper(Tool):
                         continue
                         
                 else:
-                    logger.error(f"Custom MCP {server_name}: Unsupported type '{custom_type}', supported types are 'sse' and 'json'")
+                    logger.error(f"Custom MCP {server_name}: Unsupported type '{custom_type}', supported types are 'sse', 'http' and 'json'")
                     continue
                     
             except Exception as e:
@@ -415,7 +471,7 @@ class MCPToolWrapper(Tool):
     async def _execute_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         """Execute an MCP tool call."""
         await self._ensure_initialized()
-        
+        logger.info(f"Executing MCP tool {tool_name} with arguments {arguments}")
         try:
             # Check if it's a custom MCP tool first
             if tool_name in self._custom_tools:
@@ -508,6 +564,38 @@ class MCPToolWrapper(Tool):
                                         return self.success_response(str(result))
                         else:
                             raise
+            
+            elif custom_type == 'http':
+                # Execute HTTP-based custom MCP
+                url = custom_config['url']
+                
+                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                    async with streamablehttp_client(url) as (read, write, _):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            result = await session.call_tool(original_tool_name, arguments)
+                            
+                            # Handle the result properly
+                            if hasattr(result, 'content'):
+                                content = result.content
+                                if isinstance(content, list):
+                                    # Extract text from content list
+                                    text_parts = []
+                                    for item in content:
+                                        if hasattr(item, 'text'):
+                                            text_parts.append(item.text)
+                                        else:
+                                            text_parts.append(str(item))
+                                    content_str = "\n".join(text_parts)
+                                elif hasattr(content, 'text'):
+                                    content_str = content.text
+                                else:
+                                    content_str = str(content)
+                                
+                                return self.success_response(content_str)
+                            else:
+                                return self.success_response(str(result))
+                                
             elif custom_type == 'json':
                 # Execute stdio-based custom MCP using the same pattern as _connect_stdio_server
                 server_params = StdioServerParameters(
