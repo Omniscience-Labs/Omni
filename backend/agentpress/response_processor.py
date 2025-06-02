@@ -1619,7 +1619,7 @@ class ResponseProcessor:
         #     return summary
 
         summary_output = result.output if hasattr(result, 'output') else str(result)
-        success_status = structured_result["tool_execution"]["result"]["success"]
+        # success_status = structured_result["tool_execution"]["result"]["success"]
         
         # Create a more comprehensive summary for the LLM
         if xml_tag_name:

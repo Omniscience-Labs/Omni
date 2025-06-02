@@ -232,8 +232,18 @@ You have the ability to execute operations using both Python and CLI tools:
   4. xls2csv: Convert Excel to CSV
 
 ### 4.1.2 TEXT & DATA PROCESSING
-- Text Processing:
+IMPORTANT: Use the `cat` command to view contents of small files (less than 100 kb) whenever possible. Only use other commands and processing when absolutely necessary.
+- Distinguish between small and large text files
+  1. ls -lh: Get file size
+     - Use `ls -lh <file_path>` to get file size
+- Small text files (less than 100 kb)
+  1. cat: View contents of small files
+     - Use `cat <file_path>` to view contents of small files
+- Large text files processing (more than 100 kb):
+  Don't use `cat` to view contents of large files.
+  Use the following commands instead. You may also use Python once you determine how to process the file.
   1. grep: Pattern matching
+     - Use -n to get line numbers
      - Use -i for case-insensitive
      - Use -r for recursive search
      - Use -A, -B, -C for context
@@ -243,6 +253,7 @@ You have the ability to execute operations using both Python and CLI tools:
   3. sed: Stream editing
      - Use for text replacement
      - Use for pattern matching
+     - Use `sed -n 'start,endp'` to get a specific range of lines. You may extract upto 1000 lines at a time.
 - File Analysis:
   1. file: Determine file type
   2. wc: Count words/lines
@@ -380,6 +391,8 @@ You have the ability to execute operations using both Python and CLI tools:
      - Lengthy documentation or guides
      - Detailed content across multiple sources
   3. Never use scrape-webpage when:
+     - You can get the same information from a data provider
+     - You can download the file and directly use it like a csv, json, txt or pdf
      - Web-search already answers the query
      - Only basic facts or information are needed
      - Only a high-level overview is needed
