@@ -42,6 +42,7 @@ export default function AgentConfigurationPage() {
     system_prompt: '',
     agentpress_tools: {},
     configured_mcps: [],
+    custom_mcps: [],
     is_default: false,
     avatar: '',
     avatar_color: '',
@@ -72,6 +73,7 @@ export default function AgentConfigurationPage() {
         system_prompt: agentData.system_prompt || '',
         agentpress_tools: agentData.agentpress_tools || {},
         configured_mcps: agentData.configured_mcps || [],
+        custom_mcps: agentData.custom_mcps || [],
         is_default: agentData.is_default || false,
         avatar: agentData.avatar || '',
         avatar_color: agentData.avatar_color || '',
@@ -108,7 +110,8 @@ export default function AgentConfigurationPage() {
       return true;
     }
     if (JSON.stringify(newData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools) ||
-        JSON.stringify(newData.configured_mcps) !== JSON.stringify(originalData.configured_mcps)) {
+        JSON.stringify(newData.configured_mcps) !== JSON.stringify(originalData.configured_mcps) ||
+        JSON.stringify(newData.custom_mcps) !== JSON.stringify(originalData.custom_mcps)) {
       return true;
     }
     return false;
@@ -369,7 +372,9 @@ export default function AgentConfigurationPage() {
                     <AccordionContent className="pb-4 overflow-x-hidden">
                       <AgentMCPConfiguration
                         mcps={formData.configured_mcps}
+                        customMcps={formData.custom_mcps}
                         onMCPsChange={(mcps) => handleFieldChange('configured_mcps', mcps)}
+                        onCustomMCPsChange={(customMcps) => handleFieldChange('custom_mcps', customMcps)}
                       />
                     </AccordionContent>
                   </AccordionItem>

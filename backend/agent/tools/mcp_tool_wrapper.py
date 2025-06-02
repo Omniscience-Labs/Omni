@@ -11,6 +11,11 @@ from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema, ToolSc
 from mcp_local.client import MCPManager
 from utils.logger import logger
 import inspect
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp import StdioServerParameters
+import asyncio
 
 
 class MCPToolWrapper(Tool):
@@ -34,26 +39,223 @@ class MCPToolWrapper(Tool):
         self._initialized = False
         self._dynamic_tools = {}
         self._schemas: Dict[str, List[ToolSchema]] = {}
+        self._custom_tools = {}  # Store custom MCP tools separately
         
         # Now initialize the parent class which will call _register_schemas
         super().__init__()
         
     async def _ensure_initialized(self):
-        """Ensure MCP connections are initialized and dynamic tools are created."""
-        if not self._initialized and self.mcp_configs:
-            logger.info(f"Initializing MCP connections for {len(self.mcp_configs)} servers")
+        """Ensure MCP servers are initialized."""
+        if not self._initialized:
+            # Initialize standard MCP servers from Smithery
+            standard_configs = [cfg for cfg in self.mcp_configs if not cfg.get('isCustom', False)]
+            custom_configs = [cfg for cfg in self.mcp_configs if cfg.get('isCustom', False)]
+            
+            # Initialize standard MCPs through MCPManager
+            if standard_configs:
+                for config in standard_configs:
+                    try:
+                        await self.mcp_manager.connect_server(
+                            config['qualifiedName'],
+                            config.get('config', {}),
+                            config.get('enabledTools', [])
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to connect to MCP server {config['qualifiedName']}: {e}")
+            
+            # Initialize custom MCPs directly
+            if custom_configs:
+                await self._initialize_custom_mcps(custom_configs)
+            
+            # Create dynamic tools for all connected servers
+            await self._create_dynamic_tools()
+            self._initialized = True
+    
+    async def _connect_sse_server(self, server_name, server_config, all_tools, timeout):
+        url = server_config["url"]
+        headers = server_config.get("headers", {})
+        
+        async with asyncio.timeout(timeout):
             try:
-                await self.mcp_manager.connect_all(self.mcp_configs)
-                await self._create_dynamic_tools()
-                self._initialized = True
-            except ValueError as e:
-                if "SMITHERY_API_KEY" in str(e):
-                    logger.error("MCP Error: SMITHERY_API_KEY environment variable is not set")
-                    logger.error("To use MCP tools, please:")
-                    logger.error("1. Get your API key from https://smithery.ai")
-                    logger.error("2. Set it as an environment variable: export SMITHERY_API_KEY='your-key-here'")
-                    logger.error("3. Or add it to your .env file: SMITHERY_API_KEY=your-key-here")
-                raise
+                async with sse_client(url, headers=headers) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        tools_result = await session.list_tools()
+                        tools_info = []
+                        for tool in tools_result.tools:
+                            tool_info = {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "input_schema": tool.inputSchema
+                            }
+                            tools_info.append(tool_info)
+                        
+                        all_tools[server_name] = {
+                            "status": "connected",
+                            "transport": "sse",
+                            "url": url,
+                            "tools": tools_info
+                        }
+                        
+                        logger.info(f"  {server_name}: Connected via SSE ({len(tools_info)} tools)")
+            except TypeError as e:
+                if "unexpected keyword argument" in str(e):
+                    async with sse_client(url) as (read, write):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            tools_result = await session.list_tools()
+                            tools_info = []
+                            for tool in tools_result.tools:
+                                tool_info = {
+                                    "name": tool.name,
+                                    "description": tool.description,
+                                    "input_schema": tool.inputSchema
+                                }
+                                tools_info.append(tool_info)
+                            
+                            all_tools[server_name] = {
+                                "status": "connected",
+                                "transport": "sse",
+                                "url": url,
+                                "tools": tools_info
+                            }
+                            logger.info(f"  {server_name}: Connected via SSE ({len(tools_info)} tools)")
+                else:
+                    raise
+
+    async def _connect_stdio_server(self, server_name, server_config, all_tools, timeout):
+        """Connect to a stdio-based MCP server."""
+        server_params = StdioServerParameters(
+            command=server_config["command"],
+            args=server_config.get("args", []),
+            env=server_config.get("env", {})
+        )
+        
+        async with asyncio.timeout(timeout):
+            async with stdio_client(server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools_result = await session.list_tools()
+                    tools_info = []
+                    for tool in tools_result.tools:
+                        tool_info = {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "input_schema": tool.inputSchema
+                        }
+                        tools_info.append(tool_info)
+                    
+                    all_tools[server_name] = {
+                        "status": "connected",
+                        "transport": "stdio",
+                        "tools": tools_info
+                    }
+                    
+                    logger.info(f"  {server_name}: Connected via stdio ({len(tools_info)} tools)")
+
+    async def _initialize_custom_mcps(self, custom_configs):
+        """Initialize custom MCP servers."""
+        for config in custom_configs:
+            try:
+                custom_type = config.get('type', 'sse')
+                server_config = config.get('config', {})
+                enabled_tools = config.get('enabledTools', [])
+                server_name = config.get('name', 'Unknown')
+                
+                logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")
+                
+                if custom_type == 'sse':
+                    if 'url' not in server_config:
+                        logger.error(f"Custom MCP {server_name}: Missing 'url' in config")
+                        continue
+                        
+                    url = server_config['url']
+                    logger.info(f"Initializing custom MCP {url} with SSE type")
+                    
+                    try:
+                        # Use the working connect_sse_server method
+                        all_tools = {}
+                        await self._connect_sse_server(server_name, server_config, all_tools, 15)
+                        
+                        # Process the results
+                        if server_name in all_tools and all_tools[server_name].get('status') == 'connected':
+                            tools_info = all_tools[server_name].get('tools', [])
+                            tools_registered = 0
+                            
+                            for tool_info in tools_info:
+                                tool_name_from_server = tool_info['name']
+                                if not enabled_tools or tool_name_from_server in enabled_tools:
+                                    tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                                    self._custom_tools[tool_name] = {
+                                        'name': tool_name,
+                                        'description': tool_info['description'],
+                                        'parameters': tool_info['input_schema'],
+                                        'server': server_name,
+                                        'original_name': tool_name_from_server,
+                                        'is_custom': True,
+                                        'custom_type': custom_type,
+                                        'custom_config': server_config
+                                    }
+                                    tools_registered += 1
+                                    logger.debug(f"Registered custom tool: {tool_name}")
+                            
+                            logger.info(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
+                        else:
+                            logger.error(f"Failed to connect to custom MCP {server_name}")
+                            
+                    except Exception as e:
+                        logger.error(f"Custom MCP {server_name}: Connection failed - {str(e)}")
+                        continue
+                        
+                elif custom_type == 'json':
+                    if 'command' not in server_config:
+                        logger.error(f"Custom MCP {server_name}: Missing 'command' in config")
+                        continue
+                        
+                    logger.info(f"Initializing custom MCP {server_name} with JSON/stdio type")
+                    
+                    try:
+                        # Use the stdio connection method
+                        all_tools = {}
+                        await self._connect_stdio_server(server_name, server_config, all_tools, 15)
+                        
+                        # Process the results
+                        if server_name in all_tools and all_tools[server_name].get('status') == 'connected':
+                            tools_info = all_tools[server_name].get('tools', [])
+                            tools_registered = 0
+                            
+                            for tool_info in tools_info:
+                                tool_name_from_server = tool_info['name']
+                                if not enabled_tools or tool_name_from_server in enabled_tools:
+                                    tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                                    self._custom_tools[tool_name] = {
+                                        'name': tool_name,
+                                        'description': tool_info['description'],
+                                        'parameters': tool_info['input_schema'],
+                                        'server': server_name,
+                                        'original_name': tool_name_from_server,
+                                        'is_custom': True,
+                                        'custom_type': custom_type,
+                                        'custom_config': server_config
+                                    }
+                                    tools_registered += 1
+                                    logger.debug(f"Registered custom tool: {tool_name}")
+                            
+                            logger.info(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
+                        else:
+                            logger.error(f"Failed to connect to custom MCP {server_name}")
+                            
+                    except Exception as e:
+                        logger.error(f"Custom MCP {server_name}: Connection failed - {str(e)}")
+                        continue
+                        
+                else:
+                    logger.error(f"Custom MCP {server_name}: Unsupported type '{custom_type}', supported types are 'sse' and 'json'")
+                    continue
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize custom MCP {config.get('name', 'Unknown')}: {e}")
+                continue
     
     async def initialize_and_register_tools(self, tool_registry=None):
         """Initialize MCP tools and optionally update the tool registry.
@@ -80,6 +282,7 @@ class MCPToolWrapper(Tool):
     async def _create_dynamic_tools(self):
         """Create dynamic tool methods for each available MCP tool."""
         try:
+            # Get standard MCP tools
             available_tools = self.mcp_manager.get_all_tools_openapi()
             
             for tool_info in available_tools:
@@ -87,6 +290,16 @@ class MCPToolWrapper(Tool):
                 if tool_name:
                     # Create a dynamic method for this tool with proper OpenAI schema
                     self._create_dynamic_method(tool_name, tool_info)
+            
+            # Get custom MCP tools
+            for tool_name, tool_info in self._custom_tools.items():
+                # Convert custom tool info to the expected format
+                openapi_tool_info = {
+                    "name": tool_name,
+                    "description": tool_info['description'],
+                    "parameters": tool_info['parameters']
+                }
+                self._create_dynamic_method(tool_name, openapi_tool_info)
                     
             logger.info(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
             
@@ -200,121 +413,143 @@ class MCPToolWrapper(Tool):
         return self.mcp_manager.get_all_tools_openapi()
     
     async def _execute_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
-        """
-        Execute an MCP tool call (internal implementation).
+        """Execute an MCP tool call."""
+        await self._ensure_initialized()
         
-        Args:
-            tool_name: The MCP tool name (e.g., "mcp_exa_web_search_exa")
-            arguments: The arguments to pass to the tool
-            
-        Returns:
-            ToolResult with the tool execution result
-        """
         try:
-            # Ensure MCP connections are initialized
-            await self._ensure_initialized()
-            
-            logger.info(f"Executing MCP tool {tool_name} with args: {arguments}")
-            
-            # Parse arguments if they're provided as a JSON string
-            if isinstance(arguments, str):
-                try:
-                    arguments = json.loads(arguments)
-                except json.JSONDecodeError as e:
-                    return self.fail_response(f"Invalid JSON in arguments: {str(e)}")
-            
-            # Execute the tool through MCP manager
-            result = await self.mcp_manager.execute_tool(tool_name, arguments)
-            
-            # Parse tool name to extract server and tool info for metadata
-            parts = tool_name.split("_", 2)
-            server_name = parts[1] if len(parts) > 1 else "unknown"
-            original_tool_name = parts[2] if len(parts) > 2 else tool_name
-            
-            # Check if it's an error
-            if result.get("isError", False):
-                error_result = {
-                    "mcp_metadata": {
-                        "server_name": server_name,
-                        "tool_name": original_tool_name,
-                        "full_tool_name": tool_name,
-                        "arguments_count": len(arguments) if isinstance(arguments, dict) else 0,
-                        "is_mcp_tool": True
-                    },
-                    "content": result.get("content", ""),
-                    "isError": True,
-                    "raw_result": result
-                }
-                return self.fail_response(json.dumps(error_result, indent=2))
-            
-            # Format the result in an LLM-friendly way with content first
-            actual_content = result.get("content", "")
-            
-            # Create a clear, LLM-friendly response that puts the content first
-            llm_friendly_result = f"""MCP Tool Result from {server_name.upper()}:
-
-{actual_content}
-
----
-Tool Metadata: {json.dumps({
-    "server": server_name,
-    "tool": original_tool_name,
-    "full_tool_name": tool_name,
-    "arguments_used": arguments,
-    "is_mcp_tool": True
-}, indent=2)}"""
+            # Check if it's a custom MCP tool first
+            if tool_name in self._custom_tools:
+                tool_info = self._custom_tools[tool_name]
+                return await self._execute_custom_mcp_tool(tool_name, arguments, tool_info)
+            else:
+                # Use standard MCP manager for Smithery servers
+                result = await self.mcp_manager.execute_tool(tool_name, arguments)
                 
-            # Return successful result with LLM-friendly formatting
-            return self.success_response(llm_friendly_result)
-            
-        except ValueError as e:
-            # Handle specific MCP errors (like invalid tool name format)
-            error_msg = str(e)
-            logger.error(f"ValueError executing MCP tool {tool_name}: {error_msg}")
-            
-            # Parse tool name for metadata even in error case
-            parts = tool_name.split("_", 2) if "_" in tool_name else ["", "unknown", "unknown"]
-            server_name = parts[1] if len(parts) > 1 else "unknown"
-            original_tool_name = parts[2] if len(parts) > 2 else "unknown"
-            
-            error_result = {
-                "mcp_metadata": {
-                    "server_name": server_name,
-                    "tool_name": original_tool_name,
-                    "full_tool_name": tool_name,
-                    "arguments_count": len(arguments) if isinstance(arguments, dict) else 0,
-                    "is_mcp_tool": True
-                },
-                "content": error_msg,
-                "isError": True,
-                "error_type": "ValueError"
-            }
-            
-            return self.fail_response(json.dumps(error_result, indent=2))
-            
+                if isinstance(result, dict):
+                    if result.get('isError', False):
+                        return self.fail_response(result.get('content', 'Tool execution failed'))
+                    else:
+                        return self.success_response(result.get('content', result))
+                else:
+                    return self.success_response(result)
+                    
         except Exception as e:
-            error_msg = f"Error executing MCP tool {tool_name}: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"Error executing MCP tool {tool_name}: {str(e)}")
+            return self.fail_response(f"Error executing tool: {str(e)}")
+    
+    async def _execute_custom_mcp_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
+        """Execute a custom MCP tool call."""
+        try:
+            custom_type = tool_info['custom_type']
+            custom_config = tool_info['custom_config']
+            original_tool_name = tool_info['original_name']
             
-            # Parse tool name for metadata even in error case
-            parts = tool_name.split("_", 2) if "_" in tool_name else ["", "unknown", "unknown"]
-            server_name = parts[1] if len(parts) > 1 else "unknown"
-            original_tool_name = parts[2] if len(parts) > 2 else "unknown"
-            
-            error_result = {
-                "mcp_metadata": {
-                    "server_name": server_name,
-                    "tool_name": original_tool_name,
-                    "full_tool_name": tool_name,
-                    "arguments_count": len(arguments) if isinstance(arguments, dict) else 0,
-                    "is_mcp_tool": True
-                },
-                "content": error_msg,
-                "isError": True,
-                "error_type": "Exception"
-            }
-            
-            return self.fail_response(json.dumps(error_result, indent=2))
+            if custom_type == 'sse':
+                # Execute SSE-based custom MCP using the same pattern as _connect_sse_server
+                url = custom_config['url']
+                headers = custom_config.get('headers', {})
+                
+                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                    try:
+                        # Try with headers first (same pattern as _connect_sse_server)
+                        async with sse_client(url, headers=headers) as (read, write):
+                            async with ClientSession(read, write) as session:
+                                await session.initialize()
+                                result = await session.call_tool(original_tool_name, arguments)
+                                
+                                # Handle the result properly
+                                if hasattr(result, 'content'):
+                                    content = result.content
+                                    if isinstance(content, list):
+                                        # Extract text from content list
+                                        text_parts = []
+                                        for item in content:
+                                            if hasattr(item, 'text'):
+                                                text_parts.append(item.text)
+                                            else:
+                                                text_parts.append(str(item))
+                                        content_str = "\n".join(text_parts)
+                                    elif hasattr(content, 'text'):
+                                        content_str = content.text
+                                    else:
+                                        content_str = str(content)
+                                    
+                                    return self.success_response(content_str)
+                                else:
+                                    return self.success_response(str(result))
+                                    
+                    except TypeError as e:
+                        if "unexpected keyword argument" in str(e):
+                            # Fallback: try without headers (exact pattern from _connect_sse_server)
+                            async with sse_client(url) as (read, write):
+                                async with ClientSession(read, write) as session:
+                                    await session.initialize()
+                                    result = await session.call_tool(original_tool_name, arguments)
+                                    
+                                    # Handle the result properly
+                                    if hasattr(result, 'content'):
+                                        content = result.content
+                                        if isinstance(content, list):
+                                            # Extract text from content list
+                                            text_parts = []
+                                            for item in content:
+                                                if hasattr(item, 'text'):
+                                                    text_parts.append(item.text)
+                                                else:
+                                                    text_parts.append(str(item))
+                                            content_str = "\n".join(text_parts)
+                                        elif hasattr(content, 'text'):
+                                            content_str = content.text
+                                        else:
+                                            content_str = str(content)
+                                        
+                                        return self.success_response(content_str)
+                                    else:
+                                        return self.success_response(str(result))
+                        else:
+                            raise
+            elif custom_type == 'json':
+                # Execute stdio-based custom MCP using the same pattern as _connect_stdio_server
+                server_params = StdioServerParameters(
+                    command=custom_config["command"],
+                    args=custom_config.get("args", []),
+                    env=custom_config.get("env", {})
+                )
+                
+                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                    async with stdio_client(server_params) as (read, write):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            result = await session.call_tool(original_tool_name, arguments)
+                            
+                            # Handle the result properly
+                            if hasattr(result, 'content'):
+                                content = result.content
+                                if isinstance(content, list):
+                                    # Extract text from content list
+                                    text_parts = []
+                                    for item in content:
+                                        if hasattr(item, 'text'):
+                                            text_parts.append(item.text)
+                                        else:
+                                            text_parts.append(str(item))
+                                    content_str = "\n".join(text_parts)
+                                elif hasattr(content, 'text'):
+                                    content_str = content.text
+                                else:
+                                    content_str = str(content)
+                                
+                                return self.success_response(content_str)
+                            else:
+                                return self.success_response(str(result))
+            else:
+                return self.fail_response(f"Unsupported custom MCP type: {custom_type}")
+                                
+        except asyncio.TimeoutError:
+            return self.fail_response(f"Tool execution timeout for {tool_name}")
+        except Exception as e:
+            logger.error(f"Error executing custom MCP tool {tool_name}: {str(e)}")
+            return self.fail_response(f"Error executing custom tool: {str(e)}")
     
     # Keep the original call_mcp_tool method as a fallback
     @openapi_schema({

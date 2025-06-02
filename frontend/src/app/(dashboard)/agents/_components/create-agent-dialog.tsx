@@ -17,6 +17,7 @@ interface AgentCreateRequest {
   description: string;
   system_prompt: string;
   configured_mcps: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
+  custom_mcps?: Array<{ name: string; type: 'json' | 'sse'; config: any; enabledTools: string[] }>;
   agentpress_tools: Record<string, { enabled: boolean; description: string }>;
   is_default: boolean;
 }
@@ -34,6 +35,7 @@ const initialFormData: AgentCreateRequest = {
   description: '',
   system_prompt: 'Describe the agent\'s role, behavior, and expertise...',
   configured_mcps: [],
+  custom_mcps: [],
   agentpress_tools: Object.fromEntries(
     Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
       key, 
@@ -78,7 +80,17 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
   };
 
   const handleMCPConfigurationChange = (mcps: any[]) => {
-    handleInputChange('configured_mcps', mcps);
+    // Separate standard and custom MCPs
+    const standardMcps = mcps.filter(mcp => !mcp.isCustom);
+    const customMcps = mcps.filter(mcp => mcp.isCustom).map(mcp => ({
+      name: mcp.name,
+      type: mcp.customType as 'json' | 'sse',
+      config: mcp.config,
+      enabledTools: mcp.enabledTools || []
+    }));
+    
+    handleInputChange('configured_mcps', standardMcps);
+    handleInputChange('custom_mcps', customMcps);
   };
 
   const getSelectedToolsCount = (): number => {
