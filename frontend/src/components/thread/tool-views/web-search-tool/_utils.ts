@@ -52,16 +52,6 @@ const extractFromNewFormat = (content: any): WebSearchData => {
       success: toolExecution.result?.success,
       timestamp: toolExecution.execution_details?.timestamp
     };
-
-    console.log('WebSearchToolView: Extracted from new format:', {
-      query: extractedData.query,
-      resultsCount: extractedData.results.length,
-      hasAnswer: !!extractedData.answer,
-      imagesCount: extractedData.images.length,
-      success: extractedData.success,
-      firstResult: extractedData.results[0]
-    });
-    
     return extractedData;
   }
 

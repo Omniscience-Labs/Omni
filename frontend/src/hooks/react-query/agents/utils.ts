@@ -12,6 +12,12 @@ export type Agent = {
     name: string;
     config: Record<string, any>;
   }>;
+  custom_mcps?: Array<{
+    name: string;
+    type: 'json' | 'sse';
+    config: Record<string, any>;
+    enabledTools: string[];
+  }>;
   agentpress_tools: Record<string, any>;
   is_default: boolean;
   is_public?: boolean;
@@ -62,6 +68,12 @@ export type AgentCreateRequest = {
     name: string;
     config: Record<string, any>;
   }>;
+  custom_mcps?: Array<{
+    name: string;
+    type: 'json' | 'sse';
+    config: Record<string, any>;
+    enabledTools: string[];
+  }>;
   agentpress_tools?: Record<string, any>;
   is_default?: boolean;
 };
@@ -73,6 +85,12 @@ export type AgentUpdateRequest = {
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
+  }>;
+  custom_mcps?: Array<{
+    name: string;
+    type: 'json' | 'sse';
+    config: Record<string, any>;
+    enabledTools: string[];
   }>;
   agentpress_tools?: Record<string, any>;
   is_default?: boolean;

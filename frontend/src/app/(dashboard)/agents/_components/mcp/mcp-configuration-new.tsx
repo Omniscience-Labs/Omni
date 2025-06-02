@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings, Zap } from 'lucide-react';
+import { Plus, Settings, Zap, Code2, Server } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
 import { BrowseDialog } from './browse-dialog';
 import { ConfigDialog } from './config-dialog';
+import { CustomMCPDialog } from './custom-mcp-dialog';
 
 export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,
   onConfigurationChange,
 }) => {
   const [showBrowseDialog, setShowBrowseDialog] = useState(false);
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [configuringServer, setConfiguringServer] = useState<any>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -23,6 +25,12 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
 
   const handleEditMCP = (index: number) => {
     const mcp = configuredMCPs[index];
+    // Check if it's a custom MCP
+    if (mcp.isCustom) {
+      // For custom MCPs, we'll need to handle editing differently
+      // For now, just remove and re-add
+      return;
+    }
     setConfiguringServer({
       qualifiedName: mcp.qualifiedName,
       displayName: mcp.name,
@@ -38,15 +46,36 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   const handleSaveConfiguration = (config: MCPConfigurationType) => {
+    const regularMCPConfig = {
+      ...config,
+      isCustom: false,
+      customType: undefined
+    };
+    
     if (editingIndex !== null) {
       const newMCPs = [...configuredMCPs];
-      newMCPs[editingIndex] = config;
+      newMCPs[editingIndex] = regularMCPConfig;
       onConfigurationChange(newMCPs);
     } else {
-      onConfigurationChange([...configuredMCPs, config]);
+      onConfigurationChange([...configuredMCPs, regularMCPConfig]);
     }
     setConfiguringServer(null);
     setEditingIndex(null);
+  };
+
+  const handleSaveCustomMCP = (customConfig: any) => {
+    console.log('Saving custom MCP config:', customConfig);
+    const mcpConfig: MCPConfigurationType = {
+      name: customConfig.name,
+      qualifiedName: `custom_${customConfig.type}_${Date.now()}`,
+      config: customConfig.config,
+      enabledTools: customConfig.enabledTools,
+      isCustom: true,
+      customType: customConfig.type as 'http' | 'sse'
+    };
+    console.log('Transformed MCP config:', mcpConfig);
+    onConfigurationChange([...configuredMCPs, mcpConfig]);
+    console.log('Updated MCPs list:', [...configuredMCPs, mcpConfig]);
   };
 
   return (
@@ -73,16 +102,28 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
               )}
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setShowBrowseDialog(true)}
-            className="transition-all duration-200"
-          >
-            <Plus className="h-4 w-4" />
-            Add Server
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowCustomDialog(true)}
+              className="transition-all duration-200"
+            >
+              <Server className="h-4 w-4" />
+              Custom
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowBrowseDialog(true)}
+              className="transition-all duration-200"
+            >
+              <Plus className="h-4 w-4" />
+              Browse
+            </Button>
+          </div>
         </div>
       </div>
+      
       {configuredMCPs.length === 0 && (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
@@ -116,6 +157,11 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
         open={showBrowseDialog}
         onOpenChange={setShowBrowseDialog}
         onServerSelect={handleAddMCP}
+      />
+      <CustomMCPDialog
+        open={showCustomDialog}
+        onOpenChange={setShowCustomDialog}
+        onSave={handleSaveCustomMCP}
       />
       {configuringServer && (
         <Dialog open={!!configuringServer} onOpenChange={() => setConfiguringServer(null)}>

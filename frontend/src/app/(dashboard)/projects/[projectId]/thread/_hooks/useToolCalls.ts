@@ -205,20 +205,15 @@ export function useToolCalls(
       }
     });
 
-    // Update the ref with the new mapping
     assistantMessageToToolIndex.current = messageIdToIndex;
     setToolCalls(historicalToolPairs);
 
-    // Auto-navigation logic
     if (historicalToolPairs.length > 0) {
-      // If agent is running and user hasn't manually navigated, always show the last tool
       if (agentStatus === 'running' && !userNavigatedRef.current) {
         setCurrentToolIndex(historicalToolPairs.length - 1);
       } else if (isSidePanelOpen && !userClosedPanelRef.current && !userNavigatedRef.current) {
-        // If panel is open and user hasn't manually navigated, jump to latest
         setCurrentToolIndex(historicalToolPairs.length - 1);
       } else if (!isSidePanelOpen && !autoOpenedPanel && !userClosedPanelRef.current) {
-        // Auto-open the panel only the first time tools are detected
         setCurrentToolIndex(historicalToolPairs.length - 1);
         setIsSidePanelOpen(true);
         setAutoOpenedPanel(true);

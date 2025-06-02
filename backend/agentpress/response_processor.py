@@ -1712,36 +1712,35 @@ class ResponseProcessor:
             }
         }
 
-        structured_result_v2 = {
-            "tool_execution": {
-                "function_name": function_name,
-                "xml_tag_name": xml_tag_name,
-                "tool_call_id": tool_call_id,
-                "arguments": arguments,
-                "result": {
-                    "success": result.success if hasattr(result, 'success') else True,
-                    "output": output,  # Now properly structured for frontend
-                    "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
-                },
-                "execution_details": {
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "parsing_details": parsing_details
-                }
-            }
-        }
+        # STRUCTURED_OUTPUT_TOOLS = {
+        #     "str_replace", 
+        #     "get_data_provider_endpoints",
+        # }
+
+        # summary_output = result.output if hasattr(result, 'output') else str(result)
         
-        # For backwards compatibility with LLM, also include a human-readable summary
-        # Use the original string output for the summary to avoid complex object representation
+        # if xml_tag_name:
+        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
+        #     summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
+        # else:
+        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
+        #     summary = f"Function '{function_name}' {status}. Output: {summary_output}"
+        
+        # if self.is_agent_builder:
+        #     return summary
+        # if function_name in STRUCTURED_OUTPUT_TOOLS:
+        #     return structured_result_v1
+        # else:
+        #     return summary
+
         summary_output = result.output if hasattr(result, 'output') else str(result)
         success_status = structured_result_v1["tool_execution"]["result"]["success"]
         
         # Create a more comprehensive summary for the LLM
         if xml_tag_name:
-            # For XML tools, create a readable summary
             status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
             summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
         else:
-            # For native tools, create a readable summary
             status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
             summary = f"Function '{function_name}' {status}. Output: {summary_output}"
         
@@ -1750,8 +1749,9 @@ class ResponseProcessor:
         elif function_name == "get_data_provider_endpoints":
             logger.info(f"Returning sumnary for data provider call: {summary}")
             return summary
+            
         else:
-            return structured_result_v1
+            return json.dumps(structured_result_v1)
 
     def _format_xml_tool_result(self, tool_call: Dict[str, Any], result: ToolResult) -> str:
         """Format a tool result wrapped in a <tool_result> tag.

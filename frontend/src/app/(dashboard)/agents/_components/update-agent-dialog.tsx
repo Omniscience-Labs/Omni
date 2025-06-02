@@ -19,6 +19,7 @@ interface AgentUpdateRequest {
   description?: string;
   system_prompt?: string;
   configured_mcps?: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
+  custom_mcps?: Array<{ name: string; type: 'json' | 'sse'; config: any; enabledTools: string[] }>;
   agentpress_tools?: Record<string, { enabled: boolean; description: string }>;
   is_default?: boolean;
 }
@@ -65,6 +66,7 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
           config: mcp.config,
           enabledTools: (mcp as any).enabledTools || []
         })),
+        custom_mcps: agent.custom_mcps || [],
         agentpress_tools: agent.agentpress_tools || {},
         is_default: agent.is_default,
       });
@@ -100,7 +102,17 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
   };
 
   const handleMCPConfigurationChange = (mcps: any[]) => {
-    handleInputChange('configured_mcps', mcps);
+    // Separate standard and custom MCPs
+    const standardMcps = mcps.filter(mcp => !mcp.isCustom);
+    const customMcps = mcps.filter(mcp => mcp.isCustom).map(mcp => ({
+      name: mcp.name,
+      type: mcp.customType as 'json' | 'sse',
+      config: mcp.config,
+      enabledTools: mcp.enabledTools || []
+    }));
+    
+    handleInputChange('configured_mcps', standardMcps);
+    handleInputChange('custom_mcps', customMcps);
   };
 
   const getAllAgentPressTools = () => {
@@ -349,7 +361,14 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
 
                 <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
                   <MCPConfigurationNew
-                    configuredMCPs={formData.configured_mcps || []}
+                    configuredMCPs={[...(formData.configured_mcps || []), ...(formData.custom_mcps || []).map(customMcp => ({
+                      name: customMcp.name,
+                      qualifiedName: `custom_${customMcp.type}_${customMcp.name.replace(' ', '_').toLowerCase()}`,
+                      config: customMcp.config,
+                      enabledTools: customMcp.enabledTools,
+                      isCustom: true,
+                      customType: customMcp.type
+                    }))]}
                     onConfigurationChange={handleMCPConfigurationChange}
                   />
                 </TabsContent>

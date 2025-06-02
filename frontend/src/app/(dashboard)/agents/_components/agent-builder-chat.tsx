@@ -393,7 +393,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
         </div>
       </div>
 
-      <div className="flex-shrink-0 md:pb-4 md:px-12">
+      <div className="flex-shrink-0 md:pb-4 md:px-12 px-4">
         <ChatInput
             ref={chatInputRef}
             onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
