@@ -186,7 +186,6 @@ class ResponseProcessor:
             __sequence = 0
 
             async for chunk in llm_response:
-                # 🔥🔥🔥 Debug: Show entire raw chunk structure                
                 # Extract streaming metadata from chunks
                 current_time = datetime.now(timezone.utc).timestamp()
                 if streaming_metadata["first_chunk_time"] is None:
@@ -199,8 +198,6 @@ class ResponseProcessor:
                 if hasattr(chunk, 'model') and chunk.model:
                     streaming_metadata["model"] = chunk.model
                 if hasattr(chunk, 'usage') and chunk.usage:
-                    # 🔥🔥🔥 Debug: Show raw usage data from chunk
-                    logger.info(f"🔥🔥🔥 Raw chunk usage data: {chunk.usage}")
                     # Update usage information if available (including zero values)
                     if hasattr(chunk.usage, 'prompt_tokens') and chunk.usage.prompt_tokens is not None:
                         streaming_metadata["usage"]["prompt_tokens"] = chunk.usage.prompt_tokens
@@ -355,7 +352,6 @@ class ResponseProcessor:
 
             # --- After Streaming Loop ---
             
-            # 🔥🔥🔥 Fallback: Estimate tokens if no usage data was captured from streaming
             if (
                 streaming_metadata["usage"]["total_tokens"] == 0
             ):
