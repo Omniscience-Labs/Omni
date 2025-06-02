@@ -239,6 +239,9 @@ async def run_agent_background(
         # Remove the instance-specific active run key
         await _cleanup_redis_instance_key(agent_run_id)
 
+        # Wait for 5 seconds for any pending redis operations to complete
+        await asyncio.sleep(5)
+
         logger.info(f"Agent run background task fully completed for: {agent_run_id} (Instance: {instance_id}) with final status: {final_status}")
 
 async def _cleanup_redis_instance_key(agent_run_id: str):
