@@ -36,4 +36,4 @@ langfuse>=2.60.5
 Pillow>=10.0.0
 sentry-sdk[fastapi]>=2.29.1
 email-validator>=2.0.0
-mailtrap>=3.0.0
+mailtrap>=2.0.1
