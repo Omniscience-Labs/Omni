@@ -443,21 +443,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             key: `assistant-group-${assistantGroupCounter}-streaming`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {
-                                        // Add to existing assistant group - but don't add if it's already there
-                                        const hasStreamingContent = lastGroup.messages.some(msg => msg.message_id === 'streamingTextContent');
-                                        if (!hasStreamingContent) {
-                                            lastGroup.messages.push({
-                                                content: streamingTextContent,
-                                                type: 'assistant',
-                                                message_id: 'streamingTextContent',
-                                                metadata: 'streamingTextContent',
-                                                created_at: new Date().toISOString(),
-                                                updated_at: new Date().toISOString(),
-                                                is_llm_message: true,
-                                                thread_id: 'streamingTextContent',
-                                                sequence: Infinity,
-                                            });
-                                        }
+                                        lastGroup.messages.push({
+                                            content: streamingTextContent,
+                                            type: 'assistant',
+                                            message_id: 'streamingTextContent',
+                                            metadata: 'streamingTextContent',
+                                            created_at: new Date().toISOString(),
+                                            updated_at: new Date().toISOString(),
+                                            is_llm_message: true,
+                                            thread_id: 'streamingTextContent',
+                                            sequence: Infinity,
+                                        });
                                     }
                                 }
 
@@ -574,7 +570,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                     if (message.type === 'assistant') {
                                                                         const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
                                                                         const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
-
+                                                                        let assistantMessageCount = 0; 
+                                                                        
                                                                         if (!parsedContent.content) return;
 
                                                                         const renderedContent = renderMarkdownContent(
@@ -588,7 +585,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         );
 
                                                                         elements.push(
-                                                                            <div key={msgKey} className={elements.length > 0 ? "mt-4" : ""}>
+                                                                            <div key={msgKey} className={assistantMessageCount > 0 ? "mt-4" : ""}>
                                                                                 <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                     {renderedContent}
                                                                                 </div>
