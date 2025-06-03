@@ -53,6 +53,20 @@ class ThreadManager:
         )
         self.context_manager = ContextManager()
 
+    def _is_tool_result_message(self, msg: Dict[str, Any]) -> bool:
+        if not ("content" in msg and msg['content']):
+            return False
+        content = msg['content']
+        if isinstance(content, str) and "ToolResult" in content: return True
+        if isinstance(content, dict) and "tool_execution" in content: return True
+        if isinstance(content, str):
+            try:
+                parsed_content = json.loads(content)
+                if isinstance(parsed_content, dict) and "tool_execution" in parsed_content: return True
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return False
+
     def add_tool(self, tool_class: Type[Tool], function_names: Optional[List[str]] = None, **kwargs):
         """Add a tool to the ThreadManager."""
         self.tool_registry.register_tool(tool_class, function_names, **kwargs)
@@ -328,7 +342,7 @@ Here are the XML tools available with examples:
                 if uncompressed_total_token_count > (llm_max_tokens or (100 * 1000)):
                     _i = 0 # Count the number of ToolResult messages
                     for msg in reversed(prepared_messages): # Start from the end and work backwards
-                        if "content" in msg and msg['content'] and "ToolResult" in msg['content']: # Only compress ToolResult messages
+                        if self._is_tool_result_message(msg): # Only compress ToolResult messages
                             _i += 1 # Count the number of ToolResult messages
                             msg_token_count = token_counter(messages=[msg]) # Count the number of tokens in the message
                             if msg_token_count > 5000: # If the message is too long
