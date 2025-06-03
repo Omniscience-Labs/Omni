@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
 
 const items = [
     { id: 1, content: "Initializing neural pathways..." },
@@ -33,10 +34,8 @@ export const AgentLoader = () => {
   }, []);
 
   return (
-    <div className="flex-1 space-y-2 w-full h-16 bg-background">
-    <div className="max-w-[90%] animate-shimmer bg-transparent h-full p-0.5 text-sm border rounded-xl shadow-sm relative overflow-hidden">
-        <div className="rounded-md bg-background flex px-5 items-start justify-start h-full relative z-10">
-        <div className="flex flex-col py-5 items-start w-full space-y-3">
+    <div className="flex py-2 items-center w-full">
+      <div>✨</div>
             <AnimatePresence>
             <motion.div
                 key={items[index].id}
@@ -45,13 +44,11 @@ export const AgentLoader = () => {
                 exit={{ y: -20, opacity: 0, filter: "blur(8px)" }}
                 transition={{ ease: "easeInOut" }}
                 style={{ position: "absolute" }}
+                className='ml-7'
             >
-                {items[index].content}
+                <AnimatedShinyText>{items[index].content}</AnimatedShinyText>
             </motion.div>
             </AnimatePresence>
         </div>
-        </div>
-    </div>
-    </div>
   );
 };
