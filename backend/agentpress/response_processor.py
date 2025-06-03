@@ -1747,7 +1747,7 @@ class ResponseProcessor:
             return summary
             
         else:
-            return json.dumps(structured_result_v1)
+            return structured_result_v1
 
     def _format_xml_tool_result(self, tool_call: Dict[str, Any], result: ToolResult) -> str:
         """Format a tool result wrapped in a <tool_result> tag.

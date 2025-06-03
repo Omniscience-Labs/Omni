@@ -421,7 +421,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     groupedMessages.push(currentGroup);
                                 }
 
-                                // Handle streaming content
+                                // Handle streaming content - only add to existing group or create new one if needed
                                 if (streamingTextContent) {
                                     const lastGroup = groupedMessages.at(-1);
                                     if (!lastGroup || lastGroup.type === 'user') {
@@ -443,18 +443,21 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             key: `assistant-group-${assistantGroupCounter}-streaming`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {
-                                        // Add to existing assistant group
-                                        lastGroup.messages.push({
-                                            content: streamingTextContent,
-                                            type: 'assistant',
-                                            message_id: 'streamingTextContent',
-                                            metadata: 'streamingTextContent',
-                                            created_at: new Date().toISOString(),
-                                            updated_at: new Date().toISOString(),
-                                            is_llm_message: true,
-                                            thread_id: 'streamingTextContent',
-                                            sequence: Infinity,
-                                        });
+                                        // Add to existing assistant group - but don't add if it's already there
+                                        const hasStreamingContent = lastGroup.messages.some(msg => msg.message_id === 'streamingTextContent');
+                                        if (!hasStreamingContent) {
+                                            lastGroup.messages.push({
+                                                content: streamingTextContent,
+                                                type: 'assistant',
+                                                message_id: 'streamingTextContent',
+                                                metadata: 'streamingTextContent',
+                                                created_at: new Date().toISOString(),
+                                                updated_at: new Date().toISOString(),
+                                                is_llm_message: true,
+                                                thread_id: 'streamingTextContent',
+                                                sequence: Infinity,
+                                            });
+                                        }
                                     }
                                 }
 
@@ -513,7 +516,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
-                                                    {/* Logo positioned above the message content */}
+                                                    {/* Logo positioned above the message content - ONLY ONCE PER GROUP */}
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center">
                                                             {agentAvatar}
@@ -521,8 +524,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                         <p className='ml-2 text-sm text-muted-foreground'>{agentName ? agentName : 'Suna'}</p>
                                                     </div>
                                                     
-                                                    {/* Message content */}
-                                                    <div className="flex  max-w-[90%] rounded-lg text-sm break-words overflow-hidden">
+                                                    {/* Message content - ALL messages in the group */}
+                                                    <div className="flex max-w-[90%] rounded-lg text-sm break-words overflow-hidden">
                                                         <div className="space-y-2 min-w-0 flex-1">
                                                             {(() => {
                                                                 // In debug mode, just show raw messages content
@@ -566,7 +569,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                 const renderedToolResultIds = new Set<string>();
                                                                 const elements: React.ReactNode[] = [];
-                                                                let assistantMessageCount = 0; // Track assistant messages for spacing
 
                                                                 group.messages.forEach((message, msgIndex) => {
                                                                     if (message.type === 'assistant') {
@@ -586,13 +588,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         );
 
                                                                         elements.push(
-                                                                            <div key={msgKey} className={assistantMessageCount > 0 ? "mt-2" : ""}>
+                                                                            <div key={msgKey} className={elements.length > 0 ? "mt-4" : ""}>
                                                                                 <div className="prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-hidden">
                                                                                     {renderedContent}
                                                                                 </div>
                                                                             </div>
                                                                         );
-                                                                        assistantMessageCount++;
                                                                     }
                                                                 });
 
