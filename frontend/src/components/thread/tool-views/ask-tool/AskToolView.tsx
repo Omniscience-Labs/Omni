@@ -35,7 +35,7 @@ export function AskToolView({
   onFileClick,
   project,
 }: AskToolViewProps) {
-  
+
   const {
     text,
     attachments,
@@ -190,12 +190,7 @@ export function AskToolView({
                     })}
                 </div>
 
-                {actualAssistantTimestamp && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {formatTimestamp(actualAssistantTimestamp)}
-                  </div>
-                )}
+
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
