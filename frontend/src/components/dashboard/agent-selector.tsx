@@ -15,6 +15,7 @@ import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { CreateAgentDialog } from '@/app/(dashboard)/agents/_components/create-agent-dialog';
+import { useFeatureFlags } from '@/lib/feature-flags';
 
 interface AgentSelectorProps {
   onAgentSelect?: (agentId: string | undefined) => void;
@@ -27,13 +28,17 @@ export function AgentSelector({
   onAgentSelect, 
   selectedAgentId, 
   className,
-  variant = 'default'
+  variant = 'default',
 }: AgentSelectorProps) {
   const { data: agentsResponse, isLoading, refetch: loadAgents } = useAgents({
     limit: 100,
     sort_by: 'name',
     sort_order: 'asc'
   });
+
+  
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents']);
+  const customAgentsEnabled = flags.custom_agents;
   
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -68,6 +73,18 @@ export function AgentSelector({
     onAgentSelect?.(undefined);
     setIsOpen(false);
   };
+
+  if (!customAgentsEnabled) {
+    if (variant === 'heading') {
+      return (
+        <div className={cn("flex items-center", className)}>
+          <span className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+            Suna
+          </span>
+        </div>
+      );
+    }
+  }
 
   if (isLoading) {
     if (variant === 'heading') {

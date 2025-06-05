@@ -82,7 +82,7 @@ export function SidebarSearch() {
         threadId: thread.thread_id,
         projectId: projectId,
         projectName: project.name || 'Unnamed Project',
-        url: `/agents/${thread.thread_id}`,
+        url: `/projects/${projectId}/thread/${thread.thread_id}`,
         updatedAt:
           thread.updated_at || project.updated_at || new Date().toISOString(),
       });

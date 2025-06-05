@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from agent import api as agent_api
 from sandbox import api as sandbox_api
 from services import billing as billing_api
+from flags import api as feature_flags_api
 from services import transcription as transcription_api
 from services.mcp_custom import discover_custom_tools
 import sys
@@ -131,6 +132,8 @@ app.include_router(agent_api.router, prefix="/api")
 app.include_router(sandbox_api.router, prefix="/api")
 
 app.include_router(billing_api.router, prefix="/api")
+
+app.include_router(feature_flags_api.router, prefix="/api")
 
 from mcp_local import api as mcp_api
 

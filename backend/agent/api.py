@@ -22,6 +22,7 @@ from sandbox.sandbox import create_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
 from utils.constants import MODEL_NAME_ALIASES
+from flags.flags import is_enabled
 
 # Initialize shared resources
 router = APIRouter()
@@ -1046,6 +1047,12 @@ async def initiate_agent_with_files(
         # TODO: Clean up created project/thread if initiation fails mid-way
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
 
+
+
+# Custom agents
+
+
+
 @router.get("/agents", response_model=AgentsResponse)
 async def get_agents(
     user_id: str = Depends(get_current_user_id_from_jwt),
@@ -1060,6 +1067,11 @@ async def get_agents(
     tools: Optional[str] = Query(None, description="Comma-separated list of tools to filter by")
 ):
     """Get agents for the current user with pagination, search, sort, and filter support."""
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
     logger.info(f"Fetching agents for user: {user_id} with page={page}, limit={limit}, search='{search}', sort_by={sort_by}, sort_order={sort_order}")
     client = await db.client
     
@@ -1221,6 +1233,12 @@ async def get_agents(
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get a specific agent by ID. Only the owner can access non-public agents."""
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
     logger.info(f"Fetching agent {agent_id} for user: {user_id}")
     client = await db.client
     
@@ -1270,6 +1288,11 @@ async def create_agent(
 ):
     """Create a new agent."""
     logger.info(f"Creating new agent for user: {user_id}")
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
     client = await db.client
     
     try:
@@ -1337,6 +1360,11 @@ async def update_agent(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Update an existing agent."""
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
     logger.info(f"Updating agent {agent_id} for user: {user_id}")
     client = await db.client
     
@@ -1428,6 +1456,11 @@ async def update_agent(
 @router.delete("/agents/{agent_id}")
 async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
     """Delete an agent."""
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
     logger.info(f"Deleting agent: {agent_id}")
     client = await db.client
     
@@ -1490,6 +1523,12 @@ async def get_marketplace_agents(
     creator: Optional[str] = Query(None, description="Filter by creator name")
 ):
     """Get public agents from the marketplace with pagination, search, sort, and filter support."""
+    if not await is_enabled("agent_marketplace"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
+    
     logger.info(f"Fetching marketplace agents with page={page}, limit={limit}, search='{search}', tags='{tags}', sort_by={sort_by}")
     client = await db.client
     
@@ -1556,6 +1595,12 @@ async def publish_agent_to_marketplace(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Publish an agent to the marketplace."""
+    if not await is_enabled("agent_marketplace"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
+    
     logger.info(f"Publishing agent {agent_id} to marketplace")
     client = await db.client
     
@@ -1595,6 +1640,12 @@ async def unpublish_agent_from_marketplace(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Unpublish an agent from the marketplace."""
+    if not await is_enabled("agent_marketplace"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
+    
     logger.info(f"Unpublishing agent {agent_id} from marketplace")
     client = await db.client
     
@@ -1629,6 +1680,12 @@ async def add_agent_to_library(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Add an agent from the marketplace to user's library."""
+    if not await is_enabled("agent_marketplace"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
+
     logger.info(f"Adding marketplace agent {agent_id} to user {user_id} library")
     client = await db.client
     
@@ -1660,6 +1717,12 @@ async def add_agent_to_library(
 @router.get("/user/agent-library")
 async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get user's agent library (agents added from marketplace)."""
+    if not await is_enabled("agent_marketplace"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agent currently disabled. This feature is not available at the moment."
+        )
+
     logger.info(f"Fetching agent library for user {user_id}")
     client = await db.client
     
@@ -1693,6 +1756,12 @@ async def get_agent_builder_chat_history(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get chat history for agent builder sessions for a specific agent."""
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
     logger.info(f"Fetching agent builder chat history for agent: {agent_id}")
     client = await db.client
     
