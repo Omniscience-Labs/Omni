@@ -71,6 +71,12 @@ interface PopularServersV2Response {
   }>>;
   total: number;
   categoryCount: number;
+  pagination: {
+    currentPage: number;
+    pageSize: number;
+    totalPages: number;
+    totalCount: number;
+  };
 }
 
 export const useMCPServers = (query?: string, page: number = 1, pageSize: number = 20) => {
@@ -164,17 +170,22 @@ export const usePopularMCPServers = () => {
   });
 };
 
-export const usePopularMCPServersV2 = () => {
+export const usePopularMCPServersV2 = (page: number = 1, pageSize: number = 200) => {
   const supabase = createClient();
 
   return useQuery({
-    queryKey: ['mcp-servers-popular-v2'],
+    queryKey: ['mcp-servers-popular-v2', page, pageSize],
     queryFn: async (): Promise<PopularServersV2Response> => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No session');
 
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
+
       const response = await fetch(
-        `${API_URL}/mcp/popular-servers/v2`,
+        `${API_URL}/mcp/popular-servers/v2?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,

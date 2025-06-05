@@ -374,7 +374,7 @@ export default function AgentConfigurationPage() {
                     <AccordionTrigger className="hover:no-underline text-sm md:text-base">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
-                        MCP Servers
+                        Integrations (via MCP)
                         <Badge variant='new'>New</Badge>
                       </div>
                     </AccordionTrigger>
