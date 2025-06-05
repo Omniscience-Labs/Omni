@@ -243,7 +243,7 @@ async def run_agent_background(
 
         # Wait for all pending redis operations to complete, with timeout
         try:
-            await asyncio.wait_for(asyncio.gather(*pending_redis_operations), timeout=5.0)
+            await asyncio.wait_for(asyncio.gather(*pending_redis_operations), timeout=30.0)
         except asyncio.TimeoutError:
             logger.warning(f"Timeout waiting for pending Redis operations for {agent_run_id}")
 

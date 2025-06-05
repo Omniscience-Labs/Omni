@@ -357,26 +357,31 @@ class ResponseProcessor:
             ):
                 logger.info("🔥 No usage data from provider, counting with litellm.token_counter")
                 
-                # prompt side
-                prompt_tokens = token_counter(
-                    model=llm_model,
-                    messages=prompt_messages               # chat or plain; token_counter handles both
-                )
+                try:
+                    # prompt side
+                    prompt_tokens = token_counter(
+                        model=llm_model,
+                        messages=prompt_messages               # chat or plain; token_counter handles both
+                    )
 
-                # completion side
-                completion_tokens = token_counter(
-                    model=llm_model,
-                    text=accumulated_content or ""         # empty string safe
-                )
+                    # completion side
+                    completion_tokens = token_counter(
+                        model=llm_model,
+                        text=accumulated_content or ""         # empty string safe
+                    )
 
-                streaming_metadata["usage"]["prompt_tokens"]      = prompt_tokens
-                streaming_metadata["usage"]["completion_tokens"]  = completion_tokens
-                streaming_metadata["usage"]["total_tokens"]       = prompt_tokens + completion_tokens
+                    streaming_metadata["usage"]["prompt_tokens"]      = prompt_tokens
+                    streaming_metadata["usage"]["completion_tokens"]  = completion_tokens
+                    streaming_metadata["usage"]["total_tokens"]       = prompt_tokens + completion_tokens
 
-                logger.info(
-                    f"🔥 Estimated tokens – prompt: {prompt_tokens}, "
-                    f"completion: {completion_tokens}, total: {prompt_tokens + completion_tokens}"
-                )
+                    logger.info(
+                        f"🔥 Estimated tokens – prompt: {prompt_tokens}, "
+                        f"completion: {completion_tokens}, total: {prompt_tokens + completion_tokens}"
+                    )
+                    self.trace.event(name="usage_calculated_with_litellm_token_counter", level="DEFAULT", status_message=(f"Usage calculated with litellm.token_counter"))
+                except Exception as e:
+                    logger.warning(f"Failed to calculate usage: {str(e)}")
+                    self.trace.event(name="failed_to_calculate_usage", level="WARNING", status_message=(f"Failed to calculate usage: {str(e)}"))
 
 
             # Wait for pending tool executions from streaming phase
@@ -1273,7 +1278,7 @@ class ResponseProcessor:
                 "arguments": params              # The extracted parameters
             }
             
-            logger.debug(f"Parsed old format tool call: {tool_call}")
+            logger.debug(f"Parsed old format tool call: {tool_call["function_name"]}")
             return tool_call, parsing_details # Return both dicts
             
         except Exception as e:
