@@ -18,7 +18,7 @@ from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stre
 from utils.logger import logger
 from services.billing import check_billing_status, can_use_model
 from utils.config import config
-from sandbox.sandbox import create_sandbox, get_or_start_sandbox
+from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
 from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
 from utils.constants import MODEL_NAME_ALIASES
@@ -890,7 +890,49 @@ async def initiate_agent_with_files(
         project_id = project.data[0]['project_id']
         logger.info(f"Created new project: {project_id}")
 
-        # 2. Create Thread
+        # 2. Create Sandbox
+        sandbox_id = None
+        try:
+          sandbox_pass = str(uuid.uuid4())
+          sandbox = create_sandbox(sandbox_pass, project_id)
+          sandbox_id = sandbox.id
+          logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
+          
+          # Get preview links
+          vnc_link = sandbox.get_preview_link(6080)
+          website_link = sandbox.get_preview_link(8080)
+          vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+          website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+          token = None
+          if hasattr(vnc_link, 'token'):
+              token = vnc_link.token
+          elif "token='" in str(vnc_link):
+              token = str(vnc_link).split("token='")[1].split("'")[0]
+        except Exception as e:
+            logger.error(f"Error creating sandbox: {str(e)}")
+            await client.table('projects').delete().eq('project_id', project_id).execute()
+            if sandbox_id:
+              try: await delete_sandbox(sandbox_id)
+              except Exception as e: pass
+            raise Exception("Failed to create sandbox")
+
+
+        # Update project with sandbox info
+        update_result = await client.table('projects').update({
+            'sandbox': {
+                'id': sandbox_id, 'pass': sandbox_pass, 'vnc_preview': vnc_url,
+                'sandbox_url': website_url, 'token': token
+            }
+        }).eq('project_id', project_id).execute()
+
+        if not update_result.data:
+            logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
+            if sandbox_id:
+              try: await delete_sandbox(sandbox_id)
+              except Exception as e: logger.error(f"Error deleting sandbox: {str(e)}")
+            raise Exception("Database update failed")
+
+        # 3. Create Thread
         thread_data = {
             "thread_id": str(uuid.uuid4()), 
             "project_id": project_id, 
@@ -917,35 +959,6 @@ async def initiate_agent_with_files(
 
         # Trigger Background Naming Task
         asyncio.create_task(generate_and_update_project_name(project_id=project_id, prompt=prompt))
-
-        # 3. Create Sandbox
-        sandbox_pass = str(uuid.uuid4())
-        sandbox = create_sandbox(sandbox_pass, project_id)
-        sandbox_id = sandbox.id
-        logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
-
-        # Get preview links
-        vnc_link = sandbox.get_preview_link(6080)
-        website_link = sandbox.get_preview_link(8080)
-        vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
-        website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
-        token = None
-        if hasattr(vnc_link, 'token'):
-            token = vnc_link.token
-        elif "token='" in str(vnc_link):
-            token = str(vnc_link).split("token='")[1].split("'")[0]
-
-        # Update project with sandbox info
-        update_result = await client.table('projects').update({
-            'sandbox': {
-                'id': sandbox_id, 'pass': sandbox_pass, 'vnc_preview': vnc_url,
-                'sandbox_url': website_url, 'token': token
-            }
-        }).eq('project_id', project_id).execute()
-
-        if not update_result.data:
-            logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
-            raise Exception("Database update failed")
 
         # 4. Upload Files to Sandbox (if any)
         message_content = prompt
