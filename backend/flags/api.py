@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 from utils.logger import logger
-from flags.flags import list_flags, is_enabled, get_flag_details
+from flags import list_flags, is_enabled, get_flag_details
 
 router = APIRouter()
+
 
 @router.get("/feature-flags")
 async def get_feature_flags():
