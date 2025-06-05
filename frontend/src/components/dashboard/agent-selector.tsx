@@ -15,13 +15,13 @@ import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { CreateAgentDialog } from '@/app/(dashboard)/agents/_components/create-agent-dialog';
+import { useFeatureFlags } from '@/lib/feature-flags';
 
 interface AgentSelectorProps {
   onAgentSelect?: (agentId: string | undefined) => void;
   selectedAgentId?: string;
   className?: string;
   variant?: 'default' | 'heading';
-  customAgentsEnabled?: boolean;
 }
 
 export function AgentSelector({ 
@@ -29,13 +29,16 @@ export function AgentSelector({
   selectedAgentId, 
   className,
   variant = 'default',
-  customAgentsEnabled = true
 }: AgentSelectorProps) {
   const { data: agentsResponse, isLoading, refetch: loadAgents } = useAgents({
     limit: 100,
     sort_by: 'name',
     sort_order: 'asc'
   });
+
+  
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents']);
+  const customAgentsEnabled = flags.custom_agents;
   
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -81,25 +84,6 @@ export function AgentSelector({
         </div>
       );
     }
-    
-    return (
-      <div className={cn("flex items-center gap-2", className)}>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-background">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <div className="flex flex-col items-start">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">Suna</span>
-              <Badge variant="outline" className="text-xs px-1 py-0">
-                Default
-              </Badge>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Your personal AI employee
-            </span>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   if (isLoading) {

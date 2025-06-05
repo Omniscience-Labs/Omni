@@ -1,5 +1,4 @@
 import React from 'react';
-import { createClient } from './supabase/client';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -39,13 +38,10 @@ export class FeatureFlagManager {
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         return cached.value;
       }
-      const supabase = createClient();
-      const { data: { session }} = await supabase.auth.getSession();
       const response = await fetch(`${API_URL}/feature-flags/${flagName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
         },
       });
       if (!response.ok) {
@@ -68,15 +64,11 @@ export class FeatureFlagManager {
   }
   
   async getFlagDetails(flagName: string): Promise<FeatureFlag | null> {
-    const supabase = createClient();
-    const { data: { session }} = await supabase.auth.getSession();
-    
     try {
       const response = await fetch(`${API_URL}/feature-flags/${flagName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
         },
       });
       
@@ -94,9 +86,6 @@ export class FeatureFlagManager {
   }
   
   async getAllFlags(): Promise<Record<string, boolean>> {
-    const supabase = createClient();
-    const { data: { session }} = await supabase.auth.getSession();
-    
     try {
       if (globalFlagsCache && Date.now() - globalFlagsCache.timestamp < CACHE_DURATION) {
         return globalFlagsCache.flags;
@@ -106,7 +95,6 @@ export class FeatureFlagManager {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
         },
       });
       

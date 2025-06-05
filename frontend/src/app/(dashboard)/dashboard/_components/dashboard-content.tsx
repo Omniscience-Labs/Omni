@@ -33,7 +33,7 @@ import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
-export function DashboardContent({ customAgentsEnabled }: { customAgentsEnabled: boolean }) {
+export function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
@@ -198,7 +198,6 @@ export function DashboardContent({ customAgentsEnabled }: { customAgentsEnabled:
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={setSelectedAgentId}
                 variant="heading"
-                customAgentsEnabled={customAgentsEnabled}
               />
             </div>
             <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">

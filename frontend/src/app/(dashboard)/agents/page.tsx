@@ -16,6 +16,7 @@ import { Pagination } from './_components/pagination';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
+import { useFeatureFlags } from '@/lib/feature-flags';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -33,6 +34,7 @@ export default function AgentsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  
   
   // Server-side parameters
   const [page, setPage] = useState(1);

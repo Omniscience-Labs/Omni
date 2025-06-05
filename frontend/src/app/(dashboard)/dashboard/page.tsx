@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isFlagEnabled } from "@/lib/feature-flags";
 
 export default async function DashboardPage() {
-  const customAgentsEnabled = await isFlagEnabled('custom_agents');
   return (
     <Suspense
       fallback={
@@ -26,7 +25,7 @@ export default async function DashboardPage() {
         </div>
       }
     >
-      <DashboardContent customAgentsEnabled={customAgentsEnabled} />
+      <DashboardContent />
     </Suspense>
   );
 }
