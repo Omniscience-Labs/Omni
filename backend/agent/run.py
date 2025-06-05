@@ -101,7 +101,9 @@ async def run_agent(
 
     latest_user_message = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'user').order('created_at', desc=True).limit(1).execute()
     if latest_user_message.data and len(latest_user_message.data) > 0:
-        data = json.loads(latest_user_message.data[0]['content'])
+        data = latest_user_message.data[0]['content']
+        if isinstance(data, str):
+            data = json.loads(data)
         trace.update(input=data['content'])
 
     while continue_execution and iteration_count < max_iterations:
@@ -138,14 +140,16 @@ async def run_agent(
         latest_browser_state_msg = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'browser_state').order('created_at', desc=True).limit(1).execute()
         if latest_browser_state_msg.data and len(latest_browser_state_msg.data) > 0:
             try:
-                browser_content = json.loads(latest_browser_state_msg.data[0]["content"])
+                browser_content = latest_browser_state_msg.data[0]["content"]
+                if isinstance(browser_content, str):
+                    browser_content = json.loads(browser_content)
                 screenshot_base64 = browser_content.get("screenshot_base64")
-                screenshot_url = browser_content.get("screenshot_url")
+                screenshot_url = browser_content.get("image_url")
                 
                 # Create a copy of the browser state without screenshot data
                 browser_state_text = browser_content.copy()
                 browser_state_text.pop('screenshot_base64', None)
-                browser_state_text.pop('screenshot_url', None)
+                browser_state_text.pop('image_url', None)
 
                 if browser_state_text:
                     temp_message_content_list.append({
@@ -159,6 +163,7 @@ async def run_agent(
                         "type": "image_url",
                         "image_url": {
                             "url": screenshot_url,
+                            "format": "image/jpeg"
                         }
                     })
                 elif screenshot_base64:
@@ -180,7 +185,7 @@ async def run_agent(
         latest_image_context_msg = await client.table('messages').select('*').eq('thread_id', thread_id).eq('type', 'image_context').order('created_at', desc=True).limit(1).execute()
         if latest_image_context_msg.data and len(latest_image_context_msg.data) > 0:
             try:
-                image_context_content = json.loads(latest_image_context_msg.data[0]["content"])
+                image_context_content = latest_image_context_msg.data[0]["content"] if isinstance(latest_image_context_msg.data[0]["content"], dict) else json.loads(latest_image_context_msg.data[0]["content"])
                 base64_image = image_context_content.get("base64")
                 mime_type = image_context_content.get("mime_type")
                 file_path = image_context_content.get("file_path", "unknown file")

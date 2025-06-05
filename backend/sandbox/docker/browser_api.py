@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import asyncio
@@ -282,6 +282,7 @@ class BrowserAutomation:
     def __init__(self):
         self.router = APIRouter()
         self.browser: Browser = None
+        self.browser_context: BrowserContext = None
         self.pages: List[Page] = []
         self.current_page_index: int = 0
         self.logger = logging.getLogger("browser_automation")
@@ -341,6 +342,7 @@ class BrowserAutomation:
             
             try:
                 self.browser = await playwright.chromium.launch(**launch_options)
+                self.browser_context = await self.browser.new_context(viewport={'width': 1024, 'height': 768})
                 print("Browser launched successfully")
             except Exception as browser_error:
                 print(f"Failed to launch browser: {browser_error}")
@@ -348,6 +350,7 @@ class BrowserAutomation:
                 print("Retrying with minimal options...")
                 launch_options = {"timeout": 90000}
                 self.browser = await playwright.chromium.launch(**launch_options)
+                self.browser_context = await self.browser.new_context(viewport={'width': 1024, 'height': 768})
                 print("Browser launched with minimal options")
 
             try:
@@ -356,13 +359,20 @@ class BrowserAutomation:
                 self.current_page_index = 0
             except Exception as page_error:
                 print(f"Error finding existing page, creating new one. ( {page_error})")
-                page = await self.browser.new_page(viewport={'width': 1024, 'height': 768})
+                page = await self.browser_context.new_page()
                 print("New page created successfully")
                 self.pages.append(page)
                 self.current_page_index = 0
                 # Navigate directly to google.com instead of about:blank
                 await page.goto("https://www.google.com", wait_until="domcontentloaded", timeout=30000)
                 print("Navigated to google.com")
+            
+            try:
+                self.browser_context.on("page", self.handle_page_created)
+            except Exception as e:
+                print(f"Error setting up page event handler: {e}")
+                traceback.print_exc()
+
                 
                 print("Browser initialization completed successfully")
         except Exception as e:
@@ -372,8 +382,17 @@ class BrowserAutomation:
             
     async def shutdown(self):
         """Clean up browser instance on shutdown"""
+        if self.browser_context:
+            await self.browser_context.close()
         if self.browser:
             await self.browser.close()
+
+    async def handle_page_created(self, page: Page):
+        """Handle new page creation"""
+        await asyncio.sleep(0.5)
+        self.pages.append(page)
+        self.current_page_index = len(self.pages) - 1
+        print(f"Page created: {page.url}; current page index: {self.current_page_index}")
     
     async def get_current_page(self) -> Page:
         """Get the current active page"""
@@ -958,6 +977,7 @@ class BrowserAutomation:
             # Give time for any navigation or DOM updates to occur
             await page.wait_for_load_state("networkidle", timeout=5000)
             
+            await asyncio.sleep(1)
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"click_coordinates({action.x}, {action.y})")
             
@@ -977,6 +997,7 @@ class BrowserAutomation:
             
             # Try to get state even after error
             try:
+                await asyncio.sleep(1)
                 dom_state, screenshot, elements, metadata = await self.get_updated_browser_state("click_coordinates_error_recovery")
                 return self.build_action_result(
                     False,
@@ -1076,7 +1097,7 @@ class BrowserAutomation:
                 await page.wait_for_load_state("networkidle", timeout=5000)
             except Exception as wait_error:
                 print(f"Timeout or error waiting for network idle after click: {wait_error}")
-                await asyncio.sleep(1) # Fallback wait
+            await asyncio.sleep(1)
 
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"click_element({action.index})")
@@ -1161,6 +1182,7 @@ class BrowserAutomation:
                 # Fallback to xpath
                 await page.fill(f"//{element.tag_name}[{action.index}]", action.text)
             
+            await asyncio.sleep(1)
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"input_text({action.index}, '{action.text}')")
             
@@ -1192,6 +1214,7 @@ class BrowserAutomation:
             page = await self.get_current_page()
             await page.keyboard.press(action.keys)
             
+            await asyncio.sleep(1)
             # Get updated state after action
             dom_state, screenshot, elements, metadata = await self.get_updated_browser_state(f"send_keys({action.keys})")
             
@@ -1267,7 +1290,7 @@ class BrowserAutomation:
         try:
             print(f"Attempting to open new tab with URL: {action.url}")
             # Create new page in same browser instance
-            new_page = await self.browser.new_page()
+            new_page = await self.browser_context.new_page()
             print(f"New page created successfully")
             
             # Navigate to the URL

@@ -48,7 +48,7 @@ export function BrowserToolView({
   const [imageError, setImageError] = React.useState(false);
 
   try {
-    const topLevelParsed = safeJsonParse<{ content?: string }>(toolContent, {});
+    const topLevelParsed = safeJsonParse<{ content?: any }>(toolContent, {});
     const innerContentString = topLevelParsed?.content || toolContent;
     if (innerContentString && typeof innerContentString === 'string') {
       const toolResultMatch = innerContentString.match(/ToolResult\([^)]*output='([\s\S]*?)'(?:\s*,|\s*\))/);
@@ -99,7 +99,18 @@ export function BrowserToolView({
           screenshotUrl = finalParsedOutput?.image_url || null;
         }
       }
-    }
+    } else if (innerContentString && typeof innerContentString === "object") {
+        screenshotUrl = (() => {
+          if (!innerContentString) return null;
+          if (!("tool_execution" in innerContentString)) return null;
+          if (!("result" in innerContentString.tool_execution)) return null;
+          if (!("output" in innerContentString.tool_execution.result)) return null;
+          if (!("image_url" in innerContentString.tool_execution.result.output)) return null;
+          if (typeof innerContentString.tool_execution.result.output.image_url !== "string") return null;
+          return innerContentString.tool_execution.result.output.image_url;
+        })()
+      }
+    
   } catch (error) {
   }
 
