@@ -2,14 +2,7 @@
 import sys
 import argparse
 import asyncio
-from flags import (
-    enable_flag,
-    disable_flag,
-    is_enabled,
-    list_flags,
-    delete_flag,
-    get_flag_details
-)
+from flags.flags import enable_flag, disable_flag, is_enabled, list_flags, delete_flag, get_flag_details
 
 async def enable_command(flag_name: str, description: str = ""):
     """Enable a feature flag"""
