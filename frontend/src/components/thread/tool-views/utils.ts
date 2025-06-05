@@ -53,7 +53,7 @@ export function getToolTitle(toolName: string): string {
     'complete': 'Task Complete',
     'execute-data-provider-call': 'Data Provider Call',
     'get-data-provider-endpoints': 'Data Endpoints',
-
+    'deploy': 'Deploy',
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -1231,6 +1231,11 @@ export function getToolComponent(toolName: string): string {
     case 'execute-data-provider-call':
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
+
+
+    //Deploy
+    case 'deploy':
+      return 'DeployToolView';
 
     // Default
     default:
