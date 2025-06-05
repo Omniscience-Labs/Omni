@@ -578,8 +578,8 @@ class ResponseProcessor:
                          logger.info("Stream cost calculation resulted in zero or None, not storing cost message.")
                          self.trace.update(metadata={"cost": 0})
                 except Exception as e:
-                    logger.error(f"Error calculating final cost for stream: {str(e)}")
-                    self.trace.event(name="error_calculating_final_cost_for_stream", level="ERROR", status_message=(f"Error calculating final cost for stream: {str(e)}"))
+                    logger.warning(f"Failed to calculate final cost for stream: {str(e)}")
+                    self.trace.event(name="failed_to_calculate_final_cost_for_stream", level="WARNING", status_message=(f"Failed to calculate final cost for stream: {str(e)}"))
 
 
             # --- Final Finish Status ---
@@ -1069,7 +1069,7 @@ class ResponseProcessor:
                 "arguments": params              # The extracted parameters
             }
             
-            logger.debug(f"Created tool call: {tool_call}")
+            # logger.debug(f"Created tool call: {tool_call}")
             return tool_call, parsing_details # Return both dicts
             
         except Exception as e:
