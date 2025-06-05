@@ -19,7 +19,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   categorizedServers,
 }) => {
   return (
-    <div className="w-76 flex-shrink-0">
+    <div className="w-68 flex-shrink-0">
       <h3 className="text-sm font-semibold mb-3">Categories</h3>
       <ScrollArea className="h-full">
         <div className="space-y-1">
@@ -48,9 +48,6 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
               >
                 <span>{categoryIcons[category] || "🧩"}</span>
                 <span className="flex-1 text-left">{category}</span>
-                <Badge variant="outline" className="ml-auto text-xs">
-                  {count}
-                </Badge>
               </Button>
             );
           })}
