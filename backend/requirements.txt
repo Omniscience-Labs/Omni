@@ -39,3 +39,5 @@ sentry-sdk[fastapi]>=2.29.1
 mcp>=1.0.0
 mcp_use>=1.0.0
 aiohttp>=3.9.0
+email-validator>=2.0.0
+mailtrap>=2.0.1

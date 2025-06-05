@@ -1,4 +1,6 @@
+import { isFlagEnabled } from '@/lib/feature-flags';
 import { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Agent Marketplace | Kortix Suna',
@@ -10,10 +12,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MarketplaceLayout({
+export default async function MarketplaceLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+  if (!marketplaceEnabled) {
+    redirect('/dashboard');
+  }
   return <>{children}</>;
 }

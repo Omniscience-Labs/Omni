@@ -1,5 +1,6 @@
 from typing import List, Optional, Union
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from utils.logger import logger
 
 class MessageTool(Tool):
     """Tool for user communication and interaction.
@@ -68,11 +69,11 @@ This information will help me make sure the cake meets your expectations for the
         Returns:
             ToolResult indicating the question was successfully sent
         """
-        try:
+        try:            
             # Convert single attachment to list for consistent handling
             if attachments and isinstance(attachments, str):
                 attachments = [attachments]
-
+          
             return self.success_response({"status": "Awaiting user response..."})
         except Exception as e:
             return self.fail_response(f"Error asking user: {str(e)}")

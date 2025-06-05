@@ -68,16 +68,16 @@ export function CommandToolView({
       }
     } catch (e) {
     }
-    
+
     processedOutput = String(processedOutput);
     processedOutput = processedOutput.replace(/\\\\/g, '\\');
-    
+
     processedOutput = processedOutput
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
       .replace(/\\"/g, '"')
       .replace(/\\'/g, "'");
-    
+
     processedOutput = processedOutput.replace(/\\u([0-9a-fA-F]{4})/g, (match, group) => {
       return String.fromCharCode(parseInt(group, 16));
     });
@@ -102,13 +102,13 @@ export function CommandToolView({
               </CardTitle>
             </div>
           </div>
-          
+
           {!isStreaming && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={
-                actualIsSuccess 
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                actualIsSuccess
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
@@ -117,8 +117,8 @@ export function CommandToolView({
               ) : (
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               )}
-              {actualIsSuccess ? 
-                (name === 'check-command-output' ? 'Output retrieved successfully' : 'Command executed successfully') : 
+              {actualIsSuccess ?
+                (name === 'check-command-output' ? 'Output retrieved successfully' : 'Command executed successfully') :
                 (name === 'check-command-output' ? 'Failed to retrieve output' : 'Command failed')
               }
             </Badge>
@@ -128,7 +128,7 @@ export function CommandToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <LoadingState 
+          <LoadingState
             icon={Terminal}
             iconColor="text-purple-500 dark:text-purple-400"
             bgColor="bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60 dark:shadow-purple-950/20"
@@ -139,52 +139,12 @@ export function CommandToolView({
         ) : displayText ? (
           <ScrollArea className="h-full w-full">
             <div className="p-4">
-              <div className="mb-4 bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                <div className="bg-zinc-200 dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
-                  <Code className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{displayLabel}</span>
-                  {sessionName && cwd && (
-                    <Badge variant="outline" className="text-xs ml-auto">
-                      {cwd}
-                    </Badge>
-                  )}
-                </div>
-                <div className="p-4 font-mono text-sm text-zinc-700 dark:text-zinc-300 flex gap-2">
-                  <span className="text-purple-500 dark:text-purple-400 select-none">{displayPrefix}</span>
-                  <code className="flex-1 break-all">{displayText}</code>
-                </div>
-              </div>
+
 
               {output && (
                 <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center">
-                      <ArrowRight className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
-                      Output
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {completed !== null && (
-                        <Badge 
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {completed ? 'Completed' : 'Running'}
-                        </Badge>
-                      )}
-                      {exitCode !== null && (
-                        <Badge 
-                          className={cn(
-                            exitCode === 0 
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          )}
-                        >
-                          {exitCode === 0 ? 'Success' : `Exit ${exitCode}`}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
+
+
                   <div className="bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200/20">
                     <div className="bg-zinc-300 dark:bg-neutral-800 flex items-center justify-between dark:border-zinc-700/50">
                       <div className="bg-zinc-200 w-full dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
@@ -201,8 +161,8 @@ export function CommandToolView({
                     <div className="p-4 max-h-96 overflow-auto scrollbar-hide">
                       <pre className="text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-all overflow-visible">
                         {linesToShow.map((line, index) => (
-                          <div 
-                            key={index} 
+                          <div
+                            key={index}
                             className="py-0.5 bg-transparent"
                           >
                             {line || ' '}
@@ -218,7 +178,7 @@ export function CommandToolView({
                   </div>
                 </div>
               )}
-              
+
               {!output && !isStreaming && (
                 <div className="bg-black rounded-lg overflow-hidden border border-zinc-700/20 shadow-md p-6 flex items-center justify-center">
                   <div className="text-center">
@@ -238,7 +198,7 @@ export function CommandToolView({
               {name === 'check-command-output' ? 'No Session Found' : 'No Command Found'}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md">
-              {name === 'check-command-output' 
+              {name === 'check-command-output'
                 ? 'No session name was detected. Please provide a valid session name to check.'
                 : 'No command was detected. Please provide a valid command to execute.'
               }
@@ -246,7 +206,7 @@ export function CommandToolView({
           </div>
         )}
       </CardContent>
-      
+
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && displayText && (
@@ -256,7 +216,7 @@ export function CommandToolView({
             </Badge>
           )}
         </div>
-        
+
         <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5" />
           {actualToolTimestamp && !isStreaming

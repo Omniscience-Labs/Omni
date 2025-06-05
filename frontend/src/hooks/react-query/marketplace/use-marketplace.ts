@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { isFlagEnabled } from '@/lib/feature-flags';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -45,6 +46,11 @@ export function useMarketplaceAgents(params: MarketplaceAgentsParams = {}) {
     queryKey: ['marketplace-agents', params],
     queryFn: async (): Promise<MarketplaceAgentsResponse> => {
       try {
+        const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+        if (!marketplaceEnabled) {
+          throw new Error('Marketplace is not enabled');
+        }
+        
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
@@ -97,6 +103,11 @@ export function useAddAgentToLibrary() {
   return useMutation({
     mutationFn: async (originalAgentId: string): Promise<string> => {
       try {
+        const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+        if (!marketplaceEnabled) {
+          throw new Error('Marketplace is not enabled');
+        }
+        
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
@@ -138,6 +149,11 @@ export function usePublishAgent() {
   return useMutation({
     mutationFn: async ({ agentId, tags = [] }: { agentId: string; tags?: string[] }): Promise<void> => {
       try {
+        const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+        if (!marketplaceEnabled) {
+          throw new Error('Marketplace is not enabled');
+        }
+        
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
@@ -175,6 +191,11 @@ export function useUnpublishAgent() {
   return useMutation({
     mutationFn: async (agentId: string): Promise<void> => {
       try {
+        const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+        if (!marketplaceEnabled) {
+          throw new Error('Marketplace is not enabled');
+        }
+        
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
@@ -211,6 +232,11 @@ export function useUserAgentLibrary() {
     queryKey: ['user-agent-library'],
     queryFn: async () => {
       try {
+        const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
+        if (!marketplaceEnabled) {
+          throw new Error('Marketplace is not enabled');
+        }
+        
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
 
