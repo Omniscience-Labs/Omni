@@ -3,6 +3,30 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
+async function sendWelcomeEmail(email: string, name?: string) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    const response = await fetch(`${backendUrl}/send-welcome-email-background`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        name,
+      }),
+    });
+
+    if (response.ok) {
+      console.log(`Welcome email queued for ${email}`);
+    } else {
+      console.error(`Failed to queue welcome email for ${email}`);
+    }
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+  }
+}
+
 export async function signIn(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
@@ -64,11 +88,16 @@ export async function signUp(prevState: any, formData: FormData) {
     return { message: error.message || 'Could not create account' };
   }
 
-  // Try to sign in immediately
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  const userName = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
+
+  if (signInData) {
+    sendWelcomeEmail(email, userName);
+  }
 
   if (signInError) {
     return {
