@@ -1278,7 +1278,7 @@ class ResponseProcessor:
                 "arguments": params              # The extracted parameters
             }
             
-            logger.debug(f"Parsed old format tool call: {tool_call["function_name"]}")
+            # logger.debug(f"Parsed old format tool call: {tool_call["function_name"]}")
             return tool_call, parsing_details # Return both dicts
             
         except Exception as e:
