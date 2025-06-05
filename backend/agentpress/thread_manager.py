@@ -418,6 +418,7 @@ Here are the XML tools available with examples:
                 logger.error(f"Error in run_thread: {str(e)}", exc_info=True)
                 # Return the error as a dict to be handled by the caller
                 return {
+                    "type": "status",
                     "status": "error",
                     "message": str(e)
                 }
