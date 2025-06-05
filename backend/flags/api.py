@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from utils.logger import logger
-from flags import list_flags, is_enabled, get_flag_details
+from .flags import list_flags, is_enabled, get_flag_details
 
 router = APIRouter()
 
