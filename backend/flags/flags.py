@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
-from services.redis import redis
+from services import redis
 
 logger = logging.getLogger(__name__)
 
