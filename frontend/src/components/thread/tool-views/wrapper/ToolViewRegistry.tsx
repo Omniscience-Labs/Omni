@@ -15,6 +15,7 @@ import { AskToolView } from '../ask-tool/AskToolView';
 import { CompleteToolView } from '../CompleteToolView';
 import { ExecuteDataProviderCallToolView } from '../data-provider-tool/ExecuteDataProviderCallToolView';
 import { DataProviderEndpointsToolView } from '../data-provider-tool/DataProviderEndpointsToolView';
+import { DeployToolView } from '../DeployToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -60,11 +61,13 @@ const defaultRegistry: ToolViewRegistryType = {
   'expose-port': ExposePortToolView,
 
   'see-image': SeeImageToolView,
-  
+
   'call-mcp-tool': GenericToolView,
 
   'ask': AskToolView,
   'complete': CompleteToolView,
+
+  'deploy': DeployToolView,
 
   'default': GenericToolView,
 };
