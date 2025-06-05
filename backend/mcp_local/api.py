@@ -12,14 +12,6 @@ The flow:
 2. Configure MCP servers with credentials and save to agent's configured_mcps
 3. When agent runs, it connects to MCP servers using:
    https://server.smithery.ai/{qualifiedName}/mcp?config={base64_encoded_config}&api_key={smithery_api_key}
-   
-Example MCP configuration stored in agent's configured_mcps:
-{
-    "name": "Exa Search",
-    "qualifiedName": "exa",
-    "config": {"exaApiKey": "user's-exa-api-key"},
-    "enabledTools": ["search", "find_similar"]
-}
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query

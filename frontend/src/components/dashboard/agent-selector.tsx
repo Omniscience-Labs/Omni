@@ -21,13 +21,15 @@ interface AgentSelectorProps {
   selectedAgentId?: string;
   className?: string;
   variant?: 'default' | 'heading';
+  customAgentsEnabled?: boolean;
 }
 
 export function AgentSelector({ 
   onAgentSelect, 
   selectedAgentId, 
   className,
-  variant = 'default'
+  variant = 'default',
+  customAgentsEnabled = true
 }: AgentSelectorProps) {
   const { data: agentsResponse, isLoading, refetch: loadAgents } = useAgents({
     limit: 100,
@@ -68,6 +70,37 @@ export function AgentSelector({
     onAgentSelect?.(undefined);
     setIsOpen(false);
   };
+
+  if (!customAgentsEnabled) {
+    if (variant === 'heading') {
+      return (
+        <div className={cn("flex items-center", className)}>
+          <span className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+            Suna
+          </span>
+        </div>
+      );
+    }
+    
+    return (
+      <div className={cn("flex items-center gap-2", className)}>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-background">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col items-start">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium">Suna</span>
+              <Badge variant="outline" className="text-xs px-1 py-0">
+                Default
+              </Badge>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Your personal AI employee
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     if (variant === 'heading') {
