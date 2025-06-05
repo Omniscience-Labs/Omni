@@ -4,6 +4,7 @@ from flags import list_flags, is_enabled, get_flag_details
 
 router = APIRouter()
 
+
 @router.get("/feature-flags")
 async def get_feature_flags():
     try:
