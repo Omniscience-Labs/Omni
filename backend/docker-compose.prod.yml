@@ -10,7 +10,7 @@ services:
           memory: 32G
 
   worker:
-    command: python -m dramatiq --processes 20 --threads 16 run_agent_background
+    command: python -m dramatiq --processes 10 --threads 32 run_agent_background
     deploy:
       resources:
         limits:
