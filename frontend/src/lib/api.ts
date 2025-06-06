@@ -1247,6 +1247,7 @@ export const listSandboxFiles = async (
     return data.files || [];
   } catch (error) {
     console.error('Failed to list sandbox files:', error);
+    // handleApiError(error, { operation: 'list files', resource: `directory ${path}` });
     throw error;
   }
 };
