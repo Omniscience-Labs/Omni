@@ -243,7 +243,7 @@ export function renderMarkdownContent(
                         {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                     </button>
                 </div>
-            );
+            ); 
         }
         lastIndex = xmlRegex.lastIndex;
     }
