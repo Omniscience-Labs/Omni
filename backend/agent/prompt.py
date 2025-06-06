@@ -63,7 +63,7 @@ You have the ability to execute operations using both Python and CLI tools:
 - Retrieving relevant images related to search queries
 - Getting comprehensive search results with titles, URLs, and snippets
 - Finding recent news, articles, and information beyond training data
-- Scraping webpage content for detailed information extraction when needed
+- Scraping webpage content for detailed information extraction when needed 
 
 ### 2.2.5 BROWSER TOOLS AND CAPABILITIES
 - BROWSER OPERATIONS:
