@@ -50,30 +50,30 @@ export function CompleteToolView({
   const [completeData, setCompleteData] = useState<CompleteContent>({});
   const [progress, setProgress] = useState(0);
 
-  // Extract completion summary and attachments from assistant content
   useEffect(() => {
     if (assistantContent) {
       try {
         const contentStr = normalizeContentToString(assistantContent);
 
-        // Try to extract content from <complete> tag
-        const completeMatch = contentStr.match(/<complete[^>]*>([^<]*)<\/complete>/);
+        let cleanContent = contentStr
+          .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')
+          .replace(/<invoke name="complete"[\s\S]*?<\/invoke>/g, '')
+          .trim();
+
+        const completeMatch = cleanContent.match(/<complete[^>]*>([^<]*)<\/complete>/);
         if (completeMatch) {
           setCompleteData(prev => ({ ...prev, summary: completeMatch[1].trim() }));
-        } else {
-          // Fallback: use the whole content as summary
-          setCompleteData(prev => ({ ...prev, summary: contentStr }));
+        } else if (cleanContent) {
+          setCompleteData(prev => ({ ...prev, summary: cleanContent }));
         }
 
-        // Extract attachments if present
         const attachmentsMatch = contentStr.match(/attachments=["']([^"']*)["']/i);
         if (attachmentsMatch) {
           const attachments = attachmentsMatch[1].split(',').map(a => a.trim()).filter(a => a.length > 0);
           setCompleteData(prev => ({ ...prev, attachments }));
         }
 
-        // Try to extract any task list items
-        const taskMatches = contentStr.match(/- ([^\n]+)/g);
+        const taskMatches = cleanContent.match(/- ([^\n]+)/g);
         if (taskMatches) {
           const tasks = taskMatches.map(task => task.replace('- ', '').trim());
           setCompleteData(prev => ({ ...prev, tasksCompleted: tasks }));
@@ -84,18 +84,14 @@ export function CompleteToolView({
     }
   }, [assistantContent]);
 
-  // Extract result from tool content
   useEffect(() => {
     if (toolContent && !isStreaming) {
       try {
         const contentStr = normalizeContentToString(toolContent);
-
-        // Try to extract from ToolResult pattern
         const toolResultMatch = contentStr.match(/ToolResult\([^)]*output=['"]([^'"]+)['"]/);
         if (toolResultMatch) {
           setCompleteData(prev => ({ ...prev, result: toolResultMatch[1] }));
         } else {
-          // Fallback: use the content directly
           setCompleteData(prev => ({ ...prev, result: contentStr }));
         }
       } catch (e) {
@@ -104,7 +100,6 @@ export function CompleteToolView({
     }
   }, [toolContent, isStreaming]);
 
-  // Simulate progress when streaming
   useEffect(() => {
     if (isStreaming) {
       const timer = setInterval(() => {
