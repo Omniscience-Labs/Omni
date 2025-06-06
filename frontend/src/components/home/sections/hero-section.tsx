@@ -13,9 +13,9 @@ import {
   createProject,
   createThread,
   addUserMessage,
-  startAgent,
   BillingError,
 } from '@/lib/api';
+import { useStartAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
 import { Input } from '@/components/ui/input';
@@ -59,6 +59,7 @@ export function HeroSection() {
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
+  const startAgentMutation = useStartAgentMutation();
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -123,20 +124,16 @@ export function HeroSection() {
         description: '',
       });
 
-      // 2. Create a new thread for this project
       const thread = await createThread(newAgent.id);
-
-      // 3. Add the user message to the thread
       await addUserMessage(thread.thread_id, inputValue.trim());
-
-      // 4. Start the agent with the thread ID
-      await startAgent(thread.thread_id, {
-        stream: true,
+      await startAgentMutation.mutateAsync({
+        threadId: thread.thread_id,
+        options: {
+          model_name: 'openrouter/deepseek/deepseek-chat',
+          stream: true,
+        },
       });
-
-      // 5. Navigate to the new agent's thread page
-      router.push(`/agents/${thread.thread_id}`);
-      // Clear input on success
+      router.push(`/projects/${newAgent.id}/thread/${thread.thread_id}`);
       setInputValue('');
     } catch (error: any) {
       console.error('Error creating agent:', error);
