@@ -18,7 +18,7 @@ import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
 
-// Define the set of tags whose raw XML should be hidden during streaming
+// Define the set of  tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-command',
     'create-file',
@@ -421,13 +421,49 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     groupedMessages.push(currentGroup);
                                 }
 
+                                // Merge consecutive assistant groups
+                                const mergedGroups: MessageGroup[] = [];
+                                let currentMergedGroup: MessageGroup | null = null;
+
+                                groupedMessages.forEach((group, index) => {
+                                    if (group.type === 'assistant_group') {
+                                        if (currentMergedGroup && currentMergedGroup.type === 'assistant_group') {
+                                            // Merge with the current group
+                                            currentMergedGroup.messages.push(...group.messages);
+                                        } else {
+                                            // Finalize previous group if it exists
+                                            if (currentMergedGroup) {
+                                                mergedGroups.push(currentMergedGroup);
+                                            }
+                                            // Start new merged group
+                                            currentMergedGroup = { ...group };
+                                        }
+                                    } else {
+                                        // Finalize current merged group if it exists
+                                        if (currentMergedGroup) {
+                                            mergedGroups.push(currentMergedGroup);
+                                            currentMergedGroup = null;
+                                        }
+                                        // Add non-assistant group as-is
+                                        mergedGroups.push(group);
+                                    }
+                                });
+
+                                // Finalize any remaining merged group
+                                if (currentMergedGroup) {
+                                    mergedGroups.push(currentMergedGroup);
+                                }
+
+                                // Use merged groups instead of original grouped messages
+                                const finalGroupedMessages = mergedGroups;
+
                                 // Handle streaming content - only add to existing group or create new one if needed
                                 if (streamingTextContent) {
-                                    const lastGroup = groupedMessages.at(-1);
+                                    const lastGroup = finalGroupedMessages.at(-1);
                                     if (!lastGroup || lastGroup.type === 'user') {
                                         // Create new assistant group for streaming content
                                         assistantGroupCounter++;
-                                        groupedMessages.push({
+                                        finalGroupedMessages.push({
                                             type: 'assistant_group',
                                             messages: [{
                                                 content: streamingTextContent,
@@ -443,21 +479,25 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             key: `assistant-group-${assistantGroupCounter}-streaming`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {
-                                        lastGroup.messages.push({
-                                            content: streamingTextContent,
-                                            type: 'assistant',
-                                            message_id: 'streamingTextContent',
-                                            metadata: 'streamingTextContent',
-                                            created_at: new Date().toISOString(),
-                                            updated_at: new Date().toISOString(),
-                                            is_llm_message: true,
-                                            thread_id: 'streamingTextContent',
-                                            sequence: Infinity,
-                                        });
+                                        // Only add streaming content if it's not already represented in the last message
+                                        const lastMessage = lastGroup.messages[lastGroup.messages.length - 1];
+                                        if (lastMessage.message_id !== 'streamingTextContent') {
+                                            lastGroup.messages.push({
+                                                content: streamingTextContent,
+                                                type: 'assistant',
+                                                message_id: 'streamingTextContent',
+                                                metadata: 'streamingTextContent',
+                                                created_at: new Date().toISOString(),
+                                                updated_at: new Date().toISOString(),
+                                                is_llm_message: true,
+                                                thread_id: 'streamingTextContent',
+                                                sequence: Infinity,
+                                            });
+                                        }
                                     }
                                 }
 
-                                return groupedMessages.map((group, groupIndex) => {
+                                return finalGroupedMessages.map((group, groupIndex) => {
                                     if (group.type === 'user') {
                                         const message = group.messages[0];
                                         const messageContent = (() => {
@@ -565,12 +605,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                 const renderedToolResultIds = new Set<string>();
                                                                 const elements: React.ReactNode[] = [];
+                                                                let assistantMessageCount = 0; // Move this outside the loop
 
                                                                 group.messages.forEach((message, msgIndex) => {
                                                                     if (message.type === 'assistant') {
                                                                         const parsedContent = safeJsonParse<ParsedContent>(message.content, {});
                                                                         const msgKey = message.message_id || `submsg-assistant-${msgIndex}`;
-                                                                        let assistantMessageCount = 0; 
                                                                         
                                                                         if (!parsedContent.content) return;
 
@@ -591,13 +631,15 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 </div>
                                                                             </div>
                                                                         );
+                                                                        
+                                                                        assistantMessageCount++; // Increment after adding the element
                                                                     }
                                                                 });
 
                                                                 return elements;
                                                             })()}
 
-                                                            {groupIndex === groupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
+                                                            {groupIndex === finalGroupedMessages.length - 1 && !readOnly && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && (
                                                                 <div className="mt-2">
                                                                     {(() => {
                                                                         // In debug mode, show raw streaming content
@@ -701,7 +743,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                             )}
 
                                                             {/* For playback mode, show streaming text and tool calls */}
-                                                            {readOnly && groupIndex === groupedMessages.length - 1 && isStreamingText && (
+                                                            {readOnly && groupIndex === finalGroupedMessages.length - 1 && isStreamingText && (
                                                                 <div className="mt-2">
                                                                     {(() => {
                                                                         let detectedTag: string | null = null;
