@@ -13,6 +13,8 @@ import {
   FileArchive,
   Table,
 } from 'lucide-react';
+import { parseXmlToolCalls, isNewXmlFormat } from './xml-parser';
+import { parseToolResult, ParsedToolResult } from './tool-result-parser';
 
 // Helper function to format timestamp
 export function formatTimestamp(isoString?: string): string {
@@ -51,7 +53,7 @@ export function getToolTitle(toolName: string): string {
     'complete': 'Task Complete',
     'execute-data-provider-call': 'Data Provider Call',
     'get-data-provider-endpoints': 'Data Endpoints',
-
+    'deploy': 'Deploy',
 
     'generic-tool': 'Tool',
     'default': 'Tool',
@@ -257,9 +259,46 @@ export function extractExitCode(content: string | object | undefined | null): nu
 
 // Helper to extract file path from commands
 export function extractFilePath(content: string | object | undefined | null): string | null {
-  // Convert content to string using the helper
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
+
+  try {
+    // Try to parse content as JSON first
+    const parsedContent = JSON.parse(contentStr);
+    if (parsedContent.content) {
+      // Check if it's the new XML format
+      if (isNewXmlFormat(parsedContent.content)) {
+        const toolCalls = parseXmlToolCalls(parsedContent.content);
+        if (toolCalls.length > 0 && toolCalls[0].parameters.file_path) {
+          return cleanFilePath(toolCalls[0].parameters.file_path);
+        }
+      }
+      
+      // Fall back to old format
+      const oldFormatMatch = parsedContent.content.match(
+        /file_path=["']([^"']+)["']/,
+      );
+      if (oldFormatMatch) {
+        return cleanFilePath(oldFormatMatch[1]);
+      }
+    }
+  } catch (e) {
+    // Fall back to direct regex search if JSON parsing fails
+  }
+
+  // Check if it's the new XML format in raw content
+  if (isNewXmlFormat(contentStr)) {
+    const toolCalls = parseXmlToolCalls(contentStr);
+    if (toolCalls.length > 0 && toolCalls[0].parameters.file_path) {
+      return cleanFilePath(toolCalls[0].parameters.file_path);
+    }
+  }
+
+  // Direct regex search in the content string (old format)
+  const directMatch = contentStr.match(/file_path=["']([^"']+)["']/);
+  if (directMatch) {
+    return cleanFilePath(directMatch[1]);
+  }
 
   // Handle double-escaped JSON (old format)
   if (typeof content === 'string' && content.startsWith('"{') && content.endsWith('}"')) {
@@ -423,32 +462,46 @@ export function extractFileContent(
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
 
-  // First, check if content is already a parsed object (new format after double-escape fix)
-  if (typeof content === 'object' && content !== null) {
-    try {
-      // Check if it's a direct object with content field
-      if ('content' in content && typeof content.content === 'string') {
-        const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
-        const contentMatch = content.content.match(
-          new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
-        );
-        if (contentMatch && contentMatch[1]) {
-          return processFileContent(contentMatch[1]);
+  try {
+    // Try to parse content as JSON first
+    const parsedContent = JSON.parse(contentStr);
+    if (parsedContent.content) {
+      // Check if it's the new XML format
+      if (isNewXmlFormat(parsedContent.content)) {
+        const toolCalls = parseXmlToolCalls(parsedContent.content);
+        if (toolCalls.length > 0 && toolCalls[0].parameters.file_contents) {
+          return processFileContent(toolCalls[0].parameters.file_contents);
         }
       }
-    } catch (e) {
-      // Continue with string parsing if object parsing fails
+      
+      // Fall back to old format
+      const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+      const fileContentMatch = parsedContent.content.match(
+        new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
+      );
+      if (fileContentMatch) {
+        return processFileContent(fileContentMatch[1]);
+      }
+    }
+  } catch (e) {
+    // Fall back to direct regex search if JSON parsing fails
+  }
+
+  // Check if it's the new XML format in raw content
+  if (isNewXmlFormat(contentStr)) {
+    const toolCalls = parseXmlToolCalls(contentStr);
+    if (toolCalls.length > 0 && toolCalls[0].parameters.file_contents) {
+      return processFileContent(toolCalls[0].parameters.file_contents);
     }
   }
 
-  // Fallback to string-based extraction (old format)
+  // Direct regex search in the content string (old format)
   const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
-  const contentMatch = contentStr.match(
+  const fileContentMatch = contentStr.match(
     new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
   );
-
-  if (contentMatch && contentMatch[1]) {
-    return processFileContent(contentMatch[1]);
+  if (fileContentMatch) {
+    return processFileContent(fileContentMatch[1]);
   }
 
   return null;
@@ -1179,6 +1232,11 @@ export function getToolComponent(toolName: string): string {
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
 
+
+    //Deploy
+    case 'deploy':
+      return 'DeployToolView';
+
     // Default
     default:
       return 'GenericToolView';
@@ -1447,3 +1505,42 @@ export const getFileIconAndColor = (filename: string) => {
       };
   }
 };
+
+/**
+ * Extract tool data from content using the new parser with backwards compatibility
+ */
+export function extractToolData(content: any): {
+  toolResult: ParsedToolResult | null;
+  arguments: Record<string, any>;
+  filePath: string | null;
+  fileContent: string | null;
+  command: string | null;
+  url: string | null;
+  query: string | null;
+} {
+  const toolResult = parseToolResult(content);
+  
+  if (toolResult) {
+    const args = toolResult.arguments || {};
+    return {
+      toolResult,
+      arguments: args,
+      filePath: args.file_path || args.path || null,
+      fileContent: args.file_contents || args.content || null,
+      command: args.command || null,
+      url: args.url || null,
+      query: args.query || null,
+    };
+  }
+
+  // Fallback to legacy parsing if new format not detected
+  return {
+    toolResult: null,
+    arguments: {},
+    filePath: null,
+    fileContent: null,
+    command: null,
+    url: null,
+    query: null,
+  };
+}

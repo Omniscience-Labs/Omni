@@ -412,22 +412,22 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
   const { data, error } = await query;
 
   if (error) {
-    console.error('[API] Error fetching threads:', error);
     handleApiError(error, { operation: 'load threads', resource: projectId ? `threads for project ${projectId}` : 'threads' });
     throw error;
   }
 
-  console.log('[API] Raw threads from DB:', data?.length, data);
-
-  // Map database fields to ensure consistency with our Thread type
-  const mappedThreads: Thread[] = (data || []).map((thread) => ({
-    thread_id: thread.thread_id,
-    account_id: thread.account_id,
-    project_id: thread.project_id,
-    created_at: thread.created_at,
-    updated_at: thread.updated_at,
-  }));
-
+  const mappedThreads: Thread[] = (data || [])
+    .filter((thread) => {
+      const metadata = thread.metadata || {};
+      return !metadata.is_agent_builder;
+    })
+    .map((thread) => ({
+      thread_id: thread.thread_id,
+      account_id: thread.account_id,
+      project_id: thread.project_id,
+      created_at: thread.created_at,
+      updated_at: thread.updated_at,
+    }));
   return mappedThreads;
 };
 
@@ -531,6 +531,7 @@ export const startAgent = async (
     enable_thinking?: boolean;
     reasoning_effort?: string;
     stream?: boolean;
+    agent_id?: string;
   },
 ): Promise<{ agent_run_id: string }> => {
   try {
@@ -554,16 +555,35 @@ export const startAgent = async (
       `[API] Starting agent for thread ${threadId} using ${API_URL}/thread/${threadId}/agent/start`,
     );
 
+    const defaultOptions = {
+      model_name: 'claude-3-7-sonnet-latest',
+      enable_thinking: false,
+      reasoning_effort: 'low',
+      stream: true,
+      agent_id: undefined,
+    };
+
+    const finalOptions = { ...defaultOptions, ...options };
+
+    const body: any = {
+      model_name: finalOptions.model_name,
+      enable_thinking: finalOptions.enable_thinking,
+      reasoning_effort: finalOptions.reasoning_effort,
+      stream: finalOptions.stream,
+    };
+    
+    // Only include agent_id if it's provided
+    if (finalOptions.agent_id) {
+      body.agent_id = finalOptions.agent_id;
+    }
+
     const response = await fetch(`${API_URL}/thread/${threadId}/agent/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      // Add cache: 'no-store' to prevent caching
-      cache: 'no-store',
-      // Add the body, stringifying the options or an empty object
-      body: JSON.stringify(options || {}),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -1815,4 +1835,32 @@ export const transcribeAudio = async (audioFile: File): Promise<TranscriptionRes
     handleApiError(error, { operation: 'transcribe audio', resource: 'speech-to-text' });
     throw error;
   }
+};
+
+export const getAgentBuilderChatHistory = async (agentId: string): Promise<{messages: Message[], thread_id: string | null}> => {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error('No access token available');
+  }
+
+  const response = await fetch(`${API_URL}/agents/${agentId}/builder-chat-history`, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'No error details available');
+    console.error(`Error getting agent builder chat history: ${response.status} ${response.statusText}`, errorText);
+    throw new Error(`Error getting agent builder chat history: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  console.log('[API] Agent builder chat history fetched:', data);
+
+  return data;
 };

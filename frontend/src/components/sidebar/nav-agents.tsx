@@ -12,7 +12,8 @@ import {
   Loader2,
   Share2,
   X,
-  Check
+  Check,
+  History
 } from "lucide-react"
 import { toast } from "sonner"
 import { usePathname, useRouter } from "next/navigation"
@@ -224,10 +225,16 @@ export function NavAgents() {
       // Store threadToDelete in a local variable since it might be cleared
       const deletedThread = { ...threadToDelete };
 
+      // Get sandbox ID from projects data
+      const thread = combinedThreads.find(t => t.threadId === threadId);
+      const project = projects.find(p => p.id === thread?.projectId);
+      const sandboxId = project?.sandbox?.id;
+
       // Log operation start
       console.log('DELETION - Starting thread deletion process', {
         threadId: deletedThread.id,
         isCurrentThread: isActive,
+        sandboxId
       });
 
       // Use the centralized deletion system with completion callback
@@ -235,9 +242,9 @@ export function NavAgents() {
         threadId,
         isActive,
         async () => {
-          // Delete the thread using the mutation
+          // Delete the thread using the mutation with sandbox ID
           deleteThreadMutation(
-            { threadId },
+            { threadId, sandboxId },
             {
               onSuccess: () => {
                 // Invalidate queries to refresh the list
@@ -281,6 +288,13 @@ export function NavAgents() {
         deleteMultipleThreadsMutation(
           {
             threadIds: threadIdsToDelete,
+            threadSandboxMap: Object.fromEntries(
+              threadIdsToDelete.map(threadId => {
+                const thread = combinedThreads.find(t => t.threadId === threadId);
+                const project = projects.find(p => p.id === thread?.projectId);
+                return [threadId, project?.sandbox?.id || ''];
+              }).filter(([, sandboxId]) => sandboxId)
+            ),
             onProgress: handleDeletionProgress
           },
           {
@@ -573,7 +587,7 @@ export function NavAgents() {
           <SidebarMenuItem>
             <SidebarMenuButton className="text-sidebar-foreground/70">
               <MessagesSquare className="h-4 w-4" />
-              <span>No agents yet</span>
+              <span>No tasks yet</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )}

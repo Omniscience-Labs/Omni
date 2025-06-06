@@ -97,8 +97,12 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "y", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <move-to x="100" y="200">
-        </move-to>
+        <function_calls>
+        <invoke name="move_to">
+        <parameter name="x">100</parameter>
+        <parameter name="y">200</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def move_to(self, x: float, y: float) -> ToolResult:
@@ -163,8 +167,14 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "num_clicks", "node_type": "attribute", "path": "num_clicks"}
         ],
         example='''
-        <click x="100" y="200" button="left" num_clicks="1">
-        </click>
+        <function_calls>
+        <invoke name="click">
+        <parameter name="x">100</parameter>
+        <parameter name="y">200</parameter>
+        <parameter name="button">left</parameter>
+        <parameter name="num_clicks">1</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def click(self, x: Optional[float] = None, y: Optional[float] = None, 
@@ -220,8 +230,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "amount", "node_type": "attribute", "path": "amount"}
         ],
         example='''
-        <scroll amount="-3">
-        </scroll>
+        <function_calls>
+        <invoke name="scroll">
+        <parameter name="amount">-3</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def scroll(self, amount: int) -> ToolResult:
@@ -272,7 +285,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "text", "node_type": "content", "path": "text"}
         ],
         example='''
-        <typing>Hello World!</typing>
+        <function_calls>
+        <invoke name="typing">
+        <parameter name="text">Hello World!</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def typing(self, text: str) -> ToolResult:
@@ -316,8 +333,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "key", "node_type": "attribute", "path": "key"}
         ],
         example='''
-        <press key="enter">
-        </press>
+        <function_calls>
+        <invoke name="press">
+        <parameter name="key">enter</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def press(self, key: str) -> ToolResult:
@@ -360,8 +380,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "duration", "node_type": "attribute", "path": "duration"}
         ],
         example='''
-        <wait duration="1.5">
-        </wait>
+        <function_calls>
+        <invoke name="wait">
+        <parameter name="duration">1.5</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def wait(self, duration: float = 0.5) -> ToolResult:
@@ -398,8 +421,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "button", "node_type": "attribute", "path": "button"}
         ],
         example='''
-        <mouse-down button="left">
-        </mouse-down>
+        <function_calls>
+        <invoke name="mouse_down">
+        <parameter name="button">left</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def mouse_down(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
@@ -450,8 +476,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "button", "node_type": "attribute", "path": "button"}
         ],
         example='''
-        <mouse-up button="left">
-        </mouse-up>
+        <function_calls>
+        <invoke name="mouse_up">
+        <parameter name="button">left</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def mouse_up(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
@@ -506,8 +535,12 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "y", "node_type": "attribute", "path": "y"}
         ],
         example='''
-        <drag-to x="500" y="50">
-        </drag-to>
+        <function_calls>
+        <invoke name="drag_to">
+        <parameter name="x">500</parameter>
+        <parameter name="y">50</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def drag_to(self, x: float, y: float) -> ToolResult:
@@ -598,10 +631,13 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "keys", "node_type": "attribute", "path": "keys"}
         ],
         example='''
-        <hotkey keys="ctrl+a">
-        </hotkey>
+        <function_calls>
+        <invoke name="hotkey">
+        <parameter name="keys">ctrl+a</parameter>
+        </invoke>
+        </function_calls>
         '''
-        )    
+    )    
     async def hotkey(self, keys: str) -> ToolResult:
         """Press a key combination."""
         try:

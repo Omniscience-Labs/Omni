@@ -33,12 +33,13 @@ export const useThreads = createQueryHook(
 
 interface DeleteThreadVariables {
   threadId: string;
+  sandboxId?: string;
   isNavigateAway?: boolean;
 }
 
 export const useDeleteThread = createMutationHook(
-  async ({ threadId }: DeleteThreadVariables) => {
-    return await deleteThread(threadId);
+  async ({ threadId, sandboxId }: DeleteThreadVariables) => {
+    return await deleteThread(threadId, sandboxId);
   },
   {
     onSuccess: () => {
@@ -48,16 +49,18 @@ export const useDeleteThread = createMutationHook(
 
 interface DeleteMultipleThreadsVariables {
   threadIds: string[];
+  threadSandboxMap?: Record<string, string>;
   onProgress?: (completed: number, total: number) => void;
 }
 
 export const useDeleteMultipleThreads = createMutationHook(
-  async ({ threadIds, onProgress }: DeleteMultipleThreadsVariables) => {
+  async ({ threadIds, threadSandboxMap, onProgress }: DeleteMultipleThreadsVariables) => {
     let completedCount = 0;
     const results = await Promise.all(
       threadIds.map(async (threadId) => {
         try {
-          const result = await deleteThread(threadId);
+          const sandboxId = threadSandboxMap?.[threadId];
+          const result = await deleteThread(threadId, sandboxId);
           completedCount++;
           onProgress?.(completedCount, threadIds.length);
           return { success: true, threadId };
@@ -112,7 +115,7 @@ export const processThreadsWithProjects = (
       threadId: thread.thread_id,
       projectId: projectId,
       projectName: project.name || 'Unnamed Project',
-      url: `/agents/${thread.thread_id}`,
+      url: `/projects/${projectId}/thread/${thread.thread_id}`,
       updatedAt:
         thread.updated_at || project.updated_at || new Date().toISOString(),
     });

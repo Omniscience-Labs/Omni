@@ -16,6 +16,8 @@ import {
   Network,
   FileSearch,
   FilePlus,
+  PlugIcon,
+  BookOpen,
   MessageCircleQuestion,
   CheckCircle2,
 } from 'lucide-react';
@@ -76,17 +78,25 @@ export function safeJsonParse<T>(
 
 // Helper function to get an icon based on tool name
 export const getToolIcon = (toolName: string): ElementType => {
-  // Ensure we handle null/undefined toolName gracefully
-  if (!toolName) return Cog;
+  switch (toolName?.toLowerCase()) {
+    case 'web-browser-takeover':
+    case 'browser-navigate-to':
+    case 'browser-click-element':
+    case 'browser-input-text':
+    case 'browser-scroll-down':
+    case 'browser-scroll-up':
+    case 'browser-click-coordinates':
+    case 'browser-send-keys':
+    case 'browser-switch-tab':
+    case 'browser-go-back':
+    case 'browser-close-tab':
+    case 'browser-drag-drop':
+    case 'browser-get-dropdown-options':
+    case 'browser-select-dropdown-option':
+    case 'browser-scroll-to-text':
+    case 'browser-wait':
+      return Globe;
 
-  // Convert to lowercase for case-insensitive matching
-  const normalizedName = toolName.toLowerCase();
-
-  // Check for browser-related tools with a prefix check
-  if (normalizedName.startsWith('browser-')) {
-    return Globe;
-  }
-  switch (normalizedName) {
     // File operations
     case 'create-file':
       return FileEdit;
@@ -141,8 +151,30 @@ export const getToolIcon = (toolName: string): ElementType => {
     case 'complete':
       return CheckCircle2;
 
+    // MCP tools
+    case 'call-mcp-tool':
+      return PlugIcon;
+
     // Default case
     default:
+      if (toolName?.startsWith('mcp_')) {
+        const parts = toolName.split('_');
+        if (parts.length >= 3) {
+          const serverName = parts[1];
+          const toolNamePart = parts.slice(2).join('_');
+          
+          // Map specific MCP tools to appropriate icons
+          if (toolNamePart.includes('search') || toolNamePart.includes('web')) {
+            return Search;
+          } else if (toolNamePart.includes('research') || toolNamePart.includes('paper')) {
+            return BookOpen;
+          } else if (serverName === 'exa') {
+            return Search; // Exa is primarily a search service
+          }
+        }
+        return PlugIcon; // Default icon for MCP tools
+      }
+      
       // Add logging for debugging unhandled tool types
       console.log(
         `[PAGE] Using default icon for unknown tool type: ${toolName}`,
@@ -292,9 +324,112 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['expose-port', 'Exposing Port'],
   ['scrape-webpage', 'Scraping Website'],
   ['web-search', 'Searching Web'],
-  ['see-image', 'Viewing Image']
+  ['see-image', 'Viewing Image'],
+  
+  ['call-mcp-tool', 'External Tool'],
+
+  ['update-agent', 'Updating Agent'],
+  ['get-current-agent-config', 'Getting Agent Config'],
+  ['search-mcp-servers', 'Searching MCP Servers'],
+  ['get-mcp-server-tools', 'Getting MCP Server Tools'],
+  ['configure-mcp-server', 'Configuring MCP Server'],
+  ['get-popular-mcp-servers', 'Getting Popular MCP Servers'],
+  ['test-mcp-server-connection', 'Testing MCP Server Connection'],
+
+
+  //V2
+
+  ['execute_command', 'Executing Command'],
+  ['check_command_output', 'Checking Command Output'],
+  ['terminate_command', 'Terminating Command'],
+  ['list_commands', 'Listing Commands'],
+  
+  ['create_file', 'Creating File'],
+  ['delete_file', 'Deleting File'],
+  ['full_file_rewrite', 'Rewriting File'],
+  ['str_replace', 'Editing Text'],
+  
+  ['browser_click_element', 'Clicking Element'],
+  ['browser_close_tab', 'Closing Tab'],
+  ['browser_drag_drop', 'Dragging Element'],
+  ['browser_get_dropdown_options', 'Getting Options'],
+  ['browser_go_back', 'Going Back'],
+  ['browser_input_text', 'Entering Text'],
+  ['browser_navigate_to', 'Navigating to Page'],
+  ['browser_scroll_down', 'Scrolling Down'],
+  ['browser_scroll_to_text', 'Scrolling to Text'],
+  ['browser_scroll_up', 'Scrolling Up'],
+  ['browser_select_dropdown_option', 'Selecting Option'],
+  ['browser_click_coordinates', 'Clicking Coordinates'],
+  ['browser_send_keys', 'Pressing Keys'],
+  ['browser_switch_tab', 'Switching Tab'],
+  ['browser_wait', 'Waiting'],
+
+  ['execute_data_provider_call', 'Calling data provider'],
+  ['get_data_provider_endpoints', 'Getting endpoints'],
+  
+  ['deploy', 'Deploying'],
+  ['ask', 'Ask'],
+  ['complete', 'Completing Task'],
+  ['crawl_webpage', 'Crawling Website'],
+  ['expose_port', 'Exposing Port'],
+  ['scrape_webpage', 'Scraping Website'],
+  ['web_search', 'Searching Web'],
+  ['see_image', 'Viewing Image'],
+  
+  ['call_mcp_tool', 'External Tool'],
+
+  ['update_agent', 'Updating Agent'],
+  ['get_current_agent_config', 'Getting Agent Config'],
+  ['search_mcp_servers', 'Searching MCP Servers'],
+  ['get_mcp_server_tools', 'Getting MCP Server Tools'],
+  ['configure_mcp_server', 'Configuring MCP Server'],
+  ['get_popular_mcp_servers', 'Getting Popular MCP Servers'],
+  ['test_mcp_server_connection', 'Testing MCP Server Connection'],
+
+]);
+
+
+const MCP_SERVER_NAMES = new Map([
+  ['exa', 'Exa Search'],
+  ['github', 'GitHub'],
+  ['notion', 'Notion'],
+  ['slack', 'Slack'],
+  ['filesystem', 'File System'],
+  ['memory', 'Memory'],
+]);
+
+const MCP_TOOL_MAPPINGS = new Map([
+  ['web_search_exa', 'Web Search'],
+  ['research_paper_search', 'Research Papers'],
+  ['search', 'Search'],
+  ['find_content', 'Find Content'],
+  ['get_content', 'Get Content'],
+  ['read_file', 'Read File'],
+  ['write_file', 'Write File'],
+  ['list_files', 'List Files'],
 ]);
 
 export function getUserFriendlyToolName(toolName: string): string {
+  if (toolName?.startsWith('mcp_')) {
+    const parts = toolName.split('_');
+    if (parts.length >= 3) {
+      const serverName = parts[1];
+      const toolNamePart = parts.slice(2).join('_');
+      
+      // Get friendly server name
+      const friendlyServerName = MCP_SERVER_NAMES.get(serverName) || 
+        serverName.charAt(0).toUpperCase() + serverName.slice(1);
+      
+      // Get friendly tool name
+      const friendlyToolName = MCP_TOOL_MAPPINGS.get(toolNamePart) || 
+        toolNamePart.split('_').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      
+      return `${friendlyServerName}: ${friendlyToolName}`;
+    }
+  }
+  
   return TOOL_DISPLAY_NAMES.get(toolName) || toolName;
 }

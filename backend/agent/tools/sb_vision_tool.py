@@ -124,7 +124,11 @@ class SandboxVisionTool(SandboxToolsBase):
         ],
         example='''
         <!-- Example: Request to see an image named 'diagram.png' inside the 'docs' folder -->
-        <see-image file_path="docs/diagram.png"></see-image>
+        <function_calls>
+        <invoke name="see_image">
+        <parameter name="file_path">docs/diagram.png</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def see_image(self, file_path: str) -> ToolResult:

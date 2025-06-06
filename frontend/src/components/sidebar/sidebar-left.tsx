@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Menu } from 'lucide-react';
+import { Bot, Menu, Store } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -12,7 +12,10 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarHeader,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
@@ -25,6 +28,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
+import { useFeatureFlags } from '@/lib/feature-flags';
 
 export function SidebarLeft({
   ...props
@@ -40,6 +47,11 @@ export function SidebarLeft({
     email: 'loading@example.com',
     avatar: '',
   });
+
+  const pathname = usePathname();
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace']);
+  const customAgentsEnabled = flags.custom_agents;
+  const marketplaceEnabled = flags.agent_marketplace;
 
   // Fetch user data
   useEffect(() => {
@@ -126,6 +138,40 @@ export function SidebarLeft({
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+        {!flagsLoading && (customAgentsEnabled || marketplaceEnabled) && (
+          <SidebarGroup>
+            {customAgentsEnabled && (
+              <Link href="/agents">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/agents',
+                })}>
+                  <Bot className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Agent Playground
+                    <Badge variant="new">
+                      New
+                    </Badge>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+            {marketplaceEnabled && (
+              <Link href="/marketplace">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/marketplace',
+                })}>
+                  <Store className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Marketplace
+                    <Badge variant="new">
+                      New
+                    </Badge>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+          </SidebarGroup>
+        )}
         <NavAgents />
       </SidebarContent>
       {state !== 'collapsed' && (

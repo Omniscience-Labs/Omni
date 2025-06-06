@@ -1,5 +1,6 @@
 from typing import List, Optional, Union
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from utils.logger import logger
 
 class MessageTool(Tool):
     """Tool for user communication and interaction.
@@ -44,26 +45,18 @@ class MessageTool(Tool):
             {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
         ],
         example='''
-Ask user a question and wait for response. Use for: 1) Requesting clarification on ambiguous requirements, 2) Seeking confirmation before proceeding with high-impact changes, 3) Gathering additional information needed to complete a task, 4) Offering options and requesting user preference, 5) Validating assumptions when critical to task success. IMPORTANT: Use this tool only when user input is essential to proceed. Always provide clear context and options when applicable. Include relevant attachments when the question relates to specific files or resources.
+        <function_calls>
+        <invoke name="ask">
+        <parameter name="text">I'm planning to bake the chocolate cake for your birthday party. The recipe mentions "rich frosting" but doesn't specify what type. Could you clarify your preferences? For example:
+1. Would you prefer buttercream or cream cheese frosting?
+2. Do you want any specific flavor added to the frosting (vanilla, coffee, etc.)?
+3. Should I add any decorative toppings like sprinkles or fruit?
+4. Do you have any dietary restrictions I should be aware of?
 
-        <!-- Use ask when you need user input to proceed -->
-        <!-- Examples of when to use ask: -->
-        <!-- 1. Clarifying ambiguous requirements -->
-        <!-- 2. Confirming high-impact changes -->
-        <!-- 3. Choosing between implementation options -->
-        <!-- 4. Validating critical assumptions -->
-        <!-- 5. Getting missing information -->
-        <!-- IMPORTANT: Always if applicable include representable files as attachments - this includes HTML files, presentations, writeups, visualizations, reports, and any other viewable content -->
-
-        <ask attachments="recipes/chocolate_cake.txt,photos/cake_examples.jpg">
-            I'm planning to bake the chocolate cake for your birthday party. The recipe mentions "rich frosting" but doesn't specify what type. Could you clarify your preferences? For example:
-            1. Would you prefer buttercream or cream cheese frosting?
-            2. Do you want any specific flavor added to the frosting (vanilla, coffee, etc.)?
-            3. Should I add any decorative toppings like sprinkles or fruit?
-            4. Do you have any dietary restrictions I should be aware of?
-
-            This information will help me make sure the cake meets your expectations for the celebration.
-        </ask>
+This information will help me make sure the cake meets your expectations for the celebration.</parameter>
+        <parameter name="attachments">recipes/chocolate_cake.txt,photos/cake_examples.jpg</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def ask(self, text: str, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
@@ -76,11 +69,11 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
         Returns:
             ToolResult indicating the question was successfully sent
         """
-        try:
+        try:            
             # Convert single attachment to list for consistent handling
             if attachments and isinstance(attachments, str):
                 attachments = [attachments]
-
+          
             return self.success_response({"status": "Awaiting user response..."})
         except Exception as e:
             return self.fail_response(f"Error asking user: {str(e)}")
@@ -116,20 +109,16 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
             {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
         ],
         example='''
-        <!-- Use web-browser-takeover when automated tools cannot handle the page interaction -->
-        <!-- Examples of when takeover is needed: -->
-        <!-- 1. CAPTCHA or human verification required -->
-        <!-- 2. Anti-bot measures preventing access -->
-        <!-- 3. Authentication requiring human input -->
+        <function_calls>
+        <invoke name="web_browser_takeover">
+        <parameter name="text">I've encountered a CAPTCHA verification on the page. Please:
+1. Solve the CAPTCHA puzzle
+2. Let me know once you've completed it
+3. I'll then continue with the automated process
 
-        <web-browser-takeover>
-            I've encountered a CAPTCHA verification on the page. Please:
-            1. Solve the CAPTCHA puzzle
-            2. Let me know once you've completed it
-            3. I'll then continue with the automated process
-
-            If you encounter any issues or need to take additional steps, please let me know.
-        </web-browser-takeover>
+If you encounter any issues or need to take additional steps, please let me know.</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def web_browser_takeover(self, text: str, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
@@ -240,18 +229,10 @@ Ask user a question and wait for response. Use for: 1) Requesting clarification 
         tag_name="complete",
         mappings=[],
         example='''
-        <!-- Use complete ONLY when ALL tasks are finished -->
-        <!-- Prerequisites for using complete: -->
-        <!-- 1. All todo.md items marked complete [x] -->
-        <!-- 2. User's original request fully addressed -->
-        <!-- 3. All outputs and results delivered -->
-        <!-- 4. No pending actions or follow-ups -->
-        <!-- 5. All tasks verified and validated -->
-
-        <complete>
-        <!-- This tool indicates successful completion of all tasks -->
-        <!-- The system will stop execution after this tool is used -->
-        </complete>
+        <function_calls>
+        <invoke name="complete">
+        </invoke>
+        </function_calls>
         '''
     )
     async def complete(self) -> ToolResult:

@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useMemo,
 } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BillingError } from '@/lib/api';
@@ -26,6 +27,7 @@ import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_type
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
 
 export default function ThreadPage({
   params,
@@ -121,13 +123,17 @@ export default function ThreadPage({
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
+  const { data: agent } = useAgent(threadQuery.data?.agent_id);
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
     ? 'active'
     : 'no_subscription';
 
-  useVncPreloader(project);
+  // Memoize project for VNC preloader to prevent re-preloading on every render
+  const memoizedProject = useMemo(() => project, [project?.id, project?.sandbox?.vnc_preview, project?.sandbox?.pass]);
+
+  useVncPreloader(memoizedProject);
 
 
   const handleProjectRenamed = useCallback((newName: string) => {
@@ -550,6 +556,7 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
         <ThreadError error={error} />
       </ThreadLayout>
@@ -592,6 +599,7 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
         <ThreadContent
           messages={messages}
@@ -605,6 +613,8 @@ export default function ThreadPage({
           sandboxId={sandboxId}
           project={project}
           debugMode={debugMode}
+          agentName={agent && agent.name}
+          agentAvatar={agent && agent.avatar}
         />
 
         <div
@@ -616,13 +626,13 @@ export default function ThreadPage({
           )}>
           <div className={cn(
             "mx-auto",
-            isMobile ? "w-full px-4" : "max-w-3xl"
+            isMobile ? "w-full" : "max-w-3xl"
           )}>
             <ChatInput
               value={newMessage}
               onChange={setNewMessage}
               onSubmit={handleSubmitMessage}
-              placeholder="Ask Suna anything..."
+              placeholder={`Ask ${agent ? agent.name : 'Suna'} anything...`}
               loading={isSending}
               disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
               isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
@@ -631,6 +641,7 @@ export default function ThreadPage({
               onFileBrowse={handleOpenFileViewer}
               sandboxId={sandboxId || undefined}
               messages={messages}
+              agentName={agent && agent.name}
             />
           </div>
         </div>

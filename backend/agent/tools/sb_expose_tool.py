@@ -34,28 +34,25 @@ class SandboxExposeTool(SandboxToolsBase):
         ],
         example='''
         <!-- Example 1: Expose a web server running on port 8000 -->
-        <!-- This will generate a public URL that users can access to view the web application -->
-        <expose-port>
-        8000
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">8000</parameter>
+        </invoke>
+        </function_calls>
 
         <!-- Example 2: Expose an API service running on port 3000 -->
-        <!-- This allows users to interact with the API endpoints from their browser -->
-        <expose-port>
-        3000
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">3000</parameter>
+        </invoke>
+        </function_calls>
 
         <!-- Example 3: Expose a development server running on port 5173 -->
-        <!-- This is useful for sharing a development environment with users -->
-        <expose-port>
-        5173
-        </expose-port>
-
-        <!-- Example 4: Expose a database management interface on port 8081 -->
-        <!-- This allows users to access database management tools like phpMyAdmin -->
-        <expose-port>
-        8081
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">5173</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def expose_port(self, port: int) -> ToolResult:
