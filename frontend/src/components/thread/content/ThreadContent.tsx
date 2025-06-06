@@ -116,34 +116,53 @@ export function renderMarkdownContent(
             
             toolCalls.forEach((toolCall, index) => {
                 const toolName = toolCall.functionName.replace(/_/g, '-');
-                const IconComponent = getToolIcon(toolName);
                 
-                // Extract primary parameter for display
-                let paramDisplay = '';
-                if (toolCall.parameters.file_path) {
-                    paramDisplay = toolCall.parameters.file_path;
-                } else if (toolCall.parameters.command) {
-                    paramDisplay = toolCall.parameters.command;
-                } else if (toolCall.parameters.query) {
-                    paramDisplay = toolCall.parameters.query;
-                } else if (toolCall.parameters.url) {
-                    paramDisplay = toolCall.parameters.url;
+                if (toolName === 'ask') {
+                    // Handle ask tool specially - extract text and attachments
+                    const askText = toolCall.parameters.text || '';
+                    const attachments = toolCall.parameters.attachments || [];
+                    
+                    // Convert single attachment to array for consistent handling
+                    const attachmentArray = Array.isArray(attachments) ? attachments : 
+                                          (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
+                    
+                    // Render ask tool content with attachment UI
+                    contentParts.push(
+                        <div key={`ask-${match.index}-${index}`} className="space-y-3">
+                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askText}</Markdown>
+                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                        </div>
+                    );
+                } else {
+                    const IconComponent = getToolIcon(toolName);
+                    
+                    // Extract primary parameter for display
+                    let paramDisplay = '';
+                    if (toolCall.parameters.file_path) {
+                        paramDisplay = toolCall.parameters.file_path;
+                    } else if (toolCall.parameters.command) {
+                        paramDisplay = toolCall.parameters.command;
+                    } else if (toolCall.parameters.query) {
+                        paramDisplay = toolCall.parameters.query;
+                    } else if (toolCall.parameters.url) {
+                        paramDisplay = toolCall.parameters.url;
+                    }
+                    
+                    contentParts.push(
+                        <div key={`tool-${match.index}-${index}`} className="my-1">
+                            <button
+                                onClick={() => handleToolClick(messageId, toolName)}
+                                className="inline-flex items-center gap-1.5 py-1 px-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
+                            >
+                                <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
+                                    <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                </div>
+                                <span className="font-mono text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
+                                {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
+                            </button>
+                        </div>
+                    );
                 }
-                
-                contentParts.push(
-                    <div key={`tool-${match.index}-${index}`} className="my-1">
-                        <button
-                            onClick={() => handleToolClick(messageId, toolName)}
-                            className="inline-flex items-center gap-1.5 py-1 px-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
-                        >
-                            <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
-                                <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            </div>
-                            <span className="font-mono text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
-                            {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
-                        </button>
-                    </div>
-                );
             });
             
             lastIndex = match.index + match[0].length;
@@ -224,7 +243,7 @@ export function renderMarkdownContent(
                         {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                     </button>
                 </div>
-            );
+            ); 
         }
         lastIndex = xmlRegex.lastIndex;
     }
