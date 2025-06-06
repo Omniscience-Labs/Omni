@@ -29,11 +29,6 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({ server, onClick })
             {server.security?.scanPassed && (
               <Shield className="h-3 w-3 text-green-500" />
             )}
-            {server.isDeployed && (
-              <Badge variant="secondary" className="text-xs">
-                Deployed
-              </Badge>
-            )}
           </div>
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-normal">
             {truncateString(server.description, 100)}
