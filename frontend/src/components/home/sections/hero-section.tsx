@@ -138,14 +138,9 @@ export function HeroSection() {
     } catch (error: any) {
       console.error('Error creating agent:', error);
 
-      // Check specifically for BillingError (402)
       if (error instanceof BillingError) {
         console.log('Handling BillingError from hero section:', error.detail);
-        // Open the payment required dialog modal instead of showing the alert
-        onOpen("paymentRequiredDialog");
-        // Don't show toast for billing errors
       } else {
-        // Handle other errors (e.g., network, other API errors)
         const isConnectionError =
           error instanceof TypeError &&
           error.message.includes('Failed to fetch');
