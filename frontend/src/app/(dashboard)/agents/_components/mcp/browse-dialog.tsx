@@ -116,7 +116,7 @@ export const BrowseDialog: React.FC<BrowseDialogProps> = ({
         </div>
         <DialogFooter className='w-full'>
           {!searchQuery && popularServersV2?.success && popularServersV2.pagination && (
-            <div className="flex items-center justify-between px-4 border-t w-full">
+            <div className="flex items-center justify-between w-full">
               <div className="text-sm text-muted-foreground">
                 Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, popularServersV2.pagination.totalCount)} of {popularServersV2.pagination.totalCount} servers
               </div>
