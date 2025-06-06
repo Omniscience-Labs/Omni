@@ -103,11 +103,11 @@ class ThreadManager:
             else:
                 return msg_content
   
-    def _compress_tool_result_messages(self, messages: List[Dict[str, Any]], llm_model: str, llm_max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
+    def _compress_tool_result_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
         """Compress the tool result messages except the most recent one."""
         uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
 
-        if uncompressed_total_token_count > (llm_max_tokens or (64 * 1000)):
+        if uncompressed_total_token_count > (max_tokens or (64 * 1000)):
             _i = 0 # Count the number of ToolResult messages
             for msg in reversed(messages): # Start from the end and work backwards
                 if self._is_tool_result_message(msg): # Only compress ToolResult messages
@@ -121,14 +121,14 @@ class ThreadManager:
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
-                            msg["content"] = self._safe_truncate(msg["content"])
+                            msg["content"] = self._safe_truncate(msg["content"], int(max_tokens * 2))
         return messages
 
-    def _compress_user_messages(self, messages: List[Dict[str, Any]], llm_model: str, llm_max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
+    def _compress_user_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
         """Compress the user messages except the most recent one."""
         uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
 
-        if uncompressed_total_token_count > (llm_max_tokens or (100 * 1000)):
+        if uncompressed_total_token_count > (max_tokens or (100 * 1000)):
             _i = 0 # Count the number of User messages
             for msg in reversed(messages): # Start from the end and work backwards
                 if msg.get('role') == 'user': # Only compress User messages
@@ -142,13 +142,13 @@ class ThreadManager:
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
-                            msg["content"] = self._safe_truncate(msg["content"])
+                            msg["content"] = self._safe_truncate(msg["content"], int(max_tokens * 2))
         return messages
 
-    def _compress_assistant_messages(self, messages: List[Dict[str, Any]], llm_model: str, llm_max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
+    def _compress_assistant_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int], token_threshold: Optional[int] = 1000) -> List[Dict[str, Any]]:
         """Compress the assistant messages except the most recent one."""
         uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
-        if uncompressed_total_token_count > (llm_max_tokens or (100 * 1000)):
+        if uncompressed_total_token_count > (max_tokens or (100 * 1000)):
             _i = 0 # Count the number of Assistant messages
             for msg in reversed(messages): # Start from the end and work backwards
                 if msg.get('role') == 'assistant': # Only compress Assistant messages
@@ -162,14 +162,26 @@ class ThreadManager:
                             else:
                                 logger.warning(f"UNEXPECTED: Message has no message_id {str(msg)[:100]}")
                         else:
-                            msg["content"] = self._safe_truncate(msg["content"])
+                            msg["content"] = self._safe_truncate(msg["content"], int(max_tokens * 2))
                             
         return messages
 
-    def _compress_messages(self, messages: List[Dict[str, Any]], llm_model: str, llm_max_tokens: Optional[int], token_threshold: Optional[int] = 4096, max_iterations: int = 5) -> List[Dict[str, Any]]:
+    def _compress_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int] = 41000, token_threshold: Optional[int] = 4096, max_iterations: int = 5) -> List[Dict[str, Any]]:
         """Compress the messages.
             token_threshold: must be a power of 2
         """
+
+        if 'sonnet' in llm_model.lower():
+            max_tokens = 200 * 1000 - 64000
+        elif 'gpt' in llm_model.lower():
+            max_tokens = 128 * 1000 - 28000
+        elif 'gemini' in llm_model.lower():
+            max_tokens = 1000 * 1000 - 300000
+        elif 'deepseek' in llm_model.lower():
+            max_tokens = 163 * 1000 - 32000
+        else:
+            max_tokens = 41 * 1000 - 10000
+
         if max_iterations <= 0:
             logger.warning(f"_compress_messages: Max iterations reached, returning uncompressed messages")
             return messages
@@ -178,17 +190,17 @@ class ThreadManager:
 
         uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
 
-        result = self._compress_tool_result_messages(result, llm_model, llm_max_tokens, token_threshold)
-        result = self._compress_user_messages(result, llm_model, llm_max_tokens, token_threshold)
-        result = self._compress_assistant_messages(result, llm_model, llm_max_tokens, token_threshold)
+        result = self._compress_tool_result_messages(result, llm_model, max_tokens, token_threshold)
+        result = self._compress_user_messages(result, llm_model, max_tokens, token_threshold)
+        result = self._compress_assistant_messages(result, llm_model, max_tokens, token_threshold)
 
         compressed_token_count = token_counter(model=llm_model, messages=result)
 
         logger.info(f"_compress_messages: {uncompressed_total_token_count} -> {compressed_token_count}") # Log the token compression for debugging later
 
-        if (compressed_token_count > llm_max_tokens):
-            logger.warning(f"Further token compression is needed: {compressed_token_count} > {llm_max_tokens}")
-            result = self._compress_messages(messages, llm_model, llm_max_tokens, int(token_threshold / 2), max_iterations - 1)
+        if (compressed_token_count > max_tokens):
+            logger.warning(f"Further token compression is needed: {compressed_token_count} > {max_tokens}")
+            result = self._compress_messages(messages, llm_model, max_tokens, int(token_threshold / 2), max_iterations - 1)
 
         return result
 
@@ -460,7 +472,7 @@ Here are the XML tools available with examples:
                     openapi_tool_schemas = self.tool_registry.get_openapi_schemas()
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
-                prepared_messages = self._compress_messages(prepared_messages, llm_model, llm_max_tokens)
+                prepared_messages = self._compress_messages(prepared_messages, llm_model)
 
                 # 5. Make LLM API call
                 logger.debug("Making LLM API call")
