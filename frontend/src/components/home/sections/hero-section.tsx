@@ -135,11 +135,8 @@ export function HeroSection() {
       setInitiatedThreadId(result.thread_id);
       setInputValue('');
     } catch (error: any) {
-      console.error('Error creating agent:', error);
-
       if (error instanceof BillingError) {
-        console.log('Handling BillingError from hero section:', error.detail);
-        onOpen("paymentRequiredDialog");
+        console.log('Billing error:');
       } else {
         const isConnectionError =
           error instanceof TypeError &&
