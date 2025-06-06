@@ -18,7 +18,7 @@ import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
 
-// Define the set of tags whose raw XML should be hidden during streaming
+// Define the set of  tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-command',
     'create-file',
@@ -421,24 +421,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     groupedMessages.push(currentGroup);
                                 }
 
-                                                                // Debug logging to help identify grouping issues
-                                console.log('=== MESSAGE GROUPING DEBUG ===');
-                                console.log('Input messages:', displayMessages.map((m, i) => ({ index: i, type: m.type, id: m.message_id })));
-                                console.log('Grouped messages:', groupedMessages.map(g => ({
-                                    type: g.type,
-                                    key: g.key,
-                                    messageCount: g.messages.length,
-                                    messageTypes: g.messages.map(m => m.type),
-                                    messageIds: g.messages.map(m => m.message_id)
-                                })));
-                                
-                                // Show detailed breakdown of assistant groups
-                                groupedMessages.forEach((group, i) => {
-                                    if (group.type === 'assistant_group') {
-                                        console.log(`Group ${i} (${group.key}):`, group.messages.map(m => ({ type: m.type, id: m.message_id })));
-                                    }
-                                });
-
                                 // Merge consecutive assistant groups
                                 const mergedGroups: MessageGroup[] = [];
                                 let currentMergedGroup: MessageGroup | null = null;
@@ -448,7 +430,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         if (currentMergedGroup && currentMergedGroup.type === 'assistant_group') {
                                             // Merge with the current group
                                             currentMergedGroup.messages.push(...group.messages);
-                                            console.log(`Merged group ${index} into existing assistant group`);
                                         } else {
                                             // Finalize previous group if it exists
                                             if (currentMergedGroup) {
@@ -472,14 +453,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 if (currentMergedGroup) {
                                     mergedGroups.push(currentMergedGroup);
                                 }
-
-                                console.log('After merging consecutive assistant groups:', mergedGroups.map(g => ({
-                                    type: g.type,
-                                    key: g.key,
-                                    messageCount: g.messages.length,
-                                    messageTypes: g.messages.map(m => m.type)
-                                })));
-                                console.log('===============================');
 
                                 // Use merged groups instead of original grouped messages
                                 const finalGroupedMessages = mergedGroups;
