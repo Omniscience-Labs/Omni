@@ -1711,7 +1711,7 @@ class ResponseProcessor:
                 #     "parsing_details": parsing_details
                 # }
             }
-        }
+        } 
 
         # STRUCTURED_OUTPUT_TOOLS = {
         #     "str_replace", 
