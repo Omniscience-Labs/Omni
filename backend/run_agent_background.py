@@ -29,6 +29,10 @@ async def initialize():
     """Initialize the agent API with resources from the main API."""
     global db, instance_id, _initialized
     if _initialized:
+        try: await redis.client.ping()
+        except Exception as e:
+            logger.warning(f"Redis connection failed, re-initializing: {e}")
+            await redis.initialize_async(force=True)
         return
 
     # Use provided instance_id or generate a new one
@@ -55,7 +59,11 @@ async def run_agent_background(
     enable_context_manager: bool
 ):
     """Run the agent in the background using Redis for state."""
-    await initialize()
+    try:
+        await initialize()
+    except Exception as e:
+        logger.critical(f"Failed to initialize Redis connection: {e}")
+        raise e
 
     sentry.sentry.set_tag("thread_id", thread_id)
 
