@@ -353,11 +353,11 @@ Here are the XML tools available with examples:
                         if self._is_tool_result_message(msg): # Only compress ToolResult messages
                             _i += 1 # Count the number of ToolResult messages
                             msg_token_count = token_counter(messages=[msg]) # Count the number of tokens in the message
-                            if msg_token_count > 5000: # If the message is too long
+                            if msg_token_count > 1000: # If the message is too long
                                 if _i > 1: # If this is not the most recent ToolResult message
                                     message_id = msg.get('message_id') # Get the message_id
                                     if message_id:
-                                        msg["content"] = msg["content"][:10000] + "... (truncated)" + f"\n\nThis message is too long, use the expand-message tool with message_id \"{message_id}\" to see the full message" # Truncate the message
+                                        msg["content"] = msg["content"][:3000] + "... (truncated)" + f"\n\nThis message is too long, use the expand-message tool with message_id \"{message_id}\" to see the full message" # Truncate the message
                                 else:
                                     msg["content"] = msg["content"][:200000] + f"\n\nThis message is too long, repeat relevant information in your response to remember it" # Truncate to 300k characters to avoid overloading the context at once, but don't truncate otherwise
 
