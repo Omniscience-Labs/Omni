@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '../agents/_components/pagination';
+import Link from 'next/link';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
@@ -99,9 +100,17 @@ export default function MarketplacePage() {
       <div className="space-y-8">
         <div className="space-y-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Agent Marketplace
-            </h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                Agent Marketplace
+              </h1>
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/marketplace/secure">
+                  <Shield className="h-4 w-4" />
+                  Secure Templates
+                </Link>
+              </Button>
+            </div>
             <p className="text-md text-muted-foreground max-w-2xl">
               Discover and add powerful AI agents created by the community to your personal library
             </p>
