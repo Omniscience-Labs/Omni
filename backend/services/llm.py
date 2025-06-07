@@ -181,7 +181,7 @@ def prepare_params(
                              item["cache_control"] = {"type": "ephemeral"}
                              break # Apply to the first text block only for system prompt
 
-        # 2. Find and process relevant user and assistant messages
+        # 2. Find and process relevant user and assistant messages (limit to 4 max)
         last_user_idx = -1
         second_last_user_idx = -1
         last_assistant_idx = -1
@@ -197,9 +197,10 @@ def prepare_params(
                 if last_assistant_idx == -1:
                     last_assistant_idx = i
 
-            # Stop searching if we've found all needed messages
-            if last_user_idx != -1 and second_last_user_idx != -1 and last_assistant_idx != -1:
-                 break
+            # Stop searching if we've found all needed messages (system, last user, second last user, last assistant)
+            found_count = sum(idx != -1 for idx in [last_user_idx, second_last_user_idx, last_assistant_idx])
+            if found_count >= 3:
+                break
 
         # Helper function to apply cache control
         def apply_cache_control(message_idx: int, message_role: str):
@@ -219,7 +220,9 @@ def prepare_params(
                         if "cache_control" not in item:
                            item["cache_control"] = {"type": "ephemeral"}
 
-        # Apply cache control to the identified messages
+        # Apply cache control to the identified messages (max 4: system, last user, second last user, last assistant)
+        # System message is always at index 0 if present
+        apply_cache_control(0, "system")
         apply_cache_control(last_user_idx, "last user")
         apply_cache_control(second_last_user_idx, "second last user")
         apply_cache_control(last_assistant_idx, "last assistant")
