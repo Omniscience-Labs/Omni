@@ -36,7 +36,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = ({ server, onClick }) => {
           <img 
             src={iconUrl} 
             alt={`${displayName} logo`}
-            className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+            className="w-8 h-8 rounded-md object-cover flex-shrink-0"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
@@ -83,14 +83,14 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
   categorizedServers
 }) => {
   return (
-    <div className="w-48 border-r pr-4">
+    <div className="w-48 pr-4">
       <h3 className="font-medium text-sm mb-3">Categories</h3>
       <div className="space-y-1">
         <button
           onClick={() => onCategorySelect(null)}
           className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors ${
             selectedCategory === null 
-              ? 'bg-primary text-primary-foreground' 
+              ? 'bg-muted-foreground/10 text-foreground' 
               : 'hover:bg-muted'
           }`}
         >
@@ -102,14 +102,11 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
             onClick={() => onCategorySelect(category)}
             className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors flex items-center justify-between ${
               selectedCategory === category 
-                ? 'bg-primary text-primary-foreground' 
+                ? 'bg-muted-foreground/10 text-foreground' 
                 : 'hover:bg-muted'
             }`}
           >
             <span className="truncate">{category}</span>
-            <Badge variant="outline" className="text-xs ml-2">
-              {categorizedServers[category]?.length || 0}
-            </Badge>
           </button>
         ))}
       </div>

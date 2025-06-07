@@ -156,34 +156,19 @@ export function SidebarLeft({
               </Link>
             )}
             {marketplaceEnabled && (
-              <>
-                <Link href="/marketplace">
-                  <SidebarMenuButton className={cn({
-                    'bg-primary/10 font-medium': pathname === '/marketplace',
-                  })}>
-                    <Store className="h-4 w-4 mr-2" />
-                    <span className="flex items-center justify-between w-full">
-                      Marketplace
-                      <Badge variant="new">
-                        New
-                      </Badge>
-                    </span>
-                  </SidebarMenuButton>
-                </Link>
-                <Link href="/marketplace/secure">
-                  <SidebarMenuButton className={cn({
-                    'bg-primary/10 font-medium': pathname === '/marketplace/secure',
-                  })}>
-                    <Shield className="h-4 w-4 mr-2" />
-                    <span className="flex items-center justify-between w-full">
-                      Secure Templates
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                        Secure
-                      </Badge>
-                    </span>
-                  </SidebarMenuButton>
-                </Link>
-              </>
+              <Link href="/marketplace">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname.startsWith('/marketplace'),
+                })}>
+                  <Store className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Marketplace
+                    <Badge variant="new">
+                      New
+                    </Badge>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
             )}
           </SidebarGroup>
         )}

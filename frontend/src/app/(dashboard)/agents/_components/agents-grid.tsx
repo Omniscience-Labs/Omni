@@ -42,65 +42,107 @@ const PublishingChoiceDialog = ({ agent, isOpen, onClose, onRegularPublish, onSe
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Choose Publishing Method</DialogTitle>
+          <DialogTitle>Publish to Marketplace</DialogTitle>
           <DialogDescription>
-            How would you like to publish "{agent.name}" to the marketplace?
+            Publish "{agent.name}" to the marketplace for others to discover and use.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {hasMCPCredentials && (
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                <div className="text-sm text-amber-800 dark:text-amber-200">
-                  <p className="font-medium">This agent contains MCP credentials</p>
-                  <p className="mt-1">We recommend using secure publishing to protect your API keys.</p>
+          {hasMCPCredentials ? (
+            <>
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Shield className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-green-800 dark:text-green-200">
+                    <p className="font-medium">Secure Publishing Recommended</p>
+                    <p className="mt-1">This agent contains MCP credentials. We'll create a secure template that protects your API keys.</p>
+                  </div>
                 </div>
               </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={() => onSecurePublish(agent.agent_id)}
+                  disabled={isCreatingTemplate}
+                  className="w-full justify-start gap-3 h-auto p-4"
+                >
+                  <Shield className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Publish as Secure Template</div>
+                    <div className="text-xs text-primary-foreground/80 mt-1">
+                      Users will use their own encrypted credentials
+                    </div>
+                  </div>
+                  {isCreatingTemplate && (
+                    <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  )}
+                </Button>
+
+                <details className="group">
+                  <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    Advanced: Legacy publishing options
+                  </summary>
+                  <div className="mt-2 pt-2 border-t">
+                    <Button
+                      onClick={() => onRegularPublish(agent.agent_id)}
+                      disabled={isPublishing}
+                      variant="outline"
+                      className="w-full justify-start gap-3 h-auto p-3 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800"
+                    >
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <div className="text-left">
+                        <div className="font-medium text-sm">Legacy Publishing</div>
+                        <div className="text-xs text-amber-600 mt-1">
+                          ⚠️ Will expose your API keys publicly
+                        </div>
+                      </div>
+                      {isPublishing && (
+                        <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                      )}
+                    </Button>
+                  </div>
+                </details>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <Button
+                onClick={() => onSecurePublish(agent.agent_id)}
+                disabled={isCreatingTemplate}
+                className="w-full justify-start gap-3 h-auto p-4"
+              >
+                <Shield className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Publish as Secure Template</div>
+                  <div className="text-xs text-primary-foreground/80 mt-1">
+                    Modern, secure publishing method
+                  </div>
+                </div>
+                {isCreatingTemplate && (
+                  <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                )}
+              </Button>
+
+              <Button
+                onClick={() => onRegularPublish(agent.agent_id)}
+                disabled={isPublishing}
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto p-4"
+              >
+                <Globe className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Legacy Publishing</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Traditional marketplace publishing
+                  </div>
+                </div>
+                {isPublishing && (
+                  <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                )}
+              </Button>
             </div>
           )}
-
-          <div className="space-y-3">
-            <Button
-              onClick={() => onSecurePublish(agent.agent_id)}
-              disabled={isCreatingTemplate}
-              className="w-full justify-start gap-3 h-auto p-4 bg-green-50 hover:bg-green-100 border border-green-200 text-green-800"
-              variant="outline"
-            >
-              <Shield className="h-5 w-5 text-green-600" />
-              <div className="text-left">
-                <div className="font-medium">Secure Template (Recommended)</div>
-                <div className="text-xs text-green-600 mt-1">
-                  Creates a secure template without exposing credentials
-                </div>
-              </div>
-              {isCreatingTemplate && (
-                <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
-              )}
-            </Button>
-
-            <Button
-              onClick={() => onRegularPublish(agent.agent_id)}
-              disabled={isPublishing}
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto p-4"
-            >
-              <Globe className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Regular Publishing</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {hasMCPCredentials 
-                    ? "⚠️ Will expose API keys publicly" 
-                    : "Standard marketplace publishing"
-                  }
-                </div>
-              </div>
-              {isPublishing && (
-                <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              )}
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -268,7 +310,7 @@ export const AgentsGrid = ({
   const handleRegularPublish = async (agentId: string) => {
     try {
       await publishAgentMutation.mutateAsync({ agentId, tags: [] });
-      toast.success('Agent published to marketplace successfully!');
+      toast.success('Agent published to marketplace! Note: Any embedded credentials will be visible to users.');
       setShowPublishingChoice(false);
       setPublishingAgent(null);
     } catch (error: any) {
@@ -283,7 +325,7 @@ export const AgentsGrid = ({
         make_public: true,
         tags: [] 
       });
-      toast.success('Secure template created successfully!');
+      toast.success('Agent published as secure template! Users will use their own encrypted credentials.');
       setShowPublishingChoice(false);
       setPublishingAgent(null);
     } catch (error: any) {

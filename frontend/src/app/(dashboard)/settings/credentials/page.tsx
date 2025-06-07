@@ -16,10 +16,6 @@ import {
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { EnhancedAddCredentialDialog } from './_components/enhanced-add-credential-dialog';
 
-
-
-
-
 interface CredentialCardProps {
   credential: MCPCredential;
   onTest: (qualifiedName: string) => void;
@@ -39,67 +35,45 @@ const CredentialCard: React.FC<CredentialCardProps> = ({
   const isDeleting = isDeletingId === credential.mcp_qualified_name;
 
   return (
-    <Card>
-      <CardContent className="p-6">
+    <Card className="border-border/50 hover:border-border transition-colors">
+      <CardContent className="p-4 py-0">
         <div className="flex items-start justify-between">
-          <div className="space-y-2">
+          <div className="space-y-2 flex-1">
             <div className="flex items-center gap-2">
-              <Key className="h-4 w-4 text-primary" />
-              <h3 className="font-medium">{credential.display_name}</h3>
+              <div className="p-2 rounded-md bg-primary/10">
+                <Key className="h-4 w-4 text-primary" />
+              </div>
+              <h3 className="text-md font-medium text-foreground">{credential.display_name}</h3>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground font-mono">
               {credential.mcp_qualified_name}
             </p>
             <div className="flex flex-wrap gap-1">
               {credential.config_keys.map((key) => (
-                <Badge key={key} variant="outline" className="text-xs">
+                <Badge key={key} variant="outline">
                   {key}
                 </Badge>
               ))}
             </div>
             {credential.last_used_at && (
-              <p className="text-xs text-muted-foreground">
-                Last used: {new Date(credential.last_used_at).toLocaleDateString()}
+              <p className="text-xs text-muted-foreground/70">
+                Last used {new Date(credential.last_used_at).toLocaleDateString()}
               </p>
             )}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 ml-4">
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => onTest(credential.mcp_qualified_name)}
-              disabled={isTesting || isDeleting}
-            >
-              {isTesting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <TestTube className="h-4 w-4 mr-1" />
-                  Test
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={() => onDelete(credential.mcp_qualified_name)}
               disabled={isTesting || isDeleting}
-              className="text-destructive hover:text-destructive"
+              className="h-8 px-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  Deleting...
-                </>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </>
+                <Trash2 className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>
@@ -149,10 +123,10 @@ export default function CredentialsPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Alert variant="destructive">
+      <div className="container mx-auto max-w-4xl px-4 py-6">
+        <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertDescription className="text-sm">
             Failed to load credentials. Please try again later.
           </AlertDescription>
         </Alert>
@@ -161,44 +135,48 @@ export default function CredentialsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="space-y-8">
-        <div className="space-y-4">
+    <div className="container mx-auto max-w-4xl px-4 py-6">
+      <div className="space-y-6">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+            <div className="space-y-1">
+              <h1 className="text-lg font-semibold text-foreground">
                 MCP Credentials
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Manage your encrypted API credentials for MCP servers
               </p>
             </div>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button 
+              onClick={() => setShowAddDialog(true)}
+              size="sm"
+              className="h-8 px-3 text-sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
               Add Credential
             </Button>
           </div>
 
-          <Alert>
-            <Shield className="h-4 w-4" />
-            <AlertDescription>
-              All credentials are encrypted and stored securely. You only need to set up each MCP service once, 
-              and your credentials will be automatically used when installing agents that require them.
+          <Alert className="border-primary/20 bg-primary/5">
+            <Shield className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-sm text-muted-foreground">
+              All credentials are encrypted and stored securely. Set up each MCP service once, 
+              and credentials will be automatically used when installing agents.
             </AlertDescription>
           </Alert>
         </div>
 
         {isLoading ? (
-          <div className="grid gap-4">
+          <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <div className="animate-pulse space-y-3">
-                    <div className="h-4 bg-muted rounded w-1/3"></div>
-                    <div className="h-3 bg-muted rounded w-1/2"></div>
-                    <div className="flex gap-2">
-                      <div className="h-6 bg-muted rounded w-16"></div>
-                      <div className="h-6 bg-muted rounded w-20"></div>
+              <Card key={i} className="border-border/50">
+                <CardContent className="p-4">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-3 bg-muted/60 rounded w-1/4"></div>
+                    <div className="h-2.5 bg-muted/40 rounded w-1/3"></div>
+                    <div className="flex gap-1.5">
+                      <div className="h-5 bg-muted/40 rounded w-12"></div>
+                      <div className="h-5 bg-muted/40 rounded w-16"></div>
                     </div>
                   </div>
                 </CardContent>
@@ -206,21 +184,27 @@ export default function CredentialsPage() {
             ))}
           </div>
         ) : credentials?.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No credentials configured</h3>
-              <p className="text-muted-foreground mb-6">
-                Add your first MCP credential to start using secure agents from the marketplace
+          <Card className="border-dashed border-border/50">
+            <CardContent className="p-8 text-center">
+              <div className="p-3 rounded-full bg-muted/50 w-fit mx-auto mb-3">
+                <Key className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-medium mb-1 text-foreground">No credentials configured</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add your first MCP credential to start using secure agents
               </p>
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button 
+                onClick={() => setShowAddDialog(true)}
+                size="sm"
+                className="h-8 px-3 text-sm"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
                 Add Your First Credential
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-3">
             {credentials?.map((credential) => (
               <CredentialCard
                 key={credential.credential_id}
