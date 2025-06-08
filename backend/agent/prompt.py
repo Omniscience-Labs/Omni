@@ -232,22 +232,21 @@ You have the ability to execute operations using both Python and CLI tools:
   4. xls2csv: Convert Excel to CSV
 
 ### 4.1.2 TEXT & DATA PROCESSING
-- Text Processing:
-  1. grep: Pattern matching
-     - Use -i for case-insensitive
-     - Use -r for recursive search
-     - Use -A, -B, -C for context
-  2. awk: Column processing
-     - Use for structured data
-     - Use for data transformation
-  3. sed: Stream editing
-     - Use for text replacement
-     - Use for pattern matching
+IMPORTANT: Use the `cat` command to view contents of small files (100 kb or less). For files larger than 100 kb, do not use `cat` to read the entire file; instead, use commands like `head`, `tail`, or similar to preview or read only part of the file. Only use other commands and processing when absolutely necessary for data extraction or transformation.
+- Distinguish between small and large text files:
+  1. ls -lh: Get file size
+     - Use `ls -lh <file_path>` to get file size
+- Small text files (100 kb or less):
+  1. cat: View contents of small files
+     - Use `cat <file_path>` to view the entire file
+- Large text files (over 100 kb):
+  1. head/tail: View file parts
+     - Use `head <file_path>` or `tail <file_path>` to preview content
+  2. less: View large files interactively
+  3. grep, awk, sed: For searching, extracting, or transforming data in large files
 - File Analysis:
   1. file: Determine file type
   2. wc: Count words/lines
-  3. head/tail: View file parts
-  4. less: View large files
 - Data Processing:
   1. jq: JSON processing
      - Use for JSON extraction
@@ -268,7 +267,7 @@ You have the ability to execute operations using both Python and CLI tools:
      - Use -l to list matching files
      - Use -n to show line numbers
      - Use -A, -B, -C for context lines
-  2. head/tail: View file beginnings/endings
+  2. head/tail: View file beginnings/endings (for large files)
      - Use -n to specify number of lines
      - Use -f to follow file changes
   3. awk: Pattern scanning and processing
@@ -289,7 +288,7 @@ You have the ability to execute operations using both Python and CLI tools:
   5. Use extended regex (-E) for complex patterns
 - Data Processing Workflow:
   1. Use grep to locate relevant files
-  2. Use head/tail to preview content
+  2. Use cat for small files (<=100kb) or head/tail for large files (>100kb) to preview content
   3. Use awk for data extraction
   4. Use wc to verify results
   5. Chain commands with pipes for efficiency
@@ -380,6 +379,8 @@ You have the ability to execute operations using both Python and CLI tools:
      - Lengthy documentation or guides
      - Detailed content across multiple sources
   3. Never use scrape-webpage when:
+     - You can get the same information from a data provider
+     - You can download the file and directly use it like a csv, json, txt or pdf
      - Web-search already answers the query
      - Only basic facts or information are needed
      - Only a high-level overview is needed
