@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe, Shield, AlertTriangle, CheckCircle, Loader2, Settings, X, Wrench, Zap } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe, Shield, AlertTriangle, CheckCircle, Loader2, Settings, X, Wrench, Zap, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -42,28 +40,40 @@ interface UnifiedMarketplaceItem {
   avatar?: string;
   avatar_color?: string;
   type: 'legacy' | 'secure';
-  // Legacy agent fields
   agent_id?: string;
-  // Secure template fields
   template_id?: string;
   mcp_requirements?: Array<{
     qualified_name: string;
     display_name: string;
     enabled_tools?: string[];
+    required_config: string[];
+    custom_type?: 'sse' | 'http';
   }>;
+}
+
+interface SetupStep {
+  id: string;
+  title: string;
+  description: string;
+  type: 'credential' | 'custom_server';
+  service_name: string;
+  qualified_name: string;
+  required_fields: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'url' | 'password';
+    placeholder: string;
+    description?: string;
+  }>;
+  custom_type?: 'sse' | 'http';
 }
 
 interface InstallDialogProps {
   item: UnifiedMarketplaceItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInstall: (item: UnifiedMarketplaceItem, instanceName?: string) => void;
+  onInstall: (item: UnifiedMarketplaceItem, instanceName?: string, customMcpConfigs?: Record<string, Record<string, any>>) => void;
   isInstalling: boolean;
-  credentialStatus?: {
-    hasAllCredentials: boolean;
-    missingCount: number;
-    totalRequired: number;
-  };
 }
 
 const InstallDialog: React.FC<InstallDialogProps> = ({ 
@@ -71,130 +81,372 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   open, 
   onOpenChange, 
   onInstall, 
-  isInstalling,
-  credentialStatus
+  isInstalling
 }) => {
+  const [currentStep, setCurrentStep] = useState(0);
   const [instanceName, setInstanceName] = useState('');
+  const [setupData, setSetupData] = useState<Record<string, Record<string, string>>>({});
+  const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
+  const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
+  const [missingCredentials, setMissingCredentials] = useState<string[]>([]);
+
+  const { data: userCredentials } = useUserCredentials();
 
   React.useEffect(() => {
-    if (item) {
+    if (item && open) {
       if (item.type === 'secure') {
-        setInstanceName(`${item.name} (My Copy)`);
+        setInstanceName(`${item.name}`);
+        checkRequirementsAndSetupSteps();
       } else {
         setInstanceName('');
+        setSetupSteps([]);
+        setMissingCredentials([]);
       }
     }
-  }, [item]);
+  }, [item, open, userCredentials]);
+
+  const checkRequirementsAndSetupSteps = async () => {
+    if (!item?.mcp_requirements) return;
+    
+    setIsCheckingRequirements(true);
+    const userCredNames = new Set(userCredentials?.map(cred => cred.mcp_qualified_name) || []);
+    const steps: SetupStep[] = [];
+    const missing: string[] = [];
+
+    const customServers = item.mcp_requirements.filter(req => req.custom_type);
+    const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
+
+    for (const req of regularServices) {
+      if (!userCredNames.has(req.qualified_name)) {
+        missing.push(req.display_name);
+      }
+    }
+
+    for (const req of customServers) {
+      steps.push({
+        id: req.qualified_name,
+        title: `Configure ${req.display_name}`,
+        description: `Enter your ${req.display_name} server URL to connect this agent.`,
+        type: 'custom_server',
+        service_name: req.display_name,
+        qualified_name: req.qualified_name,
+        custom_type: req.custom_type,
+        required_fields: req.required_config.map(key => ({
+          key,
+          label: key === 'url' ? `${req.display_name} Server URL` : key,
+          type: key === 'url' ? 'url' : 'text',
+          placeholder: key === 'url' ? `https://your-${req.display_name.toLowerCase()}-server.com` : `Enter your ${key}`,
+          description: key === 'url' ? `Your personal ${req.display_name} server endpoint` : undefined
+        }))
+      });
+    }
+
+    setSetupSteps(steps);
+    setMissingCredentials(missing);
+    setIsCheckingRequirements(false);
+  };
+
+  const handleFieldChange = (stepId: string, fieldKey: string, value: string) => {
+    setSetupData(prev => ({
+      ...prev,
+      [stepId]: {
+        ...prev[stepId],
+        [fieldKey]: value
+      }
+    }));
+  };
+
+  const isCurrentStepComplete = (): boolean => {
+    if (setupSteps.length === 0) return true;
+    if (currentStep >= setupSteps.length) return true;
+    
+    const step = setupSteps[currentStep];
+    const stepData = setupData[step.id] || {};
+    
+    return step.required_fields.every(field => {
+      const value = stepData[field.key];
+      return value && value.trim().length > 0;
+    });
+  };
+
+  const handleNext = () => {
+    if (currentStep < setupSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleInstall();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleInstall = async () => {
+    if (!item) return;
+
+    if (item.type === 'legacy' && item.agent_id) {
+      onInstall(item, instanceName);
+      return;
+    }
+
+    const customMcpConfigs: Record<string, Record<string, any>> = {};
+    setupSteps.forEach(step => {
+      if (step.type === 'custom_server') {
+        customMcpConfigs[step.qualified_name] = setupData[step.id] || {};
+      }
+    });
+    
+    onInstall(item, instanceName, customMcpConfigs);
+  };
+
+  const canInstall = () => {
+    if (!item || item.type !== 'secure') return true;
+    if (!instanceName.trim()) return false;
+    if (missingCredentials.length > 0) return false;
+    if (setupSteps.length > 0 && currentStep < setupSteps.length) return false;
+    return true;
+  };
 
   if (!item) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {item.type === 'secure' ? 'Install Secure Template' : 'Add Agent to Library'}
-            {item.type === 'secure' && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <Shield className="h-3 w-3 mr-1" />
-                Secure
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {item.type === 'secure' 
-              ? `Install "${item.name}" as a secure agent instance`
-              : `Add "${item.name}" to your agent library`
-            }
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {item.type === 'secure' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Agent Name</label>
-              <Input
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-                placeholder="Enter a name for your agent"
-              />
-            </div>
-          )}
-
-          {item.type === 'secure' && item.mcp_requirements && item.mcp_requirements.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Required MCP Services</label>
-              <div className="space-y-2">
-                {item.mcp_requirements.map((req) => (
-                  <div key={req.qualified_name} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <p className="text-sm font-medium">{req.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{req.qualified_name}</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {req.enabled_tools?.length || 0} tools
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              
-              {credentialStatus && !credentialStatus.hasAllCredentials && (
-                <Alert className='border-destructive/20 bg-destructive/5 text-destructive'>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-xs text-destructive">
-                    You're missing credentials for {credentialStatus.missingCount} of {credentialStatus.totalRequired} required services.
-                    <Link href="/settings/credentials" className="ml-1 underline">
-                      Set them up first →
-                    </Link>
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {credentialStatus && credentialStatus.hasAllCredentials && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    All required credentials are configured. This agent will use your encrypted API keys.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
-
-          {item.type === 'legacy' && (
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                This is a legacy agent that may contain embedded API keys. Consider using secure templates for better security.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => onInstall(item, instanceName)}
-            disabled={
-              isInstalling || 
-              (item.type === 'secure' && !instanceName.trim()) ||
-              (item.type === 'secure' && credentialStatus && !credentialStatus.hasAllCredentials)
-            }
-          >
-            {isInstalling ? (
+      <DialogContent className="max-w-lg">
+        <DialogHeader className="space-y-3">
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            {item.type === 'secure' ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {item.type === 'secure' ? 'Installing...' : 'Adding...'}
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                  <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                Install {item.name}
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
-                {item.type === 'secure' ? 'Install Agent' : 'Add to Library'}
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
+                  <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                Add {item.name}
               </>
             )}
-          </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {isCheckingRequirements ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Checking what you need...</p>
+            </div>
+          ) : missingCredentials.length > 0 ? (
+            <div className="space-y-6">
+              <Alert className="border-destructive/50 bg-destructive/10 dark:bg-destructive/5 text-destructive">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertTitle className="text-destructive">Missing API Credentials</AlertTitle>
+                <AlertDescription className="text-destructive/80">
+                  This agent requires API credentials for the following services:
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-3">
+                {missingCredentials.map((serviceName) => (
+                  <Card key={serviceName} className="border-destructive/20 shadow-none bg-transparent">
+                    <CardContent className="flex items-center justify-between p-4 py-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                        </div>
+                        <span className="font-medium">{serviceName}</span>
+                      </div>
+                      <Badge variant="destructive">Missing</Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : setupSteps.length === 0 ? (
+            <div className="space-y-6">
+              {item.type === 'secure' && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Agent Name
+                  </label>
+                  <Input
+                    value={instanceName}
+                    onChange={(e) => setInstanceName(e.target.value)}
+                    placeholder="Enter a name for this agent"
+                    className="h-11"
+                  />
+                </div>
+              )}
+              
+              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  {item.type === 'secure' 
+                    ? "All requirements are configured. Ready to install!"
+                    : "This agent will be added to your library."
+                  }
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : currentStep < setupSteps.length ? (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                        {currentStep + 1}
+                      </div>
+                      <h3 className="font-semibold text-base">{setupSteps[currentStep].title}</h3>
+                      {setupSteps[currentStep].custom_type && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                          {setupSteps[currentStep].custom_type?.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {setupSteps[currentStep].description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {setupSteps[currentStep].required_fields.map((field) => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        {field.label}
+                      </label>
+                      <Input
+                        type={field.type}
+                        placeholder={field.placeholder}
+                        value={setupData[setupSteps[currentStep].id]?.[field.key] || ''}
+                        onChange={(e) => handleFieldChange(setupSteps[currentStep].id, field.key, e.target.value)}
+                        className="h-11"
+                      />
+                      {field.description && (
+                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {setupSteps.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-1 flex-1 rounded-full transition-colors ${
+                        index <= currentStep ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Step {currentStep + 1} of {setupSteps.length}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <h3 className="font-semibold text-base">Almost done!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Give your agent a name and we'll set everything up.
+                  </p>
+                </div>
+              </div>
+
+              <div className="ml-12 space-y-3">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Agent Name
+                </label>
+                <Input
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="Enter a name for this agent"
+                  className="h-11"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col gap-3">
+          {missingCredentials.length > 0 ? (
+            <div className="flex gap-3 w-full justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => window.open('/settings/credentials', '_blank')}
+              >
+                <Settings className="h-4 w-4" />
+                Set Up Credentials
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-3 w-full justify-end">
+              {currentStep > 0 && (
+                <Button variant="outline" onClick={handleBack} className="flex-1">
+                  Back
+                </Button>
+              )}
+              
+              {setupSteps.length === 0 ? (
+                <Button 
+                  onClick={handleInstall}
+                  disabled={isInstalling || !canInstall()}
+                >
+                  {isInstalling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {item.type === 'secure' ? 'Installing...' : 'Adding...'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      {item.type === 'secure' ? 'Install Agent' : 'Add to Library'}
+                    </>
+                  )}
+                </Button>
+              ) : currentStep < setupSteps.length ? (
+                <Button 
+                  onClick={handleNext}
+                  disabled={!isCurrentStepComplete()}
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleInstall}
+                  disabled={isInstalling || !canInstall()}
+                >
+                  {isInstalling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Installing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Install Agent
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -367,34 +619,46 @@ const AgentDetailsContent: React.FC<{
             <h3 className="text-md font-medium">Required MCP Services</h3>
           </div>
           
-          <div className="space-y-3">
-            {item.mcp_requirements.map((req) => (
-              <Card key={req.qualified_name} className="border-border/50">
-                <CardContent className="p-4 py-0">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10">
-                          <Zap className="h-4 w-4 text-primary" />
-                        </div>
-                        <h4 className="font-medium">{req.display_name}</h4>
-                      </div>
-                      {req.enabled_tools && req.enabled_tools.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {req.enabled_tools.map(tool => (
-                            <Badge key={tool} variant="outline" className="text-xs">
-                              <Wrench className="h-3 w-3 mr-1" />
-                              {tool}
+                      <div className="space-y-3">
+              {item.mcp_requirements.map((req) => (
+                <Card key={req.qualified_name} className="border-border/50">
+                  <CardContent className="p-4 py-0">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-primary/10">
+                            <Zap className="h-4 w-4 text-primary" />
+                          </div>
+                          <h4 className="font-medium">{req.display_name}</h4>
+                          {req.custom_type && (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              Custom {req.custom_type.toUpperCase()}
                             </Badge>
-                          ))}
+                          )}
                         </div>
-                      )}
+                        <div className="text-xs text-muted-foreground">
+                          {req.custom_type ? (
+                            <span>Requires your own {req.custom_type.toUpperCase()} server URL</span>
+                          ) : (
+                            <span>Requires: {req.required_config.join(', ')}</span>
+                          )}
+                        </div>
+                        {req.enabled_tools && req.enabled_tools.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {req.enabled_tools.map(tool => (
+                              <Badge key={tool} variant="outline" className="text-xs">
+                                <Wrench className="h-3 w-3 mr-1" />
+                                {tool}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
 
         </div>
@@ -420,141 +684,6 @@ const AgentDetailsContent: React.FC<{
         </div>
       )}
     </div>
-  );
-};
-
-const AgentDetailsSheet: React.FC<AgentDetailsProps> = ({ 
-  item, 
-  open, 
-  onOpenChange, 
-  onInstall, 
-  isInstalling,
-  credentialStatus
-}) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-  const [instanceName, setInstanceName] = useState('');
-
-  React.useEffect(() => {
-    if (item) {
-      if (item.type === 'secure') {
-        setInstanceName(`${item.name} (My Copy)`);
-      } else {
-        setInstanceName('');
-      }
-    }
-  }, [item]);
-
-  if (!item) return null;
-  if (isDesktop) {
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Agent Details</SheetTitle>
-            <SheetDescription>
-              View details and install this {item.type === 'secure' ? 'secure template' : 'agent'}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4 mt-6">
-            <AgentDetailsContent
-              item={item}
-              instanceName={instanceName}
-              setInstanceName={setInstanceName}
-            />
-          </div>
-          <div className="border-t p-4 mt-4">
-            {credentialStatus && !credentialStatus.hasAllCredentials && (
-              <Alert className="border-destructive/20 bg-destructive/5 text-destructive mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="text-sm text-destructive">
-                  You're missing credentials for {credentialStatus.missingCount} of {credentialStatus.totalRequired} required services.
-                  <Link href="/settings/credentials" className="ml-1 underline">
-                    Set them up first →
-                  </Link>
-                </AlertDescription>
-              </Alert>
-            )}
-            <Button 
-              onClick={() => onInstall(item, instanceName)}
-              disabled={
-                isInstalling || 
-                (item.type === 'secure' && !instanceName.trim()) ||
-                (item.type === 'secure' && credentialStatus && !credentialStatus.hasAllCredentials)
-              }
-              className="w-full"
-              size="lg"
-            >
-              {isInstalling ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {item.type === 'secure' ? 'Installing...' : 'Adding...'}
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  {item.type === 'secure' ? 'Install Agent' : 'Add to Library'}
-                </>
-              )}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-screen flex flex-col">
-        <DrawerHeader>
-          <DrawerTitle>Agent Details</DrawerTitle>
-          <DrawerDescription>
-            View details and install this {item.type === 'secure' ? 'secure template' : 'agent'}
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4">
-          <AgentDetailsContent
-            item={item}
-            instanceName={instanceName}
-            setInstanceName={setInstanceName}
-          />
-        </div>
-        <div className="border-t p-4 mt-4">
-          {credentialStatus && !credentialStatus.hasAllCredentials && (
-            <Alert className="border-destructive/20 bg-destructive/5 text-destructive mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-sm text-destructive">
-                You're missing credentials for {credentialStatus.missingCount} of {credentialStatus.totalRequired} required services.
-                <Link href="/settings/credentials" className="ml-1 underline">
-                  Set them up first →
-                </Link>
-              </AlertDescription>
-            </Alert>
-          )}
-          <Button 
-            onClick={() => onInstall(item, instanceName)}
-            disabled={
-              isInstalling || 
-              (item.type === 'secure' && !instanceName.trim()) ||
-              (item.type === 'secure' && credentialStatus && !credentialStatus.hasAllCredentials)
-            }
-            className="w-full"
-            size="lg"
-          >
-            {isInstalling ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {item.type === 'secure' ? 'Installing...' : 'Adding...'}
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                {item.type === 'secure' ? 'Install Agent' : 'Add to Library'}
-              </>
-            )}
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
   );
 };
 
@@ -678,13 +807,21 @@ export default function UnifiedMarketplacePage() {
     }
 
     const userCredNames = getUserCredentialNames();
-    const requiredCreds = item.mcp_requirements.map(req => req.qualified_name);
-    const missingCreds = requiredCreds.filter(cred => !userCredNames.has(cred));
+    const missingCreds = item.mcp_requirements.filter(req => {
+      if (req.custom_type) {
+        const customPattern = `custom_${req.custom_type}_`;
+        return !Array.from(userCredNames).some(credName => 
+          credName.startsWith(customPattern) && 
+          credName.includes(req.display_name.toLowerCase().replace(/\s+/g, '_'))
+        );
+      }
+      return !userCredNames.has(req.qualified_name);
+    });
     
     return {
       hasAllCredentials: missingCreds.length === 0,
       missingCount: missingCreds.length,
-      totalRequired: requiredCreds.length
+      totalRequired: item.mcp_requirements.length
     };
   };
 
@@ -701,7 +838,7 @@ export default function UnifiedMarketplacePage() {
     setShowInstallDialog(true);
   };
 
-  const handleInstall = async (item: UnifiedMarketplaceItem, instanceName?: string) => {
+  const handleInstall = async (item: UnifiedMarketplaceItem, instanceName?: string, customMcpConfigs?: Record<string, Record<string, any>>) => {
     setInstallingItemId(item.id);
     
     try {
@@ -713,18 +850,29 @@ export default function UnifiedMarketplacePage() {
       } else if (item.type === 'secure' && item.template_id) {
         const result = await installTemplateMutation.mutateAsync({
           template_id: item.template_id,
-          instance_name: instanceName
+          instance_name: instanceName,
+          custom_mcp_configs: customMcpConfigs
         });
 
         if (result.status === 'installed') {
           toast.success('Agent installed successfully!');
           setShowInstallDialog(false);
           setShowDetailsSheet(false);
-        } else if (result.status === 'credentials_required') {
-          setMissingCredentials(result.missing_credentials || []);
-          setShowInstallDialog(false);
-          setShowDetailsSheet(false);
-          setShowMissingCredsDialog(true);
+        } else if (result.status === 'configs_required') {
+          // Handle missing regular credentials
+          if (result.missing_regular_credentials && result.missing_regular_credentials.length > 0) {
+            setMissingCredentials(result.missing_regular_credentials);
+            setShowInstallDialog(false);
+            setShowDetailsSheet(false);
+            setShowMissingCredsDialog(true);
+            return;
+          }
+          
+          // Handle missing custom configs - this should be handled by the install dialog
+          if (result.missing_custom_configs && result.missing_custom_configs.length > 0) {
+            toast.error('Please provide all required custom MCP server configurations');
+            return;
+          }
         }
       }
     } catch (error: any) {
@@ -1042,22 +1190,12 @@ export default function UnifiedMarketplacePage() {
         )}
       </div>
 
-      <AgentDetailsSheet
-        item={selectedItem}
-        open={showDetailsSheet}
-        onOpenChange={setShowDetailsSheet}
-        onInstall={handleInstall}
-        isInstalling={installingItemId === selectedItem?.id}
-        credentialStatus={selectedItem ? getItemCredentialStatus(selectedItem) : undefined}
-      />
-
       <InstallDialog
         item={selectedItem}
         open={showInstallDialog}
         onOpenChange={setShowInstallDialog}
         onInstall={handleInstall}
         isInstalling={installingItemId === selectedItem?.id}
-        credentialStatus={selectedItem ? getItemCredentialStatus(selectedItem) : undefined}
       />
 
       <MissingCredentialsDialog

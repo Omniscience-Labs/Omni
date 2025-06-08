@@ -64,6 +64,7 @@ class InstallTemplateRequest(BaseModel):
     template_id: str
     instance_name: Optional[str] = None
     custom_system_prompt: Optional[str] = None
+    custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
 
 class PublishTemplateRequest(BaseModel):
     """Request model for publishing template"""
@@ -87,9 +88,10 @@ class TemplateResponse(BaseModel):
 
 class InstallationResponse(BaseModel):
     """Response model for template installation"""
-    status: str  # 'installed' or 'credentials_required'
+    status: str  # 'installed', 'configs_required'
     instance_id: Optional[str] = None
-    missing_credentials: Optional[List[Dict[str, Any]]] = None
+    missing_regular_credentials: Optional[List[Dict[str, Any]]] = None
+    missing_custom_configs: Optional[List[Dict[str, Any]]] = None
     template: Optional[Dict[str, Any]] = None
 
 # =====================================================
@@ -301,7 +303,8 @@ async def install_template(
             template_id=request.template_id,
             account_id=user_id,
             instance_name=request.instance_name,
-            custom_system_prompt=request.custom_system_prompt
+            custom_system_prompt=request.custom_system_prompt,
+            custom_mcp_configs=request.custom_mcp_configs
         )
         
         return InstallationResponse(**result)

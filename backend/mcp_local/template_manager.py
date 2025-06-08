@@ -119,6 +119,7 @@ class TemplateManager:
                     'required_config': list(custom_mcp.get('config', {}).keys()),
                     'custom_type': custom_mcp['type']
                 }
+                logger.info(f"Created custom MCP requirement: {requirement}")
                 mcp_requirements.append(requirement)
             
             # Create template
@@ -172,7 +173,8 @@ class TemplateManager:
                     qualified_name=req_data.get('qualified_name') or req_data.get('qualifiedName'),
                     display_name=req_data.get('display_name') or req_data.get('name'),
                     enabled_tools=req_data.get('enabled_tools') or req_data.get('enabledTools', []),
-                    required_config=req_data.get('required_config') or req_data.get('requiredConfig', [])
+                    required_config=req_data.get('required_config') or req_data.get('requiredConfig', []),
+                    custom_type=req_data.get('custom_type')
                 ))
             
             return AgentTemplate(
@@ -202,7 +204,8 @@ class TemplateManager:
         template_id: str, 
         account_id: str,
         instance_name: Optional[str] = None,
-        custom_system_prompt: Optional[str] = None
+        custom_system_prompt: Optional[str] = None,
+        custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Install a template as an agent instance for a user
@@ -212,6 +215,7 @@ class TemplateManager:
             account_id: ID of the user installing the template
             instance_name: Optional custom name for the instance
             custom_system_prompt: Optional custom system prompt override
+            custom_mcp_configs: Optional dict mapping qualified_name to config for custom MCPs
             
         Returns:
             Dictionary with installation result and any missing credentials
@@ -230,22 +234,44 @@ class TemplateManager:
                 if template.creator_id != account_id:
                     raise ValueError("Access denied to private template")
             
-            # Check for missing credentials
-            missing_credentials = await credential_manager.get_missing_credentials_for_requirements(
-                account_id, template.mcp_requirements
+            # Debug: Log template requirements
+            logger.info(f"Template MCP requirements: {[(req.qualified_name, req.display_name, getattr(req, 'custom_type', None)) for req in template.mcp_requirements]}")
+            
+            # Separate custom and regular MCP requirements
+            custom_requirements = [req for req in template.mcp_requirements if getattr(req, 'custom_type', None)]
+            regular_requirements = [req for req in template.mcp_requirements if not getattr(req, 'custom_type', None)]
+            
+            # Check for missing regular credentials
+            missing_regular_credentials = await credential_manager.get_missing_credentials_for_requirements(
+                account_id, regular_requirements
             )
             
-            if missing_credentials:
+            # Check for missing custom MCP configs
+            missing_custom_configs = []
+            if custom_requirements:
+                provided_custom_configs = custom_mcp_configs or {}
+                for req in custom_requirements:
+                    if req.qualified_name not in provided_custom_configs:
+                        missing_custom_configs.append({
+                            'qualified_name': req.qualified_name,
+                            'display_name': req.display_name,
+                            'custom_type': req.custom_type,
+                            'required_config': req.required_config
+                        })
+            
+            # If we have any missing credentials or configs, return them
+            if missing_regular_credentials or missing_custom_configs:
                 return {
-                    'status': 'credentials_required',
-                    'missing_credentials': [
+                    'status': 'configs_required',
+                    'missing_regular_credentials': [
                         {
                             'qualified_name': req.qualified_name,
                             'display_name': req.display_name,
                             'required_config': req.required_config
                         }
-                        for req in missing_credentials
+                        for req in missing_regular_credentials
                     ],
+                    'missing_custom_configs': missing_custom_configs,
                     'template': {
                         'template_id': template.template_id,
                         'name': template.name,
@@ -261,42 +287,58 @@ class TemplateManager:
             # Create regular agent with secure credentials
             client = await db.client
             
-            # Build configured_mcps with user's credentials
+            # Build configured_mcps and custom_mcps with user's credentials
             configured_mcps = []
+            custom_mcps = []
             
             for req in template.mcp_requirements:
-                credential_id = credential_mappings.get(req.qualified_name)
-                if not credential_id:
-                    logger.warning(f"No credential mapping for {req.qualified_name}")
-                    continue
+                logger.info(f"Processing requirement: {req.qualified_name}, custom_type: {getattr(req, 'custom_type', None)}")
                 
-                # Get the credential
-                credential = await credential_manager.get_credential(
-                    account_id, req.qualified_name
-                )
-                
-                if not credential:
-                    logger.warning(f"Credential not found for {req.qualified_name}")
-                    continue
-                
-                # Build MCP config with actual credentials
-                mcp_config = {
-                    'name': req.display_name,
-                    'qualifiedName': req.qualified_name,
-                    'config': credential.config,
-                    'enabledTools': req.enabled_tools
-                }
-                
-                configured_mcps.append(mcp_config)
+                if hasattr(req, 'custom_type') and req.custom_type:
+                    # For custom MCP servers, use the provided config from installation
+                    if custom_mcp_configs and req.qualified_name in custom_mcp_configs:
+                        provided_config = custom_mcp_configs[req.qualified_name]
+                        
+                        custom_mcp_config = {
+                            'name': req.display_name,
+                            'type': req.custom_type,
+                            'config': provided_config,
+                            'enabledTools': req.enabled_tools
+                        }
+                        custom_mcps.append(custom_mcp_config)
+                        logger.info(f"Added custom MCP with provided config: {custom_mcp_config}")
+                    else:
+                        logger.warning(f"No custom config provided for {req.qualified_name}")
+                        continue
+                else:
+                    # For regular MCP servers, use stored credentials
+                    credential = await credential_manager.get_credential(
+                        account_id, req.qualified_name
+                    )
+                    
+                    if not credential:
+                        logger.warning(f"Credential not found for {req.qualified_name}")
+                        continue
+                    
+                    mcp_config = {
+                        'name': req.display_name,
+                        'qualifiedName': req.qualified_name,
+                        'config': credential.config,
+                        'enabledTools': req.enabled_tools
+                    }
+                    configured_mcps.append(mcp_config)
+                    logger.info(f"Added regular MCP: {mcp_config}")
             
-            # Create regular agent that will show up in agent playground
+            logger.info(f"Final configured_mcps: {configured_mcps}")
+            logger.info(f"Final custom_mcps: {custom_mcps}")
+            
             agent_data = {
                 'account_id': account_id,
                 'name': instance_name or f"{template.name} (from marketplace)",
                 'description': template.description,
                 'system_prompt': custom_system_prompt or template.system_prompt,
                 'configured_mcps': configured_mcps,
-                'custom_mcps': [],  # TODO: Handle custom MCPs from templates
+                'custom_mcps': custom_mcps,
                 'agentpress_tools': template.agentpress_tools,
                 'is_default': False,
                 'avatar': template.avatar,
@@ -388,8 +430,9 @@ class TemplateManager:
             if not template:
                 raise ValueError("Template not found")
             
-            # Build configured_mcps with user's credentials
+            # Build configured_mcps and custom_mcps with user's credentials
             configured_mcps = []
+            custom_mcps = []
             
             for req in template.mcp_requirements:
                 credential_id = instance.credential_mappings.get(req.qualified_name)
@@ -406,15 +449,25 @@ class TemplateManager:
                     logger.warning(f"Credential not found for {req.qualified_name}")
                     continue
                 
-                # Build MCP config
-                mcp_config = {
-                    'name': req.display_name,
-                    'qualifiedName': req.qualified_name,
-                    'config': credential.config,
-                    'enabledTools': req.enabled_tools
-                }
-                
-                configured_mcps.append(mcp_config)
+                # Check if this is a custom MCP server
+                if req.custom_type:
+                    # Build custom MCP config
+                    custom_mcp_config = {
+                        'name': req.display_name,
+                        'type': req.custom_type,
+                        'config': credential.config,
+                        'enabledTools': req.enabled_tools
+                    }
+                    custom_mcps.append(custom_mcp_config)
+                else:
+                    # Build regular MCP config
+                    mcp_config = {
+                        'name': req.display_name,
+                        'qualifiedName': req.qualified_name,
+                        'config': credential.config,
+                        'enabledTools': req.enabled_tools
+                    }
+                    configured_mcps.append(mcp_config)
             
             # Build complete agent config
             agent_config = {
@@ -424,7 +477,7 @@ class TemplateManager:
                 'description': instance.description,
                 'system_prompt': instance.custom_system_prompt or template.system_prompt,
                 'configured_mcps': configured_mcps,
-                'custom_mcps': [],  # TODO: Handle custom MCPs from templates
+                'custom_mcps': custom_mcps,
                 'agentpress_tools': template.agentpress_tools,
                 'is_default': instance.is_default,
                 'avatar': instance.avatar,

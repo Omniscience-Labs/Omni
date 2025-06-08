@@ -47,6 +47,7 @@ class MCPRequirement:
     display_name: str
     enabled_tools: List[str]
     required_config: List[str]
+    custom_type: Optional[str] = None  # 'sse' or 'http' for custom MCP servers
 
 
 class CredentialManager:
@@ -381,8 +382,18 @@ class CredentialManager:
         
         missing = []
         for req in requirements:
-            if req.qualified_name not in user_mcp_names:
-                missing.append(req)
+            if req.custom_type:
+                custom_pattern = f"custom_{req.custom_type}_"
+                found = any(
+                    cred_name.startswith(custom_pattern) and 
+                    req.display_name.lower().replace(' ', '_') in cred_name
+                    for cred_name in user_mcp_names
+                )
+                if not found:
+                    missing.append(req)
+            else:
+                if req.qualified_name not in user_mcp_names:
+                    missing.append(req)
         
         return missing
     
@@ -395,9 +406,19 @@ class CredentialManager:
         mappings = {}
         
         for req in requirements:
-            credential = await self.get_credential(account_id, req.qualified_name)
-            if credential:
-                mappings[req.qualified_name] = credential.credential_id
+            if req.custom_type:
+                user_credentials = await self.get_user_credentials(account_id)
+                custom_pattern = f"custom_{req.custom_type}_"
+                
+                for cred in user_credentials:
+                    if (cred.mcp_qualified_name.startswith(custom_pattern) and 
+                        req.display_name.lower().replace(' ', '_') in cred.mcp_qualified_name):
+                        mappings[req.qualified_name] = cred.credential_id
+                        break
+            else:
+                credential = await self.get_credential(account_id, req.qualified_name)
+                if credential:
+                    mappings[req.qualified_name] = credential.credential_id
         
         return mappings
 

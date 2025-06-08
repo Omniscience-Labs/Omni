@@ -51,20 +51,28 @@ export interface MCPRequirement {
   display_name: string;
   enabled_tools: string[];
   required_config: string[];
+  custom_type?: 'sse' | 'http'; // For custom MCP servers
 }
 
 export interface InstallTemplateRequest {
   template_id: string;
   instance_name?: string;
   custom_system_prompt?: string;
+  custom_mcp_configs?: Record<string, Record<string, any>>;
 }
 
 export interface InstallationResponse {
-  status: 'installed' | 'credentials_required';
+  status: 'installed' | 'configs_required';
   instance_id?: string;
-  missing_credentials?: {
+  missing_regular_credentials?: {
     qualified_name: string;
     display_name: string;
+    required_config: string[];
+  }[];
+  missing_custom_configs?: {
+    qualified_name: string;
+    display_name: string;
+    custom_type: string;
     required_config: string[];
   }[];
   template?: {

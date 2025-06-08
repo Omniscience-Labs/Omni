@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, ChevronLeft, ChevronRight, Shield, Loader2, ArrowLeft, Key, ExternalLink } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, ChevronLeft, ChevronRight, Shield, Loader2, ArrowLeft, Key, ExternalLink, Plus, Globe } from 'lucide-react';
 import { usePopularMCPServersV2, useMCPServers, useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { useStoreCredential, type StoreCredentialRequest } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
@@ -119,12 +120,13 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
   onOpenChange, 
   onSuccess 
 }) => {
-  const [step, setStep] = useState<'browse' | 'configure'>('browse');
+  const [step, setStep] = useState<'browse' | 'configure' | 'custom'>('browse');
   const [selectedServer, setSelectedServer] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(50);
+  const [customServerType, setCustomServerType] = useState<'sse' | 'http'>('sse');
   const [formData, setFormData] = useState<{
     display_name: string;
     config: Record<string, string>;
@@ -156,6 +158,7 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
       setSearchQuery('');
       setStep('browse');
       setSelectedServer(null);
+      setCustomServerType('sse');
       setFormData({ display_name: '', config: {} });
     }
   }, [open]);
@@ -188,14 +191,23 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
   };
 
   const handleSubmit = async () => {
-    if (!selectedServer) return;
-
     try {
-      const request: StoreCredentialRequest = {
-        mcp_qualified_name: selectedServer.qualifiedName,
-        display_name: formData.display_name,
-        config: formData.config
-      };
+      let request: StoreCredentialRequest;
+      if (step === 'custom') {
+        const qualifiedName = `custom_${customServerType}_${formData.display_name.toLowerCase().replace(/\s+/g, '_')}`;
+        request = {
+          mcp_qualified_name: qualifiedName,
+          display_name: formData.display_name,
+          config: formData.config
+        };
+      } else {
+        if (!selectedServer) return;
+        request = {
+          mcp_qualified_name: selectedServer.qualifiedName,
+          display_name: formData.display_name,
+          config: formData.config
+        };
+      }
 
       await storeCredentialMutation.mutateAsync(request);
       toast.success('Credential stored successfully!');
@@ -209,6 +221,11 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
   const handleBack = () => {
     setStep('browse');
     setSelectedServer(null);
+  };
+
+  const handleCustomServerSetup = () => {
+    setStep('custom');
+    setFormData({ display_name: '', config: {} });
   };
 
   const getConfigSchema = () => {
@@ -251,11 +268,15 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {step === 'browse' ? 'Add MCP Credential' : `Configure ${selectedServer?.displayName}`}
+            {step === 'browse' ? 'Add MCP Credential' : 
+             step === 'custom' ? 'Add Custom MCP Server' :
+             `Configure ${selectedServer?.displayName}`}
           </DialogTitle>
           <DialogDescription>
             {step === 'browse' 
-              ? 'Select an MCP server to configure credentials for'
+              ? 'Select an MCP server to configure credentials for, or add a custom server'
+              : step === 'custom'
+              ? 'Configure your own custom MCP server connection'
               : 'Enter your API credentials for this MCP server'
             }
           </DialogDescription>
@@ -263,14 +284,27 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
 
         {step === 'browse' && (
           <>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search MCP servers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search MCP servers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <div className="flex justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCustomServerSetup}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Custom MCP Server
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-1 gap-4 overflow-hidden">
@@ -431,8 +465,79 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
           </div>
         )}
 
+        {step === 'custom' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+              <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center">
+                <Globe className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium">Custom MCP Server</h3>
+                <p className="text-sm text-muted-foreground">Configure your own MCP server connection</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="custom_display_name">Display Name *</Label>
+                <Input
+                  id="custom_display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
+                  placeholder="Enter a name for this custom server (e.g., 'My Tavily Server')"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="server_type">Server Type *</Label>
+                <Select value={customServerType} onValueChange={(value: 'sse' | 'http') => setCustomServerType(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select server type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sse">SSE (Server-Sent Events)</SelectItem>
+                    <SelectItem value="http">HTTP</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Choose the connection type for your MCP server
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="server_url">Server URL *</Label>
+                <Input
+                  id="server_url"
+                  type="url"
+                  value={formData.config.url || ''}
+                  onChange={(e) => handleConfigChange('url', e.target.value)}
+                  placeholder={`Enter your ${customServerType.toUpperCase()} server URL`}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The URL to your custom MCP server endpoint
+                </p>
+              </div>
+
+              <Alert>
+                <Globe className="h-4 w-4" />
+                <AlertDescription>
+                  This will create a custom MCP server configuration that you can use in your agents. 
+                  Make sure your server URL is accessible and properly configured.
+                </AlertDescription>
+              </Alert>
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your server URL will be encrypted and stored securely. It will only be used when you run agents that require this custom MCP server.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
-          {step === 'configure' && (
+          {(step === 'configure' || step === 'custom') && (
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -440,12 +545,19 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
           )}
           <Button 
             onClick={step === 'browse' ? () => onOpenChange(false) : handleSubmit}
-            disabled={step === 'configure' && (
-              !formData.display_name || 
-              (getRequiredFields().length > 0 && 
-               getRequiredFields().some(field => !formData.config[field])) ||
-              storeCredentialMutation.isPending
-            )}
+            disabled={
+              (step === 'configure' && (
+                !formData.display_name || 
+                (getRequiredFields().length > 0 && 
+                 getRequiredFields().some(field => !formData.config[field])) ||
+                storeCredentialMutation.isPending
+              )) ||
+              (step === 'custom' && (
+                !formData.display_name || 
+                !formData.config.url ||
+                storeCredentialMutation.isPending
+              ))
+            }
           >
             {step === 'browse' ? 'Cancel' : 
              storeCredentialMutation.isPending ? (

@@ -33,6 +33,13 @@ const CredentialCard: React.FC<CredentialCardProps> = ({
 }) => {
   const isTesting = isTestingId === credential.mcp_qualified_name;
   const isDeleting = isDeletingId === credential.mcp_qualified_name;
+  const isCustomServer = credential.mcp_qualified_name.startsWith('custom_');
+  
+  const getCustomServerType = () => {
+    if (credential.mcp_qualified_name.startsWith('custom_sse_')) return 'SSE';
+    if (credential.mcp_qualified_name.startsWith('custom_http_')) return 'HTTP';
+    return null;
+  };
 
   return (
     <Card className="border-border/50 hover:border-border transition-colors">
@@ -44,6 +51,11 @@ const CredentialCard: React.FC<CredentialCardProps> = ({
                 <Key className="h-4 w-4 text-primary" />
               </div>
               <h3 className="text-md font-medium text-foreground">{credential.display_name}</h3>
+              {isCustomServer && (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                  Custom {getCustomServerType()}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground font-mono">
               {credential.mcp_qualified_name}
@@ -51,7 +63,7 @@ const CredentialCard: React.FC<CredentialCardProps> = ({
             <div className="flex flex-wrap gap-1">
               {credential.config_keys.map((key) => (
                 <Badge key={key} variant="outline">
-                  {key}
+                  {key === 'url' && isCustomServer ? 'Server URL' : key}
                 </Badge>
               ))}
             </div>
