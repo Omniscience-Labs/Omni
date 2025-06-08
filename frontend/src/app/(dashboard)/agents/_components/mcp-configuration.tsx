@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus, Settings, ExternalLink, Shield, X, Sparkles, ChevronRight } from 'lucide-react';
+import { Loader2, Search, Plus, Settings, ExternalLink, Shield, X, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
 import { usePopularMCPServers, usePopularMCPServersV2, useMCPServers, useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { cn } from '@/lib/utils';
 
@@ -194,9 +194,11 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
   const [configuringServer, setConfiguringServer] = useState<any>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(200);
 
   const { data: popularServers } = usePopularMCPServers();
-  const { data: popularServersV2, isLoading: isLoadingV2 } = usePopularMCPServersV2();
+  const { data: popularServersV2, isLoading: isLoadingV2 } = usePopularMCPServersV2(currentPage, pageSize);
   const { data: searchResults, isLoading: isSearching } = useMCPServers(
     searchQuery.length > 2 ? searchQuery : undefined
   );
@@ -205,6 +207,17 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
     setConfiguringServer(server);
     setEditingIndex(null);
   };
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+  
+  React.useEffect(() => {
+    if (showBrowseDialog) {
+      setCurrentPage(1);
+      setSelectedCategory(null);
+    }
+  }, [showBrowseDialog]);
 
   const handleEditMCP = (index: number) => {
     const mcp = configuredMCPs[index];
@@ -584,6 +597,37 @@ export const MCPConfiguration: React.FC<MCPConfigurationProps> = ({
               </ScrollArea>
             </div>
           </div>
+
+          {!searchQuery && popularServersV2?.success && popularServersV2.pagination && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, popularServersV2.pagination.totalCount)} of {popularServersV2.pagination.totalCount} servers
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {popularServersV2.pagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(popularServersV2.pagination.totalPages, prev + 1))}
+                  disabled={currentPage >= popularServersV2.pagination.totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

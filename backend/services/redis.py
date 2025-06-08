@@ -6,7 +6,7 @@ from utils.logger import logger
 from typing import List, Any
 
 # Redis client
-client = None
+client: redis.Redis | None = None
 _initialized = False
 _init_lock = asyncio.Lock()
 
@@ -47,11 +47,19 @@ def initialize():
     return client
 
 
-async def initialize_async():
+async def initialize_async(force: bool = False):
     """Initialize Redis connection asynchronously."""
     global client, _initialized
 
     async with _init_lock:
+        if _initialized and force:
+            logger.info("Redis connection already initialized, closing and re-initializing")
+            _initialized = False
+            try:
+                await close()
+            except Exception as e:
+                logger.warning(f"Failed to close Redis connection, proceeding with re-initialization anyway: {e}")
+
         if not _initialized:
             logger.info("Initializing Redis connection")
             initialize()

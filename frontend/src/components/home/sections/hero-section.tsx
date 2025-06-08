@@ -10,12 +10,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import {
-  createProject,
-  createThread,
-  addUserMessage,
-  startAgent,
   BillingError,
 } from '@/lib/api';
+import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-initiate-agent';
+import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
 import { Input } from '@/components/ui/input';
@@ -59,6 +57,9 @@ export function HeroSection() {
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { onOpen } = useModal();
+  const initiateAgentMutation = useInitiateAgentMutation();
+  const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
+  const threadQuery = useThreadQuery(initiatedThreadId || '');
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -92,14 +93,12 @@ export function HeroSection() {
     };
   }, [scrollY]);
 
-  // Store the input value when auth dialog opens
   useEffect(() => {
     if (authDialogOpen && inputValue.trim()) {
       localStorage.setItem(PENDING_PROMPT_KEY, inputValue.trim());
     }
   }, [authDialogOpen, inputValue]);
 
-  // Close dialog and redirect when user authenticates
   useEffect(() => {
     if (authDialogOpen && user && !isLoading) {
       setAuthDialogOpen(false);
@@ -107,48 +106,38 @@ export function HeroSection() {
     }
   }, [user, isLoading, authDialogOpen, router]);
 
-  // Create an agent with the provided prompt
+  useEffect(() => {
+    if (threadQuery.data && initiatedThreadId) {
+      const thread = threadQuery.data;
+      if (thread.project_id) {
+        router.push(`/projects/${thread.project_id}/thread/${initiatedThreadId}`);
+      } else {
+        router.push(`/thread/${initiatedThreadId}`);
+      }
+      setInitiatedThreadId(null);
+    }
+  }, [threadQuery.data, initiatedThreadId, router]);
+
   const createAgentWithPrompt = async () => {
     if (!inputValue.trim() || isSubmitting) return;
-
     setIsSubmitting(true);
-
     try {
-      // Generate a name for the project using GPT
-      const projectName = await generateThreadName(inputValue);
+      const formData = new FormData();
+      formData.append('prompt', inputValue.trim());
+      formData.append('model_name', 'openrouter/deepseek/deepseek-chat'); 
+      formData.append('enable_thinking', 'false');
+      formData.append('reasoning_effort', 'low');
+      formData.append('stream', 'true');
+      formData.append('enable_context_manager', 'false');
 
-      // 1. Create a new project with the GPT-generated name
-      const newAgent = await createProject({
-        name: projectName,
-        description: '',
-      });
+      const result = await initiateAgentMutation.mutateAsync(formData);
 
-      // 2. Create a new thread for this project
-      const thread = await createThread(newAgent.id);
-
-      // 3. Add the user message to the thread
-      await addUserMessage(thread.thread_id, inputValue.trim());
-
-      // 4. Start the agent with the thread ID
-      await startAgent(thread.thread_id, {
-        stream: true,
-      });
-
-      // 5. Navigate to the new agent's thread page
-      router.push(`/agents/${thread.thread_id}`);
-      // Clear input on success
+      setInitiatedThreadId(result.thread_id);
       setInputValue('');
     } catch (error: any) {
-      console.error('Error creating agent:', error);
-
-      // Check specifically for BillingError (402)
       if (error instanceof BillingError) {
-        console.log('Handling BillingError from hero section:', error.detail);
-        // Open the payment required dialog modal instead of showing the alert
-        onOpen("paymentRequiredDialog");
-        // Don't show toast for billing errors
+        console.log('Billing error:');
       } else {
-        // Handle other errors (e.g., network, other API errors)
         const isConnectionError =
           error instanceof TypeError &&
           error.message.includes('Failed to fetch');

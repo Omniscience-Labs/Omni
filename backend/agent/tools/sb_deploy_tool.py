@@ -107,7 +107,8 @@ class SandboxDeployTool(SandboxToolsBase):
                     npx wrangler pages deploy {full_path} --project-name {project_name}))'''
 
                 # Execute the command directly using the sandbox's process.exec method
-                response = self.sandbox.process.exec(deploy_cmd, timeout=300)
+                response = self.sandbox.process.exec(f"/bin/sh -c \"{deploy_cmd}\"",
+                                 timeout=300)
                 
                 print(f"Deployment command output: {response.result}")
                 

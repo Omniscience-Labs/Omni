@@ -12,14 +12,6 @@ The flow:
 2. Configure MCP servers with credentials and save to agent's configured_mcps
 3. When agent runs, it connects to MCP servers using:
    https://server.smithery.ai/{qualifiedName}/mcp?config={base64_encoded_config}&api_key={smithery_api_key}
-   
-Example MCP configuration stored in agent's configured_mcps:
-{
-    "name": "Exa Search",
-    "qualifiedName": "exa",
-    "config": {"exaApiKey": "user's-exa-api-key"},
-    "enabledTools": ["search", "find_similar"]
-}
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -77,6 +69,7 @@ class PopularServersV2Response(BaseModel):
     categorized: Dict[str, List[Dict[str, Any]]]
     total: int
     categoryCount: int
+    pagination: Dict[str, int]
 
 class CustomMCPConnectionRequest(BaseModel):
     """Request model for connecting to a custom MCP server"""
@@ -301,6 +294,8 @@ async def get_popular_mcp_servers(
 
 @router.get("/mcp/popular-servers/v2", response_model=PopularServersV2Response)
 async def get_popular_mcp_servers_v2(
+    page: int = Query(1, ge=1, description="Page number"),
+    pageSize: int = Query(200, ge=1, le=500, description="Items per page (max 500 for comprehensive categorization)"),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """
@@ -308,6 +303,10 @@ async def get_popular_mcp_servers_v2(
     
     Returns servers grouped by category with proper metadata and usage statistics.
     This endpoint fetches real data from the Smithery registry API and categorizes it.
+    
+    Query parameters:
+    - page: Page number (default: 1)
+    - pageSize: Number of items per page (default: 200, max: 500)
     """
     logger.info(f"Fetching v2 popular MCP servers for user {user_id}")
     
@@ -325,10 +324,10 @@ async def get_popular_mcp_servers_v2(
             else:
                 logger.warning("No Smithery API key found in environment variables")
             
-            # Fetch more servers for better coverage
+            # Use provided pagination parameters
             params = {
-                "page": 1,
-                "pageSize": 100  # Get more servers
+                "page": page,
+                "pageSize": pageSize
             }
             
             response = await client.get(
@@ -345,11 +344,13 @@ async def get_popular_mcp_servers_v2(
                     servers=[],
                     categorized={},
                     total=0,
-                    categoryCount=0
+                    categoryCount=0,
+                    pagination={"currentPage": page, "pageSize": pageSize, "totalPages": 0, "totalCount": 0}
                 )
             
             data = response.json()
             servers = data.get("servers", [])
+            pagination_data = data.get("pagination", {})
             
             # Category mappings based on server types and names
             category_mappings = {
@@ -531,8 +532,14 @@ async def get_popular_mcp_servers_v2(
                 success=True,
                 servers=servers,
                 categorized=sorted_categories,
-                total=len(servers),
-                categoryCount=len(sorted_categories)
+                total=pagination_data.get("totalCount", len(servers)),
+                categoryCount=len(sorted_categories),
+                pagination={
+                    "currentPage": pagination_data.get("currentPage", page),
+                    "pageSize": pagination_data.get("pageSize", pageSize),
+                    "totalPages": pagination_data.get("totalPages", 1),
+                    "totalCount": pagination_data.get("totalCount", len(servers))
+                }
             )
             
     except Exception as e:
@@ -542,6 +549,7 @@ async def get_popular_mcp_servers_v2(
             servers=[],
             categorized={},
             total=0,
-            categoryCount=0
+            categoryCount=0,
+            pagination={"currentPage": page, "pageSize": pageSize, "totalPages": 0, "totalCount": 0}
         ) 
     

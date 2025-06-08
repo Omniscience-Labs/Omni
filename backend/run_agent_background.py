@@ -29,6 +29,10 @@ async def initialize():
     """Initialize the agent API with resources from the main API."""
     global db, instance_id, _initialized
     if _initialized:
+        try: await redis.client.ping()
+        except Exception as e:
+            logger.warning(f"Redis connection failed, re-initializing: {e}")
+            await redis.initialize_async(force=True)
         return
 
     # Use provided instance_id or generate a new one
@@ -58,7 +62,11 @@ async def run_agent_background(
     target_agent_id: Optional[str] = None
 ):
     """Run the agent in the background using Redis for state."""
-    await initialize()
+    try:
+        await initialize()
+    except Exception as e:
+        logger.critical(f"Failed to initialize Redis connection: {e}")
+        raise e
 
     sentry.sentry.set_tag("thread_id", thread_id)
 
@@ -132,6 +140,8 @@ async def run_agent_background(
         final_status = "running"
         error_message = None
 
+        pending_redis_operations = []
+
         async for response in agent_gen:
             if stop_signal_received:
                 logger.info(f"Agent run {agent_run_id} stopped by signal.")
@@ -141,8 +151,8 @@ async def run_agent_background(
 
             # Store response in Redis list and publish notification
             response_json = json.dumps(response)
-            asyncio.create_task(redis.rpush(response_list_key, response_json))
-            asyncio.create_task(redis.publish(response_channel, "new"))
+            pending_redis_operations.append(asyncio.create_task(redis.rpush(response_list_key, response_json)))
+            pending_redis_operations.append(asyncio.create_task(redis.publish(response_channel, "new")))
             total_responses += 1
 
             # Check for agent-signaled completion or error
@@ -238,6 +248,12 @@ async def run_agent_background(
 
         # Remove the instance-specific active run key
         await _cleanup_redis_instance_key(agent_run_id)
+
+        # Wait for all pending redis operations to complete, with timeout
+        try:
+            await asyncio.wait_for(asyncio.gather(*pending_redis_operations), timeout=30.0)
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout waiting for pending Redis operations for {agent_run_id}")
 
         logger.info(f"Agent run background task fully completed for: {agent_run_id} (Instance: {instance_id}) with final status: {final_status}")
 
