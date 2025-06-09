@@ -37,16 +37,6 @@ interface MCPServerDetailResponse {
   tools?: any[];
 }
 
-interface PopularServersResponse {
-  servers: Array<{
-    qualifiedName: string;
-    displayName: string;
-    description: string;
-    icon: string;
-    category: string;
-  }>;
-}
-
 interface PopularServersV2Response {
   success: boolean;
   servers: Array<{
@@ -142,35 +132,7 @@ export const useMCPServerDetails = (qualifiedName: string, enabled: boolean = tr
   });
 };
 
-export const usePopularMCPServers = () => {
-  const supabase = createClient();
-
-  return useQuery({
-    queryKey: ['mcp-servers-popular'],
-    queryFn: async (): Promise<PopularServersResponse> => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No session');
-
-      const response = await fetch(
-        `${API_URL}/mcp/popular-servers`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch popular MCP servers');
-      }
-
-      return response.json();
-    },
-    staleTime: 30 * 60 * 1000,
-  });
-};
-
-export const usePopularMCPServersV2 = (page: number = 1, pageSize: number = 200) => {
+export const usePopularMCPServersV2 = (page: number = 1, pageSize: number = 50) => {
   const supabase = createClient();
 
   return useQuery({

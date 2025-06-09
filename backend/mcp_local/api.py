@@ -295,7 +295,7 @@ async def get_popular_mcp_servers(
 @router.get("/mcp/popular-servers/v2", response_model=PopularServersV2Response)
 async def get_popular_mcp_servers_v2(
     page: int = Query(1, ge=1, description="Page number"),
-    pageSize: int = Query(200, ge=1, le=500, description="Items per page (max 500 for comprehensive categorization)"),
+    pageSize: int = Query(100, ge=1, le=200, description="Items per page (max 500 for comprehensive categorization)"),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """
