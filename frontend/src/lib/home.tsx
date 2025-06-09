@@ -140,7 +140,7 @@ export const siteConfig = {
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
       hours: '6 hours',
-      features: ['Suited to you needs'],
+      features: ['Suited to your needs'],
       upgradePlans: [
         {
           hours: '6 hours',
