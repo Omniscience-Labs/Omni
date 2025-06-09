@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
-import { MCPConfiguration } from './mcp-configuration';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentUpdateRequest {

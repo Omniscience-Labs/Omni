@@ -1,7 +1,6 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MCPConfiguration } from './mcp-configuration';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentMCPConfigurationProps {
