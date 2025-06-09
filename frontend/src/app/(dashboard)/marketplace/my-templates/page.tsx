@@ -58,19 +58,13 @@ export default function MyTemplatesPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-xl font-semibold tracking-tight">
                 My Templates
               </h1>
               <p className="text-muted-foreground">
                 Manage your secure agent templates and marketplace presence
               </p>
             </div>
-            <Link href="/agents">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Agent
-              </Button>
-            </Link>
           </div>
 
           <div className="flex gap-4">

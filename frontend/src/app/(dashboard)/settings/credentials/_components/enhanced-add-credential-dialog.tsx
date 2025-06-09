@@ -294,19 +294,7 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
                   className="pl-10"
                 />
               </div>
-              
-              <div className="flex justify-center">
-                <Button 
-                  variant="outline" 
-                  onClick={handleCustomServerSetup}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Custom MCP Server
-                </Button>
-              </div>
             </div>
-
             <div className="flex flex-1 gap-4 overflow-hidden">
               {!searchQuery && categories.length > 0 && (
                 <CategorySidebar

@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, validator
 import asyncio
+import urllib.parse
 
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
@@ -144,6 +145,10 @@ async def get_user_credentials(
     try:
         credentials = await credential_manager.get_user_credentials(user_id)
         
+        logger.debug(f"Found {len(credentials)} credentials for user {user_id}")
+        for cred in credentials:
+            logger.debug(f"Credential: '{cred.mcp_qualified_name}' (ID: {cred.credential_id})")
+        
         return [
             CredentialResponse(
                 credential_id=cred.credential_id,
@@ -162,16 +167,18 @@ async def get_user_credentials(
         logger.error(f"Error getting user credentials: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get credentials: {str(e)}")
 
-@router.post("/credentials/{mcp_qualified_name}/test", response_model=TestCredentialResponse)
+@router.post("/credentials/{mcp_qualified_name:path}/test", response_model=TestCredentialResponse)
 async def test_mcp_credential(
     mcp_qualified_name: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Test if an MCP credential is valid by attempting to connect"""
-    logger.info(f"Testing credential for {mcp_qualified_name} for user {user_id}")
+    # URL decode the mcp_qualified_name to handle special characters like @
+    decoded_name = urllib.parse.unquote(mcp_qualified_name)
+    logger.info(f"Testing credential for '{decoded_name}' (raw: '{mcp_qualified_name}') for user {user_id}")
     
     try:
-        success = await credential_manager.test_credential(user_id, mcp_qualified_name)
+        success = await credential_manager.test_credential(user_id, decoded_name)
         
         return TestCredentialResponse(
             success=success,
@@ -187,26 +194,36 @@ async def test_mcp_credential(
             error_details=str(e)
         )
 
-@router.delete("/credentials/{mcp_qualified_name}")
+@router.delete("/credentials/{mcp_qualified_name:path}")
 async def delete_mcp_credential(
     mcp_qualified_name: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Delete (deactivate) an MCP credential"""
-    logger.info(f"Deleting credential for {mcp_qualified_name} for user {user_id}")
+    # URL decode the mcp_qualified_name to handle special characters like @
+    decoded_name = urllib.parse.unquote(mcp_qualified_name)
+    logger.info(f"Deleting credential for '{decoded_name}' (raw: '{mcp_qualified_name}') for user {user_id}")
     
     try:
-        success = await credential_manager.delete_credential(user_id, mcp_qualified_name)
+        # First check if the credential exists
+        existing_credential = await credential_manager.get_credential(user_id, decoded_name)
+        if not existing_credential:
+            logger.warning(f"Credential not found: '{decoded_name}' for user {user_id}")
+            raise HTTPException(status_code=404, detail=f"Credential not found: {decoded_name}")
+        
+        success = await credential_manager.delete_credential(user_id, decoded_name)
         
         if not success:
+            logger.error(f"Failed to delete credential: '{decoded_name}' for user {user_id}")
             raise HTTPException(status_code=404, detail="Credential not found")
         
+        logger.info(f"Successfully deleted credential: '{decoded_name}' for user {user_id}")
         return {"message": "Credential deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting credential: {str(e)}")
+        logger.error(f"Error deleting credential '{decoded_name}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete credential: {str(e)}")
 
 # =====================================================

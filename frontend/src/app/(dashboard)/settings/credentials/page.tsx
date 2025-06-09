@@ -161,8 +161,7 @@ export default function CredentialsPage() {
             </div>
             <Button 
               onClick={() => setShowAddDialog(true)}
-              size="sm"
-              className="h-8 px-3 text-sm"
+              className="px-3 text-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Credential

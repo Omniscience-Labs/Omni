@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UpdateAgentDialog } from './_components/update-agent-dialog';
@@ -203,23 +203,33 @@ export default function AgentsPage() {
               Create and manage your AI agents with custom instructions and tools
             </p>
           </div>
-          <Button 
-            onClick={handleCreateNewAgent}
-            disabled={createAgentMutation.isPending}
-            className="self-start sm:self-center"
-          >
-            {createAgentMutation.isPending ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Plus className="h-5 w-5" />
-                New Agent
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button 
+              onClick={() => router.push('/marketplace/my-templates')}
+              className="self-start sm:self-center"
+              variant="outline"
+            >
+              <File className="h-5 w-5" />
+              My Templates
+            </Button>
+            <Button 
+              onClick={handleCreateNewAgent}
+              disabled={createAgentMutation.isPending}
+              className="self-start sm:self-center"
+            >
+              {createAgentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  New Agent
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <SearchAndFilters

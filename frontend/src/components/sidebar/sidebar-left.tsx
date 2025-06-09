@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Shield } from 'lucide-react';
+import { Bot, Menu, Store, Shield, Key } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -158,11 +158,26 @@ export function SidebarLeft({
             {marketplaceEnabled && (
               <Link href="/marketplace">
                 <SidebarMenuButton className={cn({
-                  'bg-primary/10 font-medium': pathname.startsWith('/marketplace'),
+                  'bg-primary/10 font-medium': pathname === '/marketplace',
                 })}>
                   <Store className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Marketplace
+                    <Badge variant="new">
+                      New
+                    </Badge>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+            {customAgentsEnabled && (
+              <Link href="/settings/credentials">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/settings/credentials',
+                })}>
+                  <Key className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Credentials
                     <Badge variant="new">
                       New
                     </Badge>

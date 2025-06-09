@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { getAgentAvatar } from '../_utils/get-agent-style';
 import { usePublishAgent, useUnpublishAgent } from '@/hooks/react-query/marketplace/use-marketplace';
-import { useCreateTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 
 interface Agent {
@@ -25,6 +25,7 @@ interface Agent {
   agentpress_tools?: Record<string, any>;
   avatar?: string;
   avatar_color?: string;
+  template_id?: string;
 }
 
 interface AgentsGridProps {
@@ -34,120 +35,6 @@ interface AgentsGridProps {
   onToggleDefault: (agentId: string, currentDefault: boolean) => void;
   deleteAgentMutation: { isPending: boolean };
 }
-
-const PublishingChoiceDialog = ({ agent, isOpen, onClose, onRegularPublish, onSecurePublish, isPublishing, isCreatingTemplate }) => {
-  const hasMCPCredentials = agent.configured_mcps && agent.configured_mcps.length > 0;
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Publish to Marketplace</DialogTitle>
-          <DialogDescription>
-            Publish "{agent.name}" to the marketplace for others to discover and use.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {hasMCPCredentials ? (
-            <>
-              <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <Shield className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                  <div className="text-sm text-green-800 dark:text-green-200">
-                    <p className="font-medium">Secure Publishing Recommended</p>
-                    <p className="mt-1">This agent contains MCP credentials. We'll create a secure template that protects your API keys.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Button
-                  onClick={() => onSecurePublish(agent.agent_id)}
-                  disabled={isCreatingTemplate}
-                  className="w-full justify-start gap-3 h-auto p-4"
-                >
-                  <Shield className="h-5 w-5" />
-                  <div className="text-left">
-                    <div className="font-medium">Publish as Secure Template</div>
-                    <div className="text-xs text-primary-foreground/80 mt-1">
-                      Users will use their own encrypted credentials
-                    </div>
-                  </div>
-                  {isCreatingTemplate && (
-                    <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  )}
-                </Button>
-
-                <details className="group">
-                  <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                    Advanced: Legacy publishing options
-                  </summary>
-                  <div className="mt-2 pt-2 border-t">
-                    <Button
-                      onClick={() => onRegularPublish(agent.agent_id)}
-                      disabled={isPublishing}
-                      variant="outline"
-                      className="w-full justify-start gap-3 h-auto p-3 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800"
-                    >
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <div className="text-left">
-                        <div className="font-medium text-sm">Legacy Publishing</div>
-                        <div className="text-xs text-amber-600 mt-1">
-                          ⚠️ Will expose your API keys publicly
-                        </div>
-                      </div>
-                      {isPublishing && (
-                        <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                      )}
-                    </Button>
-                  </div>
-                </details>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3">
-              <Button
-                onClick={() => onSecurePublish(agent.agent_id)}
-                disabled={isCreatingTemplate}
-                className="w-full justify-start gap-3 h-auto p-4"
-              >
-                <Shield className="h-5 w-5" />
-                <div className="text-left">
-                  <div className="font-medium">Publish as Secure Template</div>
-                  <div className="text-xs text-primary-foreground/80 mt-1">
-                    Modern, secure publishing method
-                  </div>
-                </div>
-                {isCreatingTemplate && (
-                  <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                )}
-              </Button>
-
-              <Button
-                onClick={() => onRegularPublish(agent.agent_id)}
-                disabled={isPublishing}
-                variant="outline"
-                className="w-full justify-start gap-3 h-auto p-4"
-              >
-                <Globe className="h-5 w-5" />
-                <div className="text-left">
-                  <div className="font-medium">Legacy Publishing</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Traditional marketplace publishing
-                  </div>
-                </div>
-                {isPublishing && (
-                  <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, onUnpublish, isPublishing, isUnpublishing }) => {
   const getAgentStyling = (agent: Agent) => {
@@ -191,8 +78,8 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                 </h2>
                 {agent.is_public && (
                   <Badge variant="outline" className="text-xs">
-                    <Globe className="h-3 w-3" />
-                    Public
+                    <Shield className="h-3 w-3" />
+                    Published
                   </Badge>
                 )}
               </div>
@@ -224,7 +111,7 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
               {agent.is_public ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Published to marketplace</span>
+                    <span>Published as secure template</span>
                     <div className="flex items-center gap-1">
                       <Download className="h-3 w-3" />
                       {agent.download_count || 0} downloads
@@ -239,7 +126,7 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                     {isUnpublishing ? (
                       <>
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        Unpublishing...
+                        Making Private...
                       </>
                     ) : (
                       <>
@@ -256,8 +143,17 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                   variant="outline"
                   className="w-full gap-2"
                 >
-                  <Globe className="h-4 w-4" />
-                  Publish to Marketplace
+                  {isPublishing ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4" />
+                      Publish as Template
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -276,13 +172,14 @@ export const AgentsGrid = ({
   deleteAgentMutation 
 }: AgentsGridProps) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [showPublishingChoice, setShowPublishingChoice] = useState(false);
-  const [publishingAgent, setPublishingAgent] = useState<Agent | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const router = useRouter();
   
   const publishAgentMutation = usePublishAgent();
   const unpublishAgentMutation = useUnpublishAgent();
   const createTemplateMutation = useCreateTemplate();
+  const unpublishTemplateMutation = useUnpublishTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -298,49 +195,44 @@ export const AgentsGrid = ({
     setSelectedAgent(null);
   };
 
-  const handlePublish = (agentId: string) => {
-    const agent = agents.find(a => a.agent_id === agentId);
-    if (agent) {
-      setPublishingAgent(agent);
-      setShowPublishingChoice(true);
-      setSelectedAgent(null);
-    }
-  };
-
-  const handleRegularPublish = async (agentId: string) => {
+  const handlePublish = async (agentId: string) => {
     try {
-      await publishAgentMutation.mutateAsync({ agentId, tags: [] });
-      toast.success('Agent published to marketplace! Note: Any embedded credentials will be visible to users.');
-      setShowPublishingChoice(false);
-      setPublishingAgent(null);
-    } catch (error: any) {
-      toast.error('Failed to publish agent to marketplace');
-    }
-  };
-
-  const handleSecurePublish = async (agentId: string) => {
-    try {
+      setPublishingId(agentId);
       const result = await createTemplateMutation.mutateAsync({ 
         agent_id: agentId, 
         make_public: true,
         tags: [] 
       });
       toast.success('Agent published as secure template! Users will use their own encrypted credentials.');
-      setShowPublishingChoice(false);
-      setPublishingAgent(null);
+      setSelectedAgent(null);
     } catch (error: any) {
       toast.error('Failed to create secure template');
+    } finally {
+      setPublishingId(null);
     }
   };
 
   const handleUnpublish = async (agentId: string) => {
     try {
+      setUnpublishingId(agentId);
       await unpublishAgentMutation.mutateAsync(agentId);
-      toast.success('Agent removed from marketplace');
+      toast.success('Agent made private');
       setSelectedAgent(null);
     } catch (error: any) {
-      toast.error('Failed to remove agent from marketplace');
+      toast.error('Failed to make agent private');
+    } finally {
+      setUnpublishingId(null);
     }
+  };
+
+  const handleQuickPublish = async (agentId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    await handlePublish(agentId);
+  };
+
+  const handleQuickUnpublish = async (agentId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    await handleUnpublish(agentId);
   };
 
   const getAgentStyling = (agent: Agent) => {
@@ -358,6 +250,8 @@ export const AgentsGrid = ({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {agents.map((agent) => {
           const { avatar, color } = getAgentStyling(agent);
+          const isPublishing = publishingId === agent.agent_id;
+          const isUnpublishing = unpublishingId === agent.agent_id;
           
           return (
             <div 
@@ -375,7 +269,7 @@ export const AgentsGrid = ({
                   )}
                   {agent.is_public && (
                     <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                      <Globe className="h-3 w-3 text-white" />
+                      <Shield className="h-3 w-3 text-white" />
                       <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
                     </div>
                   )}
@@ -389,8 +283,8 @@ export const AgentsGrid = ({
                   </h3>
                   {agent.is_public && (
                     <Badge variant="outline" className="text-xs shrink-0">
-                      <Globe className="h-3 w-3" />
-                      Public
+                      <Shield className="h-3 w-3" />
+                      Published
                     </Badge>
                   )}
                 </div>
@@ -465,23 +359,8 @@ export const AgentsGrid = ({
           onChat={handleChat}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
-          isPublishing={publishAgentMutation.isPending}
-          isUnpublishing={unpublishAgentMutation.isPending}
-        />
-      )}
-
-      {publishingAgent && (
-        <PublishingChoiceDialog
-          agent={publishingAgent}
-          isOpen={showPublishingChoice}
-          onClose={() => {
-            setShowPublishingChoice(false);
-            setPublishingAgent(null);
-          }}
-          onRegularPublish={handleRegularPublish}
-          onSecurePublish={handleSecurePublish}
-          isPublishing={publishAgentMutation.isPending}
-          isCreatingTemplate={createTemplateMutation.isPending}
+          isPublishing={publishingId === selectedAgent.agent_id}
+          isUnpublishing={unpublishingId === selectedAgent.agent_id}
         />
       )}
     </>

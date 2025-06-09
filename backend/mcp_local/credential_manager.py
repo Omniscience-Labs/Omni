@@ -289,12 +289,26 @@ class CredentialManager:
         try:
             client = await db.client
             
+            logger.debug(f"Attempting to delete credential: account_id='{account_id}', mcp_qualified_name='{mcp_qualified_name}'")
+            
+            # First check if the credential exists
+            check_result = await client.table('user_mcp_credentials').select('credential_id, is_active')\
+                .eq('account_id', account_id)\
+                .eq('mcp_qualified_name', mcp_qualified_name)\
+                .execute()
+            
+            logger.debug(f"Found {len(check_result.data)} credentials matching the query")
+            if check_result.data:
+                for cred in check_result.data:
+                    logger.debug(f"Found credential: {cred['credential_id']}, is_active: {cred['is_active']}")
+            
             result = await client.table('user_mcp_credentials')\
                 .update({'is_active': False})\
                 .eq('account_id', account_id)\
                 .eq('mcp_qualified_name', mcp_qualified_name)\
                 .execute()
             
+            logger.debug(f"Update result: {len(result.data)} rows affected")
             return len(result.data) > 0
             
         except Exception as e:
