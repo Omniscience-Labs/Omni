@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { usePopularMCPServers, usePopularMCPServersV2, useMCPServers } from '@/hooks/react-query/mcp/use-mcp-servers';
+import { usePopularMCPServersV2, useMCPServers } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { McpServerCard } from './mcp-server-card';
 import { CategorySidebar } from './category-sidebar';
 import { SearchResults } from './search-results';
@@ -25,9 +25,8 @@ export const BrowseDialog: React.FC<BrowseDialogProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(200);
+  const [pageSize] = useState(100);
 
-  const { data: popularServers } = usePopularMCPServers();
   const { data: popularServersV2, isLoading: isLoadingV2 } = usePopularMCPServersV2(currentPage, pageSize);
   const { data: searchResults, isLoading: isSearching } = useMCPServers(
     searchQuery.length > 2 ? searchQuery : undefined
@@ -35,6 +34,7 @@ export const BrowseDialog: React.FC<BrowseDialogProps> = ({
 
   const categories = popularServersV2?.success ? Object.keys(popularServersV2.categorized) : [];
 
+  
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
@@ -94,19 +94,6 @@ export const BrowseDialog: React.FC<BrowseDialogProps> = ({
                         onServerSelect={onServerSelect}
                         onCategorySelect={setSelectedCategory}
                       />
-                    ) : popularServers ? (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-muted-foreground">Popular Servers</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {popularServers.servers.map((server) => (
-                            <McpServerCard
-                              key={server.qualifiedName}
-                              server={server}
-                              onClick={onServerSelect}
-                            />
-                          ))}
-                        </div>
-                      </div>
                     ) : null}
                   </>
                 )}
