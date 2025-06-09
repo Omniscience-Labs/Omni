@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
 import { useFeatureFlags } from '@/lib/feature-flags';
+import { generateRandomAvatar } from './_utils/_avatar-generator';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -156,10 +157,14 @@ export default function AgentsPage() {
 
   const handleCreateNewAgent = async () => {
     try {
+      const { avatar, avatar_color } = generateRandomAvatar();
+      
       const defaultAgentData = {
         name: 'New Agent',
         description: 'A newly created agent',
         system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
+        avatar,
+        avatar_color,
         configured_mcps: [],
         agentpress_tools: Object.fromEntries(
           Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Globe, GlobeLock, Download, Calendar, User, Tags, Loader2, AlertTriangle, Plus } from 'lucide-react';
+import { Globe, GlobeLock, Download, Calendar, User, Tags, Loader2, AlertTriangle, Plus, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -66,21 +66,6 @@ export default function MyTemplatesPage() {
               </p>
             </div>
           </div>
-
-          <div className="flex gap-4">
-            <Link href="/marketplace/secure">
-              <Button variant="outline">
-                <Globe className="h-4 w-4 mr-2" />
-                Browse Marketplace
-              </Button>
-            </Link>
-            <Link href="/settings/credentials">
-              <Button variant="outline">
-                <User className="h-4 w-4 mr-2" />
-                Manage Credentials
-              </Button>
-            </Link>
-          </div>
         </div>
 
         {isLoading ? (
@@ -128,32 +113,18 @@ export default function MyTemplatesPage() {
                     <div className="text-4xl">
                       {avatar}
                     </div>
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      {template.is_public ? (
-                        <div className="flex items-center gap-1 bg-green-500/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                          <Globe className="h-3 w-3 text-green-400" />
-                          <span className="text-green-400 text-xs font-medium">Public</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 bg-gray-500/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                          <GlobeLock className="h-3 w-3 text-gray-400" />
-                          <span className="text-gray-400 text-xs font-medium">Private</span>
-                        </div>
-                      )}
-                      {template.is_public && (
-                        <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                          <Download className="h-3 w-3 text-white" />
-                          <span className="text-white text-xs font-medium">{template.download_count || 0}</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                  
                   <div className="p-4 flex flex-col flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                         {template.name}
                       </h3>
+                      {template.metadata?.source_version_name && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          <GitBranch className="h-3 w-3" />
+                          {template.metadata.source_version_name}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                       {template.description || 'No description available'}
@@ -179,12 +150,6 @@ export default function MyTemplatesPage() {
                         <Calendar className="h-3 w-3" />
                         <span>Created {new Date(template.created_at).toLocaleDateString()}</span>
                       </div>
-                      {template.marketplace_published_at && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Globe className="h-3 w-3" />
-                          <span>Published {new Date(template.marketplace_published_at).toLocaleDateString()}</span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="mt-auto">
@@ -198,12 +163,12 @@ export default function MyTemplatesPage() {
                         >
                           {isUnpublishing ? (
                             <>
-                              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                               Unpublishing...
                             </>
                           ) : (
                             <>
-                              <GlobeLock className="h-3 w-3 mr-2" />
+                              <GlobeLock className="h-3 w-3" />
                               Make Private
                             </>
                           )}

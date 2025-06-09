@@ -141,9 +141,6 @@ export function SidebarLeft({
                   <Bot className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Agent Playground
-                    <Badge variant="new">
-                      New
-                    </Badge>
                   </span>
                 </SidebarMenuButton>
               </Link>
@@ -156,9 +153,6 @@ export function SidebarLeft({
                   <Store className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Marketplace
-                    <Badge variant="new">
-                      New
-                    </Badge>
                   </span>
                 </SidebarMenuButton>
               </Link>
@@ -171,9 +165,6 @@ export function SidebarLeft({
                   <Key className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Credentials
-                    <Badge variant="new">
-                      New
-                    </Badge>
                   </span>
                 </SidebarMenuButton>
               </Link>

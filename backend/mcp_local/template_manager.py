@@ -39,6 +39,7 @@ class AgentTemplate:
     updated_at: datetime
     avatar: Optional[str]
     avatar_color: Optional[str]
+    metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -86,8 +87,8 @@ class TemplateManager:
         try:
             client = await db.client
             
-            # Get the existing agent
-            agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+            # Get the existing agent with current version
+            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
             if not agent_result.data:
                 raise ValueError("Agent not found")
             
@@ -122,18 +123,34 @@ class TemplateManager:
                 logger.info(f"Created custom MCP requirement: {requirement}")
                 mcp_requirements.append(requirement)
             
+            # Use version data if available, otherwise fall back to agent data
+            version_data = agent.get('agent_versions', {})
+            if version_data:
+                system_prompt = version_data.get('system_prompt', agent['system_prompt'])
+                agentpress_tools = version_data.get('agentpress_tools', agent.get('agentpress_tools', {}))
+                version_name = version_data.get('version_name', 'v1')
+            else:
+                system_prompt = agent['system_prompt']
+                agentpress_tools = agent.get('agentpress_tools', {})
+                version_name = 'v1'
+            
             # Create template
             template_data = {
                 'creator_id': creator_id,
                 'name': agent['name'],
                 'description': agent.get('description'),
-                'system_prompt': agent['system_prompt'],
+                'system_prompt': system_prompt,
                 'mcp_requirements': mcp_requirements,
-                'agentpress_tools': agent.get('agentpress_tools', {}),
+                'agentpress_tools': agentpress_tools,
                 'tags': tags or [],
                 'is_public': make_public,
                 'avatar': agent.get('avatar'),
-                'avatar_color': agent.get('avatar_color')
+                'avatar_color': agent.get('avatar_color'),
+                'metadata': {
+                    'source_agent_id': agent_id,
+                    'source_version_id': agent.get('current_version_id'),
+                    'source_version_name': version_name
+                }
             }
             
             if make_public:
@@ -192,7 +209,8 @@ class TemplateManager:
                 created_at=template_data['created_at'],
                 updated_at=template_data['updated_at'],
                 avatar=template_data.get('avatar'),
-                avatar_color=template_data.get('avatar_color')
+                avatar_color=template_data.get('avatar_color'),
+                metadata=template_data.get('metadata', {})
             )
             
         except Exception as e:

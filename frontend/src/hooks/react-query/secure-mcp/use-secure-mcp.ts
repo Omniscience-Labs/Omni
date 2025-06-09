@@ -44,6 +44,11 @@ export interface AgentTemplate {
   creator_name?: string;
   avatar?: string;
   avatar_color?: string;
+  metadata?: {
+    source_agent_id?: string;
+    source_version_id?: string;
+    source_version_name?: string;
+  };
 }
 
 export interface MCPRequirement {

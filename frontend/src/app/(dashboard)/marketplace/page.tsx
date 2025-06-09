@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,11 @@ interface MarketplaceTemplate {
     required_config: string[];
     custom_type?: 'sse' | 'http';
   }>;
+  metadata?: {
+    source_agent_id?: string;
+    source_version_id?: string;
+    source_version_name?: string;
+  };
 }
 
 interface SetupStep {
@@ -524,6 +529,7 @@ export default function MarketplacePage() {
           avatar_color: template.avatar_color,
           template_id: template.template_id,
           mcp_requirements: template.mcp_requirements,
+          metadata: template.metadata,
         });
       });
     }
@@ -785,6 +791,12 @@ export default function MarketplacePage() {
                       <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                         {item.name}
                       </h3>
+                      {item.metadata?.source_version_name && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          <GitBranch className="h-3 w-3" />
+                          {item.metadata.source_version_name}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                       {item.description || 'No description available'}

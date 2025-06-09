@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle } from 'lucide-react';
+import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
@@ -26,6 +26,13 @@ interface Agent {
   avatar?: string;
   avatar_color?: string;
   template_id?: string;
+  current_version_id?: string;
+  version_count?: number;
+  current_version?: {
+    version_id: string;
+    version_name: string;
+    version_number: number;
+  };
 }
 
 interface AgentsGridProps {
@@ -76,6 +83,12 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                 <h2 className="text-xl font-semibold text-foreground">
                   {agent.name}
                 </h2>
+                {agent.current_version && (
+                  <Badge variant="outline" className="text-xs">
+                    <GitBranch className="h-3 w-3" />
+                    {agent.current_version.version_name}
+                  </Badge>
+                )}
                 {agent.is_public && (
                   <Badge variant="outline" className="text-xs">
                     <Shield className="h-3 w-3" />
@@ -281,6 +294,12 @@ export const AgentsGrid = ({
                   <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                     {agent.name}
                   </h3>
+                  {agent.current_version && (
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      <GitBranch className="h-3 w-3" />
+                      {agent.current_version.version_name}
+                    </Badge>
+                  )}
                   {agent.is_public && (
                     <Badge variant="outline" className="text-xs shrink-0">
                       <Shield className="h-3 w-3" />
