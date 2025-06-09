@@ -186,7 +186,7 @@ export const siteConfig = {
             width="110"
             height="31"
             viewBox="0 0 110 31"
-            fill="none"
+            fill="none" 
             xmlns="http://www.w3.org/2000/svg"
             className="dark:fill-white fill-black"
           >
