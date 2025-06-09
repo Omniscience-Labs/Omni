@@ -34,6 +34,7 @@ export const BrowseDialog: React.FC<BrowseDialogProps> = ({
 
   const categories = popularServersV2?.success ? Object.keys(popularServersV2.categorized) : [];
 
+  
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
