@@ -15,7 +15,6 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenuButton,
-  SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
@@ -53,7 +52,6 @@ export function SidebarLeft({
   const customAgentsEnabled = flags.custom_agents;
   const marketplaceEnabled = flags.agent_marketplace;
 
-  // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       const supabase = createClient();
@@ -74,16 +72,11 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Handle keyboard shortcuts (CMD+B) for consistency
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
         event.preventDefault();
-        // We'll handle this in the parent page component
-        // to ensure proper coordination between panels
         setOpen(!state.startsWith('expanded'));
-
-        // Broadcast a custom event to notify other components
         window.dispatchEvent(
           new CustomEvent('sidebar-left-toggled', {
             detail: { expanded: !state.startsWith('expanded') },
