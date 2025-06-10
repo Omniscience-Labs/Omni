@@ -112,8 +112,9 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
     };
 
     return (
-      <div className="flex flex-col w-full h-auto gap-4 justify-between">
-        <div className="flex gap-2 items-center px-2">
+      <div className="relative flex flex-col w-full h-auto gap-4 justify-between">
+
+        <div className="flex flex-col gap-2 items-center px-2">
           <Textarea
             ref={ref}
             value={value}
@@ -128,6 +129,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             rows={2}
           />
         </div>
+
 
         <div className="flex items-center justify-between mt-1 ml-3 mb-1 pr-2">
           <div className="flex items-center gap-3">
@@ -155,11 +157,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               <Tooltip>
                 <TooltipTrigger>
                   <p className='text-sm text-amber-500 hidden sm:block'>Upgrade for full performance</p>
-                  <div className='sm:hidden absolute bottom-0 left-0 right-0 flex justify-center'>
-                    <p className='text-xs text-amber-500 px-2 py-1'>
-                      Upgrade for better performance
-                    </p>
-                  </div>
+
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p>
@@ -205,6 +203,13 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             </Button>
           </div>
         </div>
+        {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
+          <div className='sm:hidden absolute -bottom-8 left-0 right-0 flex justify-center'>
+            <p className='text-xs text-amber-500 px-2 py-1'>
+              Upgrade for better performance
+            </p>
+          </div>
+        }
       </div>
     );
   },
