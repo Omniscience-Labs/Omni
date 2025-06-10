@@ -15,6 +15,7 @@ from services import redis
 from dramatiq.brokers.rabbitmq import RabbitmqBroker
 import os
 from services.langfuse import langfuse
+from utils.retry import retry
 
 rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 rabbitmq_port = int(os.getenv('RABBITMQ_PORT', 5672))
@@ -28,18 +29,12 @@ instance_id = "single"
 async def initialize():
     """Initialize the agent API with resources from the main API."""
     global db, instance_id, _initialized
-    if _initialized:
-        try: await redis.client.ping()
-        except Exception as e:
-            logger.warning(f"Redis connection failed, re-initializing: {e}")
-            await redis.initialize_async(force=True)
-        return
 
     # Use provided instance_id or generate a new one
     if not instance_id:
         # Generate instance ID
         instance_id = str(uuid.uuid4())[:8]
-    await redis.initialize_async()
+    await retry(lambda: redis.initialize_async())
     await db.initialize()
 
     _initialized = True
@@ -117,7 +112,12 @@ async def run_agent_background(
     try:
         # Setup Pub/Sub listener for control signals
         pubsub = await redis.create_pubsub()
-        await pubsub.subscribe(instance_control_channel, global_control_channel)
+        try:
+            await retry(lambda: pubsub.subscribe(instance_control_channel, global_control_channel))
+        except Exception as e:
+            logger.error(f"Redis failed to subscribe to control channels: {e}", exc_info=True)
+            raise e
+
         logger.debug(f"Subscribed to control channels: {instance_control_channel}, {global_control_channel}")
         stop_checker = asyncio.create_task(check_for_stop_signal())
 
