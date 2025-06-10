@@ -140,7 +140,7 @@ export const siteConfig = {
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
       hours: '6 hours',
-      features: ['Suited to you needs'],
+      features: ['Suited to your needs'],
       upgradePlans: [
         {
           hours: '6 hours',
@@ -186,7 +186,7 @@ export const siteConfig = {
             width="110"
             height="31"
             viewBox="0 0 110 31"
-            fill="none"
+            fill="none" 
             xmlns="http://www.w3.org/2000/svg"
             className="dark:fill-white fill-black"
           >

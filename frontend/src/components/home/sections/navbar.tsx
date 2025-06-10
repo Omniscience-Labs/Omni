@@ -133,7 +133,7 @@ export function Navbar() {
                 width={140}
                 height={22}
                 priority
-              />
+              /> 
             </Link>
 
             <NavMenu />
