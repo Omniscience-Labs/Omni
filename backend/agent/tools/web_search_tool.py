@@ -353,8 +353,8 @@ class SandboxWebSearchTool(SandboxToolsBase):
             logging.info(f"Saving content to file: {results_file_path}, size: {len(json_content)} bytes")
             
             self.sandbox.fs.upload_file(
-                results_file_path, 
-                json_content.encode()
+                json_content.encode(),
+                results_file_path,
             )
             
             return {
