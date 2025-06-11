@@ -3,9 +3,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../_utils/get-agent-style';
-import { 
-  ChatInput, 
-  ChatInputHandles 
+import {
+  ChatInput,
+  ChatInputHandles
 } from '@/components/thread/chat-input/chat-input';
 import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { UnifiedMessage } from '@/components/thread/types';
@@ -14,6 +14,7 @@ import { useAgentStream } from '@/hooks/useAgentStream';
 import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messages';
 import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { BillingError } from '@/lib/api';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 interface Agent {
   agent_id: string;
@@ -39,7 +40,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'connecting' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandles>(null);
 
@@ -71,7 +72,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
     console.log(`[PREVIEW STREAM] Received message: ID=${message.message_id}, Type=${message.type}`);
-    
+
     setMessages((prev) => {
       const messageExists = prev.some((m) => m.message_id === message.message_id);
       if (messageExists) {
@@ -105,8 +106,8 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
 
   const handleStreamError = useCallback((errorMessage: string) => {
     console.error(`[PREVIEW] Stream error: ${errorMessage}`);
-    if (!errorMessage.toLowerCase().includes('not found') && 
-        !errorMessage.toLowerCase().includes('agent run is not running')) {
+    if (!errorMessage.toLowerCase().includes('not found') &&
+      !errorMessage.toLowerCase().includes('agent run is not running')) {
       toast.error(`Stream Error: ${errorMessage}`);
     }
   }, []);
@@ -176,13 +177,14 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
 
     try {
       const files = chatInputRef.current?.getPendingFiles() || [];
-      
+
       const formData = new FormData();
       formData.append('prompt', message);
       formData.append('agent_id', agent.agent_id);
-      
+
       files.forEach((file, index) => {
-        formData.append('files', file, file.name);
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        formData.append('files', file, normalizedName);
       });
 
       if (options?.model_name) formData.append('model_name', options.model_name);
@@ -328,7 +330,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
   return (
     <div className="h-full flex flex-col bg-muted dark:bg-muted/30">
       <div className="flex-shrink-0 flex items-center gap-3 p-8">
-        <div 
+        <div
           className="h-10 w-10 flex items-center justify-center rounded-lg text-lg"
           style={{ backgroundColor: color }}
         >
@@ -347,7 +349,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
             streamingToolCall={streamingToolCall}
             agentStatus={agentStatus}
             handleToolClick={handleToolClick}
-            handleOpenFileViewer={() => {}}
+            handleOpenFileViewer={() => { }}
             streamHookStatus={streamHookStatus}
             isPreviewMode={true}
             agentName={agent.name}
