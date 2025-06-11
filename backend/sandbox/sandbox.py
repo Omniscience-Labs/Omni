@@ -114,6 +114,7 @@ def create_sandbox(password: str, project_id: str = None):
             "disk": 5,
         },
         auto_stop_interval=15,
+        auto_archive_interval=24 * 60,
     )
     
     # Create the sandbox
