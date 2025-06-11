@@ -51,6 +51,7 @@ import {
   FileCache
 } from '@/hooks/react-query/files';
 import JSZip from 'jszip';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 // Define API_URL
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -1121,6 +1122,8 @@ export function FileViewerModal({
     }
   }, []);
 
+
+
   // Process uploaded file - Define after helpers
   const processUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1130,9 +1133,15 @@ export function FileViewerModal({
       setIsUploading(true);
 
       try {
+        // Normalize filename to NFC
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        const uploadPath = `${currentPath}/${normalizedName}`;
+
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('path', `${currentPath}/${file.name}`);
+        // If the filename was normalized, append with the normalized name in the field name
+        // The server will use the path parameter for the actual filename
+        formData.append('file', file, normalizedName);
+        formData.append('path', uploadPath);
 
         const supabase = createClient();
         const {
@@ -1162,7 +1171,7 @@ export function FileViewerModal({
         // Reload the file list using React Query
         await refetchFiles();
 
-        toast.success(`Uploaded: ${file.name}`);
+        toast.success(`Uploaded: ${normalizedName}`);
       } catch (error) {
         console.error('Upload failed:', error);
         toast.error(
