@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
 import { Examples } from './suggestions/examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -110,7 +111,8 @@ export function DashboardContent() {
       }
 
       files.forEach((file, index) => {
-        formData.append('files', file, file.name);
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        formData.append('files', file, normalizedName);
       });
 
       if (options?.model_name) formData.append('model_name', options.model_name);
@@ -194,7 +196,7 @@ export function DashboardContent() {
               <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
                 Hey, I am
               </h1>
-              <AgentSelector 
+              <AgentSelector
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={setSelectedAgentId}
                 variant="heading"
@@ -204,7 +206,7 @@ export function DashboardContent() {
               What would you like to do today?
             </p>
           </div>
-          
+
           <div className={cn(
             "w-full mb-2",
             "max-w-full",
@@ -220,7 +222,7 @@ export function DashboardContent() {
               hideAttachments={false}
             />
           </div>
-          
+
           <Examples onSelectPrompt={setInputValue} />
         </div>
 

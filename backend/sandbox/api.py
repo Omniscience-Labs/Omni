@@ -166,7 +166,7 @@ async def create_file(
         content = await file.read()
         
         # Create file using raw binary content
-        sandbox.fs.upload_file(path, content)
+        sandbox.fs.upload_file(content, path)
         logger.info(f"File created at {path} in sandbox {sandbox_id}")
         
         return {"status": "success", "created": True, "path": path}
