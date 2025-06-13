@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download } from 'lucide-react';
+import { Settings, Trash2, Star, MessageCircle, Wrench, Globe, GlobeLock, Download, Shield, AlertTriangle, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { getAgentAvatar } from '../_utils/get-agent-style';
 import { usePublishAgent, useUnpublishAgent } from '@/hooks/react-query/marketplace/use-marketplace';
+import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 
 interface Agent {
@@ -24,6 +25,14 @@ interface Agent {
   agentpress_tools?: Record<string, any>;
   avatar?: string;
   avatar_color?: string;
+  template_id?: string;
+  current_version_id?: string;
+  version_count?: number;
+  current_version?: {
+    version_id: string;
+    version_name: string;
+    version_number: number;
+  };
 }
 
 interface AgentsGridProps {
@@ -74,10 +83,16 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                 <h2 className="text-xl font-semibold text-foreground">
                   {agent.name}
                 </h2>
+                {agent.current_version && (
+                  <Badge variant="outline" className="text-xs">
+                    <GitBranch className="h-3 w-3" />
+                    {agent.current_version.version_name}
+                  </Badge>
+                )}
                 {agent.is_public && (
                   <Badge variant="outline" className="text-xs">
-                    <Globe className="h-3 w-3" />
-                    Public
+                    <Shield className="h-3 w-3" />
+                    Published
                   </Badge>
                 )}
               </div>
@@ -109,7 +124,7 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
               {agent.is_public ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Published to marketplace</span>
+                    <span>Published as secure template</span>
                     <div className="flex items-center gap-1">
                       <Download className="h-3 w-3" />
                       {agent.download_count || 0} downloads
@@ -124,7 +139,7 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                     {isUnpublishing ? (
                       <>
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        Unpublishing...
+                        Making Private...
                       </>
                     ) : (
                       <>
@@ -148,8 +163,8 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                     </>
                   ) : (
                     <>
-                      <Globe className="h-4 w-4" />
-                      Publish to Marketplace
+                      <Shield className="h-4 w-4" />
+                      Publish as Template
                     </>
                   )}
                 </Button>
@@ -170,10 +185,14 @@ export const AgentsGrid = ({
   deleteAgentMutation 
 }: AgentsGridProps) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const router = useRouter();
   
   const publishAgentMutation = usePublishAgent();
   const unpublishAgentMutation = useUnpublishAgent();
+  const createTemplateMutation = useCreateTemplate();
+  const unpublishTemplateMutation = useUnpublishTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -191,22 +210,42 @@ export const AgentsGrid = ({
 
   const handlePublish = async (agentId: string) => {
     try {
-      await publishAgentMutation.mutateAsync({ agentId, tags: [] });
-      toast.success('Agent published to marketplace successfully!');
+      setPublishingId(agentId);
+      const result = await createTemplateMutation.mutateAsync({ 
+        agent_id: agentId, 
+        make_public: true,
+        tags: [] 
+      });
+      toast.success('Agent published as secure template! Users will use their own encrypted credentials.');
       setSelectedAgent(null);
     } catch (error: any) {
-      toast.error('Failed to publish agent to marketplace');
+      toast.error('Failed to create secure template');
+    } finally {
+      setPublishingId(null);
     }
   };
 
   const handleUnpublish = async (agentId: string) => {
     try {
+      setUnpublishingId(agentId);
       await unpublishAgentMutation.mutateAsync(agentId);
-      toast.success('Agent removed from marketplace');
+      toast.success('Agent made private');
       setSelectedAgent(null);
     } catch (error: any) {
-      toast.error('Failed to remove agent from marketplace');
+      toast.error('Failed to make agent private');
+    } finally {
+      setUnpublishingId(null);
     }
+  };
+
+  const handleQuickPublish = async (agentId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    await handlePublish(agentId);
+  };
+
+  const handleQuickUnpublish = async (agentId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    await handleUnpublish(agentId);
   };
 
   const getAgentStyling = (agent: Agent) => {
@@ -224,6 +263,8 @@ export const AgentsGrid = ({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {agents.map((agent) => {
           const { avatar, color } = getAgentStyling(agent);
+          const isPublishing = publishingId === agent.agent_id;
+          const isUnpublishing = unpublishingId === agent.agent_id;
           
           return (
             <div 
@@ -241,7 +282,7 @@ export const AgentsGrid = ({
                   )}
                   {agent.is_public && (
                     <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                      <Globe className="h-3 w-3 text-white" />
+                      <Shield className="h-3 w-3 text-white" />
                       <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
                     </div>
                   )}
@@ -253,10 +294,16 @@ export const AgentsGrid = ({
                   <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                     {agent.name}
                   </h3>
+                  {agent.current_version && (
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      <GitBranch className="h-3 w-3" />
+                      {agent.current_version.version_name}
+                    </Badge>
+                  )}
                   {agent.is_public && (
                     <Badge variant="outline" className="text-xs shrink-0">
-                      <Globe className="h-3 w-3" />
-                      Public
+                      <Shield className="h-3 w-3" />
+                      Published
                     </Badge>
                   )}
                 </div>
@@ -331,8 +378,8 @@ export const AgentsGrid = ({
           onChat={handleChat}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
-          isPublishing={publishAgentMutation.isPending}
-          isUnpublishing={unpublishAgentMutation.isPending}
+          isPublishing={publishingId === selectedAgent.agent_id}
+          isUnpublishing={unpublishingId === selectedAgent.agent_id}
         />
       )}
     </>

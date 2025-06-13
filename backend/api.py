@@ -136,8 +136,10 @@ app.include_router(billing_api.router, prefix="/api")
 app.include_router(feature_flags_api.router, prefix="/api")
 
 from mcp_local import api as mcp_api
+from mcp_local import secure_api as secure_mcp_api
 
 app.include_router(mcp_api.router, prefix="/api")
+app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
 
 app.include_router(transcription_api.router, prefix="/api")
 

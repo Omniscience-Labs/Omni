@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UpdateAgentDialog } from './_components/update-agent-dialog';
@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
 import { useFeatureFlags } from '@/lib/feature-flags';
+import { generateRandomAvatar } from './_utils/_avatar-generator';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -156,10 +157,14 @@ export default function AgentsPage() {
 
   const handleCreateNewAgent = async () => {
     try {
+      const { avatar, avatar_color } = generateRandomAvatar();
+      
       const defaultAgentData = {
         name: 'New Agent',
         description: 'A newly created agent',
         system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
+        avatar,
+        avatar_color,
         configured_mcps: [],
         agentpress_tools: Object.fromEntries(
           Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
@@ -203,23 +208,33 @@ export default function AgentsPage() {
               Create and manage your AI agents with custom instructions and tools
             </p>
           </div>
-          <Button 
-            onClick={handleCreateNewAgent}
-            disabled={createAgentMutation.isPending}
-            className="self-start sm:self-center"
-          >
-            {createAgentMutation.isPending ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Plus className="h-5 w-5" />
-                New Agent
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button 
+              onClick={() => router.push('/marketplace/my-templates')}
+              className="self-start sm:self-center"
+              variant="outline"
+            >
+              <File className="h-5 w-5" />
+              My Templates
+            </Button>
+            <Button 
+              onClick={handleCreateNewAgent}
+              disabled={createAgentMutation.isPending}
+              className="self-start sm:self-center"
+            >
+              {createAgentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  New Agent
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <SearchAndFilters
