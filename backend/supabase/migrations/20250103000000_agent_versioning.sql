@@ -62,6 +62,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if it exists, then create it
+DROP TRIGGER IF EXISTS trigger_agent_versions_updated_at ON agent_versions;
 CREATE TRIGGER trigger_agent_versions_updated_at
     BEFORE UPDATE ON agent_versions
     FOR EACH ROW
@@ -72,6 +74,7 @@ ALTER TABLE agent_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_version_history ENABLE ROW LEVEL SECURITY;
 
 -- Policies for agent_versions
+DROP POLICY IF EXISTS agent_versions_select_policy ON agent_versions;
 CREATE POLICY agent_versions_select_policy ON agent_versions
     FOR SELECT
     USING (
@@ -85,6 +88,7 @@ CREATE POLICY agent_versions_select_policy ON agent_versions
         )
     );
 
+DROP POLICY IF EXISTS agent_versions_insert_policy ON agent_versions;
 CREATE POLICY agent_versions_insert_policy ON agent_versions
     FOR INSERT
     WITH CHECK (
@@ -95,6 +99,7 @@ CREATE POLICY agent_versions_insert_policy ON agent_versions
         )
     );
 
+DROP POLICY IF EXISTS agent_versions_update_policy ON agent_versions;
 CREATE POLICY agent_versions_update_policy ON agent_versions
     FOR UPDATE
     USING (
@@ -105,6 +110,7 @@ CREATE POLICY agent_versions_update_policy ON agent_versions
         )
     );
 
+DROP POLICY IF EXISTS agent_versions_delete_policy ON agent_versions;
 CREATE POLICY agent_versions_delete_policy ON agent_versions
     FOR DELETE
     USING (
@@ -116,6 +122,7 @@ CREATE POLICY agent_versions_delete_policy ON agent_versions
     );
 
 -- Policies for agent_version_history
+DROP POLICY IF EXISTS agent_version_history_select_policy ON agent_version_history;
 CREATE POLICY agent_version_history_select_policy ON agent_version_history
     FOR SELECT
     USING (
@@ -126,6 +133,7 @@ CREATE POLICY agent_version_history_select_policy ON agent_version_history
         )
     );
 
+DROP POLICY IF EXISTS agent_version_history_insert_policy ON agent_version_history;
 CREATE POLICY agent_version_history_insert_policy ON agent_version_history
     FOR INSERT
     WITH CHECK (
