@@ -21,7 +21,7 @@ export function useFileContent(sandboxId?: string, filePath?: string) {
   const { session } = useAuth();
 
   useEffect(() => {
-    if (!sandboxId || !filePath || !session?.access_token) {
+    if (!sandboxId || !filePath) {
       setContent(null);
       return;
     }
@@ -38,7 +38,7 @@ export function useFileContent(sandboxId?: string, filePath?: string) {
     // Otherwise, load and cache the file content
     setIsLoading(true);
     getCachedFile(sandboxId, filePath, {
-      token: session.access_token,
+      token: session?.access_token || '',
       contentType: 'text'
     })
       .then(fileContent => {
