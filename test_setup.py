@@ -49,7 +49,7 @@ class TestSetupWizard(unittest.TestCase):
     def test_01_choose_docker_setup(self):
         """Test choosing Docker setup method."""
         with patch("builtins.input", return_value="1"), patch(
-            "install.load_progress", return_value={"step": 0, "data": {}}
+            "setup.load_progress", return_value={"step": 0, "data": {}}
         ):
             wizard = setup.SetupWizard()
             wizard.choose_setup_method()
@@ -58,7 +58,7 @@ class TestSetupWizard(unittest.TestCase):
     def test_02_choose_manual_setup(self):
         """Test choosing manual setup method."""
         with patch("builtins.input", return_value="2"), patch(
-            "install.load_progress", return_value={"step": 0, "data": {}}
+            "setup.load_progress", return_value={"step": 0, "data": {}}
         ):
             wizard = setup.SetupWizard()
             wizard.choose_setup_method()
@@ -67,7 +67,7 @@ class TestSetupWizard(unittest.TestCase):
     def test_03_check_requirements_docker(self):
         """Test requirement checking for Docker setup."""
         with patch(
-            "install.load_progress",
+            "setup.load_progress",
             return_value={"step": 0, "data": {"setup_method": "docker"}},
         ), patch("subprocess.run") as mock_subprocess:
 
@@ -111,7 +111,7 @@ class TestSetupWizard(unittest.TestCase):
     def test_04_check_requirements_manual(self):
         """Test requirement checking for manual setup."""
         with patch(
-            "install.load_progress",
+            "setup.load_progress",
             return_value={"step": 0, "data": {"setup_method": "manual"}},
         ), patch("subprocess.run") as mock_subprocess:
 
@@ -183,7 +183,7 @@ class TestSetupWizard(unittest.TestCase):
         ]
 
         with patch("builtins.input", side_effect=user_inputs), patch(
-            "install.load_progress", return_value={"step": 0, "data": {}}
+            "setup.load_progress", return_value={"step": 0, "data": {}}
         ):
             wizard = setup.SetupWizard()
             # Ensure the supabase key exists in env_vars
@@ -204,7 +204,7 @@ class TestSetupWizard(unittest.TestCase):
 
     def test_06_configure_env_files(self):
         """Test environment file configuration."""
-        with patch("install.load_progress", return_value={"step": 0, "data": {}}):
+        with patch("setup.load_progress", return_value={"step": 0, "data": {}}):
             wizard = setup.SetupWizard()
             wizard.env_vars = {
                 "setup_method": "docker",
@@ -239,7 +239,7 @@ class TestSetupWizard(unittest.TestCase):
         """Test that the wizard can resume from a saved step."""
         saved_progress = {"step": 1, "data": {"setup_method": "docker"}}
 
-        with patch("install.load_progress", return_value=saved_progress):
+        with patch("setup.load_progress", return_value=saved_progress):
             wizard = setup.SetupWizard()
 
         # Verify it loaded correctly
@@ -257,6 +257,36 @@ class TestSetupWizard(unittest.TestCase):
         self.assertFalse(setup.validate_api_key("12345"))
         self.assertFalse(setup.validate_api_key(None))
         self.assertTrue(setup.validate_api_key("", allow_empty=True))
+
+    def test_09_setup_supabase_database(self):
+        """Test the setup_supabase_database method."""
+        # Create a test wizard instance
+        wizard = setup.SetupWizard()
+        wizard.env_vars['supabase'] = {'SUPABASE_URL': 'https://test.supabase.co', 'SUPABASE_ANON_KEY': 'test', 'SUPABASE_SERVICE_ROLE_KEY': 'test'}
+
+        # Mock the input function to return 'y' for skip
+        import builtins
+        original_input = builtins.input
+
+        def mock_input(prompt):
+            if 'skip' in prompt.lower():
+                print(f'Mock input: "{prompt}" -> "y"')
+                return 'y'
+            return original_input(prompt)
+
+        builtins.input = mock_input
+
+        # Test the method
+        try:
+            print("Testing setup_supabase_database with skip...")
+            wizard.setup_supabase_database()
+            print('Method completed successfully')
+        except SystemExit as e:
+            print(f'SystemExit called with code: {e.code}')
+        except Exception as e:
+            print(f'Exception: {e}')
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

@@ -178,12 +178,6 @@ def load_progress():
     return {"step": 0, "data": {}}
 
 
-def clear_progress():
-    """Removes the progress file."""
-    if os.path.exists(PROGRESS_FILE):
-        os.remove(PROGRESS_FILE)
-
-
 # --- Validators ---
 def validate_url(url, allow_empty=False):
     """Validates a URL format."""
@@ -313,7 +307,6 @@ class SetupWizard:
             self.run_step(11, self.start_suna)
 
             self.final_instructions()
-            clear_progress()
 
         except KeyboardInterrupt:
             print("\n\nSetup interrupted. Your progress has been saved.")
@@ -798,6 +791,26 @@ class SetupWizard:
         """Links the project to Supabase and pushes database migrations."""
         print_step(9, self.total_steps, "Setting up Supabase Database")
 
+        print_info(
+            "This step will link your project to Supabase and push database migrations."
+        )
+        print_info(
+            "You can skip this if you've already set up your database or prefer to do it manually."
+        )
+
+        skip_db_setup = (
+            input("Do you want to skip the database setup? (y/N): ").lower().strip()
+        )
+        if skip_db_setup == "y":
+            print_info("Skipping Supabase database setup.")
+            print_warning(
+                "Remember to manually set up your Supabase database with the required migrations."
+            )
+            print_info(
+                "You can find the migration files in the backend/supabase/migrations directory."
+            )
+            return
+
         try:
             subprocess.run(
                 ["supabase", "--version"],
@@ -809,6 +822,13 @@ class SetupWizard:
             print_error(
                 "Supabase CLI not found. Install it from: https://supabase.com/docs/guides/cli"
             )
+            print_info("You can skip this step and set up the database manually later.")
+            skip_due_to_cli = (
+                input("Skip database setup due to missing CLI? (y/N): ").lower().strip()
+            )
+            if skip_due_to_cli == "y":
+                print_info("Skipping Supabase database setup.")
+                return
             sys.exit(1)
 
         supabase_url = self.env_vars["supabase"]["SUPABASE_URL"]
@@ -868,14 +888,33 @@ class SetupWizard:
             print_success("Frontend dependencies installed.")
 
             print_info("Installing backend dependencies with uv...")
-            # Assuming pyproject.toml is used by uv
+
+            # Check if a virtual environment already exists
+            venv_exists = os.path.exists(os.path.join("backend", ".venv"))
+
+            if not venv_exists:
+                print_info("Creating virtual environment...")
+                subprocess.run(
+                    ["uv", "venv"], cwd="backend", check=True, shell=IS_WINDOWS
+                )
+                print_success("Virtual environment created.")
+
+            # Install dependencies in the virtual environment
+            subprocess.run(
+                ["uv", "pip", "install", "-r", "requirements.txt"],
+                cwd="backend",
+                check=True,
+                shell=IS_WINDOWS,
+            )
+
+            # Install the package itself in editable mode
             subprocess.run(
                 ["uv", "pip", "install", "-e", "."],
                 cwd="backend",
                 check=True,
                 shell=IS_WINDOWS,
             )
-            print_success("Backend dependencies installed.")
+            print_success("Backend dependencies and package installed.")
 
         except subprocess.SubprocessError as e:
             print_error(f"Failed to install dependencies: {e}")
@@ -952,13 +991,13 @@ class SetupWizard:
             print(f"{Colors.CYAN}   cd frontend && npm run dev{Colors.ENDC}")
 
             print(f"\n{Colors.BOLD}3. Start Backend (in a new terminal):{Colors.ENDC}")
-            print(f"{Colors.CYAN}   cd backend && uv run api.py{Colors.ENDC}")
+            print(f"{Colors.CYAN}   cd backend && python run api.py{Colors.ENDC}")
 
             print(
                 f"\n{Colors.BOLD}4. Start Background Worker (in a new terminal):{Colors.ENDC}"
             )
             print(
-                f"{Colors.CYAN}   cd backend && uv run -m dramatiq run_agent_background{Colors.ENDC}"
+                f"{Colors.CYAN}   cd backend && python run -m dramatiq run_agent_background{Colors.ENDC}"
             )
 
             print(
