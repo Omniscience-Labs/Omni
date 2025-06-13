@@ -407,7 +407,8 @@ async def run_agent(
         # Set max_tokens based on model
         max_tokens = None
         if "sonnet" in model_name.lower():
-            max_tokens = 64000
+            # Claude 3.5 Sonnet has a limit of 8192 tokens
+            max_tokens = 8192
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
             
