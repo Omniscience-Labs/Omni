@@ -129,10 +129,13 @@ export function useCachedFile<T = string>(
       
       // Fetch with authentication
       const attemptFetch = async (isRetry: boolean = false): Promise<Response> => {
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
         const response = await fetch(url.toString(), {
-          headers: {
-            'Authorization': `Bearer ${session?.access_token}`
-          }
+          headers
         });
         
         if (!response.ok) {
