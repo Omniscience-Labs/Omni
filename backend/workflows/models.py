@@ -2,11 +2,50 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional, Literal
 from datetime import datetime
 
+class ScheduleConfig(BaseModel):
+    """Configuration for scheduled workflow triggers."""
+    cron_expression: Optional[str] = None
+    interval_type: Optional[Literal['minutes', 'hours', 'days', 'weeks']] = None
+    interval_value: Optional[int] = None
+    timezone: str = "UTC"
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    enabled: bool = True
+
+class SlackWebhookConfig(BaseModel):
+    """Configuration for Slack webhook integration."""
+    webhook_url: str
+    signing_secret: str
+    channel: Optional[str] = None
+    username: Optional[str] = None
+
+class GenericWebhookConfig(BaseModel):
+    """Configuration for generic webhook integration."""
+    url: str
+    headers: Optional[Dict[str, str]] = None
+    auth_token: Optional[str] = None
+
+class WebhookConfig(BaseModel):
+    """Configuration for webhook triggers."""
+    type: Literal['slack', 'generic'] = 'slack'
+    method: Optional[Literal['POST', 'GET', 'PUT']] = 'POST'
+    authentication: Optional[Literal['none', 'api_key', 'bearer']] = 'none'
+    slack: Optional[SlackWebhookConfig] = None
+    generic: Optional[GenericWebhookConfig] = None
+
+class InputNodeConfig(BaseModel):
+    """Configuration for workflow input nodes."""
+    prompt: str = ""
+    trigger_type: Literal['MANUAL', 'WEBHOOK', 'SCHEDULE'] = 'MANUAL'
+    webhook_config: Optional[WebhookConfig] = None
+    schedule_config: Optional[ScheduleConfig] = None
+    variables: Optional[Dict[str, Any]] = None
+
 class WorkflowStep(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
-    type: Literal['TOOL', 'MCP_TOOL', 'CONDITION', 'LOOP', 'PARALLEL', 'WAIT', 'WEBHOOK', 'TRANSFORM']
+    type: Literal['TOOL', 'MCP_TOOL', 'CONDITION', 'LOOP', 'PARALLEL', 'WAIT', 'WEBHOOK', 'TRANSFORM', 'INPUT']
     config: Dict[str, Any]
     next_steps: List[str]
     error_handler: Optional[str] = None

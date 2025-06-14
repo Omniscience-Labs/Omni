@@ -4,9 +4,21 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Play, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Plus, Play, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getWorkflows, executeWorkflow, deleteWorkflow, getProjects, createWorkflow, type Workflow } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { getWorkflows, executeWorkflow, deleteWorkflow, getProjects, createWorkflow, updateWorkflow, type Workflow } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -17,6 +29,10 @@ export default function WorkflowsPage() {
   const [executingWorkflows, setExecutingWorkflows] = useState<Set<string>>(new Set());
   const [projectId, setProjectId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set());
+  const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   useEffect(() => {
@@ -83,18 +99,23 @@ export default function WorkflowsPage() {
       toast.error("No project selected");
       return;
     }
-
     try {
       setCreating(true);
+      const existingNames = workflows.map(w => w.name.toLowerCase());
+      let workflowName = "Untitled Workflow";
+      let counter = 1;
+      while (existingNames.includes(workflowName.toLowerCase())) {
+        workflowName = `Untitled Workflow ${counter}`;
+        counter++;
+      }
       const newWorkflow = await createWorkflow({
-        name: "Untitled Workflow",
+        name: workflowName,
         description: "A new workflow",
         project_id: projectId,
         nodes: [],
         edges: [],
         variables: {}
       });
-
       toast.success("Workflow created successfully!");
       router.push(`/workflows/builder/${newWorkflow.id}`);
     } catch (err) {
@@ -105,18 +126,77 @@ export default function WorkflowsPage() {
     }
   };
 
-  const handleDeleteWorkflow = async (workflowId: string) => {
-    if (!confirm('Are you sure you want to delete this workflow?')) {
+  const handleStartEditName = (workflow: Workflow) => {
+    setEditingWorkflowId(workflow.id);
+    setEditingName(workflow.name);
+  };
+
+  const handleCancelEditName = () => {
+    setEditingWorkflowId(null);
+    setEditingName("");
+  };
+
+  const handleSaveEditName = async (workflowId: string) => {
+    if (!editingName.trim()) {
+      toast.error("Workflow name cannot be empty");
+      return;
+    }
+
+    // Check for duplicate names
+    const existingNames = workflows
+      .filter(w => w.id !== workflowId)
+      .map(w => w.name.toLowerCase());
+    
+    if (existingNames.includes(editingName.toLowerCase())) {
+      toast.error("A workflow with this name already exists");
       return;
     }
 
     try {
+      setUpdatingWorkflows(prev => new Set(prev).add(workflowId));
+      
+      await updateWorkflow(workflowId, {
+        name: editingName.trim()
+      });
+
+      // Update local state
+      setWorkflows(prev => prev.map(w => 
+        w.id === workflowId 
+          ? { ...w, name: editingName.trim(), definition: { ...w.definition, name: editingName.trim() } }
+          : w
+      ));
+
+      setEditingWorkflowId(null);
+      setEditingName("");
+      toast.success('Workflow name updated successfully');
+    } catch (err) {
+      console.error('Error updating workflow name:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update workflow name');
+    } finally {
+      setUpdatingWorkflows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(workflowId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflowId: string) => {
+    try {
+      setDeletingWorkflows(prev => new Set(prev).add(workflowId));
+      
       await deleteWorkflow(workflowId);
       setWorkflows(prev => prev.filter(w => w.id !== workflowId));
       toast.success('Workflow deleted successfully');
     } catch (err) {
       console.error('Error deleting workflow:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to delete workflow');
+    } finally {
+      setDeletingWorkflows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(workflowId);
+        return newSet;
+      });
     }
   };
 
@@ -245,8 +325,55 @@ export default function WorkflowsPage() {
             <Card key={workflow.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{workflow.definition.name || workflow.name}</CardTitle>
+                  <div className="space-y-1 flex-1 mr-2">
+                    {editingWorkflowId === workflow.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          className="text-lg font-semibold h-8"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveEditName(workflow.id);
+                            } else if (e.key === 'Escape') {
+                              handleCancelEditName();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleSaveEditName(workflow.id)}
+                            disabled={updatingWorkflows.has(workflow.id)}
+                          >
+                            {updatingWorkflows.has(workflow.id) ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
+                            ) : (
+                              <Check className="h-3 w-3 text-green-600" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={handleCancelEditName}
+                            disabled={updatingWorkflows.has(workflow.id)}
+                          >
+                            <X className="h-3 w-3 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <CardTitle 
+                        className="text-lg cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => handleStartEditName(workflow)}
+                      >
+                        {workflow.definition.name || workflow.name}
+                      </CardTitle>
+                    )}
                     <CardDescription>{workflow.definition.description || workflow.description}</CardDescription>
                   </div>
                   {getStatusBadge(workflow.status)}
@@ -275,13 +402,39 @@ export default function WorkflowsPage() {
                       )}
                       Run
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleDeleteWorkflow(workflow.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          disabled={deletingWorkflows.has(workflow.id)}
+                        >
+                          {deletingWorkflows.has(workflow.id) ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{workflow.definition.name || workflow.name}"? 
+                            This action cannot be undone and will permanently remove the workflow and all its data.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteWorkflow(workflow.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete Workflow
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>

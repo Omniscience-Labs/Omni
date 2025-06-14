@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
-from .models import WorkflowNode, WorkflowEdge, WorkflowDefinition, WorkflowStep, WorkflowTrigger
+from .models import WorkflowNode, WorkflowEdge, WorkflowDefinition, WorkflowStep, WorkflowTrigger, InputNodeConfig, ScheduleConfig
+from .tool_examples import get_tools_xml_examples
 import uuid
 from utils.logger import logger
 
@@ -23,8 +24,11 @@ class WorkflowConverter:
         """
         logger.info(f"Converting workflow flow with {len(nodes)} nodes and {len(edges)} edges")
         
-        workflow_prompt = self._generate_workflow_prompt(nodes, edges)
+        # Find input node and extract configuration
+        input_config = self._extract_input_configuration(nodes)
+        workflow_prompt = self._generate_workflow_prompt(nodes, edges, input_config)
         entry_point = self._find_entry_point(nodes, edges)
+        triggers = self._extract_triggers_from_input(input_config)
         
         agent_step = WorkflowStep(
             id="main_agent_step",
@@ -36,14 +40,10 @@ class WorkflowConverter:
                 "system_prompt": workflow_prompt,
                 "agent_id": metadata.get("agent_id"),
                 "model": "anthropic/claude-3-5-sonnet-latest",
-                "max_iterations": 10
+                "max_iterations": 10,
+                "input_prompt": input_config.prompt if input_config else ""
             },
             next_steps=[]
-        )
-        
-        trigger = WorkflowTrigger(
-            type="MANUAL",
-            config={}
         )
         
         workflow = WorkflowDefinition(
@@ -51,7 +51,7 @@ class WorkflowConverter:
             description=metadata.get("description", "Generated from visual workflow"),
             steps=[agent_step],
             entry_point="main_agent_step",
-            triggers=[trigger],
+            triggers=triggers,
             project_id=metadata.get("project_id", ""),
             agent_id=metadata.get("agent_id"),
             is_template=metadata.get("is_template", False),
@@ -61,16 +61,105 @@ class WorkflowConverter:
         
         return workflow
     
-    def _generate_workflow_prompt(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> str:
+    def _extract_input_configuration(self, nodes: List[Dict[str, Any]]) -> Optional[InputNodeConfig]:
+        """Extract input node configuration from the workflow nodes."""
+        for node in nodes:
+            if node.get('type') == 'inputNode':
+                data = node.get('data', {})
+                
+                # Extract schedule configuration if present
+                schedule_config = None
+                if data.get('trigger_type') == 'SCHEDULE' and data.get('schedule_config'):
+                    schedule_data = data.get('schedule_config', {})
+                    schedule_config = ScheduleConfig(
+                        cron_expression=schedule_data.get('cron_expression'),
+                        interval_type=schedule_data.get('interval_type'),
+                        interval_value=schedule_data.get('interval_value'),
+                        timezone=schedule_data.get('timezone', 'UTC'),
+                        start_date=schedule_data.get('start_date'),
+                        end_date=schedule_data.get('end_date'),
+                        enabled=schedule_data.get('enabled', True)
+                    )
+                
+                return InputNodeConfig(
+                    prompt=data.get('prompt', ''),
+                    trigger_type=data.get('trigger_type', 'MANUAL'),
+                    webhook_config=data.get('webhook_config'),
+                    schedule_config=schedule_config,
+                    variables=data.get('variables')
+                )
+        
+        return None
+    
+    def _extract_triggers_from_input(self, input_config: Optional[InputNodeConfig]) -> List[WorkflowTrigger]:
+        """Extract workflow triggers from input node configuration."""
+        if not input_config:
+            return [WorkflowTrigger(type="MANUAL", config={})]
+        
+        triggers = []
+        
+        if input_config.trigger_type == 'MANUAL':
+            triggers.append(WorkflowTrigger(type="MANUAL", config={}))
+        
+        elif input_config.trigger_type == 'WEBHOOK':
+            webhook_config = input_config.webhook_config or {}
+            triggers.append(WorkflowTrigger(
+                type="WEBHOOK", 
+                config={
+                    "webhook_url": webhook_config.get('webhook_url'),
+                    "method": webhook_config.get('method', 'POST'),
+                    "headers": webhook_config.get('headers', {}),
+                    "authentication": webhook_config.get('authentication')
+                }
+            ))
+        
+        elif input_config.trigger_type == 'SCHEDULE':
+            if input_config.schedule_config:
+                schedule_config = {
+                    "cron_expression": input_config.schedule_config.cron_expression,
+                    "interval_type": input_config.schedule_config.interval_type,
+                    "interval_value": input_config.schedule_config.interval_value,
+                    "timezone": input_config.schedule_config.timezone,
+                    "start_date": input_config.schedule_config.start_date.isoformat() if input_config.schedule_config.start_date else None,
+                    "end_date": input_config.schedule_config.end_date.isoformat() if input_config.schedule_config.end_date else None,
+                    "enabled": input_config.schedule_config.enabled
+                }
+                triggers.append(WorkflowTrigger(type="SCHEDULE", config=schedule_config))
+            else:
+                # Default schedule trigger
+                triggers.append(WorkflowTrigger(
+                    type="SCHEDULE", 
+                    config={
+                        "interval_type": "hours",
+                        "interval_value": 1,
+                        "timezone": "UTC",
+                        "enabled": True
+                    }
+                ))
+        
+        return triggers
+    
+    def _generate_workflow_prompt(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], input_config: Optional[InputNodeConfig] = None) -> str:
         """Generate a comprehensive system prompt that describes the workflow."""
         
         prompt_parts = [
             "You are an AI agent executing a workflow. Follow these instructions carefully:",
             "",
+        ]
+        
+        # Add input prompt if available
+        if input_config and input_config.prompt:
+            prompt_parts.extend([
+                "## Workflow Input Prompt",
+                input_config.prompt,
+                "",
+            ])
+        
+        prompt_parts.extend([
             "## Workflow Overview",
             "This workflow was created visually and consists of the following components:",
             ""
-        ]
+        ])
 
         node_descriptions = []
         agent_nodes = []
@@ -85,12 +174,41 @@ class WorkflowConverter:
                 tool_nodes.append(node)
                 desc = self._describe_tool_node(node, edges)
                 node_descriptions.append(desc)
+            elif node.get('type') == 'inputNode':
+                desc = self._describe_input_node(node, edges)
+                node_descriptions.append(desc)
             else:
                 desc = self._describe_generic_node(node, edges)
                 node_descriptions.append(desc)
         
         prompt_parts.extend(node_descriptions)
         prompt_parts.append("")
+        
+        # Add trigger information
+        if input_config:
+            prompt_parts.extend([
+                "## Trigger Configuration",
+                f"**Trigger Type**: {input_config.trigger_type}",
+            ])
+            
+            if input_config.trigger_type == 'SCHEDULE' and input_config.schedule_config:
+                schedule = input_config.schedule_config
+                if schedule.cron_expression:
+                    prompt_parts.append(f"**Schedule**: {schedule.cron_expression} (cron)")
+                elif schedule.interval_type and schedule.interval_value:
+                    prompt_parts.append(f"**Schedule**: Every {schedule.interval_value} {schedule.interval_type}")
+                prompt_parts.append(f"**Timezone**: {schedule.timezone}")
+            
+            if input_config.variables:
+                prompt_parts.extend([
+                    "",
+                    "## Default Variables",
+                    "The following default variables are configured:"
+                ])
+                for key, value in input_config.variables.items():
+                    prompt_parts.append(f"- **{key}**: {value}")
+            
+            prompt_parts.append("")
         
         prompt_parts.extend([
             "## Execution Instructions",
@@ -107,18 +225,37 @@ class WorkflowConverter:
             "You have access to the following tools based on the workflow configuration:"
         ])
         
+        # Extract tool IDs and generate tool descriptions
+        tool_ids = []
         for tool_node in tool_nodes:
             tool_data = tool_node.get('data', {})
             tool_name = tool_data.get('nodeId', tool_data.get('label', 'Unknown Tool'))
             tool_desc = tool_data.get('description', 'No description available')
             prompt_parts.append(f"- **{tool_name}**: {tool_desc}")
+            
+            # Collect tool ID for XML examples
+            tool_id = tool_data.get('nodeId')
+            if tool_id:
+                tool_ids.append(tool_id)
+        
+        # Add XML tool examples if tools are available
+        if tool_ids:
+            xml_examples = get_tools_xml_examples(tool_ids)
+            if xml_examples:
+                prompt_parts.extend([
+                    "",
+                    "## Tool Usage Examples",
+                    "Use the following XML format to call tools. Each tool call must be wrapped in <function_calls> tags:",
+                    "",
+                    xml_examples
+                ])
         
         prompt_parts.extend([
             "",
             "## Workflow Execution",
             "When executing this workflow:",
             "- Follow the logical flow defined by the visual connections",
-            "- Use tools in the order and manner specified",
+            "- Use tools in the order and manner specified using the XML format shown above",
             "- Provide clear, step-by-step output",
             "- If any step fails, explain what went wrong and suggest alternatives",
             "- Complete the workflow by providing the expected output",
@@ -127,6 +264,33 @@ class WorkflowConverter:
         ])
         
         return "\n".join(prompt_parts)
+    
+    def _describe_input_node(self, node: Dict[str, Any], edges: List[Dict[str, Any]]) -> str:
+        """Describe an input node and its configuration."""
+        data = node.get('data', {})
+        prompt = data.get('prompt', 'No prompt specified')
+        trigger_type = data.get('trigger_type', 'MANUAL')
+        
+        output_connections = self._find_node_outputs(node.get('id'), edges)
+        
+        description = [
+            f"### Input Configuration",
+            f"**Prompt**: {prompt}",
+            f"**Trigger Type**: {trigger_type}",
+        ]
+        
+        if trigger_type == 'SCHEDULE':
+            schedule_config = data.get('schedule_config', {})
+            if schedule_config.get('cron_expression'):
+                description.append(f"**Schedule**: {schedule_config['cron_expression']} (cron)")
+            elif schedule_config.get('interval_type') and schedule_config.get('interval_value'):
+                description.append(f"**Schedule**: Every {schedule_config['interval_value']} {schedule_config['interval_type']}")
+        
+        if output_connections:
+            description.append(f"**Connects to**: {', '.join(output_connections)}")
+        
+        description.append("")
+        return "\n".join(description)
     
     def _describe_agent_node(self, node: Dict[str, Any], edges: List[Dict[str, Any]]) -> str:
         """Describe an agent node and its role in the workflow."""
@@ -238,6 +402,28 @@ def validate_workflow_flow(nodes: List[Dict[str, Any]], edges: List[Dict[str, An
     if not nodes:
         errors.append("Workflow must have at least one node")
         return False, errors
+    
+    # Check for required input node
+    has_input = any(node.get('type') == 'inputNode' for node in nodes)
+    if not has_input:
+        errors.append("Every workflow must have an input node")
+    
+    # Validate input node configuration
+    for node in nodes:
+        if node.get('type') == 'inputNode':
+            data = node.get('data', {})
+            if not data.get('prompt'):
+                errors.append("Input node must have a prompt configured")
+            
+            trigger_type = data.get('trigger_type', 'MANUAL')
+            if trigger_type == 'SCHEDULE':
+                schedule_config = data.get('schedule_config', {})
+                if not schedule_config.get('cron_expression') and not (schedule_config.get('interval_type') and schedule_config.get('interval_value')):
+                    errors.append("Schedule trigger must have either cron expression or interval configuration")
+            elif trigger_type == 'WEBHOOK':
+                webhook_config = data.get('webhook_config', {})
+                if not webhook_config:
+                    errors.append("Webhook trigger must have webhook configuration")
     
     connected_nodes = set()
     for edge in edges:

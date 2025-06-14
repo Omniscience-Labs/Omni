@@ -101,38 +101,6 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
               </div>
             )}
           </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Connected Tools</label>
-              <Badge variant="outline" className="text-xs">
-                {connectedTools.length} tools
-              </Badge>
-            </div>
-            {connectedTools.length > 0 ? (
-              <div className="space-y-2">
-                {connectedTools.map((tool) => (
-                  <div key={tool.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border">
-                    <div className="p-1 rounded bg-primary/10">
-                      <Zap className="h-3 w-3 text-primary" />
-                    </div>
-                    <span className="text-sm font-medium flex-1">{tool.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {tool.type.replace('_tool', '').replace('_', ' ')}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-muted/30 rounded-lg p-3 border border-dashed">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Plus className="h-3 w-3" />
-                  Connect tools from the palette
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Output Connections</label>

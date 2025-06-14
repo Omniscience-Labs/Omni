@@ -30,17 +30,24 @@ import {
   Zap,
   Workflow,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertTriangle,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import NodePalette from "./NodePalette";
 import WorkflowSettings from "./WorkflowSettings";
 import AgentNode from "./nodes/AgentNode";
 import ToolConnectionNode from "./nodes/ToolConnectionNode";
+import InputNode from "./nodes/InputNode";
 import { getProjects, createWorkflow, updateWorkflow, getWorkflow, executeWorkflow, type WorkflowNode, type WorkflowEdge } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { validateWorkflow, canConnect, type ValidationResult } from "./WorkflowValidator";
+import { WorkflowProvider } from "./WorkflowContext";
 
 const nodeTypes = {
+  inputNode: InputNode,
   agentNode: AgentNode,
   toolConnectionNode: ToolConnectionNode,
 };
@@ -138,12 +145,12 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult>({ valid: true, errors: [] });
   const router = useRouter();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Get user's first project
         const projects = await getProjects();
         if (projects.length === 0) {
           toast.error("No projects found. Please create a project first.");
@@ -152,12 +159,16 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
 
         const firstProject = projects[0];
         setProjectId(firstProject.id);
-
-        // If editing existing workflow, load it
         if (workflowId) {
           const workflow = await getWorkflow(workflowId);
-          setWorkflowName(workflow.definition.name || workflow.name);
-          setWorkflowDescription(workflow.definition.description || workflow.description);
+          console.log('Loaded workflow:', workflow);
+          
+          const displayName = workflow.name || workflow.definition.name || "Untitled Workflow";
+          const displayDescription = workflow.description || workflow.definition.description || "";
+          
+          console.log('Setting workflow name to:', displayName);
+          setWorkflowName(displayName);
+          setWorkflowDescription(displayDescription);
           
           if (workflow.definition.nodes && workflow.definition.edges) {
             setNodes(workflow.definition.nodes);
@@ -173,15 +184,38 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
     loadData();
   }, [workflowId, setNodes, setEdges]);
 
+  useEffect(() => {
+    const result = validateWorkflow(nodes, edges);
+    setValidationResult(result);
+  }, [nodes, edges]);
+
+  const updateNodeData = useCallback((nodeId: string, updates: any) => {
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, ...updates } }
+          : node
+      )
+    );
+  }, [setNodes]);
+
   const handleSaveWorkflow = async () => {
     if (!projectId) {
       toast.error("No project selected");
       return;
     }
+    const validation = validateWorkflow(nodes, edges);
+    if (!validation.valid) {
+      const errorMessages = validation.errors
+        .filter(e => e.type === 'error')
+        .map(e => e.message)
+        .join(', ');
+      toast.error(`Cannot save workflow: ${errorMessages}`);
+      return;
+    }
 
     try {
       setSaving(true);
-
       const workflowData = {
         name: workflowName,
         description: workflowDescription,
@@ -465,9 +499,16 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
         y: event.clientY - 100,
       };
 
+      let nodeType = "toolConnectionNode";
+      if (nodeData.nodeId === "agent") {
+        nodeType = "agentNode";
+      } else if (type === "inputNode" || nodeData.nodeId === "inputNode") {
+        nodeType = "inputNode";
+      }
+
       const newNode: Node = {
         id: `${type}-${Date.now()}`,
-        type: nodeData.nodeId === "agent" ? "agentNode" : "toolConnectionNode",
+        type: nodeType,
         position,
         data: {
           ...nodeData,
@@ -522,117 +563,123 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
         )}
 
         <div className="flex-1 flex flex-col">
-          <Card className="mb-0 rounded-none border-b shadow-none">
-            <CardHeader className="py-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
-                    <Workflow className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-semibold">{workflowName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{workflowDescription || "No description"}</p>
-                  </div>
+          <div className="h-16 px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center justify-between h-full">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
+                  <Workflow className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNodePalette(!showNodePalette)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    {showNodePalette ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                    {showNodePalette ? "Hide" : "Show"} Palette
-                  </Button>
-                  
-                  <Separator orientation="vertical" className="h-6" />
-                  
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowSettings(true)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Button>
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={handleSaveWorkflow}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    {saving ? "Saving..." : "Save"}
-                  </Button>
-                  
-                  <Button variant="outline">
-                    <Share className="h-4 w-4 mr-2" />
-                    Share
-                  </Button>
-                  
-                  <Button
-                    onClick={handleRunWorkflow}
-                    disabled={running || !workflowId}
-                  >
-                    {running ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
-                    ) : (
-                      <Play className="h-4 w-4 mr-2" />
-                    )}
-                    {running ? "Running..." : "Run Workflow"}
-                  </Button>
+                <div>
+                  <h1 className="text-lg font-semibold">{workflowName}</h1>
                 </div>
               </div>
-            </CardHeader>
-          </Card>
-
-          <div className="flex-1 border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={onConnect}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              nodeTypes={nodeTypes}
-              defaultEdgeOptions={defaultEdgeOptions}
-              connectionLineType={ConnectionLineType.SmoothStep}
-              connectionLineStyle={{ 
-                strokeWidth: 2, 
-                stroke: '#6366f1',
-              }}
-              fitView
-              className="bg-transparent"
-            >
-              <Controls 
-                className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg"
-                showZoom={true}
-                showFitView={true}
-                showInteractive={true}
-              />
-              <MiniMap 
-                className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg"
-                nodeColor={(node) => {
-                  if (node.type === 'agentNode') return '#6366f1';
-                  return '#9ca3af';
-                }}
-              />
-              <Background 
-                variant={BackgroundVariant.Dots} 
-                gap={20} 
-                size={1}
-                className="opacity-30 dark:opacity-20"
-              />
-            </ReactFlow>
+              
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={handleSaveWorkflow}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  onClick={handleRunWorkflow}
+                  disabled={running || !workflowId}
+                >
+                  {running ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {running ? "Running..." : "Run Workflow"}
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <Card className="rounded-none border-border/50 bg-card/80 backdrop-blur-sm">
+          
+          {/* {validationResult.errors.length > 0 && (
+            <Card className="mx-4 mt-4 border-l-4 border-l-red-500">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  {validationResult.valid ? (
+                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {validationResult.valid ? 'Warnings' : 'Validation Errors'}
+                  </span>
+                  <Badge variant={validationResult.valid ? "secondary" : "destructive"} className="text-xs">
+                    {validationResult.errors.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {validationResult.errors.map((error, index) => (
+                    <div key={index} className={`flex items-start gap-2 text-sm p-2 rounded ${
+                      error.type === 'error' ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300' : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-300'
+                    }`}>
+                      {error.type === 'error' ? (
+                        <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      )}
+                      <span>{error.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )} */}
+
+          <div className="flex-1 border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
+            <WorkflowProvider updateNodeData={updateNodeData}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                nodeTypes={nodeTypes}
+                defaultEdgeOptions={defaultEdgeOptions}
+                connectionLineType={ConnectionLineType.SmoothStep}
+                connectionLineStyle={{ 
+                  strokeWidth: 2, 
+                  stroke: '#6366f1',
+                }}
+                fitView
+                className="bg-transparent"
+              >
+                <Controls 
+                  className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg"
+                  showZoom={true}
+                  showFitView={true}
+                  showInteractive={true}
+                />
+                <MiniMap 
+                  className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg"
+                  nodeColor={(node) => {
+                    if (node.type === 'agentNode') return '#6366f1';
+                    return '#9ca3af';
+                  }}
+                />
+                <Background 
+                  variant={BackgroundVariant.Dots} 
+                  gap={20} 
+                  size={1}
+                  className="opacity-30 dark:opacity-20"
+                />
+              </ReactFlow>
+            </WorkflowProvider>
+          </div>
+          {/* <Card className="h-13.5 rounded-none border-border/50 bg-card/80 backdrop-blur-sm">
             <CardContent className="py-0">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-4">
@@ -654,7 +701,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
 
         <WorkflowSettings 

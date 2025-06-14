@@ -21,8 +21,20 @@ import {
   Send,
   Settings,
   Sparkles,
-  Zap
+  Zap,
+  Play
 } from "lucide-react";
+
+const inputNodes = [
+  {
+    id: "inputNode",
+    name: "Input",
+    description: "Workflow input configuration with prompt and trigger settings",
+    icon: Play,
+    category: "input",
+    required: true,
+  },
+];
 
 const agentNodes = [
   {
@@ -140,11 +152,14 @@ function DraggableNode({ type, data, children }: DraggableNodeProps) {
 
 export default function NodePalette() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>("agent");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>("input");
 
   const filteredNodes = useMemo(() => {
     let nodes: any[] = [];
     
+    if (!selectedCategory || selectedCategory === "input") {
+      nodes = [...nodes, ...inputNodes];
+    }
     if (!selectedCategory || selectedCategory === "agent") {
       nodes = [...nodes, ...agentNodes];
     }
@@ -163,6 +178,7 @@ export default function NodePalette() {
   }, [searchQuery, selectedCategory]);
 
   const getNodesByCategory = (category: string) => {
+    if (category === "input") return inputNodes;
     if (category === "agent") return agentNodes;
     if (category === "tools") return toolNodes;
     return [];
@@ -195,7 +211,11 @@ export default function NodePalette() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="px-4 pt-2 pb-4">
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="input">
+                <Play className="h-4 w-4 mr-2" />
+                Input
+              </TabsTrigger>
               <TabsTrigger value="agent">
                 <Bot className="h-4 w-4 mr-2" />
                 Agents
@@ -209,6 +229,60 @@ export default function NodePalette() {
         </div>
 
         <div className="flex-1 overflow-hidden px-4">
+          {selectedCategory === "input" && (
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-muted-foreground">Workflow Input</h4>
+                <Badge variant="outline" className="text-xs">
+                  Required
+                </Badge>
+              </div>
+              
+              <ScrollArea className="flex-1 overflow-y-auto">
+                <div className="space-y-3 pr-3 mb-4">
+                  {getNodesByCategory("input").filter(node => 
+                    !searchQuery || 
+                    node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    node.description.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).map((node) => {
+                    const Icon = node.icon;
+                    return (
+                      <DraggableNode
+                        key={node.id}
+                        type="inputNode"
+                        data={{
+                          label: node.name,
+                          prompt: "",
+                          trigger_type: "MANUAL",
+                          variables: {}
+                        }}
+                      >
+                        <Card className="group transition-all duration-200 border hover:border-primary/50 cursor-move border-primary/30 bg-primary/5">
+                          <CardHeader className="p-4 py-0">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-primary/20 border border-primary/30 group-hover:bg-primary/30 transition-colors">
+                                <Icon className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <CardTitle className="text-sm font-semibold leading-tight flex items-center gap-2">
+                                  {node.name}
+                                  <Badge variant="outline" className="text-xs">Required</Badge>
+                                </CardTitle>
+                                <CardDescription className="text-xs mt-1 line-clamp-2">
+                                  {node.description}
+                                </CardDescription>
+                              </div>
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      </DraggableNode>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
           {selectedCategory === "agent" && (
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-between mb-3">

@@ -228,9 +228,20 @@ class WorkflowExecutor:
             }
             
             await client.table('threads').insert(thread_data).execute()
-            initial_message = f"Execute the workflow: {workflow.name}"
-            if workflow.description:
-                initial_message += f"\n\nDescription: {workflow.description}"
+            
+            # Get the input prompt from the workflow step configuration
+            input_prompt = ""
+            if workflow.steps:
+                main_step = workflow.steps[0]
+                input_prompt = main_step.config.get("input_prompt", "")
+            
+            # Use input prompt if available, otherwise fall back to workflow name/description
+            if input_prompt:
+                initial_message = input_prompt
+            else:
+                initial_message = f"Execute the workflow: {workflow.name}"
+                if workflow.description:
+                    initial_message += f"\n\nDescription: {workflow.description}"
             
             if variables:
                 initial_message += f"\n\nVariables: {json.dumps(variables, indent=2)}"

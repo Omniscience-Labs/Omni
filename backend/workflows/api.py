@@ -17,6 +17,7 @@ from .models import (
 )
 from .converter import WorkflowConverter, validate_workflow_flow
 from .executor import WorkflowExecutor
+from .scheduler import WorkflowScheduler
 from services.supabase import DBConnection
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
@@ -27,12 +28,14 @@ router = APIRouter()
 db = DBConnection()
 workflow_converter = WorkflowConverter()
 workflow_executor = WorkflowExecutor(db)
+workflow_scheduler = WorkflowScheduler(db, workflow_executor)
 
 def initialize(database: DBConnection):
     """Initialize the workflow API with database connection."""
-    global db, workflow_executor
+    global db, workflow_executor, workflow_scheduler
     db = database
     workflow_executor = WorkflowExecutor(db)
+    workflow_scheduler = WorkflowScheduler(db, workflow_executor)
 
 def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
     """Helper function to map database record to WorkflowDefinition."""
@@ -197,7 +200,18 @@ async def update_workflow(
             raise HTTPException(status_code=500, detail="Failed to update workflow")
         
         data = result.data[0]
-        return _map_db_to_workflow_definition(data)
+        updated_workflow = _map_db_to_workflow_definition(data)
+        
+        # Handle scheduling if workflow is active and has schedule triggers
+        if updated_workflow.state == 'ACTIVE':
+            has_schedule_trigger = any(trigger.type == 'SCHEDULE' for trigger in updated_workflow.triggers)
+            if has_schedule_trigger:
+                await workflow_scheduler.schedule_workflow(updated_workflow)
+        else:
+            # Unschedule if workflow is not active
+            await workflow_scheduler.unschedule_workflow(workflow_id)
+        
+        return updated_workflow
         
     except HTTPException:
         raise
@@ -218,6 +232,9 @@ async def delete_workflow(
         existing = await client.table('workflows').select('id').eq('id', workflow_id).eq('created_by', user_id).execute()
         if not existing.data:
             raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        # Unschedule workflow before deleting
+        await workflow_scheduler.unschedule_workflow(workflow_id)
         
         await client.table('workflows').delete().eq('id', workflow_id).execute()
         
@@ -441,7 +458,18 @@ async def update_workflow_flow(
             raise HTTPException(status_code=500, detail="Failed to update workflow")
         
         data = result.data[0]
-        return _map_db_to_workflow_definition(data)
+        updated_workflow = _map_db_to_workflow_definition(data)
+        
+        # Handle scheduling if workflow is active and has schedule triggers
+        if updated_workflow.state == 'ACTIVE':
+            has_schedule_trigger = any(trigger.type == 'SCHEDULE' for trigger in updated_workflow.triggers)
+            if has_schedule_trigger:
+                await workflow_scheduler.schedule_workflow(updated_workflow)
+        else:
+            # Unschedule if workflow is not active
+            await workflow_scheduler.unschedule_workflow(workflow_id)
+        
+        return updated_workflow
         
     except HTTPException:
         raise
@@ -493,6 +521,114 @@ async def get_builder_nodes():
     try:
         # Return the available node types that can be used in workflows
         nodes = [
+            {
+                "id": "inputNode",
+                "name": "Input",
+                "description": "Workflow input configuration with prompt and trigger settings",
+                "category": "input",
+                "icon": "Play",
+                "inputs": [],
+                "outputs": ["output"],
+                "required": True,
+                "config_schema": {
+                    "prompt": {
+                        "type": "textarea",
+                        "label": "Workflow Prompt",
+                        "description": "The main prompt that describes what this workflow should do",
+                        "required": True,
+                        "placeholder": "Describe what this workflow should accomplish..."
+                    },
+                    "trigger_type": {
+                        "type": "select",
+                        "label": "Trigger Type",
+                        "description": "How this workflow should be triggered",
+                        "required": True,
+                        "options": [
+                            {"value": "MANUAL", "label": "Manual"},
+                            {"value": "WEBHOOK", "label": "Webhook"},
+                            {"value": "SCHEDULE", "label": "Schedule"}
+                        ],
+                        "default": "MANUAL"
+                    },
+                    "schedule_config": {
+                        "type": "object",
+                        "label": "Schedule Configuration",
+                        "description": "Configure when the workflow runs automatically",
+                        "conditional": {"field": "trigger_type", "value": "SCHEDULE"},
+                        "properties": {
+                            "interval_type": {
+                                "type": "select",
+                                "label": "Interval Type",
+                                "options": [
+                                    {"value": "minutes", "label": "Minutes"},
+                                    {"value": "hours", "label": "Hours"},
+                                    {"value": "days", "label": "Days"},
+                                    {"value": "weeks", "label": "Weeks"}
+                                ]
+                            },
+                            "interval_value": {
+                                "type": "number",
+                                "label": "Interval Value",
+                                "min": 1,
+                                "placeholder": "e.g., 30 for every 30 minutes"
+                            },
+                            "cron_expression": {
+                                "type": "text",
+                                "label": "Cron Expression (Advanced)",
+                                "description": "Use cron syntax for complex schedules",
+                                "placeholder": "0 9 * * 1-5 (weekdays at 9 AM)"
+                            },
+                            "timezone": {
+                                "type": "select",
+                                "label": "Timezone",
+                                "default": "UTC",
+                                "options": [
+                                    {"value": "UTC", "label": "UTC"},
+                                    {"value": "America/New_York", "label": "Eastern Time"},
+                                    {"value": "America/Chicago", "label": "Central Time"},
+                                    {"value": "America/Denver", "label": "Mountain Time"},
+                                    {"value": "America/Los_Angeles", "label": "Pacific Time"},
+                                    {"value": "Europe/London", "label": "London"},
+                                    {"value": "Europe/Paris", "label": "Paris"},
+                                    {"value": "Asia/Tokyo", "label": "Tokyo"}
+                                ]
+                            }
+                        }
+                    },
+                    "webhook_config": {
+                        "type": "object",
+                        "label": "Webhook Configuration",
+                        "description": "Configure webhook trigger settings",
+                        "conditional": {"field": "trigger_type", "value": "WEBHOOK"},
+                        "properties": {
+                            "method": {
+                                "type": "select",
+                                "label": "HTTP Method",
+                                "default": "POST",
+                                "options": [
+                                    {"value": "POST", "label": "POST"},
+                                    {"value": "GET", "label": "GET"},
+                                    {"value": "PUT", "label": "PUT"}
+                                ]
+                            },
+                            "authentication": {
+                                "type": "select",
+                                "label": "Authentication",
+                                "options": [
+                                    {"value": "none", "label": "None"},
+                                    {"value": "api_key", "label": "API Key"},
+                                    {"value": "bearer", "label": "Bearer Token"}
+                                ]
+                            }
+                        }
+                    },
+                    "variables": {
+                        "type": "key_value",
+                        "label": "Default Variables",
+                        "description": "Set default values for workflow variables"
+                    }
+                }
+            },
             {
                 "id": "agentNode",
                 "name": "AI Agent",
@@ -603,4 +739,51 @@ async def create_workflow_from_template(
         raise
     except Exception as e:
         logger.error(f"Error creating workflow from template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/workflows/scheduler/status")
+async def get_scheduler_status(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get information about currently scheduled workflows."""
+    try:
+        scheduled_workflows = await workflow_scheduler.get_scheduled_workflows()
+        
+        # Filter to only show workflows owned by the current user
+        client = await db.client
+        user_workflows = await client.table('workflows').select('id').eq('created_by', user_id).execute()
+        user_workflow_ids = {w['id'] for w in user_workflows.data}
+        
+        filtered_scheduled = [
+            w for w in scheduled_workflows 
+            if w['workflow_id'] in user_workflow_ids
+        ]
+        
+        return {
+            "scheduled_workflows": filtered_scheduled,
+            "total_scheduled": len(filtered_scheduled)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/workflows/scheduler/start")
+async def start_scheduler():
+    """Start the workflow scheduler."""
+    try:
+        await workflow_scheduler.start()
+        return {"message": "Workflow scheduler started"}
+    except Exception as e:
+        logger.error(f"Error starting scheduler: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/workflows/scheduler/stop")
+async def stop_scheduler():
+    """Stop the workflow scheduler."""
+    try:
+        await workflow_scheduler.stop()
+        return {"message": "Workflow scheduler stopped"}
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 
