@@ -12,7 +12,7 @@ export default function EditWorkflowPage({
   
   return (
     <div className="h-screen flex flex-col">
-      <WorkflowBuilder />
+      <WorkflowBuilder workflowId={id} />
     </div>
   );
 } 

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Shield, Key } from 'lucide-react';
+import { Bot, Menu, Store, Shield, Key, Workflow } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -165,6 +165,18 @@ export function SidebarLeft({
                   <Key className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Credentials
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+            {customAgentsEnabled && (
+              <Link href="/workflows">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/workflows',
+                })}>
+                  <Workflow className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Workflows
                   </span>
                 </SidebarMenuButton>
               </Link>

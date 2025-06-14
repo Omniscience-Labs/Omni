@@ -219,6 +219,11 @@ class WorkflowExecutor:
                 "thread_id": thread_id,
                 "project_id": project_id,
                 "account_id": account_id,
+                "metadata": {
+                    "workflow_id": workflow.id,
+                    "workflow_name": workflow.name,
+                    "is_workflow_execution": True
+                },
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             

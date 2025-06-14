@@ -52,8 +52,6 @@ async def lifespan(app: FastAPI):
         
         sandbox_api.initialize(db)
         
-        workflows_api.initialize(db)
-        
         # Initialize Redis connection
         from services import redis
         try:
@@ -126,7 +124,7 @@ app.add_middleware(
     allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Project-Id"],
 )
 
 app.include_router(agent_api.router, prefix="/api")
@@ -148,6 +146,7 @@ app.include_router(transcription_api.router, prefix="/api")
 app.include_router(email_api.router, prefix="/api")
 
 from workflows import api as workflows_api
+workflows_api.initialize(db)
 app.include_router(workflows_api.router, prefix="/api")
 
 @app.get("/api/health")

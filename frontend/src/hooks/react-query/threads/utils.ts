@@ -9,6 +9,12 @@ export type Thread = {
     is_public?: boolean;
     created_at: string;
     updated_at: string;
+    metadata?: {
+      workflow_id?: string;
+      agent_id?: string;
+      is_agent_builder?: boolean;
+      [key: string]: any;
+    };
     [key: string]: any;
   };
   

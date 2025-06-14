@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { isLocalMode } from '@/lib/config';
 import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
+import { WorkflowInfo } from '@/components/thread/workflow-info';
 import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messages';
 import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
@@ -124,6 +125,7 @@ export default function ThreadPage({
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
   const { data: agent } = useAgent(threadQuery.data?.agent_id);
+  const workflowId = threadQuery.data?.metadata?.workflow_id;
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
@@ -601,6 +603,12 @@ export default function ThreadPage({
         initialLoadCompleted={initialLoadCompleted}
         agentName={agent && agent.name}
       >
+        {/* {workflowId && (
+          <div className="px-4 pt-4">
+            <WorkflowInfo workflowId={workflowId} />
+          </div>
+        )} */}
+        
         <ThreadContent
           messages={messages}
           streamingTextContent={streamingTextContent}

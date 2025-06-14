@@ -268,13 +268,17 @@ async def execute_workflow(
         
         await client.table('workflow_executions').insert(execution_data).execute()
         
+        # Generate thread ID for execution
+        thread_id = str(uuid.uuid4())
+        
         # Start execution in background
         asyncio.create_task(
-            _execute_workflow_background(workflow, request.variables, execution_id)
+            _execute_workflow_background(workflow, request.variables, execution_id, thread_id)
         )
         
         return {
             "execution_id": execution_id,
+            "thread_id": thread_id,
             "status": "pending",
             "message": "Workflow execution started"
         }
@@ -288,7 +292,8 @@ async def execute_workflow(
 async def _execute_workflow_background(
     workflow: WorkflowDefinition,
     variables: Optional[Dict[str, Any]],
-    execution_id: str
+    execution_id: str,
+    thread_id: str
 ):
     """Execute workflow in background."""
     try:
@@ -304,6 +309,7 @@ async def _execute_workflow_background(
         async for update in workflow_executor.execute_workflow(
             workflow=workflow,
             variables=variables,
+            thread_id=thread_id,
             project_id=workflow.project_id
         ):
             # Log updates but don't stream them for now
@@ -391,8 +397,8 @@ async def update_workflow_flow(
         # Store the flow data (convert Pydantic models to dicts)
         flow_data = {
             'workflow_id': workflow_id,
-            'nodes': [node.dict() for node in flow.nodes],
-            'edges': [edge.dict() for edge in flow.edges],
+            'nodes': [node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in flow.nodes],
+            'edges': [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in flow.edges],
             'metadata': flow.metadata,
             'updated_at': datetime.now(timezone.utc).isoformat()
         }
@@ -402,8 +408,8 @@ async def update_workflow_flow(
         
         # Convert flow to workflow definition
         workflow_def = workflow_converter.convert_flow_to_workflow(
-            nodes=[node.dict() for node in flow.nodes],
-            edges=[edge.dict() for edge in flow.edges],
+            nodes=[node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in flow.nodes],
+            edges=[edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in flow.edges],
             metadata={
                 **flow.metadata,
                 'project_id': existing.data[0]['project_id'],
@@ -414,9 +420,9 @@ async def update_workflow_flow(
         # Update workflow with converted definition
         current_definition = existing.data[0].get('definition', {})
         current_definition.update({
-            'steps': [step.dict() for step in workflow_def.steps],
+            'steps': [step.model_dump() if hasattr(step, 'model_dump') else step.dict() for step in workflow_def.steps],
             'entry_point': workflow_def.entry_point,
-            'triggers': [trigger.dict() for trigger in workflow_def.triggers],
+            'triggers': [trigger.model_dump() if hasattr(trigger, 'model_dump') else trigger.dict() for trigger in workflow_def.triggers],
         })
         
         update_data = {
@@ -456,8 +462,8 @@ async def convert_flow_to_workflow(
         
         # Convert flow to workflow definition
         workflow_def = workflow_converter.convert_flow_to_workflow(
-            nodes=[node.dict() for node in request.nodes],
-            edges=[edge.dict() for edge in request.edges],
+            nodes=[node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in request.nodes],
+            edges=[edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in request.edges],
             metadata={
                 **request.metadata,
                 'project_id': x_project_id
@@ -474,7 +480,7 @@ async def convert_flow_to_workflow(
 async def validate_workflow_flow_endpoint(request: WorkflowValidateRequest):
     """Validate a workflow flow for errors."""
     try:
-        valid, errors = validate_workflow_flow([node.dict() for node in request.nodes], [edge.dict() for edge in request.edges])
+        valid, errors = validate_workflow_flow([node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in request.nodes], [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in request.edges])
         return WorkflowValidateResponse(valid=valid, errors=errors)
         
     except Exception as e:

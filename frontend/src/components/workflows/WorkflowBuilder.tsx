@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   ReactFlow,
   MiniMap,
@@ -36,6 +36,9 @@ import NodePalette from "./NodePalette";
 import WorkflowSettings from "./WorkflowSettings";
 import AgentNode from "./nodes/AgentNode";
 import ToolConnectionNode from "./nodes/ToolConnectionNode";
+import { getProjects, createWorkflow, updateWorkflow, getWorkflow, executeWorkflow, type WorkflowNode, type WorkflowEdge } from "@/lib/api";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const nodeTypes = {
   agentNode: AgentNode,
@@ -121,11 +124,129 @@ const defaultEdgeOptions = {
   },
 };
 
-export default function WorkflowBuilder() {
+interface WorkflowBuilderProps {
+  workflowId?: string;
+}
+
+export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {}) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showSettings, setShowSettings] = useState(false);
   const [showNodePalette, setShowNodePalette] = useState(true);
+  const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+  const [workflowDescription, setWorkflowDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Get user's first project
+        const projects = await getProjects();
+        if (projects.length === 0) {
+          toast.error("No projects found. Please create a project first.");
+          return;
+        }
+
+        const firstProject = projects[0];
+        setProjectId(firstProject.id);
+
+        // If editing existing workflow, load it
+        if (workflowId) {
+          const workflow = await getWorkflow(workflowId);
+          setWorkflowName(workflow.definition.name || workflow.name);
+          setWorkflowDescription(workflow.definition.description || workflow.description);
+          
+          if (workflow.definition.nodes && workflow.definition.edges) {
+            setNodes(workflow.definition.nodes);
+            setEdges(workflow.definition.edges);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading workflow data:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to load workflow data');
+      }
+    };
+
+    loadData();
+  }, [workflowId, setNodes, setEdges]);
+
+  const handleSaveWorkflow = async () => {
+    if (!projectId) {
+      toast.error("No project selected");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const workflowData = {
+        name: workflowName,
+        description: workflowDescription,
+        project_id: projectId,
+        nodes: nodes.map(node => ({
+          id: node.id,
+          type: node.type || 'default',
+          position: node.position,
+          data: node.data
+        })) as WorkflowNode[],
+        edges: edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        })) as WorkflowEdge[],
+        variables: {}
+      };
+
+      if (workflowId) {
+        await updateWorkflow(workflowId, workflowData);
+        toast.success("Workflow updated successfully!");
+      } else {
+        const newWorkflow = await createWorkflow(workflowData);
+        toast.success("Workflow created successfully!");
+        // Redirect to edit the new workflow
+        router.push(`/workflows/builder/${newWorkflow.id}`);
+      }
+    } catch (err) {
+      console.error('Error saving workflow:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save workflow');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRunWorkflow = async () => {
+    if (!workflowId) {
+      toast.error("Please save the workflow first");
+      return;
+    }
+
+    if (!projectId) {
+      toast.error("No project selected");
+      return;
+    }
+
+    try {
+      setRunning(true);
+      const result = await executeWorkflow(workflowId);
+      toast.success("Workflow execution started! Redirecting to chat...");
+      console.log('Workflow execution started:', result);
+      
+      // Redirect to the thread page
+      if (result.thread_id) {
+        router.push(`/projects/${projectId}/thread/${result.thread_id}`);
+      }
+    } catch (err) {
+      console.error('Error running workflow:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to run workflow');
+    } finally {
+      setRunning(false);
+    }
+  };
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -409,7 +530,8 @@ export default function WorkflowBuilder() {
                     <Workflow className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-semibold">Agent Workflow Builder</CardTitle>
+                    <CardTitle className="text-lg font-semibold">{workflowName}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{workflowDescription || "No description"}</p>
                   </div>
                 </div>
                 
@@ -435,19 +557,34 @@ export default function WorkflowBuilder() {
                     Settings
                   </Button>
                   
-                  <Button variant="outline">
-                    <Save className="h-4 w-4" />
-                    Save
+                  <Button 
+                    variant="outline"
+                    onClick={handleSaveWorkflow}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {saving ? "Saving..." : "Save"}
                   </Button>
                   
                   <Button variant="outline">
-                    <Share className="h-4 w-4" />
+                    <Share className="h-4 w-4 mr-2" />
                     Share
                   </Button>
                   
-                  <Button>
-                    <Play className="h-4 w-4" />
-                    Run Workflow
+                  <Button
+                    onClick={handleRunWorkflow}
+                    disabled={running || !workflowId}
+                  >
+                    {running ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    {running ? "Running..." : "Run Workflow"}
                   </Button>
                 </div>
               </div>
@@ -525,6 +662,10 @@ export default function WorkflowBuilder() {
           onOpenChange={setShowSettings} 
           nodes={nodes}
           edges={edges}
+          workflowName={workflowName}
+          workflowDescription={workflowDescription}
+          onWorkflowNameChange={setWorkflowName}
+          onWorkflowDescriptionChange={setWorkflowDescription}
         />
       </div>
     </>

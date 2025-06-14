@@ -20,17 +20,23 @@ interface WorkflowSettingsProps {
   onOpenChange: (open: boolean) => void;
   nodes?: Node[];
   edges?: Edge[];
+  workflowName: string;
+  workflowDescription: string;
+  onWorkflowNameChange: (name: string) => void;
+  onWorkflowDescriptionChange: (description: string) => void;
 }
 
 export default function WorkflowSettings({ 
   open, 
   onOpenChange, 
   nodes = [], 
-  edges = [] 
+  edges = [],
+  workflowName,
+  workflowDescription,
+  onWorkflowNameChange,
+  onWorkflowDescriptionChange
 }: WorkflowSettingsProps) {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [workflowName, setWorkflowName] = useState("New Agent Workflow");
-  const [workflowDescription, setWorkflowDescription] = useState("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,7 +78,7 @@ export default function WorkflowSettings({
                     <Input
                       id="workflow-name"
                       value={workflowName}
-                      onChange={(e) => setWorkflowName(e.target.value)}
+                      onChange={(e) => onWorkflowNameChange(e.target.value)}
                       placeholder="Enter workflow name"
                       className="bg-background"
                     />
@@ -82,7 +88,7 @@ export default function WorkflowSettings({
                     <Textarea
                       id="workflow-description"
                       value={workflowDescription}
-                      onChange={(e) => setWorkflowDescription(e.target.value)}
+                      onChange={(e) => onWorkflowDescriptionChange(e.target.value)}
                       placeholder="Describe what this workflow does"
                       rows={3}
                       className="bg-background"
