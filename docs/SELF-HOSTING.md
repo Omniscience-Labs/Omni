@@ -117,7 +117,8 @@ As part of the setup, you'll need to:
 
 1. Create a Daytona account
 2. Generate an API key
-3. Create a Docker image:
+3. Create a Snapshot:
+   - Name: `kortix/suna:0.1.3`
    - Image name: `kortix/suna:0.1.3`
    - Entrypoint: `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf`
 
@@ -230,14 +231,14 @@ npm run dev
 
 ```bash
 cd backend
-uv run python api.py
+uv run api.py
 ```
 
 4. Start the worker (in one more terminal):
 
 ```bash
 cd backend
-uv run python -m dramatiq run_agent_background
+uv run dramatiq run_agent_background
 ```
 
 ## Troubleshooting
@@ -274,15 +275,15 @@ docker compose logs -f
 
 # Frontend logs (manual setup)
 cd frontend
-npm run dev
+npm run dev -- --turbopack
 
 # Backend logs (manual setup)
 cd backend
-uv run python api.py
+uv run api.py
 
 # Worker logs (manual setup)
 cd backend
-uv run python -m dramatiq run_agent_background
+uv run dramatiq run_agent_background
 ```
 
 ---

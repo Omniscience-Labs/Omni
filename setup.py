@@ -553,6 +553,20 @@ class SetupWizard:
 
         print_success("Daytona information saved.")
 
+        print_warning(
+            "IMPORTANT: You must create a Suna snapshot in Daytona for it to work properly."
+        )
+        print_info(
+            f"Visit {Colors.GREEN}https://app.daytona.io/dashboard/snapshots{Colors.ENDC}{Colors.CYAN} to create a snapshot."
+        )
+        print_info("Create a snapshot with these exact settings:")
+        print_info(f"   - Name:\t\t{Colors.GREEN}kortix/suna:0.1.3{Colors.ENDC}")
+        print_info(f"   - Image name:\t{Colors.GREEN}kortix/suna:0.1.3{Colors.ENDC}")
+        print_info(
+            f"   - Entrypoint:\t{Colors.GREEN}/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf{Colors.ENDC}"
+        )
+        input("Press Enter to continue once you have created the snapshot...")
+
     def collect_llm_api_keys(self):
         """Collects LLM API keys for various providers."""
         print_step(5, self.total_steps, "Collecting LLM API Keys")
@@ -964,10 +978,12 @@ class SetupWizard:
         print_info(
             f"Suna is configured to use {Colors.GREEN}{default_model}{Colors.ENDC} as the default LLM."
         )
+        print_info(
+            f"Delete the {Colors.RED}.setup_progress{Colors.ENDC} file to reset the setup."
+        )
 
         if self.env_vars["setup_method"] == "docker":
-            print_info("Your Suna instance is running!")
-            print_info("Access the frontend at: http://localhost:3000")
+            print_info("Your Suna instance is ready to use!")
             print("\nUseful Docker commands:")
             print(
                 f"  {Colors.CYAN}docker compose ps{Colors.ENDC}         - Check service status"
@@ -977,6 +993,9 @@ class SetupWizard:
             )
             print(
                 f"  {Colors.CYAN}docker compose down{Colors.ENDC}       - Stop Suna services"
+            )
+            print(
+                f"  {Colors.CYAN}python start.py{Colors.ENDC}           - To start or stop Suna services"
             )
         else:
             print_info(
@@ -997,12 +1016,10 @@ class SetupWizard:
                 f"\n{Colors.BOLD}4. Start Background Worker (in a new terminal):{Colors.ENDC}"
             )
             print(
-                f"{Colors.CYAN}   cd backend && python run -m dramatiq run_agent_background{Colors.ENDC}"
+                f"{Colors.CYAN}   cd backend && uv run dramatiq run_agent_background{Colors.ENDC}"
             )
 
-            print(
-                "\nOnce all services are running, access Suna at: http://localhost:3000"
-            )
+        print("\nOnce all services are running, access Suna at: http://localhost:3000")
 
 
 if __name__ == "__main__":

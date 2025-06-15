@@ -40,11 +40,11 @@ Then you can run your API service locally with the following commands
 ```sh
 # On one terminal
 cd backend
-uv run python api.py
+uv run api.py
 
 # On another terminal
-cd frontend
-uv run python -m dramatiq run_agent_background
+cd backend
+uv run dramatiq --processes 4 --threads 4 run_agent_background
 ```
 
 ### Environment Configuration

@@ -1,33 +1,20 @@
-FROM ubuntu:24.04
+FROM ghcr.io/astral-sh/uv:python3.11-alpine
 
 ENV ENV_MODE production
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  build-essential \
-  curl \
-  && rm -rf /var/lib/apt/lists/*
-
 # Install Python dependencies
-COPY --chown=appuser:appuser pyproject.toml uv.lock ./
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
+COPY pyproject.toml uv.lock ./
 ENV UV_LINK_MODE=copy
-ENV UV_PYTHON_PREFERENCE=system
-# RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --compile-bytecode --no-editable
-RUN uv venv --system-site-packages
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --quiet
-ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
 COPY . .
-RUN uv run python --version
 
 # Calculate optimal worker count based on 16 vCPUs
 # Using (2*CPU)+1 formula for CPU-bound applications
-ENV WORKERS=1
-ENV THREADS=1
+ENV WORKERS=33
+ENV THREADS=2
 ENV WORKER_CONNECTIONS=2000
 
 EXPOSE 8000
