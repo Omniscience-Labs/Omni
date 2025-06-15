@@ -63,12 +63,15 @@ Obtain the following API keys:
 
 Ensure the following tools are installed on your system:
 
-- **[Git](https://git-scm.com/downloads)**
 - **[Docker](https://docs.docker.com/get-docker/)**
-- **[Python 3.11](https://www.python.org/downloads/)**
-- **[Poetry](https://python-poetry.org/docs/#installation)**
-- **[Node.js & npm](https://nodejs.org/en/download/)**
 - **[Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)**
+- **[Git](https://git-scm.com/downloads)**
+- **[Python 3.11](https://www.python.org/downloads/)**
+
+For manual setup, you'll also need:
+
+- **[uv](https://docs.astral.sh/uv/)**
+- **[Node.js & npm](https://nodejs.org/en/download/)**
 
 ## Installation Steps
 
@@ -212,6 +215,8 @@ This method requires you to start each component separately:
 
 ```bash
 docker compose up redis rabbitmq -d
+# or
+python start.py # Use the same to stop it later
 ```
 
 2. Start the frontend (in one terminal):
@@ -225,14 +230,14 @@ npm run dev
 
 ```bash
 cd backend
-poetry run python3.11 api.py
+uv run python api.py
 ```
 
 4. Start the worker (in one more terminal):
 
 ```bash
 cd backend
-poetry run python3.11 -m dramatiq run_agent_background
+uv run python -m dramatiq run_agent_background
 ```
 
 ## Troubleshooting
@@ -273,11 +278,11 @@ npm run dev
 
 # Backend logs (manual setup)
 cd backend
-poetry run python3.11 api.py
+uv run python api.py
 
 # Worker logs (manual setup)
 cd backend
-poetry run python3.11 -m dramatiq run_agent_background
+uv run python -m dramatiq run_agent_background
 ```
 
 ---

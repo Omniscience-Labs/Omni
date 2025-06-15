@@ -42,7 +42,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: python -m dramatiq --processes 4 --threads 4 run_agent_background
+    command: sleep infinity
+    # command: dramatiq --processes 4 --threads 4 run_agent_background
     env_file:
       - .env
     volumes:
