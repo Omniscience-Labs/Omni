@@ -551,14 +551,14 @@ files = [
 
 [[package]]
 name = "daytona-api-client"
-version = "0.21.0a1"
+version = "0.21.0"
 description = "Daytona"
 optional = false
 python-versions = "*"
 groups = ["main", "dev"]
 files = [
-    {file = "daytona_api_client-0.21.0a1-py3-none-any.whl", hash = "sha256:a81862114e710f0fcce71a9a700790dda2900f2344f7d286f3504814057697c1"},
-    {file = "daytona_api_client-0.21.0a1.tar.gz", hash = "sha256:40e9c862a6a8d142e88422b17837fd3cb3d14a376412bf11109b2b2effacf1c9"},
+    {file = "daytona_api_client-0.21.0-py3-none-any.whl", hash = "sha256:a8ff1f0fb397368dbd6ddb224c28d679e599c657eab2ec5821cf0c972a60229a"},
+    {file = "daytona_api_client-0.21.0.tar.gz", hash = "sha256:92d591c5a1750a827b5850425ce483441609b72b05d35a618d5353fbbba50bca"},
 ]
 
 [package.dependencies]
@@ -569,14 +569,14 @@ urllib3 = ">=1.25.3,<3.0.0"
 
 [[package]]
 name = "daytona-api-client-async"
-version = "0.21.0a1"
+version = "0.21.0"
 description = "Daytona"
 optional = false
 python-versions = "*"
 groups = ["main", "dev"]
 files = [
-    {file = "daytona_api_client_async-0.21.0a1-py3-none-any.whl", hash = "sha256:d5944b5f003811a6274a4ca0f13f934789afc9fe6e6aadcf1a6f33b723eda8b5"},
-    {file = "daytona_api_client_async-0.21.0a1.tar.gz", hash = "sha256:cd5204905687bb5d690e933476dd67ed1e04b994d9362be4d158ab5af41d0b65"},
+    {file = "daytona_api_client_async-0.21.0-py3-none-any.whl", hash = "sha256:f5731963d0dd6c1e207b92bdc7f5b59952d3365444bc9dc8b013d77a4dddf377"},
+    {file = "daytona_api_client_async-0.21.0.tar.gz", hash = "sha256:08a22c0d1616f82efa8d157d7be6c432554fd43d75560725c4e0cef0228607d6"},
 ]
 
 [package.dependencies]
@@ -589,14 +589,14 @@ urllib3 = ">=1.25.3,<3.0.0"
 
 [[package]]
 name = "daytona-sdk"
-version = "0.21.0a4"
+version = "0.21.0"
 description = "Python SDK for Daytona"
 optional = false
 python-versions = ">=3.7"
 groups = ["main", "dev"]
 files = [
-    {file = "daytona_sdk-0.21.0a4-py3-none-any.whl", hash = "sha256:74bffdb2c0f2fff089208972ef14bb562963490fbb35d87eb87e58e8a846b2ca"},
-    {file = "daytona_sdk-0.21.0a4.tar.gz", hash = "sha256:399c7507f0810012745916625b122857fe817a4e79e634f27a38b816567e8438"},
+    {file = "daytona_sdk-0.21.0-py3-none-any.whl", hash = "sha256:927e5a75113b225eee97ec3f68f1ad6bf93b6b7497b069aa0a3cf051a5b2e0dc"},
+    {file = "daytona_sdk-0.21.0.tar.gz", hash = "sha256:737c657d186a2732218aa9f7107a2a865560b4e5bbbd165b5f4a1949e8feab83"},
 ]
 
 [package.dependencies]
@@ -605,8 +605,8 @@ aiofiles = ">=24.1.0,<24.2.0"
 aiohttp = ">=3.12.0,<4.0.0"
 aiohttp_retry = ">=2.9.0,<3.0.0"
 boto3 = ">=1.0.0,<2.0.0"
-daytona_api_client = "0.21.0a1"
-daytona_api_client_async = "0.21.0a1"
+daytona_api_client = ">=0.21.0,<0.22.0"
+daytona_api_client_async = ">=0.21.0,<0.22.0"
 Deprecated = ">=1.2.18,<2.0.0"
 environs = ">=9.5.0,<10.0.0"
 httpx = ">=0.28.0,<0.29.0"
@@ -3904,4 +3904,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "f6a13156e73a31fd91ed8b923ee3b388c855282a2ed51ab23197af4fa0de99ff"
+content-hash = "99368309d41431f2104a182b680e9361409121e7a6df3ead3f14173dbaf9d066"
