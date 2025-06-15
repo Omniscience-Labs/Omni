@@ -84,6 +84,7 @@ const initialNodes: Node[] = [
     data: { 
       label: 'Web Search', 
       nodeId: 'web_search_tool',
+      instructions: '',
       outputConnections: [
         {
           id: 'agent-1',

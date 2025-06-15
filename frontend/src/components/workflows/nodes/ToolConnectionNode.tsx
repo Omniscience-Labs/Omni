@@ -1,9 +1,14 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Database, 
   FileText, 
@@ -14,18 +19,24 @@ import {
   Cloud,
   Send,
   Settings,
-  Wrench
+  Wrench,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
+import { useWorkflow } from "../WorkflowContext";
 
 interface ToolConnectionNodeData {
   label: string;
   nodeId?: string;
   toolType?: string;
   config?: any;
+  instructions?: string;
 }
 
-const ToolConnectionNode = memo(({ data, selected }: NodeProps) => {
+const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
   const nodeData = data as unknown as ToolConnectionNodeData;
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const { updateNodeData } = useWorkflow();
   
   const getToolConfig = () => {
     const toolId = nodeData.nodeId || nodeData.toolType;
@@ -134,6 +145,49 @@ const ToolConnectionNode = memo(({ data, selected }: NodeProps) => {
               <span className="text-xs text-muted-foreground">Ready</span>
             </div>
           </div>
+
+          {/* Show instructions preview if available */}
+          {nodeData.instructions && !isConfigOpen && (
+            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border">
+              <strong>Instructions:</strong> {nodeData.instructions.length > 50 
+                ? `${nodeData.instructions.substring(0, 50)}...` 
+                : nodeData.instructions}
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Configuration Toggle */}
+          <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between p-2">
+                <span className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Configure
+                </span>
+                {isConfigOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="space-y-4 mt-3">
+              {/* Instructions Configuration */}
+              <div className="space-y-2">
+                <Label htmlFor={`instructions-${id}`} className="text-sm font-medium">
+                  Tool Instructions
+                </Label>
+                <Textarea
+                  id={`instructions-${id}`}
+                  placeholder="Provide specific instructions for how this tool should be used in the workflow..."
+                  value={nodeData.instructions || ''}
+                  onChange={(e) => updateNodeData?.(id!, { instructions: e.target.value })}
+                  className="min-h-[80px] text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  These instructions will be included in the workflow prompt to guide how the agent uses this tool.
+                </p>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
 

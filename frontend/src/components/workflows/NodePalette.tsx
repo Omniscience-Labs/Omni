@@ -213,15 +213,15 @@ export default function NodePalette() {
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="input">
-                <Play className="h-4 w-4 mr-2" />
+                <Play className="h-4 w-4" />
                 Input
               </TabsTrigger>
               <TabsTrigger value="agent">
-                <Bot className="h-4 w-4 mr-2" />
+                <Bot className="h-4 w-4" />
                 Agents
               </TabsTrigger>
               <TabsTrigger value="tools">
-                <Wrench className="h-4 w-4 mr-2" />
+                <Wrench className="h-4 w-4" />
                 Tools
               </TabsTrigger>
             </TabsList>
@@ -257,8 +257,8 @@ export default function NodePalette() {
                           variables: {}
                         }}
                       >
-                        <Card className="group transition-all duration-200 border hover:border-primary/50 cursor-move border-primary/30 bg-primary/5">
-                          <CardHeader className="p-4 py-0">
+                        <Card className="py-2 group transition-all duration-200 border hover:border-primary/50 cursor-move border-primary/30 bg-primary/5">
+                          <CardContent className="p-2 py-0">
                             <div className="flex items-start gap-3">
                               <div className="p-2 rounded-lg bg-primary/20 border border-primary/30 group-hover:bg-primary/30 transition-colors">
                                 <Icon className="h-5 w-5 text-primary" />
@@ -268,12 +268,12 @@ export default function NodePalette() {
                                   {node.name}
                                   <Badge variant="outline" className="text-xs">Required</Badge>
                                 </CardTitle>
-                                <CardDescription className="text-xs mt-1 line-clamp-2">
+                                <CardDescription className="text-xs line-clamp-2">
                                   {node.description}
                                 </CardDescription>
                               </div>
                             </div>
-                          </CardHeader>
+                          </CardContent>
                         </Card>
                       </DraggableNode>
                     );
@@ -310,9 +310,9 @@ export default function NodePalette() {
                           config: {},
                         }}
                       >
-                        <Card className="group transition-all duration-200 border hover:border-primary/50 cursor-move">
-                          <CardHeader className="p-4 py-0">
-                            <div className="flex items-start gap-3">
+                        <Card className="py-2 group transition-all duration-200 border hover:border-primary/50 cursor-move">
+                          <CardContent className="p-2 py-0">
+                            <div className="flex items-center gap-3">
                               <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 group-hover:bg-primary/20 transition-colors">
                                 <Icon className="h-5 w-5 text-primary" />
                               </div>
@@ -320,12 +320,12 @@ export default function NodePalette() {
                                 <CardTitle className="text-sm font-semibold leading-tight">
                                   {node.name}
                                 </CardTitle>
-                                <CardDescription className="text-xs mt-1 line-clamp-2">
+                                <CardDescription className="text-xs line-clamp-2">
                                   {node.description}
                                 </CardDescription>
                               </div>
                             </div>
-                          </CardHeader>
+                          </CardContent>
                         </Card>
                       </DraggableNode>
                     );
@@ -361,10 +361,11 @@ export default function NodePalette() {
                           label: node.name,
                           nodeId: node.id,
                           config: {},
+                          instructions: "",
                         }}
                       >
-                        <Card className="group transition-all duration-200 border hover:border-primary/50 cursor-move">
-                          <CardHeader className="p-4 py-0">
+                        <Card className="py-2 group transition-all duration-200 border hover:border-primary/50 cursor-move">
+                          <CardContent className="p-2 py-0">
                             <div className="flex items-start gap-3">
                               <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 group-hover:bg-primary/20 transition-colors">
                                 <Icon className="h-5 w-5 text-primary" />
@@ -378,7 +379,7 @@ export default function NodePalette() {
                                 </CardDescription>
                               </div>
                             </div>
-                          </CardHeader>
+                          </CardContent>
                         </Card>
                       </DraggableNode>
                     );

@@ -231,7 +231,13 @@ class WorkflowConverter:
             tool_data = tool_node.get('data', {})
             tool_name = tool_data.get('nodeId', tool_data.get('label', 'Unknown Tool'))
             tool_desc = tool_data.get('description', 'No description available')
-            prompt_parts.append(f"- **{tool_name}**: {tool_desc}")
+            tool_instructions = tool_data.get('instructions', '')
+            
+            # Build tool description with instructions if provided
+            tool_description = f"- **{tool_name}**: {tool_desc}"
+            if tool_instructions:
+                tool_description += f" - Instructions: {tool_instructions}"
+            prompt_parts.append(tool_description)
             
             # Collect tool ID for XML examples
             tool_id = tool_data.get('nodeId')
@@ -327,6 +333,7 @@ class WorkflowConverter:
         data = node.get('data', {})
         name = data.get('label', 'Tool')
         tool_id = data.get('nodeId', 'unknown_tool')
+        instructions = data.get('instructions', '')
         
         input_connections = self._find_node_inputs(node.get('id'), edges)
         output_connections = self._find_node_outputs(node.get('id'), edges)
@@ -336,6 +343,10 @@ class WorkflowConverter:
             f"**Tool ID**: {tool_id}",
             f"**Purpose**: Provides {name.lower()} functionality to the workflow",
         ]
+        
+        # Add instructions if provided
+        if instructions:
+            description.append(f"**Instructions**: {instructions}")
         
         if input_connections:
             description.append(f"**Connected to agents**: {', '.join(input_connections)}")

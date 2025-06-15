@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Play, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X } from "lucide-react";
+import { Plus, Play, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X, Workflow as WorkflowIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
@@ -234,6 +234,23 @@ export default function WorkflowsPage() {
     }
   };
 
+  const getWorkflowColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "#10b981"; // green-500
+      case "draft":
+        return "#f59e0b"; // amber-500
+      case "paused":
+        return "#6b7280"; // gray-500
+      case "disabled":
+        return "#ef4444"; // red-500
+      case "archived":
+        return "#9ca3af"; // gray-400
+      default:
+        return "#8b5cf6"; // violet-500
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -322,91 +339,96 @@ export default function WorkflowsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {workflows.map((workflow) => (
-            <Card key={workflow.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1 flex-1 mr-2">
-                    {editingWorkflowId === workflow.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          className="text-lg font-semibold h-8"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleSaveEditName(workflow.id);
-                            } else if (e.key === 'Escape') {
-                              handleCancelEditName();
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleSaveEditName(workflow.id)}
-                            disabled={updatingWorkflows.has(workflow.id)}
-                          >
-                            {updatingWorkflows.has(workflow.id) ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
-                            ) : (
-                              <Check className="h-3 w-3 text-green-600" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                            onClick={handleCancelEditName}
-                            disabled={updatingWorkflows.has(workflow.id)}
-                          >
-                            <X className="h-3 w-3 text-red-600" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <CardTitle 
-                        className="text-lg cursor-pointer hover:text-primary transition-colors"
-                        onClick={() => handleStartEditName(workflow)}
-                      >
-                        {workflow.definition.name || workflow.name}
-                      </CardTitle>
-                    )}
-                    <CardDescription>{workflow.definition.description || workflow.description}</CardDescription>
-                  </div>
-                  {getStatusBadge(workflow.status)}
+            <div 
+              key={workflow.id}
+              className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 group"
+            >
+              {/* Colorful Header */}
+              <div 
+                className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100"
+                style={{ backgroundColor: getWorkflowColor(workflow.status) }}
+              >
+                <div className="text-3xl text-white drop-shadow-sm">
+                  <WorkflowIcon />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+                <div className="absolute top-3 right-3">
+                  {getStatusIcon(workflow.status)}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                <div className="space-y-3">
+                  {/* Title and Status */}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      {editingWorkflowId === workflow.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            className="text-lg font-semibold h-8"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveEditName(workflow.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditName();
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleSaveEditName(workflow.id)}
+                              disabled={updatingWorkflows.has(workflow.id)}
+                            >
+                              {updatingWorkflows.has(workflow.id) ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
+                              ) : (
+                                <Check className="h-3 w-3 text-green-600" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={handleCancelEditName}
+                              disabled={updatingWorkflows.has(workflow.id)}
+                            >
+                              <X className="h-3 w-3 text-red-600" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <h3 
+                          className="text-foreground font-medium text-lg line-clamp-1 cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => handleStartEditName(workflow)}
+                        >
+                          {workflow.definition.name || workflow.name}
+                        </h3>
+                      )}
+                    </div>
+                    {getStatusBadge(workflow.status)}
+                  </div>
+                  <p className="text-muted-foreground text-sm line-clamp-2 min-h-[2.5rem]">
+                    {workflow.definition.description || workflow.description || 'No description provided'}
+                  </p>
                   <div className="flex gap-2 pt-2">
                     <Link href={`/workflows/builder/${workflow.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
-                        <Edit className="mr-2 h-3 w-3" />
+                        <Edit className="h-3 w-3" />
                         Edit
                       </Button>
                     </Link>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleRunWorkflow(workflow.id)}
-                      disabled={executingWorkflows.has(workflow.id) || workflow.status !== 'active'}
-                    >
-                      {executingWorkflows.has(workflow.id) ? (
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2" />
-                      ) : (
-                        <Play className="mr-2 h-3 w-3" />
-                      )}
-                      Run
-                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                           disabled={deletingWorkflows.has(workflow.id)}
                         >
                           {deletingWorkflows.has(workflow.id) ? (
@@ -428,7 +450,7 @@ export default function WorkflowsPage() {
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDeleteWorkflow(workflow.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-destructive text-white hover:bg-destructive/90"
                           >
                             Delete Workflow
                           </AlertDialogAction>
@@ -437,8 +459,8 @@ export default function WorkflowsPage() {
                     </AlertDialog>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}
