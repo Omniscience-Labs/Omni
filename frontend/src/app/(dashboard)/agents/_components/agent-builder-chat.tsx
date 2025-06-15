@@ -18,6 +18,7 @@ import { Check, Clock } from 'lucide-react';
 import { BillingError } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 interface AgentBuilderChatProps {
   agentId: string;
@@ -27,8 +28,8 @@ interface AgentBuilderChatProps {
   currentStyle: { avatar: string; color: string };
 }
 
-export const AgentBuilderChat = React.memo(function AgentBuilderChat({ 
-  agentId, 
+export const AgentBuilderChat = React.memo(function AgentBuilderChat({
+  agentId,
   formData,
   handleFieldChange,
   handleStyleChange,
@@ -42,7 +43,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandles>(null);
   const previousMessageCountRef = useRef(0);
@@ -114,7 +115,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           setThreadId(thread_id);
         }
       }
-      
+
       hasInitiallyLoadedRef.current = true;
     } else if (chatHistoryQuery.status === 'error') {
       console.error('[AgentBuilderChat] Error loading chat history:', chatHistoryQuery.error);
@@ -125,14 +126,14 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
     setMessages((prev) => {
       if (!prev) prev = [];
-      
+
       if (message.type === 'user') {
-        const optimisticIndex = prev.findIndex(m => 
-          m.message_id.startsWith('temp-user-') && 
+        const optimisticIndex = prev.findIndex(m =>
+          m.message_id.startsWith('temp-user-') &&
           m.content === message.content &&
           m.type === 'user'
         );
-        
+
         if (optimisticIndex !== -1) {
           console.log(`[AGENT BUILDER] Replacing optimistic message with real message`);
           const newMessages = [...prev];
@@ -176,8 +177,8 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   }, []);
 
   const handleStreamError = useCallback((errorMessage: string) => {
-    if (!errorMessage.toLowerCase().includes('not found') && 
-        !errorMessage.toLowerCase().includes('agent run is not running')) {
+    if (!errorMessage.toLowerCase().includes('not found') &&
+      !errorMessage.toLowerCase().includes('agent run is not running')) {
       toast.error(`Stream Error: ${errorMessage}`);
     }
   }, []);
@@ -229,14 +230,15 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
     try {
       const files = chatInputRef.current?.getPendingFiles() || [];
-      
+
       const agentFormData = new FormData();
       agentFormData.append('prompt', message);
       agentFormData.append('is_agent_builder', String(true));
       agentFormData.append('target_agent_id', agentId);
-      
+
       files.forEach((file) => {
-        agentFormData.append('files', file, file.name);
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        agentFormData.append('files', file, normalizedName);
       });
 
       if (options?.model_name) agentFormData.append('model_name', options.model_name);
@@ -253,7 +255,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           console.log('[AGENT BUILDER] Setting agent run ID:', result.agent_run_id);
           setAgentRunId(result.agent_run_id);
         }
-        
+
         const userMessage: UnifiedMessage = {
           message_id: `user-${Date.now()}`,
           thread_id: result.thread_id,
@@ -336,8 +338,8 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
         setAgentRunId(agentResult.agent_run_id);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Operation failed');
-        setMessages((prev) => prev.map((m) => 
-          m.message_id === optimisticUserMessage.message_id 
+        setMessages((prev) => prev.map((m) =>
+          m.message_id === optimisticUserMessage.message_id
             ? { ...m, message_id: `user-error-${Date.now()}` }
             : m
         ));
@@ -363,7 +365,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   }, [stopStreaming, agentRunId, stopAgentMutation]);
 
 
-  const handleOpenFileViewer = useCallback(() => {}, []);
+  const handleOpenFileViewer = useCallback(() => { }, []);
 
 
   return (
@@ -375,7 +377,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
             streamingTextContent={streamingTextContent}
             streamingToolCall={streamingToolCall}
             agentStatus={agentStatus}
-            handleToolClick={() => {}}
+            handleToolClick={() => { }}
             handleOpenFileViewer={handleOpenFileViewer}
             streamHookStatus={streamHookStatus}
             agentName="Agent Builder"
@@ -395,19 +397,19 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
       <div className="flex-shrink-0 md:pb-4 md:px-12 px-4">
         <ChatInput
-            ref={chatInputRef}
-            onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
-            loading={isSubmitting}
-            placeholder="Tell me how you'd like to configure your agent..."
-            value={inputValue}
-            onChange={setInputValue}
-            disabled={isSubmitting}
-            isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
-            onStopAgent={handleStopAgent}
-            agentName="Agent Builder"
-            hideAttachments={true}
-            bgColor='bg-muted-foreground/10'
-          />
+          ref={chatInputRef}
+          onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
+          loading={isSubmitting}
+          placeholder="Tell me how you'd like to configure your agent..."
+          value={inputValue}
+          onChange={setInputValue}
+          disabled={isSubmitting}
+          isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
+          onStopAgent={handleStopAgent}
+          agentName="Agent Builder"
+          hideAttachments={true}
+          bgColor='bg-muted-foreground/10'
+        />
       </div>
     </div>
   );

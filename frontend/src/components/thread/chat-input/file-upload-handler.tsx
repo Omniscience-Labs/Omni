@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { UploadedFile } from './chat-input';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -32,17 +33,23 @@ const handleLocalFiles = (
 
   setPendingFiles((prevFiles) => [...prevFiles, ...filteredFiles]);
 
-  const newUploadedFiles: UploadedFile[] = filteredFiles.map((file) => ({
-    name: file.name,
-    path: `/workspace/${file.name}`,
-    size: file.size,
-    type: file.type || 'application/octet-stream',
-    localUrl: URL.createObjectURL(file)
-  }));
+  const newUploadedFiles: UploadedFile[] = filteredFiles.map((file) => {
+    // Normalize filename to NFC
+    const normalizedName = normalizeFilenameToNFC(file.name);
+
+    return {
+      name: normalizedName,
+      path: `/workspace/${normalizedName}`,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+      localUrl: URL.createObjectURL(file)
+    };
+  });
 
   setUploadedFiles((prev) => [...prev, ...newUploadedFiles]);
   filteredFiles.forEach((file) => {
-    toast.success(`File attached: ${file.name}`);
+    const normalizedName = normalizeFilenameToNFC(file.name);
+    toast.success(`File attached: ${normalizedName}`);
   });
 };
 
@@ -65,7 +72,9 @@ const uploadFiles = async (
         continue;
       }
 
-      const uploadPath = `/workspace/${file.name}`;
+      // Normalize filename to NFC
+      const normalizedName = normalizeFilenameToNFC(file.name);
+      const uploadPath = `/workspace/${normalizedName}`;
 
       // Check if this filename already exists in chat messages
       const isFileInChat = messages.some(message => {
@@ -74,7 +83,9 @@ const uploadFiles = async (
       });
 
       const formData = new FormData();
-      formData.append('file', file);
+      // If the filename was normalized, append with the normalized name in the field name
+      // The server will use the path parameter for the actual filename
+      formData.append('file', file, normalizedName);
       formData.append('path', uploadPath);
 
       const supabase = createClient();
@@ -116,13 +127,13 @@ const uploadFiles = async (
       }
 
       newUploadedFiles.push({
-        name: file.name,
+        name: normalizedName,
         path: uploadPath,
         size: file.size,
         type: file.type || 'application/octet-stream',
       });
 
-      toast.success(`File uploaded: ${file.name}`);
+      toast.success(`File uploaded: ${normalizedName}`);
     }
 
     setUploadedFiles((prev) => [...prev, ...newUploadedFiles]);
