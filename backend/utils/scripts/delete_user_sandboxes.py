@@ -83,7 +83,7 @@ async def delete_sandboxes(projects: List[Dict[str, Any]]) -> None:
             logger.info(f"Deleting sandbox {sandbox_id} for project '{project_name}' (ID: {project_id})")
             
             # Get the sandbox and delete it
-            sandbox = daytona.get_current_sandbox(sandbox_id)
+            sandbox = daytona.get(sandbox_id)
             daytona.delete(sandbox)
             
             logger.info(f"Successfully deleted sandbox {sandbox_id}")
