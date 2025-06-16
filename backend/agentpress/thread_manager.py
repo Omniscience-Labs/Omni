@@ -172,6 +172,10 @@ class ThreadManager:
         result: List[Dict[str, Any]] = []
         for msg in messages:
             msg_content = msg.get('content')
+            # Try to parse msg_content as JSON if it's a string
+            if isinstance(msg_content, str):
+                try: msg_content = json.loads(msg_content)
+                except json.JSONDecodeError: pass
             if isinstance(msg_content, dict):
                 # Create a copy to avoid modifying the original
                 msg_content_copy = msg_content.copy()
