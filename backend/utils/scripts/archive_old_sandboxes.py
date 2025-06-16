@@ -170,7 +170,7 @@ async def archive_sandbox(project: Dict[str, Any], dry_run: bool) -> bool:
             return True
         
         # Get the sandbox
-        sandbox = daytona.get_current_sandbox(sandbox_id)
+        sandbox = daytona.get(sandbox_id)
         
         # Check sandbox state - it must be stopped before archiving
         sandbox_info = sandbox.info()

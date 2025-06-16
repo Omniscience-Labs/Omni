@@ -81,16 +81,16 @@ class ThreadManager:
         # print("max_length", max_length)
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
-                return msg_content[:max_length] + "... (truncated)" + f"\n\nThis message is too long, use the expand-message tool with message_id \"{message_id}\" to see the full message"
+                return msg_content[:max_length] + "... (truncated)" + f"\n\nmessage_id \"{message_id}\"\nUse expand-message tool to see contents"
             else:
                 return msg_content
         elif isinstance(msg_content, dict):
             if len(json.dumps(msg_content)) > max_length:
-                return json.dumps(msg_content)[:max_length] + "... (truncated)" + f"\n\nThis message is too long, use the expand-message tool with message_id \"{message_id}\" to see the full message"
+                return json.dumps(msg_content)[:max_length] + "... (truncated)" + f"\n\nmessage_id \"{message_id}\"\nUse expand-message tool to see contents"
             else:
                 return msg_content
         
-    def _safe_truncate(self, msg_content: Union[str, dict], max_length: int = 200000) -> Union[str, dict]:
+    def _safe_truncate(self, msg_content: Union[str, dict], max_length: int = 300000) -> Union[str, dict]:
         """Truncate the message content safely."""
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
@@ -107,7 +107,7 @@ class ThreadManager:
         """Compress the tool result messages except the most recent one."""
         uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
 
-        if uncompressed_total_token_count > (max_tokens or (64 * 1000)):
+        if uncompressed_total_token_count > (max_tokens or (100 * 1000)):
             _i = 0 # Count the number of ToolResult messages
             for msg in reversed(messages): # Start from the end and work backwards
                 if self._is_tool_result_message(msg): # Only compress ToolResult messages
@@ -166,13 +166,39 @@ class ThreadManager:
                             
         return messages
 
+
+    def _remove_meta_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove meta messages from the messages."""
+        result: List[Dict[str, Any]] = []
+        for msg in messages:
+            msg_content = msg.get('content')
+            # Try to parse msg_content as JSON if it's a string
+            if isinstance(msg_content, str):
+                try: msg_content = json.loads(msg_content)
+                except json.JSONDecodeError: pass
+            if isinstance(msg_content, dict):
+                # Create a copy to avoid modifying the original
+                msg_content_copy = msg_content.copy()
+                if "tool_execution" in msg_content_copy:
+                    tool_execution = msg_content_copy["tool_execution"].copy()
+                    if "arguments" in tool_execution:
+                        del tool_execution["arguments"]
+                    msg_content_copy["tool_execution"] = tool_execution
+                # Create a new message dict with the modified content
+                new_msg = msg.copy()
+                new_msg["content"] = json.dumps(msg_content_copy)
+                result.append(new_msg)
+            else:
+                result.append(msg)
+        return result
+
     def _compress_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int] = 41000, token_threshold: Optional[int] = 4096, max_iterations: int = 5) -> List[Dict[str, Any]]:
         """Compress the messages.
             token_threshold: must be a power of 2
         """
 
         if 'sonnet' in llm_model.lower():
-            max_tokens = 200 * 1000 - 64000
+            max_tokens = 200 * 1000 - 64000 - 28000
         elif 'gpt' in llm_model.lower():
             max_tokens = 128 * 1000 - 28000
         elif 'gemini' in llm_model.lower():
@@ -187,8 +213,9 @@ class ThreadManager:
             return messages
 
         result = messages
+        result = self._remove_meta_messages(result)
 
-        uncompressed_total_token_count = token_counter(model=llm_model, messages=messages)
+        uncompressed_total_token_count = token_counter(model=llm_model, messages=result)
 
         result = self._compress_tool_result_messages(result, llm_model, max_tokens, token_threshold)
         result = self._compress_user_messages(result, llm_model, max_tokens, token_threshold)

@@ -117,10 +117,13 @@ export async function fetchFileContent(
   
   console.log(`[FILE QUERY] Fetching ${contentType} content for: ${normalizedPath}`);
   
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(url.toString(), {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers,
   });
   
   if (!response.ok) {
@@ -218,13 +221,13 @@ export function useFileContentQuery(
     queryKey: sandboxId && normalizedPath ? 
       fileQueryKeys.content(sandboxId, normalizedPath, effectiveContentType) : [],
     queryFn: async () => {
-      if (!sandboxId || !normalizedPath || !session?.access_token) {
+      if (!sandboxId || !normalizedPath) {
         throw new Error('Missing required parameters');
       }
       
-      return fetchFileContent(sandboxId, normalizedPath, effectiveContentType, session.access_token);
+      return fetchFileContent(sandboxId, normalizedPath, effectiveContentType, session?.access_token || '');
     },
-    enabled: Boolean(sandboxId && normalizedPath && session?.access_token && (options.enabled !== false)),
+    enabled: Boolean(sandboxId && normalizedPath && (options.enabled !== false)),
     staleTime: options.staleTime || (effectiveContentType === 'blob' ? 5 * 60 * 1000 : 2 * 60 * 1000), // 5min for blobs, 2min for text
     gcTime: options.gcTime || 10 * 60 * 1000, // 10 minutes
     retry: (failureCount, error: any) => {
@@ -279,14 +282,14 @@ export function useDirectoryQuery(
     queryKey: sandboxId && normalizedPath ? 
       fileQueryKeys.directory(sandboxId, normalizedPath) : [],
     queryFn: async (): Promise<FileInfo[]> => {
-      if (!sandboxId || !normalizedPath || !session?.access_token) {
+      if (!sandboxId || !normalizedPath) {
         throw new Error('Missing required parameters');
       }
       
       console.log(`[FILE QUERY] Fetching directory listing for: ${normalizedPath}`);
       return await listSandboxFiles(sandboxId, normalizedPath);
     },
-    enabled: Boolean(sandboxId && normalizedPath && session?.access_token && (options.enabled !== false)),
+    enabled: Boolean(sandboxId && normalizedPath && (options.enabled !== false)),
     staleTime: options.staleTime || 30 * 1000, // 30 seconds for directory listings
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
