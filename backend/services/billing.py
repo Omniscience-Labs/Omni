@@ -14,6 +14,8 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
+import os
+
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
@@ -37,6 +39,7 @@ class CreateCheckoutSessionRequest(BaseModel):
     price_id: str
     success_url: str
     cancel_url: str
+    tolt_referral: Optional[str] = None
 
 class CreatePortalSessionRequest(BaseModel):
     return_url: str
@@ -310,7 +313,7 @@ async def create_checkout_session(
         # Get or create Stripe customer
         customer_id = await get_stripe_customer_id(client, current_user_id)
         if not customer_id: customer_id = await create_stripe_customer(client, current_user_id, email)
-        
+         
         # Get the target price and product ID
         try:
             price = stripe.Price.retrieve(request.price_id, expand=['product'])
@@ -542,7 +545,7 @@ async def create_checkout_session(
                 logger.exception(f"Error updating subscription {existing_subscription.get('id') if existing_subscription else 'N/A'}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error updating subscription: {str(e)}")
         else:
-            # --- Create New Subscription via Checkout Session ---
+            
             session = stripe.checkout.Session.create(
                 customer=customer_id,
                 payment_method_types=['card'],
@@ -552,7 +555,8 @@ async def create_checkout_session(
                 cancel_url=request.cancel_url,
                 metadata={
                         'user_id': current_user_id,
-                        'product_id': product_id
+                        'product_id': product_id,
+                        'tolt_referral': request.tolt_referral
                 },
                 allow_promotion_codes=True
             )
