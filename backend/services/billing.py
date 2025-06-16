@@ -39,6 +39,7 @@ class CreateCheckoutSessionRequest(BaseModel):
     price_id: str
     success_url: str
     cancel_url: str
+    tolt_referral: Optional[str] = None
 
 class CreatePortalSessionRequest(BaseModel):
     return_url: str
@@ -553,7 +554,8 @@ async def create_checkout_session(
                 cancel_url=request.cancel_url,
                 metadata={
                         'user_id': current_user_id,
-                        'product_id': product_id
+                        'product_id': product_id,
+                        'tolt_referral': request.tolt_referral
                 },
                 allow_promotion_codes=True
             )

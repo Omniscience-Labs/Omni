@@ -18,7 +18,6 @@ export default function PersonalAccountSettingsPage({
   ];
   return (
     <>
-      <Script async src="https://cdn.tolt.io/tolt.js" data-tolt="pk_svc8UjqvSEMSSpDuxKH63UmV"></Script>
       <div className="space-y-6 w-full">
         <Separator className="border-subtle dark:border-white/10" />
         <div className="flex flex-col space-y-8 lg:flex-row lg:space-x-12 lg:space-y-0 w-full max-w-6xl mx-auto px-4">

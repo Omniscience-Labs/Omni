@@ -1590,8 +1590,9 @@ export const createCheckoutSession = async (
       throw new NoAccessTokenAvailableError();
     }
     
-    // Add referral ID to request if available
-    const requestBody = { ...request };
+    
+    const requestBody = { ...request, tolt_referral: window.tolt_referral };
+    console.log('Tolt Referral ID:', requestBody.tolt_referral);
     
     const response = await fetch(`${API_URL}/billing/create-checkout-session`, {
       method: 'POST',
