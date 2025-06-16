@@ -172,6 +172,10 @@ class ThreadManager:
         result: List[Dict[str, Any]] = []
         for msg in messages:
             msg_content = msg.get('content')
+            # Try to parse msg_content as JSON if it's a string
+            if isinstance(msg_content, str):
+                try: msg_content = json.loads(msg_content)
+                except json.JSONDecodeError: pass
             if isinstance(msg_content, dict):
                 # Create a copy to avoid modifying the original
                 msg_content_copy = msg_content.copy()
@@ -495,7 +499,7 @@ Here are the XML tools available with examples:
                     openapi_tool_schemas = self.tool_registry.get_openapi_schemas()
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
-                prepared_messages = self._compress_messages(prepared_messages, llm_model)
+                prepared_messages = self._compress_messages(json.loads(json.dumps(prepared_messages)), llm_model)
 
                 # 5. Make LLM API call
                 logger.debug("Making LLM API call")
