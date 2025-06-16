@@ -173,12 +173,19 @@ class ThreadManager:
         for msg in messages:
             msg_content = msg.get('content')
             if isinstance(msg_content, dict):
-                if "tool_execution" in msg_content:
-                    tool_execution = msg_content["tool_execution"]
+                # Create a copy to avoid modifying the original
+                msg_content_copy = msg_content.copy()
+                if "tool_execution" in msg_content_copy:
+                    tool_execution = msg_content_copy["tool_execution"].copy()
                     if "arguments" in tool_execution:
                         del tool_execution["arguments"]
-                msg["content"] = json.dumps(msg_content)
-            result.append(msg)
+                    msg_content_copy["tool_execution"] = tool_execution
+                # Create a new message dict with the modified content
+                new_msg = msg.copy()
+                new_msg["content"] = json.dumps(msg_content_copy)
+                result.append(new_msg)
+            else:
+                result.append(msg)
         return result
 
     def _compress_messages(self, messages: List[Dict[str, Any]], llm_model: str, max_tokens: Optional[int] = 41000, token_threshold: Optional[int] = 4096, max_iterations: int = 5) -> List[Dict[str, Any]]:
@@ -187,7 +194,7 @@ class ThreadManager:
         """
 
         if 'sonnet' in llm_model.lower():
-            max_tokens = 200 * 1000 - 64000 - 15000
+            max_tokens = 200 * 1000 - 64000 - 28000
         elif 'gpt' in llm_model.lower():
             max_tokens = 128 * 1000 - 28000
         elif 'gemini' in llm_model.lower():
