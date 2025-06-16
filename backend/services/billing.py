@@ -14,6 +14,8 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
+import os
+
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
@@ -542,7 +544,6 @@ async def create_checkout_session(
                 logger.exception(f"Error updating subscription {existing_subscription.get('id') if existing_subscription else 'N/A'}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error updating subscription: {str(e)}")
         else:
-            # --- Create New Subscription via Checkout Session ---
             session = stripe.checkout.Session.create(
                 customer=customer_id,
                 payment_method_types=['card'],

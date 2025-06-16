@@ -1500,6 +1500,7 @@ export interface CreateCheckoutSessionRequest {
   price_id: string;
   success_url: string;
   cancel_url: string;
+  referral_id?: string;
 }
 
 export interface CreatePortalSessionRequest {
@@ -1588,14 +1589,17 @@ export const createCheckoutSession = async (
     if (!session?.access_token) {
       throw new NoAccessTokenAvailableError();
     }
-
+    
+    // Add referral ID to request if available
+    const requestBody = { ...request };
+    
     const response = await fetch(`${API_URL}/billing/create-checkout-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

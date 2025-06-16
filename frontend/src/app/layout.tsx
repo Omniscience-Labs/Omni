@@ -123,7 +123,7 @@ export default function RootLayout({
           'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','GTM-PCHSN4M2');`}
         </Script>
-        {/* End Google Tag Manager */}
+        <script async src="https://cdn.tolt.io/tolt.js" data-tolt="pk_svc8UjqvSEMSSpDuxKH63UmV"></script>
       </head>
 
       <body
