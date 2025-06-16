@@ -313,7 +313,7 @@ async def create_checkout_session(
         # Get or create Stripe customer
         customer_id = await get_stripe_customer_id(client, current_user_id)
         if not customer_id: customer_id = await create_stripe_customer(client, current_user_id, email)
-        
+         
         # Get the target price and product ID
         try:
             price = stripe.Price.retrieve(request.price_id, expand=['product'])
@@ -545,6 +545,7 @@ async def create_checkout_session(
                 logger.exception(f"Error updating subscription {existing_subscription.get('id') if existing_subscription else 'N/A'}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error updating subscription: {str(e)}")
         else:
+            
             session = stripe.checkout.Session.create(
                 customer=customer_id,
                 payment_method_types=['card'],
