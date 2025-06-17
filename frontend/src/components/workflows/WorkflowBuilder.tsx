@@ -638,7 +638,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
             </Card>
           )} */}
 
-          <div className="flex-1 border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
+          <div className="flex-1 border border-border/50 bg-muted/50 backdrop-blur-sm overflow-hidden">
             <WorkflowProvider updateNodeData={updateNodeData}>
               <ReactFlow
                 nodes={nodes}
@@ -675,7 +675,6 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                   variant={BackgroundVariant.Dots} 
                   gap={20} 
                   size={1}
-                  className="opacity-30 dark:opacity-20"
                 />
               </ReactFlow>
             </WorkflowProvider>
