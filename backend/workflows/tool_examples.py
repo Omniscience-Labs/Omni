@@ -28,27 +28,9 @@ TOOL_XML_EXAMPLES = {
 }
 
 def get_tool_xml_example(tool_id: str) -> str:
-    """
-    Get the XML example for a specific tool.
-    
-    Args:
-        tool_id: The tool identifier
-        
-    Returns:
-        XML example string for the tool, or empty string if not found
-    """
     return TOOL_XML_EXAMPLES.get(tool_id, "")
 
 def get_tools_xml_examples(tool_ids: list) -> str:
-    """
-    Get XML examples for multiple tools.
-    
-    Args:
-        tool_ids: List of tool identifiers
-        
-    Returns:
-        Combined XML examples for all tools
-    """
     examples = []
     for tool_id in tool_ids:
         example = get_tool_xml_example(tool_id)
@@ -60,10 +42,4 @@ def get_tools_xml_examples(tool_ids: list) -> str:
     return "\n".join(examples)
 
 def get_all_available_tools() -> list:
-    """
-    Get a list of all available tool IDs.
-    
-    Returns:
-        List of tool identifiers
-    """
     return list(TOOL_XML_EXAMPLES.keys())

@@ -16,20 +16,39 @@ class WorkflowConverter:
         edges: List[Dict[str, Any]], 
         metadata: Dict[str, Any]
     ) -> WorkflowDefinition:
-        """
-        Convert a visual workflow flow into an executable workflow definition.
-        
-        V1 Implementation: Generates a text prompt that describes the workflow
-        and creates a single agent step that executes the entire workflow.
-        """
         logger.info(f"Converting workflow flow with {len(nodes)} nodes and {len(edges)} edges")
-        
-        # Find input node and extract configuration
+
         input_config = self._extract_input_configuration(nodes)
         workflow_prompt = self._generate_workflow_prompt(nodes, edges, input_config)
         entry_point = self._find_entry_point(nodes, edges)
         triggers = self._extract_triggers_from_input(input_config)
         
+        logger.info(f"Looking for tool nodes in {len(nodes)} total nodes")
+        for node in nodes:
+            logger.info(f"Node: id={node.get('id')}, type={node.get('type')}, data={node.get('data', {})}")
+        
+        tool_nodes = [node for node in nodes if node.get('type') == 'toolConnectionNode']
+        logger.info(f"Found {len(tool_nodes)} tool connection nodes")
+        
+        enabled_tools = []
+        for tool_node in tool_nodes:
+            tool_data = tool_node.get('data', {})
+            tool_id = tool_data.get('nodeId')
+            logger.info(f"Processing tool node: id={tool_node.get('id')}, data={tool_data}, tool_id={tool_id}")
+            
+            if tool_id:
+                enabled_tools.append({
+                    "id": tool_id,
+                    "name": tool_data.get('label', tool_id),
+                    "description": tool_data.get('description', 'No description available'),
+                    "instructions": tool_data.get('instructions', '')
+                })
+                logger.info(f"Added tool {tool_id} to enabled_tools")
+            else:
+                logger.warning(f"Tool node {tool_node.get('id')} has no nodeId in data: {tool_data}")
+        
+        logger.info(f"Final enabled_tools list: {enabled_tools}")
+
         agent_step = WorkflowStep(
             id="main_agent_step",
             name="Workflow Agent",
@@ -41,7 +60,8 @@ class WorkflowConverter:
                 "agent_id": metadata.get("agent_id"),
                 "model": "anthropic/claude-3-5-sonnet-latest",
                 "max_iterations": 10,
-                "input_prompt": input_config.prompt if input_config else ""
+                "input_prompt": input_config.prompt if input_config else "",
+                "tools": enabled_tools
             },
             next_steps=[]
         )
@@ -67,7 +87,6 @@ class WorkflowConverter:
             if node.get('type') == 'inputNode':
                 data = node.get('data', {})
                 
-                # Extract schedule configuration if present
                 schedule_config = None
                 if data.get('trigger_type') == 'SCHEDULE' and data.get('schedule_config'):
                     schedule_data = data.get('schedule_config', {})
@@ -257,6 +276,7 @@ class WorkflowConverter:
         
         # Extract tool IDs and generate tool descriptions
         tool_ids = []
+        enabled_tools = []
         for tool_node in tool_nodes:
             tool_data = tool_node.get('data', {})
             tool_name = tool_data.get('nodeId', tool_data.get('label', 'Unknown Tool'))
@@ -269,10 +289,16 @@ class WorkflowConverter:
                 tool_description += f" - Instructions: {tool_instructions}"
             prompt_parts.append(tool_description)
             
-            # Collect tool ID for XML examples
+            # Collect tool ID for XML examples and enabled tools
             tool_id = tool_data.get('nodeId')
             if tool_id:
                 tool_ids.append(tool_id)
+                enabled_tools.append({
+                    "id": tool_id,
+                    "name": tool_data.get('label', tool_name),
+                    "description": tool_desc,
+                    "instructions": tool_instructions
+                })
         
         # Add XML tool examples if tools are available
         if tool_ids:

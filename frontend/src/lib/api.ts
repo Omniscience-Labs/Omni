@@ -2291,7 +2291,7 @@ export const deleteWorkflow = async (workflowId: string): Promise<void> => {
 export const executeWorkflow = async (
   workflowId: string,
   variables?: Record<string, any>
-): Promise<{ execution_id: string; thread_id: string }> => {
+): Promise<{ execution_id: string; thread_id: string; agent_run_id: string }> => {
   try {
     const supabase = createClient();
     const {

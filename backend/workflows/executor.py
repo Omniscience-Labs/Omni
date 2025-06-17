@@ -4,7 +4,6 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, AsyncGenerator
 from .models import WorkflowDefinition, WorkflowExecution
-from agent.run import run_agent
 from services.supabase import DBConnection
 from utils.logger import logger
 
@@ -47,7 +46,7 @@ class WorkflowExecutor:
         
         try:
             await self._store_execution(execution)
-            await self._create_workflow_thread(thread_id, project_id, workflow, variables)
+            await self._ensure_workflow_thread_exists(thread_id, project_id, workflow, variables)
 
             if not workflow.steps:
                 raise ValueError("Workflow has no steps defined")
@@ -63,18 +62,31 @@ class WorkflowExecutor:
                 variables_text += "\nUse these variables as needed during workflow execution.\n"
                 system_prompt += variables_text
 
+            # Extract enabled tools from workflow steps
+            enabled_tools = self._extract_enabled_tools_from_workflow(workflow)
+            
             agent_config = {
                 "name": f"Workflow Agent: {workflow.name}",
                 "description": workflow.description or "Generated workflow agent",
                 "system_prompt": system_prompt,
-                "agentpress_tools": {
-                    "sb_files_tool": {"enabled": True, "description": "File operations"},
-                    "message_tool": {"enabled": True, "description": "Send messages"},
-                    "expand_msg_tool": {"enabled": True, "description": "Expand messages"}
-                },
+                "agentpress_tools": enabled_tools,
                 "configured_mcps": [],
                 "custom_mcps": []
             }
+            
+            from agent.run import run_agent
+
+            try:
+                client = await self.db.client
+                debug_messages = await client.table('messages').select('*').eq('thread_id', thread_id).execute()
+                logger.info(f"[Workflow Debug] Found {len(debug_messages.data) if debug_messages.data else 0} messages in thread {thread_id}")
+                if debug_messages.data:
+                    for msg in debug_messages.data:
+                        logger.info(f"[Workflow Debug] Message: type={msg.get('type', 'unknown')}, created_at={msg.get('created_at', 'no timestamp')}, is_llm_message={msg.get('is_llm_message', False)}")
+                else:
+                    logger.error(f"[Workflow Debug] No messages found in thread {thread_id} - this will cause 'Received Messages=[]' error")
+            except Exception as e:
+                logger.error(f"[Workflow Debug] Error checking messages: {e}")
             
             async for response in run_agent(
                 thread_id=thread_id,
@@ -131,20 +143,29 @@ class WorkflowExecutor:
         execution_id: str
     ) -> Dict[str, Any]:
         """Transform agent response into workflow execution update."""
+        # Preserve the original agent response structure for frontend compatibility
+        # but add workflow context metadata
         workflow_response = {
             **agent_response,
             "execution_id": execution_id,
             "source": "workflow_executor"
         }
-        if agent_response.get('type') == 'assistant':
-            workflow_response['type'] = 'workflow_step'
-            workflow_response['step_name'] = 'workflow_execution'
         
-        elif agent_response.get('type') == 'tool_call':
-            workflow_response['type'] = 'workflow_tool_call'
+        # Add workflow metadata to metadata field if it exists, or create it
+        if isinstance(workflow_response.get('metadata'), str):
+            try:
+                metadata = json.loads(workflow_response['metadata'])
+            except:
+                metadata = {}
+        else:
+            metadata = workflow_response.get('metadata', {})
         
-        elif agent_response.get('type') == 'tool_result':
-            workflow_response['type'] = 'workflow_tool_result'
+        metadata.update({
+            "is_workflow_response": True,
+            "workflow_execution_id": execution_id
+        })
+        
+        workflow_response['metadata'] = json.dumps(metadata) if isinstance(workflow_response.get('metadata'), str) else metadata
         
         return workflow_response
     
@@ -199,6 +220,87 @@ class WorkflowExecutor:
             logger.error(f"Failed to get execution status: {e}")
             return None
     
+    async def _ensure_workflow_thread_exists(
+        self, 
+        thread_id: str, 
+        project_id: str, 
+        workflow: WorkflowDefinition, 
+        variables: Optional[Dict[str, Any]] = None
+    ):
+        """Ensure a thread exists for workflow execution (create only if missing)."""
+        try:
+            client = await self.db.client
+            existing_thread = await client.table('threads').select('thread_id').eq('thread_id', thread_id).execute()
+            
+            if existing_thread.data:
+                logger.info(f"Thread {thread_id} already exists, skipping creation")
+                return
+            await self._create_workflow_thread(thread_id, project_id, workflow, variables)
+            
+        except Exception as e:
+            logger.error(f"Failed to ensure workflow thread exists: {e}")
+            raise
+
+    def _extract_enabled_tools_from_workflow(self, workflow: WorkflowDefinition) -> Dict[str, Dict[str, Any]]:
+        """Extract tools that should be enabled based on workflow configuration."""
+        enabled_tools = {
+            "sb_files_tool": {"enabled": True, "description": "File operations"},
+            "message_tool": {"enabled": True, "description": "Send messages"}, 
+            "expand_msg_tool": {"enabled": True, "description": "Expand messages"}
+        }
+        
+        logger.info(f"Processing workflow with {len(workflow.steps)} steps")
+        logger.info(f"Workflow name: {workflow.name}")
+        logger.info(f"Workflow ID: {workflow.id}")
+        
+        for step in workflow.steps:
+            step_config = step.config or {}
+            tools_section = step_config.get("tools", [])
+            
+            logger.info(f"Step {step.id} - config keys: {list(step_config.keys())}")
+            logger.info(f"Step {step.id} - tools section: {tools_section}")
+            
+            for tool in tools_section:
+                if isinstance(tool, dict):
+                    tool_id = tool.get("id") or tool.get("tool_id") or tool.get("nodeId")
+                    tool_name = tool.get("name", tool_id)
+                    tool_desc = tool.get("description", f"Tool: {tool_name}")
+                    
+                    logger.info(f"Processing tool dict: {tool}")
+                    logger.info(f"Extracted tool_id: {tool_id}")
+                    
+                    if tool_id:
+                        enabled_tools[tool_id] = {
+                            "enabled": True,
+                            "description": tool_desc
+                        }
+                        logger.info(f"Added tool {tool_id} to enabled_tools")
+                elif isinstance(tool, str):
+                    enabled_tools[tool] = {
+                        "enabled": True,
+                        "description": f"Tool: {tool}"
+                    }
+                    logger.info(f"Added string tool {tool} to enabled_tools")
+        
+        if hasattr(workflow, 'metadata') and workflow.metadata:
+            logger.info(f"Workflow metadata: {workflow.metadata}")
+            workflow_tools = workflow.metadata.get("tools", [])
+            logger.info(f"Workflow metadata tools: {workflow_tools}")
+            for tool in workflow_tools:
+                if isinstance(tool, dict):
+                    tool_id = tool.get("id") or tool.get("nodeId")
+                    if tool_id:
+                        enabled_tools[tool_id] = {
+                            "enabled": True,
+                            "description": tool.get("description", f"Tool: {tool_id}")
+                        }
+                        logger.info(f"Added metadata tool {tool_id} to enabled_tools")
+        else:
+            logger.info("No workflow metadata found")
+        
+        logger.info(f"Final enabled tools for workflow: {list(enabled_tools.keys())}")
+        return enabled_tools
+
     async def _create_workflow_thread(
         self, 
         thread_id: str, 
@@ -228,14 +330,11 @@ class WorkflowExecutor:
             }
             
             await client.table('threads').insert(thread_data).execute()
-            
-            # Get the input prompt from the workflow step configuration
             input_prompt = ""
             if workflow.steps:
                 main_step = workflow.steps[0]
                 input_prompt = main_step.config.get("input_prompt", "")
             
-            # Use input prompt if available, otherwise fall back to workflow name/description
             if input_prompt:
                 initial_message = input_prompt
             else:

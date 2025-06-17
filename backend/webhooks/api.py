@@ -1,27 +1,25 @@
-from fastapi import APIRouter, HTTPException, Request, Header, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Request, Header
 from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
 import uuid
 import asyncio
 from datetime import datetime, timezone
-
+import json
 from .models import SlackEventRequest, WebhookExecutionResult
 from .providers import SlackWebhookProvider, GenericWebhookProvider
 from workflows.models import WorkflowDefinition
-from workflows.executor import WorkflowExecutor
+
 from services.supabase import DBConnection
 from utils.logger import logger
 
 router = APIRouter()
 
 db = DBConnection()
-workflow_executor = WorkflowExecutor(db)
 
 def initialize(database: DBConnection):
     """Initialize the webhook API with database connection."""
-    global db, workflow_executor
+    global db
     db = database
-    workflow_executor = WorkflowExecutor(db)
 
 def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
     """Helper function to map database record to WorkflowDefinition."""
@@ -48,7 +46,6 @@ def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
 async def trigger_workflow_webhook(
     workflow_id: str,
     request: Request,
-    background_tasks: BackgroundTasks,
     x_slack_signature: Optional[str] = Header(None),
     x_slack_request_timestamp: Optional[str] = Header(None)
 ):
@@ -62,8 +59,12 @@ async def trigger_workflow_webhook(
         logger.info(f"[Webhook] Body preview: {body[:500]}")
         
         try:
-            data = await request.json()
-            logger.info(f"[Webhook] Parsed JSON data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+            if len(body) == 0:
+                data = {}
+                logger.info(f"[Webhook] Empty body received, using empty dict")
+            else:
+                data = await request.json()
+                logger.info(f"[Webhook] Parsed JSON data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
         except Exception as e:
             logger.error(f"[Webhook] Failed to parse JSON: {e}")
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
@@ -111,17 +112,104 @@ async def trigger_workflow_webhook(
             result = await _handle_generic_webhook(workflow, data)
 
         if result.get("should_execute", False):
-            background_tasks.add_task(
-                _execute_workflow_from_webhook,
-                workflow,
-                result.get("execution_variables", {}),
-                result.get("trigger_data", {}),
-                provider_type
+            from run_workflow_background import run_workflow_background
+            
+            execution_id = str(uuid.uuid4())
+            
+            execution_data = {
+                "id": execution_id,
+                "workflow_id": workflow.id,
+                "workflow_version": 1,
+                "workflow_name": workflow.name,
+                "execution_context": result.get("execution_variables", {}),
+                "project_id": workflow.project_id,
+                "account_id": workflow.created_by,
+                "triggered_by": "WEBHOOK",
+                "status": "pending",
+                "started_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            client = await db.client
+            await client.table('workflow_executions').insert(execution_data).execute()
+            
+            thread_id = str(uuid.uuid4())
+
+            project_result = await client.table('projects').select('account_id').eq('project_id', workflow.project_id).execute()
+            if not project_result.data:
+                raise HTTPException(status_code=404, detail=f"Project {workflow.project_id} not found")
+            account_id = project_result.data[0]['account_id']
+
+            await client.table('threads').insert({
+                "thread_id": thread_id,
+                "project_id": workflow.project_id,
+                "account_id": account_id,
+                "metadata": {
+                    "workflow_id": workflow.id,
+                    "workflow_name": workflow.name,
+                    "triggered_by": "WEBHOOK",
+                    "execution_id": execution_id
+                }
+            }).execute()
+            logger.info(f"Created thread for webhook workflow: {thread_id}")
+            
+            initial_message_content = f"Execute the workflow: {workflow.name}"
+            if workflow.description:
+                initial_message_content += f"\n\nDescription: {workflow.description}"
+            
+            if result.get("execution_variables"):
+                initial_message_content += f"\n\nWorkflow Variables: {json.dumps(result.get('execution_variables'), indent=2)}"
+            
+            message_data = {
+                "message_id": str(uuid.uuid4()),
+                "thread_id": thread_id,
+                "type": "user",
+                "is_llm_message": True,
+                "content": json.dumps({"role": "user", "content": initial_message_content}),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await client.table('messages').insert(message_data).execute()
+            logger.info(f"Created initial user message for webhook workflow: {thread_id}")
+            
+            # Small delay to ensure database transaction is committed before background worker starts
+            import asyncio
+            await asyncio.sleep(0.1)
+
+            agent_run = await client.table('agent_runs').insert({
+                "thread_id": thread_id, 
+                "status": "running",
+                "started_at": datetime.now(timezone.utc).isoformat()
+            }).execute()
+            agent_run_id = agent_run.data[0]['id']
+            logger.info(f"Created agent run for webhook workflow: {agent_run_id}")
+            
+            if hasattr(workflow, 'model_dump'):
+                workflow_dict = workflow.model_dump(mode='json')
+            else:
+                workflow_dict = workflow.dict()
+                if 'created_at' in workflow_dict and workflow_dict['created_at']:
+                    workflow_dict['created_at'] = workflow_dict['created_at'].isoformat()
+                if 'updated_at' in workflow_dict and workflow_dict['updated_at']:
+                    workflow_dict['updated_at'] = workflow_dict['updated_at'].isoformat()
+            
+            run_workflow_background.send(
+                execution_id=execution_id,
+                workflow_id=workflow.id,
+                workflow_name=workflow.name,
+                workflow_definition=workflow_dict,
+                variables=result.get("execution_variables", {}),
+                triggered_by="WEBHOOK",
+                project_id=workflow.project_id,
+                thread_id=thread_id,
+                agent_run_id=agent_run_id
             )
             
             return JSONResponse(content={
                 "message": "Webhook received and workflow execution started",
                 "workflow_id": workflow_id,
+                "execution_id": execution_id,
+                "thread_id": thread_id,
+                "agent_run_id": agent_run_id,
                 "provider": provider_type
             })
         else:
@@ -220,62 +308,7 @@ async def _handle_generic_webhook(workflow: WorkflowDefinition, data: Dict[str, 
         logger.error(f"Error handling generic webhook: {e}")
         raise HTTPException(status_code=400, detail=f"Error processing generic webhook: {str(e)}")
 
-async def _execute_workflow_from_webhook(
-    workflow: WorkflowDefinition,
-    variables: Dict[str, Any],
-    trigger_data: Dict[str, Any],
-    provider_type: str
-):
-    """Execute workflow from webhook trigger in background."""
-    try:
-        client = await db.client
 
-        execution_id = str(uuid.uuid4())
-        thread_id = str(uuid.uuid4())
-        
-        execution_data = {
-            "id": execution_id,
-            "workflow_id": workflow.id,
-            "workflow_version": 1,
-            "workflow_name": workflow.name,
-            "execution_context": variables,
-            "project_id": workflow.project_id,
-            "account_id": workflow.created_by,
-            "triggered_by": "WEBHOOK",
-            "status": "running",
-            "started_at": datetime.now(timezone.utc).isoformat()
-        }
-        
-        await client.table('workflow_executions').insert(execution_data).execute()
-        
-        logger.info(f"Starting webhook-triggered execution {execution_id} for workflow {workflow.id}")
-
-        async for update in workflow_executor.execute_workflow(
-            workflow=workflow,
-            variables=variables,
-            thread_id=thread_id,
-            project_id=workflow.project_id
-        ):
-            logger.info(f"Webhook workflow {workflow.id} update: {update.get('type', 'unknown')}")
-        
-        await client.table('workflow_executions').update({
-            "status": "completed",
-            "completed_at": datetime.now(timezone.utc).isoformat()
-        }).eq('id', execution_id).execute()
-        
-        logger.info(f"Webhook-triggered execution {execution_id} completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Webhook workflow execution failed: {e}")
-        try:
-            client = await db.client
-            await client.table('workflow_executions').update({
-                "status": "failed",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-                "error": str(e)
-            }).eq('id', execution_id).execute()
-        except:
-            pass
 
 @router.get("/webhooks/test/{workflow_id}")
 async def test_webhook_endpoint(workflow_id: str):

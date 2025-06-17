@@ -2,7 +2,7 @@
 Workflow API - REST endpoints for workflow management and execution.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any
 import uuid
@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from .models import (
     WorkflowDefinition, WorkflowCreateRequest, WorkflowUpdateRequest,
     WorkflowExecuteRequest, WorkflowConvertRequest, WorkflowValidateRequest,
-    WorkflowValidateResponse, WorkflowFlow, WorkflowExecution
+    WorkflowValidateResponse, WorkflowFlow, WorkflowExecution, WorkflowStep, WorkflowTrigger
 )
 from .converter import WorkflowConverter, validate_workflow_flow
 from .executor import WorkflowExecutor
@@ -37,16 +37,112 @@ def initialize(database: DBConnection):
     workflow_executor = WorkflowExecutor(db)
     workflow_scheduler = WorkflowScheduler(db, workflow_executor)
 
+async def _create_workflow_thread_for_api(
+    thread_id: str, 
+    project_id: str, 
+    workflow: WorkflowDefinition, 
+    variables: Optional[Dict[str, Any]] = None
+):
+    """Create a thread in the database for workflow execution (API version)."""
+    try:
+        client = await db.client
+        project_result = await client.table('projects').select('account_id').eq('project_id', project_id).execute()
+        if not project_result.data:
+            raise ValueError(f"Project {project_id} not found")
+        
+        account_id = project_result.data[0]['account_id']
+        
+        thread_data = {
+            "thread_id": thread_id,
+            "project_id": project_id,
+            "account_id": account_id,
+            "metadata": {
+                "workflow_id": workflow.id,
+                "workflow_name": workflow.name,
+                "is_workflow_execution": True
+            },
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await client.table('threads').insert(thread_data).execute()
+        
+        # Get the input prompt from the workflow step configuration
+        input_prompt = ""
+        if workflow.steps:
+            main_step = workflow.steps[0]
+            input_prompt = main_step.config.get("input_prompt", "")
+        
+        # Use input prompt if available, otherwise fall back to workflow name/description
+        if input_prompt:
+            initial_message = input_prompt
+        else:
+            initial_message = f"Execute the workflow: {workflow.name}"
+            if workflow.description:
+                initial_message += f"\n\nDescription: {workflow.description}"
+        
+        if variables:
+            initial_message += f"\n\nVariables: {json.dumps(variables, indent=2)}"
+        
+        message_data = {
+            "message_id": str(uuid.uuid4()),
+            "thread_id": thread_id,
+            "type": "user",
+            "is_llm_message": True,
+            "content": json.dumps({"role": "user", "content": initial_message}),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await client.table('messages').insert(message_data).execute()
+        logger.info(f"Created workflow thread {thread_id} for workflow {workflow.id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to create workflow thread: {e}")
+        raise
+
 def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
     """Helper function to map database record to WorkflowDefinition."""
     definition = data.get('definition', {})
+    
+    # Convert steps from dict to WorkflowStep objects
+    raw_steps = definition.get('steps', [])
+    steps = []
+    for step_data in raw_steps:
+        if isinstance(step_data, dict):
+            # Create WorkflowStep object from dict
+            step = WorkflowStep(
+                id=step_data.get('id', ''),
+                name=step_data.get('name', ''),
+                description=step_data.get('description'),
+                type=step_data.get('type', 'TOOL'),
+                config=step_data.get('config', {}),
+                next_steps=step_data.get('next_steps', []),
+                error_handler=step_data.get('error_handler')
+            )
+            steps.append(step)
+        else:
+            # If it's already a WorkflowStep object, use it as is
+            steps.append(step_data)
+    
+    # Convert triggers from dict to WorkflowTrigger objects
+    raw_triggers = definition.get('triggers', [])
+    triggers = []
+    for trigger_data in raw_triggers:
+        if isinstance(trigger_data, dict):
+            trigger = WorkflowTrigger(
+                type=trigger_data.get('type', 'MANUAL'),
+                config=trigger_data.get('config', {})
+            )
+            triggers.append(trigger)
+        else:
+            triggers.append(trigger_data)
+    
     return WorkflowDefinition(
         id=data['id'],
         name=data['name'],
         description=data.get('description'),
-        steps=definition.get('steps', []),
+        steps=steps,
         entry_point=definition.get('entry_point', ''),
-        triggers=definition.get('triggers', []),
+        triggers=triggers,
         state=data.get('status', 'draft').upper(),
         created_at=datetime.fromisoformat(data['created_at']) if data.get('created_at') else None,
         updated_at=datetime.fromisoformat(data['updated_at']) if data.get('updated_at') else None,
@@ -264,6 +360,15 @@ async def execute_workflow(
         data = result.data[0]
         workflow = _map_db_to_workflow_definition(data)
         
+        logger.info(f"[EXECUTE] Loaded workflow {workflow.id} with {len(workflow.steps)} steps")
+        for i, step in enumerate(workflow.steps):
+            if hasattr(step, 'config'):
+                step_config = step.config
+                tools_in_step = step_config.get('tools', []) if isinstance(step_config, dict) else []
+                logger.info(f"[EXECUTE] Step {i} ({step.id}): {len(tools_in_step)} tools - {[t.get('id') if isinstance(t, dict) else t for t in tools_in_step]}")
+            else:
+                logger.info(f"[EXECUTE] Step {i} has no config attribute")
+        
         # Check if workflow is active (allow DRAFT for testing)
         if workflow.state not in ['ACTIVE', 'DRAFT']:
             raise HTTPException(status_code=400, detail="Workflow must be active or draft to execute")
@@ -285,18 +390,45 @@ async def execute_workflow(
         
         await client.table('workflow_executions').insert(execution_data).execute()
         
-        # Generate thread ID for execution
         thread_id = str(uuid.uuid4())
         
-        # Start execution in background
-        asyncio.create_task(
-            _execute_workflow_background(workflow, request.variables, execution_id, thread_id)
+        await _create_workflow_thread_for_api(thread_id, workflow.project_id, workflow, request.variables)
+        
+        agent_run = await client.table('agent_runs').insert({
+            "thread_id": thread_id, 
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        agent_run_id = agent_run.data[0]['id']
+        logger.info(f"Created agent run for workflow: {agent_run_id}")
+        
+        from run_workflow_background import run_workflow_background
+        if hasattr(workflow, 'model_dump'):
+            workflow_dict = workflow.model_dump(mode='json')
+        else:
+            workflow_dict = workflow.dict()
+            if 'created_at' in workflow_dict and workflow_dict['created_at']:
+                workflow_dict['created_at'] = workflow_dict['created_at'].isoformat()
+            if 'updated_at' in workflow_dict and workflow_dict['updated_at']:
+                workflow_dict['updated_at'] = workflow_dict['updated_at'].isoformat()
+        
+        run_workflow_background.send(
+            execution_id=execution_id,
+            workflow_id=workflow_id,
+            workflow_name=workflow.name,
+            workflow_definition=workflow_dict,
+            variables=request.variables,
+            triggered_by="MANUAL",
+            project_id=workflow.project_id,
+            thread_id=thread_id,
+            agent_run_id=agent_run_id
         )
         
         return {
             "execution_id": execution_id,
             "thread_id": thread_id,
-            "status": "pending",
+            "agent_run_id": agent_run_id,
+            "status": "running",
             "message": "Workflow execution started"
         }
         
@@ -306,46 +438,196 @@ async def execute_workflow(
         logger.error(f"Error executing workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def _execute_workflow_background(
-    workflow: WorkflowDefinition,
-    variables: Optional[Dict[str, Any]],
+@router.get("/workflows/executions/{execution_id}/stream")
+async def stream_workflow_execution(
     execution_id: str,
-    thread_id: str
+    token: Optional[str] = None,
+    request: Request = None
 ):
-    """Execute workflow in background."""
-    try:
-        client = await db.client
-        
-        # Update status to running
-        await client.table('workflow_executions').update({
-            "status": "running",
-            "started_at": datetime.now(timezone.utc).isoformat()
-        }).eq('id', execution_id).execute()
-        
-        # Execute workflow
-        async for update in workflow_executor.execute_workflow(
-            workflow=workflow,
-            variables=variables,
-            thread_id=thread_id,
-            project_id=workflow.project_id
-        ):
-            # Log updates but don't stream them for now
-            logger.info(f"Workflow {workflow.id} update: {update.get('type', 'unknown')}")
-        
-        # Mark as completed
-        await client.table('workflow_executions').update({
-            "status": "completed",
-            "completed_at": datetime.now(timezone.utc).isoformat()
-        }).eq('id', execution_id).execute()
-        
-    except Exception as e:
-        logger.error(f"Background workflow execution failed: {e}")
-        client = await db.client
-        await client.table('workflow_executions').update({
-            "status": "failed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "error": str(e)
-        }).eq('id', execution_id).execute()
+    """Stream the responses of a workflow execution using Redis Lists and Pub/Sub."""
+    logger.info(f"Starting stream for workflow execution: {execution_id}")
+    
+    from utils.auth_utils import get_user_id_from_stream_auth
+    import services.redis as redis
+    
+    user_id = await get_user_id_from_stream_auth(request, token)
+    
+    # Verify execution exists and belongs to user
+    client = await db.client
+    execution_result = await client.table('workflow_executions').select('*').eq('id', execution_id).execute()
+    
+    if not execution_result.data:
+        raise HTTPException(status_code=404, detail="Workflow execution not found")
+    
+    execution_data = execution_result.data[0]
+    
+    # Verify user has access to this execution
+    if execution_data['account_id'] != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    response_list_key = f"workflow_execution:{execution_id}:responses"
+    response_channel = f"workflow_execution:{execution_id}:new_response"
+    control_channel = f"workflow_execution:{execution_id}:control"
+
+    async def stream_generator():
+        logger.debug(f"Streaming responses for workflow execution {execution_id} using Redis list {response_list_key}")
+        last_processed_index = -1
+        pubsub_response = None
+        pubsub_control = None
+        listener_task = None
+        terminate_stream = False
+        initial_yield_complete = False
+
+        try:
+            # 1. Fetch and yield initial responses from Redis list
+            initial_responses_json = await redis.lrange(response_list_key, 0, -1)
+            initial_responses = []
+            if initial_responses_json:
+                initial_responses = [json.loads(r) for r in initial_responses_json]
+                logger.debug(f"Sending {len(initial_responses)} initial responses for workflow execution {execution_id}")
+                for response in initial_responses:
+                    yield f"data: {json.dumps(response)}\n\n"
+                last_processed_index = len(initial_responses) - 1
+            initial_yield_complete = True
+
+            # 2. Check execution status *after* yielding initial data
+            run_status = await client.table('workflow_executions').select('status').eq("id", execution_id).maybe_single().execute()
+            current_status = run_status.data.get('status') if run_status.data else None
+
+            if current_status not in ['running', 'pending']:
+                logger.info(f"Workflow execution {execution_id} is not running (status: {current_status}). Ending stream.")
+                yield f"data: {json.dumps({'type': 'workflow_status', 'status': 'completed'})}\n\n"
+                return
+
+            # 3. Set up Pub/Sub listeners for new responses and control signals
+            pubsub_response = await redis.create_pubsub()
+            await pubsub_response.subscribe(response_channel)
+            logger.debug(f"Subscribed to response channel: {response_channel}")
+
+            pubsub_control = await redis.create_pubsub()
+            await pubsub_control.subscribe(control_channel)
+            logger.debug(f"Subscribed to control channel: {control_channel}")
+
+            # Queue to communicate between listeners and the main generator loop
+            message_queue = asyncio.Queue()
+
+            async def listen_messages():
+                response_reader = pubsub_response.listen()
+                control_reader = pubsub_control.listen()
+                tasks = [asyncio.create_task(response_reader.__anext__()), asyncio.create_task(control_reader.__anext__())]
+
+                while not terminate_stream:
+                    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                    for task in done:
+                        try:
+                            message = task.result()
+                            if message and isinstance(message, dict) and message.get("type") == "message":
+                                channel = message.get("channel")
+                                data = message.get("data")
+                                if isinstance(data, bytes): data = data.decode('utf-8')
+
+                                if channel == response_channel and data == "new":
+                                    await message_queue.put({"type": "new_response"})
+                                elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
+                                    logger.info(f"Received control signal '{data}' for workflow execution {execution_id}")
+                                    await message_queue.put({"type": "control", "data": data})
+                                    return
+
+                        except StopAsyncIteration:
+                            logger.warning(f"Listener {task} stopped.")
+                            await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
+                            return
+                        except Exception as e:
+                            logger.error(f"Error in listener for workflow execution {execution_id}: {e}")
+                            await message_queue.put({"type": "error", "data": "Listener failed"})
+                            return
+                        finally:
+                            # Reschedule the completed listener task
+                            if task in tasks:
+                                tasks.remove(task)
+                                if message and isinstance(message, dict) and message.get("channel") == response_channel:
+                                     tasks.append(asyncio.create_task(response_reader.__anext__()))
+                                elif message and isinstance(message, dict) and message.get("channel") == control_channel:
+                                     tasks.append(asyncio.create_task(control_reader.__anext__()))
+
+                # Cancel pending listener tasks on exit
+                for p_task in pending: p_task.cancel()
+                for task in tasks: task.cancel()
+
+            listener_task = asyncio.create_task(listen_messages())
+
+            # 4. Main loop to process messages from the queue
+            while not terminate_stream:
+                try:
+                    queue_item = await message_queue.get()
+
+                    if queue_item["type"] == "new_response":
+                        # Fetch new responses from Redis list starting after the last processed index
+                        new_start_index = last_processed_index + 1
+                        new_responses_json = await redis.lrange(response_list_key, new_start_index, -1)
+
+                        if new_responses_json:
+                            new_responses = [json.loads(r) for r in new_responses_json]
+                            num_new = len(new_responses)
+                            for response in new_responses:
+                                yield f"data: {json.dumps(response)}\n\n"
+                                # Check if this response signals completion
+                                if response.get('type') == 'workflow_status' and response.get('status') in ['completed', 'failed', 'stopped']:
+                                    logger.info(f"Detected workflow completion via status message in stream: {response.get('status')}")
+                                    terminate_stream = True
+                                    break
+                            last_processed_index += num_new
+                        if terminate_stream: break
+
+                    elif queue_item["type"] == "control":
+                        control_signal = queue_item["data"]
+                        terminate_stream = True
+                        yield f"data: {json.dumps({'type': 'workflow_status', 'status': control_signal})}\n\n"
+                        break
+
+                    elif queue_item["type"] == "error":
+                        logger.error(f"Listener error for workflow execution {execution_id}: {queue_item['data']}")
+                        terminate_stream = True
+                        yield f"data: {json.dumps({'type': 'workflow_status', 'status': 'error'})}\n\n"
+                        break
+
+                except asyncio.CancelledError:
+                     logger.info(f"Stream generator main loop cancelled for workflow execution {execution_id}")
+                     terminate_stream = True
+                     break
+                except Exception as loop_err:
+                    logger.error(f"Error in stream generator main loop for workflow execution {execution_id}: {loop_err}", exc_info=True)
+                    terminate_stream = True
+                    yield f"data: {json.dumps({'type': 'workflow_status', 'status': 'error', 'message': f'Stream failed: {loop_err}'})}\n\n"
+                    break
+
+        except Exception as e:
+            logger.error(f"Error setting up stream for workflow execution {execution_id}: {e}", exc_info=True)
+            if not initial_yield_complete:
+                 yield f"data: {json.dumps({'type': 'workflow_status', 'status': 'error', 'message': f'Failed to start stream: {e}'})}\n\n"
+        finally:
+            terminate_stream = True
+            if pubsub_response: await pubsub_response.unsubscribe(response_channel)
+            if pubsub_control: await pubsub_control.unsubscribe(control_channel)
+            if pubsub_response: await pubsub_response.close()
+            if pubsub_control: await pubsub_control.close()
+
+            if listener_task:
+                listener_task.cancel()
+                try:
+                    await listener_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"listener_task ended with: {e}")
+            await asyncio.sleep(0.1)
+            logger.debug(f"Streaming cleanup complete for workflow execution: {execution_id}")
+
+    return StreamingResponse(stream_generator(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive",
+        "X-Accel-Buffering": "no", "Content-Type": "text/event-stream",
+        "Access-Control-Allow-Origin": "*"
+    })
 
 @router.get("/workflows/{workflow_id}/flow", response_model=WorkflowFlow)
 async def get_workflow_flow(
@@ -355,12 +637,9 @@ async def get_workflow_flow(
     """Get the visual flow representation of a workflow."""
     try:
         client = await db.client
-        
-        # Get workflow flow data
         result = await client.table('workflow_flows').select('*').eq('workflow_id', workflow_id).execute()
         
         if result.data:
-            # Return stored flow data
             data = result.data[0]
             return WorkflowFlow(
                 nodes=data.get('nodes', []),
@@ -368,7 +647,6 @@ async def get_workflow_flow(
                 metadata=data.get('metadata', {})
             )
         
-        # If no flow data exists, get the workflow and generate a basic flow
         workflow_result = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', user_id).execute()
         
         if not workflow_result.data:
@@ -376,14 +654,10 @@ async def get_workflow_flow(
         
         workflow_data = workflow_result.data[0]
         
-        # Generate a basic flow from the workflow metadata
         metadata = {
             "name": workflow_data.get('name', 'Untitled Workflow'),
             "description": workflow_data.get('description', '')
         }
-        
-        # For now, return empty flow with proper metadata
-        # In the future, we could implement reverse conversion from workflow definition to visual flow
         return WorkflowFlow(
             nodes=[],
             edges=[],
@@ -405,13 +679,10 @@ async def update_workflow_flow(
     """Update the visual flow of a workflow and convert it to executable definition."""
     try:
         client = await db.client
-        
-        # Check if workflow exists and belongs to user
         existing = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', user_id).execute()
         if not existing.data:
             raise HTTPException(status_code=404, detail="Workflow not found")
         
-        # Store the flow data (convert Pydantic models to dicts)
         flow_data = {
             'workflow_id': workflow_id,
             'nodes': [node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in flow.nodes],
@@ -420,10 +691,7 @@ async def update_workflow_flow(
             'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
-        # Upsert flow data
         await client.table('workflow_flows').upsert(flow_data).execute()
-        
-        # Convert flow to workflow definition
         workflow_def = workflow_converter.convert_flow_to_workflow(
             nodes=[node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in flow.nodes],
             edges=[edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in flow.edges],
@@ -434,7 +702,6 @@ async def update_workflow_flow(
             }
         )
         
-        # Update workflow with converted definition
         current_definition = existing.data[0].get('definition', {})
         current_definition.update({
             'steps': [step.model_dump() if hasattr(step, 'model_dump') else step.dict() for step in workflow_def.steps],
@@ -446,7 +713,6 @@ async def update_workflow_flow(
             'definition': current_definition
         }
         
-        # Update metadata if provided
         if flow.metadata.get('name'):
             update_data['name'] = flow.metadata['name']
         if flow.metadata.get('description'):
@@ -460,13 +726,11 @@ async def update_workflow_flow(
         data = result.data[0]
         updated_workflow = _map_db_to_workflow_definition(data)
         
-        # Handle scheduling if workflow is active and has schedule triggers
         if updated_workflow.state == 'ACTIVE':
             has_schedule_trigger = any(trigger.type == 'SCHEDULE' for trigger in updated_workflow.triggers)
             if has_schedule_trigger:
                 await workflow_scheduler.schedule_workflow(updated_workflow)
         else:
-            # Unschedule if workflow is not active
             await workflow_scheduler.unschedule_workflow(workflow_id)
         
         return updated_workflow
@@ -487,8 +751,7 @@ async def convert_flow_to_workflow(
     try:
         if not x_project_id:
             raise HTTPException(status_code=400, detail="Project ID is required")
-        
-        # Convert flow to workflow definition
+
         workflow_def = workflow_converter.convert_flow_to_workflow(
             nodes=[node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in request.nodes],
             edges=[edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in request.edges],
@@ -519,7 +782,6 @@ async def validate_workflow_flow_endpoint(request: WorkflowValidateRequest):
 async def get_builder_nodes():
     """Get available node types for the workflow builder."""
     try:
-        # Return the available node types that can be used in workflows
         nodes = [
             {
                 "id": "inputNode",
@@ -669,8 +931,8 @@ async def get_workflow_templates():
                 "id": data['id'],
                 "name": data['name'],
                 "description": data.get('description'),
-                "category": "general",  # Could be extracted from metadata
-                "preview_image": None,  # Could be added later
+                "category": "general",
+                "preview_image": None,
                 "created_at": data.get('created_at')
             }
             templates.append(template)
@@ -694,15 +956,11 @@ async def create_workflow_from_template(
             raise HTTPException(status_code=400, detail="Project ID is required")
         
         client = await db.client
-        
-        # Get template
         template_result = await client.table('workflows').select('*').eq('id', template_id).eq('is_template', True).execute()
         if not template_result.data:
             raise HTTPException(status_code=404, detail="Template not found")
         
         template_data = template_result.data[0]
-        
-        # Create new workflow from template
         workflow_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
         
@@ -748,8 +1006,6 @@ async def get_scheduler_status(
     """Get information about currently scheduled workflows."""
     try:
         scheduled_workflows = await workflow_scheduler.get_scheduled_workflows()
-        
-        # Filter to only show workflows owned by the current user
         client = await db.client
         user_workflows = await client.table('workflows').select('id').eq('created_by', user_id).execute()
         user_workflow_ids = {w['id'] for w in user_workflows.data}

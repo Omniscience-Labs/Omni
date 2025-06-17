@@ -17,10 +17,15 @@ import os
 from services.langfuse import langfuse
 from utils.retry import retry
 
-rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')
-rabbitmq_port = int(os.getenv('RABBITMQ_PORT', 5672))
-rabbitmq_broker = RabbitmqBroker(host=rabbitmq_host, port=rabbitmq_port, middleware=[dramatiq.middleware.AsyncIO()])
-dramatiq.set_broker(rabbitmq_broker)
+try:
+    broker = dramatiq.get_broker()
+    if not any(isinstance(m, dramatiq.middleware.AsyncIO) for m in broker.middleware):
+        broker.add_middleware(dramatiq.middleware.AsyncIO())
+except RuntimeError:
+    rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')
+    rabbitmq_port = int(os.getenv('RABBITMQ_PORT', 5672))
+    rabbitmq_broker = RabbitmqBroker(host=rabbitmq_host, port=rabbitmq_port, middleware=[dramatiq.middleware.AsyncIO()])
+    dramatiq.set_broker(rabbitmq_broker)
 
 _initialized = False
 db = DBConnection()
@@ -30,9 +35,7 @@ async def initialize():
     """Initialize the agent API with resources from the main API."""
     global db, instance_id, _initialized
 
-    # Use provided instance_id or generate a new one
     if not instance_id:
-        # Generate instance ID
         instance_id = str(uuid.uuid4())[:8]
     await retry(lambda: redis.initialize_async())
     await db.initialize()
