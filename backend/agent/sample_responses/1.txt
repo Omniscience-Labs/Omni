@@ -8,7 +8,10 @@ Let me create a plan and get started right away.
 
 First, I'll create a structured plan in a todo.md file to organize my approach:
 
-<create-file file_path="todo.md">
+<function_calls>
+<invoke name="create_file">
+<parameter name="file_path">todo.md</parameter>
+<parameter name="file_contents">
 # Pong Game Development Plan
 
 ## Project Setup
@@ -37,13 +40,17 @@ First, I'll create a structured plan in a todo.md file to organize my approach:
 - [ ] Test scoring
 - [ ] Test on different screen sizes
 - [ ] Final review and adjustments
-</create-file>
+</parameter>
+</invoke>
 
 Now I'll start implementing the basic structure of our Pong game:
 
 ### Creating the HTML File
 
-<create-file file_path="index.html">
+<function_calls>
+<invoke name="create_file">
+<parameter name="file_path">index.html</parameter>
+<parameter name="file_contents">
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -73,11 +80,15 @@ Now I'll start implementing the basic structure of our Pong game:
     <script src="script.js"></script>
 </body>
 </html>
-</create-file>
+</parameter>
+</invoke>
 
 ### Creating the CSS File
 
-<create-file file_path="style.css">
+<function_calls>
+<invoke name="create_file">
+<parameter name="file_path">style.css</parameter>
+<parameter name="file_contents">
 body {
     margin: 0;
     padding: 0;
@@ -165,13 +176,17 @@ button:disabled {
         aspect-ratio: 2 / 1;
     }
 }
-</create-file>
+</parameter>
+</invoke>
 
 ### Creating the JavaScript File
 
 Now, I'll implement the game logic in the JavaScript file:
 
-<create-file file_path="script.js">
+<function_calls>
+<invoke name="create_file">
+<parameter name="file_path">script.js</parameter>
+<parameter name="file_contents">
 // Canvas setup
 const canvas = document.getElementById('pong');
 const context = canvas.getContext('2d');
@@ -584,13 +599,17 @@ restartButton.addEventListener('click', () => {
 
 // Initial render to show the game state before starting
 render();
-</create-file>
+</parameter>
+</invoke>
 
 ## Updating Todo List
 
 Let me update our todo.md file to reflect our progress:
 
-<full-file-rewrite file_path="todo.md">
+<function_calls>
+<invoke name="full_file_rewrite">
+<parameter name="file_path">todo.md</parameter>
+<parameter name="file_contents">
 # Pong Game Development Plan
 
 ## Project Setup
@@ -619,49 +638,61 @@ Let me update our todo.md file to reflect our progress:
 - [x] Test scoring
 - [x] Test on different screen sizes
 - [x] Final review and adjustments
-</full-file-rewrite>
+</parameter>
+</invoke>
 
 ## Testing the Game
 
 Now, let's start a local server to test our Pong game:
 
-<execute-command session_name="pong_server" blocking="false">
-python -m http.server 8000
-</execute-command>
+<function_calls>
+<invoke name="execute_command">
+<parameter name="session_name">pong_server</parameter>
+<parameter name="blocking">false</parameter>
+<parameter name="command">python -m http.server 8000</parameter>
+</invoke>
 
 Now let's expose the port so you can try the game directly:
 
-<expose-port>
-8000
-</expose-port>
+<function_calls>
+<invoke name="expose_port">
+<parameter name="port">8000</parameter>
+</invoke>
 
 ## Final Check and Validation
 
 Let me perform some final checks to ensure everything is working correctly:
 
-<execute-command session_name="list_files_final_check" blocking="true">
-ls -la
-</execute-command>
+<function_calls>
+<invoke name="execute_command">
+<parameter name="session_name">list_files_final_check</parameter>
+<parameter name="blocking">true</parameter>
+<parameter name="command">ls -la</parameter>
+</invoke>
 
 Let's update our todo list to mark the testing as complete:
 
-<str-replace file_path="todo.md">
-    <old_str>## Testing
+<function_calls>
+<invoke name="str_replace">
+<parameter name="file_path">todo.md</parameter>
+<parameter name="old_str">## Testing
 - [ ] Test game mechanics
 - [ ] Test collision detection
 - [ ] Test scoring
 - [ ] Test on different screen sizes
-- [ ] Final review and adjustments</old_str>
-    <new_str>## Testing
+- [ ] Final review and adjustments</parameter>
+<parameter name="new_str">## Testing
 - [x] Test game mechanics
 - [x] Test collision detection
 - [x] Test scoring
 - [x] Test on different screen sizes
-- [x] Final review and adjustments</new_str>
-</str-replace>
+- [x] Final review and adjustments</parameter>
+</invoke>
 
-<ask attachments="index.html,style.css,script.js">
-I've built a classic Pong game for you! The game features:
+<function_calls>
+<invoke name="ask">
+<parameter name="attachments">index.html,style.css,script.js</parameter>
+<parameter name="message">I've built a classic Pong game for you! The game features:
 
 1. Player vs Computer gameplay
 2. Responsive design that works on different screen sizes
@@ -682,5 +713,5 @@ Would you like me to make any adjustments or enhancements to the game? Perhaps:
 - Change the winning score
 - Adjust the AI difficulty
 - Modify the visual style
-- Add additional features
-</ask>
+- Add additional features</parameter>
+</invoke>
