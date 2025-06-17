@@ -345,26 +345,34 @@ async def run_agent(
                         "type": "text",
                         "text": f"The following is the current state of the browser:\n{json.dumps(browser_state_text, indent=2)}"
                     })
-                    
-                # Prioritize screenshot_url if available
-                if screenshot_url:
-                    temp_message_content_list.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": screenshot_url,
-                            "format": "image/jpeg"
-                        }
-                    })
-                elif screenshot_base64:
-                    # Fallback to base64 if URL not available
-                    temp_message_content_list.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{screenshot_base64}",
-                        }
-                    })
+                
+                # Only add screenshot if model is not Gemini, Anthropic, or OpenAI
+                if 'gemini' in model_name.lower() or 'anthropic' in model_name.lower() or 'openai' in model_name.lower():
+                    # Prioritize screenshot_url if available
+                    if screenshot_url:
+                        temp_message_content_list.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": screenshot_url,
+                                "format": "image/jpeg"
+                            }
+                        })
+                        trace.event(name="screenshot_url_added_to_temporary_message", level="DEFAULT", status_message=(f"Screenshot URL added to temporary message."))
+                    elif screenshot_base64:
+                        # Fallback to base64 if URL not available
+                        temp_message_content_list.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{screenshot_base64}",
+                            }
+                        })
+                        trace.event(name="screenshot_base64_added_to_temporary_message", level="WARNING", status_message=(f"Screenshot base64 added to temporary message. Prefer screenshot_url if available."))
+                    else:
+                        logger.warning("Browser state found but no screenshot data.")
+                        trace.event(name="browser_state_found_but_no_screenshot_data", level="WARNING", status_message=(f"Browser state found but no screenshot data."))
                 else:
-                    logger.warning("Browser state found but no screenshot data.")
+                    logger.warning("Model is Gemini, Anthropic, or OpenAI, so not adding screenshot to temporary message.")
+                    trace.event(name="model_is_gemini_anthropic_or_openai", level="WARNING", status_message=(f"Model is Gemini, Anthropic, or OpenAI, so not adding screenshot to temporary message."))
 
             except Exception as e:
                 logger.error(f"Error parsing browser state: {e}")
