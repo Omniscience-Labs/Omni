@@ -18,22 +18,10 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { 
-  Plus, 
-  Settings, 
   Play, 
   Save, 
-  Share, 
-  Zap,
   Workflow,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-  CheckCircle,
-  XCircle
 } from "lucide-react";
 import NodePalette from "./NodePalette";
 import WorkflowSettings from "./WorkflowSettings";
@@ -43,7 +31,7 @@ import InputNode from "./nodes/InputNode";
 import { getProjects, createWorkflow, updateWorkflow, getWorkflow, executeWorkflow, type WorkflowNode, type WorkflowEdge } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { validateWorkflow, canConnect, type ValidationResult } from "./WorkflowValidator";
+import { validateWorkflow, type ValidationResult } from "./WorkflowValidator";
 import { WorkflowProvider } from "./WorkflowContext";
 
 const nodeTypes = {
@@ -639,7 +627,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
           )} */}
 
           <div className="flex-1 border border-border/50 bg-muted/50 backdrop-blur-sm overflow-hidden">
-            <WorkflowProvider updateNodeData={updateNodeData}>
+            <WorkflowProvider updateNodeData={updateNodeData} workflowId={workflowId}>
               <ReactFlow
                 nodes={nodes}
                 edges={edges}

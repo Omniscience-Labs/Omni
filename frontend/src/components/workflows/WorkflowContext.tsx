@@ -4,19 +4,22 @@ import { createContext, useContext, ReactNode } from "react";
 
 interface WorkflowContextType {
   updateNodeData: (nodeId: string, updates: any) => void;
+  workflowId?: string;
 }
 
 const WorkflowContext = createContext<WorkflowContextType | null>(null);
 
 export function WorkflowProvider({ 
   children, 
-  updateNodeData 
+  updateNodeData,
+  workflowId
 }: { 
   children: ReactNode;
   updateNodeData: (nodeId: string, updates: any) => void;
+  workflowId?: string;
 }) {
   return (
-    <WorkflowContext.Provider value={{ updateNodeData }}>
+    <WorkflowContext.Provider value={{ updateNodeData, workflowId }}>
       {children}
     </WorkflowContext.Provider>
   );

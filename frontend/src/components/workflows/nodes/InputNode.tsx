@@ -14,25 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import KeyValueEditor from "../KeyValueEditor";
 import { useWorkflow } from "../WorkflowContext";
-
-interface SlackWebhookConfig {
-  webhook_url: string;
-  signing_secret: string;
-  channel?: string;
-  username?: string;
-}
-
-interface WebhookConfig {
-  type: 'slack' | 'generic';
-  method?: 'POST' | 'GET' | 'PUT';
-  authentication?: 'none' | 'api_key' | 'bearer';
-  slack?: SlackWebhookConfig;
-  generic?: {
-    url: string;
-    headers?: Record<string, string>;
-    auth_token?: string;
-  };
-}
+import { WebhookConfigDialog } from "../webhooks/WebhookConfigDialog";
+import { WebhookConfig } from "../webhooks/types";
 
 interface InputNodeData {
   label?: string;
@@ -53,7 +36,8 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const nodeData = data as InputNodeData;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const { updateNodeData } = useWorkflow();
+  const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
+  const { updateNodeData, workflowId } = useWorkflow();
 
   const getTriggerIcon = () => {
     switch (nodeData.trigger_type) {
@@ -135,24 +119,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
           </p>
         </div>
 
-        {/* Variables Preview */}
-        {nodeData.variables && Object.keys(nodeData.variables).length > 0 && (
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground">Variables</Label>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {Object.keys(nodeData.variables).slice(0, 3).map((key) => (
-                <Badge key={key} variant="outline" className="text-xs">
-                  {key}
-                </Badge>
-              ))}
-              {Object.keys(nodeData.variables).length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{Object.keys(nodeData.variables).length - 3} more
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
+
 
         <Separator />
 
@@ -183,7 +150,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               />
             </div>
 
-            {/* <div className="space-y-2">
+            <div className="space-y-2">
               <Label className="text-sm font-medium">Trigger Type *</Label>
               <Select
                 value={nodeData.trigger_type || 'MANUAL'}
@@ -215,7 +182,70 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                   </SelectItem>
                 </SelectContent>
               </Select>
-            </div> */}
+            </div>
+
+            {/* Webhook Configuration */}
+            {nodeData.trigger_type === 'WEBHOOK' && (
+              <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                <Label className="text-sm font-medium">Webhook Configuration</Label>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Webhook Provider</Label>
+                    <Select
+                      value={nodeData.webhook_config?.type || 'slack'}
+                      onValueChange={(value: 'slack' | 'generic') =>
+                        updateNodeData(id, {
+                          webhook_config: {
+                            ...nodeData.webhook_config,
+                            type: value
+                          }
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="slack">Slack Webhook</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(nodeData.webhook_config?.type === 'slack' || !nodeData.webhook_config?.type) && (
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Initialize webhook config if not exists
+                          if (!nodeData.webhook_config) {
+                            updateNodeData(id, {
+                              webhook_config: {
+                                type: 'slack',
+                                method: 'POST',
+                                authentication: 'none'
+                              }
+                            });
+                          }
+                          setIsWebhookDialogOpen(true);
+                        }}
+                        className="w-full"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configure Slack Webhook
+                      </Button>
+                      
+                      {nodeData.webhook_config?.slack?.webhook_url && nodeData.webhook_config?.slack?.signing_secret && (
+                        <div className="text-xs text-muted-foreground">
+                          ✓ Slack webhook configured
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* {nodeData.trigger_type === 'SCHEDULE' && (
               <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
@@ -527,17 +557,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               </div>
             )} */}
 
-            {/* <div className="space-y-2">
-              <Label className="text-sm font-medium">Default Variables</Label>
-              <KeyValueEditor
-                values={nodeData.variables || {}}
-                onChange={(variables) => updateNodeData(id, { variables })}
-                placeholder={{
-                  key: "Variable name",
-                  value: "Default value"
-                }}
-              />
-            </div> */}
+
           </CollapsibleContent>
         </Collapsible>
       </CardContent>
@@ -547,6 +567,16 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
         position={Position.Right}
         className="w-3 h-3 !bg-primary !border-primary-foreground"
         style={{ right: -6 }}
+      />
+
+      <WebhookConfigDialog
+        open={isWebhookDialogOpen}
+        onOpenChange={setIsWebhookDialogOpen}
+        config={nodeData.webhook_config}
+        workflowId={workflowId || id}
+        onSave={(config) => {
+          updateNodeData(id, { webhook_config: config });
+        }}
       />
     </div>
   );

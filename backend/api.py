@@ -149,6 +149,10 @@ from workflows import api as workflows_api
 workflows_api.initialize(db)
 app.include_router(workflows_api.router, prefix="/api")
 
+from webhooks import api as webhooks_api
+webhooks_api.initialize(db)
+app.include_router(webhooks_api.router, prefix="/api")
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint to verify API is working."""

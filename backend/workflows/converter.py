@@ -102,16 +102,46 @@ class WorkflowConverter:
             triggers.append(WorkflowTrigger(type="MANUAL", config={}))
         
         elif input_config.trigger_type == 'WEBHOOK':
-            webhook_config = input_config.webhook_config or {}
-            triggers.append(WorkflowTrigger(
-                type="WEBHOOK", 
-                config={
-                    "webhook_url": webhook_config.get('webhook_url'),
-                    "method": webhook_config.get('method', 'POST'),
-                    "headers": webhook_config.get('headers', {}),
-                    "authentication": webhook_config.get('authentication')
-                }
-            ))
+            webhook_config = input_config.webhook_config
+            if webhook_config:
+                if hasattr(webhook_config, 'type'):
+                    trigger_config = {
+                        "type": webhook_config.type or 'slack',
+                        "method": webhook_config.method or 'POST',
+                        "authentication": webhook_config.authentication or 'none'
+                    }
+                    
+                    if webhook_config.type == 'slack' and webhook_config.slack:
+                        slack_config = webhook_config.slack
+                        if hasattr(slack_config, 'model_dump'):
+                            trigger_config['slack'] = slack_config.model_dump()
+                        elif hasattr(slack_config, 'dict'):
+                            trigger_config['slack'] = slack_config.dict()
+                        else:
+                            trigger_config['slack'] = slack_config
+                    elif webhook_config.generic:
+                        generic_config = webhook_config.generic
+                        if hasattr(generic_config, 'model_dump'):
+                            trigger_config['generic'] = generic_config.model_dump()
+                        elif hasattr(generic_config, 'dict'):
+                            trigger_config['generic'] = generic_config.dict()
+                        else:
+                            trigger_config['generic'] = generic_config
+                else:
+                    trigger_config = {
+                        "type": webhook_config.get('type', 'slack'),
+                        "method": webhook_config.get('method', 'POST'),
+                        "authentication": webhook_config.get('authentication', 'none')
+                    }
+                    
+                    if webhook_config.get('type') == 'slack' and webhook_config.get('slack'):
+                        trigger_config['slack'] = webhook_config['slack']
+                    elif webhook_config.get('generic'):
+                        trigger_config['generic'] = webhook_config['generic']
+                
+                triggers.append(WorkflowTrigger(type="WEBHOOK", config=trigger_config))
+            else:
+                triggers.append(WorkflowTrigger(type="WEBHOOK", config={"type": "slack", "method": "POST", "authentication": "none"}))
         
         elif input_config.trigger_type == 'SCHEDULE':
             if input_config.schedule_config:
