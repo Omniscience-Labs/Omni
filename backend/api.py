@@ -139,6 +139,7 @@ from mcp_local import api as mcp_api
 
 app.include_router(mcp_api.router, prefix="/api")
 
+
 app.include_router(transcription_api.router, prefix="/api")
 
 app.include_router(email_api.router, prefix="/api")
