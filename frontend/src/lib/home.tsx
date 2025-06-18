@@ -1501,7 +1501,7 @@ export const siteConfig = {
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-        >
+        > 
           <path
             d="M4.75 11.75L10.25 6.25L14.75 10.75L19.25 6.25"
             stroke="currentColor"
