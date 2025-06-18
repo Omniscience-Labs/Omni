@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from services import redis
 from agent.run import run_agent
-from utils.logger import logger
+from utils.logger import logger, structlog
 import dramatiq
 import uuid
 from agentpress.thread_manager import ThreadManager
@@ -54,9 +54,18 @@ async def run_agent_background(
     enable_context_manager: bool,
     agent_config: Optional[dict] = None,
     is_agent_builder: Optional[bool] = False,
-    target_agent_id: Optional[str] = None
+    target_agent_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ):
     """Run the agent in the background using Redis for state."""
+    structlog.contextvars.clear_contextvars()
+
+    structlog.contextvars.bind_contextvars(
+        agent_run_id=agent_run_id,
+        thread_id=thread_id,
+        request_id=request_id,
+    )
+
     try:
         await initialize()
     except Exception as e:
@@ -85,6 +94,16 @@ async def run_agent_background(
     sentry.sentry.set_tag("thread_id", thread_id)
 
     logger.info(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
+    logger.info({
+        "model_name": model_name,
+        "enable_thinking": enable_thinking,
+        "reasoning_effort": reasoning_effort,
+        "stream": stream,
+        "enable_context_manager": enable_context_manager,
+        "agent_config": agent_config,
+        "is_agent_builder": is_agent_builder,
+        "target_agent_id": target_agent_id,
+    })
     logger.info(f"🚀 Using model: {model_name} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     if agent_config:
         logger.info(f"Using custom agent: {agent_config.get('name', 'Unknown')}")
