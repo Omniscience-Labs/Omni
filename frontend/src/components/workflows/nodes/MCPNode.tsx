@@ -6,10 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { GitBranch, MessageSquare, Database, Cloud, Settings, Server, Plus, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { GitBranch, MessageSquare, Database, Cloud, Settings, Server, Plus, Sparkles, User, Star } from "lucide-react";
 import { MCPConfigurationNew } from "@/app/(dashboard)/agents/_components/mcp/mcp-configuration-new";
 import { useWorkflow } from "../WorkflowContext";
-import { useUserCredentials } from "@/hooks/react-query/secure-mcp/use-secure-mcp";
+import { useCredentialProfilesForMcp, useGetDefaultProfile } from "@/hooks/react-query/mcp/use-credential-profiles";
 import { useMCPServerDetails } from "@/hooks/react-query/mcp/use-mcp-servers";
 
 interface MCPNodeData {
@@ -22,6 +24,7 @@ interface MCPNodeData {
   tools?: any[];
   iconUrl?: string;
   isConfigured?: boolean;
+  selectedProfileId?: string;
   customConfig?: {
     type: string;
     config: any;
@@ -33,8 +36,15 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const { updateNodeData } = useWorkflow();
   
-  // Fetch user's MCP credentials to check if this server is already configured
-  const { data: mcpCredentials } = useUserCredentials();
+  // Fetch credential profiles for this MCP server
+  const { data: credentialProfiles } = useCredentialProfilesForMcp(
+    nodeData.mcpType === "smithery" ? nodeData.qualifiedName || null : null
+  );
+  
+  // Get the default profile for auto-configuration
+  const defaultProfile = useGetDefaultProfile(
+    nodeData.mcpType === "smithery" ? nodeData.qualifiedName || null : null
+  );
   
   // Fetch MCP server details to get available tools
   const { data: serverDetails } = useMCPServerDetails(
@@ -42,13 +52,13 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
     nodeData.mcpType === "smithery" && !!nodeData.qualifiedName
   );
 
-  // Auto-configure the node if credentials exist for this MCP server
+  // Auto-configure the node if profiles exist for this MCP server
   useEffect(() => {
-    if (nodeData.mcpType === "smithery" && nodeData.qualifiedName && mcpCredentials && !nodeData.isConfigured) {
-      // Check if user has credentials for this MCP server
-      const hasCredentials = mcpCredentials.some(cred => cred.mcp_qualified_name === nodeData.qualifiedName);
+    if (nodeData.mcpType === "smithery" && nodeData.qualifiedName && credentialProfiles && !nodeData.isConfigured) {
+      // Check if user has credential profiles for this MCP server
+      const hasProfiles = credentialProfiles.length > 0;
       
-      if (hasCredentials && serverDetails?.tools && serverDetails.tools.length > 0) {
+      if (hasProfiles && serverDetails?.tools && serverDetails.tools.length > 0) {
         // Auto-configure with all available tools from server details
         const allToolNames = serverDetails.tools.map(tool => tool.name);
         
@@ -56,13 +66,14 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
           isConfigured: true,
           enabledTools: allToolNames,
           config: {}, // Config will be fetched from credential manager by backend
-          tools: serverDetails.tools // Store the tools data for display
+          tools: serverDetails.tools, // Store the tools data for display
+          selectedProfileId: defaultProfile?.profile_id || credentialProfiles[0]?.profile_id // Auto-select default or first profile
         });
         
         console.log(`Auto-configured MCP node ${nodeData.qualifiedName} with tools:`, allToolNames);
       }
     }
-  }, [nodeData.mcpType, nodeData.qualifiedName, nodeData.isConfigured, mcpCredentials, serverDetails, updateNodeData, id]);
+  }, [nodeData.mcpType, nodeData.qualifiedName, nodeData.isConfigured, credentialProfiles, serverDetails, defaultProfile, updateNodeData, id]);
 
   const getIcon = () => {
     if (nodeData.iconUrl) {
@@ -130,6 +141,12 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
     setShowConfigDialog(false);
   };
 
+  const handleProfileChange = (profileId: string) => {
+    updateNodeData(id, {
+      selectedProfileId: profileId
+    });
+  };
+
   const getStatusColor = () => {
     if (nodeData.isConfigured && nodeData.enabledTools.length > 0) {
       return "border-green-500/50 bg-green-500/5";
@@ -159,6 +176,9 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
       </Badge>
     );
   };
+
+  // Get the selected profile for display
+  const selectedProfile = credentialProfiles?.find(profile => profile.profile_id === nodeData.selectedProfileId);
 
   // Prepare the current MCP configuration for the dialog
   const currentMCPConfig = nodeData.mcpType === "smithery" ? {
@@ -212,6 +232,18 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
                 Custom MCP Server
               </p>
             )}
+            
+            {/* Display selected profile */}
+            {nodeData.mcpType === "smithery" && selectedProfile && (
+              <div className="mt-2 flex items-center gap-1">
+                <User className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{selectedProfile.profile_name}</span>
+                {selectedProfile.is_default && (
+                  <Star className="h-3 w-3 text-yellow-500" />
+                )}
+              </div>
+            )}
+            
             {nodeData.isConfigured && nodeData.enabledTools.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {nodeData.enabledTools.slice(0, 2).map((tool, index) => (
@@ -259,49 +291,78 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
 
           <div className="flex-1 overflow-hidden">
             {nodeData.mcpType === "smithery" ? (
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Smithery MCP Server</h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        This server is provided by Smithery. Configure your credentials to enable the tools.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Server Name</label>
-                      <p className="text-sm text-muted-foreground">{nodeData.label}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Qualified Name</label>
-                      <p className="text-sm text-muted-foreground">{nodeData.qualifiedName}</p>
-                    </div>
-                  </div>
-
-                  {displayTools.length > 0 && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Available Tools</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {displayTools.map((tool, index) => (
-                          <div key={index} className="p-3 border rounded-lg">
-                            <div className="font-medium text-sm">{tool.name}</div>
-                            <div className="text-xs text-muted-foreground">{tool.description}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      This MCP server will use the credentials configured in your agent settings. Make sure your agent has the required MCP credentials configured.
+              <div className="p-6 space-y-6">
+                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100">Smithery MCP Server</h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      This server is provided by Smithery. Select a credential profile to use for this workflow.
                     </p>
                   </div>
                 </div>
+
+                {/* Credential Profile Selection */}
+                {credentialProfiles && credentialProfiles.length > 0 ? (
+                  <div className="space-y-3">
+                    <Label htmlFor="profile-select">Credential Profile</Label>
+                    <Select 
+                      value={nodeData.selectedProfileId || ""} 
+                      onValueChange={handleProfileChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a credential profile" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {credentialProfiles.map((profile) => (
+                          <SelectItem key={profile.profile_id} value={profile.profile_id}>
+                            <div className="flex items-center gap-2">
+                              <span>{profile.profile_name}</span>
+                              {profile.is_default && (
+                                <Star className="h-3 w-3 text-yellow-500" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      This profile's credentials will be used when the workflow executes MCP tools.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <h4 className="font-medium text-orange-900 dark:text-orange-100 mb-2">No Credential Profiles Found</h4>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      You need to create a credential profile for this MCP server in the Settings → Credentials page before using it in workflows.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Server Name</label>
+                    <p className="text-sm text-muted-foreground">{nodeData.label}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Qualified Name</label>
+                    <p className="text-sm text-muted-foreground">{nodeData.qualifiedName}</p>
+                  </div>
+                </div>
+
+                {displayTools.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Available Tools</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {displayTools.map((tool, index) => (
+                        <div key={index} className="p-3 border rounded-lg">
+                          <div className="font-medium text-sm">{tool.name}</div>
+                          <div className="text-xs text-muted-foreground">{tool.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-6">

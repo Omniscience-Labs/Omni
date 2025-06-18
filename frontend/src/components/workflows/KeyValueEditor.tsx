@@ -16,7 +16,7 @@ interface KeyValueEditorProps {
   };
 }
 
-export default function KeyValueEditor({ 
+export function KeyValueEditor({ 
   values, 
   onChange, 
   placeholder = { key: "Variable name", value: "Variable value" } 

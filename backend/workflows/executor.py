@@ -335,9 +335,10 @@ class WorkflowExecutor:
                             "name": mcp.get("name", qualified_name),
                             "qualifiedName": qualified_name,
                             "config": mcp.get("config", {}),
-                            "enabledTools": mcp.get("enabledTools", [])
+                            "enabledTools": mcp.get("enabledTools", []),
+                            "selectedProfileId": mcp.get("selectedProfileId")
                         })
-                        logger.info(f"Added configured MCP from workflow step: {qualified_name}")
+                        logger.info(f"Added configured MCP from workflow step: {qualified_name} with profile {mcp.get('selectedProfileId')}")
             
             # Extract custom MCPs from step config
             step_custom_mcps = step_config.get("custom_mcps", [])
@@ -351,9 +352,10 @@ class WorkflowExecutor:
                         "isCustom": True,
                         "customType": mcp.get("type", "sse"),
                         "config": mcp.get("config", {}),
-                        "enabledTools": mcp.get("enabledTools", [])
+                        "enabledTools": mcp.get("enabledTools", []),
+                        "selectedProfileId": mcp.get("selectedProfileId")
                     })
-                    logger.info(f"Added custom MCP from workflow step: {mcp_name}")
+                    logger.info(f"Added custom MCP from workflow step: {mcp_name} with profile {mcp.get('selectedProfileId')}")
         
         from mcp_local.credential_manager import credential_manager
         
@@ -368,41 +370,50 @@ class WorkflowExecutor:
             logger.error(f"Error getting account_id from project: {e}")
             account_id = None
         
-        # For each configured MCP in workflow, get credentials from credential manager
         if account_id:
             for i, mcp in enumerate(configured_mcps):
                 qualified_name = mcp.get("qualifiedName")
-                if qualified_name and not mcp.get("config"):  # Only if config is empty
+                selected_profile_id = mcp.get("selectedProfileId")
+                
+                if qualified_name and not mcp.get("config"):
                     try:
-                        credential = await credential_manager.get_credential(account_id, qualified_name)
+                        if selected_profile_id:
+                            logger.info(f"Using selected profile {selected_profile_id} for MCP {qualified_name}")
+                            credential = await credential_manager.get_credential_by_profile(account_id, selected_profile_id)
+                        else:
+                            logger.info(f"No profile selected, using default profile for MCP {qualified_name}")
+                            credential = await credential_manager.get_default_credential_profile(account_id, qualified_name)
+                        
                         if credential:
                             configured_mcps[i]["config"] = credential.config
-                            logger.info(f"Added credentials for MCP {qualified_name}")
+                            logger.info(f"Added credentials for MCP {qualified_name} using profile: {getattr(credential, 'profile_name', 'legacy')}")
                         else:
-                            logger.warning(f"No credential found for MCP {qualified_name}")
+                            logger.warning(f"No credential profile found for MCP {qualified_name}")
                             
                     except Exception as e:
                         logger.error(f"Error getting credential for MCP {qualified_name}: {e}")
             
-            # For each custom MCP in workflow, get credentials if needed
             for i, mcp in enumerate(custom_mcps):
                 mcp_name = mcp.get("name", "Custom MCP")
                 mcp_type = mcp.get("customType", "sse")
+                selected_profile_id = mcp.get("selectedProfileId")
                 
                 if not mcp.get("config"):  # Only if config is empty
                     try:
-                        # Build qualified name for custom MCP (same pattern as agents)
-                        custom_qualified_name = f"custom_{mcp_type}_{mcp_name.replace(' ', '_').lower()}"
-                        
-                        # Get decrypted credentials from credential manager
-                        credential = await credential_manager.get_credential(account_id, custom_qualified_name)
+                        if selected_profile_id:
+                            logger.info(f"Using selected profile {selected_profile_id} for custom MCP {mcp_name}")
+                            credential = await credential_manager.get_credential_by_profile(account_id, selected_profile_id)
+                        else:
+                            # Fallback to default profile lookup for custom MCPs
+                            custom_qualified_name = f"custom_{mcp_type}_{mcp_name.replace(' ', '_').lower()}"
+                            logger.info(f"No profile selected, using default profile for custom MCP {mcp_name}")
+                            credential = await credential_manager.get_default_credential_profile(account_id, custom_qualified_name)
                         
                         if credential:
-                            # Update the config with decrypted credentials
                             custom_mcps[i]["config"] = credential.config
-                            logger.info(f"Added credentials for custom MCP {mcp_name}")
+                            logger.info(f"Added credentials for custom MCP {mcp_name} using profile: {getattr(credential, 'profile_name', 'legacy')}")
                         else:
-                            logger.warning(f"No credential found for custom MCP {custom_qualified_name}")
+                            logger.warning(f"No credential profile found for custom MCP {mcp_name}")
                             
                     except Exception as e:
                         logger.error(f"Error getting credential for custom MCP {mcp_name}: {e}")

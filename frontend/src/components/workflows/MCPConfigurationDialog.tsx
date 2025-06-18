@@ -10,13 +10,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Settings, Sparkles, Search, Database, GitBranch, MessageSquare, Hash, FileText, Cloud, Globe } from "lucide-react";
+import { Loader2, Save, Settings, Sparkles, Search, Database, GitBranch, MessageSquare, Hash, FileText, Cloud, Globe, Star, AlertTriangle } from "lucide-react";
+import { CredentialProfileSelector } from "./CredentialProfileSelector";
+import { useCredentialProfilesForMcp, type CredentialProfile } from "@/hooks/react-query/mcp/use-credential-profiles";
 
 interface MCPServer {
   id: string;
   name: string;
   description: string;
   icon: any;
+  qualifiedName: string;
   configSchema: {
     properties: Record<string, {
       type: string;
@@ -35,6 +38,8 @@ interface MCPServer {
 interface MCPConfiguration {
   id: string;
   name: string;
+  qualifiedName: string;
+  profileId?: string; // NEW: Reference to credential profile
   config: Record<string, any>;
   enabledTools: string[];
   isConfigured: boolean;
@@ -43,17 +48,19 @@ interface MCPConfiguration {
 interface MCPConfigurationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (configurations: MCPConfiguration[]) => void;
+  onSave: (configurations: MCPConfiguration[], profileMappings: Record<string, string>) => void;
   existingConfigurations?: MCPConfiguration[];
+  existingProfileMappings?: Record<string, string>;
 }
 
-// Mock MCP servers with their configuration schemas
+// Updated mock MCP servers with qualified names
 const mockMCPServers: MCPServer[] = [
   {
     id: "exa",
     name: "Exa Search",
     description: "Advanced web search with AI-powered results",
     icon: Search,
+    qualifiedName: "exa",
     configSchema: {
       properties: {
         exaApiKey: {
@@ -75,6 +82,7 @@ const mockMCPServers: MCPServer[] = [
     name: "GitHub",
     description: "Access GitHub repositories, issues, and pull requests",
     icon: GitBranch,
+    qualifiedName: "github",
     configSchema: {
       properties: {
         githubToken: {
@@ -103,9 +111,10 @@ const mockMCPServers: MCPServer[] = [
     name: "Slack",
     description: "Send messages and interact with Slack workspaces",
     icon: MessageSquare,
+    qualifiedName: "@smithery-ai/slack",
     configSchema: {
       properties: {
-        slackToken: {
+        slackBotToken: {
           type: "string",
           title: "Slack Bot Token",
           description: "Bot token for Slack API (starts with xoxb-)",
@@ -117,12 +126,12 @@ const mockMCPServers: MCPServer[] = [
           description: "Default channel for messages (e.g., #general)"
         }
       },
-      required: ["slackToken"]
+      required: ["slackBotToken"]
     },
     tools: [
-      { name: "send_message", description: "Send a message to a channel" },
-      { name: "list_channels", description: "List available channels" },
-      { name: "get_channel_history", description: "Get channel message history" }
+      { name: "slack_post_message", description: "Send a message to a channel" },
+      { name: "slack_list_channels", description: "List available channels" },
+      { name: "slack_get_channel_history", description: "Get channel message history" }
     ]
   },
   {
@@ -130,6 +139,7 @@ const mockMCPServers: MCPServer[] = [
     name: "PostgreSQL",
     description: "Execute SQL queries and manage PostgreSQL databases",
     icon: Database,
+    qualifiedName: "postgres",
     configSchema: {
       properties: {
         host: {
@@ -166,33 +176,6 @@ const mockMCPServers: MCPServer[] = [
       { name: "list_tables", description: "List database tables" },
       { name: "describe_table", description: "Get table schema" }
     ]
-  },
-  {
-    id: "linear",
-    name: "Linear",
-    description: "Manage Linear issues, projects, and workflows",
-    icon: Hash,
-    configSchema: {
-      properties: {
-        linearApiKey: {
-          type: "string",
-          title: "Linear API Key",
-          description: "Your Linear API key",
-          format: "password"
-        },
-        teamId: {
-          type: "string",
-          title: "Team ID",
-          description: "Default team ID for operations"
-        }
-      },
-      required: ["linearApiKey"]
-    },
-    tools: [
-      { name: "create_issue", description: "Create a new issue" },
-      { name: "list_issues", description: "List team issues" },
-      { name: "update_issue", description: "Update an issue" }
-    ]
   }
 ];
 
@@ -200,17 +183,20 @@ export default function MCPConfigurationDialog({
   open, 
   onOpenChange, 
   onSave, 
-  existingConfigurations = [] 
+  existingConfigurations = [],
+  existingProfileMappings = {}
 }: MCPConfigurationDialogProps) {
   const [configurations, setConfigurations] = useState<MCPConfiguration[]>(existingConfigurations);
+  const [profileMappings, setProfileMappings] = useState<Record<string, string>>(existingProfileMappings);
   const [selectedServer, setSelectedServer] = useState<MCPServer | null>(null);
-  const [configForm, setConfigForm] = useState<Record<string, any>>({});
+  const [selectedProfile, setSelectedProfile] = useState<CredentialProfile | null>(null);
   const [enabledTools, setEnabledTools] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("browse");
 
   useEffect(() => {
     setConfigurations(existingConfigurations);
-  }, [existingConfigurations]);
+    setProfileMappings(existingProfileMappings);
+  }, [existingConfigurations, existingProfileMappings]);
 
   const handleServerSelect = (server: MCPServer) => {
     setSelectedServer(server);
@@ -218,23 +204,37 @@ export default function MCPConfigurationDialog({
     // Load existing configuration if available
     const existingConfig = configurations.find(c => c.id === server.id);
     if (existingConfig) {
-      setConfigForm(existingConfig.config);
       setEnabledTools(new Set(existingConfig.enabledTools));
+      // selectedProfile will be set by CredentialProfileSelector
     } else {
-      setConfigForm({});
       setEnabledTools(new Set(server.tools.map(t => t.name))); // Enable all tools by default
+      setSelectedProfile(null);
     }
     
     setActiveTab("configure");
   };
 
+  const handleProfileSelect = (profileId: string | null, profile: CredentialProfile | null) => {
+    setSelectedProfile(profile);
+    
+    if (selectedServer && profileId) {
+      // Update profile mapping
+      setProfileMappings(prev => ({
+        ...prev,
+        [selectedServer.qualifiedName]: profileId
+      }));
+    }
+  };
+
   const handleConfigSave = () => {
-    if (!selectedServer) return;
+    if (!selectedServer || !selectedProfile) return;
 
     const newConfig: MCPConfiguration = {
       id: selectedServer.id,
       name: selectedServer.name,
-      config: configForm,
+      qualifiedName: selectedServer.qualifiedName,
+      profileId: selectedProfile.profile_id,
+      config: {}, // Config is now managed by credential profiles
       enabledTools: Array.from(enabledTools),
       isConfigured: true
     };
@@ -244,24 +244,28 @@ export default function MCPConfigurationDialog({
     
     setConfigurations(updatedConfigurations);
     setSelectedServer(null);
+    setSelectedProfile(null);
     setActiveTab("browse");
   };
 
   const handleRemoveConfiguration = (id: string) => {
+    const config = configurations.find(c => c.id === id);
+    if (config) {
+      // Remove from profile mappings
+      const { [config.qualifiedName]: removed, ...remainingMappings } = profileMappings;
+      setProfileMappings(remainingMappings);
+    }
+    
     setConfigurations(configurations.filter(c => c.id !== id));
   };
 
   const handleSaveAll = () => {
-    onSave(configurations);
+    onSave(configurations, profileMappings);
     onOpenChange(false);
   };
 
   const isConfigValid = () => {
-    if (!selectedServer) return false;
-    
-    return selectedServer.configSchema.required.every(field => 
-      configForm[field] && configForm[field].trim() !== ""
-    );
+    return selectedServer && selectedProfile && enabledTools.size > 0;
   };
 
   return (
@@ -270,7 +274,7 @@ export default function MCPConfigurationDialog({
         <DialogHeader>
           <DialogTitle>Configure MCP Servers</DialogTitle>
           <DialogDescription>
-            Set up Model Context Protocol servers for your workflow
+            Set up Model Context Protocol servers for your workflow using credential profiles
           </DialogDescription>
         </DialogHeader>
 
@@ -332,26 +336,18 @@ export default function MCPConfigurationDialog({
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Connection Settings</CardTitle>
+                      <CardTitle className="text-base">Credential Profile</CardTitle>
+                      <CardDescription>
+                        Select or create a credential profile for this MCP server
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {Object.entries(selectedServer.configSchema.properties).map(([key, schema]) => (
-                        <div key={key} className="space-y-2">
-                          <Label htmlFor={key}>
-                            {schema.title}
-                            {selectedServer.configSchema.required.includes(key) && (
-                              <span className="text-red-500 ml-1">*</span>
-                            )}
-                          </Label>
-                          <Input
-                            id={key}
-                            type={schema.format === "password" ? "password" : "text"}
-                            placeholder={schema.description}
-                            value={configForm[key] || ""}
-                            onChange={(e) => setConfigForm({ ...configForm, [key]: e.target.value })}
-                          />
-                        </div>
-                      ))}
+                    <CardContent>
+                      <CredentialProfileSelector
+                        mcpQualifiedName={selectedServer.qualifiedName}
+                        mcpDisplayName={selectedServer.name}
+                        selectedProfileId={profileMappings[selectedServer.qualifiedName]}
+                        onProfileSelect={handleProfileSelect}
+                      />
                     </CardContent>
                   </Card>
                 </div>
@@ -422,16 +418,29 @@ export default function MCPConfigurationDialog({
                     const server = mockMCPServers.find(s => s.id === config.id);
                     if (!server) return null;
 
+                    const profileId = profileMappings[config.qualifiedName];
+                    const hasValidProfile = !!profileId;
+
                     return (
-                      <Card key={config.id}>
+                      <Card key={config.id} className={!hasValidProfile ? 'border-yellow-500' : ''}>
                         <CardHeader>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <server.icon className="h-6 w-6" />
                               <div>
-                                <CardTitle className="text-base">{config.name}</CardTitle>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  {config.name}
+                                  {!hasValidProfile && (
+                                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                  )}
+                                </CardTitle>
                                 <CardDescription>
                                   {config.enabledTools.length} tools enabled
+                                  {profileId && (
+                                    <span className="ml-2">
+                                      • Profile: {profileId.slice(0, 8)}...
+                                    </span>
+                                  )}
                                 </CardDescription>
                               </div>
                             </div>
@@ -461,6 +470,12 @@ export default function MCPConfigurationDialog({
                               </Badge>
                             ))}
                           </div>
+                          {!hasValidProfile && (
+                            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                              <AlertTriangle className="h-4 w-4 inline mr-1" />
+                              No credential profile selected. Please configure credentials.
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     );

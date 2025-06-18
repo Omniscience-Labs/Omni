@@ -615,9 +615,10 @@ class WorkflowConverter:
             mcp_type = mcp_data.get('mcpType', 'smithery')
             is_configured = mcp_data.get('isConfigured', False)
             enabled_tools = mcp_data.get('enabledTools', [])
+            selected_profile_id = mcp_data.get('selectedProfileId')  # Get the selected profile ID
             
             logger.info(f"Processing MCP node: id={mcp_node.get('id')}, type={mcp_type}, data={mcp_data}")
-            logger.info(f"MCP node configured: {is_configured}, enabled tools: {enabled_tools}")
+            logger.info(f"MCP node configured: {is_configured}, enabled tools: {enabled_tools}, selected profile: {selected_profile_id}")
             
             # Process configured nodes
             if is_configured:
@@ -629,25 +630,26 @@ class WorkflowConverter:
                             'name': mcp_data.get('label', qualified_name),
                             'qualifiedName': qualified_name,
                             'config': mcp_data.get('config', {}),
-                            'enabledTools': enabled_tools  # Can be empty, will be populated from credential manager
+                            'enabledTools': enabled_tools,  # Can be empty, will be populated from credential manager
+                            'selectedProfileId': selected_profile_id  # Include the selected profile ID
                         }
                         configured_mcps.append(mcp_config)
-                        logger.info(f"Added Smithery MCP: {qualified_name} with {len(enabled_tools)} enabled tools")
+                        logger.info(f"Added Smithery MCP: {qualified_name} with {len(enabled_tools)} enabled tools and profile {selected_profile_id}")
                     else:
                         logger.warning(f"Smithery MCP node {mcp_data.get('label', 'Unknown')} missing qualifiedName")
                 
                 elif mcp_type == 'custom' and enabled_tools:
-                    # Custom MCP server - still require enabled tools since we can't fetch them from credential manager
                     custom_config = mcp_data.get('customConfig', {})
                     custom_mcp = {
                         'name': mcp_data.get('label', 'Custom MCP'),
                         'isCustom': True,
                         'customType': custom_config.get('type', 'sse'),
                         'config': custom_config.get('config', {}),
-                        'enabledTools': enabled_tools
+                        'enabledTools': enabled_tools,
+                        'selectedProfileId': selected_profile_id
                     }
                     custom_mcps.append(custom_mcp)
-                    logger.info(f"Added custom MCP: {custom_mcp['name']}")
+                    logger.info(f"Added custom MCP: {custom_mcp['name']} with profile {selected_profile_id}")
                 elif mcp_type == 'custom':
                     logger.warning(f"Custom MCP node {mcp_data.get('label', 'Unknown')} is configured but has no enabled tools")
             else:
