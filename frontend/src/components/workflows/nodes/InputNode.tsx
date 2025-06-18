@@ -16,18 +16,14 @@ import KeyValueEditor from "../KeyValueEditor";
 import { useWorkflow } from "../WorkflowContext";
 import { WebhookConfigDialog } from "../webhooks/WebhookConfigDialog";
 import { WebhookConfig } from "../webhooks/types";
+import { ScheduleConfigDialog } from "../scheduling/ScheduleConfigDialog";
+import { ScheduleConfig } from "../scheduling/types";
 
 interface InputNodeData {
   label?: string;
   prompt?: string;
   trigger_type?: 'MANUAL' | 'WEBHOOK' | 'SCHEDULE';
-  schedule_config?: {
-    interval_type?: 'minutes' | 'hours' | 'days' | 'weeks';
-    interval_value?: number;
-    cron_expression?: string;
-    timezone?: string;
-    enabled?: boolean;
-  };
+  schedule_config?: ScheduleConfig;
   webhook_config?: WebhookConfig;
   variables?: Record<string, any>;
 }
@@ -37,6 +33,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const { updateNodeData, workflowId } = useWorkflow();
 
   const getTriggerIcon = () => {
@@ -66,10 +63,12 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const getTriggerDescription = () => {
     switch (nodeData.trigger_type) {
       case 'SCHEDULE':
-        if (nodeData.schedule_config?.cron_expression) {
-          return `Cron: ${nodeData.schedule_config.cron_expression}`;
-        } else if (nodeData.schedule_config?.interval_type && nodeData.schedule_config?.interval_value) {
-          return `Every ${nodeData.schedule_config.interval_value} ${nodeData.schedule_config.interval_type}`;
+        if (nodeData.schedule_config?.type === 'simple' && nodeData.schedule_config.simple) {
+          return `Every ${nodeData.schedule_config.simple.interval_value} ${nodeData.schedule_config.simple.interval_type}`;
+        } else if (nodeData.schedule_config?.type === 'cron' && nodeData.schedule_config.cron) {
+          return `Cron: ${nodeData.schedule_config.cron.cron_expression}`;
+        } else if (nodeData.schedule_config?.type === 'advanced' && nodeData.schedule_config.advanced) {
+          return `Advanced: ${nodeData.schedule_config.advanced.cron_expression}`;
         }
         return 'Scheduled execution';
       case 'WEBHOOK':
@@ -183,8 +182,6 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Webhook Configuration */}
             {nodeData.trigger_type === 'WEBHOOK' && (
               <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
                 <Label className="text-sm font-medium">Webhook Configuration</Label>
@@ -218,7 +215,6 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          // Initialize webhook config if not exists
                           if (!nodeData.webhook_config) {
                             updateNodeData(id, {
                               webhook_config: {
@@ -246,318 +242,39 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                 </div>
               </div>
             )}
-
-            {/* {nodeData.trigger_type === 'SCHEDULE' && (
+            {nodeData.trigger_type === 'SCHEDULE' && (
               <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
                 <Label className="text-sm font-medium">Schedule Configuration</Label>
                 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Interval Type</Label>
-                    <Select
-                      value={nodeData.schedule_config?.interval_type || 'hours'}
-                      onValueChange={(value: 'minutes' | 'hours' | 'days' | 'weeks') =>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!nodeData.schedule_config) {
                         updateNodeData(id, {
                           schedule_config: {
-                            ...nodeData.schedule_config,
-                            interval_type: value
+                            type: 'simple',
+                            enabled: true,
+                            simple: { interval_type: 'hours', interval_value: 1 }
                           }
-                        })
+                        });
                       }
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="minutes">Minutes</SelectItem>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
-                        <SelectItem value="weeks">Weeks</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label className="text-xs">Interval Value</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={nodeData.schedule_config?.interval_value || ''}
-                      onChange={(e) =>
-                        updateNodeData(id, {
-                          schedule_config: {
-                            ...nodeData.schedule_config,
-                            interval_value: parseInt(e.target.value) || 1
-                          }
-                        })
-                      }
-                      className="h-8"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">Cron Expression (Advanced)</Label>
-                  <Input
-                    placeholder="0 9 * * 1-5 (weekdays at 9 AM)"
-                    value={nodeData.schedule_config?.cron_expression || ''}
-                    onChange={(e) =>
-                      updateNodeData(id, {
-                        schedule_config: {
-                          ...nodeData.schedule_config,
-                          cron_expression: e.target.value
-                        }
-                      })
-                    }
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">Timezone</Label>
-                  <Select
-                    value={nodeData.schedule_config?.timezone || 'UTC'}
-                    onValueChange={(value) =>
-                      updateNodeData(id, {
-                        schedule_config: {
-                          ...nodeData.schedule_config,
-                          timezone: value
-                        }
-                      })
-                    }
+                      setIsScheduleDialogOpen(true);
+                    }}
+                    className="w-full"
                   >
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                      <SelectItem value="America/Chicago">Central Time</SelectItem>
-                      <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                      <SelectItem value="Europe/London">London</SelectItem>
-                      <SelectItem value="Europe/Paris">Paris</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Configure Schedule
+                  </Button>
+                  {nodeData.schedule_config && (
+                    <div className="text-xs text-muted-foreground">
+                      ✓ Schedule configured: {getTriggerDescription()}
+                    </div>
+                  )}
                 </div>
               </div>
-            )} */}
-
-            {/* {nodeData.trigger_type === 'WEBHOOK' && (
-              <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-medium">Webhook Configuration</Label>
-                <div className="space-y-1">
-                  <Label className="text-xs">Webhook Type</Label>
-                  <Select
-                    value={nodeData.webhook_config?.type || 'slack'}
-                    onValueChange={(value: 'slack' | 'generic') =>
-                      updateNodeData(id, {
-                        webhook_config: {
-                          ...nodeData.webhook_config,
-                          type: value
-                        }
-                      })
-                    }
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="slack">Slack</SelectItem>
-                      <SelectItem value="generic">Generic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {nodeData.webhook_config?.type === 'slack' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Slack Webhook URL *</Label>
-                      <Input
-                        placeholder="https://hooks.slack.com/services/..."
-                        value={nodeData.webhook_config?.slack?.webhook_url || ''}
-                        onChange={(e) =>
-                          updateNodeData(id, {
-                            webhook_config: {
-                              ...nodeData.webhook_config,
-                              slack: {
-                                ...nodeData.webhook_config?.slack,
-                                webhook_url: e.target.value
-                              }
-                            }
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Signing Secret *</Label>
-                      <Input
-                        type="password"
-                        placeholder="Your Slack app signing secret"
-                        value={nodeData.webhook_config?.slack?.signing_secret || ''}
-                        onChange={(e) =>
-                          updateNodeData(id, {
-                            webhook_config: {
-                              ...nodeData.webhook_config,
-                              slack: {
-                                ...nodeData.webhook_config?.slack,
-                                signing_secret: e.target.value
-                              }
-                            }
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Channel (Optional)</Label>
-                        <Input
-                          placeholder="#general"
-                          value={nodeData.webhook_config?.slack?.channel || ''}
-                          onChange={(e) =>
-                            updateNodeData(id, {
-                              webhook_config: {
-                                ...nodeData.webhook_config,
-                                slack: {
-                                  ...nodeData.webhook_config?.slack,
-                                  channel: e.target.value
-                                }
-                              }
-                            })
-                          }
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <Label className="text-xs">Username (Optional)</Label>
-                        <Input
-                          placeholder="WorkflowBot"
-                          value={nodeData.webhook_config?.slack?.username || ''}
-                          onChange={(e) =>
-                            updateNodeData(id, {
-                              webhook_config: {
-                                ...nodeData.webhook_config,
-                                slack: {
-                                  ...nodeData.webhook_config?.slack,
-                                  username: e.target.value
-                                }
-                              }
-                            })
-                          }
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {nodeData.webhook_config?.type === 'generic' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Webhook URL *</Label>
-                      <Input
-                        placeholder="https://your-webhook-endpoint.com"
-                        value={nodeData.webhook_config?.generic?.url || ''}
-                        onChange={(e) =>
-                          updateNodeData(id, {
-                            webhook_config: {
-                              ...nodeData.webhook_config,
-                              generic: {
-                                ...nodeData.webhook_config?.generic,
-                                url: e.target.value
-                              }
-                            }
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">HTTP Method</Label>
-                        <Select
-                          value={nodeData.webhook_config?.method || 'POST'}
-                          onValueChange={(value: 'POST' | 'GET' | 'PUT') =>
-                            updateNodeData(id, {
-                              webhook_config: {
-                                ...nodeData.webhook_config,
-                                method: value
-                              }
-                            })
-                          }
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="POST">POST</SelectItem>
-                            <SelectItem value="GET">GET</SelectItem>
-                            <SelectItem value="PUT">PUT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <Label className="text-xs">Authentication</Label>
-                        <Select
-                          value={nodeData.webhook_config?.authentication || 'none'}
-                          onValueChange={(value: 'none' | 'api_key' | 'bearer') =>
-                            updateNodeData(id, {
-                              webhook_config: {
-                                ...nodeData.webhook_config,
-                                authentication: value
-                              }
-                            })
-                          }
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="api_key">API Key</SelectItem>
-                            <SelectItem value="bearer">Bearer Token</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {nodeData.webhook_config?.authentication !== 'none' && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">Auth Token</Label>
-                        <Input
-                          type="password"
-                          placeholder="Your authentication token"
-                          value={nodeData.webhook_config?.generic?.auth_token || ''}
-                          onChange={(e) =>
-                            updateNodeData(id, {
-                              webhook_config: {
-                                ...nodeData.webhook_config,
-                                generic: {
-                                  ...nodeData.webhook_config?.generic,
-                                  auth_token: e.target.value
-                                }
-                              }
-                            })
-                          }
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )} */}
-
-
+            )}
           </CollapsibleContent>
         </Collapsible>
       </CardContent>
@@ -576,6 +293,16 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
         workflowId={workflowId || id}
         onSave={(config) => {
           updateNodeData(id, { webhook_config: config });
+        }}
+      />
+
+      <ScheduleConfigDialog
+        open={isScheduleDialogOpen}
+        onOpenChange={setIsScheduleDialogOpen}
+        workflowId={workflowId || id}
+        initialConfig={nodeData.schedule_config}
+        onSave={async (config, name, description) => {
+          updateNodeData(id, { schedule_config: config });
         }}
       />
     </div>

@@ -3,6 +3,7 @@ from .models import WorkflowNode, WorkflowEdge, WorkflowDefinition, WorkflowStep
 from .tool_examples import get_tools_xml_examples
 import uuid
 from utils.logger import logger
+from datetime import datetime
 
 class WorkflowConverter:
     """Converts visual workflow flows into executable workflow definitions."""
@@ -90,15 +91,45 @@ class WorkflowConverter:
                 schedule_config = None
                 if data.get('trigger_type') == 'SCHEDULE' and data.get('schedule_config'):
                     schedule_data = data.get('schedule_config', {})
-                    schedule_config = ScheduleConfig(
-                        cron_expression=schedule_data.get('cron_expression'),
-                        interval_type=schedule_data.get('interval_type'),
-                        interval_value=schedule_data.get('interval_value'),
-                        timezone=schedule_data.get('timezone', 'UTC'),
-                        start_date=schedule_data.get('start_date'),
-                        end_date=schedule_data.get('end_date'),
-                        enabled=schedule_data.get('enabled', True)
-                    )
+                    if schedule_data.get('type'):
+                        # New format: {'type': 'simple', 'simple': {...}, 'cron': {...}, 'advanced': {...}}
+                        schedule_type = schedule_data.get('type')
+                        enabled = schedule_data.get('enabled', True)
+                        
+                        if schedule_type == 'simple' and schedule_data.get('simple'):
+                            simple_config = schedule_data['simple']
+                            schedule_config = ScheduleConfig(
+                                interval_type=simple_config.get('interval_type'),
+                                interval_value=simple_config.get('interval_value'),
+                                timezone=schedule_data.get('timezone', 'UTC'),
+                                enabled=enabled
+                            )
+                        elif schedule_type == 'cron' and schedule_data.get('cron'):
+                            cron_config = schedule_data['cron']
+                            schedule_config = ScheduleConfig(
+                                cron_expression=cron_config.get('cron_expression'),
+                                timezone=schedule_data.get('timezone', 'UTC'),
+                                enabled=enabled
+                            )
+                        elif schedule_type == 'advanced' and schedule_data.get('advanced'):
+                            advanced_config = schedule_data['advanced']
+                            schedule_config = ScheduleConfig(
+                                cron_expression=advanced_config.get('cron_expression'),
+                                timezone=advanced_config.get('timezone', 'UTC'),
+                                start_date=datetime.fromisoformat(advanced_config['start_date']) if advanced_config.get('start_date') else None,
+                                end_date=datetime.fromisoformat(advanced_config['end_date']) if advanced_config.get('end_date') else None,
+                                enabled=enabled
+                            )
+                    else:
+                        schedule_config = ScheduleConfig(
+                            cron_expression=schedule_data.get('cron_expression'),
+                            interval_type=schedule_data.get('interval_type'),
+                            interval_value=schedule_data.get('interval_value'),
+                            timezone=schedule_data.get('timezone', 'UTC'),
+                            start_date=schedule_data.get('start_date'),
+                            end_date=schedule_data.get('end_date'),
+                            enabled=schedule_data.get('enabled', True)
+                        )
                 
                 return InputNodeConfig(
                     prompt=data.get('prompt', ''),
@@ -343,10 +374,25 @@ class WorkflowConverter:
         
         if trigger_type == 'SCHEDULE':
             schedule_config = data.get('schedule_config', {})
-            if schedule_config.get('cron_expression'):
-                description.append(f"**Schedule**: {schedule_config['cron_expression']} (cron)")
-            elif schedule_config.get('interval_type') and schedule_config.get('interval_value'):
-                description.append(f"**Schedule**: Every {schedule_config['interval_value']} {schedule_config['interval_type']}")
+            
+            # Handle new nested schedule configuration format
+            if schedule_config.get('type'):
+                schedule_type = schedule_config.get('type')
+                if schedule_type == 'simple' and schedule_config.get('simple'):
+                    simple_config = schedule_config['simple']
+                    description.append(f"**Schedule**: Every {simple_config.get('interval_value')} {simple_config.get('interval_type')}")
+                elif schedule_type == 'cron' and schedule_config.get('cron'):
+                    cron_config = schedule_config['cron']
+                    description.append(f"**Schedule**: {cron_config.get('cron_expression')} (cron)")
+                elif schedule_type == 'advanced' and schedule_config.get('advanced'):
+                    advanced_config = schedule_config['advanced']
+                    description.append(f"**Schedule**: {advanced_config.get('cron_expression')} (advanced cron)")
+            else:
+                # Old format
+                if schedule_config.get('cron_expression'):
+                    description.append(f"**Schedule**: {schedule_config['cron_expression']} (cron)")
+                elif schedule_config.get('interval_type') and schedule_config.get('interval_value'):
+                    description.append(f"**Schedule**: Every {schedule_config['interval_value']} {schedule_config['interval_type']}")
         
         if output_connections:
             description.append(f"**Connects to**: {', '.join(output_connections)}")
@@ -485,8 +531,26 @@ def validate_workflow_flow(nodes: List[Dict[str, Any]], edges: List[Dict[str, An
             trigger_type = data.get('trigger_type', 'MANUAL')
             if trigger_type == 'SCHEDULE':
                 schedule_config = data.get('schedule_config', {})
-                if not schedule_config.get('cron_expression') and not (schedule_config.get('interval_type') and schedule_config.get('interval_value')):
-                    errors.append("Schedule trigger must have either cron expression or interval configuration")
+                
+                if schedule_config.get('type'):
+                    schedule_type = schedule_config.get('type')
+                    if schedule_type == 'simple':
+                        simple_config = schedule_config.get('simple', {})
+                        if not (simple_config.get('interval_type') and simple_config.get('interval_value')):
+                            errors.append("Simple schedule must have interval type and value configured")
+                    elif schedule_type == 'cron':
+                        cron_config = schedule_config.get('cron', {})
+                        if not cron_config.get('cron_expression'):
+                            errors.append("Cron schedule must have cron expression configured")
+                    elif schedule_type == 'advanced':
+                        advanced_config = schedule_config.get('advanced', {})
+                        if not advanced_config.get('cron_expression'):
+                            errors.append("Advanced schedule must have cron expression configured")
+                    else:
+                        errors.append("Schedule must have a valid type (simple, cron, or advanced)")
+                else:
+                    if not schedule_config.get('cron_expression') and not (schedule_config.get('interval_type') and schedule_config.get('interval_value')):
+                        errors.append("Schedule trigger must have either cron expression or interval configuration")
             elif trigger_type == 'WEBHOOK':
                 webhook_config = data.get('webhook_config', {})
                 if not webhook_config:

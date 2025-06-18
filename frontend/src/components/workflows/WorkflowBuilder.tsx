@@ -22,6 +22,7 @@ import {
   Play, 
   Save, 
   Workflow,
+  Settings,
 } from "lucide-react";
 import NodePalette from "./NodePalette";
 import WorkflowSettings from "./WorkflowSettings";
@@ -566,6 +567,13 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
               <div className="flex items-center gap-2">
                 <Button 
                   variant="outline"
+                  onClick={() => setShowSettings(true)}
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+                <Button 
+                  variant="outline"
                   onClick={handleSaveWorkflow}
                   disabled={saving}
                 >
@@ -699,6 +707,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
           edges={edges}
           workflowName={workflowName}
           workflowDescription={workflowDescription}
+          workflowId={workflowId}
           onWorkflowNameChange={setWorkflowName}
           onWorkflowDescriptionChange={setWorkflowDescription}
         />

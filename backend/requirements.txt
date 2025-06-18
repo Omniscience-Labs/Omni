@@ -46,3 +46,4 @@ mailtrap>=2.0.1
 cryptography>=41.0.0
 apscheduler>=3.10.0
 croniter>=1.4.0
+qstash>=2.0.0

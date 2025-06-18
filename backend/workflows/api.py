@@ -21,21 +21,27 @@ from .scheduler import WorkflowScheduler
 from services.supabase import DBConnection
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
+from scheduling.qstash_service import QStashService
+from scheduling.models import (
+    ScheduleCreateRequest, ScheduleConfig as QStashScheduleConfig,
+    SimpleScheduleConfig, CronScheduleConfig
+)
 
 router = APIRouter()
 
-# Global instances
 db = DBConnection()
 workflow_converter = WorkflowConverter()
 workflow_executor = WorkflowExecutor(db)
 workflow_scheduler = WorkflowScheduler(db, workflow_executor)
+qstash_service = QStashService()
 
 def initialize(database: DBConnection):
     """Initialize the workflow API with database connection."""
-    global db, workflow_executor, workflow_scheduler
+    global db, workflow_executor, workflow_scheduler, qstash_service
     db = database
     workflow_executor = WorkflowExecutor(db)
     workflow_scheduler = WorkflowScheduler(db, workflow_executor)
+    qstash_service = QStashService()
 
 async def _create_workflow_thread_for_api(
     thread_id: str, 
@@ -66,13 +72,11 @@ async def _create_workflow_thread_for_api(
         
         await client.table('threads').insert(thread_data).execute()
         
-        # Get the input prompt from the workflow step configuration
         input_prompt = ""
         if workflow.steps:
             main_step = workflow.steps[0]
             input_prompt = main_step.config.get("input_prompt", "")
-        
-        # Use input prompt if available, otherwise fall back to workflow name/description
+
         if input_prompt:
             initial_message = input_prompt
         else:
@@ -102,13 +106,10 @@ async def _create_workflow_thread_for_api(
 def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
     """Helper function to map database record to WorkflowDefinition."""
     definition = data.get('definition', {})
-    
-    # Convert steps from dict to WorkflowStep objects
     raw_steps = definition.get('steps', [])
     steps = []
     for step_data in raw_steps:
         if isinstance(step_data, dict):
-            # Create WorkflowStep object from dict
             step = WorkflowStep(
                 id=step_data.get('id', ''),
                 name=step_data.get('name', ''),
@@ -120,10 +121,8 @@ def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
             )
             steps.append(step)
         else:
-            # If it's already a WorkflowStep object, use it as is
             steps.append(step_data)
     
-    # Convert triggers from dict to WorkflowTrigger objects
     raw_triggers = definition.get('triggers', [])
     triggers = []
     for trigger_data in raw_triggers:
@@ -149,7 +148,7 @@ def _map_db_to_workflow_definition(data: dict) -> WorkflowDefinition:
         created_by=data.get('created_by'),
         project_id=data['project_id'],
         agent_id=definition.get('agent_id'),
-        is_template=False,  # Templates are in a separate table
+        is_template=False,
         max_execution_time=definition.get('max_execution_time', 3600),
         max_retries=definition.get('max_retries', 3)
     )
@@ -256,16 +255,12 @@ async def update_workflow(
     """Update a workflow."""
     try:
         client = await db.client
-        
-        # Check if workflow exists and belongs to user
         existing = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', user_id).execute()
         if not existing.data:
             raise HTTPException(status_code=404, detail="Workflow not found")
         
-        # Get current definition
         current_definition = existing.data[0].get('definition', {})
         
-        # Prepare update data
         update_data = {}
         
         if request.name is not None:
@@ -275,7 +270,6 @@ async def update_workflow(
         if request.state is not None:
             update_data['status'] = request.state.lower()
         
-        # Update definition fields
         definition_updated = False
         if request.agent_id is not None:
             current_definition['agent_id'] = request.agent_id
@@ -298,14 +292,25 @@ async def update_workflow(
         data = result.data[0]
         updated_workflow = _map_db_to_workflow_definition(data)
         
-        # Handle scheduling if workflow is active and has schedule triggers
         if updated_workflow.state == 'ACTIVE':
-            has_schedule_trigger = any(trigger.type == 'SCHEDULE' for trigger in updated_workflow.triggers)
-            if has_schedule_trigger:
-                await workflow_scheduler.schedule_workflow(updated_workflow)
+            schedule_triggers = [trigger for trigger in updated_workflow.triggers if trigger.type == 'SCHEDULE']
+            if schedule_triggers:
+                try:
+                    await _remove_qstash_schedules_for_workflow(workflow_id)
+                    for schedule_trigger in schedule_triggers:
+                        await _create_qstash_schedule_for_workflow(updated_workflow, schedule_trigger)
+                    
+                    logger.info(f"Successfully created QStash schedules for workflow {workflow_id}")
+                except Exception as e:
+                    logger.error(f"Failed to create QStash schedules for workflow {workflow_id}: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to schedule workflow: {e}")
         else:
-            # Unschedule if workflow is not active
-            await workflow_scheduler.unschedule_workflow(workflow_id)
+            try:
+                await _remove_qstash_schedules_for_workflow(workflow_id)
+                logger.info(f"Removed QStash schedules for inactive workflow {workflow_id}")
+            except Exception as e:
+                logger.warning(f"Failed to remove QStash schedules for workflow {workflow_id}: {e}")
+                await workflow_scheduler.unschedule_workflow(workflow_id)
         
         return updated_workflow
         
@@ -323,13 +328,11 @@ async def delete_workflow(
     """Delete a workflow."""
     try:
         client = await db.client
-        
-        # Check if workflow exists and belongs to user
+
         existing = await client.table('workflows').select('id').eq('id', workflow_id).eq('created_by', user_id).execute()
         if not existing.data:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        
-        # Unschedule workflow before deleting
+
         await workflow_scheduler.unschedule_workflow(workflow_id)
         
         await client.table('workflows').delete().eq('id', workflow_id).execute()
@@ -351,8 +354,7 @@ async def execute_workflow(
     """Execute a workflow and return execution info."""
     try:
         client = await db.client
-        
-        # Get workflow
+
         result = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', user_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="Workflow not found")
@@ -369,11 +371,9 @@ async def execute_workflow(
             else:
                 logger.info(f"[EXECUTE] Step {i} has no config attribute")
         
-        # Check if workflow is active (allow DRAFT for testing)
         if workflow.state not in ['ACTIVE', 'DRAFT']:
             raise HTTPException(status_code=400, detail="Workflow must be active or draft to execute")
         
-        # Create execution record
         execution_id = str(uuid.uuid4())
         execution_data = {
             "id": execution_id,
@@ -452,7 +452,6 @@ async def stream_workflow_execution(
     
     user_id = await get_user_id_from_stream_auth(request, token)
     
-    # Verify execution exists and belongs to user
     client = await db.client
     execution_result = await client.table('workflow_executions').select('*').eq('id', execution_id).execute()
     
@@ -461,7 +460,6 @@ async def stream_workflow_execution(
     
     execution_data = execution_result.data[0]
     
-    # Verify user has access to this execution
     if execution_data['account_id'] != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -479,7 +477,6 @@ async def stream_workflow_execution(
         initial_yield_complete = False
 
         try:
-            # 1. Fetch and yield initial responses from Redis list
             initial_responses_json = await redis.lrange(response_list_key, 0, -1)
             initial_responses = []
             if initial_responses_json:
@@ -490,7 +487,6 @@ async def stream_workflow_execution(
                 last_processed_index = len(initial_responses) - 1
             initial_yield_complete = True
 
-            # 2. Check execution status *after* yielding initial data
             run_status = await client.table('workflow_executions').select('status').eq("id", execution_id).maybe_single().execute()
             current_status = run_status.data.get('status') if run_status.data else None
 
@@ -499,7 +495,6 @@ async def stream_workflow_execution(
                 yield f"data: {json.dumps({'type': 'workflow_status', 'status': 'completed'})}\n\n"
                 return
 
-            # 3. Set up Pub/Sub listeners for new responses and control signals
             pubsub_response = await redis.create_pubsub()
             await pubsub_response.subscribe(response_channel)
             logger.debug(f"Subscribed to response channel: {response_channel}")
@@ -508,7 +503,6 @@ async def stream_workflow_execution(
             await pubsub_control.subscribe(control_channel)
             logger.debug(f"Subscribed to control channel: {control_channel}")
 
-            # Queue to communicate between listeners and the main generator loop
             message_queue = asyncio.Queue()
 
             async def listen_messages():
@@ -542,7 +536,6 @@ async def stream_workflow_execution(
                             await message_queue.put({"type": "error", "data": "Listener failed"})
                             return
                         finally:
-                            # Reschedule the completed listener task
                             if task in tasks:
                                 tasks.remove(task)
                                 if message and isinstance(message, dict) and message.get("channel") == response_channel:
@@ -550,19 +543,15 @@ async def stream_workflow_execution(
                                 elif message and isinstance(message, dict) and message.get("channel") == control_channel:
                                      tasks.append(asyncio.create_task(control_reader.__anext__()))
 
-                # Cancel pending listener tasks on exit
                 for p_task in pending: p_task.cancel()
                 for task in tasks: task.cancel()
 
             listener_task = asyncio.create_task(listen_messages())
-
-            # 4. Main loop to process messages from the queue
             while not terminate_stream:
                 try:
                     queue_item = await message_queue.get()
 
                     if queue_item["type"] == "new_response":
-                        # Fetch new responses from Redis list starting after the last processed index
                         new_start_index = last_processed_index + 1
                         new_responses_json = await redis.lrange(response_list_key, new_start_index, -1)
 
@@ -571,7 +560,6 @@ async def stream_workflow_execution(
                             num_new = len(new_responses)
                             for response in new_responses:
                                 yield f"data: {json.dumps(response)}\n\n"
-                                # Check if this response signals completion
                                 if response.get('type') == 'workflow_status' and response.get('status') in ['completed', 'failed', 'stopped']:
                                     logger.info(f"Detected workflow completion via status message in stream: {response.get('status')}")
                                     terminate_stream = True
@@ -726,12 +714,31 @@ async def update_workflow_flow(
         data = result.data[0]
         updated_workflow = _map_db_to_workflow_definition(data)
         
+        # Handle scheduling with QStash for cloud-based persistent scheduling
         if updated_workflow.state == 'ACTIVE':
-            has_schedule_trigger = any(trigger.type == 'SCHEDULE' for trigger in updated_workflow.triggers)
-            if has_schedule_trigger:
-                await workflow_scheduler.schedule_workflow(updated_workflow)
+            schedule_triggers = [trigger for trigger in updated_workflow.triggers if trigger.type == 'SCHEDULE']
+            if schedule_triggers:
+                try:
+                    # Remove any existing QStash schedules first
+                    await _remove_qstash_schedules_for_workflow(workflow_id)
+                    
+                    # Create new QStash schedules
+                    for schedule_trigger in schedule_triggers:
+                        await _create_qstash_schedule_for_workflow(updated_workflow, schedule_trigger)
+                    
+                    logger.info(f"Successfully created QStash schedules for workflow {workflow_id}")
+                except Exception as e:
+                    logger.error(f"Failed to create QStash schedules for workflow {workflow_id}: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to schedule workflow: {e}")
         else:
-            await workflow_scheduler.unschedule_workflow(workflow_id)
+            # Remove QStash schedules when workflow is not active
+            try:
+                await _remove_qstash_schedules_for_workflow(workflow_id)
+                logger.info(f"Removed QStash schedules for inactive workflow {workflow_id}")
+            except Exception as e:
+                logger.warning(f"Failed to remove QStash schedules for workflow {workflow_id}: {e}")
+                # Also try to unschedule from old APScheduler as fallback
+                await workflow_scheduler.unschedule_workflow(workflow_id)
         
         return updated_workflow
         
@@ -1042,4 +1049,61 @@ async def stop_scheduler():
         return {"message": "Workflow scheduler stopped"}
     except Exception as e:
         logger.error(f"Error stopping scheduler: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def _create_qstash_schedule_for_workflow(workflow: WorkflowDefinition, schedule_trigger: WorkflowTrigger):
+    """Create a QStash schedule for a workflow trigger."""
+    try:
+        # Convert workflow schedule config to QStash format
+        schedule_config = schedule_trigger.config
+        
+        # Create QStash schedule config
+        if schedule_config.get('cron_expression'):
+            # Cron-based schedule
+            qstash_config = QStashScheduleConfig(
+                type='cron',
+                enabled=schedule_config.get('enabled', True),
+                cron=CronScheduleConfig(cron_expression=schedule_config['cron_expression'])
+            )
+        elif schedule_config.get('interval_type') and schedule_config.get('interval_value'):
+            # Interval-based schedule
+            qstash_config = QStashScheduleConfig(
+                type='simple',
+                enabled=schedule_config.get('enabled', True),
+                simple=SimpleScheduleConfig(
+                    interval_type=schedule_config['interval_type'],
+                    interval_value=schedule_config['interval_value']
+                )
+            )
+        else:
+            logger.error(f"Invalid schedule configuration for workflow {workflow.id}: {schedule_config}")
+            return
+        
+        # Create schedule request
+        schedule_request = ScheduleCreateRequest(
+            workflow_id=workflow.id,
+            name=f"Workflow: {workflow.name}",
+            description=f"Auto-generated schedule for workflow {workflow.name}",
+            config=qstash_config
+        )
+        
+        # Create the schedule
+        schedule = await qstash_service.create_schedule(schedule_request)
+        logger.info(f"Created QStash schedule {schedule.id} for workflow {workflow.id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to create QStash schedule for workflow {workflow.id}: {e}")
+        raise
+
+async def _remove_qstash_schedules_for_workflow(workflow_id: str):
+    """Remove all QStash schedules for a workflow."""
+    try:
+        schedules = await qstash_service.list_schedules(workflow_id)
+        for schedule in schedules:
+            if schedule.id:
+                await qstash_service.delete_schedule(schedule.id)
+                logger.info(f"Deleted QStash schedule {schedule.id} for workflow {workflow_id}")
+                
+    except Exception as e:
+        logger.error(f"Failed to remove QStash schedules for workflow {workflow_id}: {e}")
+        raise 

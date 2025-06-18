@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Settings, Webhook, Clock, Zap, Bot, Wrench } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { ScheduleManager } from "./scheduling/ScheduleManager";
 
 interface WorkflowSettingsProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface WorkflowSettingsProps {
   edges?: Edge[];
   workflowName: string;
   workflowDescription: string;
+  workflowId?: string;
   onWorkflowNameChange: (name: string) => void;
   onWorkflowDescriptionChange: (description: string) => void;
 }
@@ -33,6 +35,7 @@ export default function WorkflowSettings({
   edges = [],
   workflowName,
   workflowDescription,
+  workflowId,
   onWorkflowNameChange,
   onWorkflowDescriptionChange
 }: WorkflowSettingsProps) {
@@ -56,8 +59,12 @@ export default function WorkflowSettings({
         </DialogHeader>
 
         <Tabs defaultValue="general" className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="scheduling">
+              <Clock className="h-4 w-4 mr-1" />
+              Scheduling
+            </TabsTrigger>
             <TabsTrigger value="nodes">Nodes ({nodes.length})</TabsTrigger>
             <TabsTrigger value="execution">Execution</TabsTrigger>
           </TabsList>
@@ -146,6 +153,28 @@ export default function WorkflowSettings({
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="scheduling" className="space-y-4 p-1">
+              {workflowId ? (
+                <ScheduleManager workflowId={workflowId} />
+              ) : (
+                <Card className="border-border/50">
+                  <CardContent className="p-8 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-4 rounded-full bg-muted/50">
+                        <Clock className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold mb-2">Workflow not saved</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Save your workflow first to configure scheduling
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="nodes" className="space-y-4 p-1">

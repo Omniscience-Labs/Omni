@@ -153,6 +153,9 @@ from webhooks import api as webhooks_api
 webhooks_api.initialize(db)
 app.include_router(webhooks_api.router, prefix="/api")
 
+from scheduling import api as scheduling_api
+app.include_router(scheduling_api.router)
+
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint to verify API is working."""

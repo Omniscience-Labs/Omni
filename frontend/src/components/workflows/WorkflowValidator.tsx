@@ -1,6 +1,7 @@
 "use client";
 
 import { Node, Edge } from "@xyflow/react";
+import { ScheduleConfig } from "./scheduling/types";
 
 export interface ValidationError {
   type: 'error' | 'warning';
@@ -16,7 +17,6 @@ export interface ValidationResult {
 export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult {
   const errors: ValidationError[] = [];
 
-  // Check for required input node
   const hasInputNode = nodes.some(node => node.type === 'inputNode');
   if (!hasInputNode) {
     errors.push({
@@ -25,7 +25,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     });
   }
 
-  // Validate input node configuration
   const inputNodes = nodes.filter(node => node.type === 'inputNode');
   inputNodes.forEach(node => {
     const data = node.data as any;
@@ -39,14 +38,46 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     }
 
     if (data.trigger_type === 'SCHEDULE') {
-      const scheduleConfig = data.schedule_config as any;
-      if (!scheduleConfig?.cron_expression && 
-          !(scheduleConfig?.interval_type && scheduleConfig?.interval_value)) {
+      const scheduleConfig = data.schedule_config as ScheduleConfig;
+      
+      if (!scheduleConfig) {
         errors.push({
           type: 'error',
-          message: 'Schedule trigger must have either cron expression or interval configuration',
+          message: 'Schedule trigger must have schedule configuration',
           nodeId: node.id
         });
+      } else {
+        if (scheduleConfig.type === 'simple') {
+          if (!scheduleConfig.simple?.interval_type || !scheduleConfig.simple?.interval_value) {
+            errors.push({
+              type: 'error',
+              message: 'Simple schedule must have interval type and value configured',
+              nodeId: node.id
+            });
+          }
+        } else if (scheduleConfig.type === 'cron') {
+          if (!scheduleConfig.cron?.cron_expression) {
+            errors.push({
+              type: 'error',
+              message: 'Cron schedule must have cron expression configured',
+              nodeId: node.id
+            });
+          }
+        } else if (scheduleConfig.type === 'advanced') {
+          if (!scheduleConfig.advanced?.cron_expression) {
+            errors.push({
+              type: 'error',
+              message: 'Advanced schedule must have cron expression configured',
+              nodeId: node.id
+            });
+          }
+        } else {
+          errors.push({
+            type: 'error',
+            message: 'Schedule trigger must have a valid schedule type',
+            nodeId: node.id
+          });
+        }
       }
     } else if (data.trigger_type === 'WEBHOOK') {
       const webhookConfig = data.webhook_config;
@@ -59,8 +90,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
       }
     }
   });
-
-  // Check for multiple input nodes (warning)
   if (inputNodes.length > 1) {
     errors.push({
       type: 'warning',
@@ -68,7 +97,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     });
   }
 
-  // Check for disconnected nodes
   const connectedNodeIds = new Set<string>();
   edges.forEach(edge => {
     connectedNodeIds.add(edge.source);
@@ -89,7 +117,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     });
   }
 
-  // Check for self-referencing edges
   edges.forEach(edge => {
     if (edge.source === edge.target) {
       errors.push({
@@ -100,7 +127,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     }
   });
 
-  // Check that input nodes cannot receive connections
   edges.forEach(edge => {
     const targetNode = nodes.find(n => n.id === edge.target);
     if (targetNode?.type === 'inputNode') {
@@ -112,7 +138,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
     }
   });
 
-  // Check for at least one agent node
   const hasAgentNode = nodes.some(node => node.type === 'agentNode');
   if (!hasAgentNode && nodes.length > 1) {
     errors.push({
@@ -128,16 +153,11 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
 }
 
 export function canConnect(source: Node, target: Node): boolean {
-  // Input nodes cannot receive connections
   if (target.type === 'inputNode') {
     return false;
   }
-
-  // Input nodes can connect to any other node
   if (source.type === 'inputNode') {
     return true;
   }
-
-  // Other connection rules can be added here
   return true;
-} 
+}

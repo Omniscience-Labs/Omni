@@ -116,7 +116,14 @@ class WorkflowScheduler:
             
             self.scheduled_jobs[workflow.id] = job_id
             
-            next_run = job.next_run_time
+            try:
+                next_run = job.next_run_time
+            except AttributeError:
+                try:
+                    next_run = self.scheduler.get_job(job_id).next_run_time
+                except:
+                    next_run = "Unknown"
+            
             logger.info(f"Scheduled workflow {workflow.name} (ID: {workflow.id}). Next run: {next_run}")
             
         except Exception as e:
@@ -207,11 +214,17 @@ class WorkflowScheduler:
             try:
                 job = self.scheduler.get_job(job_id)
                 if job:
+                    # Try to get next run time safely
+                    try:
+                        next_run_time = job.next_run_time.isoformat() if job.next_run_time else None
+                    except AttributeError:
+                        next_run_time = None
+                    
                     scheduled_info.append({
                         "workflow_id": workflow_id,
                         "job_id": job_id,
                         "name": job.name,
-                        "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                        "next_run_time": next_run_time,
                         "trigger": str(job.trigger)
                     })
             except Exception as e:
