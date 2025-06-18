@@ -29,6 +29,7 @@ import WorkflowSettings from "./WorkflowSettings";
 import AgentNode from "./nodes/AgentNode";
 import ToolConnectionNode from "./nodes/ToolConnectionNode";
 import InputNode from "./nodes/InputNode";
+import MCPNode from "./nodes/MCPNode";
 import { getProjects, createWorkflow, updateWorkflow, getWorkflow, executeWorkflow, type WorkflowNode, type WorkflowEdge } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,7 @@ const nodeTypes = {
   inputNode: InputNode,
   agentNode: AgentNode,
   toolConnectionNode: ToolConnectionNode,
+  mcpNode: MCPNode,
 };
 
 const initialNodes: Node[] = [
@@ -494,6 +496,8 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
         nodeType = "agentNode";
       } else if (type === "inputNode" || nodeData.nodeId === "inputNode") {
         nodeType = "inputNode";
+      } else if (type === "mcpNode" || nodeData.mcpType) {
+        nodeType = "mcpNode";
       }
 
       const newNode: Node = {

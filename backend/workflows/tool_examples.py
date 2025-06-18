@@ -28,7 +28,11 @@ TOOL_XML_EXAMPLES = {
 }
 
 def get_tool_xml_example(tool_id: str) -> str:
-    return TOOL_XML_EXAMPLES.get(tool_id, "")
+    if tool_id in TOOL_XML_EXAMPLES:
+        return TOOL_XML_EXAMPLES[tool_id]
+    if tool_id not in TOOL_XML_EXAMPLES and '_' in tool_id:
+        return f'<function_calls>\n        <invoke name="{tool_id}">\n        <parameter name="param1">value1</parameter>\n        <parameter name="param2">value2</parameter>\n        </invoke>\n        </function_calls>'
+    return ""
 
 def get_tools_xml_examples(tool_ids: list) -> str:
     examples = []

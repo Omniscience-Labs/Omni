@@ -175,6 +175,7 @@ async def run_agent(
                     # Re-register the updated schemas with the tool registry
                     # This ensures the dynamically created tools are available for function calling
                     updated_schemas = mcp_wrapper_instance.get_schemas()
+                    logger.info(f"MCP wrapper has {len(updated_schemas)} schemas available")
                     for method_name, schema_list in updated_schemas.items():
                         if method_name != 'call_mcp_tool':  # Skip the fallback method
                             # Register each dynamic tool in the registry
@@ -184,7 +185,13 @@ async def run_agent(
                                         "instance": mcp_wrapper_instance,
                                         "schema": schema
                                     }
-                                    logger.debug(f"Registered dynamic MCP tool: {method_name}")
+                                    logger.info(f"Registered dynamic MCP tool: {method_name}")
+                    
+                    # Log all registered tools for debugging
+                    all_tools = list(thread_manager.tool_registry.tools.keys())
+                    logger.info(f"All registered tools after MCP initialization: {all_tools}")
+                    mcp_tools = [tool for tool in all_tools if tool not in ['call_mcp_tool', 'sb_files_tool', 'message_tool', 'expand_msg_tool', 'web_search_tool', 'sb_shell_tool', 'sb_vision_tool', 'sb_browser_tool', 'computer_use_tool', 'data_providers_tool', 'sb_deploy_tool', 'sb_expose_tool', 'update_agent_tool']]
+                    logger.info(f"MCP tools registered: {mcp_tools}")
                 
                 except Exception as e:
                     logger.error(f"Failed to initialize MCP tools: {e}")

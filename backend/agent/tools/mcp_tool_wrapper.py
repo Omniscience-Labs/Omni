@@ -56,9 +56,13 @@ class MCPToolWrapper(Tool):
             if standard_configs:
                 for config in standard_configs:
                     try:
+                        logger.info(f"Attempting to connect to MCP server: {config['qualifiedName']}")
                         await self.mcp_manager.connect_server(config)
+                        logger.info(f"Successfully connected to MCP server: {config['qualifiedName']}")
                     except Exception as e:
                         logger.error(f"Failed to connect to MCP server {config['qualifiedName']}: {e}")
+                        import traceback
+                        logger.error(f"Full traceback: {traceback.format_exc()}")
             
             # Initialize custom MCPs directly
             if custom_configs:
@@ -340,9 +344,11 @@ class MCPToolWrapper(Tool):
         try:
             # Get standard MCP tools
             available_tools = self.mcp_manager.get_all_tools_openapi()
+            logger.info(f"MCPManager returned {len(available_tools)} tools")
             
             for tool_info in available_tools:
                 tool_name = tool_info.get('name', '')
+                logger.info(f"Processing tool: {tool_name}")
                 if tool_name:
                     # Create a dynamic method for this tool with proper OpenAI schema
                     self._create_dynamic_method(tool_name, tool_info)

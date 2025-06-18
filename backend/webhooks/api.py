@@ -75,6 +75,7 @@ async def trigger_workflow_webhook(
         logger.info(f"[Webhook] Slack signature present: {bool(x_slack_signature)}")
         logger.info(f"[Webhook] Slack timestamp present: {bool(x_slack_request_timestamp)}")
 
+        # Handle Slack URL verification challenge first
         if provider_type == "slack" and data.get("type") == "url_verification":
             logger.info(f"[Webhook] Handling Slack URL verification challenge")
             challenge = data.get("challenge")
@@ -84,6 +85,38 @@ async def trigger_workflow_webhook(
             else:
                 logger.error(f"[Webhook] No challenge found in URL verification request")
                 raise HTTPException(status_code=400, detail="No challenge found in URL verification request")
+
+        if provider_type == "slack" and not data:
+            logger.info(f"[Webhook] Received empty Slack request, likely verification ping")
+            if x_slack_signature and x_slack_request_timestamp:
+                client = await db.client
+                result = await client.table('workflows').select('*').eq('id', workflow_id).execute()
+                
+                if result.data:
+                    workflow_data = result.data[0]
+                    workflow = _map_db_to_workflow_definition(workflow_data)
+                    webhook_config = None
+                    for trigger in workflow.triggers:
+                        if trigger.type == 'WEBHOOK' and trigger.config.get('type') == 'slack':
+                            webhook_config = trigger.config
+                            break
+                    
+                    if webhook_config and webhook_config.get('slack', {}).get('signing_secret'):
+                        signing_secret = webhook_config['slack']['signing_secret']
+                        
+                        if not SlackWebhookProvider.validate_request_timing(x_slack_request_timestamp):
+                            logger.warning(f"[Webhook] Request timestamp is too old")
+                            raise HTTPException(status_code=400, detail="Request timestamp is too old")
+                        
+                        if not SlackWebhookProvider.verify_signature(body, x_slack_request_timestamp, x_slack_signature, signing_secret):
+                            logger.warning(f"[Webhook] Invalid Slack signature for empty request")
+                            raise HTTPException(status_code=401, detail="Invalid Slack signature")
+                        
+                        logger.info(f"[Webhook] Empty Slack request verified successfully")
+                    else:
+                        logger.warning(f"[Webhook] No signing secret configured for Slack webhook verification")
+            
+            return JSONResponse(content={"message": "Verification successful"})
 
         client = await db.client
         logger.info(f"[Webhook] Looking up workflow {workflow_id} in database")
@@ -107,7 +140,14 @@ async def trigger_workflow_webhook(
             logger.warning(f"[Webhook] Workflow {workflow_id} does not have webhook trigger configured, but allowing for testing")
         
         if provider_type == "slack":
-            result = await _handle_slack_webhook(workflow, data, body, x_slack_signature, x_slack_request_timestamp)
+            # Skip calling _handle_slack_webhook for empty data since we already handled it above
+            if not data:
+                result = {
+                    "should_execute": False,
+                    "response": {"message": "Verification successful"}
+                }
+            else:
+                result = await _handle_slack_webhook(workflow, data, body, x_slack_signature, x_slack_request_timestamp)
         else:
             result = await _handle_generic_webhook(workflow, data)
 
@@ -230,12 +270,50 @@ async def _handle_slack_webhook(
 ) -> Dict[str, Any]:
     """Handle Slack webhook specifically."""
     try:
+        # Handle empty data (common during Slack verification)
+        if not data:
+            logger.info("[Webhook] Empty Slack data received, likely verification ping")
+            
+            # Still verify signature if provided
+            if signature and timestamp:
+                webhook_config = None
+                for trigger in workflow.triggers:
+                    if trigger.type == 'WEBHOOK' and trigger.config.get('type') == 'slack':
+                        webhook_config = trigger.config
+                        break
+                
+                if webhook_config and webhook_config.get('slack', {}).get('signing_secret'):
+                    signing_secret = webhook_config['slack']['signing_secret']
+                    
+                    if not SlackWebhookProvider.validate_request_timing(timestamp):
+                        raise HTTPException(status_code=400, detail="Request timestamp is too old")
+                    
+                    if not SlackWebhookProvider.verify_signature(body, timestamp, signature, signing_secret):
+                        raise HTTPException(status_code=401, detail="Invalid Slack signature")
+                    
+                    logger.info("[Webhook] Empty Slack request signature verified")
+            
+            return {
+                "should_execute": False,
+                "response": {"message": "Verification successful"}
+            }
+        
+        # Validate as SlackEventRequest
         slack_event = SlackEventRequest(**data)
 
+        # Handle URL verification challenge
         if slack_event.type == "url_verification":
             return {
                 "should_execute": False,
                 "response": {"challenge": slack_event.challenge}
+            }
+        
+        # Handle case where type is None (empty request)
+        if slack_event.type is None:
+            logger.info("[Webhook] Slack event with no type, likely verification ping")
+            return {
+                "should_execute": False,
+                "response": {"message": "Verification successful"}
             }
         
         webhook_config = None

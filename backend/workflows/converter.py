@@ -24,13 +24,19 @@ class WorkflowConverter:
         entry_point = self._find_entry_point(nodes, edges)
         triggers = self._extract_triggers_from_input(input_config)
         
-        logger.info(f"Looking for tool nodes in {len(nodes)} total nodes")
+        logger.info(f"Looking for tool and MCP nodes in {len(nodes)} total nodes")
         for node in nodes:
             logger.info(f"Node: id={node.get('id')}, type={node.get('type')}, data={node.get('data', {})}")
         
+        # Extract regular tool nodes
         tool_nodes = [node for node in nodes if node.get('type') == 'toolConnectionNode']
         logger.info(f"Found {len(tool_nodes)} tool connection nodes")
         
+        # Extract MCP nodes
+        mcp_nodes = [node for node in nodes if node.get('type') == 'mcpNode']
+        logger.info(f"Found {len(mcp_nodes)} MCP nodes")
+        
+        # Process regular tools
         enabled_tools = []
         for tool_node in tool_nodes:
             tool_data = tool_node.get('data', {})
@@ -48,6 +54,10 @@ class WorkflowConverter:
             else:
                 logger.warning(f"Tool node {tool_node.get('id')} has no nodeId in data: {tool_data}")
         
+        # Process MCP nodes and extract MCP configurations
+        mcp_configs = self._extract_mcp_configurations(mcp_nodes)
+        logger.info(f"Extracted {len(mcp_configs['configured_mcps'])} Smithery MCPs and {len(mcp_configs['custom_mcps'])} custom MCPs")
+        
         logger.info(f"Final enabled_tools list: {enabled_tools}")
 
         agent_step = WorkflowStep(
@@ -62,7 +72,9 @@ class WorkflowConverter:
                 "model": "anthropic/claude-3-5-sonnet-latest",
                 "max_iterations": 10,
                 "input_prompt": input_config.prompt if input_config else "",
-                "tools": enabled_tools
+                "tools": enabled_tools,
+                "configured_mcps": mcp_configs["configured_mcps"],
+                "custom_mcps": mcp_configs["custom_mcps"]
             },
             next_steps=[]
         )
@@ -244,6 +256,7 @@ class WorkflowConverter:
         node_descriptions = []
         agent_nodes = []
         tool_nodes = []
+        mcp_nodes = []
         
         for node in nodes:
             if node.get('type') == 'agentNode':
@@ -253,6 +266,10 @@ class WorkflowConverter:
             elif node.get('type') == 'toolConnectionNode':
                 tool_nodes.append(node)
                 desc = self._describe_tool_node(node, edges)
+                node_descriptions.append(desc)
+            elif node.get('type') == 'mcpNode':
+                mcp_nodes.append(node)
+                desc = self._describe_mcp_node(node, edges)
                 node_descriptions.append(desc)
             elif node.get('type') == 'inputNode':
                 desc = self._describe_input_node(node, edges)
@@ -308,6 +325,8 @@ class WorkflowConverter:
         # Extract tool IDs and generate tool descriptions
         tool_ids = []
         enabled_tools = []
+        
+        # Process regular tools
         for tool_node in tool_nodes:
             tool_data = tool_node.get('data', {})
             tool_name = tool_data.get('nodeId', tool_data.get('label', 'Unknown Tool'))
@@ -331,6 +350,42 @@ class WorkflowConverter:
                     "instructions": tool_instructions
                 })
         
+        # Process MCP tools
+        mcp_tool_descriptions = []
+        for mcp_node in mcp_nodes:
+            mcp_data = mcp_node.get('data', {})
+            mcp_type = mcp_data.get('mcpType', 'smithery')
+            enabled_tools_list = mcp_data.get('enabledTools', [])
+            
+            if mcp_data.get('isConfigured', False) and enabled_tools_list:
+                server_name = mcp_data.get('label', 'MCP Server')
+                
+                if mcp_type == 'smithery':
+                    qualified_name = mcp_data.get('qualifiedName', '')
+                    for tool_name in enabled_tools_list:
+                        # Use the clean tool name as the callable method name (same as MCPToolWrapper)
+                        # MCPToolWrapper creates methods using just the tool name, not the full mcp_server_tool format
+                        clean_tool_name = tool_name.replace('-', '_')
+                        tool_description = f"- **{clean_tool_name}** (MCP): From {server_name} ({qualified_name})"
+                        mcp_tool_descriptions.append(tool_description)
+                        tool_ids.append(clean_tool_name)
+                elif mcp_type == 'custom':
+                    for tool_name in enabled_tools_list:
+                        # Use the clean tool name as the callable method name (same as MCPToolWrapper)
+                        clean_tool_name = tool_name.replace('-', '_')
+                        tool_description = f"- **{clean_tool_name}** (Custom MCP): From {server_name}"
+                        mcp_tool_descriptions.append(tool_description)
+                        tool_ids.append(clean_tool_name)
+        
+        # Add MCP tool descriptions to prompt
+        if mcp_tool_descriptions:
+            prompt_parts.extend([
+                "",
+                "### MCP Server Tools",
+                "The following tools are available from MCP servers:"
+            ])
+            prompt_parts.extend(mcp_tool_descriptions)
+        
         # Add XML tool examples if tools are available
         if tool_ids:
             xml_examples = get_tools_xml_examples(tool_ids)
@@ -349,6 +404,7 @@ class WorkflowConverter:
             "When executing this workflow:",
             "- Follow the logical flow defined by the visual connections",
             "- Use tools in the order and manner specified using the XML format shown above",
+            "- For MCP tools, use the exact tool names and formats shown in the examples",
             "- Provide clear, step-by-step output",
             "- If any step fails, explain what went wrong and suggest alternatives",
             "- Complete the workflow by providing the expected output",
@@ -375,7 +431,6 @@ class WorkflowConverter:
         if trigger_type == 'SCHEDULE':
             schedule_config = data.get('schedule_config', {})
             
-            # Handle new nested schedule configuration format
             if schedule_config.get('type'):
                 schedule_type = schedule_config.get('type')
                 if schedule_type == 'simple' and schedule_config.get('simple'):
@@ -388,7 +443,6 @@ class WorkflowConverter:
                     advanced_config = schedule_config['advanced']
                     description.append(f"**Schedule**: {advanced_config.get('cron_expression')} (advanced cron)")
             else:
-                # Old format
                 if schedule_config.get('cron_expression'):
                     description.append(f"**Schedule**: {schedule_config['cron_expression']} (cron)")
                 elif schedule_config.get('interval_type') and schedule_config.get('interval_value'):
@@ -471,6 +525,51 @@ class WorkflowConverter:
         
         return "\n".join(description)
     
+    def _describe_mcp_node(self, node: Dict[str, Any], edges: List[Dict[str, Any]]) -> str:
+        """Describe an MCP node and its configuration."""
+        data = node.get('data', {})
+        name = data.get('label', 'MCP Server')
+        mcp_type = data.get('mcpType', 'smithery')
+        enabled_tools = data.get('enabledTools', [])
+        is_configured = data.get('isConfigured', False)
+        
+        input_connections = self._find_node_inputs(node.get('id'), edges)
+        output_connections = self._find_node_outputs(node.get('id'), edges)
+        
+        description = [
+            f"### {name}",
+        ]
+        
+        if mcp_type == 'smithery':
+            qualified_name = data.get('qualifiedName', '')
+            description.extend([
+                f"**Type**: Smithery MCP Server",
+                f"**Qualified Name**: {qualified_name}",
+            ])
+        elif mcp_type == 'custom':
+            custom_config = data.get('customConfig', {})
+            custom_type = custom_config.get('type', 'sse')
+            description.extend([
+                f"**Type**: Custom MCP Server ({custom_type.upper()})",
+            ])
+        
+        description.append(f"**Status**: {'Configured' if is_configured else 'Not Configured'}")
+        
+        if enabled_tools:
+            description.append(f"**Enabled Tools**: {', '.join(enabled_tools)}")
+            description.append(f"**Purpose**: Provides {len(enabled_tools)} MCP tool{'s' if len(enabled_tools) != 1 else ''} to the workflow")
+        else:
+            description.append("**Purpose**: MCP server (no tools enabled)")
+        
+        if input_connections:
+            description.append(f"**Connected from**: {', '.join(input_connections)}")
+        
+        if output_connections:
+            description.append(f"**Connected to**: {', '.join(output_connections)}")
+        
+        description.append("")
+        return "\n".join(description)
+    
     def _find_node_inputs(self, node_id: str, edges: List[Dict[str, Any]]) -> List[str]:
         """Find nodes that connect to this node as inputs."""
         inputs = []
@@ -506,7 +605,58 @@ class WorkflowConverter:
         
         return nodes[0].get('id') if nodes else "main_agent_step"
     
-
+    def _extract_mcp_configurations(self, mcp_nodes: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Extract MCP configurations from MCP nodes."""
+        configured_mcps = []
+        custom_mcps = []
+        
+        for mcp_node in mcp_nodes:
+            mcp_data = mcp_node.get('data', {})
+            mcp_type = mcp_data.get('mcpType', 'smithery')
+            is_configured = mcp_data.get('isConfigured', False)
+            enabled_tools = mcp_data.get('enabledTools', [])
+            
+            logger.info(f"Processing MCP node: id={mcp_node.get('id')}, type={mcp_type}, data={mcp_data}")
+            logger.info(f"MCP node configured: {is_configured}, enabled tools: {enabled_tools}")
+            
+            # Process configured nodes
+            if is_configured:
+                if mcp_type == 'smithery':
+                    # Smithery MCP server
+                    qualified_name = mcp_data.get('qualifiedName', '')
+                    if qualified_name:
+                        mcp_config = {
+                            'name': mcp_data.get('label', qualified_name),
+                            'qualifiedName': qualified_name,
+                            'config': mcp_data.get('config', {}),
+                            'enabledTools': enabled_tools  # Can be empty, will be populated from credential manager
+                        }
+                        configured_mcps.append(mcp_config)
+                        logger.info(f"Added Smithery MCP: {qualified_name} with {len(enabled_tools)} enabled tools")
+                    else:
+                        logger.warning(f"Smithery MCP node {mcp_data.get('label', 'Unknown')} missing qualifiedName")
+                
+                elif mcp_type == 'custom' and enabled_tools:
+                    # Custom MCP server - still require enabled tools since we can't fetch them from credential manager
+                    custom_config = mcp_data.get('customConfig', {})
+                    custom_mcp = {
+                        'name': mcp_data.get('label', 'Custom MCP'),
+                        'isCustom': True,
+                        'customType': custom_config.get('type', 'sse'),
+                        'config': custom_config.get('config', {}),
+                        'enabledTools': enabled_tools
+                    }
+                    custom_mcps.append(custom_mcp)
+                    logger.info(f"Added custom MCP: {custom_mcp['name']}")
+                elif mcp_type == 'custom':
+                    logger.warning(f"Custom MCP node {mcp_data.get('label', 'Unknown')} is configured but has no enabled tools")
+            else:
+                logger.warning(f"MCP node {mcp_data.get('label', 'Unknown')} is not configured")
+        
+        return {
+            "configured_mcps": configured_mcps,
+            "custom_mcps": custom_mcps
+        }
 
 def validate_workflow_flow(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
     """Validate a workflow flow for common issues."""

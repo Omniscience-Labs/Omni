@@ -16,7 +16,7 @@ class SlackEventRequest(BaseModel):
     team_id: Optional[str] = None
     api_app_id: Optional[str] = None
     event: Optional[Dict[str, Any]] = None
-    type: str
+    type: Optional[str] = None
     event_id: Optional[str] = None
     event_time: Optional[int] = None
     authed_users: Optional[list] = None

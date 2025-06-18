@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional, AsyncGenerator
 from .models import WorkflowDefinition, WorkflowExecution
 from services.supabase import DBConnection
 from utils.logger import logger
+from typing import List
 
 class WorkflowExecutor:
     """Executes workflows using the AgentPress agent system."""
@@ -65,14 +66,21 @@ class WorkflowExecutor:
             # Extract enabled tools from workflow steps
             enabled_tools = self._extract_enabled_tools_from_workflow(workflow)
             
+            # Extract MCP configurations from workflow steps and agent
+            mcp_configs = await self._extract_mcp_configurations_from_workflow_and_agent(workflow)
+            
             agent_config = {
                 "name": f"Workflow Agent: {workflow.name}",
                 "description": workflow.description or "Generated workflow agent",
                 "system_prompt": system_prompt,
                 "agentpress_tools": enabled_tools,
-                "configured_mcps": [],
-                "custom_mcps": []
+                "configured_mcps": mcp_configs["configured_mcps"],
+                "custom_mcps": mcp_configs["custom_mcps"]
             }
+            
+            # Debug: Log the final agent config
+            logger.info(f"Agent config for workflow - configured_mcps: {len(agent_config['configured_mcps'])} servers")
+            logger.info(f"Agent config for workflow - custom_mcps: {len(agent_config['custom_mcps'])} servers")
             
             from agent.run import run_agent
 
@@ -300,6 +308,122 @@ class WorkflowExecutor:
         
         logger.info(f"Final enabled tools for workflow: {list(enabled_tools.keys())}")
         return enabled_tools
+
+    async def _extract_mcp_configurations_from_workflow_and_agent(self, workflow: WorkflowDefinition) -> Dict[str, List[Dict[str, Any]]]:
+        """Extract MCP configurations from workflow steps and agent using credential manager."""
+        configured_mcps = []
+        custom_mcps = []
+        
+        logger.info(f"Processing workflow with {len(workflow.steps)} steps for MCP extraction")
+        logger.info(f"Workflow name: {workflow.name}")
+        logger.info(f"Workflow ID: {workflow.id}")
+        logger.info(f"Workflow agent_id: {workflow.agent_id}")
+        
+        # First, extract MCP configurations from workflow steps
+        for step in workflow.steps:
+            step_config = step.config or {}
+            
+            # Extract configured MCPs (Smithery servers) from step config
+            step_configured_mcps = step_config.get("configured_mcps", [])
+            logger.info(f"Step {step.id} - configured_mcps: {step_configured_mcps}")
+            
+            for mcp in step_configured_mcps:
+                if isinstance(mcp, dict):
+                    qualified_name = mcp.get("qualifiedName")
+                    if qualified_name:
+                        configured_mcps.append({
+                            "name": mcp.get("name", qualified_name),
+                            "qualifiedName": qualified_name,
+                            "config": mcp.get("config", {}),
+                            "enabledTools": mcp.get("enabledTools", [])
+                        })
+                        logger.info(f"Added configured MCP from workflow step: {qualified_name}")
+            
+            # Extract custom MCPs from step config
+            step_custom_mcps = step_config.get("custom_mcps", [])
+            logger.info(f"Step {step.id} - custom_mcps: {step_custom_mcps}")
+            
+            for mcp in step_custom_mcps:
+                if isinstance(mcp, dict):
+                    mcp_name = mcp.get("name", "Custom MCP")
+                    custom_mcps.append({
+                        "name": mcp_name,
+                        "isCustom": True,
+                        "customType": mcp.get("type", "sse"),
+                        "config": mcp.get("config", {}),
+                        "enabledTools": mcp.get("enabledTools", [])
+                    })
+                    logger.info(f"Added custom MCP from workflow step: {mcp_name}")
+        
+        from mcp_local.credential_manager import credential_manager
+        
+        try:
+            client = await self.db.client
+            project_result = await client.table('projects').select('account_id').eq('project_id', workflow.project_id).execute()
+            if not project_result.data:
+                raise ValueError(f"Project {workflow.project_id} not found")
+            account_id = project_result.data[0]['account_id']
+            logger.info(f"Getting MCP credentials for workflow account_id: {account_id}")
+        except Exception as e:
+            logger.error(f"Error getting account_id from project: {e}")
+            account_id = None
+        
+        # For each configured MCP in workflow, get credentials from credential manager
+        if account_id:
+            for i, mcp in enumerate(configured_mcps):
+                qualified_name = mcp.get("qualifiedName")
+                if qualified_name and not mcp.get("config"):  # Only if config is empty
+                    try:
+                        credential = await credential_manager.get_credential(account_id, qualified_name)
+                        if credential:
+                            configured_mcps[i]["config"] = credential.config
+                            logger.info(f"Added credentials for MCP {qualified_name}")
+                        else:
+                            logger.warning(f"No credential found for MCP {qualified_name}")
+                            
+                    except Exception as e:
+                        logger.error(f"Error getting credential for MCP {qualified_name}: {e}")
+            
+            # For each custom MCP in workflow, get credentials if needed
+            for i, mcp in enumerate(custom_mcps):
+                mcp_name = mcp.get("name", "Custom MCP")
+                mcp_type = mcp.get("customType", "sse")
+                
+                if not mcp.get("config"):  # Only if config is empty
+                    try:
+                        # Build qualified name for custom MCP (same pattern as agents)
+                        custom_qualified_name = f"custom_{mcp_type}_{mcp_name.replace(' ', '_').lower()}"
+                        
+                        # Get decrypted credentials from credential manager
+                        credential = await credential_manager.get_credential(account_id, custom_qualified_name)
+                        
+                        if credential:
+                            # Update the config with decrypted credentials
+                            custom_mcps[i]["config"] = credential.config
+                            logger.info(f"Added credentials for custom MCP {mcp_name}")
+                        else:
+                            logger.warning(f"No credential found for custom MCP {custom_qualified_name}")
+                            
+                    except Exception as e:
+                        logger.error(f"Error getting credential for custom MCP {mcp_name}: {e}")
+        else:
+            logger.warning("No account_id found, skipping MCP credential lookup")
+        
+        logger.info(f"Final configured MCPs for workflow: {len(configured_mcps)} servers")
+        logger.info(f"Final custom MCPs for workflow: {len(custom_mcps)} servers")
+        
+        # Debug: Log the actual MCP configurations
+        for mcp in configured_mcps:
+            config_keys = list(mcp.get('config', {}).keys()) if mcp.get('config') else []
+            logger.info(f"Configured MCP: {mcp.get('qualifiedName')} with tools: {mcp.get('enabledTools', [])} and config keys: {config_keys}")
+        for mcp in custom_mcps:
+            config_keys = list(mcp.get('config', {}).keys()) if mcp.get('config') else []
+            logger.info(f"Custom MCP: {mcp.get('name')} with tools: {mcp.get('enabledTools', [])} and config keys: {config_keys}")
+        
+        return {
+            "configured_mcps": configured_mcps,
+            "custom_mcps": custom_mcps
+        }
 
     async def _create_workflow_thread(
         self, 

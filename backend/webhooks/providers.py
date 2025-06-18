@@ -35,6 +35,11 @@ class SlackWebhookProvider:
     def process_event(event_data: SlackEventRequest) -> Optional[SlackWebhookPayload]:
         """Process Slack event and extract relevant data."""
         try:
+            # Handle cases where type might be None (empty verification requests)
+            if not event_data.type:
+                logger.info("Slack event has no type, likely verification ping")
+                return None
+                
             if event_data.type == "url_verification":
                 return None
             
