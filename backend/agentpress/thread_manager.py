@@ -90,16 +90,33 @@ class ThreadManager:
             else:
                 return msg_content
         
-    def _safe_truncate(self, msg_content: Union[str, dict], max_length: int = 300000) -> Union[str, dict]:
-        """Truncate the message content safely."""
+    def _safe_truncate(self, msg_content: Union[str, dict], max_length: int = 100000) -> Union[str, dict]:
+        """Truncate the message content safely by removing the middle portion."""
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
-                return msg_content[:max_length] + f"\n\nThis message is too long, repeat relevant information in your response to remember it"
+                # Calculate how much to keep from start and end
+                keep_length = max_length - 100  # Reserve space for truncation message
+                start_length = keep_length // 2
+                end_length = keep_length - start_length
+                
+                start_part = msg_content[:start_length]
+                end_part = msg_content[-end_length:] if end_length > 0 else ""
+                
+                return start_part + f"\n\n... (middle truncated) ...\n\n" + end_part + f"\n\nThis message is too long, repeat relevant information in your response to remember it"
             else:
                 return msg_content
         elif isinstance(msg_content, dict):
-            if len(json.dumps(msg_content)) > max_length:
-                return json.dumps(msg_content)[:max_length] + f"\n\nThis message is too long, repeat relevant information in your response to remember it"
+            json_str = json.dumps(msg_content)
+            if len(json_str) > max_length:
+                # Calculate how much to keep from start and end
+                keep_length = max_length - 100  # Reserve space for truncation message
+                start_length = keep_length // 2
+                end_length = keep_length - start_length
+                
+                start_part = json_str[:start_length]
+                end_part = json_str[-end_length:] if end_length > 0 else ""
+                
+                return start_part + f"\n\n... (middle truncated) ...\n\n" + end_part + f"\n\nThis message is too long, repeat relevant information in your response to remember it"
             else:
                 return msg_content
   
