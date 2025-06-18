@@ -570,23 +570,39 @@ export const addUserMessage = async (
 export const getMessages = async (threadId: string): Promise<Message[]> => {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('thread_id', threadId)
-    .neq('type', 'cost')
-    .neq('type', 'summary')
-    .order('created_at', { ascending: true });
+  let allMessages: Message[] = [];
+  let from = 0;
+  const batchSize = 1000;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching messages:', error);
-    handleApiError(error, { operation: 'load messages', resource: `messages for thread ${threadId}` });
-    throw new Error(`Error getting messages: ${error.message}`);
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('thread_id', threadId)
+      .neq('type', 'cost')
+      .neq('type', 'summary')
+      .order('created_at', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      handleApiError(error, { operation: 'load messages', resource: `messages for thread ${threadId}` });
+      throw new Error(`Error getting messages: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      allMessages = allMessages.concat(data);
+      from += batchSize;
+      hasMore = data.length === batchSize;
+    } else {
+      hasMore = false;
+    }
   }
 
-  console.log('[API] Messages fetched:', data);
+  console.log('[API] Messages fetched count:', allMessages.length);
 
-  return data || [];
+  return allMessages;
 };
 
 // Agent APIs
