@@ -92,10 +92,11 @@ class ThreadManager:
         
     def _safe_truncate(self, msg_content: Union[str, dict], max_length: int = 100000) -> Union[str, dict]:
         """Truncate the message content safely by removing the middle portion."""
+        max_length = min(max_length, 100000)
         if isinstance(msg_content, str):
             if len(msg_content) > max_length:
                 # Calculate how much to keep from start and end
-                keep_length = max_length - 100  # Reserve space for truncation message
+                keep_length = max_length - 150  # Reserve space for truncation message
                 start_length = keep_length // 2
                 end_length = keep_length - start_length
                 
@@ -109,7 +110,7 @@ class ThreadManager:
             json_str = json.dumps(msg_content)
             if len(json_str) > max_length:
                 # Calculate how much to keep from start and end
-                keep_length = max_length - 100  # Reserve space for truncation message
+                keep_length = max_length - 150  # Reserve space for truncation message
                 start_length = keep_length // 2
                 end_length = keep_length - start_length
                 
@@ -225,10 +226,6 @@ class ThreadManager:
         else:
             max_tokens = 41 * 1000 - 10000
 
-        if max_iterations <= 0:
-            logger.warning(f"_compress_messages: Max iterations reached, returning uncompressed messages")
-            return messages
-
         result = messages
         result = self._remove_meta_messages(result)
 
@@ -241,6 +238,10 @@ class ThreadManager:
         compressed_token_count = token_counter(model=llm_model, messages=result)
 
         logger.info(f"_compress_messages: {uncompressed_total_token_count} -> {compressed_token_count}") # Log the token compression for debugging later
+
+        if max_iterations <= 0:
+            logger.warning(f"_compress_messages: Max iterations reached")
+            return result
 
         if (compressed_token_count > max_tokens):
             logger.warning(f"Further token compression is needed: {compressed_token_count} > {max_tokens}")
