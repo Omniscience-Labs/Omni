@@ -54,7 +54,7 @@ CMD ["sh", "-c", "gunicorn api:app \
      --worker-connections $WORKER_CONNECTIONS \
      --worker-tmp-dir /dev/shm \
      --preload \
-     --log-level info \
+     --log-level critical \
      --access-logfile - \
      --error-logfile - \
      --capture-output \

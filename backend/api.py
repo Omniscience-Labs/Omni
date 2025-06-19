@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-import sentry
+import sentry # Keep this import here, right after fastapi imports
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from utils.config import config, EnvMode
 import asyncio
-from utils.logger import logger
+from utils.logger import logger, structlog
 import time
 from collections import OrderedDict
 from typing import Dict, Any
 
 from pydantic import BaseModel
+import uuid
 # Import the agent API module
 from agent import api as agent_api
 from sandbox import api as sandbox_api
@@ -89,13 +90,23 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
+    structlog.contextvars.clear_contextvars()
+
+    request_id = str(uuid.uuid4())
     start_time = time.time()
     client_ip = request.client.host
     method = request.method
-    url = str(request.url)
     path = request.url.path
     query_params = str(request.query_params)
-    
+
+    structlog.contextvars.bind_contextvars(
+        request_id=request_id,
+        client_ip=client_ip,
+        method=method,
+        path=path,
+        query_params=query_params
+    )
+
     # Log the incoming request
     logger.info(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
     
