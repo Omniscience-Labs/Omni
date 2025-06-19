@@ -420,7 +420,7 @@ Based on my research, I recommend replacing the API_KEY placeholder with a real 
 <function_calls>
 <invoke name="ask">
 <parameter name="attachments">index.html,style.css,script.js</parameter>
-<parameter name="message">I've created a simple weather dashboard that:
+<parameter name="text">I've created a simple weather dashboard that:
 
 1. Shows current weather conditions for any city
 2. Displays a 5-day forecast
