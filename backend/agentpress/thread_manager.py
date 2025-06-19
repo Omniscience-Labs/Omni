@@ -68,10 +68,12 @@ class ThreadManager:
         content = msg['content']
         if isinstance(content, str) and "ToolResult" in content: return True
         if isinstance(content, dict) and "tool_execution" in content: return True
+        if isinstance(content, dict) and "interactive_elements" in content: return True
         if isinstance(content, str):
             try:
                 parsed_content = json.loads(content)
                 if isinstance(parsed_content, dict) and "tool_execution" in parsed_content: return True
+                if isinstance(parsed_content, dict) and "interactive_elements" in content: return True
             except (json.JSONDecodeError, TypeError):
                 pass
         return False
