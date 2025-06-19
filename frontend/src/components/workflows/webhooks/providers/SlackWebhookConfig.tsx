@@ -76,15 +76,14 @@ export function SlackWebhookConfig({ config, onChange, webhookUrl }: SlackWebhoo
 
   return (
     <div className="space-y-6">
-      {/* Setup Instructions */}
       <Card>
-        <CardHeader className="pb-3">
-                     <CardTitle className="flex items-center gap-2 text-base">
-             <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: '#4A154B' }}>
-               <span className="text-white font-bold text-xs">S</span>
-             </div>
-             Setup Instructions
-           </CardTitle>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: '#4A154B' }}>
+              <span className="text-white font-bold text-xs">S</span>
+            </div>
+            Setup Instructions
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="space-y-2">
@@ -141,9 +140,6 @@ export function SlackWebhookConfig({ config, onChange, webhookUrl }: SlackWebhoo
           </div>
         </CardContent>
       </Card>
-
-      <Separator />
-
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="webhook-url" className="text-sm font-medium flex items-center gap-2">

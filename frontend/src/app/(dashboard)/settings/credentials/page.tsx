@@ -1,13 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Key, Shield, TestTube, Trash2, CheckCircle, XCircle, Loader2, AlertTriangle, Star, Settings2, Users } from 'lucide-react';
+import { 
+  Plus, 
+  Key, 
+  Shield, 
+  Trash2, 
+  CheckCircle, 
+  Loader2, 
+  AlertTriangle, 
+  Star, 
+  Settings2, 
+  Users,
+  Sparkles,
+  Clock,
+  Server,
+  Globe,
+  Zap,
+  MoreHorizontal
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { 
   useCredentialProfiles,
@@ -16,6 +34,7 @@ import {
   type CredentialProfile
 } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { EnhancedAddCredentialDialog } from './_components/enhanced-add-credential-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CredentialProfileCardProps {
   profile: CredentialProfile;
@@ -39,87 +58,107 @@ const CredentialProfileCard: React.FC<CredentialProfileCardProps> = ({
   const getCustomServerType = () => {
     if (profile.mcp_qualified_name.startsWith('custom_sse_')) return 'SSE';
     if (profile.mcp_qualified_name.startsWith('custom_http_')) return 'HTTP';
-    if (profile.mcp_qualified_name.startsWith('custom_json_')) return 'JSON/stdio';
+    if (profile.mcp_qualified_name.startsWith('custom_json_')) return 'JSON';
     return 'Custom';
   };
 
+  const getServerIcon = () => {
+    if (isCustomServer) {
+      const type = getCustomServerType();
+      if (type === 'SSE') return <Globe className="h-3.5 w-3.5" />;
+      if (type === 'HTTP') return <Server className="h-3.5 w-3.5" />;
+      return <Settings2 className="h-3.5 w-3.5" />;
+    }
+    return <Key className="h-3.5 w-3.5" />;
+  };
+
   return (
-    <Card className={`border-border/50 hover:border-border transition-colors ${profile.is_default ? 'ring-2 ring-primary/20 border-primary/30' : ''}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-md bg-primary/10">
-                <Key className="h-4 w-4 text-primary" />
+    <Card className={`group transition-all bg-sidebar duration-200 py-0 border-border/60 ${
+      profile.is_default 
+        ? 'ring-1 ring-primary/10 border-primary/10 bg-primary/5' 
+        : 'hover:border-border hover:bg-accent/20'
+    }`}>
+      <CardContent className="p-3">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className={`p-1.5 rounded-md transition-colors ${
+                profile.is_default 
+                  ? 'bg-primary/20 text-primary' 
+                  : 'bg-muted/70 text-muted-foreground group-hover:bg-muted'
+              }`}>
+                {getServerIcon()}
               </div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-md font-medium text-foreground">{profile.profile_name}</h3>
-                {profile.is_default && (
-                  <Badge variant="default" className="text-xs bg-primary/10 text-primary border-primary/20">
-                    <Star className="h-3 w-3 mr-1" />
-                    Default
-                  </Badge>
-                )}
-                {isCustomServer && (
-                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                    {getCustomServerType()}
-                  </Badge>
-                )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-medium text-foreground truncate">{profile.profile_name}</h3>
+                <p className="text-xs text-muted-foreground truncate">{profile.display_name}</p>
               </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">
-                {profile.display_name}
-              </p>
-              <p className="text-xs text-muted-foreground font-mono">
-                {profile.mcp_qualified_name}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {profile.config_keys.map((key) => (
-                <Badge key={key} variant="outline" className="text-xs">
-                  {key === 'url' && isCustomServer ? 'Server URL' : key}
-                </Badge>
-              ))}
-            </div>
-            {profile.last_used_at && (
-              <p className="text-xs text-muted-foreground/70">
-                Last used {new Date(profile.last_used_at).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-          
-          <div className="flex gap-1.5 ml-4">
-            {!profile.is_default && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onSetDefault(profile.profile_id)}
-                disabled={isDeleting || isSettingDefault}
-                className="h-8 px-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                title="Set as default profile"
-              >
-                {isSettingDefault ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Star className="h-3.5 w-3.5" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={isDeleting || isSettingDefault}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {!profile.is_default && (
+                  <DropdownMenuItem
+                    onClick={() => onSetDefault(profile.profile_id)}
+                    disabled={isSettingDefault}
+                  >
+                    {isSettingDefault ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Star className="h-3.5 w-3.5" />
+                    )}
+                    Set as Default
+                  </DropdownMenuItem>
                 )}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onDelete(profile.profile_id)}
-              disabled={isDeleting || isSettingDefault}
-              className="h-8 px-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              {isDeleting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="h-3.5 w-3.5" />
-              )}
-            </Button>
+                <DropdownMenuItem
+                  onClick={() => onDelete(profile.profile_id)}
+                  disabled={isDeleting}
+                  className="text-destructive focus:text-destructive"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="text-destructive h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="text-destructiveh-3.5 w-3.5" />
+                  )}
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {profile.is_default && (
+              <Badge variant="default" className="text-xs h-5 bg-primary/15 text-primary border-primary/30">
+                <Star className="h-2.5 w-2.5 mr-1" />
+                Default
+              </Badge>
+            )}
+            {isCustomServer && (
+              <Badge variant="outline" className="text-xs h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                <Sparkles className="h-2.5 w-2.5 mr-1" />
+                {getCustomServerType()}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-xs h-5 bg-muted/50 text-muted-foreground">
+              {profile.config_keys.length} key{profile.config_keys.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
+
+          {/* Last Used */}
+          {profile.last_used_at && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-2.5 w-2.5" />
+              <span>{new Date(profile.last_used_at).toLocaleDateString()}</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -145,15 +184,21 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Delete Credential Profile</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete the profile "{profileToDelete.profile_name}" for {profileToDelete.display_name}?
-            This action cannot be undone.
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+            </div>
+            Delete Profile
+          </DialogTitle>
+          <DialogDescription className="text-left">
+            Delete <span className="font-medium">"{profileToDelete.profile_name}"</span> for {profileToDelete.display_name}?
+            <br />
+            <span className="text-destructive text-sm">This action cannot be undone.</span>
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
             Cancel
           </Button>
@@ -164,7 +209,7 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
                 Deleting...
               </>
             ) : (
-              'Delete Profile'
+              'Delete'
             )}
           </Button>
         </DialogFooter>
@@ -198,12 +243,12 @@ export default function CredentialsPage() {
     setDeletingId(profileToDelete.profile_id);
     try {
       await deleteProfileMutation.mutateAsync(profileToDelete.profile_id);
-      toast.success('Credential profile deleted successfully');
+      toast.success('Profile deleted successfully');
       setShowDeleteDialog(false);
       setProfileToDelete(null);
       refetch();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete credential profile');
+      toast.error(error.message || 'Failed to delete profile');
     } finally {
       setDeletingId(null);
     }
@@ -221,7 +266,6 @@ export default function CredentialsPage() {
     }
   };
 
-  // Group profiles by MCP server
   const groupedProfiles = profiles?.reduce((acc, profile) => {
     const key = profile.mcp_qualified_name;
     if (!acc[key]) {
@@ -237,10 +281,10 @@ export default function CredentialsPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto max-w-4xl px-4 py-6">
-        <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
+      <div className="container mx-auto max-w-6xl px-6 py-6">
+        <Alert variant="destructive" className="border-destructive/30 bg-destructive/5">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
+          <AlertDescription>
             Failed to load credential profiles. Please try again later.
           </AlertDescription>
         </Alert>
@@ -249,95 +293,103 @@ export default function CredentialsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-6">
+    <div className="container mx-auto max-w-6xl px-6 py-6">
       <div className="space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-foreground">
-                MCP Credential Profiles
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Manage multiple credential profiles for each MCP server
-              </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Shield className="h-5 w-5 text-primary" />
             </div>
-            <Button 
-              onClick={() => setShowAddDialog(true)}
-              className="px-3 text-sm"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Profile
-            </Button>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">MCP Credential Profiles</h1>
+            </div>
           </div>
-
-          <Alert className="border-primary/20 bg-primary/5">
-            <Shield className="h-4 w-4 text-primary" />
-            <AlertDescription className="text-sm text-muted-foreground">
-              Create multiple credential profiles per MCP server for different use cases. 
-              For example, different Slack teams, GitHub organizations, or API keys with different permissions.
-            </AlertDescription>
-          </Alert>
+          
+          <Button onClick={() => setShowAddDialog(true)} className="h-9">
+            <Plus className="h-4 w-4" />
+            Add Profile
+          </Button>
         </div>
 
+        <Alert className="border-primary/30 bg-primary/5">
+          <Zap className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-sm">
+            Create multiple profiles per MCP server for different use cases (teams, organizations, environments).
+          </AlertDescription>
+        </Alert>
+
         {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="border-border/50">
-                <CardContent className="p-4">
-                  <div className="animate-pulse space-y-2">
-                    <div className="h-3 bg-muted/60 rounded w-1/4"></div>
-                    <div className="h-2.5 bg-muted/40 rounded w-1/3"></div>
-                    <div className="flex gap-1.5">
-                      <div className="h-5 bg-muted/40 rounded w-12"></div>
-                      <div className="h-5 bg-muted/40 rounded w-16"></div>
-                    </div>
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-8 h-8 rounded-lg"></Skeleton>
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-32 rounded"></Skeleton>
+                    <Skeleton className="h-3 w-24 rounded"></Skeleton>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <Card key={j} className="bg-sidebar border-border/50">
+                      <CardContent className="p-3">
+                        <div className="animate-pulse space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="w-6 h-6 rounded"></Skeleton>
+                            <div className="space-y-1 flex-1">
+                              <Skeleton className="h-3 w-20 rounded"></Skeleton>
+                              <Skeleton className="h-2.5 w-16 rounded"></Skeleton>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Skeleton className="h-4 w-12 rounded"></Skeleton>
+                            <Skeleton className="h-4 w-8 rounded"></Skeleton>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         ) : !profiles || profiles.length === 0 ? (
-          <Card className="border-dashed border-border/50">
+          <Card className="border-dashed border-border/60 bg-muted/20">
             <CardContent className="p-8 text-center">
-              <div className="p-3 rounded-full bg-muted/50 w-fit mx-auto mb-3">
-                <Users className="h-6 w-6 text-muted-foreground" />
+              <div className="space-y-4">
+                <div className="p-3 rounded-full bg-muted/60 w-fit mx-auto">
+                  <Users className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-foreground">No profiles yet</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Create your first credential profile to get started
+                  </p>
+                </div>
+                <Button onClick={() => setShowAddDialog(true)} className="h-9">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Profile
+                </Button>
               </div>
-              <h3 className="text-sm font-medium mb-1 text-foreground">No credential profiles configured</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Create your first credential profile to start using MCP servers with multiple configurations
-              </p>
-              <Button 
-                onClick={() => setShowAddDialog(true)}
-                size="sm"
-                className="h-8 px-3 text-sm"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Create Your First Profile
-              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
             {Object.entries(groupedProfiles || {}).map(([qualifiedName, serverGroup]) => (
               <div key={qualifiedName} className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
                     <Settings2 className="h-4 w-4 text-primary" />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      {serverGroup.serverName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {serverGroup.qualifiedName}
-                    </p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">{serverGroup.serverName}</h3>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{serverGroup.qualifiedName}</p>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {serverGroup.profiles.length} profile{serverGroup.profiles.length !== 1 ? 's' : ''}
+                  <Badge variant="outline" className="text-xs shrink-0">
+                    {serverGroup.profiles.length}
                   </Badge>
                 </div>
-                
-                <div className="grid gap-3 pl-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {serverGroup.profiles.map((profile) => (
                     <CredentialProfileCard
                       key={profile.profile_id}
@@ -349,11 +401,13 @@ export default function CredentialsPage() {
                     />
                   ))}
                 </div>
+                {Object.keys(groupedProfiles || {}).indexOf(qualifiedName) < Object.keys(groupedProfiles || {}).length - 1 && (
+                  <Separator className="my-6" />
+                )}
               </div>
             ))}
           </div>
         )}
-
         <EnhancedAddCredentialDialog
           open={showAddDialog}
           onOpenChange={setShowAddDialog}

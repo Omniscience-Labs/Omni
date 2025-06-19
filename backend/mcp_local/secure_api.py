@@ -92,6 +92,7 @@ class InstallTemplateRequest(BaseModel):
     template_id: str
     instance_name: Optional[str] = None
     custom_system_prompt: Optional[str] = None
+    profile_mappings: Optional[Dict[str, str]] = None
     custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
 
 class PublishTemplateRequest(BaseModel):
@@ -523,6 +524,7 @@ async def install_template(
             account_id=user_id,
             instance_name=request.instance_name,
             custom_system_prompt=request.custom_system_prompt,
+            profile_mappings=request.profile_mappings,
             custom_mcp_configs=request.custom_mcp_configs
         )
         

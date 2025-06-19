@@ -31,12 +31,12 @@ interface UserFriendlyScheduleConfigProps {
 type ScheduleFrequency = 'once' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
 
 const FREQUENCY_OPTIONS = [
-  { value: 'once', label: 'Run Once', icon: '⚡', description: 'Execute once at a specific time' },
-  { value: 'hourly', label: 'Every Hour', icon: '🕐', description: 'Run every hour' },
-  { value: 'daily', label: 'Daily', icon: '📅', description: 'Run once per day' },
-  { value: 'weekly', label: 'Weekly', icon: '📆', description: 'Run once per week' },
-  { value: 'monthly', label: 'Monthly', icon: '🗓️', description: 'Run once per month' },
-  { value: 'custom', label: 'Custom', icon: '⚙️', description: 'Custom schedule pattern' }
+  { value: 'daily', label: 'Daily', icon: '📅', description: 'Run once every day at a specific time' },
+  { value: 'hourly', label: 'Every Hour', icon: '🕐', description: 'Run every hour on the hour' },
+  { value: 'weekly', label: 'Weekly', icon: '📆', description: 'Run once per week on selected days' },
+  { value: 'monthly', label: 'Monthly', icon: '🗓️', description: 'Run once per month on a specific day' },
+  { value: 'custom', label: 'Custom Interval', icon: '⚙️', description: 'Set a custom time interval' },
+  { value: 'once', label: 'Run Once', icon: '⚡', description: 'Execute once at a specific date and time' }
 ];
 
 const WEEKDAYS = [
@@ -54,13 +54,13 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [time, setTime] = useState('09:00');
-  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>(['1', '2', '3', '4', '5']); // Weekdays by default
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>(['1', '2', '3', '4', '5']);
   const [monthlyDay, setMonthlyDay] = useState(1);
   const [customInterval, setCustomInterval] = useState(1);
   const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days' | 'weeks'>('hours');
   const [hasEndDate, setHasEndDate] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
-  // Initialize state from config
   useEffect(() => {
     if (config.type === 'simple' && config.simple) {
       const { interval_type, interval_value } = config.simple;
@@ -255,28 +255,37 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
 
   return (
     <div className="space-y-6">
-      {/* Frequency Selection */}
-      <div className="space-y-3">
-        <Label className="text-base font-medium">How often should this workflow run?</Label>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
+        <div>
+          <Label className="text-lg font-semibold">How often should this workflow run?</Label>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose the frequency that best matches your needs
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {FREQUENCY_OPTIONS.map((option) => (
             <Card
               key={option.value}
               className={cn(
-                "cursor-pointer transition-all hover:shadow-md",
+                "py-0 cursor-pointer transition-all border-1",
                 frequency === option.value 
-                  ? "ring-2 ring-primary bg-primary/5" 
-                  : "hover:bg-muted/50"
+                  ? "border-primary bg-primary/5 shadow-md" 
+                  : "border-border hover:border-primary/50"
               )}
               onClick={() => handleFrequencyChange(option.value as ScheduleFrequency)}
             >
               <CardContent className="p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <span className="text-2xl">{option.icon}</span>
-                  <div>
-                    <div className="font-medium">{option.label}</div>
-                    <div className="text-xs text-muted-foreground">{option.description}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{option.label}</div>
+                    <div className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {option.description}
+                    </div>
                   </div>
+                  {frequency === option.value && (
+                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -284,38 +293,40 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
         </div>
       </div>
 
-      {/* Time Selection */}
+      {/* Time Selection - Show for all except hourly and custom intervals */}
       {frequency !== 'hourly' && frequency !== 'custom' && (
-        <div className="space-y-2">
-          <Label>What time should it run?</Label>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+        <div className="space-y-3">
+          <Label className="text-base font-medium">What time should it run?</Label>
+          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+            <Clock className="h-5 w-5 text-muted-foreground" />
             <Input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-32"
+              className="w-40"
             />
-            <span className="text-sm text-muted-foreground">UTC</span>
+            <Badge variant="outline" className="text-xs">UTC</Badge>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Time is in UTC. Your local time zone will be shown in the preview below.
+          </p>
         </div>
       )}
 
-      {/* Frequency-specific options */}
       {frequency === 'once' && (
-        <div className="space-y-2">
-          <Label>When should it run?</Label>
+        <div className="space-y-3">
+          <Label className="text-base font-medium">When should it run?</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "w-full justify-start text-left font-normal h-12",
                   !startDate && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {startDate ? format(startDate, "PPP") : "Pick a date"}
+                <CalendarIcon className="mr-3 h-5 w-5" />
+                {startDate ? format(startDate, "EEEE, MMMM d, yyyy") : "Choose a date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -332,46 +343,56 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
       )}
 
       {frequency === 'weekly' && (
-        <div className="space-y-2">
-          <Label>Which days of the week?</Label>
-          <div className="flex gap-2">
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Which days of the week?</Label>
+          <div className="grid grid-cols-7 gap-2">
             {WEEKDAYS.map((day) => (
               <Button
                 key={day.value}
                 variant={selectedWeekdays.includes(day.value) ? "default" : "outline"}
                 size="sm"
                 onClick={() => toggleWeekday(day.value)}
-                className="h-10 w-12"
+                className="h-12 flex-col gap-1 text-xs"
               >
-                {day.short}
+                <span className="font-medium">{day.short}</span>
               </Button>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Select one or more days. The workflow will run at {time} UTC on selected days.
+          </p>
         </div>
       )}
 
       {frequency === 'monthly' && (
-        <div className="space-y-2">
-          <Label>Which day of the month?</Label>
-          <Select value={monthlyDay.toString()} onValueChange={(value) => setMonthlyDay(parseInt(value))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                <SelectItem key={day} value={day.toString()}>
-                  {day}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-3">
+          <Label className="text-base font-medium">Which day of the month?</Label>
+          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+            <span className="text-sm">Day</span>
+            <Select value={monthlyDay.toString()} onValueChange={(value) => setMonthlyDay(parseInt(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                  <SelectItem key={day} value={day.toString()}>
+                    {day}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">of every month</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Limited to day 28 or earlier to ensure it runs every month.
+          </p>
         </div>
       )}
 
       {frequency === 'custom' && (
         <div className="space-y-3">
-          <Label>Custom interval</Label>
-          <div className="flex items-center gap-2">
+          <Label className="text-base font-medium">Custom interval</Label>
+          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
             <span className="text-sm">Every</span>
             <Input
               type="number"
@@ -379,9 +400,9 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
               max="999"
               value={customInterval}
               onChange={(e) => setCustomInterval(parseInt(e.target.value) || 1)}
-              className="w-20"
+              className="w-24"
             />
-            <Select value={customUnit} onValueChange={(value: 'minutes' | 'hours' | 'days') => setCustomUnit(value)}>
+            <Select value={customUnit} onValueChange={(value: 'minutes' | 'hours' | 'days' | 'weeks') => setCustomUnit(value)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -389,16 +410,34 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
                 <SelectItem value="minutes">Minutes</SelectItem>
                 <SelectItem value="hours">Hours</SelectItem>
                 <SelectItem value="days">Days</SelectItem>
+                <SelectItem value="weeks">Weeks</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
       )}
 
+      {/* Advanced Options Toggle */}
+      {frequency !== 'once' && (
+        <div className="border-t pt-4">
+          <Button
+            variant="ghost"
+            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+            className="flex items-center gap-2 text-sm"
+          >
+            <Settings2 className="h-4 w-4" />
+            Advanced Options
+            <Badge variant="outline" className="text-xs">
+              Optional
+            </Badge>
+          </Button>
+        </div>
+      )}
+
       {/* Advanced Options */}
-      {frequency !== 'once' && frequency !== 'custom' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
+      {showAdvancedOptions && frequency !== 'once' && (
+        <div className="space-y-4 bg-muted/20 p-4 rounded-lg border">
+          <div className="flex items-center gap-2 mb-3">
             <Settings2 className="h-4 w-4" />
             <Label className="text-sm font-medium">Advanced Options</Label>
           </div>
@@ -473,10 +512,10 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
       )}
 
       {/* Preview */}
-      <Card className="bg-muted/30">
+      <Card className="bg-green-50 border-green-200">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-500" />
+          <CardTitle className="text-base flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
             Schedule Preview
           </CardTitle>
         </CardHeader>
@@ -491,15 +530,38 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
             </div>
           )}
 
+          {frequency === 'weekly' && selectedWeekdays.length > 0 && (
+            <div className="text-sm">
+              <strong>Days:</strong> {selectedWeekdays.map(day => 
+                WEEKDAYS.find(wd => wd.value === day)?.label
+              ).join(', ')}
+            </div>
+          )}
+
+          {frequency === 'monthly' && (
+            <div className="text-sm">
+              <strong>Day:</strong> {monthlyDay} of every month
+            </div>
+          )}
+
+          {frequency === 'custom' && (
+            <div className="text-sm">
+              <strong>Interval:</strong> Every {customInterval} {customUnit}
+            </div>
+          )}
+
           {getNextRuns().length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Next runs:</div>
+            <div className="space-y-2 pt-2 border-t border-green-200">
+              <div className="text-sm font-medium text-green-800">Next 3 runs:</div>
               <div className="space-y-1">
                 {getNextRuns().map((run, index) => (
-                  <div key={index} className="text-xs text-muted-foreground flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
+                  <div key={index} className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs bg-white">
                       {format(run, "MMM d, yyyy 'at' h:mm a")}
                     </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      ({format(run, "EEEE")})
+                    </span>
                   </div>
                 ))}
               </div>
@@ -507,10 +569,10 @@ export function UserFriendlyScheduleConfig({ config, onChange }: UserFriendlySch
           )}
 
           {(startDate || hasEndDate) && (
-            <div className="pt-2 border-t">
-              <div className="text-xs text-muted-foreground space-y-1">
-                {startDate && <div>Starts: {format(startDate, "PPP")}</div>}
-                {hasEndDate && endDate && <div>Ends: {format(endDate, "PPP")}</div>}
+            <div className="pt-2 border-t border-green-200">
+              <div className="text-xs text-green-700 space-y-1">
+                {startDate && <div><strong>Starts:</strong> {format(startDate, "PPP")}</div>}
+                {hasEndDate && endDate && <div><strong>Ends:</strong> {format(endDate, "PPP")}</div>}
               </div>
             </div>
           )}

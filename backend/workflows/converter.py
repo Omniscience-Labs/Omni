@@ -356,6 +356,7 @@ class WorkflowConverter:
             mcp_data = mcp_node.get('data', {})
             mcp_type = mcp_data.get('mcpType', 'smithery')
             enabled_tools_list = mcp_data.get('enabledTools', [])
+            mcp_instructions = mcp_data.get('instructions', '')
             
             if mcp_data.get('isConfigured', False) and enabled_tools_list:
                 server_name = mcp_data.get('label', 'MCP Server')
@@ -367,6 +368,8 @@ class WorkflowConverter:
                         # MCPToolWrapper creates methods using just the tool name, not the full mcp_server_tool format
                         clean_tool_name = tool_name.replace('-', '_')
                         tool_description = f"- **{clean_tool_name}** (MCP): From {server_name} ({qualified_name})"
+                        if mcp_instructions:
+                            tool_description += f" - Instructions: {mcp_instructions}"
                         mcp_tool_descriptions.append(tool_description)
                         tool_ids.append(clean_tool_name)
                 elif mcp_type == 'custom':
@@ -374,6 +377,8 @@ class WorkflowConverter:
                         # Use the clean tool name as the callable method name (same as MCPToolWrapper)
                         clean_tool_name = tool_name.replace('-', '_')
                         tool_description = f"- **{clean_tool_name}** (Custom MCP): From {server_name}"
+                        if mcp_instructions:
+                            tool_description += f" - Instructions: {mcp_instructions}"
                         mcp_tool_descriptions.append(tool_description)
                         tool_ids.append(clean_tool_name)
         
@@ -532,6 +537,7 @@ class WorkflowConverter:
         mcp_type = data.get('mcpType', 'smithery')
         enabled_tools = data.get('enabledTools', [])
         is_configured = data.get('isConfigured', False)
+        instructions = data.get('instructions', '')
         
         input_connections = self._find_node_inputs(node.get('id'), edges)
         output_connections = self._find_node_outputs(node.get('id'), edges)
@@ -560,6 +566,9 @@ class WorkflowConverter:
             description.append(f"**Purpose**: Provides {len(enabled_tools)} MCP tool{'s' if len(enabled_tools) != 1 else ''} to the workflow")
         else:
             description.append("**Purpose**: MCP server (no tools enabled)")
+        
+        if instructions:
+            description.append(f"**Instructions**: {instructions}")
         
         if input_connections:
             description.append(f"**Connected from**: {', '.join(input_connections)}")
@@ -616,6 +625,7 @@ class WorkflowConverter:
             is_configured = mcp_data.get('isConfigured', False)
             enabled_tools = mcp_data.get('enabledTools', [])
             selected_profile_id = mcp_data.get('selectedProfileId')  # Get the selected profile ID
+            instructions = mcp_data.get('instructions', '')  # Get the instructions
             
             logger.info(f"Processing MCP node: id={mcp_node.get('id')}, type={mcp_type}, data={mcp_data}")
             logger.info(f"MCP node configured: {is_configured}, enabled tools: {enabled_tools}, selected profile: {selected_profile_id}")
@@ -631,7 +641,8 @@ class WorkflowConverter:
                             'qualifiedName': qualified_name,
                             'config': mcp_data.get('config', {}),
                             'enabledTools': enabled_tools,  # Can be empty, will be populated from credential manager
-                            'selectedProfileId': selected_profile_id  # Include the selected profile ID
+                            'selectedProfileId': selected_profile_id,  # Include the selected profile ID
+                            'instructions': instructions  # Include the instructions
                         }
                         configured_mcps.append(mcp_config)
                         logger.info(f"Added Smithery MCP: {qualified_name} with {len(enabled_tools)} enabled tools and profile {selected_profile_id}")
@@ -646,7 +657,8 @@ class WorkflowConverter:
                         'customType': custom_config.get('type', 'sse'),
                         'config': custom_config.get('config', {}),
                         'enabledTools': enabled_tools,
-                        'selectedProfileId': selected_profile_id
+                        'selectedProfileId': selected_profile_id,
+                        'instructions': instructions  # Include the instructions
                     }
                     custom_mcps.append(custom_mcp)
                     logger.info(f"Added custom MCP: {custom_mcp['name']} with profile {selected_profile_id}")

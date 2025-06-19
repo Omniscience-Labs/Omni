@@ -94,7 +94,7 @@ export default function InputNodeDemo() {
           <div className="border rounded-lg p-4 bg-background">
             <h3 className="font-medium mb-4">Input Node Component</h3>
             <div className="flex justify-center">
-                             <InputNode
+              <InputNode
                  id="demo-input"
                  data={nodeData}
                  selected={false}

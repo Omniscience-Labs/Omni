@@ -336,11 +336,11 @@ class WorkflowExecutor:
                             "qualifiedName": qualified_name,
                             "config": mcp.get("config", {}),
                             "enabledTools": mcp.get("enabledTools", []),
-                            "selectedProfileId": mcp.get("selectedProfileId")
+                            "selectedProfileId": mcp.get("selectedProfileId"),
+                            "instructions": mcp.get("instructions", "")
                         })
                         logger.info(f"Added configured MCP from workflow step: {qualified_name} with profile {mcp.get('selectedProfileId')}")
             
-            # Extract custom MCPs from step config
             step_custom_mcps = step_config.get("custom_mcps", [])
             logger.info(f"Step {step.id} - custom_mcps: {step_custom_mcps}")
             
@@ -353,7 +353,8 @@ class WorkflowExecutor:
                         "customType": mcp.get("type", "sse"),
                         "config": mcp.get("config", {}),
                         "enabledTools": mcp.get("enabledTools", []),
-                        "selectedProfileId": mcp.get("selectedProfileId")
+                        "selectedProfileId": mcp.get("selectedProfileId"),
+                        "instructions": mcp.get("instructions", "")
                     })
                     logger.info(f"Added custom MCP from workflow step: {mcp_name} with profile {mcp.get('selectedProfileId')}")
         

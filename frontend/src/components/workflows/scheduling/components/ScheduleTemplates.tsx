@@ -17,7 +17,6 @@ export function ScheduleTemplates({ onSelect }: ScheduleTemplatesProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // React Query hook
   const { data: templates = [], isLoading, error } = useScheduleTemplates();
 
   useEffect(() => {
@@ -75,11 +74,7 @@ export function ScheduleTemplates({ onSelect }: ScheduleTemplatesProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-sm text-muted-foreground">
-        Choose from pre-configured schedule templates or start with a custom configuration.
-      </div>
-
+    <div className="space-y-6 overflow-hidden">
       <div className="space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -90,36 +85,14 @@ export function ScheduleTemplates({ onSelect }: ScheduleTemplatesProps) {
             className="pl-10"
           />
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => {
-            const Icon = category.icon;
-            return (
-              <button
-                key={category.value}
-                onClick={() => setSelectedCategory(category.value)}
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm transition-colors ${
-                  selectedCategory === category.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
-                }`}
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {category.label}
-              </button>
-            );
-          })}
-        </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
         {filteredTemplates.map((template) => {
           const CategoryIcon = getCategoryIcon(template.category);
-          
           return (
             <Card
               key={template.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="py-0 cursor-pointer hover:border-1 hover:border-primary transition"
               onClick={() => onSelect(template)}
             >
               <CardContent className="p-4">

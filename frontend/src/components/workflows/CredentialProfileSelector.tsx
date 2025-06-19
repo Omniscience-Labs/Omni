@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Select, 
@@ -10,18 +10,8 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { 
   Plus, 
   Settings, 
@@ -32,11 +22,9 @@ import {
 } from 'lucide-react';
 import { 
   useCredentialProfilesForMcp, 
-  useCreateCredentialProfile,
   useSetDefaultProfile,
   type CredentialProfile 
 } from '@/hooks/react-query/mcp/use-credential-profiles';
-import { KeyValueEditor } from './KeyValueEditor';
 
 interface CredentialProfileSelectorProps {
   mcpQualifiedName: string;
@@ -53,44 +41,15 @@ export function CredentialProfileSelector({
   onProfileSelect,
   disabled = false
 }: CredentialProfileSelectorProps) {
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newProfileName, setNewProfileName] = useState('');
-  const [newProfileConfig, setNewProfileConfig] = useState<Record<string, string>>({});
-  
   const { 
     data: profiles = [], 
     isLoading,
     error 
   } = useCredentialProfilesForMcp(mcpQualifiedName);
   
-  const createProfileMutation = useCreateCredentialProfile();
   const setDefaultMutation = useSetDefaultProfile();
   
   const selectedProfile = profiles.find(p => p.profile_id === selectedProfileId);
-  
-  const handleCreateProfile = async () => {
-    if (!newProfileName.trim()) return;
-    
-    try {
-      const newProfile = await createProfileMutation.mutateAsync({
-        mcp_qualified_name: mcpQualifiedName,
-        profile_name: newProfileName,
-        display_name: `${mcpDisplayName} - ${newProfileName}`,
-        config: newProfileConfig,
-        is_default: profiles.length === 0, // Make first profile default
-      });
-      
-      // Select the newly created profile
-      onProfileSelect(newProfile.profile_id, newProfile);
-      
-      // Reset form
-      setNewProfileName('');
-      setNewProfileConfig({});
-      setShowCreateDialog(false);
-    } catch (error) {
-      console.error('Failed to create profile:', error);
-    }
-  };
   
   const handleSetDefault = async (profileId: string) => {
     try {
@@ -98,6 +57,10 @@ export function CredentialProfileSelector({
     } catch (error) {
       console.error('Failed to set default profile:', error);
     }
+  };
+
+  const handleCreateNewProfile = () => {
+    window.open('/settings/credentials', '_blank');
   };
   
   if (isLoading) {
@@ -125,61 +88,15 @@ export function CredentialProfileSelector({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Credential Profile</Label>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={disabled}>
-              <Plus className="h-4 w-4 mr-1" />
-              New Profile
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Credential Profile</DialogTitle>
-              <DialogDescription>
-                Create a new credential profile for {mcpDisplayName}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="profile-name">Profile Name</Label>
-                <Input
-                  id="profile-name"
-                  placeholder="e.g., Team A, Production, Personal"
-                  value={newProfileName}
-                  onChange={(e) => setNewProfileName(e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label>Configuration</Label>
-                <KeyValueEditor
-                  values={newProfileConfig}
-                  onChange={setNewProfileConfig}
-                  placeholder={{
-                    key: "Configuration Key",
-                    value: "Configuration Value"
-                  }}
-                />
-              </div>
-              
-              <div className="flex justify-end gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowCreateDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleCreateProfile}
-                  disabled={!newProfileName.trim() || createProfileMutation.isPending}
-                >
-                  {createProfileMutation.isPending ? 'Creating...' : 'Create Profile'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          disabled={disabled}
+          onClick={handleCreateNewProfile}
+        >
+          <Plus className="h-4 w-4" />
+          New Profile
+        </Button>
       </div>
       
       {profiles.length === 0 ? (
@@ -192,7 +109,7 @@ export function CredentialProfileSelector({
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setShowCreateDialog(true)}
+              onClick={handleCreateNewProfile}
               disabled={disabled}
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -219,8 +136,7 @@ export function CredentialProfileSelector({
                   <div className="flex items-center gap-2">
                     <span>{profile.profile_name}</span>
                     {profile.is_default && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Star className="h-3 w-3 mr-1" />
+                      <Badge variant="outline" className="text-xs">
                         Default
                       </Badge>
                     )}
@@ -231,15 +147,14 @@ export function CredentialProfileSelector({
           </Select>
           
           {selectedProfile && (
-            <Card className="bg-muted/30">
+            <Card className="bg-muted/30 py-0">
               <CardContent className="p-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-medium">{selectedProfile.profile_name}</h4>
                       {selectedProfile.is_default && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Star className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className="text-xs">
                           Default
                         </Badge>
                       )}
@@ -247,20 +162,7 @@ export function CredentialProfileSelector({
                     <p className="text-xs text-muted-foreground">
                       {selectedProfile.display_name}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        {selectedProfile.config_keys.length} config keys
-                      </div>
-                      {selectedProfile.last_used_at && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          Last used: {new Date(selectedProfile.last_used_at).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
                   </div>
-                  
                   {!selectedProfile.is_default && (
                     <Button
                       variant="ghost"

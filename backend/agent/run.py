@@ -149,6 +149,7 @@ async def run_agent(
                     'qualifiedName': f"custom_{custom_mcp['type']}_{custom_mcp['name'].replace(' ', '_').lower()}",
                     'config': custom_mcp['config'],
                     'enabledTools': custom_mcp.get('enabledTools', []),
+                    'instructions': custom_mcp.get('instructions', ''),
                     'isCustom': True,
                     'customType': custom_mcp['type']
                 }
@@ -156,29 +157,21 @@ async def run_agent(
         
         if all_mcps:
             logger.info(f"Registering MCP tool wrapper for {len(all_mcps)} MCP servers (including {len(agent_config.get('custom_mcps', []))} custom)")
-            # Register the tool with all MCPs
             thread_manager.add_tool(MCPToolWrapper, mcp_configs=all_mcps)
             
-            # Get the tool instance from the registry
-            # The tool is registered with method names as keys
             for tool_name, tool_info in thread_manager.tool_registry.tools.items():
                 if isinstance(tool_info['instance'], MCPToolWrapper):
                     mcp_wrapper_instance = tool_info['instance']
                     break
             
-            # Initialize the MCP tools asynchronously
             if mcp_wrapper_instance:
                 try:
                     await mcp_wrapper_instance.initialize_and_register_tools()
                     logger.info("MCP tools initialized successfully")
-                    
-                    # Re-register the updated schemas with the tool registry
-                    # This ensures the dynamically created tools are available for function calling
                     updated_schemas = mcp_wrapper_instance.get_schemas()
                     logger.info(f"MCP wrapper has {len(updated_schemas)} schemas available")
                     for method_name, schema_list in updated_schemas.items():
-                        if method_name != 'call_mcp_tool':  # Skip the fallback method
-                            # Register each dynamic tool in the registry
+                        if method_name != 'call_mcp_tool':
                             for schema in schema_list:
                                 if schema.schema_type == SchemaType.OPENAPI:
                                     thread_manager.tool_registry.tools[method_name] = {

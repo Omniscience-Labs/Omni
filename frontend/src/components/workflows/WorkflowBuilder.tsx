@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import {
   ReactFlow,
   MiniMap,
@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { validateWorkflow, type ValidationResult } from "./WorkflowValidator";
 import { WorkflowProvider } from "./WorkflowContext";
+import { useSidebar } from "../ui/sidebar";
 
 const nodeTypes = {
   inputNode: InputNode,
@@ -132,6 +133,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showSettings, setShowSettings] = useState(false);
   const [showNodePalette, setShowNodePalette] = useState(true);
+  const [isNodePaletteCollapsed, setIsNodePaletteCollapsed] = useState(false);
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
   const [workflowDescription, setWorkflowDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -139,6 +141,16 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult>({ valid: true, errors: [] });
   const router = useRouter();
+
+  const { state, setOpen, setOpenMobile } = useSidebar();
+  const initialLayoutAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialLayoutAppliedRef.current) {
+      setOpen(false);
+      initialLayoutAppliedRef.current = true;
+    }
+  }, [setOpen]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -551,13 +563,13 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
       
       <div className="flex h-full bg-background">
         {showNodePalette && (
-          <div className="w-80 border-r border-border bg-card/50 backdrop-blur-sm">
-            <NodePalette />
+          <div className={`${isNodePaletteCollapsed ? 'w-17' : 'w-80'} border-r border-border bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out`}>
+            <NodePalette onCollapseChange={setIsNodePaletteCollapsed} />
           </div>
         )}
 
         <div className="flex-1 flex flex-col">
-          <div className="h-16 px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="h-16 px-6 border-b border-border bg-background">
             <div className="flex items-center justify-between h-full">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
@@ -569,13 +581,13 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
               </div>
               
               <div className="flex items-center gap-2">
-                <Button 
+                {/* <Button 
                   variant="outline"
                   onClick={() => setShowSettings(true)}
                 >
                   <Settings className="h-4 w-4" />
                   Settings
-                </Button>
+                </Button> */}
                 <Button 
                   variant="outline"
                   onClick={handleSaveWorkflow}
@@ -638,7 +650,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
             </Card>
           )} */}
 
-          <div className="flex-1 border border-border/50 bg-muted/50 backdrop-blur-sm overflow-hidden">
+          <div className="flex-1 border border-border/50 bg-background backdrop-blur-sm overflow-hidden">
             <WorkflowProvider updateNodeData={updateNodeData} workflowId={workflowId}>
               <ReactFlow
                 nodes={nodes}
@@ -658,7 +670,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                 fitView
                 className="bg-transparent"
               >
-                <Controls 
+                {/* <Controls 
                   className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg"
                   showZoom={true}
                   showFitView={true}
@@ -670,12 +682,12 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                     if (node.type === 'agentNode') return '#6366f1';
                     return '#9ca3af';
                   }}
-                />
-                <Background 
+                /> */}
+                {/* <Background 
                   variant={BackgroundVariant.Dots} 
                   gap={20} 
                   size={1}
-                />
+                /> */}
               </ReactFlow>
             </WorkflowProvider>
           </div>

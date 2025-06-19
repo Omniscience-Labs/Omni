@@ -56,8 +56,8 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div className={`relative min-w-[320px] max-w-[400px] ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
-      <Card className="border bg-card transition-all duration-200">
-        <CardHeader>
+      <Card className="border bg-neutral-100 py-4 dark:bg-neutral-800 transition-all duration-200">
+        <CardHeader className="px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
@@ -65,7 +65,7 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
               </div>
               <div>
                 <h3 className="font-semibold text-base">{nodeData.label || agentConfig.name}</h3>
-                <p className="text-xs text-muted-foreground">{agentConfig.description}</p>
+                {/* <p className="text-xs text-muted-foreground">{agentConfig.description}</p> */}
               </div>
             </div>
           </div>
@@ -86,9 +86,9 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
                   <div key={connection.id} className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                     <ArrowRight className="h-3 w-3 text-blue-600" />
                     <span className="text-sm font-medium flex-1">{connection.name}</span>
-                    <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                    {/* <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                       {connection.type}
-                    </Badge>
+                    </Badge> */}
                   </div>
                 ))}
               </div>
@@ -115,9 +115,9 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
                   <div key={connection.id} className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                     <ArrowDown className="h-3 w-3 text-green-600" />
                     <span className="text-sm font-medium flex-1">{connection.name}</span>
-                    <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                    {/* <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
                       {connection.type}
-                    </Badge>
+                    </Badge> */}
                   </div>
                 ))}
               </div>
@@ -140,22 +140,18 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Input Handle - Left side */}
       <Handle
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 !border-2 !border-white !bg-blue-500 hover:!bg-blue-600 transition-colors"
+        className="w-6 h-6 !border-4 !border-primary !bg-blue-500 hover:!bg-blue-600 transition-colors"
         style={{ left: -6 }}
       />
-
-      {/* Output Handle - Right side */}
       <Handle
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 !border-2 !border-white !bg-green-500 hover:!bg-green-600 transition-colors"
+        className="w-6 h-6 !border-4 !border-primary !bg-green-500 hover:!bg-green-600 transition-colors"
         style={{ right: -6 }}
       />
     </div>

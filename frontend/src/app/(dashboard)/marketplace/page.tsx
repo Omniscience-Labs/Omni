@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +12,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
 
 import { 
   useMarketplaceTemplates, 
-  useInstallTemplate,
-  useUserCredentials
+  useInstallTemplate
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
+import { createClient } from '@/lib/supabase/client';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
@@ -51,10 +53,10 @@ interface SetupStep {
   id: string;
   title: string;
   description: string;
-  type: 'credential' | 'custom_server';
+  type: 'credential_profile' | 'custom_server';
   service_name: string;
   qualified_name: string;
-  required_fields: Array<{
+  required_fields?: Array<{
     key: string;
     label: string;
     type: 'text' | 'url' | 'password';
@@ -64,11 +66,17 @@ interface SetupStep {
   custom_type?: 'sse' | 'http';
 }
 
+interface MissingProfile {
+  qualified_name: string;
+  display_name: string;
+  required_config: string[];
+}
+
 interface InstallDialogProps {
   item: MarketplaceTemplate | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInstall: (item: MarketplaceTemplate, instanceName?: string, customMcpConfigs?: Record<string, Record<string, any>>) => void;
+  onInstall: (item: MarketplaceTemplate, instanceName?: string, profileMappings?: Record<string, string>, customMcpConfigs?: Record<string, Record<string, any>>) => Promise<void>;
   isInstalling: boolean;
 }
 
@@ -82,33 +90,83 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const [currentStep, setCurrentStep] = useState(0);
   const [instanceName, setInstanceName] = useState('');
   const [setupData, setSetupData] = useState<Record<string, Record<string, string>>>({});
+  const [profileMappings, setProfileMappings] = useState<Record<string, string>>({});
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
   const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
-  const [missingCredentials, setMissingCredentials] = useState<string[]>([]);
-
-  const { data: userCredentials } = useUserCredentials();
+  const [missingProfiles, setMissingProfiles] = useState<MissingProfile[]>([]);
 
   React.useEffect(() => {
     if (item && open) {
       setInstanceName(`${item.name}`);
+      setSetupData({});
+      setProfileMappings({});
+      setIsCheckingRequirements(true);
+      setMissingProfiles([]);
       checkRequirementsAndSetupSteps();
     }
-  }, [item, open, userCredentials]);
+  }, [item, open]);
 
   const checkRequirementsAndSetupSteps = async () => {
     if (!item?.mcp_requirements) return;
     
-    setIsCheckingRequirements(true);
-    const userCredNames = new Set(userCredentials?.map(cred => cred.mcp_qualified_name) || []);
     const steps: SetupStep[] = [];
-    const missing: string[] = [];
-
+    const missing: MissingProfile[] = [];
     const customServers = item.mcp_requirements.filter(req => req.custom_type);
     const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
 
+    // Check for credential profiles for regular services and create profile selection steps
     for (const req of regularServices) {
-      if (!userCredNames.has(req.qualified_name)) {
-        missing.push(req.display_name);
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          missing.push({
+            qualified_name: req.qualified_name,
+            display_name: req.display_name,
+            required_config: req.required_config
+          });
+          continue;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/secure-mcp/credential-profiles/${encodeURIComponent(req.qualified_name)}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const profiles = await response.json();
+          if (!profiles || profiles.length === 0) {
+            missing.push({
+              qualified_name: req.qualified_name,
+              display_name: req.display_name,
+              required_config: req.required_config
+            });
+          } else {
+            steps.push({
+              id: req.qualified_name,
+              title: `Select Credential Profile for ${req.display_name}`,
+              description: `Choose which credential profile to use for ${req.display_name}.`,
+              type: 'credential_profile',
+              service_name: req.display_name,
+              qualified_name: req.qualified_name,
+            });
+          }
+        } else {
+          missing.push({
+            qualified_name: req.qualified_name,
+            display_name: req.display_name,
+            required_config: req.required_config
+          });
+        }
+      } catch (error) {
+        missing.push({
+          qualified_name: req.qualified_name,
+          display_name: req.display_name,
+          required_config: req.required_config
+        });
       }
     }
 
@@ -132,7 +190,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
 
     setSetupSteps(steps);
-    setMissingCredentials(missing);
+    setMissingProfiles(missing);
     setIsCheckingRequirements(false);
   };
 
@@ -146,17 +204,30 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }));
   };
 
+  const handleProfileSelect = (qualifiedName: string, profileId: string | null) => {
+    setProfileMappings(prev => ({
+      ...prev,
+      [qualifiedName]: profileId || ''
+    }));
+  };
+
   const isCurrentStepComplete = (): boolean => {
     if (setupSteps.length === 0) return true;
     if (currentStep >= setupSteps.length) return true;
     
     const step = setupSteps[currentStep];
-    const stepData = setupData[step.id] || {};
     
-    return step.required_fields.every(field => {
-      const value = stepData[field.key];
-      return value && value.trim().length > 0;
-    });
+    if (step.type === 'credential_profile') {
+      return !!profileMappings[step.qualified_name];
+    } else if (step.type === 'custom_server') {
+      const stepData = setupData[step.id] || {};
+      return step.required_fields?.every(field => {
+        const value = stepData[field.key];
+        return value && value.trim().length > 0;
+      }) || false;
+    }
+    
+    return false;
   };
 
   const handleNext = () => {
@@ -183,18 +254,26 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       }
     });
     
-    onInstall(item, instanceName, customMcpConfigs);
+    await onInstall(item, instanceName, profileMappings, customMcpConfigs);
   };
 
   const canInstall = () => {
     if (!item) return false;
     if (!instanceName.trim()) return false;
-    if (missingCredentials.length > 0) return false;
+    if (missingProfiles.length > 0) return false;
+    
+    // Check if all required profile mappings are selected
+    const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+    const missingProfileMappings = regularRequirements.filter(req => !profileMappings[req.qualified_name]);
+    if (missingProfileMappings.length > 0) return false;
+    
     if (setupSteps.length > 0 && currentStep < setupSteps.length) return false;
     return true;
   };
 
   if (!item) return null;
+
+  const currentStepData = setupSteps[currentStep];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,27 +291,36 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
           {isCheckingRequirements ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Checking what you need...</p>
+              <p className="text-sm text-muted-foreground">Checking requirements...</p>
             </div>
-          ) : missingCredentials.length > 0 ? (
+          ) : missingProfiles.length > 0 ? (
             <div className="space-y-6">
               <Alert className="border-destructive/50 bg-destructive/10 dark:bg-destructive/5 text-destructive">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
-                <AlertTitle className="text-destructive">Missing API Credentials</AlertTitle>
+                <AlertTitle className="text-destructive">Missing Credential Profiles</AlertTitle>
                 <AlertDescription className="text-destructive/80">
-                  This agent requires API credentials for the following services:
+                  This agent requires credential profiles for the following services:
                 </AlertDescription>
               </Alert>
               
               <div className="space-y-3">
-                {missingCredentials.map((serviceName) => (
-                  <Card key={serviceName} className="border-destructive/20 shadow-none bg-transparent">
+                {missingProfiles.map((profile) => (
+                  <Card key={profile.qualified_name} className="border-destructive/20 shadow-none bg-transparent">
                     <CardContent className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
                           <AlertTriangle className="h-4 w-4 text-destructive" />
                         </div>
-                        <span className="font-medium">{serviceName}</span>
+                        <div>
+                          <span className="font-medium">{profile.display_name}</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {profile.required_config.map((config) => (
+                              <Badge key={config} variant="outline" className="text-xs">
+                                {config}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       <Badge variant="destructive">Missing</Badge>
                     </CardContent>
@@ -267,37 +355,48 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
                         {currentStep + 1}
                       </div>
-                      <h3 className="font-semibold text-base">{setupSteps[currentStep].title}</h3>
-                      {setupSteps[currentStep].custom_type && (
+                      <h3 className="font-semibold text-base">{currentStepData.title}</h3>
+                      {currentStepData.custom_type && (
                         <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                          {setupSteps[currentStep].custom_type?.toUpperCase()}
+                          {currentStepData.custom_type?.toUpperCase()}
                         </Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {setupSteps[currentStep].description}
+                      {currentStepData.description}
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {setupSteps[currentStep].required_fields.map((field) => (
-                    <div key={field.key} className="space-y-2">
-                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {field.label}
-                      </label>
-                      <Input
-                        type={field.type}
-                        placeholder={field.placeholder}
-                        value={setupData[setupSteps[currentStep].id]?.[field.key] || ''}
-                        onChange={(e) => handleFieldChange(setupSteps[currentStep].id, field.key, e.target.value)}
-                        className="h-11"
-                      />
-                      {field.description && (
-                        <p className="text-xs text-muted-foreground">{field.description}</p>
-                      )}
-                    </div>
-                  ))}
+                  {currentStepData.type === 'credential_profile' ? (
+                    <CredentialProfileSelector
+                      mcpQualifiedName={currentStepData.qualified_name}
+                      mcpDisplayName={currentStepData.service_name}
+                      selectedProfileId={profileMappings[currentStepData.qualified_name]}
+                      onProfileSelect={(profileId, profile) => {
+                        handleProfileSelect(currentStepData.qualified_name, profileId);
+                      }}
+                    />
+                  ) : (
+                    currentStepData.required_fields?.map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          {field.label}
+                        </label>
+                        <Input
+                          type={field.type}
+                          placeholder={field.placeholder}
+                          value={setupData[currentStepData.id]?.[field.key] || ''}
+                          onChange={(e) => handleFieldChange(currentStepData.id, field.key, e.target.value)}
+                          className="h-11"
+                        />
+                        {field.description && (
+                          <p className="text-xs text-muted-foreground">{field.description}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -343,7 +442,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
         </div>
 
         <DialogFooter className="flex-col gap-3">
-          {missingCredentials.length > 0 ? (
+          {missingProfiles.length > 0 ? (
             <div className="flex gap-3 w-full justify-end">
               <Button 
                 variant="outline" 
@@ -355,7 +454,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                 onClick={() => window.open('/settings/credentials', '_blank')}
               >
                 <Settings className="h-4 w-4" />
-                Set Up Credentials
+                Set Up Credential Profiles
               </Button>
             </div>
           ) : (
@@ -416,76 +515,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   );
 };
 
-interface MissingCredentialsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  missingCredentials: Array<{
-    qualified_name: string;
-    display_name: string;
-    required_config: string[];
-  }>;
-  templateName: string;
-}
-
-const MissingCredentialsDialog: React.FC<MissingCredentialsDialogProps> = ({
-  open,
-  onOpenChange,
-  missingCredentials,
-  templateName
-}) => {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Missing Credentials</DialogTitle>
-          <DialogDescription>
-            "{templateName}" requires MCP credentials that you haven't set up yet.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              You need to configure credentials for the following MCP services before installing this agent.
-            </AlertDescription>
-          </Alert>
-
-          <div className="space-y-3">
-            {missingCredentials.map((cred) => (
-              <Card key={cred.qualified_name}>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">{cred.display_name}</h4>
-                    <p className="text-sm text-muted-foreground">{cred.qualified_name}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {cred.required_config.map((config) => (
-                        <Badge key={config} variant="outline" className="text-xs">
-                          {config}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => window.open('/settings/credentials', '_blank')}>
-            <Settings className="h-4 w-4 mr-2" />
-            Set Up Credentials
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 export default function MarketplacePage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -494,8 +523,6 @@ export default function MarketplacePage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [showMissingCredsDialog, setShowMissingCredsDialog] = useState(false);
-  const [missingCredentials, setMissingCredentials] = useState<any[]>([]);
 
   // Secure marketplace data (all templates are now secure)
   const secureQueryParams = useMemo(() => ({
@@ -506,7 +533,6 @@ export default function MarketplacePage() {
   }), [page, searchQuery, selectedTags]);
 
   const { data: secureTemplates, isLoading } = useMarketplaceTemplates(secureQueryParams);
-  const { data: userCredentials } = useUserCredentials();
   const installTemplateMutation = useInstallTemplate();
 
   // Transform secure templates data
@@ -555,34 +581,6 @@ export default function MarketplacePage() {
     setPage(1);
   }, [searchQuery, selectedTags, sortBy]);
 
-  const getUserCredentialNames = () => {
-    return new Set(userCredentials?.map(cred => cred.mcp_qualified_name) || []);
-  };
-
-  const getItemCredentialStatus = (item: MarketplaceTemplate) => {
-    if (!item.mcp_requirements) {
-      return { hasAllCredentials: true, missingCount: 0, totalRequired: 0 };
-    }
-
-    const userCredNames = getUserCredentialNames();
-    const missingCreds = item.mcp_requirements.filter(req => {
-      if (req.custom_type) {
-        const customPattern = `custom_${req.custom_type}_`;
-        return !Array.from(userCredNames).some(credName => 
-          credName.startsWith(customPattern) && 
-          credName.includes(req.display_name.toLowerCase().replace(/\s+/g, '_'))
-        );
-      }
-      return !userCredNames.has(req.qualified_name);
-    });
-    
-    return {
-      hasAllCredentials: missingCreds.length === 0,
-      missingCount: missingCreds.length,
-      totalRequired: item.mcp_requirements.length
-    };
-  };
-
   const handleItemClick = (item: MarketplaceTemplate) => {
     setSelectedItem(item);
     setShowInstallDialog(true);
@@ -596,13 +594,19 @@ export default function MarketplacePage() {
     setShowInstallDialog(true);
   };
 
-  const handleInstall = async (item: MarketplaceTemplate, instanceName?: string, customMcpConfigs?: Record<string, Record<string, any>>) => {
+  const handleInstall = async (
+    item: MarketplaceTemplate, 
+    instanceName?: string, 
+    profileMappings?: Record<string, string>, 
+    customMcpConfigs?: Record<string, Record<string, any>>
+  ) => {
     setInstallingItemId(item.id);
     
     try {
       const result = await installTemplateMutation.mutateAsync({
         template_id: item.template_id,
         instance_name: instanceName,
+        profile_mappings: profileMappings,
         custom_mcp_configs: customMcpConfigs
       });
 
@@ -610,19 +614,8 @@ export default function MarketplacePage() {
         toast.success('Agent installed successfully!');
         setShowInstallDialog(false);
       } else if (result.status === 'configs_required') {
-        // Handle missing regular credentials
-        if (result.missing_regular_credentials && result.missing_regular_credentials.length > 0) {
-          setMissingCredentials(result.missing_regular_credentials);
-          setShowInstallDialog(false);
-          setShowMissingCredsDialog(true);
-          return;
-        }
-        
-        // Handle missing custom configs - this should be handled by the install dialog
-        if (result.missing_custom_configs && result.missing_custom_configs.length > 0) {
-          toast.error('Please provide all required custom MCP server configurations');
-          return;
-        }
+        toast.error('Please provide all required configurations');
+        return;
       }
     } catch (error: any) {
       if (error.message?.includes('already in your library')) {
@@ -767,7 +760,6 @@ export default function MarketplacePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {marketplaceItems.map((item) => {
               const { avatar, color } = getItemStyling(item);
-              const credentialStatus = getItemCredentialStatus(item);
               
               return (
                 <div 
@@ -860,13 +852,6 @@ export default function MarketplacePage() {
         onOpenChange={setShowInstallDialog}
         onInstall={handleInstall}
         isInstalling={installingItemId === selectedItem?.id}
-      />
-
-      <MissingCredentialsDialog
-        open={showMissingCredsDialog}
-        onOpenChange={setShowMissingCredsDialog}
-        missingCredentials={missingCredentials}
-        templateName={selectedItem?.name || ''}
       />
     </div>
   );

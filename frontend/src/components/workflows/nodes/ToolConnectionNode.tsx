@@ -121,23 +121,23 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
   const Icon = toolConfig.icon;
 
   return (
-    <div className={`relative min-w-[240px] max-w-[280px] ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
-      <Card className="border bg-card transition-all duration-200">
-        <CardHeader className="pb-3">
+    <div className={`relative min-w-[260px] max-w-[280px] ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
+      <Card className="pt-4 pb-0 border bg-neutral-100 dark:bg-neutral-800 transition-all duration-200">
+        <CardHeader className="px-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
               <Icon className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold text-sm">{nodeData.label}</h3>
-              <p className="text-xs text-muted-foreground">{toolConfig.description}</p>
+              {/* <p className="text-xs text-muted-foreground">{toolConfig.description}</p> */}
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-4 pt-0 space-y-3">
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs border-primary/20">
               {toolConfig.category}
             </Badge>
             <div className="flex items-center gap-2">
@@ -145,22 +145,20 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
               <span className="text-xs text-muted-foreground">Ready</span>
             </div>
           </div>
-
-          {/* Show instructions preview if available */}
           {nodeData.instructions && !isConfigOpen && (
-            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border">
-              <strong>Instructions:</strong> {nodeData.instructions.length > 50 
-                ? `${nodeData.instructions.substring(0, 50)}...` 
-                : nodeData.instructions}
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Instructions</Label>
+              <div className="border-primary/20 text-xs text-muted-foreground bg-primary/10 p-2 rounded-lg border mt-1">
+                {nodeData.instructions.length > 50 
+                  ? `${nodeData.instructions.substring(0, 50)}...` 
+                  : nodeData.instructions}
+              </div>
             </div>
           )}
-
           <Separator />
-
-          {/* Configuration Toggle */}
           <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-between p-2">
+              <Button variant="node_secondary" size="node_secondary" className="w-full justify-between">
                 <span className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   Configure
@@ -170,9 +168,8 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
             </CollapsibleTrigger>
             
             <CollapsibleContent className="space-y-4 mt-3">
-              {/* Instructions Configuration */}
               <div className="space-y-2">
-                <Label htmlFor={`instructions-${id}`} className="text-sm font-medium">
+                <Label htmlFor={`instructions-${id}`} className="text-xs font-medium">
                   Tool Instructions
                 </Label>
                 <Textarea
@@ -180,32 +177,25 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
                   placeholder="Provide specific instructions for how this tool should be used in the workflow..."
                   value={nodeData.instructions || ''}
                   onChange={(e) => updateNodeData?.(id!, { instructions: e.target.value })}
-                  className="min-h-[80px] text-sm"
+                  className="border-primary/20 min-h-[80px] text-sm"
                 />
-                <p className="text-xs text-muted-foreground">
-                  These instructions will be included in the workflow prompt to guide how the agent uses this tool.
-                </p>
               </div>
             </CollapsibleContent>
           </Collapsible>
         </CardContent>
       </Card>
-
-      {/* Input Handle - Left side */}
       <Handle
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 !border-2 !border-white !bg-blue-500 hover:!bg-blue-600 transition-colors"
+        className="w-6 h-6 !border-4 !border-primary !bg-blue-500 hover:!bg-blue-600 transition-colors"
         style={{ left: -6 }}
       />
-
-      {/* Output Handle - Right side */}
       <Handle
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 !border-2 !border-white !bg-green-500 hover:!bg-green-600 transition-colors"
+        className="w-6 h-6 !border-4 !border-primary !bg-green-500 hover:!bg-green-600 transition-colors"
         style={{ right: -6 }}
       />
     </div>

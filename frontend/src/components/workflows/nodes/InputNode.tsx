@@ -3,7 +3,7 @@
 import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Play, Settings, Clock, Webhook, User, ChevronDown, ChevronUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,12 +49,36 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const getTriggerColor = () => {
     switch (nodeData.trigger_type) {
       case 'SCHEDULE':
-        return 'bg-orange-500';
+        return 'bg-orange-500/30';
       case 'WEBHOOK':
-        return 'bg-purple-500';
+        return 'bg-purple-500/30';
       case 'MANUAL':
       default:
-        return 'bg-blue-500';
+        return 'bg-blue-500/30';
+    }
+  };
+
+  const getIconColor = () => {
+    switch (nodeData.trigger_type) {
+      case 'SCHEDULE':
+        return 'text-orange-500';
+      case 'WEBHOOK':
+        return 'text-purple-500';
+      case 'MANUAL':
+      default:
+        return 'text-blue-500';
+    }
+  };
+
+  const getBorderColor = () => {
+    switch (nodeData.trigger_type) {
+      case 'SCHEDULE':
+        return 'border-orange-500';
+      case 'WEBHOOK':
+        return 'border-purple-500';
+      case 'MANUAL':
+      default:
+        return 'border-blue-500';
     }
   };
 
@@ -81,49 +105,40 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   };
 
   return (
-    <div className={`relative bg-card rounded-lg border-2 min-w-[280px] max-w-[400px] ${
+    <div className={`relative bg-neutral-100 dark:bg-neutral-900 rounded-2xl border-2 min-w-[280px] max-w-[400px] ${
       selected ? "border-primary shadow-lg" : "border-border"
     }`}>
-      {/* Header */}
-      <div className={`flex items-center justify-between p-3 ${getTriggerColor()} rounded-t-lg text-white`}>
+      <CardHeader className={`flex items-center justify-between p-4 rounded-t-lg`}>
         <div className="flex items-center gap-2">
-          <Play className="h-5 w-5" />
+          <div className={`p-2 rounded-lg ${getTriggerColor()} border ${getBorderColor()}`}>
+            <Play className={`h-5 w-5 ${getIconColor()}`} />
+          </div>
           <span className="font-medium">Input</span>
         </div>
         <div className="flex items-center gap-2">
           {getTriggerIcon()}
-          <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
+          <Badge variant="outline" className="text-xs border-primary/20">
             {nodeData.trigger_type || 'MANUAL'}
           </Badge>
         </div>
-      </div>
-
-      {/* Content */}
+      </CardHeader>
       <CardContent className="p-4 space-y-3">
-        {/* Prompt Preview */}
         <div>
           <Label className="text-xs font-medium text-muted-foreground">Prompt</Label>
           <p className="text-sm mt-1 line-clamp-2 text-foreground">
             {nodeData.prompt || "No prompt configured"}
           </p>
         </div>
-
-        {/* Trigger Info */}
         <div>
           <Label className="text-xs font-medium text-muted-foreground">Trigger</Label>
           <p className="text-sm mt-1 text-foreground">
             {getTriggerDescription()}
           </p>
         </div>
-
-
-
         <Separator />
-
-        {/* Configuration Toggle */}
         <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between p-2">
+            <Button variant="node_secondary" size="node_secondary" className="w-full justify-between">
               <span className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 Configure
@@ -131,9 +146,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               {isConfigOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
-          
           <CollapsibleContent className="space-y-4 mt-3">
-            {/* Prompt Configuration */}
             <div className="space-y-2">
               <Label htmlFor={`prompt-${id}`} className="text-sm font-medium">
                 Workflow Prompt *
@@ -181,9 +194,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               </Select>
             </div>
             {nodeData.trigger_type === 'WEBHOOK' && (
-              <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-medium">Webhook Configuration</Label>
-                
+              <div className="space-y-3 rounded-lg">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Webhook Provider</Label>
@@ -202,7 +213,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="slack">Slack Webhook</SelectItem>
+                        <SelectItem value="slack">Slack</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -226,7 +237,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                         }}
                         className="w-full"
                       >
-                        <Settings className="h-4 w-4 mr-2" />
+                        <Settings className="h-4 w-4" />
                         Configure Slack Webhook
                       </Button>
                       
@@ -241,9 +252,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               </div>
             )}
             {nodeData.trigger_type === 'SCHEDULE' && (
-              <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-medium">Schedule Configuration</Label>
-                
+              <div className="space-y-3 rounded-lg">
                 <div className="space-y-2">
                   <Button
                     variant="outline"
@@ -262,7 +271,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                     }}
                     className="w-full"
                   >
-                    <Settings className="h-4 w-4 mr-2" />
+                    <Settings className="h-4 w-4" />
                     Configure Schedule
                   </Button>
                   {nodeData.schedule_config && (
@@ -280,7 +289,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 !bg-primary !border-primary-foreground"
+        className="w-6 h-6 !border-4 !border-primary !bg-green-500 hover:!bg-green-600 transition-colors"
         style={{ right: -6 }}
       />
 

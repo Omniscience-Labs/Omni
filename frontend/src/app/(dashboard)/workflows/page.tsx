@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Play, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X, Workflow as WorkflowIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X, Workflow as WorkflowIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
@@ -21,6 +20,8 @@ import {
 import { getWorkflows, executeWorkflow, deleteWorkflow, getProjects, createWorkflow, updateWorkflow, type Workflow } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -35,23 +36,22 @@ export default function WorkflowsPage() {
   const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set());
   const router = useRouter();
 
+  const { state, setOpen, setOpenMobile } = useSidebar();
+
+  const initialLayoutAppliedRef = useRef(false);
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-
-        // Get user's first project
         const projects = await getProjects();
         if (projects.length === 0) {
           setError("No projects found. Please create a project first.");
           return;
         }
-
         const firstProject = projects[0];
         setProjectId(firstProject.id);
-
-        // Load workflows for the project
         const workflowsData = await getWorkflows(firstProject.id);
         setWorkflows(workflowsData);
       } catch (err) {
@@ -73,12 +73,9 @@ export default function WorkflowsPage() {
 
     try {
       setExecutingWorkflows(prev => new Set(prev).add(workflowId));
-      
       const result = await executeWorkflow(workflowId);
       toast.success("Workflow execution started! Redirecting to chat...");
       console.log('Workflow execution started:', result);
-      
-      // Redirect to the thread page
       if (result.thread_id) {
         router.push(`/projects/${projectId}/thread/${result.thread_id}`);
       }
@@ -141,8 +138,6 @@ export default function WorkflowsPage() {
       toast.error("Workflow name cannot be empty");
       return;
     }
-
-    // Check for duplicate names
     const existingNames = workflows
       .filter(w => w.id !== workflowId)
       .map(w => w.name.toLowerCase());
@@ -237,23 +232,23 @@ export default function WorkflowsPage() {
   const getWorkflowColor = (status: string) => {
     switch (status) {
       case "active":
-        return "#10b981"; // green-500
+        return "#10b981";
       case "draft":
-        return "#f59e0b"; // amber-500
+        return "#f59e0b";
       case "paused":
-        return "#6b7280"; // gray-500
+        return "#6b7280";
       case "disabled":
-        return "#ef4444"; // red-500
+        return "#ef4444";
       case "archived":
-        return "#9ca3af"; // gray-400
+        return "#9ca3af";
       default:
-        return "#8b5cf6"; // violet-500
+        return "#8b5cf6";
     }
   };
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="h-screen max-w-7xl mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold">Workflows</h1>
@@ -262,11 +257,18 @@ export default function WorkflowsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading workflows...</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -308,11 +310,11 @@ export default function WorkflowsPage() {
         </div>
         <Button onClick={handleCreateWorkflow} disabled={loading || creating}>
           {creating ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b border-current" />
           ) : (
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
           )}
-          {creating ? "Creating..." : "Create Workflow"}
+          {creating ? "Creating..." : "New Workflow"}
         </Button>
       </div>
 
@@ -343,7 +345,6 @@ export default function WorkflowsPage() {
               key={workflow.id}
               className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 group"
             >
-              {/* Colorful Header */}
               <div 
                 className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100"
                 style={{ backgroundColor: getWorkflowColor(workflow.status) }}
@@ -355,11 +356,8 @@ export default function WorkflowsPage() {
                   {getStatusIcon(workflow.status)}
                 </div>
               </div>
-
-              {/* Content */}
               <div className="p-4">
                 <div className="space-y-3">
-                  {/* Title and Status */}
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex-1 min-w-0">
                       {editingWorkflowId === workflow.id ? (

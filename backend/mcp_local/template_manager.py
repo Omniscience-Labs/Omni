@@ -223,6 +223,7 @@ class TemplateManager:
         account_id: str,
         instance_name: Optional[str] = None,
         custom_system_prompt: Optional[str] = None,
+        profile_mappings: Optional[Dict[str, str]] = None,
         custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
@@ -233,6 +234,7 @@ class TemplateManager:
             account_id: ID of the user installing the template
             instance_name: Optional custom name for the instance
             custom_system_prompt: Optional custom system prompt override
+            profile_mappings: Optional dict mapping qualified_name to profile_id
             custom_mcp_configs: Optional dict mapping qualified_name to config for custom MCPs
             
         Returns:
@@ -259,10 +261,28 @@ class TemplateManager:
             custom_requirements = [req for req in template.mcp_requirements if getattr(req, 'custom_type', None)]
             regular_requirements = [req for req in template.mcp_requirements if not getattr(req, 'custom_type', None)]
             
-            # Check for missing regular credentials
-            missing_regular_credentials = await credential_manager.get_missing_credentials_for_requirements(
-                account_id, regular_requirements
-            )
+            # If no profile mappings provided, try to use default profiles
+            if not profile_mappings and regular_requirements:
+                profile_mappings = {}
+                for req in regular_requirements:
+                    # Get default profile for this MCP service
+                    default_profile = await credential_manager.get_default_credential_profile(
+                        account_id, req.qualified_name
+                    )
+                    if default_profile:
+                        profile_mappings[req.qualified_name] = default_profile.profile_id
+            
+            # Check for missing profile mappings for regular requirements
+            missing_profile_mappings = []
+            if regular_requirements:
+                provided_mappings = profile_mappings or {}
+                for req in regular_requirements:
+                    if req.qualified_name not in provided_mappings:
+                        missing_profile_mappings.append({
+                            'qualified_name': req.qualified_name,
+                            'display_name': req.display_name,
+                            'required_config': req.required_config
+                        })
             
             # Check for missing custom MCP configs
             missing_custom_configs = []
@@ -277,18 +297,11 @@ class TemplateManager:
                             'required_config': req.required_config
                         })
             
-            # If we have any missing credentials or configs, return them
-            if missing_regular_credentials or missing_custom_configs:
+            # If we have any missing profile mappings or configs, return them
+            if missing_profile_mappings or missing_custom_configs:
                 return {
                     'status': 'configs_required',
-                    'missing_regular_credentials': [
-                        {
-                            'qualified_name': req.qualified_name,
-                            'display_name': req.display_name,
-                            'required_config': req.required_config
-                        }
-                        for req in missing_regular_credentials
-                    ],
+                    'missing_regular_credentials': missing_profile_mappings,
                     'missing_custom_configs': missing_custom_configs,
                     'template': {
                         'template_id': template.template_id,
@@ -297,15 +310,10 @@ class TemplateManager:
                     }
                 }
             
-            # Build credential mappings
-            credential_mappings = await credential_manager.build_credential_mappings(
-                account_id, template.mcp_requirements
-            )
-            
             # Create regular agent with secure credentials
             client = await db.client
             
-            # Build configured_mcps and custom_mcps with user's credentials
+            # Build configured_mcps and custom_mcps with user's credential profiles
             configured_mcps = []
             custom_mcps = []
             
@@ -329,23 +337,30 @@ class TemplateManager:
                         logger.warning(f"No custom config provided for {req.qualified_name}")
                         continue
                 else:
-                    # For regular MCP servers, use stored credentials
-                    credential = await credential_manager.get_credential(
-                        account_id, req.qualified_name
-                    )
-                    
-                    if not credential:
-                        logger.warning(f"Credential not found for {req.qualified_name}")
+                    # For regular MCP servers, use the selected credential profile
+                    if profile_mappings and req.qualified_name in profile_mappings:
+                        profile_id = profile_mappings[req.qualified_name]
+                        
+                        # Get the credential profile
+                        profile = await credential_manager.get_credential_by_profile(
+                            account_id, profile_id
+                        )
+                        
+                        if not profile:
+                            logger.warning(f"Credential profile not found for {req.qualified_name}")
+                            continue
+                        
+                        mcp_config = {
+                            'name': req.display_name,
+                            'qualifiedName': req.qualified_name,
+                            'config': profile.config,
+                            'enabledTools': req.enabled_tools
+                        }
+                        configured_mcps.append(mcp_config)
+                        logger.info(f"Added regular MCP with profile: {mcp_config}")
+                    else:
+                        logger.warning(f"No profile mapping provided for {req.qualified_name}")
                         continue
-                    
-                    mcp_config = {
-                        'name': req.display_name,
-                        'qualifiedName': req.qualified_name,
-                        'config': credential.config,
-                        'enabledTools': req.enabled_tools
-                    }
-                    configured_mcps.append(mcp_config)
-                    logger.info(f"Added regular MCP: {mcp_config}")
             
             logger.info(f"Final configured_mcps: {configured_mcps}")
             logger.info(f"Final custom_mcps: {custom_mcps}")

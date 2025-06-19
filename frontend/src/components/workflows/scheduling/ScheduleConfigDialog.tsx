@@ -33,7 +33,7 @@ export function ScheduleConfigDialog({
   initialConfig,
   onSave
 }: ScheduleConfigDialogProps) {
-  const [activeTab, setActiveTab] = useState<'easy' | 'templates' | 'simple' | 'cron' | 'advanced'>('easy');
+  const [activeTab, setActiveTab] = useState<'quick' | 'templates' | 'advanced'>('quick');
   const [config, setConfig] = useState<ScheduleConfig>({
     type: 'simple',
     enabled: true,
@@ -57,12 +57,16 @@ export function ScheduleConfigDialog({
   useEffect(() => {
     if (initialConfig) {
       setConfig(initialConfig);
-      if (initialConfig.type === 'advanced') {
+      // Determine the best tab based on config complexity
+      if (initialConfig.type === 'advanced' && (
+        initialConfig.advanced?.start_date || 
+        initialConfig.advanced?.end_date || 
+        initialConfig.advanced?.max_executions ||
+        initialConfig.advanced?.timezone !== 'UTC'
+      )) {
         setActiveTab('advanced');
-      } else if (initialConfig.type === 'cron') {
-        setActiveTab('cron');
       } else {
-        setActiveTab('easy');
+        setActiveTab('quick');
       }
     } else {
       setConfig({
@@ -73,7 +77,7 @@ export function ScheduleConfigDialog({
           interval_value: 1
         }
       });
-      setActiveTab('easy');
+      setActiveTab('quick');
     }
     setName('');
     setDescription('');
@@ -84,14 +88,8 @@ export function ScheduleConfigDialog({
     setConfig(template.config);
     setName(template.name);
     setDescription(template.description);
-    // Switch to appropriate tab based on template complexity
-    if (template.config.type === 'advanced') {
-      setActiveTab('advanced');
-    } else if (template.config.type === 'cron') {
-      setActiveTab('cron');
-    } else {
-      setActiveTab('easy');
-    }
+    // Always switch to quick setup after selecting a template for easy customization
+    setActiveTab('quick');
   };
 
   const handleConfigChange = (newConfig: Partial<ScheduleConfig>) => {
@@ -177,14 +175,10 @@ export function ScheduleConfigDialog({
 
   const getTabIcon = (tab: string) => {
     switch (tab) {
-      case 'easy':
+      case 'quick':
         return <Sparkles className="h-4 w-4" />;
       case 'templates':
         return <Calendar className="h-4 w-4" />;
-      case 'simple':
-        return <Clock className="h-4 w-4" />;
-      case 'cron':
-        return <Settings className="h-4 w-4" />;
       case 'advanced':
         return <Settings className="h-4 w-4" />;
       default:
@@ -224,19 +218,18 @@ export function ScheduleConfigDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Configure Workflow Schedule
+            Schedule Your Workflow
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden">
           <div className="space-y-4 mb-6">
-            {/* Basic Information */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="schedule-name">Schedule Name *</Label>
                 <Input
                   id="schedule-name"
-                  placeholder="Enter schedule name..."
+                  placeholder="e.g. Daily Data Sync, Weekly Report..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -245,14 +238,12 @@ export function ScheduleConfigDialog({
                 <Label htmlFor="schedule-description">Description</Label>
                 <Input
                   id="schedule-description"
-                  placeholder="Optional description..."
+                  placeholder="What does this schedule do?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
             </div>
-
-            {/* Status Badge */}
             <div className="flex items-center gap-2">
               <Badge variant={config.enabled ? "default" : "secondary"}>
                 {config.enabled ? "Enabled" : "Disabled"}
@@ -266,80 +257,88 @@ export function ScheduleConfigDialog({
               </Button>
             </div>
           </div>
-
-          {/* Configuration Tabs */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="easy" className="flex items-center gap-2">
-                {getTabIcon('easy')}
-                Easy
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="quick" className="flex items-center gap-2">
+                {getTabIcon('quick')}
+                Quick Setup
               </TabsTrigger>
               <TabsTrigger value="templates" className="flex items-center gap-2">
                 {getTabIcon('templates')}
-                Templates
+                Template
               </TabsTrigger>
-              <TabsTrigger value="simple" className="flex items-center gap-2">
-                {getTabIcon('simple')}
-                Simple
-              </TabsTrigger>
-              <TabsTrigger value="cron" className="flex items-center gap-2">
-                {getTabIcon('cron')}
-                Cron
-              </TabsTrigger>
-              <TabsTrigger value="advanced" className="flex items-center gap-2">
+              {/* <TabsTrigger value="advanced" className="flex items-center gap-2">
                 {getTabIcon('advanced')}
                 Advanced
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
-
             <div className="mt-4 overflow-y-auto max-h-[400px]">
-              <TabsContent value="easy" className="mt-0">
-                <UserFriendlyScheduleConfig
-                  config={config}
-                  onChange={setConfig}
-                />
+              <TabsContent value="quick" className="mt-0">
+                <div className="space-y-4">
+                  <UserFriendlyScheduleConfig
+                    config={config}
+                    onChange={setConfig}
+                  />
+                </div>
               </TabsContent>
-
               <TabsContent value="templates" className="mt-0">
-                <ScheduleTemplates onSelect={handleTemplateSelect} />
+                <div className="space-y-4">
+                  <ScheduleTemplates onSelect={handleTemplateSelect} />
+                </div>
               </TabsContent>
-
-              <TabsContent value="simple" className="mt-0">
-                <SimpleScheduleConfig
-                  config={config.simple || { interval_type: 'hours', interval_value: 1 }}
-                  onChange={(simple) => handleConfigChange({ type: 'simple', simple })}
-                />
-              </TabsContent>
-
-              <TabsContent value="cron" className="mt-0">
-                <CronScheduleConfig
-                  config={config.cron || { cron_expression: '' }}
-                  onChange={(cron) => handleConfigChange({ type: 'cron', cron })}
-                  validation={cronValidation}
-                />
-                {getNextExecutionPreview()}
-              </TabsContent>
-
               <TabsContent value="advanced" className="mt-0">
-                <AdvancedScheduleConfig
-                  config={config.advanced || { cron_expression: '', timezone: 'UTC' }}
-                  onChange={(advanced) => handleConfigChange({ type: 'advanced', advanced })}
-                  validation={cronValidation}
-                />
+                <div className="space-y-4">
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Cron Expression</Label>
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="0 9 * * * (9 AM daily)"
+                          value={cronExpression || ''}
+                          onChange={(e) => {
+                            const expression = e.target.value;
+                            handleConfigChange({
+                              type: 'advanced',
+                              advanced: {
+                                ...config.advanced,
+                                cron_expression: expression,
+                                timezone: config.advanced?.timezone || 'UTC'
+                              }
+                            });
+                          }}
+                          className="font-mono"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          Format: minute hour day month weekday. 
+                          <a 
+                            href="https://crontab.guru" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline ml-1"
+                          >
+                            Need help? Use crontab.guru
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    <AdvancedScheduleConfig
+                      config={config.advanced || { cron_expression: '', timezone: 'UTC' }}
+                      onChange={(advanced) => handleConfigChange({ type: 'advanced', advanced })}
+                      validation={cronValidation}
+                    />
+                  </div>
+                </div>
                 {getNextExecutionPreview()}
               </TabsContent>
             </div>
           </Tabs>
         </div>
-
-        {/* Error Display */}
         {validationError && (
-          <Alert className="mt-4">
+          <Alert className="mt-4 text-destructive bg-destructive/10 border-destructive/20">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{validationError}</AlertDescription>
+            <AlertDescription className="text-destructive">{validationError}</AlertDescription>
           </Alert>
         )}
-
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

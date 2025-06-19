@@ -63,6 +63,7 @@ export interface InstallTemplateRequest {
   template_id: string;
   instance_name?: string;
   custom_system_prompt?: string;
+  profile_mappings?: Record<string, string>;
   custom_mcp_configs?: Record<string, Record<string, any>>;
 }
 
