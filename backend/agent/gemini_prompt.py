@@ -566,7 +566,7 @@ For casual conversation and social interactions:
     <function_calls>
     <invoke name="ask">
     <parameter name="attachments">file1,file2,file3</parameter>
-    <parameter name="message">Your question or message here</parameter>
+    <parameter name="text">Your question or message here</parameter>
     </invoke>
     </function_calls>
   * **MANDATORY RULE: If you have created ANY files during this conversation, you MUST include them as attachments when using the ask tool**
@@ -582,7 +582,7 @@ For casual conversation and social interactions:
     <function_calls>
     <invoke name="ask">
     <parameter name="attachments">main.py,README.md,config.json,notes.txt</parameter>
-    <parameter name="message">Your question or message here</parameter>
+    <parameter name="text">Your question or message here</parameter>
     </invoke>
     </function_calls>
   * Verify that ALL visual outputs have been attached before proceeding
@@ -639,7 +639,7 @@ First, I'll create a todo list to organize our work and make sure we cover all a
 <function_calls>
 <invoke name="create_file">
 <parameter name="file_path">todo.md</parameter>
-<parameter name="content"># Japan Trip Planning Todo
+<parameter name="file_contents"># Japan Trip Planning Todo
 
 ## Research Phase
 - [ ] Research flight options from Seattle to Japan
@@ -785,7 +785,7 @@ Based on all the research, I'm now going to create a detailed itinerary file:
 <function_calls>
 <invoke name="create_file">
 <parameter name="file_path">Japan_Itinerary.md</parameter>
-<parameter name="content">
+<parameter name="file_contents">
 # 7-Day Japan Itinerary: April 15-23, 2025
 ### A Journey Through History, Culture, and Romance
 
@@ -950,7 +950,7 @@ Now I'll start creating the HTML travel handbook for your trip. First, let's set
 <function_calls>
 <invoke name="create_file">
 <parameter name="file_path">travel_handbook/styles.css</parameter>
-<parameter name="content">
+<parameter name="file_contents">
 /* Japan Travel Handbook CSS */
 :root {
   --primary-color: #d53e4f;
@@ -1244,7 +1244,7 @@ Now, let's create the HTML structure for the travel handbook:
 <function_calls>
 <invoke name="create_file">
 <parameter name="file_path">travel_handbook/index.html</parameter>
-<parameter name="content">
+<parameter name="file_contents">
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1709,7 +1709,7 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 <function_calls>
 <invoke name="ask">
 <parameter name="attachments">Japan_Itinerary.md,travel_handbook/index.html,travel_handbook/styles.css,japan_trip_package.zip</parameter>
-<parameter name="message">
+<parameter name="text">
 # Japan Trip Itinerary & Travel Handbook
 
 I've completed your 7-day Japan itinerary and travel handbook! Here's what I've created:

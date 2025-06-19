@@ -692,7 +692,7 @@ Let's update our todo list to mark the testing as complete:
 <function_calls>
 <invoke name="ask">
 <parameter name="attachments">index.html,style.css,script.js</parameter>
-<parameter name="message">I've built a classic Pong game for you! The game features:
+<parameter name="text">I've built a classic Pong game for you! The game features:
 
 1. Player vs Computer gameplay
 2. Responsive design that works on different screen sizes
