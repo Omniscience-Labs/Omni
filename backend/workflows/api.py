@@ -790,7 +790,10 @@ async def convert_flow_to_workflow(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/workflows/builder/validate", response_model=WorkflowValidateResponse)
-async def validate_workflow_flow_endpoint(request: WorkflowValidateRequest):
+async def validate_workflow_flow_endpoint(
+    request: WorkflowValidateRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
     """Validate a workflow flow for errors."""
     try:
         valid, errors = validate_workflow_flow([node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in request.nodes], [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in request.edges])
@@ -801,7 +804,7 @@ async def validate_workflow_flow_endpoint(request: WorkflowValidateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/workflows/builder/nodes")
-async def get_builder_nodes():
+async def get_builder_nodes(user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get available node types for the workflow builder."""
     try:
         nodes = [
@@ -940,7 +943,7 @@ async def get_builder_nodes():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/workflows/templates")
-async def get_workflow_templates():
+async def get_workflow_templates(user_id: str = Depends(get_current_user_id_from_jwt)):
     """Get available workflow templates."""
     try:
         client = await db.client
@@ -1047,7 +1050,7 @@ async def get_scheduler_status(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/workflows/scheduler/start")
-async def start_scheduler():
+async def start_scheduler(user_id: str = Depends(get_current_user_id_from_jwt)):
     """Start the workflow scheduler."""
     try:
         await workflow_scheduler.start()
@@ -1057,7 +1060,7 @@ async def start_scheduler():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/workflows/scheduler/stop")
-async def stop_scheduler():
+async def stop_scheduler(user_id: str = Depends(get_current_user_id_from_jwt)):
     """Stop the workflow scheduler."""
     try:
         await workflow_scheduler.stop()
