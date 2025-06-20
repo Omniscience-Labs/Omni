@@ -196,6 +196,8 @@ async def trigger_workflow_webhook(
                 "metadata": {
                     "workflow_id": workflow.id,
                     "workflow_name": workflow.name,
+                    "is_workflow_execution": True,
+                    "workflow_run_name": f"Workflow Run: {workflow.name}",
                     "triggered_by": "WEBHOOK",
                     "execution_id": execution_id
                 }

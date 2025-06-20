@@ -66,7 +66,8 @@ async def _create_workflow_thread_for_api(
             "metadata": {
                 "workflow_id": workflow.id,
                 "workflow_name": workflow.name,
-                "is_workflow_execution": True
+                "is_workflow_execution": True,
+                "workflow_run_name": f"Workflow Run: {workflow.name}"
             },
             "created_at": datetime.now(timezone.utc).isoformat()
         }

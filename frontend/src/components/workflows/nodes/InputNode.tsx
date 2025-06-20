@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { Play, Settings, Clock, Webhook, User, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Settings, Clock, Webhook, User, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +16,13 @@ import { WebhookConfigDialog } from "../webhooks/WebhookConfigDialog";
 import { WebhookConfig } from "../webhooks/types";
 import { ScheduleConfigDialog } from "../scheduling/ScheduleConfigDialog";
 import { ScheduleConfig } from "../scheduling/types";
+import { ModelSelector } from "@/components/thread/chat-input/model-selector";
+import { useModelSelection } from "@/components/thread/chat-input/_use-model-selection";
 
 interface InputNodeData {
   label?: string;
   prompt?: string;
+  model?: string;
   trigger_type?: 'MANUAL' | 'WEBHOOK' | 'SCHEDULE';
   schedule_config?: ScheduleConfig;
   webhook_config?: WebhookConfig;
@@ -33,6 +36,23 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const { updateNodeData, workflowId } = useWorkflow();
+
+  // Use the model selection hook
+  const {
+    selectedModel,
+    setSelectedModel,
+    allModels,
+    canAccessModel,
+    subscriptionStatus,
+    refreshCustomModels
+  } = useModelSelection();
+
+  // Initialize model if not set
+  const currentModel = nodeData.model || selectedModel;
+
+  const handleModelChange = (modelId: string) => {
+    updateNodeData(id, { model: modelId });
+  };
 
   const getTriggerIcon = () => {
     switch (nodeData.trigger_type) {
@@ -132,6 +152,12 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
           </p>
         </div>
         <div>
+          <Label className="text-xs font-medium text-muted-foreground">Model</Label>
+          <p className="text-sm mt-1 text-foreground">
+            {allModels.find(m => m.id === currentModel)?.label || currentModel || "Claude Sonnet 4"}
+          </p>
+        </div>
+        <div>
           <Label className="text-xs font-medium text-muted-foreground">Trigger</Label>
           <p className="text-sm mt-1 text-foreground">
             {getTriggerDescription()}
@@ -160,6 +186,23 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                 onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
                 className="min-h-[80px] text-sm"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                LLM Model *
+              </Label>
+              <div className="border rounded-lg p-2">
+                <ModelSelector
+                  selectedModel={currentModel}
+                  onModelChange={handleModelChange}
+                  modelOptions={allModels}
+                  canAccessModel={canAccessModel}
+                  subscriptionStatus={subscriptionStatus}
+                  refreshCustomModels={refreshCustomModels}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

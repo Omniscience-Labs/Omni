@@ -54,6 +54,7 @@ class WorkflowExecutor:
             
             main_step = workflow.steps[0]
             system_prompt = main_step.config.get("system_prompt", "")
+            selected_model = main_step.config.get("model", "anthropic/claude-3-5-sonnet-latest")
 
             if variables:
                 variables_text = "\n\n## Workflow Variables\n"
@@ -100,7 +101,7 @@ class WorkflowExecutor:
                 thread_id=thread_id,
                 project_id=project_id,
                 stream=True,
-                model_name="anthropic/claude-3-5-sonnet-latest",
+                model_name=selected_model,
                 enable_thinking=False,
                 reasoning_effort="low",
                 enable_context_manager=True,
@@ -460,7 +461,8 @@ class WorkflowExecutor:
                 "metadata": {
                     "workflow_id": workflow.id,
                     "workflow_name": workflow.name,
-                    "is_workflow_execution": True
+                    "is_workflow_execution": True,
+                    "workflow_run_name": f"Workflow Run: {workflow.name}"
                 },
                 "created_at": datetime.now(timezone.utc).isoformat()
             }

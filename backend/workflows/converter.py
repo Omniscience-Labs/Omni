@@ -60,6 +60,42 @@ class WorkflowConverter:
         
         logger.info(f"Final enabled_tools list: {enabled_tools}")
 
+        # Extract model from input node configuration, default to Claude 3.5 Sonnet
+        selected_model = "anthropic/claude-3-5-sonnet-latest"
+        if input_config:
+            # Look for model in input node data
+            for node in nodes:
+                if node.get('type') == 'inputNode':
+                    node_data = node.get('data', {})
+                    if node_data.get('model'):
+                        selected_model = node_data['model']
+                        # Ensure the model ID has the correct format
+                        if not selected_model.startswith(('anthropic/', 'openai/', 'google/', 'meta-llama/', 'mistralai/', 'deepseek/')):
+                            # Map common model names to their full IDs
+                            model_mapping = {
+                                'claude-sonnet-4': 'anthropic/claude-sonnet-4-20250514',
+                                'claude-sonnet-3.7': 'anthropic/claude-3-7-sonnet-latest',
+                                'claude-3.5': 'anthropic/claude-3-5-sonnet-latest',
+                                'claude-3-5-sonnet-latest': 'anthropic/claude-3-5-sonnet-latest',
+                                'claude-3-5-sonnet-20241022': 'anthropic/claude-3-5-sonnet-20241022',
+                                'claude-3-5-haiku-latest': 'anthropic/claude-3-5-haiku-latest',
+                                'gpt-4o': 'openai/gpt-4o',
+                                'gpt-4o-mini': 'openai/gpt-4o-mini',
+                                'gpt-4.1': 'openai/gpt-4.1',
+                                'gpt-4.1-mini': 'gpt-4.1-mini',
+                                'deepseek-chat': 'openrouter/deepseek/deepseek-chat',
+                                'deepseek': 'openrouter/deepseek/deepseek-chat',
+                                'deepseek-r1': 'openrouter/deepseek/deepseek-r1',
+                                'gemini-2.0-flash-exp': 'google/gemini-2.0-flash-exp',
+                                'gemini-flash-2.5': 'openrouter/google/gemini-2.5-flash-preview-05-20',
+                                'gemini-2.5-flash:thinking': 'openrouter/google/gemini-2.5-flash-preview-05-20:thinking',
+                                'gemini-2.5-pro-preview': 'openrouter/google/gemini-2.5-pro-preview',
+                                'gemini-2.5-pro': 'openrouter/google/gemini-2.5-pro-preview',
+                                'qwen3': 'openrouter/qwen/qwen3-235b-a22b'
+                            }
+                            selected_model = model_mapping.get(selected_model, f"anthropic/{selected_model}")
+                        break
+
         agent_step = WorkflowStep(
             id="main_agent_step",
             name="Workflow Agent",
@@ -69,7 +105,7 @@ class WorkflowConverter:
                 "tool_name": "workflow_agent",
                 "system_prompt": workflow_prompt,
                 "agent_id": metadata.get("agent_id"),
-                "model": "anthropic/claude-3-5-sonnet-latest",
+                "model": selected_model,
                 "max_iterations": 10,
                 "input_prompt": input_config.prompt if input_config else "",
                 "tools": enabled_tools,
@@ -254,21 +290,33 @@ class WorkflowConverter:
         """Generate a comprehensive system prompt that describes the workflow."""
         
         prompt_parts = [
-            "You are an AI agent executing a workflow. Follow these instructions carefully:",
+            f"You are Suna - Workflows, an autonomous AI Agent created by the Kortix team, specialized in executing visual workflows.",
+            "",
+            "# 1. CORE IDENTITY & CAPABILITIES",
+            "You are a workflow-specialized autonomous agent capable of executing complex visual workflows across domains including information gathering, content creation, software development, data analysis, and problem-solving. You operate within the Suna platform and have access to a comprehensive toolkit for workflow execution.",
+            "",
+            "# 2. EXECUTION ENVIRONMENT",
+            "",
+            "## 2.1 SYSTEM INFORMATION",
+            f"- CURRENT YEAR: 2025",
+            f"- UTC DATE: {datetime.now().strftime('%Y-%m-%d')}",
+            f"- UTC TIME: {datetime.now().strftime('%H:%M:%S')}",
+            "- TIME CONTEXT: When searching for latest news or time-sensitive information, ALWAYS use these current date/time values as reference points. Never use outdated information or assume different dates.",
+            "- PLATFORM: Suna - Workflows",
             "",
         ]
         
         # Add input prompt if available
         if input_config and input_config.prompt:
             prompt_parts.extend([
-                "## Workflow Input Prompt",
+                "# 3. WORKFLOW INPUT PROMPT",
                 input_config.prompt,
                 "",
             ])
         
         prompt_parts.extend([
-            "## Workflow Overview",
-            "This workflow was created visually and consists of the following components:",
+            "# 4. WORKFLOW OVERVIEW",
+            "This workflow was created visually in Suna and consists of the following components:",
             ""
         ])
 
@@ -303,7 +351,7 @@ class WorkflowConverter:
         # Add trigger information
         if input_config:
             prompt_parts.extend([
-                "## Trigger Configuration",
+                "# 5. TRIGGER CONFIGURATION",
                 f"**Trigger Type**: {input_config.trigger_type}",
             ])
             
@@ -327,17 +375,7 @@ class WorkflowConverter:
             prompt_parts.append("")
         
         prompt_parts.extend([
-            "## Execution Instructions",
-            "",
-            "Execute this workflow by following these steps:",
-            "1. Start with the input or trigger conditions",
-            "2. Process each component in the logical order defined by the connections",
-            "3. Use the available tools as specified in the workflow",
-            "4. Follow the data flow between components",
-            "5. Provide clear output at each step",
-            "6. Handle errors gracefully and provide meaningful feedback",
-            "",
-            "## Available Tools",
+            "# 6. AVAILABLE TOOLS",
             "You have access to the following tools based on the workflow configuration:"
         ])
         
@@ -405,7 +443,7 @@ class WorkflowConverter:
         if mcp_tool_descriptions:
             prompt_parts.extend([
                 "",
-                "### MCP Server Tools",
+                "## MCP Server Tools",
                 "The following tools are available from MCP servers:"
             ])
             prompt_parts.extend(mcp_tool_descriptions)
@@ -416,7 +454,7 @@ class WorkflowConverter:
             if xml_examples:
                 prompt_parts.extend([
                     "",
-                    "## Tool Usage Examples",
+                    "# 7. TOOL USAGE EXAMPLES",
                     "Use the following XML format to call tools. Each tool call must be wrapped in <function_calls> tags:",
                     "",
                     xml_examples
@@ -424,16 +462,52 @@ class WorkflowConverter:
         
         prompt_parts.extend([
             "",
-            "## Workflow Execution",
-            "When executing this workflow:",
+            "# 8. COMMUNICATION PROTOCOLS",
+            "",
+            "## 8.1 COMMUNICATION GUIDELINES",
+            "- **Core Principle**: Communicate proactively, directly, and descriptively throughout your responses.",
+            "- **Narrative-Style Communication**: Integrate descriptive Markdown-formatted text directly in your responses before, between, and after tool calls",
+            "- **Communication Structure**: Use headers, brief paragraphs, and formatting for enhanced readability",
+            "- Balance detail with conciseness - be informative without being verbose",
+            "",
+            "## 8.2 MESSAGE TYPES & USAGE",
+            "- **Direct Narrative**: Embed clear, descriptive text directly in your responses explaining your actions, reasoning, and observations",
+            "- **'ask' tool (USER CAN RESPOND)**: Use ONLY for essential needs requiring user input (clarification, confirmation, options, missing info, validation). This blocks execution until user responds.",
+            "- **Minimize blocking operations ('ask')**: Maximize narrative descriptions in your regular responses.",
+            "",
+            "## 8.3 ATTACHMENT PROTOCOL",
+            "- When using the 'ask' tool, ALWAYS attach ALL visualizations, markdown files, charts, graphs, reports, and any viewable content created",
+            "- Include the 'attachments' parameter with file paths when sharing resources",
+            "- Remember: If the user should SEE it, you must ATTACH it with the 'ask' tool",
+            "",
+            "# 9. WORKFLOW EXECUTION INSTRUCTIONS",
+            "",
+            "Execute this workflow by following these steps:",
+            "1. **Start with the input or trigger conditions** - Begin execution based on the configured trigger",
+            "2. **Process each component in logical order** - Follow the visual connections defined in the workflow",
+            "3. **Use available tools as specified** - Employ the tools configured in this workflow using the XML format shown above",
+            "4. **Follow the data flow between components** - Respect the connections and dependencies between workflow nodes",
+            "5. **Provide clear output at each step** - Use narrative updates to keep the user informed of progress",
+            "6. **Handle errors gracefully** - Provide meaningful feedback and suggest alternatives when steps fail",
+            "7. **Complete the workflow successfully** - Deliver the expected output as defined by the workflow configuration",
+            "",
+            "## 9.1 EXECUTION BEST PRACTICES",
             "- Follow the logical flow defined by the visual connections",
             "- Use tools in the order and manner specified using the XML format shown above",
             "- For MCP tools, use the exact tool names and formats shown in the examples",
-            "- Provide clear, step-by-step output",
+            "- Provide clear, step-by-step output with narrative updates",
             "- If any step fails, explain what went wrong and suggest alternatives",
             "- Complete the workflow by providing the expected output",
+            "- Use the 'ask' tool when you need essential user input to proceed",
+            "- Attach all relevant files and visualizations when using the 'ask' tool",
             "",
-            "Begin execution when the user provides input or triggers the workflow."
+            "## 9.2 COMPLETION PROTOCOLS",
+            "- Use 'ask' tool when you need essential user input to proceed (USER CAN RESPOND)",
+            "- Provide narrative updates frequently to keep the user informed without requiring their input",
+            "- Attach all deliverables, visualizations, and viewable content when using 'ask'",
+            "- Signal completion appropriately based on workflow requirements",
+            "",
+            "**Begin execution when the user provides input or triggers the workflow. You are operating within the Suna platform as a specialized workflow execution agent.**"
         ])
         
         return "\n".join(prompt_parts)
