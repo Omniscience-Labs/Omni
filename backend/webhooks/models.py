@@ -5,7 +5,7 @@ from datetime import datetime
 class WebhookTriggerRequest(BaseModel):
     """Base webhook trigger request."""
     workflow_id: str
-    provider: Literal['slack', 'generic'] = 'slack'
+    provider: Literal['slack', 'telegram', 'generic'] = 'slack'
     data: Dict[str, Any]
     headers: Optional[Dict[str, str]] = None
     timestamp: Optional[datetime] = None
@@ -22,6 +22,17 @@ class SlackEventRequest(BaseModel):
     authed_users: Optional[list] = None
     challenge: Optional[str] = None
 
+class TelegramUpdateRequest(BaseModel):
+    """Telegram update request model."""
+    update_id: int
+    message: Optional[Dict[str, Any]] = None
+    edited_message: Optional[Dict[str, Any]] = None
+    channel_post: Optional[Dict[str, Any]] = None
+    edited_channel_post: Optional[Dict[str, Any]] = None
+    inline_query: Optional[Dict[str, Any]] = None
+    chosen_inline_result: Optional[Dict[str, Any]] = None
+    callback_query: Optional[Dict[str, Any]] = None
+
 class SlackWebhookPayload(BaseModel):
     """Slack webhook payload after processing."""
     text: str
@@ -31,6 +42,20 @@ class SlackWebhookPayload(BaseModel):
     timestamp: str
     event_type: str
     trigger_word: Optional[str] = None
+
+class TelegramWebhookPayload(BaseModel):
+    """Telegram webhook payload after processing."""
+    text: str
+    user_id: str
+    chat_id: str
+    message_id: int
+    timestamp: int
+    update_type: str
+    user_first_name: Optional[str] = None
+    user_last_name: Optional[str] = None
+    user_username: Optional[str] = None
+    chat_type: Optional[str] = None
+    chat_title: Optional[str] = None
 
 class WebhookExecutionResult(BaseModel):
     """Result of webhook execution."""

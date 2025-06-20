@@ -5,8 +5,8 @@ import uuid
 import asyncio
 from datetime import datetime, timezone
 import json
-from .models import SlackEventRequest, WebhookExecutionResult
-from .providers import SlackWebhookProvider, GenericWebhookProvider
+from .models import SlackEventRequest, TelegramUpdateRequest, WebhookExecutionResult
+from .providers import SlackWebhookProvider, TelegramWebhookProvider, GenericWebhookProvider
 from workflows.models import WorkflowDefinition
 
 from services.supabase import DBConnection
@@ -47,7 +47,8 @@ async def trigger_workflow_webhook(
     workflow_id: str,
     request: Request,
     x_slack_signature: Optional[str] = Header(None),
-    x_slack_request_timestamp: Optional[str] = Header(None)
+    x_slack_request_timestamp: Optional[str] = Header(None),
+    x_telegram_bot_api_secret_token: Optional[str] = Header(None)
 ):
     """Handle webhook triggers for workflows."""
     try:
@@ -69,11 +70,18 @@ async def trigger_workflow_webhook(
             logger.error(f"[Webhook] Failed to parse JSON: {e}")
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
 
-        provider_type = "slack" if x_slack_signature else "generic"
+        # Detect provider type based on headers and data structure
+        if x_slack_signature:
+            provider_type = "slack"
+        elif x_telegram_bot_api_secret_token or (data and "update_id" in data):
+            provider_type = "telegram"
+        else:
+            provider_type = "generic"
         
         logger.info(f"[Webhook] Detected provider type: {provider_type}")
         logger.info(f"[Webhook] Slack signature present: {bool(x_slack_signature)}")
         logger.info(f"[Webhook] Slack timestamp present: {bool(x_slack_request_timestamp)}")
+        logger.info(f"[Webhook] Telegram secret token present: {bool(x_telegram_bot_api_secret_token)}")
 
         # Handle Slack URL verification challenge first
         if provider_type == "slack" and data.get("type") == "url_verification":
@@ -148,6 +156,8 @@ async def trigger_workflow_webhook(
                 }
             else:
                 result = await _handle_slack_webhook(workflow, data, body, x_slack_signature, x_slack_request_timestamp)
+        elif provider_type == "telegram":
+            result = await _handle_telegram_webhook(workflow, data, x_telegram_bot_api_secret_token)
         else:
             result = await _handle_generic_webhook(workflow, data)
 
@@ -363,6 +373,66 @@ async def _handle_slack_webhook(
     except Exception as e:
         logger.error(f"Error handling Slack webhook: {e}")
         raise HTTPException(status_code=400, detail=f"Error processing Slack webhook: {str(e)}")
+
+async def _handle_telegram_webhook(
+    workflow: WorkflowDefinition,
+    data: Dict[str, Any],
+    secret_token: Optional[str]
+) -> Dict[str, Any]:
+    """Handle Telegram webhook specifically."""
+    try:
+        # Validate as TelegramUpdateRequest
+        telegram_update = TelegramUpdateRequest(**data)
+        
+        # Find Telegram webhook config
+        webhook_config = None
+        for trigger in workflow.triggers:
+            if trigger.type == 'WEBHOOK' and trigger.config.get('type') == 'telegram':
+                webhook_config = trigger.config
+                break
+        
+        if not webhook_config:
+            raise HTTPException(status_code=400, detail="Telegram webhook not configured for this workflow")
+        
+        # Verify secret token if configured
+        if webhook_config.get('telegram', {}).get('secret_token'):
+            expected_secret = webhook_config['telegram']['secret_token']
+            if not secret_token or not TelegramWebhookProvider.verify_webhook_secret(b'', secret_token, expected_secret):
+                raise HTTPException(status_code=401, detail="Invalid Telegram secret token")
+        
+        payload = TelegramWebhookProvider.process_update(telegram_update)
+        
+        if payload:
+            execution_variables = {
+                "telegram_text": payload.text,
+                "telegram_user_id": payload.user_id,
+                "telegram_chat_id": payload.chat_id,
+                "telegram_message_id": payload.message_id,
+                "telegram_timestamp": payload.timestamp,
+                "telegram_update_type": payload.update_type,
+                "telegram_user_first_name": payload.user_first_name,
+                "telegram_user_last_name": payload.user_last_name,
+                "telegram_user_username": payload.user_username,
+                "telegram_chat_type": payload.chat_type,
+                "telegram_chat_title": payload.chat_title,
+                "trigger_type": "webhook",
+                "webhook_provider": "telegram"
+            }
+            
+            return {
+                "should_execute": True,
+                "execution_variables": execution_variables,
+                "trigger_data": payload.model_dump()
+            }
+        else:
+            return {
+                "should_execute": False,
+                "response": {"message": "Update processed but no action needed"}
+            }
+            
+    except Exception as e:
+        logger.error(f"Error handling Telegram webhook: {e}")
+        raise HTTPException(status_code=400, detail=f"Error processing Telegram webhook: {str(e)}")
 
 async def _handle_generic_webhook(workflow: WorkflowDefinition, data: Dict[str, Any]) -> Dict[str, Any]:
     """Handle generic webhook."""

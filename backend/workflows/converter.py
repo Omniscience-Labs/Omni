@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from .models import WorkflowNode, WorkflowEdge, WorkflowDefinition, WorkflowStep, WorkflowTrigger, InputNodeConfig, ScheduleConfig
+from .models import WorkflowNode, WorkflowEdge, WorkflowDefinition, WorkflowStep, WorkflowTrigger, InputNodeConfig, ScheduleConfig, WebhookConfig
 from .tool_examples import get_tools_xml_examples
 import uuid
 from utils.logger import logger
@@ -143,10 +143,19 @@ class WorkflowConverter:
                             enabled=schedule_data.get('enabled', True)
                         )
                 
+                webhook_config = None
+                if data.get('trigger_type') == 'WEBHOOK' and data.get('webhook_config'):
+                    webhook_data = data.get('webhook_config', {})
+                    try:
+                        webhook_config = WebhookConfig(**webhook_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse webhook config: {e}, using raw data")
+                        webhook_config = webhook_data
+                
                 return InputNodeConfig(
                     prompt=data.get('prompt', ''),
                     trigger_type=data.get('trigger_type', 'MANUAL'),
-                    webhook_config=data.get('webhook_config'),
+                    webhook_config=webhook_config,
                     schedule_config=schedule_config,
                     variables=data.get('variables')
                 )
@@ -181,6 +190,14 @@ class WorkflowConverter:
                             trigger_config['slack'] = slack_config.dict()
                         else:
                             trigger_config['slack'] = slack_config
+                    elif webhook_config.type == 'telegram' and webhook_config.telegram:
+                        telegram_config = webhook_config.telegram
+                        if hasattr(telegram_config, 'model_dump'):
+                            trigger_config['telegram'] = telegram_config.model_dump()
+                        elif hasattr(telegram_config, 'dict'):
+                            trigger_config['telegram'] = telegram_config.dict()
+                        else:
+                            trigger_config['telegram'] = telegram_config
                     elif webhook_config.generic:
                         generic_config = webhook_config.generic
                         if hasattr(generic_config, 'model_dump'):
@@ -198,6 +215,8 @@ class WorkflowConverter:
                     
                     if webhook_config.get('type') == 'slack' and webhook_config.get('slack'):
                         trigger_config['slack'] = webhook_config['slack']
+                    elif webhook_config.get('type') == 'telegram' and webhook_config.get('telegram'):
+                        trigger_config['telegram'] = webhook_config['telegram']
                     elif webhook_config.get('generic'):
                         trigger_config['generic'] = webhook_config['generic']
                 

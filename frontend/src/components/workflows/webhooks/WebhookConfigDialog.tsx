@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SlackWebhookConfig } from "./providers/SlackWebhookConfig";
+import { TelegramWebhookConfig } from "./providers/TelegramWebhookConfig";
 import { WebhookConfig } from "./types";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -33,14 +34,28 @@ export function WebhookConfigDialog({
   );
   const [copied, setCopied] = useState(false);
   const webhookUrl = `${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/api/webhooks/trigger/${workflowId}`;
+  
   const handleSave = () => {
     if (webhookConfig.type === 'slack') {
       if (!webhookConfig.slack?.webhook_url || !webhookConfig.slack?.signing_secret) {
         toast.error("Please fill in all required Slack configuration fields");
         return;
       }
+    } else if (webhookConfig.type === 'telegram') {
+      if (!webhookConfig.telegram?.webhook_url || !webhookConfig.telegram?.bot_token) {
+        toast.error("Please fill in all required Telegram configuration fields");
+        return;
+      }
     }
+    
     onSave(webhookConfig);
+    
+    if (webhookConfig.type === 'telegram') {
+      toast.success("Telegram webhook configuration saved! The webhook will be automatically set up with Telegram.");
+    } else {
+      toast.success("Webhook configuration saved successfully!");
+    }
+    
     onOpenChange(false);
   };
 
@@ -66,9 +81,14 @@ export function WebhookConfigDialog({
           <Tabs
             value={webhookConfig.type}
             onValueChange={(value) =>
-              setWebhookConfig(prev => ({ ...prev, type: value as 'slack' | 'generic' }))
+              setWebhookConfig(prev => ({ ...prev, type: value as 'slack' | 'telegram' | 'generic' }))
             }
           >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="slack">Slack</TabsTrigger>
+              <TabsTrigger value="telegram">Telegram</TabsTrigger>
+            </TabsList>
+            
             <TabsContent value="slack" className="space-y-4">
               <SlackWebhookConfig
                 config={webhookConfig.slack}
@@ -78,7 +98,18 @@ export function WebhookConfigDialog({
                 }
               />
             </TabsContent>
+            
+            <TabsContent value="telegram" className="space-y-4">
+              <TelegramWebhookConfig
+                config={webhookConfig.telegram}
+                webhookUrl={webhookUrl}
+                onChange={(telegramConfig) =>
+                  setWebhookConfig(prev => ({ ...prev, telegram: telegramConfig }))
+                }
+              />
+            </TabsContent>
           </Tabs>
+          
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

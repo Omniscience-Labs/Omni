@@ -96,6 +96,8 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
       case 'WEBHOOK':
         if (nodeData.webhook_config?.type === 'slack') {
           return 'Slack webhook';
+        } else if (nodeData.webhook_config?.type === 'telegram') {
+          return 'Telegram webhook';
         }
         return `${nodeData.webhook_config?.method || 'POST'} webhook`;
       case 'MANUAL':
@@ -200,7 +202,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                     <Label className="text-xs">Webhook Provider</Label>
                     <Select
                       value={nodeData.webhook_config?.type || 'slack'}
-                      onValueChange={(value: 'slack' | 'generic') =>
+                      onValueChange={(value: 'slack' | 'telegram' | 'generic') =>
                         updateNodeData(id, {
                           webhook_config: {
                             ...nodeData.webhook_config,
@@ -214,6 +216,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="slack">Slack</SelectItem>
+                        <SelectItem value="telegram">Telegram</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -244,6 +247,37 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                       {nodeData.webhook_config?.slack?.webhook_url && nodeData.webhook_config?.slack?.signing_secret && (
                         <div className="text-xs text-muted-foreground">
                           ✓ Slack webhook configured
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {nodeData.webhook_config?.type === 'telegram' && (
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!nodeData.webhook_config) {
+                            updateNodeData(id, {
+                              webhook_config: {
+                                type: 'telegram',
+                                method: 'POST',
+                                authentication: 'none'
+                              }
+                            });
+                          }
+                          setIsWebhookDialogOpen(true);
+                        }}
+                        className="w-full"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Configure Telegram Webhook
+                      </Button>
+                      
+                      {nodeData.webhook_config?.telegram?.webhook_url && nodeData.webhook_config?.telegram?.bot_token && (
+                        <div className="text-xs text-muted-foreground">
+                          ✓ Telegram webhook configured
                         </div>
                       )}
                     </div>

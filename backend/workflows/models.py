@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional, Literal
+from pydantic import BaseModel, field_validator
+from typing import List, Dict, Any, Optional, Literal, Union
 from datetime import datetime
 
 class ScheduleConfig(BaseModel):
@@ -19,6 +19,12 @@ class SlackWebhookConfig(BaseModel):
     channel: Optional[str] = None
     username: Optional[str] = None
 
+class TelegramWebhookConfig(BaseModel):
+    """Configuration for Telegram webhook integration."""
+    webhook_url: str
+    bot_token: str
+    secret_token: Optional[str] = None
+
 class GenericWebhookConfig(BaseModel):
     """Configuration for generic webhook integration."""
     url: str
@@ -27,17 +33,18 @@ class GenericWebhookConfig(BaseModel):
 
 class WebhookConfig(BaseModel):
     """Configuration for webhook triggers."""
-    type: Literal['slack', 'generic'] = 'slack'
+    type: Literal['slack', 'telegram', 'generic'] = 'slack'
     method: Optional[Literal['POST', 'GET', 'PUT']] = 'POST'
     authentication: Optional[Literal['none', 'api_key', 'bearer']] = 'none'
     slack: Optional[SlackWebhookConfig] = None
+    telegram: Optional[TelegramWebhookConfig] = None
     generic: Optional[GenericWebhookConfig] = None
 
 class InputNodeConfig(BaseModel):
     """Configuration for workflow input nodes."""
     prompt: str = ""
     trigger_type: Literal['MANUAL', 'WEBHOOK', 'SCHEDULE'] = 'MANUAL'
-    webhook_config: Optional[WebhookConfig] = None
+    webhook_config: Optional[Union[WebhookConfig, Dict[str, Any]]] = None
     schedule_config: Optional[ScheduleConfig] = None
     variables: Optional[Dict[str, Any]] = None
 

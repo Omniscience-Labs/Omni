@@ -5,6 +5,12 @@ export interface SlackWebhookConfig {
   username?: string;
 }
 
+export interface TelegramWebhookConfig {
+  webhook_url: string;
+  bot_token: string;
+  secret_token?: string;
+}
+
 export interface GenericWebhookConfig {
   url: string;
   headers?: Record<string, string>;
@@ -12,10 +18,11 @@ export interface GenericWebhookConfig {
 }
 
 export interface WebhookConfig {
-  type: 'slack' | 'generic';
+  type: 'slack' | 'telegram' | 'generic';
   method?: 'POST' | 'GET' | 'PUT';
   authentication?: 'none' | 'api_key' | 'bearer';
   slack?: SlackWebhookConfig;
+  telegram?: TelegramWebhookConfig;
   generic?: GenericWebhookConfig;
 }
 

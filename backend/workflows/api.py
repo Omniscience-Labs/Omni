@@ -26,6 +26,7 @@ from scheduling.models import (
     ScheduleCreateRequest, ScheduleConfig as QStashScheduleConfig,
     SimpleScheduleConfig, CronScheduleConfig
 )
+from webhooks.providers import TelegramWebhookProvider
 
 router = APIRouter()
 
@@ -740,6 +741,19 @@ async def update_workflow_flow(
                 # Also try to unschedule from old APScheduler as fallback
                 await workflow_scheduler.unschedule_workflow(workflow_id)
         
+        telegram_triggers = [trigger for trigger in updated_workflow.triggers if trigger.type == 'WEBHOOK' and trigger.config.get('type') == 'telegram']
+        if telegram_triggers:
+            try:
+                import os
+                base_url = (
+                    os.getenv('WEBHOOK_BASE_URL', 'http://localhost:3000')
+                )
+                
+                await _setup_telegram_webhooks_for_workflow(updated_workflow, base_url)
+                logger.info(f"Processed Telegram webhook setup for workflow {workflow_id}")
+            except Exception as e:
+                logger.warning(f"Failed to set up Telegram webhooks for workflow {workflow_id}: {e}")
+        
         return updated_workflow
         
     except HTTPException:
@@ -1106,4 +1120,39 @@ async def _remove_qstash_schedules_for_workflow(workflow_id: str):
                 
     except Exception as e:
         logger.error(f"Failed to remove QStash schedules for workflow {workflow_id}: {e}")
-        raise 
+        raise
+
+async def _setup_telegram_webhooks_for_workflow(workflow: WorkflowDefinition, base_url: str):
+    """Set up Telegram webhooks for a workflow if configured."""
+    try:
+        telegram_triggers = [
+            trigger for trigger in workflow.triggers 
+            if trigger.type == 'WEBHOOK' and trigger.config.get('type') == 'telegram'
+        ]
+        
+        for trigger in telegram_triggers:
+            telegram_config = trigger.config.get('telegram')
+            if not telegram_config:
+                continue
+                
+            bot_token = telegram_config.get('bot_token')
+            secret_token = telegram_config.get('secret_token')
+            
+            if not bot_token:
+                logger.warning(f"No bot token found for Telegram webhook in workflow {workflow.id}")
+                continue
+            
+            webhook_url = f"{base_url}/api/webhooks/trigger/{workflow.id}"
+            result = await TelegramWebhookProvider.setup_webhook(
+                bot_token=bot_token,
+                webhook_url=webhook_url,
+                secret_token=secret_token
+            )
+            
+            if result.get('success'):
+                logger.info(f"Successfully set up Telegram webhook for workflow {workflow.id}: {result.get('message')}")
+            else:
+                logger.error(f"Failed to set up Telegram webhook for workflow {workflow.id}: {result.get('error')}")
+                
+    except Exception as e:
+        logger.error(f"Error setting up Telegram webhooks for workflow {workflow.id}: {e}")
