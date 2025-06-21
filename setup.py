@@ -615,6 +615,10 @@ def setup_supabase():
                         supabase_url = line.strip().split('=', 1)[1]
                         break
 
+    # Add this check
+    if not supabase_url:
+        raise RuntimeError("SUPABASE_URL not found in environment or backend/.env file.")
+
     project_ref = None
     if supabase_url:
         # Extract project reference from URL (format: https://[project_ref].supabase.co)
