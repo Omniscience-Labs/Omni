@@ -195,8 +195,11 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
         if run['completed_at']:
             end_time = datetime.fromisoformat(run['completed_at'].replace('Z', '+00:00')).timestamp()
         else:
-            # For running jobs, use current time
-            end_time = now_ts
+            # if the start time is more than an hour ago, don't consider that time in total. else use the current time
+            if start_time < now_ts - 3600:
+                continue
+            else:
+                end_time = now_ts
         
         total_seconds += (end_time - start_time)
     
