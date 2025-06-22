@@ -21,12 +21,6 @@ class WorkflowExecutor:
         thread_id: Optional[str] = None,
         project_id: Optional[str] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Execute a workflow definition.
-        
-        V1 Implementation: Generates a system prompt from the workflow
-        and executes it as a single agent call.
-        """
         if not thread_id:
             thread_id = str(uuid.uuid4())
         
