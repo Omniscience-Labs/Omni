@@ -336,7 +336,7 @@ def collect_llm_api_keys():
                     for i, model in enumerate(model_aliases['ANTHROPIC'], 1):
                         print(f"{Colors.CYAN}[{i}] {Colors.GREEN}{model}{Colors.ENDC}")
                     
-                    model_choice = input("Select default model (1-3) or press Enter for claude-3-7-sonnet: ").strip()
+                    model_choice = input("Select default model (1-3) or press Enter for claude-3-7-sonnet ").strip()
                     if not model_choice or model_choice == '1':
                         model_info['default_model'] = 'anthropic/claude-3-7-sonnet-latest'
                     elif model_choice.isdigit() and 1 <= int(model_choice) <= len(model_aliases['ANTHROPIC']):
@@ -614,6 +614,10 @@ def setup_supabase():
                     if line.startswith('SUPABASE_URL='):
                         supabase_url = line.strip().split('=', 1)[1]
                         break
+
+    # Add this check
+    if not supabase_url:
+        raise RuntimeError("SUPABASE_URL not found in environment or backend/.env file.")
 
     project_ref = None
     if supabase_url:
