@@ -402,15 +402,36 @@ class ThreadManager:
 
         try:
             # result = await client.rpc('get_llm_formatted_messages', {'p_thread_id': thread_id}).execute()
-            result = await client.table('messages').select('message_id, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').execute()
+            
+            # Fetch messages in batches of 1000 to avoid overloading the database
+            all_messages = []
+            batch_size = 1000
+            offset = 0
+            
+            while True:
+                result = await client.table('messages').select('message_id, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').range(offset, offset + batch_size - 1).execute()
+                
+                if not result.data or len(result.data) == 0:
+                    break
+                    
+                all_messages.extend(result.data)
+                
+                # If we got fewer than batch_size records, we've reached the end
+                if len(result.data) < batch_size:
+                    break
+                    
+                offset += batch_size
+            
+            # Use all_messages instead of result.data in the rest of the method
+            result_data = all_messages
 
             # Parse the returned data which might be stringified JSON
-            if not result.data:
+            if not result_data:
                 return []
 
             # Return properly parsed JSON objects
             messages = []
-            for item in result.data:
+            for item in result_data:
                 if isinstance(item['content'], str):
                     try:
                         parsed_item = json.loads(item['content'])
