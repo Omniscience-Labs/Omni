@@ -135,7 +135,7 @@ async def delete_sandbox(sandbox_id: str):
         sandbox = daytona.get(sandbox_id)
         
         # Delete the sandbox
-        daytona.remove(sandbox)
+        daytona.delete(sandbox)
         
         logger.info(f"Successfully deleted sandbox {sandbox_id}")
         return True
