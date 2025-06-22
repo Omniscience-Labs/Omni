@@ -189,7 +189,6 @@ supabase/.temp/storage-version
 **/.prompts/
 **/__pycache__/
 
-
 .env.scripts
 
 redis_data
@@ -200,3 +199,4 @@ rabbitmq_data
 .setup_env.json
 
 backend/.test_token_compression.py
+backend/test_token_compression_data.py
