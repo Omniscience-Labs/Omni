@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,31 @@ interface ToolConnectionNodeData {
 const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
   const nodeData = data as unknown as ToolConnectionNodeData;
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [localInstructions, setLocalInstructions] = useState(nodeData.instructions || '');
   const { updateNodeData } = useWorkflow();
+  
+  useEffect(() => {
+    setLocalInstructions(nodeData.instructions || '');
+  }, [nodeData.instructions]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedUpdateInstructions = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          updateNodeData?.(id!, { instructions: value });
+        }, 300);
+      };
+    })(),
+    [id, updateNodeData]
+  );
+
+  const handleInstructionsChange = (value: string) => {
+    setLocalInstructions(value);
+    debouncedUpdateInstructions(value);
+  };
   
   const getToolConfig = () => {
     const toolId = nodeData.nodeId || nodeData.toolType;
@@ -145,13 +169,13 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
               <span className="text-xs text-muted-foreground">Ready</span>
             </div>
           </div>
-          {nodeData.instructions && !isConfigOpen && (
+          {localInstructions && !isConfigOpen && (
             <div>
               <Label className="text-xs font-medium text-muted-foreground">Instructions</Label>
               <div className="border-primary/20 text-xs text-muted-foreground bg-primary/10 p-2 rounded-lg border mt-1">
-                {nodeData.instructions.length > 50 
-                  ? `${nodeData.instructions.substring(0, 50)}...` 
-                  : nodeData.instructions}
+                {localInstructions.length > 50 
+                  ? `${localInstructions.substring(0, 50)}...` 
+                  : localInstructions}
               </div>
             </div>
           )}
@@ -175,8 +199,8 @@ const ToolConnectionNode = memo(({ data, selected, id }: NodeProps) => {
                 <Textarea
                   id={`instructions-${id}`}
                   placeholder="Provide specific instructions for how this tool should be used in the workflow..."
-                  value={nodeData.instructions || ''}
-                  onChange={(e) => updateNodeData?.(id!, { instructions: e.target.value })}
+                  value={localInstructions}
+                  onChange={(e) => handleInstructionsChange(e.target.value)}
                   className="border-primary/20 min-h-[80px] text-sm"
                 />
               </div>
