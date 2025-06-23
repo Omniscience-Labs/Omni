@@ -30,6 +30,9 @@ dramatiq.set_broker(rabbitmq_broker)
 
 _initialized = False
 db = DBConnection()
+db = DBConnection()
+workflow_executor = WorkflowExecutor(db)
+deterministic_executor = DeterministicWorkflowExecutor(db)
 instance_id = "single"
 
 async def initialize():
