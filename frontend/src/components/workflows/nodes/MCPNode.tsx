@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useEffect } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
   const nodeData = data as unknown as MCPNodeData;
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [localInstructions, setLocalInstructions] = useState(nodeData.instructions || '');
   const { updateNodeData } = useWorkflow();
   
   const { data: credentialProfiles } = useCredentialProfilesForMcp(
@@ -53,6 +54,28 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
     nodeData.qualifiedName || "", 
     nodeData.mcpType === "smithery" && !!nodeData.qualifiedName
   );
+
+  useEffect(() => {
+    setLocalInstructions(nodeData.instructions || '');
+  }, [nodeData.instructions]);
+
+  const debouncedUpdateInstructions = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          updateNodeData(id, { instructions: value });
+        }, 300);
+      };
+    })(),
+    [id, updateNodeData]
+  );
+
+  const handleInstructionsChange = (value: string) => {
+    setLocalInstructions(value);
+    debouncedUpdateInstructions(value);
+  };
 
   useEffect(() => {
     if (nodeData.mcpType === "smithery" && nodeData.qualifiedName && credentialProfiles && !nodeData.isConfigured) {
@@ -215,13 +238,13 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
               </div>
             </div>
           )}
-          {nodeData.instructions && !isConfigOpen && (
+          {localInstructions && !isConfigOpen && (
             <div>
               <Label className="text-xs font-medium text-muted-foreground">Instructions</Label>
               <div className="border-primary/20 text-xs text-muted-foreground bg-primary/10 p-2 rounded-lg border mt-1">
-                {nodeData.instructions.length > 50 
-                  ? `${nodeData.instructions.substring(0, 50)}...` 
-                  : nodeData.instructions}
+                {localInstructions.length > 50 
+                  ? `${localInstructions.substring(0, 50)}...` 
+                  : localInstructions}
               </div>
             </div>
           )}
@@ -246,8 +269,8 @@ const MCPNode = memo(({ data, selected, id }: NodeProps) => {
                 <Textarea
                   id={`instructions-${id}`}
                   placeholder="Provide specific instructions for how this MCP server should be used in the workflow..."
-                  value={nodeData.instructions || ''}
-                  onChange={(e) => updateNodeData(id, { instructions: e.target.value })}
+                  value={localInstructions}
+                  onChange={(e) => handleInstructionsChange(e.target.value)}
                   className="border-primary/20 min-h-[80px] text-sm"
                 />
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Play, Settings, Clock, Webhook, User, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { CardContent, CardHeader } from "@/components/ui/card";
@@ -35,6 +35,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [localPrompt, setLocalPrompt] = useState(nodeData.prompt || '');
   const { updateNodeData, workflowId } = useWorkflow();
 
   // Use the model selection hook
@@ -49,6 +50,30 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
 
   // Initialize model if not set
   const currentModel = nodeData.model || selectedModel;
+
+  // Update local prompt when nodeData changes
+  useEffect(() => {
+    setLocalPrompt(nodeData.prompt || '');
+  }, [nodeData.prompt]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedUpdatePrompt = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          updateNodeData(id, { prompt: value });
+        }, 300);
+      };
+    })(),
+    [id, updateNodeData]
+  );
+
+  const handlePromptChange = (value: string) => {
+    setLocalPrompt(value);
+    debouncedUpdatePrompt(value);
+  };
 
   const handleModelChange = (modelId: string) => {
     updateNodeData(id, { model: modelId });
@@ -182,8 +207,8 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
               <Textarea
                 id={`prompt-${id}`}
                 placeholder="Describe what this workflow should accomplish..."
-                value={nodeData.prompt || ''}
-                onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
+                value={localPrompt}
+                onChange={(e) => handlePromptChange(e.target.value)}
                 className="min-h-[80px] text-sm"
               />
             </div>
