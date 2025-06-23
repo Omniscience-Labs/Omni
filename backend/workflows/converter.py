@@ -60,8 +60,8 @@ class WorkflowConverter:
         
         logger.info(f"Final enabled_tools list: {enabled_tools}")
 
-        # Extract model from input node configuration, default to Claude 3.5 Sonnet
-        selected_model = "anthropic/claude-3-5-sonnet-latest"
+        # Extract model from input node configuration, default to Claude Sonnet 4
+        selected_model = "anthropic/claude-sonnet-4-20250514"
         if input_config:
             # Look for model in input node data
             for node in nodes:

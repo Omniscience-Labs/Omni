@@ -700,7 +700,7 @@ class SetupWizard:
             elif self.env_vars["llm"].get("ANTHROPIC_API_KEY"):
                 self.env_vars["llm"][
                     "MODEL_TO_USE"
-                ] = "anthropic/claude-3-5-sonnet-latest"
+                ] = "anthropic/claude-sonnet-4-20250514"
             elif self.env_vars["llm"].get("OPENROUTER_API_KEY"):
                 self.env_vars["llm"][
                     "MODEL_TO_USE"
