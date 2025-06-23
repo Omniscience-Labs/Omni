@@ -168,7 +168,7 @@ async def trigger_workflow_webhook(
             result = await _handle_generic_webhook(workflow, data)
 
         if result.get("should_execute", False):
-            from run_workflow_background import run_workflow_background
+            from run_agent_background import run_workflow_background
             
             execution_id = str(uuid.uuid4())
             
