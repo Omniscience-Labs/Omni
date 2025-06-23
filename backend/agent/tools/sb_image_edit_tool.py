@@ -2,28 +2,26 @@ from typing import Optional
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
-from openai import OpenAI
 import httpx
-import os
 from io import BytesIO
 import uuid
+from litellm import aimage_generation, aimage_edit
 
 
 class SandboxImageEditTool(SandboxToolsBase):
-    """Tool for generating or editing images using OpenAI DALL-E via OpenAI SDK (no mask support)."""
+    """Tool for generating or editing images using OpenAI GPT Image 1 via OpenAI SDK (no mask support)."""
 
     def __init__(self, project_id: str, thread_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.thread_id = thread_id
         self.thread_manager = thread_manager
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     @openapi_schema(
         {
             "type": "function",
             "function": {
                 "name": "image_edit_or_generate",
-                "description": "Generate a new image from a prompt, or edit an existing image (no mask support) using OpenAI DALL-E via OpenAI SDK. Stores the result in the thread context.",
+                "description": "Generate a new image from a prompt, or edit an existing image (no mask support) using OpenAI GPT Image 1 via OpenAI SDK. Stores the result in the thread context.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -68,13 +66,16 @@ class SandboxImageEditTool(SandboxToolsBase):
         prompt: str,
         image_path: Optional[str] = None,
     ) -> ToolResult:
-        """Generate or edit images using OpenAI DALL-E via OpenAI SDK (no mask support)."""
+        """Generate or edit images using OpenAI GPT Image 1 via OpenAI SDK (no mask support)."""
         try:
             await self._ensure_sandbox()
 
             if mode == "generate":
-                response = self.client.images.generate(
-                    prompt=prompt, n=1, size="1024x1024"
+                response = await aimage_generation(
+                    model="gpt-image-1",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1024",
                 )
             elif mode == "edit":
                 if not image_path:
@@ -86,10 +87,16 @@ class SandboxImageEditTool(SandboxToolsBase):
 
                 # Create BytesIO object with proper filename to set MIME type
                 image_io = BytesIO(image_bytes)
-                image_io.name = "image.png"  # Set filename to ensure proper MIME type detection
-                
-                response = self.client.images.edit(
-                    image=image_io, prompt=prompt, n=1, size="1024x1024"
+                image_io.name = (
+                    "image.png"  # Set filename to ensure proper MIME type detection
+                )
+
+                response = await aimage_edit(
+                    image=image_io,
+                    prompt=prompt,
+                    model="gpt-image-1",
+                    n=1,
+                    size="1024x1024",
                 )
             else:
                 return self.fail_response("Invalid mode. Use 'generate' or 'edit'.")
