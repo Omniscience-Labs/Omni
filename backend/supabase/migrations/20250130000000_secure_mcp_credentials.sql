@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS agent_templates (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     avatar VARCHAR(10),
-    avatar_color VARCHAR(7)
+    avatar_color VARCHAR(7),
+    metadata JSONB DEFAULT '{}'::jsonb
 );
 
 -- Indexes for agent_templates
@@ -37,6 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_templates_marketplace_published_at ON agent
 CREATE INDEX IF NOT EXISTS idx_agent_templates_download_count ON agent_templates(download_count);
 CREATE INDEX IF NOT EXISTS idx_agent_templates_tags ON agent_templates USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_agent_templates_created_at ON agent_templates(created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_templates_metadata ON agent_templates USING gin(metadata);
 
 -- =====================================================
 -- 2. USER MCP CREDENTIALS TABLE
