@@ -105,6 +105,65 @@ export interface FileInfo {
   permissions?: string;
 }
 
+export type WorkflowExecution = {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  started_at: string | null;
+  completed_at: string | null;
+  result: any;
+  error: string | null;
+};
+
+export type WorkflowExecutionLog = {
+  id: string;
+  execution_id: string;
+  node_id: string;
+  node_name: string;
+  node_type: string;
+  started_at: string;
+  completed_at: string | null;
+  status: 'running' | 'completed' | 'failed';
+  input_data: any;
+  output_data: any;
+  error: string | null;
+};
+
+// Workflow Types
+export type Workflow = {
+  id: string;
+  name: string;
+  description: string;
+  status: 'draft' | 'active' | 'paused' | 'disabled' | 'archived';
+  project_id: string;
+  account_id: string;
+  definition: {
+    name: string;
+    description: string;
+    nodes: any[];
+    edges: any[];
+    variables?: Record<string, any>;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkflowNode = {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: any;
+};
+
+export type WorkflowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+};
+
 // Project APIs
 export const getProjects = async (): Promise<Project[]> => {
   try {
@@ -434,6 +493,7 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
       project_id: thread.project_id,
       created_at: thread.created_at,
       updated_at: thread.updated_at,
+      metadata: thread.metadata,
     }));
   return mappedThreads;
 };
@@ -1913,4 +1973,533 @@ export const getAgentBuilderChatHistory = async (agentId: string): Promise<{mess
   console.log('[API] Agent builder chat history fetched:', data);
 
   return data;
+};
+
+// Workflow API Functions
+export const getWorkflows = async (projectId?: string): Promise<Workflow[]> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    let url = `${API_URL}/workflows`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${session.access_token}`,
+    };
+
+    if (projectId) {
+      headers['X-Project-Id'] = projectId;
+    }
+
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error getting workflows: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error getting workflows: ${response.statusText} (${response.status})`);
+    }
+
+    const workflowsData = await response.json();
+    
+    // Convert backend workflow format to frontend format
+    const workflows: Workflow[] = (workflowsData || []).map((workflowData: any) => ({
+      id: workflowData.id,
+      name: workflowData.name,
+      description: workflowData.description || '',
+      status: workflowData.state?.toLowerCase() || 'draft',
+      project_id: workflowData.project_id,
+      account_id: workflowData.created_by || '',
+      definition: {
+        name: workflowData.name,
+        description: workflowData.description || '',
+        nodes: [], // Flow data loaded separately when needed
+        edges: [],
+        variables: {}
+      },
+      created_at: workflowData.created_at,
+      updated_at: workflowData.updated_at
+    }));
+
+    return workflows;
+  } catch (error) {
+    console.error('Failed to get workflows:', error);
+    handleApiError(error, { operation: 'load workflows', resource: 'workflows' });
+    throw error;
+  }
+};
+
+export const getWorkflow = async (workflowId: string): Promise<Workflow> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    // Get workflow metadata
+    const response = await fetch(`${API_URL}/workflows/${workflowId}`, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error getting workflow: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error getting workflow: ${response.statusText} (${response.status})`);
+    }
+
+    const workflowData = await response.json();
+
+    // Get workflow flow data
+    let flowData: { nodes: any[]; edges: any[]; metadata: Record<string, any> } = { 
+      nodes: [], 
+      edges: [], 
+      metadata: {} 
+    };
+    try {
+      const flowResponse = await fetch(`${API_URL}/workflows/${workflowId}/flow`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (flowResponse.ok) {
+        flowData = await flowResponse.json();
+      }
+    } catch (flowError) {
+      console.warn('Failed to load workflow flow data:', flowError);
+    }
+
+    // Combine workflow metadata with flow data
+    const combinedWorkflow: Workflow = {
+      id: workflowData.id,
+      name: workflowData.name,
+      description: workflowData.description || '',
+      status: workflowData.state?.toLowerCase() || 'draft',
+      project_id: workflowData.project_id,
+      account_id: workflowData.created_by || '',
+      definition: {
+        name: (flowData.metadata.name as string) || workflowData.name,
+        description: (flowData.metadata.description as string) || workflowData.description || '',
+        nodes: flowData.nodes || [],
+        edges: flowData.edges || [],
+        variables: (flowData.metadata.variables as Record<string, any>) || {}
+      },
+      created_at: workflowData.created_at,
+      updated_at: workflowData.updated_at
+    };
+
+    return combinedWorkflow;
+  } catch (error) {
+    console.error('Failed to get workflow:', error);
+    handleApiError(error, { operation: 'load workflow', resource: `workflow ${workflowId}` });
+    throw error;
+  }
+};
+
+export const createWorkflow = async (workflowData: {
+  name: string;
+  description: string;
+  project_id: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  variables?: Record<string, any>;
+}): Promise<Workflow> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    // Step 1: Create basic workflow with metadata only
+    const basicWorkflowData = {
+      name: workflowData.name,
+      description: workflowData.description,
+      project_id: workflowData.project_id,
+    };
+
+    const createResponse = await fetch(`${API_URL}/workflows`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(basicWorkflowData),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text().catch(() => 'No error details available');
+      console.error(`Error creating workflow: ${createResponse.status} ${createResponse.statusText}`, errorText);
+      throw new Error(`Error creating workflow: ${createResponse.statusText} (${createResponse.status})`);
+    }
+
+    const newWorkflow = await createResponse.json();
+
+    // Step 2: Update workflow with flow data if nodes/edges are provided
+    if (workflowData.nodes.length > 0 || workflowData.edges.length > 0) {
+      const flowData = {
+        nodes: workflowData.nodes,
+        edges: workflowData.edges,
+        metadata: {
+          name: workflowData.name,
+          description: workflowData.description,
+          variables: workflowData.variables || {}
+        }
+      };
+
+      const updateResponse = await fetch(`${API_URL}/workflows/${newWorkflow.id}/flow`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(flowData),
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text().catch(() => 'No error details available');
+        console.error(`Error updating workflow flow: ${updateResponse.status} ${updateResponse.statusText}`, errorText);
+        // Don't throw here, just log the error - the workflow was created successfully
+        console.warn('Workflow created but flow update failed');
+      } else {
+        // Return the updated workflow with flow data
+        return await updateResponse.json();
+      }
+    }
+
+    return newWorkflow;
+  } catch (error) {
+    console.error('Failed to create workflow:', error);
+    handleApiError(error, { operation: 'create workflow', resource: 'workflow' });
+    throw error;
+  }
+};
+
+export const updateWorkflow = async (
+  workflowId: string,
+  workflowData: {
+    name?: string;
+    description?: string;
+    status?: 'draft' | 'active' | 'paused' | 'disabled' | 'archived';
+    nodes?: WorkflowNode[];
+    edges?: WorkflowEdge[];
+    variables?: Record<string, any>;
+  }
+): Promise<Workflow> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    // Separate metadata from flow data
+    const { nodes, edges, variables, ...metadataUpdates } = workflowData;
+
+    let updatedWorkflow: Workflow;
+
+    // Step 1: Update basic workflow metadata if provided
+    if (Object.keys(metadataUpdates).length > 0) {
+      const response = await fetch(`${API_URL}/workflows/${workflowId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(metadataUpdates),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'No error details available');
+        console.error(`Error updating workflow metadata: ${response.status} ${response.statusText}`, errorText);
+        throw new Error(`Error updating workflow metadata: ${response.statusText} (${response.status})`);
+      }
+
+      updatedWorkflow = await response.json();
+    } else {
+      // Get current workflow if no metadata updates
+      updatedWorkflow = await getWorkflow(workflowId);
+    }
+
+    // Step 2: Update flow data if provided
+    if (nodes || edges) {
+      const flowData = {
+        nodes: nodes || [],
+        edges: edges || [],
+        metadata: {
+          name: workflowData.name || updatedWorkflow.definition.name || updatedWorkflow.name,
+          description: workflowData.description || updatedWorkflow.definition.description || updatedWorkflow.description,
+          variables: variables || {}
+        }
+      };
+
+      const flowResponse = await fetch(`${API_URL}/workflows/${workflowId}/flow`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(flowData),
+      });
+
+      if (!flowResponse.ok) {
+        const errorText = await flowResponse.text().catch(() => 'No error details available');
+        console.error(`Error updating workflow flow: ${flowResponse.status} ${flowResponse.statusText}`, errorText);
+        throw new Error(`Error updating workflow flow: ${flowResponse.statusText} (${flowResponse.status})`);
+      }
+
+      updatedWorkflow = await flowResponse.json();
+    }
+
+    return updatedWorkflow;
+  } catch (error) {
+    console.error('Failed to update workflow:', error);
+    handleApiError(error, { operation: 'update workflow', resource: `workflow ${workflowId}` });
+    throw error;
+  }
+};
+
+export const deleteWorkflow = async (workflowId: string): Promise<void> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/workflows/${workflowId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error deleting workflow: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error deleting workflow: ${response.statusText} (${response.status})`);
+    }
+  } catch (error) {
+    console.error('Failed to delete workflow:', error);
+    handleApiError(error, { operation: 'delete workflow', resource: `workflow ${workflowId}` });
+    throw error;
+  }
+};
+
+export const executeWorkflow = async (
+  workflowId: string,
+  variables?: Record<string, any>
+): Promise<{ execution_id: string; thread_id: string; agent_run_id: string }> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/workflows/${workflowId}/execute?deterministic=false`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ variables: variables || {} }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error executing workflow: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error executing workflow: ${response.statusText} (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Failed to execute workflow:', error);
+    handleApiError(error, { operation: 'execute workflow', resource: `workflow ${workflowId}` });
+    throw error;
+  }
+};
+
+export const streamWorkflowExecution = (
+  executionId: string,
+  callbacks: {
+    onMessage: (data: any) => void;
+    onError: (error: Error | string) => void;
+    onClose: () => void;
+  }
+): (() => void) => {
+  const supabase = createClient();
+  
+  const setupStream = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        callbacks.onError(new NoAccessTokenAvailableError());
+        return;
+      }
+
+      const eventSource = new EventSource(
+        `${API_URL}/workflows/execution/${executionId}/stream?token=${session.access_token}`
+      );
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          callbacks.onMessage(data);
+        } catch (error) {
+          console.error('Error parsing workflow execution stream data:', error);
+          callbacks.onError('Error parsing stream data');
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('Workflow execution stream error:', error);
+        callbacks.onError('Stream connection error');
+        eventSource.close();
+      };
+
+      eventSource.addEventListener('close', () => {
+        callbacks.onClose();
+        eventSource.close();
+      });
+
+      return () => {
+        eventSource.close();
+      };
+    } catch (error) {
+      console.error('Error setting up workflow execution stream:', error);
+      callbacks.onError(error instanceof Error ? error : String(error));
+    }
+  };
+
+  let cleanup: (() => void) | undefined;
+  setupStream().then((cleanupFn) => {
+    cleanup = cleanupFn;
+  });
+
+  return () => {
+    if (cleanup) {
+      cleanup();
+    }
+  };
+};
+
+export const getWorkflowExecutions = async (workflowId: string): Promise<WorkflowExecution[]> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/workflows/${workflowId}/executions`, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error getting workflow executions: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error getting workflow executions: ${response.statusText} (${response.status})`);
+    }
+
+    const data = await response.json();
+    return data.executions || [];
+  } catch (error) {
+    console.error('Failed to get workflow executions:', error);
+    handleApiError(error, { operation: 'load workflow executions', resource: `workflow ${workflowId} executions` });
+    throw error;
+  }
+};
+
+export const getExecutionStatus = async (
+  executionId: string
+): Promise<{ execution: WorkflowExecution; logs: WorkflowExecutionLog[] }> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/workflows/execution/${executionId}`, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error getting execution status: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error getting execution status: ${response.statusText} (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Failed to get execution status:', error);
+    handleApiError(error, { operation: 'load execution status', resource: `execution ${executionId}` });
+    throw error;
+  }
+};
+
+export const cancelExecution = async (executionId: string): Promise<void> => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const response = await fetch(`${API_URL}/workflows/execution/${executionId}/cancel`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Error cancelling execution: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Error cancelling execution: ${response.statusText} (${response.status})`);
+    }
+  } catch (error) {
+    console.error('Failed to cancel execution:', error);
+    handleApiError(error, { operation: 'cancel execution', resource: `execution ${executionId}` });
+    throw error;
+  }
 };

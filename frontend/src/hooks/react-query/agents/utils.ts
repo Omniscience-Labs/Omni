@@ -79,6 +79,36 @@ export type AgentCreateRequest = {
   is_default?: boolean;
 };
 
+export type AgentVersionCreateRequest = {
+  system_prompt: string;
+  configured_mcps?: Array<{
+    name: string;
+    config: Record<string, any>;
+  }>;
+  custom_mcps?: Array<{
+    name: string;
+    type: 'json' | 'sse';
+    config: Record<string, any>;
+    enabledTools: string[];
+  }>;
+  agentpress_tools?: Record<string, any>;
+};
+
+export type AgentVersion = {
+  version_id: string;
+  agent_id: string;
+  version_number: number;
+  version_name: string;
+  system_prompt: string;
+  configured_mcps: Array<any>;
+  custom_mcps: Array<any>;
+  agentpress_tools: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+};
+
 export type AgentUpdateRequest = {
   name?: string;
   description?: string;
@@ -455,6 +485,155 @@ export const startAgentBuilderChat = async (
     }
   } catch (err) {
     console.error('Error in agent builder chat:', err);
+    throw err;
+  }
+};
+
+export const getAgentVersions = async (agentId: string): Promise<AgentVersion[]> => {
+  try {
+    const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
+    if (!agentPlaygroundEnabled) {
+      throw new Error('Custom agents is not enabled');
+    }
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to get agent versions');
+    }
+
+    const response = await fetch(`${API_URL}/agents/${agentId}/versions`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const versions = await response.json();
+    console.log('[API] Fetched agent versions:', agentId, versions.length);
+    return versions;
+  } catch (err) {
+    console.error('Error fetching agent versions:', err);
+    throw err;
+  }
+};
+
+export const createAgentVersion = async (
+  agentId: string,
+  data: AgentVersionCreateRequest
+): Promise<AgentVersion> => {
+  try {
+    const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
+    if (!agentPlaygroundEnabled) {
+      throw new Error('Custom agents is not enabled');
+    }
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to create agent version');
+    }
+
+    const response = await fetch(`${API_URL}/agents/${agentId}/versions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const version = await response.json();
+    console.log('[API] Created agent version:', version.version_id);
+    return version;
+  } catch (err) {
+    console.error('Error creating agent version:', err);
+    throw err;
+  }
+};
+
+export const activateAgentVersion = async (
+  agentId: string,
+  versionId: string
+): Promise<void> => {
+  try {
+    const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
+    if (!agentPlaygroundEnabled) {
+      throw new Error('Custom agents is not enabled');
+    }
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to activate agent version');
+    }
+
+    const response = await fetch(
+      `${API_URL}/agents/${agentId}/versions/${versionId}/activate`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    console.log('[API] Activated agent version:', versionId);
+  } catch (err) {
+    console.error('Error activating agent version:', err);
+    throw err;
+  }
+};
+
+export const getAgentVersion = async (
+  agentId: string,
+  versionId: string
+): Promise<AgentVersion> => {
+  try {
+    const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
+    if (!agentPlaygroundEnabled) {
+      throw new Error('Custom agents is not enabled');
+    }
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('You must be logged in to get agent version');
+    }
+
+    const response = await fetch(
+      `${API_URL}/agents/${agentId}/versions/${versionId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const version = await response.json();
+    console.log('[API] Fetched agent version:', version.version_id);
+    return version;
+  } catch (err) {
+    console.error('Error fetching agent version:', err);
     throw err;
   }
 };

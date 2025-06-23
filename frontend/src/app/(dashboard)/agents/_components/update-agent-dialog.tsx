@@ -6,12 +6,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Save, Settings2, Sparkles } from 'lucide-react';
+import { Loader2, Search, Save, Settings2, Sparkles, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
+import { AgentVersionManager } from './AgentVersionManager';
+import { Badge } from '@/components/ui/badge';
 
 interface AgentUpdateRequest {
   name?: string;
@@ -207,8 +209,13 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-xl font-semibold">
+              <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                 Edit Agent
+                {(agent as any).current_version && (
+                  <Badge variant="secondary" className="text-xs">
+                    {(agent as any).current_version.version_name}
+                  </Badge>
+                )}
               </DialogTitle>
               <DialogDescription className="text-sm mt-1">
                 Modify your agent's configuration and capabilities
@@ -279,6 +286,12 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
                   >
                     <Sparkles className="h-4 w-4" />
                     MCP Servers
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="versions" 
+                  >
+                    <GitBranch className="h-4 w-4" />
+                    Versions
                   </TabsTrigger>
                 </TabsList>
 
@@ -371,37 +384,60 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
                     onConfigurationChange={handleMCPConfigurationChange}
                   />
                 </TabsContent>
+
+                <TabsContent value="versions" className="flex-1 m-0 p-6 overflow-y-auto">
+                  <AgentVersionManager 
+                    agent={agent as any}
+                    onCreateVersion={() => {
+                      // When creating a new version, save current changes first
+                      handleSubmit();
+                    }}
+                  />
+                </TabsContent>
               </Tabs>
             </div>
           </div>
         </div>
 
         <div className="px-6 border-t py-4 flex-shrink-0">
-          <div className="flex justify-end gap-3">
-            <Button 
-              variant="outline"
-              onClick={handleCancel}
-              disabled={updateAgentMutation.isPending}
-              className="px-6"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSubmit}
-              disabled={updateAgentMutation.isPending || !formData.name?.trim() || !formData.system_prompt?.trim()}
-            >
-              {updateAgentMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving Changes
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Changes
-                </>
-              )}
-            </Button>
+          <div className="space-y-3">
+            {/* Show notice if changes will create a new version */}
+            {agent && (formData.system_prompt !== agent.system_prompt || 
+              JSON.stringify(formData.configured_mcps) !== JSON.stringify(agent.configured_mcps) ||
+              JSON.stringify(formData.custom_mcps) !== JSON.stringify(agent.custom_mcps) ||
+              JSON.stringify(formData.agentpress_tools) !== JSON.stringify(agent.agentpress_tools)) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                <GitBranch className="h-4 w-4" />
+                <span>These changes will create a new version of your agent</span>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline"
+                onClick={handleCancel}
+                disabled={updateAgentMutation.isPending}
+                className="px-6"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                disabled={updateAgentMutation.isPending || !formData.name?.trim() || !formData.system_prompt?.trim()}
+              >
+                {updateAgentMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving Changes
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

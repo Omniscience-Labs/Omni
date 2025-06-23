@@ -56,9 +56,13 @@ class MCPToolWrapper(Tool):
             if standard_configs:
                 for config in standard_configs:
                     try:
+                        logger.info(f"Attempting to connect to MCP server: {config['qualifiedName']}")
                         await self.mcp_manager.connect_server(config)
+                        logger.info(f"Successfully connected to MCP server: {config['qualifiedName']}")
                     except Exception as e:
                         logger.error(f"Failed to connect to MCP server {config['qualifiedName']}: {e}")
+                        import traceback
+                        logger.error(f"Full traceback: {traceback.format_exc()}")
             
             # Initialize custom MCPs directly
             if custom_configs:
@@ -324,15 +328,10 @@ class MCPToolWrapper(Tool):
         """
         await self._ensure_initialized()
         
-        # If a tool registry is provided, update it with our dynamic schemas
         if tool_registry and self._dynamic_tools:
             logger.info(f"Updating tool registry with {len(self._dynamic_tools)} MCP tools")
-            # The registry already has this tool instance registered, 
-            # we just need to update the schemas
             for method_name, schemas in self._schemas.items():
                 if method_name not in ['call_mcp_tool']:  # Skip the fallback method
-                    # The registry needs to know about these new methods
-                    # We'll update the tool's schema registration
                     pass
     
     async def _create_dynamic_tools(self):
@@ -340,15 +339,19 @@ class MCPToolWrapper(Tool):
         try:
             # Get standard MCP tools
             available_tools = self.mcp_manager.get_all_tools_openapi()
+            logger.info(f"MCPManager returned {len(available_tools)} tools")
             
             for tool_info in available_tools:
                 tool_name = tool_info.get('name', '')
+                logger.info(f"Processing tool: {tool_name}")
                 if tool_name:
                     # Create a dynamic method for this tool with proper OpenAI schema
                     self._create_dynamic_method(tool_name, tool_info)
             
             # Get custom MCP tools
+            logger.info(f"Processing {len(self._custom_tools)} custom MCP tools")
             for tool_name, tool_info in self._custom_tools.items():
+                logger.info(f"Processing custom tool: {tool_name}")
                 # Convert custom tool info to the expected format
                 openapi_tool_info = {
                     "name": tool_name,
@@ -364,16 +367,27 @@ class MCPToolWrapper(Tool):
     
     def _create_dynamic_method(self, tool_name: str, tool_info: Dict[str, Any]):
         """Create a dynamic method for a specific MCP tool with proper OpenAI schema."""
-        
-        # Extract the clean tool name without the mcp_{server}_ prefix
-        parts = tool_name.split("_", 2)
-        clean_tool_name = parts[2] if len(parts) > 2 else tool_name
-        server_name = parts[1] if len(parts) > 1 else "unknown"
-        
-        # Use the clean tool name as the method name (without server prefix)
+        if tool_name.startswith("custom_"):
+            if tool_name in self._custom_tools:
+                clean_tool_name = self._custom_tools[tool_name]['original_name']
+                server_name = self._custom_tools[tool_name]['server']
+            else:
+                parts = tool_name.split("_")
+                if len(parts) >= 3:
+                    clean_tool_name = "_".join(parts[2:])
+                    server_name = parts[1] if len(parts) > 1 else "unknown"
+                else:
+                    clean_tool_name = tool_name
+                    server_name = "unknown"
+        else:
+            parts = tool_name.split("_", 2)
+            clean_tool_name = parts[2] if len(parts) > 2 else tool_name
+            server_name = parts[1] if len(parts) > 1 else "unknown"
+
         method_name = clean_tool_name.replace('-', '_')
         
-        # Store the original full tool name for execution
+        logger.info(f"Creating dynamic method for tool '{tool_name}': clean_tool_name='{clean_tool_name}', method_name='{method_name}', server='{server_name}'")
+
         original_full_name = tool_name
         
         # Create the dynamic method

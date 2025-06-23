@@ -144,47 +144,48 @@ async def run_agent(
         if agent_config.get('custom_mcps'):
             for custom_mcp in agent_config['custom_mcps']:
                 # Transform custom MCP to standard format
+                custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
                 mcp_config = {
                     'name': custom_mcp['name'],
-                    'qualifiedName': f"custom_{custom_mcp['type']}_{custom_mcp['name'].replace(' ', '_').lower()}",
+                    'qualifiedName': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",
                     'config': custom_mcp['config'],
                     'enabledTools': custom_mcp.get('enabledTools', []),
+                    'instructions': custom_mcp.get('instructions', ''),
                     'isCustom': True,
-                    'customType': custom_mcp['type']
+                    'customType': custom_type
                 }
                 all_mcps.append(mcp_config)
         
         if all_mcps:
             logger.info(f"Registering MCP tool wrapper for {len(all_mcps)} MCP servers (including {len(agent_config.get('custom_mcps', []))} custom)")
-            # Register the tool with all MCPs
             thread_manager.add_tool(MCPToolWrapper, mcp_configs=all_mcps)
             
-            # Get the tool instance from the registry
-            # The tool is registered with method names as keys
             for tool_name, tool_info in thread_manager.tool_registry.tools.items():
                 if isinstance(tool_info['instance'], MCPToolWrapper):
                     mcp_wrapper_instance = tool_info['instance']
                     break
             
-            # Initialize the MCP tools asynchronously
             if mcp_wrapper_instance:
                 try:
                     await mcp_wrapper_instance.initialize_and_register_tools()
                     logger.info("MCP tools initialized successfully")
-                    
-                    # Re-register the updated schemas with the tool registry
-                    # This ensures the dynamically created tools are available for function calling
                     updated_schemas = mcp_wrapper_instance.get_schemas()
+                    logger.info(f"MCP wrapper has {len(updated_schemas)} schemas available")
                     for method_name, schema_list in updated_schemas.items():
-                        if method_name != 'call_mcp_tool':  # Skip the fallback method
-                            # Register each dynamic tool in the registry
+                        if method_name != 'call_mcp_tool':
                             for schema in schema_list:
                                 if schema.schema_type == SchemaType.OPENAPI:
                                     thread_manager.tool_registry.tools[method_name] = {
                                         "instance": mcp_wrapper_instance,
                                         "schema": schema
                                     }
-                                    logger.debug(f"Registered dynamic MCP tool: {method_name}")
+                                    logger.info(f"Registered dynamic MCP tool: {method_name}")
+                    
+                    # Log all registered tools for debugging
+                    all_tools = list(thread_manager.tool_registry.tools.keys())
+                    logger.info(f"All registered tools after MCP initialization: {all_tools}")
+                    mcp_tools = [tool for tool in all_tools if tool not in ['call_mcp_tool', 'sb_files_tool', 'message_tool', 'expand_msg_tool', 'web_search_tool', 'sb_shell_tool', 'sb_vision_tool', 'sb_browser_tool', 'computer_use_tool', 'data_providers_tool', 'sb_deploy_tool', 'sb_expose_tool', 'update_agent_tool']]
+                    logger.info(f"MCP tools registered: {mcp_tools}")
                 
                 except Exception as e:
                     logger.error(f"Failed to initialize MCP tools: {e}")
@@ -415,7 +416,8 @@ async def run_agent(
         # Set max_tokens based on model
         max_tokens = None
         if "sonnet" in model_name.lower():
-            max_tokens = 64000
+            # Claude 3.5 Sonnet has a limit of 8192 tokens
+            max_tokens = 8192
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
             

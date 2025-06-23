@@ -135,7 +135,7 @@ app.add_middleware(
     allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Project-Id"],
 )
 
 app.include_router(agent_api.router, prefix="/api")
@@ -147,13 +147,26 @@ app.include_router(billing_api.router, prefix="/api")
 app.include_router(feature_flags_api.router, prefix="/api")
 
 from mcp_local import api as mcp_api
+from mcp_local import secure_api as secure_mcp_api
 
 app.include_router(mcp_api.router, prefix="/api")
+app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
 
 
 app.include_router(transcription_api.router, prefix="/api")
 
 app.include_router(email_api.router, prefix="/api")
+
+from workflows import api as workflows_api
+workflows_api.initialize(db)
+app.include_router(workflows_api.router, prefix="/api")
+
+from webhooks import api as webhooks_api
+webhooks_api.initialize(db)
+app.include_router(webhooks_api.router, prefix="/api")
+
+from scheduling import api as scheduling_api
+app.include_router(scheduling_api.router)
 
 @app.get("/api/health")
 async def health_check():
