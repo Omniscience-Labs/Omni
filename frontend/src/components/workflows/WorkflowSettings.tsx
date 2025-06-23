@@ -142,12 +142,12 @@ export default function WorkflowSettings({
                             Webhook
                           </div>
                         </SelectItem>
-                        <SelectItem value="schedule">
+                        {/* <SelectItem value="schedule">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
                             Schedule
                           </div>
-                        </SelectItem>
+                        </SelectItem> */}
                       </SelectContent>
                     </Select>
                   </div>

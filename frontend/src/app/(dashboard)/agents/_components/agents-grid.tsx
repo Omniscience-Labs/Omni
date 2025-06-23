@@ -216,7 +216,7 @@ export const AgentsGrid = ({
         make_public: true,
         tags: [] 
       });
-      toast.success('Agent published as secure template! Users will use their own encrypted credentials.');
+      toast.success('Agent published!');
       setSelectedAgent(null);
     } catch (error: any) {
       toast.error('Failed to create secure template');

@@ -2,7 +2,7 @@
 Workflow API - REST endpoints for workflow management and execution.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, Query
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any
 import uuid
@@ -17,6 +17,7 @@ from .models import (
 )
 from .converter import WorkflowConverter, validate_workflow_flow
 from .executor import WorkflowExecutor
+from .deterministic_executor import DeterministicWorkflowExecutor
 from .scheduler import WorkflowScheduler
 from services.supabase import DBConnection
 from utils.logger import logger
@@ -378,7 +379,8 @@ async def delete_workflow(
 async def execute_workflow(
     workflow_id: str,
     request: WorkflowExecuteRequest,
-    user_id: str = Depends(get_current_user_id_from_jwt)
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    deterministic: bool = Query(True, description="Use deterministic executor that follows visual flow exactly")
 ):
     if not await is_enabled("workflows"):
         raise HTTPException(
@@ -455,7 +457,8 @@ async def execute_workflow(
             triggered_by="MANUAL",
             project_id=workflow.project_id,
             thread_id=thread_id,
-            agent_run_id=agent_run_id
+            agent_run_id=agent_run_id,
+            deterministic=deterministic
         )
         
         return {

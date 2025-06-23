@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from services import redis
 from workflows.executor import WorkflowExecutor
+from workflows.deterministic_executor import DeterministicWorkflowExecutor
 from workflows.models import WorkflowDefinition
 from utils.logger import logger
 import dramatiq
@@ -28,6 +29,7 @@ except RuntimeError:
 _initialized = False
 db = DBConnection()
 workflow_executor = WorkflowExecutor(db)
+deterministic_executor = DeterministicWorkflowExecutor(db)
 instance_id = "workflow_worker"
 
 async def initialize():
@@ -53,7 +55,8 @@ async def run_workflow_background(
     triggered_by: str = "MANUAL",
     project_id: Optional[str] = None,
     thread_id: Optional[str] = None,
-    agent_run_id: Optional[str] = None
+    agent_run_id: Optional[str] = None,
+    deterministic: bool = True
 ):
     """Run a workflow in the background using Dramatiq."""
     try:
@@ -147,7 +150,6 @@ async def run_workflow_background(
 
         workflow = WorkflowDefinition(**workflow_definition)
         
-        # Use provided thread_id or generate new one
         if not thread_id:
             thread_id = str(uuid.uuid4())
 
@@ -155,7 +157,14 @@ async def run_workflow_background(
         error_message = None
         pending_redis_operations = []
 
-        async for response in workflow_executor.execute_workflow(
+        if deterministic:
+            executor = deterministic_executor
+            logger.info(f"Using deterministic executor for workflow {execution_id}")
+        else:
+            executor = workflow_executor
+            logger.info(f"Using legacy executor for workflow {execution_id}")
+        
+        async for response in executor.execute_workflow(
             workflow=workflow,
             variables=variables,
             thread_id=thread_id,

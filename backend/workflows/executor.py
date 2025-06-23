@@ -41,6 +41,9 @@ class WorkflowExecutor:
         
         try:
             await self._store_execution(execution)
+            
+            await self._ensure_project_has_sandbox(project_id)
+            
             await self._ensure_workflow_thread_exists(thread_id, project_id, workflow, variables)
 
             if not workflow.steps:
@@ -58,10 +61,8 @@ class WorkflowExecutor:
                 variables_text += "\nUse these variables as needed during workflow execution.\n"
                 system_prompt += variables_text
 
-            # Extract enabled tools from workflow steps
             enabled_tools = self._extract_enabled_tools_from_workflow(workflow)
             
-            # Extract MCP configurations from workflow steps and agent
             mcp_configs = await self._extract_mcp_configurations_from_workflow_and_agent(workflow)
             
             agent_config = {
@@ -73,7 +74,6 @@ class WorkflowExecutor:
                 "custom_mcps": mcp_configs["custom_mcps"]
             }
             
-            # Debug: Log the final agent config
             logger.info(f"Agent config for workflow - configured_mcps: {len(agent_config['configured_mcps'])} servers")
             logger.info(f"Agent config for workflow - custom_mcps: {len(agent_config['custom_mcps'])} servers")
             
@@ -146,15 +146,12 @@ class WorkflowExecutor:
         execution_id: str
     ) -> Dict[str, Any]:
         """Transform agent response into workflow execution update."""
-        # Preserve the original agent response structure for frontend compatibility
-        # but add workflow context metadata
         workflow_response = {
             **agent_response,
             "execution_id": execution_id,
             "source": "workflow_executor"
         }
         
-        # Add workflow metadata to metadata field if it exists, or create it
         if isinstance(workflow_response.get('metadata'), str):
             try:
                 metadata = json.loads(workflow_response['metadata'])
@@ -247,7 +244,6 @@ class WorkflowExecutor:
     def _extract_enabled_tools_from_workflow(self, workflow: WorkflowDefinition) -> Dict[str, Dict[str, Any]]:
         """Extract tools that should be enabled based on workflow configuration."""
         enabled_tools = {
-            "sb_files_tool": {"enabled": True, "description": "File operations"},
             "message_tool": {"enabled": True, "description": "Send messages"}, 
             "expand_msg_tool": {"enabled": True, "description": "Expand messages"}
         }
@@ -314,11 +310,9 @@ class WorkflowExecutor:
         logger.info(f"Workflow ID: {workflow.id}")
         logger.info(f"Workflow agent_id: {workflow.agent_id}")
         
-        # First, extract MCP configurations from workflow steps
         for step in workflow.steps:
             step_config = step.config or {}
             
-            # Extract configured MCPs (Smithery servers) from step config
             step_configured_mcps = step_config.get("configured_mcps", [])
             logger.info(f"Step {step.id} - configured_mcps: {step_configured_mcps}")
             
@@ -394,13 +388,12 @@ class WorkflowExecutor:
                 mcp_type = mcp.get("customType", "sse")
                 selected_profile_id = mcp.get("selectedProfileId")
                 
-                if not mcp.get("config"):  # Only if config is empty
+                if not mcp.get("config"):
                     try:
                         if selected_profile_id:
                             logger.info(f"Using selected profile {selected_profile_id} for custom MCP {mcp_name}")
                             credential = await credential_manager.get_credential_by_profile(account_id, selected_profile_id)
                         else:
-                            # Fallback to default profile lookup for custom MCPs
                             custom_qualified_name = f"custom_{mcp_type}_{mcp_name.replace(' ', '_').lower()}"
                             logger.info(f"No profile selected, using default profile for custom MCP {mcp_name}")
                             credential = await credential_manager.get_default_credential_profile(account_id, custom_qualified_name)
@@ -418,8 +411,7 @@ class WorkflowExecutor:
         
         logger.info(f"Final configured MCPs for workflow: {len(configured_mcps)} servers")
         logger.info(f"Final custom MCPs for workflow: {len(custom_mcps)} servers")
-        
-        # Debug: Log the actual MCP configurations
+
         for mcp in configured_mcps:
             config_keys = list(mcp.get('config', {}).keys()) if mcp.get('config') else []
             logger.info(f"Configured MCP: {mcp.get('qualifiedName')} with tools: {mcp.get('enabledTools', [])} and config keys: {config_keys}")
@@ -492,3 +484,76 @@ class WorkflowExecutor:
         except Exception as e:
             logger.error(f"Failed to create workflow thread: {e}")
             raise 
+
+    async def _ensure_project_has_sandbox(self, project_id: str):
+        """Ensure that a project has a sandbox, creating one if it doesn't exist."""
+        try:
+            client = await self.db.client
+            project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
+            if not project_result.data:
+                raise ValueError(f"Project {project_id} not found")
+            
+            project_data = project_result.data[0]
+            sandbox_info = project_data.get('sandbox', {})
+            sandbox_id = sandbox_info.get('id') if sandbox_info else None
+            
+            if not sandbox_id:
+                logger.info(f"No sandbox found for workflow project {project_id}, creating new sandbox")
+                await self._create_new_sandbox_for_project(client, project_id)
+            else:
+                logger.info(f"Sandbox {sandbox_id} already exists for workflow project {project_id}, ensuring it's active")
+                try:
+                    from sandbox.sandbox import get_or_start_sandbox
+                    await get_or_start_sandbox(sandbox_id)
+                    logger.info(f"Sandbox {sandbox_id} is now active for workflow project {project_id}")
+                except Exception as sandbox_error:
+                    if "not found" in str(sandbox_error).lower():
+                        logger.warning(f"Sandbox {sandbox_id} not found in Daytona system, creating new sandbox for project {project_id}")
+                        await self._create_new_sandbox_for_project(client, project_id)
+                    else:
+                        raise sandbox_error
+            
+        except Exception as e:
+            logger.error(f"Failed to ensure sandbox for workflow project {project_id}: {e}")
+            raise
+
+    async def _create_new_sandbox_for_project(self, client, project_id: str):
+        """Create a new sandbox and update the project record."""
+        from sandbox.sandbox import create_sandbox
+        import uuid
+        
+        sandbox_pass = str(uuid.uuid4())
+        sandbox = create_sandbox(sandbox_pass, project_id)
+        sandbox_id = sandbox.id
+        logger.info(f"Created new sandbox {sandbox_id} for workflow project {project_id}")
+        
+        vnc_link = sandbox.get_preview_link(6080)
+        website_link = sandbox.get_preview_link(8080)
+        vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+        website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+        token = None
+        if hasattr(vnc_link, 'token'):
+            token = vnc_link.token
+        elif "token='" in str(vnc_link):
+            token = str(vnc_link).split("token='")[1].split("'")[0]
+        
+        update_result = await client.table('projects').update({
+            'sandbox': {
+                'id': sandbox_id, 
+                'pass': sandbox_pass, 
+                'vnc_preview': vnc_url,
+                'sandbox_url': website_url, 
+                'token': token
+            }
+        }).eq('project_id', project_id).execute()
+        
+        if not update_result.data:
+            logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
+            try:
+                from sandbox.sandbox import delete_sandbox
+                await delete_sandbox(sandbox_id)
+            except Exception as cleanup_e:
+                logger.error(f"Error cleaning up sandbox {sandbox_id}: {str(cleanup_e)}")
+            raise Exception("Failed to update project with sandbox information")
+        
+        logger.info(f"Successfully created and configured sandbox {sandbox_id} for workflow project {project_id}") 

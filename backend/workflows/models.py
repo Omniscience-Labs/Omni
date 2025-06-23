@@ -78,6 +78,9 @@ class WorkflowDefinition(BaseModel):
     max_execution_time: int = 3600
     max_retries: int = 3
 
+    nodes: Optional[List['WorkflowNode']] = None
+    edges: Optional[List['WorkflowEdge']] = None
+
 class WorkflowExecution(BaseModel):
     id: Optional[str] = None
     workflow_id: str
@@ -142,4 +145,6 @@ class WorkflowValidateRequest(BaseModel):
 
 class WorkflowValidateResponse(BaseModel):
     valid: bool
-    errors: List[str] 
+    errors: List[str]
+
+WorkflowDefinition.model_rebuild() 

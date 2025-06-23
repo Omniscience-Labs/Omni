@@ -75,7 +75,7 @@ class CredentialManager:
     
     def _get_or_create_encryption_key(self) -> bytes:
         """Get or create encryption key for credentials"""
-        key_env = os.getenv("MCP_CREDENTIAL_ENCRYPTION_KEY", "Rgv3pwjsXetY0KAesiMk-OKbC8C2roTx2S8qC0OYBb0=")
+        key_env = os.getenv("MCP_CREDENTIAL_ENCRYPTION_KEY")
         
         try:
             if isinstance(key_env, str):

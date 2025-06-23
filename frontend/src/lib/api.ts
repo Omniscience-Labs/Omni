@@ -2319,7 +2319,7 @@ export const executeWorkflow = async (
       throw new NoAccessTokenAvailableError();
     }
 
-    const response = await fetch(`${API_URL}/workflows/${workflowId}/execute`, {
+    const response = await fetch(`${API_URL}/workflows/${workflowId}/execute?deterministic=false`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
