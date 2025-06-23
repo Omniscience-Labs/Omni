@@ -591,9 +591,9 @@ async def run_workflow_background(
             except Exception as e:
                 logger.warning(f"Error closing pubsub for {execution_id}: {str(e)}")
 
-        await _cleanup_redis_response_list(execution_id, agent_run_id)
-        await _cleanup_redis_instance_key(execution_id, agent_run_id)
-        await _cleanup_redis_run_lock(execution_id)
+        await _cleanup_redis_response_list(agent_run_id)
+        await _cleanup_redis_instance_key(agent_run_id)
+        await _cleanup_redis_run_lock(agent_run_id)
 
         try:
             await asyncio.wait_for(asyncio.gather(*pending_redis_operations), timeout=30.0)
@@ -615,7 +615,6 @@ async def update_workflow_execution_status(client, execution_id: str, status: st
         await client.table('workflow_executions').update(update_data).eq('id', execution_id).execute()
         logger.info(f"Updated workflow execution {execution_id} status to {status}")
         
-        # Also update agent_runs table if agent_run_id provided (for frontend streaming compatibility)
         if agent_run_id:
             await client.table('agent_runs').update(update_data).eq('id', agent_run_id).execute()
             logger.info(f"Updated agent run {agent_run_id} status to {status}")
