@@ -63,7 +63,9 @@ jobs:
           script: |
             cd /home/suna/backend
             git pull
-            docker compose up -d --build
+            docker compose build
+            docker compose restart redis
+            docker compose up -d
 
       - name: Deploy to prod
         if: steps.get_tag_name.outputs.environment == 'prod'
@@ -75,4 +77,6 @@ jobs:
           script: |
             cd /home/suna/backend
             git pull
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml restart redis
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d

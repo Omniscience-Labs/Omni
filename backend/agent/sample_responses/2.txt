@@ -1028,7 +1028,7 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 <function_calls>
 <invoke name="ask">
 <parameter name="attachments">Japan_Itinerary.md,travel_handbook/index.html,travel_handbook/styles.css,japan_trip_package.zip</parameter>
-<parameter name="message"># Japan Trip Itinerary & Travel Handbook
+<parameter name="text"># Japan Trip Itinerary & Travel Handbook
 
 I've completed your 7-day Japan itinerary and travel handbook! Here's what I've created:
 
