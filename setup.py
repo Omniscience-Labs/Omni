@@ -6,6 +6,8 @@ import platform
 import subprocess
 import re
 import json
+import secrets
+import base64
 
 # --- Constants ---
 IS_WINDOWS = platform.system() == "Windows"
@@ -137,6 +139,23 @@ def load_existing_env_vars():
         "rapidapi": {
             "RAPID_API_KEY": backend_env.get("RAPID_API_KEY", ""),
         },
+        "smithery": {
+            "SMITHERY_API_KEY": backend_env.get("SMITHERY_API_KEY", ""),
+        },
+        "qstash": {
+            "QSTASH_URL": backend_env.get("QSTASH_URL", ""),
+            "QSTASH_TOKEN": backend_env.get("QSTASH_TOKEN", ""),
+            "QSTASH_CURRENT_SIGNING_KEY": backend_env.get(
+                "QSTASH_CURRENT_SIGNING_KEY", ""
+            ),
+            "QSTASH_NEXT_SIGNING_KEY": backend_env.get("QSTASH_NEXT_SIGNING_KEY", ""),
+            "WEBHOOK_BASE_URL": backend_env.get("WEBHOOK_BASE_URL", ""),
+        },
+        "mcp": {
+            "MCP_CREDENTIAL_ENCRYPTION_KEY": backend_env.get(
+                "MCP_CREDENTIAL_ENCRYPTION_KEY", ""
+            ),
+        },
         "frontend": {
             "NEXT_PUBLIC_SUPABASE_URL": frontend_env.get(
                 "NEXT_PUBLIC_SUPABASE_URL", ""
@@ -202,6 +221,14 @@ def validate_api_key(api_key, allow_empty=False):
     return bool(api_key and len(api_key) >= 10)
 
 
+def generate_encryption_key():
+    """Generates a secure base64-encoded encryption key for MCP credentials."""
+    # Generate 32 random bytes (256 bits)
+    key_bytes = secrets.token_bytes(32)
+    # Encode as base64
+    return base64.b64encode(key_bytes).decode("utf-8")
+
+
 # --- Main Setup Class ---
 class SetupWizard:
     def __init__(self):
@@ -219,6 +246,9 @@ class SetupWizard:
             "llm": existing_env_vars["llm"],
             "search": existing_env_vars["search"],
             "rapidapi": existing_env_vars["rapidapi"],
+            "smithery": existing_env_vars["smithery"],
+            "qstash": existing_env_vars["qstash"],
+            "mcp": existing_env_vars["mcp"],
         }
 
         # Override with any progress data (in case user is resuming)
@@ -229,7 +259,7 @@ class SetupWizard:
             else:
                 self.env_vars[key] = value
 
-        self.total_steps = 11
+        self.total_steps = 14
 
     def show_current_config(self):
         """Shows the current configuration status."""
@@ -277,6 +307,24 @@ class SetupWizard:
         else:
             config_items.append(f"{Colors.CYAN}○{Colors.ENDC} RapidAPI (optional)")
 
+        # Check Smithery (optional)
+        if self.env_vars["smithery"]["SMITHERY_API_KEY"]:
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Smithery (optional)")
+        else:
+            config_items.append(f"{Colors.CYAN}○{Colors.ENDC} Smithery (optional)")
+
+        # Check QStash (required)
+        if self.env_vars["qstash"]["QSTASH_TOKEN"]:
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} QStash & Webhooks")
+        else:
+            config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} QStash & Webhooks")
+
+        # Check MCP encryption key
+        if self.env_vars["mcp"]["MCP_CREDENTIAL_ENCRYPTION_KEY"]:
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} MCP encryption key")
+        else:
+            config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} MCP encryption key")
+
         if any("✓" in item for item in config_items):
             print_info("Current configuration status:")
             for item in config_items:
@@ -301,10 +349,13 @@ class SetupWizard:
             self.run_step(5, self.collect_llm_api_keys)
             self.run_step(6, self.collect_search_api_keys)
             self.run_step(7, self.collect_rapidapi_keys)
-            self.run_step(8, self.configure_env_files)
-            self.run_step(9, self.setup_supabase_database)
-            self.run_step(10, self.install_dependencies)
-            self.run_step(11, self.start_suna)
+            self.run_step(8, self.collect_smithery_keys)
+            self.run_step(9, self.collect_qstash_keys)
+            self.run_step(10, self.collect_mcp_keys)
+            self.run_step(11, self.configure_env_files)
+            self.run_step(12, self.setup_supabase_database)
+            self.run_step(13, self.install_dependencies)
+            self.run_step(14, self.start_suna)
 
             self.final_instructions()
 
@@ -751,9 +802,130 @@ class SetupWizard:
         else:
             print_info("Skipping RapidAPI key.")
 
+    def collect_smithery_keys(self):
+        """Collects the optional Smithery API key."""
+        print_step(8, self.total_steps, "Collecting Smithery API Key (Optional)")
+
+        # Check if we already have a value configured
+        existing_key = self.env_vars["smithery"]["SMITHERY_API_KEY"]
+        if existing_key:
+            print_info(
+                f"Found existing Smithery API key: {mask_sensitive_value(existing_key)}"
+            )
+            print_info("Press Enter to keep current value or type a new one.")
+        else:
+            print_info(
+                "A Smithery API key is only required for custom agents and workflows."
+            )
+            print_info(
+                "Get a key at https://smithery.ai/. You can skip this and add it later."
+            )
+
+        smithery_api_key = self._get_input(
+            "Enter your Smithery API key (or press Enter to skip): ",
+            validate_api_key,
+            "The key seems invalid, but continuing. You can edit it later in backend/.env",
+            allow_empty=True,
+            default_value=existing_key,
+        )
+        self.env_vars["smithery"]["SMITHERY_API_KEY"] = smithery_api_key
+        if smithery_api_key:
+            print_success("Smithery API key saved.")
+        else:
+            print_info("Skipping Smithery API key.")
+
+    def collect_qstash_keys(self):
+        """Collects the required QStash and webhook configuration."""
+        print_step(
+            9,
+            self.total_steps,
+            "Collecting QStash & Webhook Configuration",
+        )
+
+        # Check if we already have values configured
+        existing_token = self.env_vars["qstash"]["QSTASH_TOKEN"]
+        existing_webhook_url = self.env_vars["qstash"]["WEBHOOK_BASE_URL"]
+        if existing_token:
+            print_info(
+                f"Found existing QStash token: {mask_sensitive_value(existing_token)}"
+            )
+            print_info("Press Enter to keep current values or type new ones.")
+        else:
+            print_info(
+                "QStash is required for Suna's background job processing and scheduling."
+            )
+            print_info(
+                "QStash enables workflows, automated tasks, and webhook handling."
+            )
+            print_info("Get your credentials at https://console.upstash.com/qstash")
+            input("Press Enter to continue once you have your QStash credentials...")
+
+        qstash_token = self._get_input(
+            "Enter your QStash token: ",
+            validate_api_key,
+            "Invalid QStash token format. It should be at least 10 characters long.",
+            default_value=existing_token,
+        )
+        self.env_vars["qstash"]["QSTASH_TOKEN"] = qstash_token
+
+        # Set default URL if not already configured
+        if not self.env_vars["qstash"]["QSTASH_URL"]:
+            self.env_vars["qstash"]["QSTASH_URL"] = "https://qstash.upstash.io"
+
+        # Collect signing keys
+        current_signing_key = self._get_input(
+            "Enter your QStash current signing key: ",
+            validate_api_key,
+            "Invalid signing key format. It should be at least 10 characters long.",
+            default_value=self.env_vars["qstash"]["QSTASH_CURRENT_SIGNING_KEY"],
+        )
+        self.env_vars["qstash"]["QSTASH_CURRENT_SIGNING_KEY"] = current_signing_key
+
+        next_signing_key = self._get_input(
+            "Enter your QStash next signing key: ",
+            validate_api_key,
+            "Invalid signing key format. It should be at least 10 characters long.",
+            default_value=self.env_vars["qstash"]["QSTASH_NEXT_SIGNING_KEY"],
+        )
+        self.env_vars["qstash"]["QSTASH_NEXT_SIGNING_KEY"] = next_signing_key
+
+        # Collect webhook base URL
+        print_info(
+            "Webhook base URL must be publicly accessible for workflows to receive callbacks."
+        )
+        webhook_url = self._get_input(
+            "Enter your webhook base URL (e.g., https://yourdomain.com): ",
+            validate_url,
+            "Invalid URL format. Please enter a valid publicly accessible URL.",
+            default_value=existing_webhook_url,
+        )
+        self.env_vars["qstash"]["WEBHOOK_BASE_URL"] = webhook_url
+
+        print_success("QStash and webhook configuration saved.")
+
+    def collect_mcp_keys(self):
+        """Collects the MCP configuration."""
+        print_step(10, self.total_steps, "Collecting MCP Configuration")
+
+        # Check if we already have an encryption key configured
+        existing_key = self.env_vars["mcp"]["MCP_CREDENTIAL_ENCRYPTION_KEY"]
+        if existing_key:
+            print_info(
+                f"Found existing MCP encryption key: {mask_sensitive_value(existing_key)}"
+            )
+            print_info("Using existing encryption key.")
+        else:
+            print_info("Generating a secure encryption key for MCP credentials...")
+            self.env_vars["mcp"][
+                "MCP_CREDENTIAL_ENCRYPTION_KEY"
+            ] = generate_encryption_key()
+            print_success("MCP encryption key generated.")
+
+        print_success("MCP configuration saved.")
+
     def configure_env_files(self):
         """Configures and writes the .env files for frontend and backend."""
-        print_step(8, self.total_steps, "Configuring Environment Files")
+        print_step(11, self.total_steps, "Configuring Environment Files")
 
         # --- Backend .env ---
         is_docker = self.env_vars["setup_method"] == "docker"
@@ -770,6 +942,9 @@ class SetupWizard:
             **self.env_vars["llm"],
             **self.env_vars["search"],
             **self.env_vars["rapidapi"],
+            **self.env_vars["smithery"],
+            **self.env_vars["qstash"],
+            **self.env_vars["mcp"],
             **self.env_vars["daytona"],
             "NEXT_PUBLIC_URL": "http://localhost:3000",
         }
@@ -803,7 +978,7 @@ class SetupWizard:
 
     def setup_supabase_database(self):
         """Links the project to Supabase and pushes database migrations."""
-        print_step(9, self.total_steps, "Setting up Supabase Database")
+        print_step(12, self.total_steps, "Setting up Supabase Database")
 
         print_info(
             "This step will link your project to Supabase and push database migrations."
@@ -812,10 +987,25 @@ class SetupWizard:
             "You can skip this if you've already set up your database or prefer to do it manually."
         )
 
-        skip_db_setup = (
-            input("Do you want to skip the database setup? (y/N): ").lower().strip()
-        )
-        if skip_db_setup == "y":
+        # Check if Supabase info is already configured
+        has_existing_supabase = any(self.env_vars["supabase"].values())
+
+        if has_existing_supabase:
+            prompt = "Do you want to skip the database setup? (Y/n): "
+            default_skip = True
+        else:
+            prompt = "Do you want to skip the database setup? (y/N): "
+            default_skip = False
+
+        user_input = input(prompt).lower().strip()
+
+        # Handle default behavior based on existing configuration
+        if not user_input:
+            skip_db_setup = default_skip
+        else:
+            skip_db_setup = user_input in ["y", "yes"]
+
+        if skip_db_setup:
             print_info("Skipping Supabase database setup.")
             print_warning(
                 "Remember to manually set up your Supabase database with the required migrations."
@@ -887,7 +1077,7 @@ class SetupWizard:
 
     def install_dependencies(self):
         """Installs frontend and backend dependencies for manual setup."""
-        print_step(10, self.total_steps, "Installing Dependencies")
+        print_step(13, self.total_steps, "Installing Dependencies")
         if self.env_vars["setup_method"] == "docker":
             print_info(
                 "Skipping dependency installation for Docker setup (will be handled by Docker Compose)."
@@ -915,15 +1105,7 @@ class SetupWizard:
 
             # Install dependencies in the virtual environment
             subprocess.run(
-                ["uv", "pip", "install", "-r", "requirements.txt"],
-                cwd="backend",
-                check=True,
-                shell=IS_WINDOWS,
-            )
-
-            # Install the package itself in editable mode
-            subprocess.run(
-                ["uv", "pip", "install", "-e", "."],
+                ["uv", "sync"],
                 cwd="backend",
                 check=True,
                 shell=IS_WINDOWS,
@@ -937,7 +1119,7 @@ class SetupWizard:
 
     def start_suna(self):
         """Starts Suna using Docker Compose or shows instructions for manual startup."""
-        print_step(11, self.total_steps, "Starting Suna")
+        print_step(14, self.total_steps, "Starting Suna")
         if self.env_vars["setup_method"] == "docker":
             print_info("Starting Suna with Docker Compose...")
             try:

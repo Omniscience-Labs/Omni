@@ -67,8 +67,5 @@ dependencies = [
 homepage = "https://www.suna.so/"
 repository = "https://github.com/kortix-ai/suna"
 
-[project.scripts]
-agentpress = "agentpress.cli:main"
-
 [tool.uv]
 package = false
