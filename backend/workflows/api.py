@@ -438,7 +438,7 @@ async def execute_workflow(
         agent_run_id = agent_run.data[0]['id']
         logger.info(f"Created agent run for workflow: {agent_run_id}")
         
-        from run_workflow_background import run_workflow_background
+        from run_agent_background import run_workflow_background
         if hasattr(workflow, 'model_dump'):
             workflow_dict = workflow.model_dump(mode='json')
         else:

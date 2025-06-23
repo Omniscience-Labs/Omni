@@ -403,7 +403,7 @@ async def execute_scheduled_workflow(
                 workflow_dict['updated_at'] = workflow_dict['updated_at'].isoformat()
         
         # Send workflow to background worker
-        from run_workflow_background import run_workflow_background
+        from run_agent_background import run_workflow_background
         run_workflow_background.send(
             execution_id=execution_id,
             workflow_id=workflow_id,
