@@ -27,6 +27,7 @@ from scheduling.models import (
     SimpleScheduleConfig, CronScheduleConfig
 )
 from webhooks.providers import TelegramWebhookProvider
+from flags.flags import is_enabled
 
 router = APIRouter()
 
@@ -160,6 +161,12 @@ async def list_workflows(
     user_id: str = Depends(get_current_user_id_from_jwt),
     x_project_id: Optional[str] = Header(None)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """List all workflows for the current user."""
     try:
         client = await db.client
@@ -187,6 +194,11 @@ async def create_workflow(
     request: WorkflowCreateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Create a new workflow."""
     try:
         client = await db.client
@@ -230,6 +242,11 @@ async def get_workflow(
     workflow_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Get a specific workflow."""
     try:
         client = await db.client
@@ -254,6 +271,11 @@ async def update_workflow(
     request: WorkflowUpdateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Update a workflow."""
     try:
         client = await db.client
@@ -327,6 +349,11 @@ async def delete_workflow(
     workflow_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Delete a workflow."""
     try:
         client = await db.client
@@ -353,6 +380,11 @@ async def execute_workflow(
     request: WorkflowExecuteRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Execute a workflow and return execution info."""
     try:
         client = await db.client
@@ -446,6 +478,12 @@ async def stream_workflow_execution(
     token: Optional[str] = None,
     request: Request = None
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Stream the responses of a workflow execution using Redis Lists and Pub/Sub."""
     logger.info(f"Starting stream for workflow execution: {execution_id}")
     
@@ -624,6 +662,12 @@ async def get_workflow_flow(
     workflow_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get the visual flow representation of a workflow."""
     try:
         client = await db.client
@@ -666,6 +710,12 @@ async def update_workflow_flow(
     flow: WorkflowFlow,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Update the visual flow of a workflow and convert it to executable definition."""
     try:
         client = await db.client
@@ -769,6 +819,12 @@ async def convert_flow_to_workflow(
     user_id: str = Depends(get_current_user_id_from_jwt),
     x_project_id: Optional[str] = Header(None)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Convert a visual flow to a workflow definition without saving."""
     try:
         if not x_project_id:
@@ -794,6 +850,12 @@ async def validate_workflow_flow_endpoint(
     request: WorkflowValidateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Validate a workflow flow for errors."""
     try:
         valid, errors = validate_workflow_flow([node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in request.nodes], [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in request.edges])
@@ -805,6 +867,12 @@ async def validate_workflow_flow_endpoint(
 
 @router.get("/workflows/builder/nodes")
 async def get_builder_nodes(user_id: str = Depends(get_current_user_id_from_jwt)):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get available node types for the workflow builder."""
     try:
         nodes = [
@@ -944,6 +1012,12 @@ async def get_builder_nodes(user_id: str = Depends(get_current_user_id_from_jwt)
 
 @router.get("/workflows/templates")
 async def get_workflow_templates(user_id: str = Depends(get_current_user_id_from_jwt)):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get available workflow templates."""
     try:
         client = await db.client
@@ -975,6 +1049,12 @@ async def create_workflow_from_template(
     user_id: str = Depends(get_current_user_id_from_jwt),
     x_project_id: Optional[str] = Header(None)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Create a new workflow from a template."""
     try:
         if not x_project_id:
@@ -1028,6 +1108,12 @@ async def create_workflow_from_template(
 async def get_scheduler_status(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get information about currently scheduled workflows."""
     try:
         scheduled_workflows = await workflow_scheduler.get_scheduled_workflows()
@@ -1051,6 +1137,12 @@ async def get_scheduler_status(
 
 @router.post("/workflows/scheduler/start")
 async def start_scheduler(user_id: str = Depends(get_current_user_id_from_jwt)):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Start the workflow scheduler."""
     try:
         await workflow_scheduler.start()
@@ -1061,6 +1153,12 @@ async def start_scheduler(user_id: str = Depends(get_current_user_id_from_jwt)):
 
 @router.post("/workflows/scheduler/stop")
 async def stop_scheduler(user_id: str = Depends(get_current_user_id_from_jwt)):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Stop the workflow scheduler."""
     try:
         await workflow_scheduler.stop()

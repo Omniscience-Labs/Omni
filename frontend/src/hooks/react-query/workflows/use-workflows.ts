@@ -391,4 +391,47 @@ export const useCreateFromTemplate = () => {
       toast.error('Failed to create workflow from template');
     },
   });
+};
+
+export const useUpdateWorkflowStatus = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'draft' | 'active' | 'paused' | 'disabled' | 'archived' }) => {
+      return api.workflows.update({ id, state: status.toUpperCase() as 'DRAFT' | 'ACTIVE' | 'PAUSED' });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
+    },
+    onError: () => {
+      toast.error('Failed to update workflow status');
+    },
+  });
+};
+
+export const useAutoSaveWorkflowFlow = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: api.workflows.updateFlow,
+    onSuccess: (data) => {
+      queryClient.setQueryData(workflowKeys.detail(data.id), data);
+      queryClient.setQueryData(workflowKeys.flow(data.id), {
+        nodes: data.steps || [],
+        edges: data.triggers || [],
+        metadata: {
+          name: data.name,
+          description: data.description,
+          max_execution_time: data.max_execution_time,
+          max_retries: data.max_retries,
+          agent_id: data.agent_id,
+          is_template: data.is_template,
+        }
+      });
+    },
+    onError: (error) => {
+      console.error('Auto-save failed:', error);
+    },
+  });
 }; 

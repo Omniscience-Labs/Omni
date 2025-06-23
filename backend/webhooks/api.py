@@ -8,6 +8,7 @@ import json
 from .models import SlackEventRequest, TelegramUpdateRequest, WebhookExecutionResult
 from .providers import SlackWebhookProvider, TelegramWebhookProvider, GenericWebhookProvider
 from workflows.models import WorkflowDefinition
+from flags.flags import is_enabled
 
 from services.supabase import DBConnection
 from utils.logger import logger
@@ -50,6 +51,11 @@ async def trigger_workflow_webhook(
     x_slack_request_timestamp: Optional[str] = Header(None),
     x_telegram_bot_api_secret_token: Optional[str] = Header(None)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Handle webhook triggers for workflows."""
     try:
         logger.info(f"[Webhook] Received request for workflow {workflow_id}")
@@ -462,6 +468,11 @@ async def _handle_generic_webhook(workflow: WorkflowDefinition, data: Dict[str, 
 
 @router.get("/webhooks/test/{workflow_id}")
 async def test_webhook_endpoint(workflow_id: str):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
     """Test endpoint to verify webhook URL is accessible."""
     return {
         "message": f"Webhook endpoint for workflow {workflow_id} is accessible",

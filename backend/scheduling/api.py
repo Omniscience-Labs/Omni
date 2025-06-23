@@ -12,6 +12,7 @@ from .models import (
 from .qstash_service import QStashService
 from workflows.executor import WorkflowExecutor
 from services.supabase import DBConnection
+from flags.flags import is_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,12 @@ async def create_schedule(
     request: ScheduleCreateRequest,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Create a new workflow schedule"""
     try:
         schedule = await qstash_service.create_schedule(request)
@@ -49,6 +56,12 @@ async def list_schedules(
     page_size: int = 20,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+
     """List workflow schedules with optional filtering"""
     try:
         if page < 1:
@@ -75,6 +88,12 @@ async def list_schedules(
 
 @router.get("/templates", response_model=List[ScheduleTemplate])
 async def get_schedule_templates():
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+
     """Get predefined schedule templates"""
     return SCHEDULE_TEMPLATES
 
@@ -84,6 +103,12 @@ async def get_schedule(
     schedule_id: str,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get a specific schedule by ID"""
     try:
         schedule = await qstash_service.get_schedule(schedule_id)
@@ -103,6 +128,12 @@ async def update_schedule(
     request: ScheduleUpdateRequest,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Update an existing schedule"""
     try:
         schedule = await qstash_service.update_schedule(schedule_id, request)
@@ -118,6 +149,12 @@ async def delete_schedule(
     schedule_id: str,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Delete a schedule"""
     try:
         success = await qstash_service.delete_schedule(schedule_id)
@@ -138,6 +175,12 @@ async def pause_schedule(
     schedule_id: str,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Pause a schedule"""
     try:
         success = await qstash_service.pause_schedule(schedule_id)
@@ -158,6 +201,12 @@ async def resume_schedule(
     schedule_id: str,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Resume a paused schedule"""
     try:
         success = await qstash_service.resume_schedule(schedule_id)
@@ -179,6 +228,12 @@ async def get_schedule_logs(
     limit: int = 50,
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Get execution logs for a schedule"""
     try:
         if limit < 1 or limit > 1000:
@@ -198,6 +253,12 @@ async def trigger_scheduled_workflow(
     background_tasks: BackgroundTasks,
     workflow_executor: WorkflowExecutor = Depends(get_workflow_executor)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Webhook endpoint for QStash to trigger scheduled workflows"""
     try:
         logger.info(f"Received scheduled trigger for workflow {workflow_id}")
@@ -245,6 +306,12 @@ async def trigger_scheduled_workflow(
 
 @router.get("/trigger/{workflow_id}")
 async def test_scheduled_workflow(workflow_id: str):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Test endpoint for scheduled workflow triggers (for debugging)"""
     return {
         "message": "Schedule trigger endpoint is working",
@@ -359,6 +426,12 @@ async def execute_scheduled_workflow(
 
 @router.post("/validate/cron", response_model=CronValidationResponse)
 async def validate_cron_expression(request: CronValidationRequest):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Validate a cron expression and return next execution times"""
     try:
         import croniter
@@ -448,6 +521,12 @@ def describe_cron_expression(cron_expression: str) -> str:
 async def cleanup_orphaned_schedules(
     qstash_service: QStashService = Depends(get_qstash_service)
 ):
+    if not await is_enabled("workflows"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
     """Clean up QStash schedules that point to deleted workflows"""
     try:
         logger.info("Starting cleanup of orphaned QStash schedules")

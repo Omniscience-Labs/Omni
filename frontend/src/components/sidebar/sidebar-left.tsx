@@ -48,9 +48,10 @@ export function SidebarLeft({
   });
 
   const pathname = usePathname();
-  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace']);
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace', 'workflows']);
   const customAgentsEnabled = flags.custom_agents;
   const marketplaceEnabled = flags.agent_marketplace;
+  const workflowsEnabled = flags.workflows;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -169,7 +170,7 @@ export function SidebarLeft({
                 </SidebarMenuButton>
               </Link>
             )}
-            {customAgentsEnabled && (
+            {workflowsEnabled && (
               <Link href="/workflows">
                 <SidebarMenuButton className={cn({
                   'bg-primary/10 font-medium': pathname === '/workflows',

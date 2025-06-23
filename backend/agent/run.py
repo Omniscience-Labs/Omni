@@ -144,14 +144,15 @@ async def run_agent(
         if agent_config.get('custom_mcps'):
             for custom_mcp in agent_config['custom_mcps']:
                 # Transform custom MCP to standard format
+                custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
                 mcp_config = {
                     'name': custom_mcp['name'],
-                    'qualifiedName': f"custom_{custom_mcp['type']}_{custom_mcp['name'].replace(' ', '_').lower()}",
+                    'qualifiedName': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",
                     'config': custom_mcp['config'],
                     'enabledTools': custom_mcp.get('enabledTools', []),
                     'instructions': custom_mcp.get('instructions', ''),
                     'isCustom': True,
-                    'customType': custom_mcp['type']
+                    'customType': custom_type
                 }
                 all_mcps.append(mcp_config)
         

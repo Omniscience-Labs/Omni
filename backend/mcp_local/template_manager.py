@@ -113,12 +113,13 @@ class TemplateManager:
             
             # Process custom_mcps
             for custom_mcp in agent.get('custom_mcps', []):
+                custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
                 requirement = {
-                    'qualified_name': f"custom_{custom_mcp['type']}_{custom_mcp['name'].replace(' ', '_').lower()}",
+                    'qualified_name': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",
                     'display_name': custom_mcp['name'],
                     'enabled_tools': custom_mcp.get('enabledTools', []),
                     'required_config': list(custom_mcp.get('config', {}).keys()),
-                    'custom_type': custom_mcp['type']
+                    'custom_type': custom_type
                 }
                 logger.info(f"Created custom MCP requirement: {requirement}")
                 mcp_requirements.append(requirement)

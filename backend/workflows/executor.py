@@ -345,7 +345,7 @@ class WorkflowExecutor:
                     custom_mcps.append({
                         "name": mcp_name,
                         "isCustom": True,
-                        "customType": mcp.get("type", "sse"),
+                        "customType": mcp.get("customType", mcp.get("type", "sse")),
                         "config": mcp.get("config", {}),
                         "enabledTools": mcp.get("enabledTools", []),
                         "selectedProfileId": mcp.get("selectedProfileId"),

@@ -23,6 +23,11 @@ import {
   Save, 
   Workflow,
   Settings,
+  Cloud,
+  Check,
+  Power,
+  PowerOff,
+  Loader2,
 } from "lucide-react";
 import NodePalette from "./NodePalette";
 import WorkflowSettings from "./WorkflowSettings";
@@ -31,6 +36,7 @@ import ToolConnectionNode from "./nodes/ToolConnectionNode";
 import InputNode from "./nodes/InputNode";
 import MCPNode from "./nodes/MCPNode";
 import { getProjects, createWorkflow, updateWorkflow, getWorkflow, executeWorkflow, type WorkflowNode, type WorkflowEdge } from "@/lib/api";
+import { useAutoSaveWorkflowFlow, useUpdateWorkflowStatus } from "@/hooks/react-query/workflows/use-workflows";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { validateWorkflow, type ValidationResult } from "./WorkflowValidator";
@@ -140,10 +146,23 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
   const [running, setRunning] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult>({ valid: true, errors: [] });
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [workflowStatus, setWorkflowStatus] = useState<'draft' | 'active' | 'paused' | 'disabled' | 'archived'>('draft');
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [lastSavedState, setLastSavedState] = useState<{
+    nodes: any[];
+    edges: any[];
+    name: string;
+    description: string;
+  } | null>(null);
   const router = useRouter();
 
   const { state, setOpen, setOpenMobile } = useSidebar();
+  const autoSaveMutation = useAutoSaveWorkflowFlow();
+  const updateStatusMutation = useUpdateWorkflowStatus();
   const initialLayoutAppliedRef = useRef(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (!initialLayoutAppliedRef.current) {
@@ -173,11 +192,20 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
           console.log('Setting workflow name to:', displayName);
           setWorkflowName(displayName);
           setWorkflowDescription(displayDescription);
+          setWorkflowStatus(workflow.status);
           
           if (workflow.definition.nodes && workflow.definition.edges) {
             setNodes(workflow.definition.nodes);
             setEdges(workflow.definition.edges);
           }
+
+          // Set initial saved state
+          setLastSavedState({
+            nodes: workflow.definition.nodes || [],
+            edges: workflow.definition.edges || [],
+            name: displayName,
+            description: displayDescription
+          });
         }
       } catch (err) {
         console.error('Error loading workflow data:', err);
@@ -202,6 +230,128 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
       )
     );
   }, [setNodes]);
+
+  // Function to check if current state differs from last saved state
+  const hasChanges = useCallback(() => {
+    if (!lastSavedState) return false;
+    
+    // Compare nodes (deep comparison of relevant properties)
+    const currentNodesSimplified = nodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: node.data
+    }));
+    
+    const savedNodesSimplified = lastSavedState.nodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: node.data
+    }));
+    
+    if (JSON.stringify(currentNodesSimplified) !== JSON.stringify(savedNodesSimplified)) {
+      return true;
+    }
+    
+    // Compare edges
+    const currentEdgesSimplified = edges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle
+    }));
+    
+    const savedEdgesSimplified = lastSavedState.edges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle
+    }));
+    
+    if (JSON.stringify(currentEdgesSimplified) !== JSON.stringify(savedEdgesSimplified)) {
+      return true;
+    }
+    
+    // Compare name and description
+    if (workflowName !== lastSavedState.name || workflowDescription !== lastSavedState.description) {
+      return true;
+    }
+    
+    return false;
+  }, [nodes, edges, workflowName, workflowDescription, lastSavedState]);
+
+  const debouncedAutoSave = useCallback(() => {
+    if (!workflowId || !projectId || !hasChanges()) return;
+    
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setAutoSaving(true);
+        
+        const nodesToSave = nodes.map(node => ({
+          id: node.id,
+          type: node.type || 'default',
+          position: node.position,
+          data: node.data
+        })) as WorkflowNode[];
+
+        const edgesToSave = edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        })) as WorkflowEdge[];
+        
+        await autoSaveMutation.mutateAsync({
+          id: workflowId,
+          nodes: nodesToSave,
+          edges: edgesToSave,
+          metadata: {
+            name: workflowName,
+            description: workflowDescription,
+            max_execution_time: 300,
+            max_retries: 3,
+            is_template: false
+          }
+        });
+
+        // Update the last saved state
+        setLastSavedState({
+          nodes: nodesToSave,
+          edges: edgesToSave,
+          name: workflowName,
+          description: workflowDescription
+        });
+
+        setLastSaved(new Date());
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 2000);
+  }, [workflowId, projectId, nodes, edges, workflowName, workflowDescription, autoSaveMutation, hasChanges]);
+
+  useEffect(() => {
+    if (workflowId && lastSavedState) {
+      debouncedAutoSave();
+    }
+  }, [nodes, edges, workflowName, workflowDescription, debouncedAutoSave, workflowId, lastSavedState]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSaveWorkflow = async () => {
     if (!projectId) {
@@ -243,10 +393,16 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
       if (workflowId) {
         await updateWorkflow(workflowId, workflowData);
         toast.success("Workflow updated successfully!");
+        setLastSavedState({
+          nodes: workflowData.nodes,
+          edges: workflowData.edges,
+          name: workflowName,
+          description: workflowDescription
+        });
+        setLastSaved(new Date());
       } else {
         const newWorkflow = await createWorkflow(workflowData);
         toast.success("Workflow created successfully!");
-        // Redirect to edit the new workflow
         router.push(`/workflows/builder/${newWorkflow.id}`);
       }
     } catch (err) {
@@ -527,6 +683,27 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
     [setNodes]
   );
 
+  const handleToggleWorkflowStatus = async () => {
+    if (!workflowId) return;
+    
+    try {
+      setTogglingStatus(true);
+      const newStatus = workflowStatus === 'active' ? 'draft' : 'active';
+      
+      await updateStatusMutation.mutateAsync({
+        id: workflowId,
+        status: newStatus
+      });
+
+      setWorkflowStatus(newStatus);
+    } catch (err) {
+      console.error('Error updating workflow status:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update workflow status');
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   return (
     <>
       <style jsx global>{`
@@ -575,26 +752,57 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                 <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
                   <Workflow className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div>
+                <div className="flex flex-col">
                   <h1 className="text-lg font-semibold">{workflowName}</h1>
+                  {workflowId && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {autoSaving ? (
+                        <>
+                          <Cloud className="h-3 w-3 animate-pulse" />
+                          <span>Saving...</span>
+                        </>
+                      ) : lastSaved ? (
+                        <>
+                          <Check className="h-3 w-3 text-green-500" />
+                          <span>Saved {lastSaved.toLocaleTimeString()}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Cloud className="h-3 w-3" />
+                          <span>Ready</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               
               <div className="flex items-center gap-2">
-                {/* <Button 
-                  variant="outline"
-                  onClick={() => setShowSettings(true)}
-                >
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button> */}
+                {workflowId && (
+                  <Button
+                    variant={workflowStatus === 'active' ? "default" : "outline"}
+                    size="sm"
+                    onClick={handleToggleWorkflowStatus}
+                    disabled={togglingStatus}
+                    className={workflowStatus === 'active' ? "bg-green-600 hover:bg-green-700" : ""}
+                  >
+                    {togglingStatus ? (
+                      <Loader2 className="animate-spin rounded-full h-4 w-4" />
+                    ) : workflowStatus === 'active' ? (
+                      <PowerOff className="h-4 w-4" />
+                    ) : (
+                      <Power className="h-4 w-4" />
+                    )}
+                    {workflowStatus === 'active' ? 'Deactivate' : 'Activate'}
+                  </Button>
+                )}
                 <Button 
                   variant="outline"
                   onClick={handleSaveWorkflow}
                   disabled={saving}
                 >
                   {saving ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                    <Loader2 className="animate-spin rounded-full h-4 w-4" />
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
@@ -605,7 +813,7 @@ export default function WorkflowBuilder({ workflowId }: WorkflowBuilderProps = {
                   disabled={running || !workflowId}
                 >
                   {running ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                    <Loader2 className="animate-spin rounded-full h-4 w-4" />
                   ) : (
                     <Play className="h-4 w-4" />
                   )}

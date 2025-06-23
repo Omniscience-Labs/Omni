@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X, Workflow as WorkflowIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Check, X, Workflow as WorkflowIcon, Power, PowerOff, Loader2, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { getWorkflows, executeWorkflow, deleteWorkflow, getProjects, createWorkflow, updateWorkflow, type Workflow } from "@/lib/api";
+import { useUpdateWorkflowStatus } from "@/hooks/react-query/workflows/use-workflows";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,9 +35,11 @@ export default function WorkflowsPage() {
   const [editingName, setEditingName] = useState("");
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set());
   const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set());
+  const [togglingWorkflows, setTogglingWorkflows] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   const { state, setOpen, setOpenMobile } = useSidebar();
+  const updateWorkflowStatusMutation = useUpdateWorkflowStatus();
 
   const initialLayoutAppliedRef = useRef(false);
 
@@ -195,6 +198,31 @@ export default function WorkflowsPage() {
     }
   };
 
+  const handleToggleWorkflowStatus = async (workflowId: string, currentStatus: string) => {
+    try {
+      setTogglingWorkflows(prev => new Set(prev).add(workflowId));
+      const newStatus = currentStatus === 'active' ? 'draft' : 'active';
+      await updateWorkflowStatusMutation.mutateAsync({
+        id: workflowId,
+        status: newStatus
+      });
+      setWorkflows(prev => prev.map(w => 
+        w.id === workflowId 
+          ? { ...w, status: newStatus }
+          : w
+      ));
+    } catch (err) {
+      console.error('Error updating workflow status:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update workflow status');
+    } finally {
+      setTogglingWorkflows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(workflowId);
+        return newSet;
+      });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "active":
@@ -310,7 +338,7 @@ export default function WorkflowsPage() {
         </div>
         <Button onClick={handleCreateWorkflow} disabled={loading || creating}>
           {creating ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b border-current" />
+            <Loader2 className="animate-spin rounded-full h-4 w-4" />
           ) : (
             <Plus className="h-4 w-4" />
           )}
@@ -330,9 +358,9 @@ export default function WorkflowsPage() {
             </p>
             <Button onClick={handleCreateWorkflow} disabled={creating}>
               {creating ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b border-current mr-2" />
+                <Loader2 className="animate-spin rounded-full h-4 w-4" />
               ) : (
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
               )}
               {creating ? "Creating..." : "Create Your First Workflow"}
             </Button>
@@ -417,10 +445,26 @@ export default function WorkflowsPage() {
                   <div className="flex gap-2 pt-2">
                     <Link href={`/workflows/builder/${workflow.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
-                        <Edit className="h-3 w-3" />
-                        Edit
+                        <Settings className="h-3 w-3" />
+                        Configure
                       </Button>
                     </Link>
+                    <Button
+                      variant={workflow.status === 'active' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleToggleWorkflowStatus(workflow.id, workflow.status)}
+                      disabled={togglingWorkflows.has(workflow.id)}
+                      className={workflow.status === 'active' ? "bg-green-600 hover:bg-green-700" : ""}
+                    >
+                      {togglingWorkflows.has(workflow.id) ? (
+                        <Loader2 className="animate-spin rounded-full h-3 w-3" />
+                      ) : workflow.status === 'active' ? (
+                        <PowerOff className="h-3 w-3" />
+                      ) : (
+                        <Power className="h-3 w-3" />
+                      )}
+                      {workflow.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button 
