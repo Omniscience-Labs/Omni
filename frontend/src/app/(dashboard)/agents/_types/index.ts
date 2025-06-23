@@ -9,6 +9,21 @@ export interface FilterOptions {
   selectedTools: string[];
 }
 
+export interface AgentVersion {
+  version_id: string;
+  agent_id: string;
+  version_number: number;
+  version_name: string;
+  system_prompt: string;
+  configured_mcps?: Array<{ name: string }>;
+  custom_mcps?: Array<any>;
+  agentpress_tools?: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
 export interface Agent {
   agent_id: string;
   name: string;
@@ -18,6 +33,9 @@ export interface Agent {
   updated_at?: string;
   configured_mcps?: Array<{ name: string }>;
   agentpress_tools?: Record<string, any>;
+  current_version_id?: string;
+  version_count?: number;
+  current_version?: AgentVersion;
 }
 
 export interface MutationState {

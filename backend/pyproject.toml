@@ -56,6 +56,11 @@ dependencies = [
   "mailtrap==2.0.1",
   "sentry-sdk[fastapi]==2.29.1",
   "gunicorn>=23.0.0",
+  "cryptography>=41.0.0",
+  "apscheduler>=3.10.0",
+  "croniter>=1.4.0",
+  "qstash>=2.0.0",
+  "structlog==25.4.0",
 ]
 
 [project.urls]

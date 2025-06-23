@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-import sentry
+import sentry # Keep this import here, right after fastapi imports
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from utils.config import config, EnvMode
 import asyncio
-from utils.logger import logger
+from utils.logger import logger, structlog
 import time
 from collections import OrderedDict
 from typing import Dict, Any
 
 from pydantic import BaseModel
+import uuid
 # Import the agent API module
 from agent import api as agent_api
 from sandbox import api as sandbox_api
@@ -89,13 +90,23 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
+    structlog.contextvars.clear_contextvars()
+
+    request_id = str(uuid.uuid4())
     start_time = time.time()
     client_ip = request.client.host
     method = request.method
-    url = str(request.url)
     path = request.url.path
     query_params = str(request.query_params)
-    
+
+    structlog.contextvars.bind_contextvars(
+        request_id=request_id,
+        client_ip=client_ip,
+        method=method,
+        path=path,
+        query_params=query_params
+    )
+
     # Log the incoming request
     logger.info(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
     
@@ -124,7 +135,7 @@ app.add_middleware(
     allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Project-Id"],
 )
 
 app.include_router(agent_api.router, prefix="/api")
@@ -136,12 +147,26 @@ app.include_router(billing_api.router, prefix="/api")
 app.include_router(feature_flags_api.router, prefix="/api")
 
 from mcp_local import api as mcp_api
+from mcp_local import secure_api as secure_mcp_api
 
 app.include_router(mcp_api.router, prefix="/api")
+app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
+
 
 app.include_router(transcription_api.router, prefix="/api")
 
 app.include_router(email_api.router, prefix="/api")
+
+from workflows import api as workflows_api
+workflows_api.initialize(db)
+app.include_router(workflows_api.router, prefix="/api")
+
+from webhooks import api as webhooks_api
+webhooks_api.initialize(db)
+app.include_router(webhooks_api.router, prefix="/api")
+
+from scheduling import api as scheduling_api
+app.include_router(scheduling_api.router)
 
 @app.get("/api/health")
 async def health_check():

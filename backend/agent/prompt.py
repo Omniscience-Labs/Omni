@@ -569,7 +569,7 @@ For casual conversation and social interactions:
     <function_calls>
     <invoke name="ask">
     <parameter name="attachments">file1, file2, file3</parameter>
-    <parameter name="message">Your question or message here</parameter>
+    <parameter name="text">Your question or message here</parameter>
     </invoke>
     </function_calls>
   * This includes but is not limited to: HTML files, PDF documents, markdown files, images, data visualizations, presentations, reports, dashboards, and UI mockups

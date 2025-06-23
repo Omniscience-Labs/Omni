@@ -1,58 +1,630 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Globe } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useMarketplaceAgents, useAddAgentToLibrary } from '@/hooks/react-query/marketplace/use-marketplace';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Pagination } from '../agents/_components/pagination';
+import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
+
+import { 
+  useMarketplaceTemplates, 
+  useInstallTemplate
+} from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
+import { createClient } from '@/lib/supabase/client';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
+
+interface MarketplaceTemplate {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  download_count: number;
+  creator_name: string;
+  created_at: string;
+  marketplace_published_at?: string;
+  avatar?: string;
+  avatar_color?: string;
+  template_id: string;
+  mcp_requirements?: Array<{
+    qualified_name: string;
+    display_name: string;
+    enabled_tools?: string[];
+    required_config: string[];
+    custom_type?: 'sse' | 'http';
+  }>;
+  metadata?: {
+    source_agent_id?: string;
+    source_version_id?: string;
+    source_version_name?: string;
+  };
+}
+
+interface SetupStep {
+  id: string;
+  title: string;
+  description: string;
+  type: 'credential_profile' | 'custom_server';
+  service_name: string;
+  qualified_name: string;
+  required_fields?: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'url' | 'password';
+    placeholder: string;
+    description?: string;
+  }>;
+  custom_type?: 'sse' | 'http';
+}
+
+interface MissingProfile {
+  qualified_name: string;
+  display_name: string;
+  required_config: string[];
+}
+
+interface InstallDialogProps {
+  item: MarketplaceTemplate | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onInstall: (item: MarketplaceTemplate, instanceName?: string, profileMappings?: Record<string, string>, customMcpConfigs?: Record<string, Record<string, any>>) => Promise<void>;
+  isInstalling: boolean;
+}
+
+const InstallDialog: React.FC<InstallDialogProps> = ({ 
+  item, 
+  open, 
+  onOpenChange, 
+  onInstall, 
+  isInstalling
+}) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [instanceName, setInstanceName] = useState('');
+  const [setupData, setSetupData] = useState<Record<string, Record<string, string>>>({});
+  const [profileMappings, setProfileMappings] = useState<Record<string, string>>({});
+  const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
+  const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
+  const [missingProfiles, setMissingProfiles] = useState<MissingProfile[]>([]);
+
+  React.useEffect(() => {
+    if (item && open) {
+      setInstanceName(`${item.name}`);
+      setSetupData({});
+      setProfileMappings({});
+      setIsCheckingRequirements(true);
+      setMissingProfiles([]);
+      checkRequirementsAndSetupSteps();
+    }
+  }, [item, open]);
+
+  const checkRequirementsAndSetupSteps = async () => {
+    if (!item?.mcp_requirements) return;
+    
+    const steps: SetupStep[] = [];
+    const missing: MissingProfile[] = [];
+    const customServers = item.mcp_requirements.filter(req => req.custom_type);
+    const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
+
+    // Check for credential profiles for regular services and create profile selection steps
+    for (const req of regularServices) {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          missing.push({
+            qualified_name: req.qualified_name,
+            display_name: req.display_name,
+            required_config: req.required_config
+          });
+          continue;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/secure-mcp/credential-profiles/${encodeURIComponent(req.qualified_name)}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const profiles = await response.json();
+          if (!profiles || profiles.length === 0) {
+            missing.push({
+              qualified_name: req.qualified_name,
+              display_name: req.display_name,
+              required_config: req.required_config
+            });
+          } else {
+            steps.push({
+              id: req.qualified_name,
+              title: `Select Credential Profile for ${req.display_name}`,
+              description: `Choose which credential profile to use for ${req.display_name}.`,
+              type: 'credential_profile',
+              service_name: req.display_name,
+              qualified_name: req.qualified_name,
+            });
+          }
+        } else {
+          missing.push({
+            qualified_name: req.qualified_name,
+            display_name: req.display_name,
+            required_config: req.required_config
+          });
+        }
+      } catch (error) {
+        missing.push({
+          qualified_name: req.qualified_name,
+          display_name: req.display_name,
+          required_config: req.required_config
+        });
+      }
+    }
+
+    for (const req of customServers) {
+      steps.push({
+        id: req.qualified_name,
+        title: `Configure ${req.display_name}`,
+        description: `Enter your ${req.display_name} server URL to connect this agent.`,
+        type: 'custom_server',
+        service_name: req.display_name,
+        qualified_name: req.qualified_name,
+        custom_type: req.custom_type,
+        required_fields: req.required_config.map(key => ({
+          key,
+          label: key === 'url' ? `${req.display_name} Server URL` : key,
+          type: key === 'url' ? 'url' : 'text',
+          placeholder: key === 'url' ? `https://your-${req.display_name.toLowerCase()}-server.com` : `Enter your ${key}`,
+          description: key === 'url' ? `Your personal ${req.display_name} server endpoint` : undefined
+        }))
+      });
+    }
+
+    setSetupSteps(steps);
+    setMissingProfiles(missing);
+    setIsCheckingRequirements(false);
+  };
+
+  const handleFieldChange = (stepId: string, fieldKey: string, value: string) => {
+    setSetupData(prev => ({
+      ...prev,
+      [stepId]: {
+        ...prev[stepId],
+        [fieldKey]: value
+      }
+    }));
+  };
+
+  const handleProfileSelect = (qualifiedName: string, profileId: string | null) => {
+    setProfileMappings(prev => ({
+      ...prev,
+      [qualifiedName]: profileId || ''
+    }));
+  };
+
+  const isCurrentStepComplete = (): boolean => {
+    if (setupSteps.length === 0) return true;
+    if (currentStep >= setupSteps.length) return true;
+    
+    const step = setupSteps[currentStep];
+    
+    if (step.type === 'credential_profile') {
+      return !!profileMappings[step.qualified_name];
+    } else if (step.type === 'custom_server') {
+      const stepData = setupData[step.id] || {};
+      return step.required_fields?.every(field => {
+        const value = stepData[field.key];
+        return value && value.trim().length > 0;
+      }) || false;
+    }
+    
+    return false;
+  };
+
+  const handleNext = () => {
+    if (currentStep < setupSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleInstall();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleInstall = async () => {
+    if (!item) return;
+
+    const customMcpConfigs: Record<string, Record<string, any>> = {};
+    setupSteps.forEach(step => {
+      if (step.type === 'custom_server') {
+        customMcpConfigs[step.qualified_name] = setupData[step.id] || {};
+      }
+    });
+    
+    await onInstall(item, instanceName, profileMappings, customMcpConfigs);
+  };
+
+  const canInstall = () => {
+    if (!item) return false;
+    if (!instanceName.trim()) return false;
+    if (missingProfiles.length > 0) return false;
+    
+    // Check if all required profile mappings are selected
+    const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+    const missingProfileMappings = regularRequirements.filter(req => !profileMappings[req.qualified_name]);
+    if (missingProfileMappings.length > 0) return false;
+    
+    if (setupSteps.length > 0 && currentStep < setupSteps.length) return false;
+    return true;
+  };
+
+  if (!item) return null;
+
+  const currentStepData = setupSteps[currentStep];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader className="space-y-3">
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+              <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            Install {item.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {isCheckingRequirements ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Checking requirements...</p>
+            </div>
+          ) : missingProfiles.length > 0 ? (
+            <div className="space-y-6">
+              <Alert className="border-destructive/50 bg-destructive/10 dark:bg-destructive/5 text-destructive">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertTitle className="text-destructive">Missing Credential Profiles</AlertTitle>
+                <AlertDescription className="text-destructive/80">
+                  This agent requires credential profiles for the following services:
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-3">
+                {missingProfiles.map((profile) => (
+                  <Card key={profile.qualified_name} className="border-destructive/20 shadow-none bg-transparent">
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                        </div>
+                        <div>
+                          <span className="font-medium">{profile.display_name}</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {profile.required_config.map((config) => (
+                              <Badge key={config} variant="outline" className="text-xs">
+                                {config}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="destructive">Missing</Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : setupSteps.length === 0 ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <Input
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="Enter a name for this agent"
+                  className="h-11"
+                />
+              </div>
+              
+              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  All requirements are configured. Ready to install!
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : currentStep < setupSteps.length ? (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                        {currentStep + 1}
+                      </div>
+                      <h3 className="font-semibold text-base">{currentStepData.title}</h3>
+                      {currentStepData.custom_type && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                          {currentStepData.custom_type?.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {currentStepData.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {currentStepData.type === 'credential_profile' ? (
+                    <CredentialProfileSelector
+                      mcpQualifiedName={currentStepData.qualified_name}
+                      mcpDisplayName={currentStepData.service_name}
+                      selectedProfileId={profileMappings[currentStepData.qualified_name]}
+                      onProfileSelect={(profileId, profile) => {
+                        handleProfileSelect(currentStepData.qualified_name, profileId);
+                      }}
+                    />
+                  ) : (
+                    currentStepData.required_fields?.map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          {field.label}
+                        </label>
+                        <Input
+                          type={field.type}
+                          placeholder={field.placeholder}
+                          value={setupData[currentStepData.id]?.[field.key] || ''}
+                          onChange={(e) => handleFieldChange(currentStepData.id, field.key, e.target.value)}
+                          className="h-11"
+                        />
+                        {field.description && (
+                          <p className="text-xs text-muted-foreground">{field.description}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {setupSteps.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-1 flex-1 rounded-full transition-colors ${
+                        index <= currentStep ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Step {currentStep + 1} of {setupSteps.length}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <h3 className="font-semibold text-base">Almost done!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Give your agent a name and we'll set everything up.
+                  </p>
+                </div>
+              </div>
+
+              <div className="ml-12 space-y-3">
+                <Input
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="Enter a name for this agent"
+                  className="h-11"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col gap-3">
+          {missingProfiles.length > 0 ? (
+            <div className="flex gap-3 w-full justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => window.open('/settings/credentials', '_blank')}
+              >
+                <Settings className="h-4 w-4" />
+                Set Up Credential Profiles
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-3 w-full justify-end">
+              {currentStep > 0 && (
+                <Button variant="outline" onClick={handleBack} className="flex-1">
+                  Back
+                </Button>
+              )}
+              
+              {setupSteps.length === 0 ? (
+                <Button 
+                  onClick={handleInstall}
+                  disabled={isInstalling || !canInstall()}
+                >
+                  {isInstalling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Installing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Install Agent
+                    </>
+                  )}
+                </Button>
+              ) : currentStep < setupSteps.length ? (
+                <Button 
+                  onClick={handleNext}
+                  disabled={!isCurrentStepComplete()}
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleInstall}
+                  disabled={isInstalling || !canInstall()}
+                >
+                  {isInstalling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Installing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Install Agent
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default function MarketplacePage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [addingAgentId, setAddingAgentId] = useState<string | null>(null);
-  
-  const queryParams = useMemo(() => ({
-    page,
+  const [installingItemId, setInstallingItemId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
+
+  // Secure marketplace data (all templates are now secure)
+  const secureQueryParams = useMemo(() => ({
     limit: 20,
+    offset: (page - 1) * 20,
     search: searchQuery || undefined,
-    tags: selectedTags.length > 0 ? selectedTags : undefined,
-    sort_by: sortBy
-  }), [page, searchQuery, selectedTags, sortBy]);
+    tags: selectedTags.length > 0 ? selectedTags.join(',') : undefined,
+  }), [page, searchQuery, selectedTags]);
 
-  const { data: agentsResponse, isLoading, error } = useMarketplaceAgents(queryParams);
-  const addToLibraryMutation = useAddAgentToLibrary();
+  const { data: secureTemplates, isLoading } = useMarketplaceTemplates(secureQueryParams);
+  const installTemplateMutation = useInstallTemplate();
 
-  const agents = agentsResponse?.agents || [];
-  const pagination = agentsResponse?.pagination;
+  // Transform secure templates data
+  const marketplaceItems = useMemo(() => {
+    const items: MarketplaceTemplate[] = [];
+
+    // Add secure templates (all items are now secure)
+    if (secureTemplates) {
+      secureTemplates.forEach(template => {
+        items.push({
+          id: template.template_id,
+          name: template.name,
+          description: template.description,
+          tags: template.tags || [],
+          download_count: template.download_count || 0,
+          creator_name: template.creator_name || 'Anonymous',
+          created_at: template.created_at,
+          marketplace_published_at: template.marketplace_published_at,
+          avatar: template.avatar,
+          avatar_color: template.avatar_color,
+          template_id: template.template_id,
+          mcp_requirements: template.mcp_requirements,
+          metadata: template.metadata,
+        });
+      });
+    }
+
+    // Sort items
+    return items.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.marketplace_published_at || b.created_at).getTime() - 
+                 new Date(a.marketplace_published_at || a.created_at).getTime();
+        case 'popular':
+        case 'most_downloaded':
+          return b.download_count - a.download_count;
+        case 'name':
+          return a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+  }, [secureTemplates, sortBy]);
 
   React.useEffect(() => {
     setPage(1);
   }, [searchQuery, selectedTags, sortBy]);
 
-  const handleAddToLibrary = async (agentId: string, agentName: string) => {
+  const handleItemClick = (item: MarketplaceTemplate) => {
+    setSelectedItem(item);
+    setShowInstallDialog(true);
+  };
+
+  const handleInstallClick = (item: MarketplaceTemplate, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setSelectedItem(item);
+    setShowInstallDialog(true);
+  };
+
+  const handleInstall = async (
+    item: MarketplaceTemplate, 
+    instanceName?: string, 
+    profileMappings?: Record<string, string>, 
+    customMcpConfigs?: Record<string, Record<string, any>>
+  ) => {
+    setInstallingItemId(item.id);
+    
     try {
-      setAddingAgentId(agentId);
-      await addToLibraryMutation.mutateAsync(agentId);
-      toast.success(`${agentName} has been added to your library!`);
+      const result = await installTemplateMutation.mutateAsync({
+        template_id: item.template_id,
+        instance_name: instanceName,
+        profile_mappings: profileMappings,
+        custom_mcp_configs: customMcpConfigs
+      });
+
+      if (result.status === 'installed') {
+        toast.success('Agent installed successfully!');
+        setShowInstallDialog(false);
+      } else if (result.status === 'configs_required') {
+        toast.error('Please provide all required configurations');
+        return;
+      }
     } catch (error: any) {
       if (error.message?.includes('already in your library')) {
         toast.error('This agent is already in your library');
       } else {
-        toast.error('Failed to add agent to library');
+        toast.error(error.message || 'Failed to install agent');
       }
     } finally {
-      setAddingAgentId(null);
+      setInstallingItemId(null);
     }
   };
 
@@ -64,35 +636,23 @@ export default function MarketplacePage() {
     );
   };
 
-  const getAgentStyling = (agent: any) => {
-    if (agent.avatar && agent.avatar_color) {
+  const getItemStyling = (item: MarketplaceTemplate) => {
+    if (item.avatar && item.avatar_color) {
       return {
-        avatar: agent.avatar,
-        color: agent.avatar_color,
+        avatar: item.avatar,
+        color: item.avatar_color,
       };
     }
-    return getAgentAvatar(agent.agent_id);
+    return getAgentAvatar(item.id);
   };
 
   const allTags = React.useMemo(() => {
     const tags = new Set<string>();
-    agents.forEach(agent => {
-      agent.tags?.forEach(tag => tags.add(tag));
+    marketplaceItems.forEach(item => {
+      item.tags?.forEach(tag => tags.add(tag));
     });
     return Array.from(tags);
-  }, [agents]);
-
-  if (error) {
-    return (
-      <div className="container mx-auto max-w-7xl px-4 py-8">
-        <Alert variant="destructive">
-          <AlertDescription>
-            Failed to load marketplace agents. Please try again later.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  }, [marketplaceItems]);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -103,7 +663,7 @@ export default function MarketplacePage() {
               Agent Marketplace
             </h1>
             <p className="text-md text-muted-foreground max-w-2xl">
-              Discover and add powerful AI agents created by the community to your personal library
+              Discover and install secure AI agent templates created by the community
             </p>
           </div>
         </div>
@@ -112,13 +672,12 @@ export default function MarketplacePage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search agents..."
+              placeholder="Search agent templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
-          
           <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
@@ -167,11 +726,9 @@ export default function MarketplacePage() {
 
         <div className="text-sm text-muted-foreground">
           {isLoading ? (
-            "Loading agents..."
-          ) : pagination ? (
-            `Showing page ${pagination.page} of ${pagination.pages} (${pagination.total} total agents)`
+            "Loading marketplace..."
           ) : (
-            `${agents.length} agent${agents.length !== 1 ? 's' : ''} found`
+            `${marketplaceItems.length} secure template${marketplaceItems.length !== 1 ? 's' : ''} found`
           )}
         </div>
 
@@ -191,23 +748,24 @@ export default function MarketplacePage() {
               </div>
             ))}
           </div>
-        ) : agents.length === 0 ? (
+        ) : marketplaceItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               {searchQuery || selectedTags.length > 0
-                ? "No agents found matching your criteria. Try adjusting your search or filters."
-                : "No agents are currently available in the marketplace."}
+                ? "No templates found matching your criteria. Try adjusting your search or filters."
+                : "No secure agent templates are currently available in the marketplace."}
             </p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {agents.map((agent) => {
-              const { avatar, color } = getAgentStyling(agent);
+            {marketplaceItems.map((item) => {
+              const { avatar, color } = getItemStyling(item);
               
               return (
                 <div 
-                  key={agent.agent_id} 
+                  key={item.id} 
                   className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
+                  onClick={() => handleItemClick(item)}
                 >
                   <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
                     <div className="text-4xl">
@@ -216,66 +774,67 @@ export default function MarketplacePage() {
                     <div className="absolute top-3 right-3 flex gap-2">
                       <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
                         <Download className="h-3 w-3 text-white" />
-                        <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
+                        <span className="text-white text-xs font-medium">{item.download_count}</span>
                       </div>
                     </div>
                   </div>
-                  
                   <div className="p-4 flex flex-col flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
-                        {agent.name}
+                        {item.name}
                       </h3>
+                      {item.metadata?.source_version_name && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          <GitBranch className="h-3 w-3" />
+                          {item.metadata.source_version_name}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                      {agent.description || 'No description available'}
+                      {item.description || 'No description available'}
                     </p>
-                    
-                    {agent.tags && agent.tags.length > 0 && (
+                    {item.tags && item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
-                        {agent.tags.slice(0, 2).map(tag => (
+                        {item.tags.slice(0, 2).map(tag => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag}
                           </Badge>
                         ))}
-                        {agent.tags.length > 2 && (
+                        {item.tags.length > 2 && (
                           <Badge variant="outline" className="text-xs">
-                            +{agent.tags.length - 2}
+                            +{item.tags.length - 2}
                           </Badge>
                         )}
                       </div>
                     )}
-
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <User className="h-3 w-3" />
-                        <span>By {agent.creator_name}</span>
+                        <span>By {item.creator_name}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(agent.marketplace_published_at).toLocaleDateString()}</span>
-                      </div>
+                      {item.marketplace_published_at && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                        </div>
+                      )}
                     </div>
 
                     <Button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddToLibrary(agent.agent_id, agent.name);
-                      }}
-                      disabled={addingAgentId === agent.agent_id}
+                      onClick={(e) => handleInstallClick(item, e)}
+                      disabled={installingItemId === item.id}
                       className="w-full transition-opacity mt-auto"
                       size="sm"
-                      key={agent.agent_id} 
                     >
-                      {addingAgentId === agent.agent_id ? (
+                      {installingItemId === item.id ? (
                         <>
-                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-background border-t-transparent mr-2" />
-                          Adding...
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Installing...
                         </>
                       ) : (
                         <>
-                          <Download className="h-3 w-3" />
-                          Add to Library
+                          <Download className="h-4 w-4" />
+                          Install Template
                         </>
                       )}
                     </Button>
@@ -285,16 +844,15 @@ export default function MarketplacePage() {
             })}
           </div>
         )}
-
-        {pagination && pagination.pages > 1 && (
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.pages}
-            onPageChange={setPage}
-            isLoading={isLoading}
-          />
-        )}
       </div>
+
+      <InstallDialog
+        item={selectedItem}
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        onInstall={handleInstall}
+        isInstalling={installingItemId === selectedItem?.id}
+      />
     </div>
   );
 }

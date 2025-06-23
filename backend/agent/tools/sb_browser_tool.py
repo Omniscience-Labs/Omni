@@ -1,5 +1,8 @@
 import traceback
 import json
+import base64
+import io
+from PIL import Image
 
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
@@ -14,6 +17,91 @@ class SandboxBrowserTool(SandboxToolsBase):
     def __init__(self, project_id: str, thread_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.thread_id = thread_id
+
+    def _validate_base64_image(self, base64_string: str, max_size_mb: int = 10) -> tuple[bool, str]:
+        """
+        Comprehensive validation of base64 image data.
+        
+        Args:
+            base64_string (str): The base64 encoded image data
+            max_size_mb (int): Maximum allowed image size in megabytes
+            
+        Returns:
+            tuple[bool, str]: (is_valid, error_message)
+        """
+        try:
+            # Check if data exists and has reasonable length
+            if not base64_string or len(base64_string) < 10:
+                return False, "Base64 string is empty or too short"
+            
+            # Remove data URL prefix if present (data:image/jpeg;base64,...)
+            if base64_string.startswith('data:'):
+                try:
+                    base64_string = base64_string.split(',', 1)[1]
+                except (IndexError, ValueError):
+                    return False, "Invalid data URL format"
+            
+            # Check if string contains only valid base64 characters
+            # Base64 alphabet: A-Z, a-z, 0-9, +, /, = (padding)
+            import re
+            if not re.match(r'^[A-Za-z0-9+/]*={0,2}$', base64_string):
+                return False, "Invalid base64 characters detected"
+            
+            # Check if base64 string length is valid (must be multiple of 4)
+            if len(base64_string) % 4 != 0:
+                return False, "Invalid base64 string length"
+            
+            # Attempt to decode base64
+            try:
+                image_data = base64.b64decode(base64_string, validate=True)
+            except Exception as e:
+                return False, f"Base64 decoding failed: {str(e)}"
+            
+            # Check decoded data size
+            if len(image_data) == 0:
+                return False, "Decoded image data is empty"
+            
+            # Check if decoded data size exceeds limit
+            max_size_bytes = max_size_mb * 1024 * 1024
+            if len(image_data) > max_size_bytes:
+                return False, f"Image size ({len(image_data)} bytes) exceeds limit ({max_size_bytes} bytes)"
+            
+            # Validate that decoded data is actually a valid image using PIL
+            try:
+                image_stream = io.BytesIO(image_data)
+                with Image.open(image_stream) as img:
+                    # Verify the image by attempting to load it
+                    img.verify()
+                    
+                    # Check if image format is supported
+                    supported_formats = {'JPEG', 'PNG', 'GIF', 'BMP', 'WEBP', 'TIFF'}
+                    if img.format not in supported_formats:
+                        return False, f"Unsupported image format: {img.format}"
+                    
+                    # Re-open for dimension checks (verify() closes the image)
+                    image_stream.seek(0)
+                    with Image.open(image_stream) as img_check:
+                        width, height = img_check.size
+                        
+                        # Check reasonable dimension limits
+                        max_dimension = 8192  # 8K resolution limit
+                        if width > max_dimension or height > max_dimension:
+                            return False, f"Image dimensions ({width}x{height}) exceed limit ({max_dimension}x{max_dimension})"
+                        
+                        # Check minimum dimensions
+                        if width < 1 or height < 1:
+                            return False, f"Invalid image dimensions: {width}x{height}"
+                        
+                        logger.debug(f"Valid image detected: {img.format}, {width}x{height}, {len(image_data)} bytes")
+                        
+            except Exception as e:
+                return False, f"Invalid image data: {str(e)}"
+            
+            return True, "Valid image"
+            
+        except Exception as e:
+            logger.error(f"Unexpected error during base64 image validation: {e}")
+            return False, f"Validation error: {str(e)}"
 
     async def _execute_browser_action(self, endpoint: str, params: dict = None, method: str = "POST") -> ToolResult:
         """Execute a browser automation action through the API
@@ -62,13 +150,24 @@ class SandboxBrowserTool(SandboxToolsBase):
 
                     if "screenshot_base64" in result:
                         try:
-                            image_url = await upload_base64_image(result["screenshot_base64"])
-                            result["image_url"] = image_url
+                            # Comprehensive validation of the base64 image data
+                            screenshot_data = result["screenshot_base64"]
+                            is_valid, validation_message = self._validate_base64_image(screenshot_data)
+                            
+                            if is_valid:
+                                logger.debug(f"Screenshot validation passed: {validation_message}")
+                                image_url = await upload_base64_image(screenshot_data)
+                                result["image_url"] = image_url
+                                logger.debug(f"Uploaded screenshot to {image_url}")
+                            else:
+                                logger.warning(f"Screenshot validation failed: {validation_message}")
+                                result["image_validation_error"] = validation_message
+                                
                             # Remove base64 data from result to keep it clean
                             del result["screenshot_base64"]
-                            logger.debug(f"Uploaded screenshot to {image_url}")
+                            
                         except Exception as e:
-                            logger.error(f"Failed to upload screenshot: {e}")
+                            logger.error(f"Failed to process screenshot: {e}")
                             result["image_upload_error"] = str(e)
 
                     added_message = await self.thread_manager.add_message(
@@ -78,10 +177,14 @@ class SandboxBrowserTool(SandboxToolsBase):
                         is_llm_message=False
                     )
 
-                    success_response = {
-                        "success": True,
-                        "message": result.get("message", "Browser action completed successfully")
-                    }
+                    success_response = {}
+
+                    if result.get("success"):
+                        success_response["success"] = result["success"]
+                        success_response["message"] = result.get("message", "Browser action completed successfully")
+                    else:
+                        success_response["success"] = False
+                        success_response["message"] = result.get("message", "Browser action failed")
 
                     if added_message and 'message_id' in added_message:
                         success_response['message_id'] = added_message['message_id']
@@ -98,7 +201,10 @@ class SandboxBrowserTool(SandboxToolsBase):
                     if result.get("image_url"):
                         success_response["image_url"] = result["image_url"]
 
-                    return self.success_response(success_response)
+                    if success_response.get("success"):
+                        return self.success_response(success_response)
+                    else:
+                        return self.fail_response(success_response)
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse response JSON: {response.result} {e}")
