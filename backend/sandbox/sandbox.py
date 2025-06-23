@@ -1,5 +1,4 @@
-from daytona_sdk import Daytona, DaytonaConfig, CreateSandboxParams, Sandbox, SessionExecuteRequest
-from daytona_api_client.models.workspace_state import WorkspaceState
+from daytona_sdk import Daytona, DaytonaConfig, CreateSandboxFromImageParams, Sandbox, SessionExecuteRequest, Resources, SandboxState
 from dotenv import load_dotenv
 from utils.logger import logger
 from utils.config import config
@@ -38,17 +37,17 @@ async def get_or_start_sandbox(sandbox_id: str):
     logger.info(f"Getting or starting sandbox with ID: {sandbox_id}")
     
     try:
-        sandbox = daytona.get_current_sandbox(sandbox_id)
+        sandbox = daytona.get(sandbox_id)
         
         # Check if sandbox needs to be started
-        if sandbox.instance.state == WorkspaceState.ARCHIVED or sandbox.instance.state == WorkspaceState.STOPPED:
-            logger.info(f"Sandbox is in {sandbox.instance.state} state. Starting...")
+        if sandbox.state == SandboxState.ARCHIVED or sandbox.state == SandboxState.STOPPED:
+            logger.info(f"Sandbox is in {sandbox.state} state. Starting...")
             try:
                 daytona.start(sandbox)
                 # Wait a moment for the sandbox to initialize
                 # sleep(5)
                 # Refresh sandbox state after starting
-                sandbox = daytona.get_current_sandbox(sandbox_id)
+                sandbox = daytona.get(sandbox_id)
                 
                 # Start supervisord in a session when restarting
                 start_supervisord_session(sandbox)
@@ -91,7 +90,7 @@ def create_sandbox(password: str, project_id: str = None):
         logger.debug(f"Using sandbox_id as label: {project_id}")
         labels = {'id': project_id}
         
-    params = CreateSandboxParams(
+    params = CreateSandboxFromImageParams(
         image=Configuration.SANDBOX_IMAGE_NAME,
         public=True,
         labels=labels,
@@ -108,12 +107,13 @@ def create_sandbox(password: str, project_id: str = None):
             "CHROME_DEBUGGING_HOST": "localhost",
             "CHROME_CDP": ""
         },
-        resources={
-            "cpu": 2,
-            "memory": 4,
-            "disk": 5,
-        },
-        auto_stop_interval=24 * 60
+        resources=Resources(
+            cpu=2,
+            memory=4,
+            disk=5,
+        ),
+        auto_stop_interval=15,
+        auto_archive_interval=24 * 60,
     )
     
     # Create the sandbox
@@ -132,14 +132,13 @@ async def delete_sandbox(sandbox_id: str):
     
     try:
         # Get the sandbox
-        sandbox = daytona.get_current_sandbox(sandbox_id)
+        sandbox = daytona.get(sandbox_id)
         
         # Delete the sandbox
-        daytona.remove(sandbox)
+        daytona.delete(sandbox)
         
         logger.info(f"Successfully deleted sandbox {sandbox_id}")
         return True
     except Exception as e:
         logger.error(f"Error deleting sandbox {sandbox_id}: {str(e)}")
         raise e
-

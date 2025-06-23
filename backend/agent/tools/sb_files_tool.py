@@ -135,7 +135,7 @@ class SandboxFilesTool(SandboxToolsBase):
                 self.sandbox.fs.create_folder(parent_dir, "755")
             
             # Write the file content
-            self.sandbox.fs.upload_file(full_path, file_contents.encode())
+            self.sandbox.fs.upload_file(file_contents.encode(), full_path)
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
             message = f"File '{file_path}' created successfully."
@@ -219,7 +219,7 @@ class SandboxFilesTool(SandboxToolsBase):
             
             # Perform replacement
             new_content = content.replace(old_str, new_str)
-            self.sandbox.fs.upload_file(full_path, new_content.encode())
+            self.sandbox.fs.upload_file(new_content.encode(), full_path)
             
             # Show snippet around the edit
             replacement_line = content.split(old_str)[0].count('\n')
@@ -294,7 +294,7 @@ class SandboxFilesTool(SandboxToolsBase):
             if not self._file_exists(full_path):
                 return self.fail_response(f"File '{file_path}' does not exist. Use create_file to create a new file.")
             
-            self.sandbox.fs.upload_file(full_path, file_contents.encode())
+            self.sandbox.fs.upload_file(file_contents.encode(), full_path)
             self.sandbox.fs.set_file_permissions(full_path, permissions)
             
             message = f"File '{file_path}' completely rewritten successfully."

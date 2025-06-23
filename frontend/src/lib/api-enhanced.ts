@@ -256,6 +256,7 @@ export const threadsApi = {
           project_id: thread.project_id,
           created_at: thread.created_at,
           updated_at: thread.updated_at,
+          metadata: thread.metadata,
         }));
 
         return { data: mappedThreads, error: null };

@@ -25,10 +25,8 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
 
   const handleEditMCP = (index: number) => {
     const mcp = configuredMCPs[index];
-    // Check if it's a custom MCP
     if (mcp.isCustom) {
       // For custom MCPs, we'll need to handle editing differently
-      // For now, just remove and re-add
       return;
     }
     setConfiguringServer({
@@ -64,7 +62,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   const handleSaveCustomMCP = (customConfig: any) => {
-    console.log('Saving custom MCP config:', customConfig);
     const mcpConfig: MCPConfigurationType = {
       name: customConfig.name,
       qualifiedName: `custom_${customConfig.type}_${Date.now()}`,

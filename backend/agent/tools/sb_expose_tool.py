@@ -1,12 +1,38 @@
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
+import asyncio
+import time
 
 class SandboxExposeTool(SandboxToolsBase):
     """Tool for exposing and retrieving preview URLs for sandbox ports."""
 
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
+
+    async def _wait_for_sandbox_services(self, timeout: int = 30) -> bool:
+        """Wait for sandbox services to be fully started before exposing ports."""
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            try:
+                # Check if supervisord is running and managing services
+                result = self.sandbox.process.exec("supervisorctl status", timeout=10)
+                
+                if result.exit_code == 0:
+                    # Check if key services are running
+                    status_output = result.output
+                    if "http_server" in status_output and "RUNNING" in status_output:
+                        return True
+                
+                # If services aren't ready, wait a bit
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                # If we can't check status, wait a bit and try again
+                await asyncio.sleep(2)
+        
+        return False
 
     @openapi_schema({
         "type": "function",
@@ -66,6 +92,21 @@ class SandboxExposeTool(SandboxToolsBase):
             # Validate port number
             if not 1 <= port <= 65535:
                 return self.fail_response(f"Invalid port number: {port}. Must be between 1 and 65535.")
+
+            # Wait for sandbox services to be ready (especially important for workflows)
+            services_ready = await self._wait_for_sandbox_services()
+            if not services_ready:
+                return self.fail_response(f"Sandbox services are not fully started yet. Please wait a moment and try again, or ensure a service is running on port {port}.")
+
+            # Check if something is actually listening on the port (for custom ports)
+            if port not in [6080, 8080, 8003]:  # Skip check for known sandbox ports
+                try:
+                    port_check = self.sandbox.process.exec(f"netstat -tlnp | grep :{port}", timeout=5)
+                    if port_check.exit_code != 0:
+                        return self.fail_response(f"No service is currently listening on port {port}. Please start a service on this port first.")
+                except Exception:
+                    # If we can't check, proceed anyway - the user might be starting a service
+                    pass
 
             # Get the preview link for the specified port
             preview_link = self.sandbox.get_preview_link(port)

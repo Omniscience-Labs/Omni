@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store } from 'lucide-react';
+import { Bot, Menu, Store, Shield, Key, Workflow } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -15,7 +15,6 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenuButton,
-  SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
@@ -49,11 +48,11 @@ export function SidebarLeft({
   });
 
   const pathname = usePathname();
-  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace']);
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace', 'workflows']);
   const customAgentsEnabled = flags.custom_agents;
   const marketplaceEnabled = flags.agent_marketplace;
+  const workflowsEnabled = flags.workflows;
 
-  // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       const supabase = createClient();
@@ -74,16 +73,11 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Handle keyboard shortcuts (CMD+B) for consistency
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
         event.preventDefault();
-        // We'll handle this in the parent page component
-        // to ensure proper coordination between panels
         setOpen(!state.startsWith('expanded'));
-
-        // Broadcast a custom event to notify other components
         window.dispatchEvent(
           new CustomEvent('sidebar-left-toggled', {
             detail: { expanded: !state.startsWith('expanded') },
@@ -148,9 +142,6 @@ export function SidebarLeft({
                   <Bot className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Agent Playground
-                    <Badge variant="new">
-                      New
-                    </Badge>
                   </span>
                 </SidebarMenuButton>
               </Link>
@@ -163,9 +154,30 @@ export function SidebarLeft({
                   <Store className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
                     Marketplace
-                    <Badge variant="new">
-                      New
-                    </Badge>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+            {customAgentsEnabled && (
+              <Link href="/settings/credentials">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/settings/credentials',
+                })}>
+                  <Key className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Credentials
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            )}
+            {workflowsEnabled && (
+              <Link href="/workflows">
+                <SidebarMenuButton className={cn({
+                  'bg-primary/10 font-medium': pathname === '/workflows',
+                })}>
+                  <Workflow className="h-4 w-4 mr-2" />
+                  <span className="flex items-center justify-between w-full">
+                    Workflows
                   </span>
                 </SidebarMenuButton>
               </Link>

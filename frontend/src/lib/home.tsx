@@ -140,7 +140,7 @@ export const siteConfig = {
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
       hours: '6 hours',
-      features: ['Suited to you needs'],
+      features: ['Suited to your needs'],
       upgradePlans: [
         {
           hours: '6 hours',
@@ -186,7 +186,7 @@ export const siteConfig = {
             width="110"
             height="31"
             viewBox="0 0 110 31"
-            fill="none"
+            fill="none" 
             xmlns="http://www.w3.org/2000/svg"
             className="dark:fill-white fill-black"
           >
@@ -1359,7 +1359,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1532153975070-2e9ab71f1b14?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://suna.so/share/bf6a819b-6af5-4ef7-b861-16e5261ceeb0',
+      url: 'https://suna.so/share/2a147a3a-3778-4624-8285-42474c8c1c9c',
     },
     {
       id: 'speaker-prospecting',
@@ -1485,7 +1485,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1552581234-26160f608093?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://suna.so/share/a01744fc-6b33-434c-9d4e-67d7e820297c',
+      url: 'https://suna.so/share/c3472df7-adc1-4d5f-9927-4f8f513ec2fe',
     },
     {
       id: 'seo-analysis',
@@ -1501,7 +1501,7 @@ export const siteConfig = {
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-        >
+        > 
           <path
             d="M4.75 11.75L10.25 6.25L14.75 10.75L19.25 6.25"
             stroke="currentColor"
@@ -1534,7 +1534,7 @@ export const siteConfig = {
       ),
       image:
         'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2400&q=80',
-      url: 'https://suna.so/share/59be8603-3225-4c15-a948-ab976e5912f6',
+      url: 'https://suna.so/share/cf756e02-fee9-4281-a0e4-76ac850f1ac9',
     },
     {
       id: 'personal-trip',

@@ -111,10 +111,15 @@ export const processThreadsWithProjects = (
       );
       continue;
     }
+    let displayName = project.name || 'Unnamed Project';
+    if (thread.metadata?.is_workflow_execution && thread.metadata?.workflow_run_name) {
+      displayName = thread.metadata.workflow_run_name;
+    }
+
     threadsWithProjects.push({
       threadId: thread.thread_id,
       projectId: projectId,
-      projectName: project.name || 'Unnamed Project',
+      projectName: displayName,
       url: `/projects/${projectId}/thread/${thread.thread_id}`,
       updatedAt:
         thread.updated_at || project.updated_at || new Date().toISOString(),

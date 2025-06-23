@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Settings2, Sparkles } from 'lucide-react';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
 import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
-import { MCPConfiguration } from './mcp-configuration';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 
 interface AgentCreateRequest {
