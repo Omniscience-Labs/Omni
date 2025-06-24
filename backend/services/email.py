@@ -153,7 +153,7 @@ class EmailService:
 
     <p>Let us know if you need help getting started or have questions — we're always here, and join our <a href="https://discord.com/invite/FjD644cfcs">Discord community</a>.</p>
 
-    <p>For your business: if you want to automate manual and ordinary tasks for your company, book a call with us here: <a href="https://cal.com/team/kortix/enterprise-demo">here</a></p>
+    <p><strong>For your business:</strong> if you want to automate manual and ordinary tasks for your company, book a call with us <a href="https://cal.com/team/kortix/enterprise-demo">here</a></p>
 
     <p>Thanks again, and welcome to the Suna community <span class="emoji">🌞</span></p>
 
