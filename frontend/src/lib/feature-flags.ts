@@ -31,7 +31,7 @@ export class FeatureFlagManager {
     }
     return FeatureFlagManager.instance;
   }
-  
+
   async isEnabled(flagName: string): Promise<boolean> {
     try {
       const cached = flagCache.get(flagName);

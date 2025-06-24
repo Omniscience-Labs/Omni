@@ -152,9 +152,7 @@ from mcp_local import secure_api as secure_mcp_api
 app.include_router(mcp_api.router, prefix="/api")
 app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
 
-
 app.include_router(transcription_api.router, prefix="/api")
-
 app.include_router(email_api.router, prefix="/api")
 
 from workflows import api as workflows_api
@@ -167,6 +165,9 @@ app.include_router(webhooks_api.router, prefix="/api")
 
 from scheduling import api as scheduling_api
 app.include_router(scheduling_api.router)
+
+from knowledge_base import api as knowledge_base_api
+app.include_router(knowledge_base_api.router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():

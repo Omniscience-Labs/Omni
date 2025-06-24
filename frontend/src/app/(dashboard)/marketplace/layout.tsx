@@ -17,9 +17,5 @@ export default async function MarketplaceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const marketplaceEnabled = await isFlagEnabled('agent_marketplace');
-  if (!marketplaceEnabled) {
-    redirect('/dashboard');
-  }
   return <>{children}</>;
 }

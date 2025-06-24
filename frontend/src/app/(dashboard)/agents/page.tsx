@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, AlertCircle, Loader2, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -16,8 +16,9 @@ import { Pagination } from './_components/pagination';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
-import { useFeatureFlags } from '@/lib/feature-flags';
+import { useFeatureFlag, useFeatureFlags } from '@/lib/feature-flags';
 import { generateRandomAvatar } from './_utils/_avatar-generator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -31,7 +32,14 @@ interface FilterOptions {
 }
 
 export default function AgentsPage() {
+  const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
   const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !customAgentsEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, customAgentsEnabled, router]);
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -181,6 +189,39 @@ export default function AgentsPage() {
       console.error('Error creating agent:', error);
     }
   };
+
+  if (flagLoading) {
+    return (
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Your Agents
+            </h1>
+            <p className="text-md text-muted-foreground max-w-2xl">
+              Create and manage your AI agents with custom instructions and tools
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!customAgentsEnabled) {
+    return null;
+  }
 
   if (error) {
     return (

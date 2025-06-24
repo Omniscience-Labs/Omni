@@ -23,8 +23,17 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useFeatureFlag } from "@/lib/feature-flags";
 
 export default function WorkflowsPage() {
+  const { enabled: workflowsEnabled, loading: flagLoading } = useFeatureFlag("workflows");
+  const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !workflowsEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, workflowsEnabled, router]);
+
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +45,6 @@ export default function WorkflowsPage() {
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set());
   const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set());
   const [togglingWorkflows, setTogglingWorkflows] = useState<Set<string>>(new Set());
-  const router = useRouter();
 
   const { state, setOpen, setOpenMobile } = useSidebar();
   const updateWorkflowStatusMutation = useUpdateWorkflowStatus();
@@ -64,7 +72,6 @@ export default function WorkflowsPage() {
         setLoading(false);
       }
     };
-
     loadData();
   }, []);
 
@@ -73,7 +80,6 @@ export default function WorkflowsPage() {
       toast.error("No project selected");
       return;
     }
-
     try {
       setExecutingWorkflows(prev => new Set(prev).add(workflowId));
       const result = await executeWorkflow(workflowId);
@@ -273,10 +279,40 @@ export default function WorkflowsPage() {
         return "#8b5cf6";
     }
   };
+  if (flagLoading) {
+    return (
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold">Workflows</h1>
+            <p className="text-muted-foreground">
+              Create and manage automated agent workflows
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!workflowsEnabled) {
+    return null;
+  }
 
   if (loading) {
     return (
-      <div className="h-screen max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold">Workflows</h1>

@@ -17,9 +17,5 @@ export default async function WorkflowsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const workflowsEnabled = await isFlagEnabled('workflows');
-  if (!workflowsEnabled) {
-    redirect('/dashboard');
-  }
   return <>{children}</>;
 }
