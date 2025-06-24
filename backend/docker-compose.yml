@@ -1,6 +1,7 @@
 services:
   api:
     image: ghcr.io/suna-ai/suna-backend:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
@@ -40,6 +41,8 @@ services:
       start_period: 40s
 
   worker:
+    image: ghcr.io/suna-ai/suna-backend:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
