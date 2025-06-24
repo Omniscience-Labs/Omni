@@ -49,11 +49,9 @@ import {
   useCreateKnowledgeBaseEntry,
   useUpdateKnowledgeBaseEntry,
   useDeleteKnowledgeBaseEntry,
-  type KnowledgeBaseEntry,
-  type CreateKnowledgeBaseEntryRequest,
-  type UpdateKnowledgeBaseEntryRequest
 } from '@/hooks/react-query/knowledge-base/use-knowledge-base-queries';
 import { cn } from '@/lib/utils';
+import { CreateKnowledgeBaseEntryRequest, KnowledgeBaseEntry, UpdateKnowledgeBaseEntryRequest } from '@/hooks/react-query/knowledge-base/types';
 
 interface KnowledgeBaseManagerProps {
   threadId: string;

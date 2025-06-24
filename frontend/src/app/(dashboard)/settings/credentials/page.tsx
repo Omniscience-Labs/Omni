@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Plus, 
   Key, 
   Shield, 
   Trash2, 
-  CheckCircle, 
   Loader2, 
   AlertTriangle, 
   Star, 
@@ -35,6 +34,8 @@ import {
 } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { EnhancedAddCredentialDialog } from './_components/enhanced-add-credential-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
+import { useFeatureFlag } from '@/lib/feature-flags';
 
 interface CredentialProfileCardProps {
   profile: CredentialProfile;
@@ -219,6 +220,15 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
 };
 
 export default function CredentialsPage() {
+  const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
+  const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !customAgentsEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, customAgentsEnabled, router]);
+
+  
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
@@ -278,6 +288,40 @@ export default function CredentialsPage() {
     acc[key].profiles.push(profile);
     return acc;
   }, {} as Record<string, { serverName: string; qualifiedName: string; profiles: CredentialProfile[] }>);
+
+  if (flagLoading) {
+    return (
+      <div className="h-screen max-w-7xl mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">MCP Credential Profiles</h1>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!customAgentsEnabled) {
+    return null;
+  }
 
   if (error) {
     return (

@@ -1,49 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { knowledgeBaseKeys } from './keys';
+import { CreateKnowledgeBaseEntryRequest, KnowledgeBaseEntry, KnowledgeBaseListResponse, UpdateKnowledgeBaseEntryRequest } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
-
-export interface KnowledgeBaseEntry {
-  entry_id: string;
-  name: string;
-  description?: string;
-  content: string;
-  usage_context: 'always' | 'on_request' | 'contextual';
-  is_active: boolean;
-  content_tokens?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KnowledgeBaseListResponse {
-  entries: KnowledgeBaseEntry[];
-  total_count: number;
-  total_tokens: number;
-}
-
-export interface CreateKnowledgeBaseEntryRequest {
-  name: string;
-  description?: string;
-  content: string;
-  usage_context?: 'always' | 'on_request' | 'contextual';
-}
-
-export interface UpdateKnowledgeBaseEntryRequest {
-  name?: string;
-  description?: string;
-  content?: string;
-  usage_context?: 'always' | 'on_request' | 'contextual';
-  is_active?: boolean;
-}
-
-export const knowledgeBaseKeys = {
-  all: ['knowledge-base'] as const,
-  threads: () => [...knowledgeBaseKeys.all, 'threads'] as const,
-  thread: (threadId: string) => [...knowledgeBaseKeys.threads(), threadId] as const,
-  entry: (entryId: string) => [...knowledgeBaseKeys.all, 'entry', entryId] as const,
-  context: (threadId: string) => [...knowledgeBaseKeys.all, 'context', threadId] as const,
-};
 
 const useAuthHeaders = () => {
   const getHeaders = async () => {

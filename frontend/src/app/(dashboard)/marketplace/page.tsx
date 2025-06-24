@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ import {
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { createClient } from '@/lib/supabase/client';
+import { useFeatureFlag } from '@/lib/feature-flags';
+import { useRouter } from 'next/navigation';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
@@ -516,6 +518,14 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
 };
 
 export default function MarketplacePage() {
+  const { enabled: agentMarketplaceEnabled, loading: flagLoading } = useFeatureFlag("agent_marketplace");
+  const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !agentMarketplaceEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, agentMarketplaceEnabled, router]);
+
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -653,6 +663,40 @@ export default function MarketplacePage() {
     });
     return Array.from(tags);
   }, [marketplaceItems]);
+
+  if (flagLoading) {
+    return (
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Agent Marketplace
+            </h1>
+            <p className="text-md text-muted-foreground max-w-2xl">
+              Discover and install secure AI agent templates created by the community
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!agentMarketplaceEnabled) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
