@@ -11,7 +11,7 @@ from agent.tools.sb_expose_tool import SandboxExposeTool
 from agent.tools.web_search_tool import SandboxWebSearchTool
 from dotenv import load_dotenv
 from utils.config import config
-
+from flags.flags import is_enabled
 from agent.agent_builder_prompt import get_agent_builder_prompt
 from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
@@ -222,7 +222,27 @@ async def run_agent(
         system_content = default_system_content
         logger.info("Using default system prompt only")
     
-    # Add MCP tool information to system prompt if MCP tools are configured
+    if await is_enabled("knowledge_base"):
+        try:
+            from services.supabase import DBConnection
+            kb_db = DBConnection()
+            kb_client = await kb_db.client
+            
+            kb_result = await kb_client.rpc('get_knowledge_base_context', {
+                'p_thread_id': thread_id,
+                'p_max_tokens': 4000
+            }).execute()
+            
+            if kb_result.data and kb_result.data.strip():
+                logger.info(f"Adding knowledge base context to system prompt for thread {thread_id}")
+                system_content += "Here is the user's knowledge base context for this thread:\n\n" + kb_result.data
+            else:
+                logger.debug(f"No knowledge base context found for thread {thread_id}")
+                
+        except Exception as e:
+            logger.error(f"Error retrieving knowledge base context for thread {thread_id}: {e}")
+
+
     if agent_config and (agent_config.get('configured_mcps') or agent_config.get('custom_mcps')) and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
         mcp_info = "\n\n--- MCP Tools Available ---\n"
         mcp_info += "You have access to external MCP (Model Context Protocol) server tools.\n"
