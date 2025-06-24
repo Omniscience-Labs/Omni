@@ -20,6 +20,7 @@ import {
   EyeOff,
   Globe,
   Search,
+  Loader2,
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -280,7 +281,7 @@ export const KnowledgeBaseManager = ({ threadId }: KnowledgeBaseManagerProps) =>
                   <div
                     key={entry.entry_id}
                     className={cn(
-                      "group border rounded-lg p-4 transition-all hover:shadow-sm",
+                      "group border rounded-lg p-4 transition-all",
                       entry.is_active 
                         ? "border-border bg-card hover:border-border/80" 
                         : "border-border/50 bg-muted/30 opacity-70"
@@ -475,7 +476,7 @@ export const KnowledgeBaseManager = ({ threadId }: KnowledgeBaseManagerProps) =>
                   className="gap-2"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
@@ -505,7 +506,7 @@ export const KnowledgeBaseManager = ({ threadId }: KnowledgeBaseManagerProps) =>
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
