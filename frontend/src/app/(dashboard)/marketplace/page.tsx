@@ -772,7 +772,7 @@ export default function MarketplacePage() {
           {isLoading ? (
             "Loading marketplace..."
           ) : (
-            `${marketplaceItems.length} secure template${marketplaceItems.length !== 1 ? 's' : ''} found`
+            `${marketplaceItems.length} template${marketplaceItems.length !== 1 ? 's' : ''} found`
           )}
         </div>
 
@@ -797,7 +797,7 @@ export default function MarketplacePage() {
             <p className="text-muted-foreground">
               {searchQuery || selectedTags.length > 0
                 ? "No templates found matching your criteria. Try adjusting your search or filters."
-                : "No secure agent templates are currently available in the marketplace."}
+                : "No agent templates are currently available in the marketplace."}
             </p>
           </div>
         ) : (
