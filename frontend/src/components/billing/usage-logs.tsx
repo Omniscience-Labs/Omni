@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   Card,
@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { isLocalMode } from '@/lib/config';
+import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
 
 interface UsageLogEntry {
   message_id: string;
@@ -41,7 +42,7 @@ interface UsageLogEntry {
     model: string;
   };
   total_tokens: number;
-  estimated_cost: number;
+  estimated_cost: number | string;
   project_id: string;
 }
 
@@ -65,45 +66,137 @@ export default function UsageLogs({ accountId }: Props) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [modelPricing, setModelPricing] = useState<
-    Record<string, { input: number; output: number }>
-  >({});
+
+  // Use React Query hook instead of manual fetching
+  const {
+    data: modelsData,
+    isLoading: isLoadingModels,
+    error: modelsError,
+  } = useAvailableModels();
 
   const ITEMS_PER_PAGE = 1000;
 
-  const fetchModelPricing = async () => {
-    try {
-      const response = await fetch('/api/billing/available-models');
-      if (!response.ok) throw new Error('Failed to fetch model pricing');
+  // Helper function to normalize model names for better matching
+  const normalizeModelName = (name: string): string => {
+    return name
+      .toLowerCase()
+      .replace(/[-_.]/g, '') // Remove hyphens, underscores, dots
+      .replace(/\s+/g, '') // Remove spaces
+      .replace(/latest$/, '') // Remove 'latest' suffix
+      .replace(/preview$/, '') // Remove 'preview' suffix
+      .replace(/\d{8}$/, ''); // Remove date suffixes like 20250514
+  };
 
-      const data = await response.json();
-      const pricing: Record<string, { input: number; output: number }> = {};
+  // Helper function to find matching pricing for a model
+  const findModelPricing = (
+    modelName: string,
+    pricingData: Record<string, { input: number; output: number }>,
+  ) => {
+    // Direct match first
+    if (pricingData[modelName]) {
+      return pricingData[modelName];
+    }
 
-      data.models.forEach((model: any) => {
-        if (
-          model.input_cost_per_million_tokens &&
-          model.output_cost_per_million_tokens
-        ) {
-          pricing[model.id] = {
+    // Try normalized matching
+    const normalizedTarget = normalizeModelName(modelName);
+
+    for (const [pricingKey, pricingValue] of Object.entries(pricingData)) {
+      const normalizedKey = normalizeModelName(pricingKey);
+
+      // Exact normalized match
+      if (normalizedKey === normalizedTarget) {
+        return pricingValue;
+      }
+
+      // Partial matches - check if one contains the other
+      if (
+        normalizedKey.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedKey)
+      ) {
+        return pricingValue;
+      }
+
+      // Try matching without provider prefix from pricing key
+      const keyWithoutProvider = pricingKey.replace(/^[^\/]+\//, '');
+      const normalizedKeyWithoutProvider =
+        normalizeModelName(keyWithoutProvider);
+
+      if (
+        normalizedKeyWithoutProvider === normalizedTarget ||
+        normalizedKeyWithoutProvider.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedKeyWithoutProvider)
+      ) {
+        return pricingValue;
+      }
+
+      // Try matching the end part of the pricing key with the model name
+      const pricingKeyParts = pricingKey.split('/');
+      const lastPart = pricingKeyParts[pricingKeyParts.length - 1];
+      const normalizedLastPart = normalizeModelName(lastPart);
+
+      if (
+        normalizedLastPart === normalizedTarget ||
+        normalizedLastPart.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedLastPart)
+      ) {
+        return pricingValue;
+      }
+    }
+
+    console.log(`No pricing match found for: "${modelName}"`);
+    return null;
+  };
+
+  // Create pricing lookup from models data
+  const modelPricing = useMemo(() => {
+    if (!modelsData?.models) {
+      return {};
+    }
+
+    const pricing: Record<string, { input: number; output: number }> = {};
+    modelsData.models.forEach((model) => {
+      if (
+        model.input_cost_per_million_tokens &&
+        model.output_cost_per_million_tokens
+      ) {
+        // Use the model.id as the key, which should match the model names in usage logs
+        pricing[model.id] = {
+          input: model.input_cost_per_million_tokens,
+          output: model.output_cost_per_million_tokens,
+        };
+
+        // Also try to match by display_name and short_name if they exist
+        if (model.display_name && model.display_name !== model.id) {
+          pricing[model.display_name] = {
             input: model.input_cost_per_million_tokens,
             output: model.output_cost_per_million_tokens,
           };
         }
-      });
 
-      setModelPricing(pricing);
-    } catch (error) {
-      console.error('Error fetching model pricing:', error);
-    }
-  };
+        if (model.short_name && model.short_name !== model.id) {
+          pricing[model.short_name] = {
+            input: model.input_cost_per_million_tokens,
+            output: model.output_cost_per_million_tokens,
+          };
+        }
+      }
+    });
+
+    console.log(
+      'Pricing lookup ready with',
+      Object.keys(pricing).length,
+      'entries',
+    );
+    return pricing;
+  }, [modelsData, isLoadingModels, modelsError]);
 
   const calculateTokenCost = (
     promptTokens: number,
     completionTokens: number,
     model: string,
-  ): number => {
-    // Use fetched pricing data from available-models API
-    const costs = modelPricing[model];
+  ): number | string => {
+    // Use the more lenient matching function
+    const costs = findModelPricing(model, modelPricing);
 
     if (costs) {
       // Convert from per-million to per-token costs
@@ -113,9 +206,8 @@ export default function UsageLogs({ accountId }: Props) {
       );
     }
 
-    // Fallback to a reasonable average if no pricing data available
-    const fallbackCost = 0.002; // per 1K tokens
-    return ((promptTokens + completionTokens) / 1000) * fallbackCost;
+    // Return "unknown" instead of fallback cost
+    return 'unknown';
   };
 
   const fetchUsageLogs = async (
@@ -211,9 +303,11 @@ export default function UsageLogs({ accountId }: Props) {
   };
 
   useEffect(() => {
-    fetchModelPricing();
-    fetchUsageLogs(0, false);
-  }, [accountId]);
+    // Only fetch usage logs after models data is loaded
+    if (!isLoadingModels && modelsData) {
+      fetchUsageLogs(0, false);
+    }
+  }, [accountId, isLoadingModels, modelsData]);
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -225,7 +319,10 @@ export default function UsageLogs({ accountId }: Props) {
     return new Date(dateString).toLocaleString();
   };
 
-  const formatCost = (cost: number) => {
+  const formatCost = (cost: number | string) => {
+    if (typeof cost === 'string') {
+      return cost;
+    }
     return `$${cost.toFixed(4)}`;
   };
 
@@ -263,7 +360,8 @@ export default function UsageLogs({ accountId }: Props) {
 
         acc[date].logs.push(log);
         acc[date].totalTokens += log.total_tokens;
-        acc[date].totalCost += log.estimated_cost;
+        acc[date].totalCost +=
+          typeof log.estimated_cost === 'number' ? log.estimated_cost : 0;
         acc[date].requestCount += 1;
 
         if (!acc[date].models.includes(log.content.model)) {
@@ -297,7 +395,7 @@ export default function UsageLogs({ accountId }: Props) {
     );
   }
 
-  if (loading) {
+  if (loading || isLoadingModels) {
     return (
       <Card>
         <CardHeader>
@@ -315,7 +413,7 @@ export default function UsageLogs({ accountId }: Props) {
     );
   }
 
-  if (error) {
+  if (error || modelsError) {
     return (
       <Card>
         <CardHeader>
@@ -323,7 +421,13 @@ export default function UsageLogs({ accountId }: Props) {
         </CardHeader>
         <CardContent>
           <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-sm text-destructive">Error: {error}</p>
+            <p className="text-sm text-destructive">
+              Error:{' '}
+              {error ||
+                (modelsError instanceof Error
+                  ? modelsError.message
+                  : 'Failed to load data')}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -332,7 +436,8 @@ export default function UsageLogs({ accountId }: Props) {
 
   const dailyUsage = groupLogsByDate(usageLogs);
   const totalUsage = usageLogs.reduce(
-    (sum, log) => sum + log.estimated_cost,
+    (sum, log) =>
+      sum + (typeof log.estimated_cost === 'number' ? log.estimated_cost : 0),
     0,
   );
 
