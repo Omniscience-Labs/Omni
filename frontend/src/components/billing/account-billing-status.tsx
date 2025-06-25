@@ -120,14 +120,23 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Plans Comparison */}
           <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
 
-          {/* Manage Subscription Button */}
-          <Button
-            onClick={handleManageSubscription}
-            disabled={isManaging}
-            className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-          >
-            {isManaging ? 'Loading...' : 'Manage Subscription'}
-          </Button>
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open('/model-pricing', '_blank')}
+              variant="outline"
+              className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
+            >
+              View Model Pricing
+            </Button>
+            <Button
+              onClick={handleManageSubscription}
+              disabled={isManaging}
+              className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+            >
+              {isManaging ? 'Loading...' : 'Manage Subscription'}
+            </Button>
+          </div>
         </>
       ) : (
         <>
@@ -157,14 +166,23 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Plans Comparison */}
           <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
 
-          {/* Manage Subscription Button */}
-          <Button
-            onClick={handleManageSubscription}
-            disabled={isManaging}
-            className="w-full bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-          >
-            {isManaging ? 'Loading...' : 'Manage Subscription'}
-          </Button>
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open('/models', '_blank')}
+              variant="outline"
+              className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
+            >
+              View Model Pricing
+            </Button>
+            <Button
+              onClick={handleManageSubscription}
+              disabled={isManaging}
+              className="w-full bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+            >
+              {isManaging ? 'Loading...' : 'Manage Subscription'}
+            </Button>
+          </div>
         </>
       )}
     </div>

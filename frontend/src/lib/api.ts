@@ -1616,6 +1616,10 @@ export interface Model {
   display_name: string;
   short_name?: string;
   requires_subscription?: boolean;
+  is_available?: boolean;
+  input_cost_per_million_tokens?: number | null;
+  output_cost_per_million_tokens?: number | null;
+  max_tokens?: number | null;
 }
 
 export interface AvailableModelsResponse {
@@ -2504,3 +2508,5 @@ export const cancelExecution = async (executionId: string): Promise<void> => {
     throw error;
   }
 };
+
+

@@ -14,7 +14,7 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
-from litellm import cost_per_token
+from litellm import cost_per_token, model_cost
 import time
 
 # Initialize Stripe
@@ -957,12 +957,80 @@ async def get_available_models(
             # Check if model is available with current subscription
             is_available = model in allowed_models
             
+            # Get pricing information from litellm using cost_per_token
+            pricing_info = {}
+            try:
+                # Try to get pricing using cost_per_token function
+                models_to_try = []
+                
+                # Add the original model name
+                models_to_try.append(model)
+                
+                # Try to resolve the model name using MODEL_NAME_ALIASES
+                if model in MODEL_NAME_ALIASES:
+                    resolved_model = MODEL_NAME_ALIASES[model]
+                    models_to_try.append(resolved_model)
+                    # Also try without provider prefix if it has one
+                    if '/' in resolved_model:
+                        models_to_try.append(resolved_model.split('/', 1)[1])
+                
+                # If model is a value in aliases, try to find a matching key
+                for alias_key, alias_value in MODEL_NAME_ALIASES.items():
+                    if alias_value == model:
+                        models_to_try.append(alias_key)
+                        break
+                
+                # Also try without provider prefix for the original model
+                if '/' in model:
+                    models_to_try.append(model.split('/', 1)[1])
+                
+                # Special handling for Google models accessed via OpenRouter
+                if model.startswith('openrouter/google/'):
+                    google_model_name = model.replace('openrouter/', '')
+                    models_to_try.append(google_model_name)
+                
+                # Try each model name variation until we find one that works
+                input_cost_per_token = None
+                output_cost_per_token = None
+                
+                for model_name in models_to_try:
+                    try:
+                        # Use cost_per_token with sample token counts to get the per-token costs
+                        input_cost, output_cost = cost_per_token(model_name, 1000000, 1000000)
+                        if input_cost is not None and output_cost is not None:
+                            input_cost_per_token = input_cost
+                            output_cost_per_token = output_cost
+                            break
+                    except Exception:
+                        continue
+                
+                if input_cost_per_token is not None and output_cost_per_token is not None:
+                    pricing_info = {
+                        "input_cost_per_million_tokens": round(input_cost_per_token * 2, 2),
+                        "output_cost_per_million_tokens": round(output_cost_per_token * 2, 2),
+                        "max_tokens": None  # cost_per_token doesn't provide max_tokens info
+                    }
+                else:
+                    pricing_info = {
+                        "input_cost_per_million_tokens": None,
+                        "output_cost_per_million_tokens": None,
+                        "max_tokens": None
+                    }
+            except Exception as e:
+                logger.warning(f"Could not get pricing for model {model}: {str(e)}")
+                pricing_info = {
+                    "input_cost_per_million_tokens": None,
+                    "output_cost_per_million_tokens": None,
+                    "max_tokens": None
+                }
+
             model_info.append({
                 "id": model,
                 "display_name": display_name,
                 "short_name": model_aliases.get(model),
                 "requires_subscription": requires_sub,
-                "is_available": is_available
+                "is_available": is_available,
+                **pricing_info
             })
         
         return {
