@@ -25,7 +25,7 @@ import { useAccounts } from '@/hooks/use-accounts';
 import { config } from '@/lib/config';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
-import { AgentSelector } from '@/components/dashboard/agent-selector';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
 import { Examples } from './suggestions/examples';
@@ -51,6 +51,20 @@ export function DashboardContent() {
   const chatInputRef = useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const { onOpen } = useModal();
+
+  // Fetch agents to get the selected agent's name
+  const { data: agentsResponse } = useAgents({
+    limit: 100,
+    sort_by: 'name',
+    sort_order: 'asc'
+  });
+
+  const agents = agentsResponse?.agents || [];
+  const selectedAgent = selectedAgentId 
+    ? agents.find(agent => agent.agent_id === selectedAgentId)
+    : null;
+  const displayName = selectedAgent?.name || 'Suna';
+  const agentAvatar = selectedAgent?.avatar;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
@@ -189,24 +203,25 @@ export function DashboardContent() {
             </Tooltip>
           </div>
         )}
-
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[650px] max-w-[90%]">
           <div className="flex flex-col items-center text-center w-full">
             <div className="flex items-center gap-1">
               <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
                 Hey, I am
               </h1>
-              <AgentSelector
-                selectedAgentId={selectedAgentId}
-                onAgentSelect={setSelectedAgentId}
-                variant="heading"
-              />
+              <h1 className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+                {displayName}
+                {agentAvatar && (
+                  <span className="text-muted-foreground ml-2">
+                    {agentAvatar}
+                  </span>
+                )}
+              </h1>
             </div>
             <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">
               What would you like to do today?
             </p>
           </div>
-
           <div className={cn(
             "w-full mb-2",
             "max-w-full",
@@ -220,12 +235,12 @@ export function DashboardContent() {
               value={inputValue}
               onChange={setInputValue}
               hideAttachments={false}
+              selectedAgentId={selectedAgentId}
+              onAgentSelect={setSelectedAgentId}
             />
           </div>
-
           <Examples onSelectPrompt={setInputValue} />
         </div>
-
         <BillingErrorAlert
           message={billingError?.message}
           currentUsage={billingError?.currentUsage}

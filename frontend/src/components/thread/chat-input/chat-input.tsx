@@ -288,6 +288,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
+
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={onAgentSelect}
               />
             </CardContent>
           </div>

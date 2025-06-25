@@ -28,7 +28,7 @@ import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_type
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
-import { useAgent } from '@/hooks/react-query/agents/use-agents';
+import { useThreadAgent } from '@/hooks/react-query/agents/use-agents';
 
 export default function ThreadPage({
   params,
@@ -124,7 +124,8 @@ export default function ThreadPage({
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
-  const { data: agent } = useAgent(threadQuery.data?.agent_id);
+  const { data: threadAgentData } = useThreadAgent(threadId);
+  const agent = threadAgentData?.agent;
   const workflowId = threadQuery.data?.metadata?.workflow_id;
 
   const { data: subscriptionData } = useSubscription();
