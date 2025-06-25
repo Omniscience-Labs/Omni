@@ -24,7 +24,9 @@ export default function Home() {
           {/* <FeatureSection /> */}
           {/* <GrowthSection /> */}
           <OpenSourceSection />
-          <PricingSection />
+          <div className='flex flex-col items-center px-4'>
+            <PricingSection />
+          </div>
           {/* <TestimonialSection /> */}
           {/* <FAQSection /> */}
           <CTASection />
