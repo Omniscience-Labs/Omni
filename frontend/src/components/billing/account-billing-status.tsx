@@ -141,8 +141,9 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           </div>
 
           {/* Plans Comparison */}
-          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
+          <div className="mt-20"></div>
           {/* Manage Subscription Button */}
           <Button
             onClick={handleManageSubscription}
@@ -178,7 +179,7 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           </div>
 
           {/* Plans Comparison */}
-          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
           {/* Manage Subscription Button */}
           <Button
