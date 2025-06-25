@@ -81,10 +81,7 @@ CREATE POLICY agent_versions_select_policy ON agent_versions
         EXISTS (
             SELECT 1 FROM agents
             WHERE agents.agent_id = agent_versions.agent_id
-            AND (
-                agents.is_public = TRUE OR
-                basejump.has_role_on_account(agents.account_id)
-            )
+            AND basejump.has_role_on_account(agents.account_id)
         )
     );
 
@@ -174,7 +171,7 @@ BEGIN
             'v1',
             v_agent.system_prompt,
             v_agent.configured_mcps,
-            v_agent.custom_mcps,
+            '[]'::jsonb, -- agents table doesn't have custom_mcps column
             v_agent.agentpress_tools,
             TRUE,
             v_agent.account_id
