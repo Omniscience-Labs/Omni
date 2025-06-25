@@ -30,6 +30,7 @@ export const Highlight = ({
 export const BLUR_FADE_DELAY = 0.15;
 
 interface UpgradePlan {
+  /** @deprecated */
   hours: string;
   price: string;
   stripePriceId: string;
@@ -42,6 +43,7 @@ export interface PricingTier {
   buttonText: string;
   buttonColor: string;
   isPopular: boolean;
+  /** @deprecated */
   hours: string;
   features: string[];
   stripePriceId: string;
@@ -111,8 +113,13 @@ export const siteConfig = {
       buttonText: 'Try Free',
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
+      /** @deprecated */
       hours: '60 min',
-      features: ['Public Projects', 'Basic Model (Limited capabilities)'],
+      features: [
+        '$5 of usage',
+        'Public Projects',
+        'Basic Model (Limited capabilities)',
+      ],
       stripePriceId: config.SUBSCRIPTION_TIERS.FREE.priceId,
       upgradePlans: [],
     },
@@ -123,9 +130,10 @@ export const siteConfig = {
       buttonText: 'Try Free',
       buttonColor: 'bg-primary text-white dark:text-black',
       isPopular: true,
+      /** @deprecated */
       hours: '2 hours',
       features: [
-        '2 hours',
+        '$20 of usage',
         'Private projects',
         'Access to intelligent Model (Full Suna)',
       ],
@@ -139,35 +147,42 @@ export const siteConfig = {
       buttonText: 'Try Free',
       buttonColor: 'bg-secondary text-white',
       isPopular: false,
+      /** @deprecated */
       hours: '6 hours',
       features: ['Suited to your needs'],
       upgradePlans: [
         {
+          /** @deprecated */
           hours: '6 hours',
           price: '$50',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_6_50.priceId,
         },
         {
+          /** @deprecated */
           hours: '12 hours',
           price: '$100',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_12_100.priceId,
         },
         {
+          /** @deprecated */
           hours: '25 hours',
           price: '$200',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_25_200.priceId,
         },
         {
+          /** @deprecated */
           hours: '50 hours',
           price: '$400',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_50_400.priceId,
         },
         {
+          /** @deprecated */
           hours: '125 hours',
           price: '$800',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_125_800.priceId,
         },
         {
+          /** @deprecated */
           hours: '200 hours',
           price: '$1000',
           stripePriceId: config.SUBSCRIPTION_TIERS.TIER_200_1000.priceId,
@@ -186,7 +201,7 @@ export const siteConfig = {
             width="110"
             height="31"
             viewBox="0 0 110 31"
-            fill="none" 
+            fill="none"
             xmlns="http://www.w3.org/2000/svg"
             className="dark:fill-white fill-black"
           >
@@ -1501,7 +1516,7 @@ export const siteConfig = {
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-        > 
+        >
           <path
             d="M4.75 11.75L10.25 6.25L14.75 10.75L19.25 6.25"
             stroke="currentColor"

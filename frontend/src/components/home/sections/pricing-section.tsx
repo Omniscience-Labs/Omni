@@ -17,16 +17,16 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import {
-  getSubscription,
   createCheckoutSession,
   SubscriptionStatus,
   CreateCheckoutSessionResponse,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { isLocalMode } from '@/lib/config';
+import { useSubscription } from '@/hooks/react-query';
 
 // Constants
-const DEFAULT_SELECTED_PLAN = '6 hours';
+const DEFAULT_SELECTED_PLAN = '$50';
 export const SUBSCRIPTION_PLANS = {
   FREE: 'free',
   PRO: 'base',
@@ -190,7 +190,7 @@ function PricingTier({
         (plan) => plan.stripePriceId === currentSubscription.price_id,
       );
       if (matchingPlan) {
-        setLocalSelectedPlan(matchingPlan.hours);
+        setLocalSelectedPlan(matchingPlan.price);
       }
       hasInitialized.current = true;
     }
@@ -219,7 +219,7 @@ function PricingTier({
       let finalPriceId = planStripePriceId;
       if (tier.name === 'Custom' && tier.upgradePlans) {
         const selectedPlan = tier.upgradePlans.find(
-          (plan) => plan.hours === localSelectedPlan,
+          (plan) => plan.price === localSelectedPlan,
         );
         if (selectedPlan?.stripePriceId) {
           finalPriceId = selectedPlan.stripePriceId;
@@ -297,11 +297,11 @@ function PricingTier({
 
   const getPriceValue = (
     tier: (typeof siteConfig.cloudPricingItems)[0],
-    selectedHours?: string,
+    selectedPrice?: string,
   ): string => {
-    if (tier.upgradePlans && selectedHours) {
+    if (tier.upgradePlans && selectedPrice) {
       const plan = tier.upgradePlans.find(
-        (plan) => plan.hours === selectedHours,
+        (plan) => plan.price === selectedPrice,
       );
       if (plan) {
         return plan.price;
@@ -310,21 +310,12 @@ function PricingTier({
     return tier.price;
   };
 
-  const getDisplayedHours = (
-    tier: (typeof siteConfig.cloudPricingItems)[0],
-  ) => {
-    if (tier.name === 'Custom' && localSelectedPlan) {
-      return localSelectedPlan;
-    }
-    return tier.hours;
-  };
-
   const getSelectedPlanPriceId = (
     tier: (typeof siteConfig.cloudPricingItems)[0],
   ): string => {
     if (tier.name === 'Custom' && tier.upgradePlans) {
       const selectedPlan = tier.upgradePlans.find(
-        (plan) => plan.hours === localSelectedPlan,
+        (plan) => plan.price === localSelectedPlan,
       );
       return selectedPlan?.stripePriceId || tier.stripePriceId;
     }
@@ -336,7 +327,7 @@ function PricingTier({
   ): string => {
     if (tier.name === 'Custom' && tier.upgradePlans) {
       const selectedPlan = tier.upgradePlans.find(
-        (plan) => plan.hours === localSelectedPlan,
+        (plan) => plan.price === localSelectedPlan,
       );
       return selectedPlan?.price || tier.price;
     }
@@ -350,7 +341,7 @@ function PricingTier({
     (tier.name === 'Custom'
       ? tier.upgradePlans?.some(
           (plan) =>
-            plan.hours === localSelectedPlan &&
+            plan.price === localSelectedPlan &&
             plan.stripePriceId === currentSubscription?.price_id,
         )
       : currentSubscription?.price_id === tierPriceId);
@@ -361,7 +352,7 @@ function PricingTier({
     (tier.name === 'Custom'
       ? tier.upgradePlans?.some(
           (plan) =>
-            plan.hours === localSelectedPlan &&
+            plan.price === localSelectedPlan &&
             plan.stripePriceId === currentSubscription?.scheduled_price_id,
         )
       : currentSubscription?.scheduled_price_id === tierPriceId);
@@ -542,15 +533,15 @@ function PricingTier({
               <SelectContent>
                 {tier.upgradePlans.map((plan) => (
                   <SelectItem
-                    key={plan.hours}
-                    value={plan.hours}
+                    key={plan.price}
+                    value={plan.price}
                     className={
-                      localSelectedPlan === plan.hours
+                      localSelectedPlan === plan.price
                         ? 'font-medium bg-primary/5'
                         : ''
                     }
                   >
-                    {plan.hours} - {plan.price}
+                    {plan.price}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -561,7 +552,7 @@ function PricingTier({
           </div>
         ) : (
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 border-primary/20 text-primary w-fit">
-            {getDisplayedHours(tier)}/month
+            {tier.price}/month
           </div>
         )}
       </div>
@@ -616,42 +607,23 @@ export function PricingSection({
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
   );
-  const [currentSubscription, setCurrentSubscription] =
-    useState<SubscriptionStatus | null>(null);
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [isFetchingPlan, setIsFetchingPlan] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [planLoadingStates, setPlanLoadingStates] = useState<Record<string, boolean>>({});
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError } = useSubscription();
 
-  const fetchCurrentPlan = async () => {
-    setIsFetchingPlan(true);
-    try {
-      const subscriptionData = await getSubscription();
-      console.log('Fetched Subscription Status:', subscriptionData);
-      setCurrentSubscription(subscriptionData);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      setCurrentSubscription(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsFetchingPlan(false);
-    }
-  };
+  // Derive authentication and subscription status from the hook data
+  const isAuthenticated = !!subscriptionData && subscriptionQueryError === null;
+  const currentSubscription = subscriptionData || null;
 
   const handlePlanSelect = (planId: string) => {
-    setIsLoading((prev) => ({ ...prev, [planId]: true }));
+    setPlanLoadingStates((prev) => ({ ...prev, [planId]: true }));
   };
 
   const handleSubscriptionUpdate = () => {
-    fetchCurrentPlan();
+    // The useSubscription hook will automatically refetch, so we just need to clear loading states
     setTimeout(() => {
-      setIsLoading({});
+      setPlanLoadingStates({});
     }, 1000);
   };
-
-  useEffect(() => {
-    fetchCurrentPlan();
-  }, []);
 
   const handleTabChange = (tab: 'cloud' | 'self-hosted') => {
     if (tab === 'self-hosted') {
@@ -724,7 +696,7 @@ export function PricingSection({
               key={tier.name}
               tier={tier}
               currentSubscription={currentSubscription}
-              isLoading={isLoading}
+              isLoading={planLoadingStates}
               isFetchingPlan={isFetchingPlan}
               onPlanSelect={handlePlanSelect}
               onSubscriptionUpdate={handleSubscriptionUpdate}

@@ -14,7 +14,8 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
-import os
+from litellm import cost_per_token
+import time
 
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
@@ -24,14 +25,14 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 SUBSCRIPTION_TIERS = {
-    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60},
-    config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120},  # 2 hours
-    config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360},  # 6 hours
-    config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720},  # 12 hours
-    config.STRIPE_TIER_25_200_ID: {'name': 'tier_25_200', 'minutes': 1500},  # 25 hours
-    config.STRIPE_TIER_50_400_ID: {'name': 'tier_50_400', 'minutes': 3000},  # 50 hours
-    config.STRIPE_TIER_125_800_ID: {'name': 'tier_125_800', 'minutes': 7500},  # 125 hours
-    config.STRIPE_TIER_200_1000_ID: {'name': 'tier_200_1000', 'minutes': 12000},  # 200 hours
+    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60, 'cost': 5},
+    config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120, 'cost': 20},  # 2 hours
+    config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360, 'cost': 50},  # 6 hours
+    config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720, 'cost': 100},  # 12 hours
+    config.STRIPE_TIER_25_200_ID: {'name': 'tier_25_200', 'minutes': 1500, 'cost': 200},  # 25 hours
+    config.STRIPE_TIER_50_400_ID: {'name': 'tier_50_400', 'minutes': 3000, 'cost': 400},  # 50 hours
+    config.STRIPE_TIER_125_800_ID: {'name': 'tier_125_800', 'minutes': 7500, 'cost': 800},  # 125 hours
+    config.STRIPE_TIER_200_1000_ID: {'name': 'tier_200_1000', 'minutes': 12000, 'cost': 1000},  # 200 hours
 }
 
 # Pydantic models for request/response validation
@@ -52,6 +53,7 @@ class SubscriptionStatus(BaseModel):
     cancel_at_period_end: bool = False
     trial_end: Optional[datetime] = None
     minutes_limit: Optional[int] = None
+    cost_limit: Optional[float] = None
     current_usage: Optional[float] = None
     # Fields for scheduled changes
     has_schedule: bool = False
@@ -175,37 +177,39 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
         return 0.0
     
     thread_ids = [t['thread_id'] for t in threads_result.data]
+
     
-    # Then get all agent runs for these threads in current month
-    runs_result = await client.table('agent_runs') \
-        .select('started_at, completed_at') \
+    start_time = time.time()
+    token_messages = await client.table('messages') \
+        .select('content') \
         .in_('thread_id', thread_ids) \
-        .gte('started_at', start_of_month.isoformat()) \
+        .gte('created_at', start_of_month.isoformat()) \
+        .eq('type', 'assistant_response_end') \
         .execute()
-    
-    if not runs_result.data:
+    end_time = time.time()
+    execution_time = end_time - start_time
+    logger.info(f"Database query for token messages took {execution_time:.3f} seconds")
+
+    if not token_messages.data:
         return 0.0
     
     # Calculate total minutes
-    total_seconds = 0
-    now_ts = now.timestamp()
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
     
-    for run in runs_result.data:
-        start_time = datetime.fromisoformat(run['started_at'].replace('Z', '+00:00')).timestamp()
-        if run['completed_at']:
-            end_time = datetime.fromisoformat(run['completed_at'].replace('Z', '+00:00')).timestamp()
-            if start_time < end_time - 7200:
-                continue
-        else:
-            # if the start time is more than an hour ago, don't consider that time in total. else use the current time
-            if start_time < now_ts - 3600:
-                continue
-            else:
-                end_time = now_ts
-        
-        total_seconds += (end_time - start_time)
-    
-    return total_seconds / 60  # Convert to minutes
+    for run in token_messages.data:
+        prompt_tokens = run['content']['usage']['prompt_tokens']
+        completion_tokens = run['content']['usage']['completion_tokens']
+        model = run['content']['model']
+
+        total_prompt_tokens += prompt_tokens
+        total_completion_tokens += completion_tokens
+
+    prompt_token_cost, completion_token_cost = cost_per_token(model, int(total_prompt_tokens), int(total_completion_tokens))
+    total_cost = (prompt_token_cost + completion_token_cost) * 2 # Return total cost * 2
+    logger.info(f"Total cost for user {user_id}: {total_cost}")
+
+    return total_cost
 
 async def get_allowed_models_for_user(client, user_id: str):
     """
@@ -293,8 +297,8 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     current_usage = await calculate_monthly_usage(client, user_id)
     
     # Check if within limits
-    if current_usage >= tier_info['minutes']:
-        return False, f"Monthly limit of {tier_info['minutes']} minutes reached. Please upgrade your plan or wait until next month.", subscription
+    if current_usage >= tier_info['cost']:
+        return False, f"Monthly limit of {tier_info['cost']} dollars reached. Please upgrade your plan or wait until next month.", subscription
     
     return True, "OK", subscription
 
@@ -695,6 +699,11 @@ async def get_subscription(
         subscription = await get_user_subscription(current_user_id)
         # print("Subscription data for status:", subscription)
         
+        # Calculate current usage
+        db = DBConnection()
+        client = await db.client
+        current_usage = await calculate_monthly_usage(client, current_user_id)
+
         if not subscription:
             # Default to free tier status if no active subscription for our product
             free_tier_id = config.STRIPE_FREE_TIER_ID
@@ -703,7 +712,9 @@ async def get_subscription(
                 status="no_subscription",
                 plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
                 price_id=free_tier_id,
-                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=round(current_usage, 2)
             )
         
         # Extract current plan details
@@ -715,11 +726,6 @@ async def get_subscription(
              logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
              current_tier_info = {'name': 'unknown', 'minutes': 0}
         
-        # Calculate current usage
-        db = DBConnection()
-        client = await db.client
-        current_usage = await calculate_monthly_usage(client, current_user_id)
-        
         status_response = SubscriptionStatus(
             status=subscription['status'], # 'active', 'trialing', etc.
             plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
@@ -728,6 +734,7 @@ async def get_subscription(
             cancel_at_period_end=subscription['cancel_at_period_end'],
             trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
             minutes_limit=current_tier_info['minutes'],
+            cost_limit=current_tier_info['cost'],
             current_usage=round(current_usage, 2),
             has_schedule=False # Default
         )

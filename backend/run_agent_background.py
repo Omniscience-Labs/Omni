@@ -1,3 +1,6 @@
+import dotenv
+dotenv.load_dotenv(".env")
+
 import sentry
 import asyncio
 import json

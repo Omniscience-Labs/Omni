@@ -1591,6 +1591,7 @@ export interface SubscriptionStatus {
   cancel_at_period_end: boolean;
   trial_end?: string; // ISO Date string
   minutes_limit?: number;
+  cost_limit?: number;
   current_usage?: number;
   // Fields for scheduled changes
   has_schedule: boolean;
