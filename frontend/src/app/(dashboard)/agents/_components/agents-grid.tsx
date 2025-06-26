@@ -118,8 +118,6 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                 Chat
               </Button>
             </div>
-
-            {/* Marketplace Actions */}
             <div className="pt-2 border-t">
               {agent.is_public ? (
                 <div className="space-y-2">
@@ -265,31 +263,20 @@ export const AgentsGrid = ({
           const { avatar, color } = getAgentStyling(agent);
           const isPublishing = publishingId === agent.agent_id;
           const isUnpublishing = unpublishingId === agent.agent_id;
-          
           return (
             <div 
               key={agent.agent_id} 
               className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group"
               onClick={() => handleAgentClick(agent)}
             >
-              <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
-                <div className="text-4xl">
-                  {avatar}
-                </div>
-                <div className="absolute top-3 right-3 flex gap-2">
-                  {agent.is_default && (
-                    <Star className="h-4 w-4 text-white fill-white drop-shadow-sm" />
-                  )}
-                  {agent.is_public && (
-                    <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                      <Shield className="h-3 w-3 text-white" />
-                      <span className="text-white text-xs font-medium">{agent.download_count || 0}</span>
-                    </div>
-                  )}
+              <div className='p-4'>
+                <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
+                  <div className="text-2xl">
+                    {avatar}
+                  </div>
                 </div>
               </div>
-              
-              <div className="p-4">
+              <div className="p-4 -mt-4 flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                     {agent.name}

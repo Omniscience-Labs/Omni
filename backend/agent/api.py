@@ -1870,6 +1870,7 @@ class MarketplaceAgent(BaseModel):
     creator_name: str
     avatar: Optional[str]
     avatar_color: Optional[str]
+    is_kortix_team: Optional[bool] = False
 
 class MarketplaceAgentsResponse(BaseModel):
     agents: List[MarketplaceAgent]
@@ -1937,6 +1938,25 @@ async def get_marketplace_agents(
         total_pages = max(page, (estimated_total + limit - 1) // limit)
         if has_more:
             total_pages = page + 1
+        
+        # Add Kortix team identification
+        kortix_team_creators = [
+            'kortix', 'kortix team', 'suna team', 'official', 'kortix official'
+        ]
+        
+        for agent in agents_data:
+            creator_name = agent.get('creator_name', '').lower()
+            agent['is_kortix_team'] = any(
+                kortix_creator in creator_name 
+                for kortix_creator in kortix_team_creators
+            )
+        
+        agents_data = sorted(agents_data, key=lambda x: (
+            not x.get('is_kortix_team', False),
+            -x.get('download_count', 0) if sort_by == "most_downloaded" else 0,
+            x.get('name', '').lower() if sort_by == "name" else '',
+            -(datetime.fromisoformat(x.get('marketplace_published_at', x.get('created_at', ''))).timestamp()) if sort_by == "newest" else 0
+        ))
         
         logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
         return {

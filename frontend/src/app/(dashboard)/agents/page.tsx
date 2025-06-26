@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, AlertCircle, Loader2, File } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, File, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UpdateAgentDialog } from './_components/update-agent-dialog';
@@ -240,60 +240,36 @@ export default function AgentsPage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="space-y-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Your Agents
-            </h1>
-            <p className="text-md text-muted-foreground max-w-2xl">
-              Create and manage your AI agents with custom instructions and tools
-            </p>
-          </div>
-          <div className="flex gap-2 items-center">
-            <Button 
-              onClick={() => router.push('/marketplace/my-templates')}
-              className="self-start sm:self-center"
-              variant="outline"
-            >
-              <File className="h-5 w-5" />
-              My Templates
-            </Button>
-            <Button 
-              onClick={handleCreateNewAgent}
-              disabled={createAgentMutation.isPending}
-              className="self-start sm:self-center"
-            >
-              {createAgentMutation.isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-5 w-5" />
-                  New Agent
-                </>
-              )}
-            </Button>
+        <div className='w-full space-y-4 bg-gradient-to-b from-primary/10 to-primary/5 border rounded-xl h-60 flex items-center justify-center'>
+          <div className="space-y-4">
+            <div className="space-y-2 text-center">
+              <div className='flex items-center justify-center gap-2'>
+                <Bot className='h-6 w-6 text-primary' />
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                  Agents
+                </h1>
+              </div>
+              <p className="text-md text-muted-foreground max-w-2xl">
+                Create and manage your agents with custom instructions and tools
+              </p>
+            </div>
+            <SearchAndFilters
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              filters={filters}
+              setFilters={setFilters}
+              activeFiltersCount={activeFiltersCount}
+              clearFilters={clearFilters}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              allTools={allTools}
+            />
           </div>
         </div>
-
-        <SearchAndFilters
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          filters={filters}
-          setFilters={setFilters}
-          activeFiltersCount={activeFiltersCount}
-          clearFilters={clearFilters}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          allTools={allTools}
-        />
-
         <ResultsInfo
           isLoading={isLoading}
           totalAgents={pagination?.total || 0}

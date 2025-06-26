@@ -30,20 +30,20 @@ interface PredefinedAgent {
 }
 
 const PREDEFINED_AGENTS: PredefinedAgent[] = [
-  {
-    id: 'slides',
-    name: 'Slides',
-    description: 'Create stunning presentations and slide decks',
-    icon: <Presentation className="h-4 w-4" />,
-    category: 'productivity'
-  },
-  {
-    id: 'sheets',
-    name: 'Sheets',
-    description: 'Spreadsheet and data analysis expert',
-    icon: <FileSpreadsheet className="h-4 w-4" />,
-    category: 'productivity'
-  }
+  // {
+  //   id: 'slides',
+  //   name: 'Slides',
+  //   description: 'Create stunning presentations and slide decks',
+  //   icon: <Presentation className="h-4 w-4" />,
+  //   category: 'productivity'
+  // },
+  // {
+  //   id: 'sheets',
+  //   name: 'Sheets',
+  //   description: 'Spreadsheet and data analysis expert',
+  //   icon: <FileSpreadsheet className="h-4 w-4" />,
+  //   category: 'productivity'
+  // }
 ];
 
 interface ChatSettingsDropdownProps {
@@ -213,7 +213,7 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
               />
             </div>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
             {agentsLoading ? (
               <div className="p-3 text-sm text-muted-foreground text-center">
                 Loading agents...
@@ -255,9 +255,6 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                                     </Badge>
                                   )}
                                 </div>
-                                {/* <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                                  {agent.description}
-                                </p> */}
                               </div>
                             </div>
                             {isSelected && (

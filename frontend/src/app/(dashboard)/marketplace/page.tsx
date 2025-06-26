@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
@@ -37,6 +38,7 @@ interface MarketplaceTemplate {
   avatar?: string;
   avatar_color?: string;
   template_id: string;
+  is_kortix_team?: boolean;
   mcp_requirements?: Array<{
     qualified_name: string;
     display_name: string;
@@ -74,6 +76,14 @@ interface MissingProfile {
   required_config: string[];
 }
 
+interface AgentPreviewSheetProps {
+  item: MarketplaceTemplate | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onInstall: (item: MarketplaceTemplate) => void;
+  isInstalling: boolean;
+}
+
 interface InstallDialogProps {
   item: MarketplaceTemplate | null;
   open: boolean;
@@ -81,6 +91,159 @@ interface InstallDialogProps {
   onInstall: (item: MarketplaceTemplate, instanceName?: string, profileMappings?: Record<string, string>, customMcpConfigs?: Record<string, Record<string, any>>) => Promise<void>;
   isInstalling: boolean;
 }
+
+const AgentPreviewSheet: React.FC<AgentPreviewSheetProps> = ({
+  item,
+  open,
+  onOpenChange,
+  onInstall,
+  isInstalling
+}) => {
+  if (!item) return null;
+
+  const { avatar, color } = item.avatar && item.avatar_color 
+    ? { avatar: item.avatar, color: item.avatar_color }
+    : getAgentAvatar(item.id);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader className="space-y-4">
+          <div className="flex items-start gap-4">
+            <div 
+              className="h-16 w-16 flex items-center justify-center rounded-xl shrink-0"
+              style={{ backgroundColor: color }}
+            >
+              <div className="text-3xl">{avatar}</div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <SheetTitle className="text-xl font-semibold line-clamp-2">
+                  {item.name}
+                </SheetTitle>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  <span>{item.creator_name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Download className="h-4 w-4" />
+                  <span>{item.download_count} downloads</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <Button
+            onClick={() => onInstall(item)}
+            disabled={isInstalling}
+            size='sm'
+            className='w-48'
+          >
+            {isInstalling ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Installing...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Add to Library
+              </>
+            )}
+          </Button>
+        </SheetHeader>
+        <div className="px-4 space-y-6 py-6">
+          <div className="space-y-2">
+            <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+              Description
+            </h3>
+            <p className="text-sm leading-relaxed">
+              {item.description || 'No description available for this agent.'}
+            </p>
+          </div>
+
+          {item.tags && item.tags.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {item.tags.map(tag => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    <Tags className="h-3 w-3 mr-1" />
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {item.mcp_requirements && item.mcp_requirements.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+                Required Tools & MCPs
+              </h3>
+              <div className="space-y-2">
+                {item.mcp_requirements.map((mcp, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted-foreground/10 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                        <Wrench className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{mcp.display_name}</div>
+                        {mcp.enabled_tools && mcp.enabled_tools.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {mcp.enabled_tools.length} tool{mcp.enabled_tools.length !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {mcp.custom_type && (
+                      <Badge variant="outline" className="text-xs">
+                        {mcp.custom_type.toUpperCase()}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {item.metadata?.source_version_name && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                Version
+              </h3>
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{item.metadata.source_version_name}</span>
+              </div>
+            </div>
+          )}
+          {item.marketplace_published_at && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+                Published
+              </h3>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{formatDate(item.marketplace_published_at)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 const InstallDialog: React.FC<InstallDialogProps> = ({ 
   item, 
@@ -301,13 +464,13 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 <AlertTitle className="text-destructive">Missing Credential Profiles</AlertTitle>
                 <AlertDescription className="text-destructive/80">
-                  This agent requires credential profiles for the following services:
+                  This agent requires profiles for the following services:
                 </AlertDescription>
               </Alert>
               
               <div className="space-y-3">
                 {missingProfiles.map((profile) => (
-                  <Card key={profile.qualified_name} className="border-destructive/20 shadow-none bg-transparent">
+                  <Card key={profile.qualified_name} className="py-0 border-destructive/20 shadow-none bg-transparent">
                     <CardContent className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
@@ -533,6 +696,7 @@ export default function MarketplacePage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [showPreviewSheet, setShowPreviewSheet] = useState(false);
 
   // Secure marketplace data (all templates are now secure)
   const secureQueryParams = useMemo(() => ({
@@ -546,13 +710,14 @@ export default function MarketplacePage() {
   const installTemplateMutation = useInstallTemplate();
 
   // Transform secure templates data
-  const marketplaceItems = useMemo(() => {
-    const items: MarketplaceTemplate[] = [];
+  const { kortixTeamItems, communityItems } = useMemo(() => {
+    const kortixItems: MarketplaceTemplate[] = [];
+    const communityItems: MarketplaceTemplate[] = [];
 
     // Add secure templates (all items are now secure)
     if (secureTemplates) {
       secureTemplates.forEach(template => {
-        items.push({
+        const item: MarketplaceTemplate = {
           id: template.template_id,
           name: template.name,
           description: template.description,
@@ -564,28 +729,47 @@ export default function MarketplacePage() {
           avatar: template.avatar,
           avatar_color: template.avatar_color,
           template_id: template.template_id,
+          is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
-        });
+        };
+
+        if (template.is_kortix_team) {
+          kortixItems.push(item);
+        } else {
+          communityItems.push(item);
+        }
       });
     }
 
-    // Sort items
-    return items.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.marketplace_published_at || b.created_at).getTime() - 
-                 new Date(a.marketplace_published_at || a.created_at).getTime();
-        case 'popular':
-        case 'most_downloaded':
-          return b.download_count - a.download_count;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
-    });
+    // Sort function
+    const sortItems = (items: MarketplaceTemplate[]) => {
+      return items.sort((a, b) => {
+        switch (sortBy) {
+          case 'newest':
+            return new Date(b.marketplace_published_at || b.created_at).getTime() - 
+                   new Date(a.marketplace_published_at || a.created_at).getTime();
+          case 'popular':
+          case 'most_downloaded':
+            return b.download_count - a.download_count;
+          case 'name':
+            return a.name.localeCompare(b.name);
+          default:
+            return 0;
+        }
+      });
+    };
+
+    return {
+      kortixTeamItems: sortItems(kortixItems),
+      communityItems: sortItems(communityItems)
+    };
   }, [secureTemplates, sortBy]);
+
+  // Combined items for tag filtering and search stats
+  const allMarketplaceItems = useMemo(() => {
+    return [...kortixTeamItems, ...communityItems];
+  }, [kortixTeamItems, communityItems]);
 
   React.useEffect(() => {
     setPage(1);
@@ -593,6 +777,11 @@ export default function MarketplacePage() {
 
   const handleItemClick = (item: MarketplaceTemplate) => {
     setSelectedItem(item);
+    setShowPreviewSheet(true);
+  };
+
+  const handlePreviewInstall = (item: MarketplaceTemplate) => {
+    setShowPreviewSheet(false);
     setShowInstallDialog(true);
   };
 
@@ -658,11 +847,11 @@ export default function MarketplacePage() {
 
   const allTags = React.useMemo(() => {
     const tags = new Set<string>();
-    marketplaceItems.forEach(item => {
+    allMarketplaceItems.forEach(item => {
       item.tags?.forEach(tag => tags.add(tag));
     });
     return Array.from(tags);
-  }, [marketplaceItems]);
+  }, [allMarketplaceItems]);
 
   if (flagLoading) {
     return (
@@ -701,54 +890,57 @@ export default function MarketplacePage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="space-y-8">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Agent Marketplace
-            </h1>
-            <p className="text-md text-muted-foreground max-w-2xl">
-              Discover and install secure AI agent templates created by the community
-            </p>
+        <div className='w-full space-y-4 bg-gradient-to-b from-primary/10 to-primary/5 border rounded-xl h-60 flex items-center justify-center'>
+          <div className="space-y-4">
+            <div className="space-y-2 text-center">
+              <div className='flex items-center justify-center gap-2'>
+                <ShoppingBag className='h-6 w-6 text-primary' />
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                  Marketplace
+                </h1>
+              </div>
+              <p className="text-md text-muted-foreground max-w-2xl">
+                Discover and install powerful agents created by the community
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1 border rounded-xl">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search agents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              {/* <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Newest First
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="popular">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4" />
+                      Most Popular
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="most_downloaded">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Most Downloaded
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select> */}
+            </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search agent templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Newest First
-                </div>
-              </SelectItem>
-              <SelectItem value="popular">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4" />
-                  Most Popular
-                </div>
-              </SelectItem>
-              <SelectItem value="most_downloaded">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Most Downloaded
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {allTags.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Filter by tags:</p>
@@ -772,7 +964,7 @@ export default function MarketplacePage() {
           {isLoading ? (
             "Loading marketplace..."
           ) : (
-            `${marketplaceItems.length} template${marketplaceItems.length !== 1 ? 's' : ''} found`
+            `${allMarketplaceItems.length} template${allMarketplaceItems.length !== 1 ? 's' : ''} found`
           )}
         </div>
 
@@ -792,7 +984,7 @@ export default function MarketplacePage() {
               </div>
             ))}
           </div>
-        ) : marketplaceItems.length === 0 ? (
+        ) : allMarketplaceItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               {searchQuery || selectedTags.length > 0
@@ -801,95 +993,214 @@ export default function MarketplacePage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {marketplaceItems.map((item) => {
-              const { avatar, color } = getItemStyling(item);
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
-                  onClick={() => handleItemClick(item)}
-                >
-                  <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
-                    <div className="text-4xl">
-                      {avatar}
-                    </div>
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                        <Download className="h-3 w-3 text-white" />
-                        <span className="text-white text-xs font-medium">{item.download_count}</span>
-                      </div>
-                    </div>
+          <div className="space-y-12">
+            {kortixTeamItems.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
+                    <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
-                        {item.name}
-                      </h3>
-                      {item.metadata?.source_version_name && (
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          <GitBranch className="h-3 w-3" />
-                          {item.metadata.source_version_name}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                      {item.description || 'No description available'}
-                    </p>
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {item.tags.slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {item.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{item.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    <div className="space-y-1 mb-4">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        <span>By {item.creator_name}</span>
-                      </div>
-                      {item.marketplace_published_at && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <Button 
-                      onClick={(e) => handleInstallClick(item, e)}
-                      disabled={installingItemId === item.id}
-                      className="w-full transition-opacity mt-auto"
-                      size="sm"
-                    >
-                      {installingItemId === item.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Installing...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Install Template
-                        </>
-                      )}
-                    </Button>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Agents from Kortix Team</h2>
                   </div>
                 </div>
-              );
-            })}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {kortixTeamItems.map((item) => {
+                    const { avatar, color } = getItemStyling(item);
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className='p-4'>
+                          <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
+                            <div className="text-2xl">
+                              {avatar}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 -mt-4 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
+                              {item.name}
+                            </h3>
+                            {item.metadata?.source_version_name && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                <GitBranch className="h-3 w-3" />
+                                {item.metadata.source_version_name}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                            {item.description || 'No description available'}
+                          </p>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {item.tags.slice(0, 2).map(tag => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {item.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="mb-4 w-full flex justify-between">
+                            <div className='space-y-1'>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <User className="h-3 w-3" />
+                                <span>By {item.creator_name}</span>
+                              </div>
+                              {item.marketplace_published_at && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground text-xs font-medium">{item.download_count}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={(e) => handleInstallClick(item, e)}
+                            disabled={installingItemId === item.id}
+                            className="w-full transition-opacity mt-auto"
+                            size="sm"
+                          >
+                            {installingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Installing...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Add to Library
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {communityItems.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                    <User className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-foreground">Agents from Community</h2>
+                    <p className="text-sm text-muted-foreground">Templates created by the community</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {communityItems.map((item) => {
+                    const { avatar, color } = getItemStyling(item);
+                    
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
+                          <div className="text-4xl">
+                            {avatar}
+                          </div>
+                          <div className="absolute top-3 right-3 flex gap-2">
+                            <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                              <Download className="h-3 w-3 text-white" />
+                              <span className="text-white text-xs font-medium">{item.download_count}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
+                              {item.name}
+                            </h3>
+                            {item.metadata?.source_version_name && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                <GitBranch className="h-3 w-3" />
+                                {item.metadata.source_version_name}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                            {item.description || 'No description available'}
+                          </p>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {item.tags.slice(0, 2).map(tag => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {item.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="space-y-1 mb-4">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              <span>By {item.creator_name}</span>
+                            </div>
+                            {item.marketplace_published_at && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <Button 
+                            onClick={(e) => handleInstallClick(item, e)}
+                            disabled={installingItemId === item.id}
+                            className="w-full transition-opacity mt-auto"
+                            size="sm"
+                          >
+                            {installingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Installing...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Install Template
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-
+      <AgentPreviewSheet
+        item={selectedItem}
+        open={showPreviewSheet}
+        onOpenChange={setShowPreviewSheet}
+        onInstall={handlePreviewInstall}
+        isInstalling={installingItemId === selectedItem?.id}
+      />
       <InstallDialog
         item={selectedItem}
         open={showInstallDialog}
