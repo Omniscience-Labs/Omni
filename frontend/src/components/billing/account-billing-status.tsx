@@ -118,25 +118,17 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           </div>
 
           {/* Plans Comparison */}
-          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <Button
-              onClick={() => window.open('/model-pricing', '_blank')}
-              variant="outline"
-              className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
-            >
-              View Model Pricing
-            </Button>
-            <Button
-              onClick={handleManageSubscription}
-              disabled={isManaging}
-              className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-            >
-              {isManaging ? 'Loading...' : 'Manage Subscription'}
-            </Button>
-          </div>
+          <div className="mt-20"></div>
+          {/* Manage Subscription Button */}
+          <Button
+            onClick={handleManageSubscription}
+            disabled={isManaging}
+            className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+          >
+            {isManaging ? 'Loading...' : 'Manage Subscription'}
+          </Button>
         </>
       ) : (
         <>
@@ -164,7 +156,7 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           </div>
 
           {/* Plans Comparison */}
-          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} />
+          <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
           {/* Action Buttons */}
           <div className="space-y-3">
