@@ -109,7 +109,7 @@ class Configuration:
         return self.STRIPE_TIER_200_1000_ID_PROD
     
     # LLM API keys
-    ANTHROPIC_API_KEY: str = None
+    ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
