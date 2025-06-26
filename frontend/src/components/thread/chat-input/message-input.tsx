@@ -183,7 +183,8 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
-                billingModalOpenParent={billingModalOpen}
+                billingModalOpen={billingModalOpen}
+                setBillingModalOpen={setBillingModalOpen}
               />
             ) : (
               <ChatSettingsDropdown

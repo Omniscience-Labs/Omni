@@ -46,7 +46,8 @@ interface ModelSelectorProps {
   canAccessModel: (modelId: string) => boolean;
   subscriptionStatus: SubscriptionStatus;
   refreshCustomModels?: () => void;
-  billingModalOpenParent: boolean;
+  billingModalOpen: boolean;
+  setBillingModalOpen: (open: boolean) => void;
   hasBorder?: boolean;
 }
 
@@ -57,11 +58,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   canAccessModel,
   subscriptionStatus,
   refreshCustomModels,
-  billingModalOpenParent,
+  billingModalOpen,
+  setBillingModalOpen,
   hasBorder = false,
 }) => {
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [billingModalOpen, setBillingModalOpen] = useState(billingModalOpenParent);
   const [lockedModel, setLockedModel] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,10 +83,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setCustomModels(getCustomModels());
     }
   }, []);
-
-  useEffect(() => {
-    setBillingModalOpen(billingModalOpenParent);
-  }, [billingModalOpenParent]);
 
   // Save custom models to localStorage whenever they change
   useEffect(() => {
