@@ -548,7 +548,7 @@ export function PricingSection({
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
   );
-  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError } = useSubscription();
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription();
 
   // Derive authentication and subscription status from the hook data
   const isAuthenticated = !!subscriptionData && subscriptionQueryError === null;
@@ -592,6 +592,7 @@ export function PricingSection({
   };
 
   const handleSubscriptionUpdate = () => {
+    refetchSubscription();
     // The useSubscription hook will automatically refetch, so we just need to clear loading states
     setTimeout(() => {
       setPlanLoadingStates({});

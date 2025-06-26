@@ -491,7 +491,7 @@ export default function UsageLogs({ accountId }: Props) {
                               <TableHead>Time</TableHead>
                               <TableHead>Model</TableHead>
                               <TableHead className="text-right">
-                                Total
+                                Tokens
                               </TableHead>
                               <TableHead className="text-right">Cost</TableHead>
                               <TableHead className="text-center">
@@ -508,10 +508,7 @@ export default function UsageLogs({ accountId }: Props) {
                                   ).toLocaleTimeString()}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge
-                                    variant="secondary"
-                                    className="font-mono text-xs"
-                                  >
+                                  <Badge className="font-mono text-xs">
                                     {log.content.model}
                                   </Badge>
                                 </TableCell>
