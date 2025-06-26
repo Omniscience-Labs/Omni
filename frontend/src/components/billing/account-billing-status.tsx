@@ -123,6 +123,13 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           <div className="mt-20"></div>
           {/* Manage Subscription Button */}
           <Button
+            onClick={() => window.open('/model-pricing', '_blank')}
+            variant="outline"
+            className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all mb-3"
+          >
+            View Compute Pricing
+          </Button>
+          <Button
             onClick={handleManageSubscription}
             disabled={isManaging}
             className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
@@ -161,11 +168,11 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Action Buttons */}
           <div className="space-y-3">
             <Button
-              onClick={() => window.open('/models', '_blank')}
+              onClick={() => window.open('/model-pricing', '_blank')}
               variant="outline"
               className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
             >
-              View Model Pricing
+              View Compute Pricing
             </Button>
             <Button
               onClick={handleManageSubscription}

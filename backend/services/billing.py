@@ -20,6 +20,9 @@ import time
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
+# Token price multiplier
+TOKEN_PRICE_MULTIPLIER = 2
+
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -278,8 +281,8 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
         
         total_cost += message_cost
 
-    # Return total cost * 2 (as per original logic)
-    total_cost = total_cost * 2
+    # Return total cost * TOKEN_PRICE_MULTIPLIER (as per original logic)
+    total_cost = total_cost * TOKEN_PRICE_MULTIPLIER
     logger.info(f"Total cost for user {user_id}: {total_cost}")
 
     return total_cost
@@ -1038,8 +1041,8 @@ async def get_available_models(
             if hardcoded_pricing:
                 input_cost_per_million, output_cost_per_million = hardcoded_pricing
                 pricing_info = {
-                    "input_cost_per_million_tokens": input_cost_per_million,
-                    "output_cost_per_million_tokens": output_cost_per_million,
+                    "input_cost_per_million_tokens": input_cost_per_million * TOKEN_PRICE_MULTIPLIER,
+                    "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
                     "max_tokens": None
                 }
             else:
@@ -1090,8 +1093,8 @@ async def get_available_models(
                     
                     if input_cost_per_token is not None and output_cost_per_token is not None:
                         pricing_info = {
-                            "input_cost_per_million_tokens": round(input_cost_per_token * 2, 2),
-                            "output_cost_per_million_tokens": round(output_cost_per_token * 2, 2),
+                            "input_cost_per_million_tokens": input_cost_per_token * TOKEN_PRICE_MULTIPLIER,
+                            "output_cost_per_million_tokens": output_cost_per_token * TOKEN_PRICE_MULTIPLIER,
                             "max_tokens": None  # cost_per_token doesn't provide max_tokens info
                         }
                     else:

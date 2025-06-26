@@ -88,7 +88,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = window?.location?
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Upgrade Your Plan</DialogTitle>
                 </DialogHeader>
@@ -127,7 +127,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = window?.location?
                             <Button
                                 onClick={handleManageSubscription}
                                 disabled={isManaging}
-                                className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all mt-4"
+                                className="max-w-xs mx-auto w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all mt-4"
                             >
                                 {isManaging ? 'Loading...' : 'Manage Subscription'}
                             </Button>

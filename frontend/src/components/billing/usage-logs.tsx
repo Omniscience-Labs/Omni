@@ -491,7 +491,7 @@ export default function UsageLogs({ accountId }: Props) {
                               <TableHead>Time</TableHead>
                               <TableHead>Model</TableHead>
                               <TableHead className="text-right">
-                                Tokens
+                                Compute
                               </TableHead>
                               <TableHead className="text-right">Cost</TableHead>
                               <TableHead className="text-center">
