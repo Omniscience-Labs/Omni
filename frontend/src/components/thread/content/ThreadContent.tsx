@@ -410,7 +410,25 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         // Create a new user message group
                                         groupedMessages.push({ type: 'user', messages: [message], key });
                                     } else if (messageType === 'assistant' || messageType === 'tool' || messageType === 'browser_state') {
-                                        if (currentGroup && currentGroup.type === 'assistant_group') {
+                                        // Check if we can add to existing assistant group (same agent)
+                                        const canAddToExistingGroup = currentGroup && 
+                                            currentGroup.type === 'assistant_group' &&
+                                            (() => {
+                                                // For assistant messages, check if agent matches
+                                                if (messageType === 'assistant') {
+                                                    const lastAssistantMsg = currentGroup.messages.findLast(m => m.type === 'assistant');
+                                                    if (!lastAssistantMsg) return true; // No assistant message yet, can add
+                                                    
+                                                    // Compare agent info - both null/undefined should be treated as same (default agent)
+                                                    const currentAgentId = message.agent_id;
+                                                    const lastAgentId = lastAssistantMsg.agent_id;
+                                                    return currentAgentId === lastAgentId;
+                                                }
+                                                // For tool/browser_state messages, always add to current group
+                                                return true;
+                                            })();
+
+                                        if (canAddToExistingGroup) {
                                             // Add to existing assistant group
                                             currentGroup.messages.push(message);
                                         } else {
@@ -571,12 +589,37 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
-                                                    {/* Logo positioned above the message content - ONLY ONCE PER GROUP */}
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center">
-                                                            {agentAvatar}
+                                                            {(() => {
+                                                                const firstAssistantWithAgent = group.messages.find(msg => 
+                                                                    msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color)
+                                                                );
+                                                                if (firstAssistantWithAgent?.agents?.avatar) {
+                                                                    const avatar = firstAssistantWithAgent.agents.avatar;
+                                                                    const color = firstAssistantWithAgent.agents.avatar_color;
+                                                                    return (
+                                                                        <div 
+                                                                            className="h-4 w-5 flex items-center justify-center rounded text-xs"
+                                                                        >
+                                                                            <span className="text-lg">{avatar}</span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return <KortixLogo size={16} />;
+                                                            })()}
                                                         </div>
-                                                        <p className='ml-2 text-sm text-muted-foreground'>{agentName ? agentName : 'Suna'}</p>
+                                                        <p className='ml-2 text-sm text-muted-foreground'>
+                                                            {(() => {
+                                                                const firstAssistantWithAgent = group.messages.find(msg => 
+                                                                    msg.type === 'assistant' && msg.agents?.name
+                                                                );
+                                                                if (firstAssistantWithAgent?.agents?.name) {
+                                                                    return firstAssistantWithAgent.agents.name;
+                                                                }
+                                                                return 'Suna';
+                                                            })()}
+                                                        </p>
                                                     </div>
                                                     
                                                     {/* Message content - ALL messages in the group */}
@@ -845,7 +888,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 <div className="rounded-md flex items-center justify-center">
                                                     {agentAvatar}
                                                 </div>
-                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                             </div>
                                             
                                             {/* Loader content */}
@@ -865,7 +908,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div className="rounded-md flex items-center justify-center">
                                                 {agentAvatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                         </div>
                                         
                                         {/* Tool call content */}
@@ -890,7 +933,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div className="rounded-md flex items-center justify-center">
                                                 {agentAvatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                         </div>
                                         
                                         {/* Streaming indicator content */}

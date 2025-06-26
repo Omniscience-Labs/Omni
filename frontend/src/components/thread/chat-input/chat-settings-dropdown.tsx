@@ -19,7 +19,7 @@ import {
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { ChatSettingsDialog } from './chat-settings-dialog';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 
 interface PredefinedAgent {
   id: string;
@@ -179,7 +179,7 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs font-medium"
+                  className="px-2 text-xs font-medium"
                   disabled={disabled}
                 >
                   <div className="flex items-center gap-1.5">
@@ -234,13 +234,13 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                         <div className="w-full">
                           <DropdownMenuItem
                             className={cn(
-                              "text-sm px-3 py-3 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                              "text-sm mx-2 my-0.5 flex items-center justify-between cursor-pointer",
                               isHighlighted && "bg-accent",
                             )}
                             onClick={() => handleAgentSelect(agent.id)}
                             onMouseEnter={() => setHighlightedIndex(index)}
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                               <div className="flex-shrink-0">
                                 {agent.icon}
                               </div>
@@ -249,20 +249,15 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                                   <span className="font-medium text-sm truncate">
                                     {agent.name}
                                   </span>
-                                  {agent.type === 'predefined' && (
-                                    <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
-                                      Pro
-                                    </Badge>
-                                  )}
                                   {agent.type === 'custom' && (
                                     <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                                      Custom
+                                      custom
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                {/* <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                                   {agent.description}
-                                </p>
+                                </p> */}
                               </div>
                             </div>
                             {isSelected && (
@@ -272,7 +267,7 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="left" className="text-xs max-w-xs">
-                        <p>{agent.description}</p>
+                        <p className="truncate">{truncateString(agent.description, 35)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

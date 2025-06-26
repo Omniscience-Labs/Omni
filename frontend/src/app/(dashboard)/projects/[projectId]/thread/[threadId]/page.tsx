@@ -52,6 +52,7 @@ export default function ThreadPage({
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -127,6 +128,13 @@ export default function ThreadPage({
   const { data: threadAgentData } = useThreadAgent(threadId);
   const agent = threadAgentData?.agent;
   const workflowId = threadQuery.data?.metadata?.workflow_id;
+
+  // Set initial selected agent from thread data
+  useEffect(() => {
+    if (threadAgentData?.agent && !selectedAgentId) {
+      setSelectedAgentId(threadAgentData.agent.agent_id);
+    }
+  }, [threadAgentData, selectedAgentId]);
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
@@ -274,7 +282,10 @@ export default function ThreadPage({
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options
+          options: {
+            ...options,
+            agent_id: selectedAgentId
+          }
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -641,7 +652,7 @@ export default function ThreadPage({
               value={newMessage}
               onChange={setNewMessage}
               onSubmit={handleSubmitMessage}
-              placeholder={`Ask ${agent ? agent.name : 'Suna'} anything...`}
+              placeholder={`Describe what you need help with...`}
               loading={isSending}
               disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
               isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
@@ -651,6 +662,8 @@ export default function ThreadPage({
               sandboxId={sandboxId || undefined}
               messages={messages}
               agentName={agent && agent.name}
+              selectedAgentId={selectedAgentId}
+              onAgentSelect={setSelectedAgentId}
             />
           </div>
         </div>

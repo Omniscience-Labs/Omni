@@ -529,13 +529,10 @@ async def start_agent(
             logger.error(f"Error loading workflow {workflow_id} for thread {thread_id}: {e}")
             # Continue with existing agent config if workflow loading fails
     
-    # Update thread's agent_id if a different agent was explicitly requested
+    # Don't update thread's agent_id since threads are now agent-agnostic
+    # The agent selection is handled per message/agent run
     if body.agent_id and body.agent_id != thread_agent_id and agent_config:
-        try:
-            await client.table('threads').update({"agent_id": agent_config['agent_id']}).eq('thread_id', thread_id).execute()
-            logger.info(f"Updated thread {thread_id} to use agent {agent_config['agent_id']}")
-        except Exception as e:
-            logger.warning(f"Failed to update thread agent_id: {e}")
+        logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
@@ -570,7 +567,9 @@ async def start_agent(
 
     agent_run = await client.table('agent_runs').insert({
         "thread_id": thread_id, "status": "running",
-        "started_at": datetime.now(timezone.utc).isoformat()
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "agent_id": agent_config.get('agent_id') if agent_config else None,
+        "agent_version_id": agent_config.get('current_version_id') if agent_config else None
     }).execute()
     agent_run_id = agent_run.data[0]['id']
     structlog.contextvars.bind_contextvars(
@@ -648,7 +647,8 @@ async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_us
 
 @router.get("/thread/{thread_id}/agent", response_model=ThreadAgentResponse)
 async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get the agent details for a specific thread."""
+    """Get the agent details for a specific thread. Since threads are now agent-agnostic, 
+    this returns the most recently used agent or the default agent."""
     structlog.contextvars.bind_contextvars(
         thread_id=thread_id,
     )
@@ -667,36 +667,68 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
         thread_agent_id = thread_data.get('agent_id')
         account_id = thread_data.get('account_id')
         
-        # If no agent_id is set in the thread, try to get the default agent
-        effective_agent_id = thread_agent_id
-        agent_source = "thread"
+        effective_agent_id = None
+        agent_source = "none"
         
-        if not effective_agent_id:
-            # No agent set in thread, get default agent for the account
+        # First, try to get the most recently used agent from agent_runs
+        recent_agent_result = await client.table('agent_runs').select('agent_id', 'agent_version_id').eq('thread_id', thread_id).not_.is_('agent_id', 'null').order('created_at', desc=True).limit(1).execute()
+        if recent_agent_result.data:
+            effective_agent_id = recent_agent_result.data[0]['agent_id']
+            recent_version_id = recent_agent_result.data[0].get('agent_version_id')
+            agent_source = "recent"
+            logger.info(f"Found most recently used agent: {effective_agent_id} (version: {recent_version_id})")
+        
+        # If no recent agent, fall back to thread default agent
+        elif thread_agent_id:
+            effective_agent_id = thread_agent_id
+            agent_source = "thread"
+            logger.info(f"Using thread default agent: {effective_agent_id}")
+        
+        # If no thread agent, try to get the default agent for the account
+        else:
             default_agent_result = await client.table('agents').select('agent_id').eq('account_id', account_id).eq('is_default', True).execute()
             if default_agent_result.data:
                 effective_agent_id = default_agent_result.data[0]['agent_id']
                 agent_source = "default"
-            else:
-                # No default agent found
-                return {
-                    "agent": None,
-                    "source": "none",
-                    "message": "No agent configured for this thread"
-                }
+                logger.info(f"Using account default agent: {effective_agent_id}")
         
-        # Fetch the agent details
-        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        # If still no agent found
+        if not effective_agent_id:
+            return {
+                "agent": None,
+                "source": "none",
+                "message": "No agent configured for this thread. Threads are agent-agnostic - you can select any agent."
+            }
+        
+        # Fetch the agent details with version information
+        agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
         
         if not agent_result.data:
             # Agent was deleted or doesn't exist
             return {
                 "agent": None,
                 "source": "missing",
-                "message": f"Agent {effective_agent_id} not found or was deleted"
+                "message": f"Agent {effective_agent_id} not found or was deleted. You can select a different agent."
             }
         
         agent_data = agent_result.data[0]
+        
+        # Use version data if available, otherwise fall back to agent data (for backward compatibility)
+        if agent_data.get('agent_versions'):
+            version_data = agent_data['agent_versions']
+            # Use the version data for the response
+            system_prompt = version_data['system_prompt']
+            configured_mcps = version_data.get('configured_mcps', [])
+            custom_mcps = version_data.get('custom_mcps', [])
+            agentpress_tools = version_data.get('agentpress_tools', {})
+            logger.info(f"Using agent {agent_data['name']} version {version_data.get('version_name', 'v1')}")
+        else:
+            # Backward compatibility - use agent data directly
+            system_prompt = agent_data['system_prompt']
+            configured_mcps = agent_data.get('configured_mcps', [])
+            custom_mcps = agent_data.get('custom_mcps', [])
+            agentpress_tools = agent_data.get('agentpress_tools', {})
+            logger.info(f"Using agent {agent_data['name']} - no version data (backward compatibility)")
         
         return {
             "agent": AgentResponse(
@@ -704,10 +736,10 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 account_id=agent_data['account_id'],
                 name=agent_data['name'],
                 description=agent_data.get('description'),
-                system_prompt=agent_data['system_prompt'],
-                configured_mcps=agent_data.get('configured_mcps', []),
-                custom_mcps=agent_data.get('custom_mcps', []),
-                agentpress_tools=agent_data.get('agentpress_tools', {}),
+                system_prompt=system_prompt,
+                configured_mcps=configured_mcps,
+                custom_mcps=custom_mcps,
+                agentpress_tools=agentpress_tools,
                 is_default=agent_data.get('is_default', False),
                 is_public=agent_data.get('is_public', False),
                 marketplace_published_at=agent_data.get('marketplace_published_at'),
@@ -716,10 +748,12 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 avatar=agent_data.get('avatar'),
                 avatar_color=agent_data.get('avatar_color'),
                 created_at=agent_data['created_at'],
-                updated_at=agent_data['updated_at']
+                updated_at=agent_data['updated_at'],
+                current_version_id=agent_data.get('current_version_id'),
+                version_count=agent_data.get('version_count', 1)
             ),
             "source": agent_source,
-            "message": f"Using {agent_source} agent: {agent_data['name']}"
+            "message": f"Using {agent_source} agent: {agent_data['name']}. Threads are agent-agnostic - you can change agents anytime."
         }
         
     except HTTPException:
@@ -1091,10 +1125,10 @@ async def initiate_agent_with_files(
             account_id=account_id,
         )
         
-        # Store the agent_id in the thread if we have one
+        # Don't store agent_id in thread since threads are now agent-agnostic
+        # The agent selection will be handled per message/agent run
         if agent_config:
-            thread_data["agent_id"] = agent_config['agent_id']
-            logger.info(f"Storing agent_id {agent_config['agent_id']} in thread")
+            logger.info(f"Using agent {agent_config['agent_id']} for this conversation (thread remains agent-agnostic)")
             structlog.contextvars.bind_contextvars(
                 agent_id=agent_config['agent_id'],
             )
@@ -1186,7 +1220,9 @@ async def initiate_agent_with_files(
         # 6. Start Agent Run
         agent_run = await client.table('agent_runs').insert({
             "thread_id": thread_id, "status": "running",
-            "started_at": datetime.now(timezone.utc).isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "agent_id": agent_config.get('agent_id') if agent_config else None,
+            "agent_version_id": agent_config.get('current_version_id') if agent_config else None
         }).execute()
         agent_run_id = agent_run.data[0]['id']
         logger.info(f"Created new agent run: {agent_run_id}")

@@ -68,6 +68,12 @@ export type Message = {
   role: string;
   content: string;
   type: string;
+  agent_id?: string;
+  agents?: {
+    name: string;
+    avatar?: string;
+    avatar_color?: string;
+  };
 };
 
 export type AgentRun = {
@@ -579,7 +585,14 @@ export const getMessages = async (threadId: string): Promise<Message[]> => {
   while (hasMore) {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select(`
+        *,
+        agents:agent_id (
+          name,
+          avatar,
+          avatar_color
+        )
+      `)
       .eq('thread_id', threadId)
       .neq('type', 'cost')
       .neq('type', 'summary')
