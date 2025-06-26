@@ -23,6 +23,12 @@ interface ApiMessageType {
   metadata?: string;
   created_at?: string;
   updated_at?: string;
+  agent_id?: string;
+  agents?: {
+    name: string;
+    avatar?: string;
+    avatar_color?: string;
+  };
 }
 
 // Define the structure returned by the hook
@@ -62,6 +68,8 @@ const mapApiMessagesToUnified = (
       metadata: msg.metadata || '{}',
       created_at: msg.created_at || new Date().toISOString(),
       updated_at: msg.updated_at || new Date().toISOString(),
+      agent_id: (msg as any).agent_id,
+      agents: (msg as any).agents,
     }));
 };
 

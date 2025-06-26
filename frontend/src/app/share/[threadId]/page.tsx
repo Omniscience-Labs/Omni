@@ -40,6 +40,12 @@ interface ApiMessageType extends BaseApiMessageType {
   metadata?: string;
   created_at?: string;
   updated_at?: string;
+  agent_id?: string;
+  agents?: {
+    name: string;
+    avatar?: string;
+    avatar_color?: string;
+  };
 }
 
 // Add a simple interface for streaming tool calls
@@ -392,6 +398,8 @@ export default function ThreadPage({
               metadata: msg.metadata || '{}',
               created_at: msg.created_at || new Date().toISOString(),
               updated_at: msg.updated_at || new Date().toISOString(),
+              agent_id: (msg as any).agent_id,
+              agents: (msg as any).agents,
             }));
 
           setMessages(unifiedMessages);

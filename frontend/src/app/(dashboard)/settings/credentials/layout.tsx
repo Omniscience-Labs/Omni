@@ -1,6 +1,4 @@
-import { isFlagEnabled } from '@/lib/feature-flags';
 import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Credentials | Kortix Suna',
@@ -17,9 +15,5 @@ export default async function CredentialsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const customAgentsEnabled = await isFlagEnabled('custom_agents');
-  if (!customAgentsEnabled) {
-    redirect('/dashboard');
-  }
   return <>{children}</>;
 }

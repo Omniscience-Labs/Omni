@@ -7,8 +7,10 @@ import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
 import { VoiceRecorder } from './voice-recorder';
 import { ModelSelector } from './model-selector';
+import { ChatSettingsDropdown } from './chat-settings-dropdown';
 import { SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
+import { useFeatureFlag } from '@/lib/feature-flags';
 import { TooltipContent } from '@/components/ui/tooltip';
 import { Tooltip } from '@/components/ui/tooltip';
 import { TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
@@ -41,6 +43,8 @@ interface MessageInputProps {
   subscriptionStatus: SubscriptionStatus;
   canAccessModel: (modelId: string) => boolean;
   refreshCustomModels?: () => void;
+  selectedAgentId?: string;
+  onAgentSelect?: (agentId: string | undefined) => void;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -73,9 +77,14 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       subscriptionStatus,
       canAccessModel,
       refreshCustomModels,
+
+      selectedAgentId,
+      onAgentSelect,
     },
     ref,
   ) => {
+    const { enabled: customAgentsEnabled, loading: flagsLoading } = useFeatureFlag('custom_agents');
+
     useEffect(() => {
       const textarea = ref as React.RefObject<HTMLTextAreaElement>;
       if (!textarea.current) return;
@@ -147,17 +156,14 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 messages={messages}
               />
             )}
-            <VoiceRecorder
-              onTranscription={onTranscription}
-              disabled={loading || (disabled && !isAgentRunning)}
-            />
+
           </div>
+          
           {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
                   <p className='text-sm text-amber-500 hidden sm:block'>Upgrade for full performance</p>
-
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p>
@@ -165,15 +171,37 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               </Tooltip>
             </TooltipProvider>
           }
+          
           <div className='flex items-center gap-2'>
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={onModelChange}
-              modelOptions={modelOptions}
-              subscriptionStatus={subscriptionStatus}
-              canAccessModel={canAccessModel}
-              refreshCustomModels={refreshCustomModels}
+            {/* Show model selector inline if custom agents are disabled, otherwise show settings dropdown */}
+            {!customAgentsEnabled || flagsLoading ? (
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={onModelChange}
+                modelOptions={modelOptions}
+                subscriptionStatus={subscriptionStatus}
+                canAccessModel={canAccessModel}
+                refreshCustomModels={refreshCustomModels}
+              />
+            ) : (
+              <ChatSettingsDropdown
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={onAgentSelect}
+                selectedModel={selectedModel}
+                onModelChange={onModelChange}
+                modelOptions={modelOptions}
+                subscriptionStatus={subscriptionStatus}
+                canAccessModel={canAccessModel}
+                refreshCustomModels={refreshCustomModels}
+                disabled={loading || (disabled && !isAgentRunning)}
+              />
+            )}
+            
+            <VoiceRecorder
+              onTranscription={onTranscription}
+              disabled={loading || (disabled && !isAgentRunning)}
             />
+            
             <Button
               type="submit"
               onClick={isAgentRunning && onStopAgent ? onStopAgent : onSubmit}
