@@ -209,7 +209,7 @@ export function DashboardContent() {
               <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
                 Hey, I am
               </h1>
-              <h1 className="tracking-tight text-4xl font-semibold leading-tight text-primary">
+              <h1 className="ml-1 tracking-tight text-4xl font-semibold leading-tight text-primary">
                 {displayName}
                 {agentAvatar && (
                   <span className="text-muted-foreground ml-2">
