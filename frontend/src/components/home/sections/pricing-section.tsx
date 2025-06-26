@@ -181,7 +181,7 @@ function PricingTier({
   // Auto-select the correct plan only on initial load - simplified since no more Custom tier
   const handleSubscribe = async (planStripePriceId: string) => {
     if (!isAuthenticated) {
-      window.location.href = '/auth';
+      window.location.href = '/auth?mode=signup';
       return;
     }
 
