@@ -229,6 +229,13 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
     now = datetime.now(timezone.utc)
     start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
     
+    # Use fixed cutoff date: June 27, 2025 midnight UTC
+    # Ignore all token counts before this date
+    cutoff_date = datetime(2025, 6, 27, 0, 0, 0, tzinfo=timezone.utc)
+    
+    # Use the later of the two dates (start of month or cutoff date)
+    start_of_month = max(start_of_month, cutoff_date)
+    
     # First get all threads for this user
     threads_result = await client.table('threads') \
         .select('thread_id') \
@@ -254,7 +261,7 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
 
     if not token_messages.data:
         return 0.0
-    
+
     # Calculate total cost per message (to handle different models correctly)
     total_cost = 0.0
     
