@@ -49,9 +49,9 @@ export const SearchAndFilters = ({
   allTools
 }: SearchAndFiltersProps) => {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center flex-1">
-        <div className="relative flex-1 max-w-md">
+    <div className="flex flex-col w-full gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col w-full gap-3 sm:flex-row sm:items-center flex-1">
+        <div className="relative flex-1 w-full border rounded-xl">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search agents..."
@@ -71,7 +71,7 @@ export const SearchAndFilters = ({
           )}
         </div>
 
-        <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+        {/* <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
@@ -90,11 +90,11 @@ export const SearchAndFilters = ({
           className="px-3"
         >
           {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-        </Button>
+        </Button> */}
       </div>
 
       <div className="flex items-center gap-2">
-        <DropdownMenu>
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="relative">
               <Filter className="h-4 w-4" />
@@ -137,7 +137,7 @@ export const SearchAndFilters = ({
               </>
             )}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         {/* <div className="flex border rounded-md">
           <Button

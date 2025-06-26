@@ -114,6 +114,7 @@ class TemplateResponse(BaseModel):
     creator_name: Optional[str] = None
     avatar: Optional[str]
     avatar_color: Optional[str]
+    is_kortix_team: Optional[bool] = False
 
 class InstallationResponse(BaseModel):
     """Response model for template installation"""

@@ -47,6 +47,7 @@ interface ModelSelectorProps {
   subscriptionStatus: SubscriptionStatus;
   refreshCustomModels?: () => void;
   billingModalOpenParent: boolean;
+  hasBorder?: boolean;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -57,6 +58,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   subscriptionStatus,
   refreshCustomModels,
   billingModalOpenParent,
+  hasBorder = false,
 }) => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [billingModalOpen, setBillingModalOpen] = useState(billingModalOpenParent);
@@ -514,7 +516,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
+            variant={hasBorder ? "outline" : "ghost"}
             size="default"
             className="h-8 rounded-lg text-muted-foreground shadow-none border-none focus:ring-0 px-3"
           >
