@@ -131,11 +131,12 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Manage Subscription Button */}
           <div className='flex justify-center items-center gap-4'>
             <Button
-              onClick={() => window.open('/model-pricing', '_blank')}
               variant="outline"
               className="border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
             >
-              View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+              <Link href="/model-pricing">
+                View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+              </Link>
             </Button>
             <Button
               onClick={handleManageSubscription}
