@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { ModelSelector } from './model-selector';
 import { SubscriptionStatus } from './_use-model-selection';
 import { cn } from '@/lib/utils';
+import { BillingModal } from '@/components/billing/billing-modal';
 
 interface ChatSettingsDialogProps {
   selectedModel: string;
@@ -91,6 +92,13 @@ export function ChatSettingsDialog({
                 setBillingModalOpen={setBillingModalOpen}
               />
             </div>
+            {/* Billing Modal */}
+            <BillingModal
+              open={billingModalOpen}
+              onOpenChange={setBillingModalOpen}
+              returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
+            />
+
             <p className="text-xs text-muted-foreground">
               Choose the AI model that best fits your needs. Premium models offer better performance.
             </p>

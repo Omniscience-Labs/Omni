@@ -763,13 +763,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         mode={dialogMode}
       />
 
-      {/* Billing Modal */}
-      <BillingModal
-        open={billingModalOpen}
-        onOpenChange={setBillingModalOpen}
-        returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
-      />
-
       {paywallOpen && (
         <PaywallDialog
           open={true}

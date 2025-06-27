@@ -14,6 +14,7 @@ import { useFeatureFlag } from '@/lib/feature-flags';
 import { TooltipContent } from '@/components/ui/tooltip';
 import { Tooltip } from '@/components/ui/tooltip';
 import { TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
+import { BillingModal } from '@/components/billing/billing-modal';
 
 interface MessageInputProps {
   value: string;
@@ -200,6 +201,13 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               />
             )}
             
+            {/* Billing Modal */}
+            <BillingModal
+              open={billingModalOpen}
+              onOpenChange={setBillingModalOpen}
+              returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
+            />
+
             <VoiceRecorder
               onTranscription={onTranscription}
               disabled={loading || (disabled && !isAgentRunning)}
