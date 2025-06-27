@@ -37,6 +37,7 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [localPrompt, setLocalPrompt] = useState(nodeData.prompt || '');
   const { updateNodeData, workflowId } = useWorkflow();
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
 
   // Use the model selection hook
   const {
@@ -226,6 +227,8 @@ const InputNode = memo(({ data, selected, id }: NodeProps) => {
                   canAccessModel={canAccessModel}
                   subscriptionStatus={subscriptionStatus}
                   refreshCustomModels={refreshCustomModels}
+                  billingModalOpen={billingModalOpen}
+                  setBillingModalOpen={setBillingModalOpen}
                 />
               </div>
             </div>

@@ -41,6 +41,7 @@ export function ChatSettingsDialog({
   onOpenChange: controlledOnOpenChange,
 }: ChatSettingsDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
   
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
@@ -86,6 +87,8 @@ export function ChatSettingsDialog({
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
                 hasBorder={true}
+                billingModalOpen={billingModalOpen}
+                setBillingModalOpen={setBillingModalOpen}
               />
             </div>
             <p className="text-xs text-muted-foreground">
