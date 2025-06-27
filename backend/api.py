@@ -200,7 +200,7 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     
-    workers = 1
+    workers = 4
     
     logger.info(f"Starting server on 0.0.0.0:8000 with {workers} workers")
     uvicorn.run(

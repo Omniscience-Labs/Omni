@@ -133,6 +133,7 @@ def prepare_params(
             "model": "openrouter/anthropic/claude-sonnet-4",
             "messages": messages,
         }]
+        # params["mock_testing_fallback"] = True
         logger.debug("Added Claude-specific headers")
 
     # Add OpenRouter-specific parameters
@@ -312,7 +313,7 @@ async def make_llm_api_call(
 
             response = await litellm.acompletion(**params)
             logger.debug(f"Successfully received API response from {model_name}")
-            logger.debug(f"Response: {response}")
+            # logger.debug(f"Response: {response}")
             return response
 
         except (litellm.exceptions.RateLimitError, OpenAIError, json.JSONDecodeError) as e:
