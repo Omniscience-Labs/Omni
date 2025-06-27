@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PricingSection } from '@/components/home/sections/pricing-section';
 import { isLocalMode } from '@/lib/config';
-import {
-  getSubscription,
-  createPortalSession,
-  SubscriptionStatus,
-} from '@/lib/api';
+import { createPortalSession } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSubscription } from '@/hooks/react-query';
+import Link from 'next/link';
+import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
 
 type Props = {
   accountId: string;
@@ -19,34 +18,13 @@ type Props = {
 
 export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
   const { session, isLoading: authLoading } = useAuth();
-  const [subscriptionData, setSubscriptionData] =
-    useState<SubscriptionStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isManaging, setIsManaging] = useState(false);
-
-  useEffect(() => {
-    async function fetchSubscription() {
-      if (authLoading || !session) return;
-
-      try {
-        const data = await getSubscription();
-        setSubscriptionData(data);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to get subscription:', err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load subscription data',
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchSubscription();
-  }, [session, authLoading]);
+  const {
+    data: subscriptionData,
+    isLoading,
+    error: subscriptionQueryError,
+  } = useSubscription();
 
   const handleManageSubscription = async () => {
     try {
@@ -95,13 +73,14 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
   }
 
   // Show error state
-  if (error) {
+  if (error || subscriptionQueryError) {
     return (
       <div className="rounded-xl border shadow-sm bg-card p-6">
         <h2 className="text-xl font-semibold mb-4">Billing Status</h2>
         <div className="p-4 mb-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
           <p className="text-sm text-destructive">
-            Error loading billing status: {error}
+            Error loading billing status:{' '}
+            {error || subscriptionQueryError.message}
           </p>
         </div>
       </div>
@@ -127,15 +106,20 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
       {subscriptionData ? (
         <>
           <div className="mb-6">
-            <div className="rounded-lg border bg-background p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex justify-between items-center">
+            <div className="rounded-lg border bg-background p-4">
+              <div className="flex justify-between items-center gap-4">
                 <span className="text-sm font-medium text-foreground/90">
                   Agent Usage This Month
                 </span>
                 <span className="text-sm font-medium text-card-title">
-                  {subscriptionData.current_usage?.toFixed(2) || '0'} /{' '}
-                  {subscriptionData.minutes_limit || '0'} minutes
+                  ${subscriptionData.current_usage?.toFixed(2) || '0'} /{' '}
+                  ${subscriptionData.cost_limit || '0'}
                 </span>
+                <Button variant='outline' asChild className='text-sm'>
+                  <Link href="/settings/usage-logs">
+                    Usage logs
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -145,13 +129,22 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
 
           <div className="mt-20"></div>
           {/* Manage Subscription Button */}
-          <Button
-            onClick={handleManageSubscription}
-            disabled={isManaging}
-            className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-          >
-            {isManaging ? 'Loading...' : 'Manage Subscription'}
-          </Button>
+          <div className='flex justify-center items-center gap-4'>
+            <Button
+              onClick={() => window.open('/model-pricing', '_blank')}
+              variant="outline"
+              className="border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
+            >
+              View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+            </Button>
+            <Button
+              onClick={handleManageSubscription}
+              disabled={isManaging}
+              className="bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+            >
+              {isManaging ? 'Loading...' : 'Manage Subscription'}
+            </Button>
+          </div>
         </>
       ) : (
         <>
@@ -171,8 +164,8 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
                   Agent Usage This Month
                 </span>
                 <span className="text-sm font-medium text-card-title">
-                  {subscriptionData?.current_usage?.toFixed(2) || '0'} /{' '}
-                  {subscriptionData?.minutes_limit || '0'} minutes
+                  ${subscriptionData?.current_usage?.toFixed(2) || '0'} /{' '}
+                  ${subscriptionData?.cost_limit || '0'}
                 </span>
               </div>
             </div>
@@ -181,14 +174,23 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Plans Comparison */}
           <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
-          {/* Manage Subscription Button */}
-          <Button
-            onClick={handleManageSubscription}
-            disabled={isManaging}
-            className="w-full bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-          >
-            {isManaging ? 'Loading...' : 'Manage Subscription'}
-          </Button>
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open('/model-pricing', '_blank')}
+              variant="outline"
+              className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
+            >
+              View Compute Pricing
+            </Button>
+            <Button
+              onClick={handleManageSubscription}
+              disabled={isManaging}
+              className="w-full bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+            >
+              {isManaging ? 'Loading...' : 'Manage Subscription'}
+            </Button>
+          </div>
         </>
       )}
     </div>

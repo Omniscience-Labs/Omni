@@ -5,17 +5,17 @@ import type { PricingTier } from '@/lib/home';
 import { siteConfig } from '@/lib/home';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  getSubscription,
   createCheckoutSession,
   SubscriptionStatus,
   CreateCheckoutSessionResponse,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { isLocalMode } from '@/lib/config';
+import { useSubscription } from '@/hooks/react-query';
 
 // Constants
 export const SUBSCRIPTION_PLANS = {
@@ -56,6 +56,7 @@ interface PricingTierProps {
   isAuthenticated?: boolean;
   returnUrl: string;
   insideDialog?: boolean;
+  billingPeriod?: 'monthly' | 'yearly';
 }
 
 // Components
@@ -123,6 +124,43 @@ function PriceDisplay({ price, isCompact }: PriceDisplayProps) {
   );
 }
 
+function BillingPeriodToggle({ 
+  billingPeriod, 
+  setBillingPeriod 
+}: { 
+  billingPeriod: 'monthly' | 'yearly';
+  setBillingPeriod: (period: 'monthly' | 'yearly') => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3">
+      <div 
+        className="relative bg-muted rounded-full p-1 cursor-pointer"
+        onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}
+      >
+        <div className="flex">
+          <div className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all duration-200", 
+            billingPeriod === 'monthly' 
+              ? 'bg-background text-foreground shadow-sm' 
+              : 'text-muted-foreground'
+          )}>
+            Monthly
+          </div>
+          <div className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1", 
+            billingPeriod === 'yearly' 
+              ? 'bg-background text-foreground shadow-sm' 
+              : 'text-muted-foreground'
+          )}>
+            Yearly
+            <span className="bg-green-600 text-green-50 dark:bg-green-500 dark:text-green-50 text-[10px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap">
+              15% off
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PricingTier({
   tier,
   isCompact = false,
@@ -135,11 +173,12 @@ function PricingTier({
   isAuthenticated = false,
   returnUrl,
   insideDialog = false,
+  billingPeriod = 'monthly',
 }: PricingTierProps) {
   // Auto-select the correct plan only on initial load - simplified since no more Custom tier
   const handleSubscribe = async (planStripePriceId: string) => {
     if (!isAuthenticated) {
-      window.location.href = '/auth';
+      window.location.href = '/auth?mode=signup';
       return;
     }
 
@@ -217,7 +256,18 @@ function PricingTier({
     }
   };
 
-  const tierPriceId = tier.stripePriceId;
+  const tierPriceId = billingPeriod === 'yearly' && tier.yearlyStripePriceId 
+    ? tier.yearlyStripePriceId 
+    : tier.stripePriceId;
+  const displayPrice = billingPeriod === 'yearly' && tier.yearlyPrice 
+    ? tier.yearlyPrice 
+    : tier.price;
+  
+  // Find the current tier (moved outside conditional for JSX access)
+  const currentTier = siteConfig.cloudPricingItems.find(
+    (p) => p.stripePriceId === currentSubscription?.price_id || p.yearlyStripePriceId === currentSubscription?.price_id,
+  );
+  
   const isCurrentActivePlan =
     isAuthenticated && currentSubscription?.price_id === tierPriceId;
   const isScheduled = isAuthenticated && currentSubscription?.has_schedule;
@@ -225,7 +275,7 @@ function PricingTier({
     isScheduled && currentSubscription?.scheduled_price_id === tierPriceId;
   const isPlanLoading = isLoading[tierPriceId];
 
-  let buttonText = isAuthenticated ? 'Select Plan' : 'Try Free';
+  let buttonText = isAuthenticated ? 'Select Plan' : 'Start Free';
   let buttonDisabled = isPlanLoading;
   let buttonVariant: ButtonVariant = null;
   let ringClass = '';
@@ -269,11 +319,6 @@ function PricingTier({
         </span>
       );
     } else {
-      // Find the current tier
-      const currentTier = siteConfig.cloudPricingItems.find(
-        (p) => p.stripePriceId === currentSubscription?.price_id,
-      );
-
       const currentPriceString = currentSubscription
         ? currentTier?.price || '$0'
         : '$0';
@@ -287,6 +332,14 @@ function PricingTier({
           ? 0
           : parseFloat(selectedPriceString.replace(/[^\d.]/g, '') || '0') * 100;
 
+      // Check if current subscription is monthly and target is yearly for same tier
+      const currentIsMonthly = currentTier && currentSubscription?.price_id === currentTier.stripePriceId;
+      const currentIsYearly = currentTier && currentSubscription?.price_id === currentTier.yearlyStripePriceId;
+      const targetIsMonthly = tier.stripePriceId === tierPriceId;
+      const targetIsYearly = tier.yearlyStripePriceId === tierPriceId;
+      const isSameTierDifferentBilling = currentTier && currentTier.name === tier.name && 
+        ((currentIsMonthly && targetIsYearly) || (currentIsYearly && targetIsMonthly));
+
       if (
         currentAmount === 0 &&
         targetAmount === 0 &&
@@ -297,17 +350,49 @@ function PricingTier({
         buttonVariant = 'secondary';
         buttonClassName = 'bg-primary/5 hover:bg-primary/10 text-primary';
       } else {
-        if (targetAmount > currentAmount) {
-          buttonText = 'Upgrade';
-          buttonVariant = tier.buttonColor as ButtonVariant;
-          buttonClassName =
-            'bg-primary hover:bg-primary/90 text-primary-foreground';
-        } else if (targetAmount < currentAmount) {
+        if (targetAmount > currentAmount || (currentIsMonthly && targetIsYearly && targetAmount >= currentAmount)) {
+          // Allow upgrade to higher tier OR switch from monthly to yearly at same/higher tier
+          // But prevent yearly to monthly switches even if target amount is higher
+          if (currentIsYearly && targetIsMonthly) {
+            buttonText = '-';
+            buttonDisabled = true;
+            buttonVariant = 'secondary';
+            buttonClassName =
+              'opacity-50 cursor-not-allowed bg-muted text-muted-foreground';
+          } else if (currentIsMonthly && targetIsYearly && targetAmount === currentAmount) {
+            buttonText = 'Switch to Yearly';
+            buttonVariant = 'default';
+            buttonClassName = 'bg-green-600 hover:bg-green-700 text-white';
+          } else {
+            buttonText = 'Upgrade';
+            buttonVariant = tier.buttonColor as ButtonVariant;
+            buttonClassName = 'bg-primary hover:bg-primary/90 text-primary-foreground';
+          }
+        } else if (targetAmount < currentAmount && !(currentIsYearly && targetIsMonthly && targetAmount === currentAmount)) {
           buttonText = '-';
           buttonDisabled = true;
           buttonVariant = 'secondary';
           buttonClassName =
             'opacity-50 cursor-not-allowed bg-muted text-muted-foreground';
+        } else if (isSameTierDifferentBilling) {
+          // Allow switching between monthly and yearly for same tier
+          if (currentIsMonthly && targetIsYearly) {
+            buttonText = 'Switch to Yearly';
+            buttonVariant = 'default';
+            buttonClassName = 'bg-green-600 hover:bg-green-700 text-white';
+          } else if (currentIsYearly && targetIsMonthly) {
+            // Prevent downgrade from yearly to monthly
+            buttonText = '-';
+            buttonDisabled = true;
+            buttonVariant = 'secondary';
+            buttonClassName =
+              'opacity-50 cursor-not-allowed bg-muted text-muted-foreground';
+          } else {
+            buttonText = 'Select Plan';
+            buttonVariant = tier.buttonColor as ButtonVariant;
+            buttonClassName =
+              'bg-primary hover:bg-primary/90 text-primary-foreground';
+          }
         } else {
           buttonText = 'Select Plan';
           buttonVariant = tier.buttonColor as ButtonVariant;
@@ -350,21 +435,58 @@ function PricingTier({
         <p className="text-sm flex items-center gap-2">
           {tier.name}
           {tier.isPopular && (
-            <span className="bg-gradient-to-b from-secondary/50 from-[1.92%] to-secondary to-[100%] text-white h-6 inline-flex w-fit items-center justify-center px-2 rounded-full text-sm shadow-[0px_6px_6px_-3px_rgba(0,0,0,0.08),0px_3px_3px_-1.5px_rgba(0,0,0,0.08),0px_1px_1px_-0.5px_rgba(0,0,0,0.08),0px_0px_0px_1px_rgba(255,255,255,0.12)_inset,0px_1px_0px_0px_rgba(255,255,255,0.12)_inset]">
+            <span className="bg-gradient-to-b from-secondary/50 from-[1.92%] to-secondary to-[100%] text-white inline-flex w-fit items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium shadow-[0px_6px_6px_-3px_rgba(0,0,0,0.08),0px_3px_3px_-1.5px_rgba(0,0,0,0.08),0px_1px_1px_-0.5px_rgba(0,0,0,0.08),0px_0px_0px_1px_rgba(255,255,255,0.12)_inset,0px_1px_0px_0px_rgba(255,255,255,0.12)_inset]">
               Popular
+            </span>
+          )}
+          {/* Show upgrade badge for yearly plans when user is on monthly */}
+          {!tier.isPopular && isAuthenticated && currentSubscription && billingPeriod === 'yearly' && 
+            currentTier && currentSubscription.price_id === currentTier.stripePriceId && 
+            tier.yearlyStripePriceId && (currentTier.name === tier.name || 
+            parseFloat(tier.price.slice(1)) >= parseFloat(currentTier.price.slice(1))) && (
+            <span className="bg-green-500/10 text-green-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+              Recommended
             </span>
           )}
           {isAuthenticated && statusBadge}
         </p>
         <div className="flex items-baseline mt-2">
-          <PriceDisplay price={tier.price} isCompact={insideDialog} />
-          <span className="ml-2">{tier.price !== '$0' ? '/month' : ''}</span>
+          {billingPeriod === 'yearly' && tier.yearlyPrice && displayPrice !== '$0' ? (
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-2">
+                <PriceDisplay price={`$${Math.round(parseFloat(tier.yearlyPrice.slice(1)) / 12)}`} isCompact={insideDialog} />
+                {tier.discountPercentage && (
+                  <span className="text-xs line-through text-muted-foreground">
+                    ${Math.round(parseFloat(tier.originalYearlyPrice?.slice(1) || '0') / 12)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-muted-foreground">/month</span>
+                <span className="text-xs text-muted-foreground">billed yearly</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-baseline">
+              <PriceDisplay price={displayPrice} isCompact={insideDialog} />
+              <span className="ml-2">{displayPrice !== '$0' ? '/month' : ''}</span>
+            </div>
+          )}
         </div>
         <p className="text-sm mt-2">{tier.description}</p>
 
-        <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 border-primary/20 text-primary w-fit">
-          {tier.hours}/month
-        </div>
+        {billingPeriod === 'yearly' && tier.yearlyPrice && tier.discountPercentage ? (
+          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 border-green-200 text-green-700 w-fit">
+            Save ${Math.round(parseFloat(tier.originalYearlyPrice?.slice(1) || '0') - parseFloat(tier.yearlyPrice.slice(1)))} per year
+          </div>
+        ) : (
+          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 border-primary/20 text-primary w-fit">
+            {billingPeriod === 'yearly' && tier.yearlyPrice && displayPrice !== '$0' 
+              ? `$${Math.round(parseFloat(tier.yearlyPrice.slice(1)) / 12)}/month (billed yearly)`
+              : `${displayPrice}/month`
+            }
+          </div>
+        )}
       </div>
 
       <div className={cn(
@@ -375,7 +497,7 @@ function PricingTier({
           <ul className="space-y-3">
             {tier.features.map((feature) => (
               <li key={feature} className="flex items-center gap-2">
-                <div className="size-5 rounded-full border border-primary/20 flex items-center justify-center">
+                <div className="size-5 min-w-5 rounded-full border border-primary/20 flex items-center justify-center">
                   <CheckIcon className="size-3 text-primary" />
                 </div>
                 <span className="text-sm">{feature}</span>
@@ -423,42 +545,56 @@ export function PricingSection({
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
   );
-  const [currentSubscription, setCurrentSubscription] =
-    useState<SubscriptionStatus | null>(null);
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [isFetchingPlan, setIsFetchingPlan] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription();
 
-  const fetchCurrentPlan = async () => {
-    setIsFetchingPlan(true);
-    try {
-      const subscriptionData = await getSubscription();
-      console.log('Fetched Subscription Status:', subscriptionData);
-      setCurrentSubscription(subscriptionData);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      setCurrentSubscription(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsFetchingPlan(false);
+  // Derive authentication and subscription status from the hook data
+  const isAuthenticated = !!subscriptionData && subscriptionQueryError === null;
+  const currentSubscription = subscriptionData || null;
+
+  // Determine default billing period based on user's current subscription
+  const getDefaultBillingPeriod = (): 'monthly' | 'yearly' => {
+    if (!isAuthenticated || !currentSubscription) {
+      // Default to yearly for non-authenticated users or users without subscription
+      return 'yearly';
     }
+
+    // Find current tier to determine if user is on monthly or yearly plan
+    const currentTier = siteConfig.cloudPricingItems.find(
+      (p) => p.stripePriceId === currentSubscription.price_id || p.yearlyStripePriceId === currentSubscription.price_id,
+    );
+
+    if (currentTier) {
+      // Check if current subscription is yearly
+      if (currentTier.yearlyStripePriceId === currentSubscription.price_id) {
+        return 'yearly';
+      } else if (currentTier.stripePriceId === currentSubscription.price_id) {
+        return 'monthly';
+      }
+    }
+
+    // Default to yearly if we can't determine current plan type
+    return 'yearly';
   };
 
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>(getDefaultBillingPeriod());
+  const [planLoadingStates, setPlanLoadingStates] = useState<Record<string, boolean>>({});
+
+  // Update billing period when subscription data changes
+  useEffect(() => {
+    setBillingPeriod(getDefaultBillingPeriod());
+  }, [isAuthenticated, currentSubscription?.price_id]);
+
   const handlePlanSelect = (planId: string) => {
-    setIsLoading((prev) => ({ ...prev, [planId]: true }));
+    setPlanLoadingStates((prev) => ({ ...prev, [planId]: true }));
   };
 
   const handleSubscriptionUpdate = () => {
-    fetchCurrentPlan();
+    refetchSubscription();
+    // The useSubscription hook will automatically refetch, so we just need to clear loading states
     setTimeout(() => {
-      setIsLoading({});
+      setPlanLoadingStates({});
     }, 1000);
   };
-
-  useEffect(() => {
-    fetchCurrentPlan();
-  }, []);
 
   const handleTabChange = (tab: 'cloud' | 'self-hosted') => {
     if (tab === 'self-hosted') {
@@ -492,7 +628,7 @@ export function PricingSection({
   return (
     <section
       id="pricing"
-      className={cn("flex flex-col items-center justify-center gap-10 w-full relative", { "pb-20": !insideDialog })}
+      className={cn("flex flex-col items-center justify-center gap-10 w-full relative")}
     >
       {showTitleAndTabs && (
         <>
@@ -518,14 +654,21 @@ export function PricingSection({
       )}
 
       {deploymentType === 'cloud' && (
+        <BillingPeriodToggle 
+          billingPeriod={billingPeriod} 
+          setBillingPeriod={setBillingPeriod} 
+        />
+      )}
+
+      {deploymentType === 'cloud' && (
         <div className={cn(
           "grid gap-4 w-full mx-auto",
           {
             "px-6 max-w-7xl": !insideDialog,
-            "max-w-5xl": insideDialog
+            "max-w-7xl": insideDialog
           },
           insideDialog 
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4"
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4"
             : "min-[650px]:grid-cols-2 lg:grid-cols-4",
           !insideDialog && "grid-rows-1 items-stretch"
         )}>
@@ -536,13 +679,14 @@ export function PricingSection({
               key={tier.name}
               tier={tier}
               currentSubscription={currentSubscription}
-              isLoading={isLoading}
+              isLoading={planLoadingStates}
               isFetchingPlan={isFetchingPlan}
               onPlanSelect={handlePlanSelect}
               onSubscriptionUpdate={handleSubscriptionUpdate}
               isAuthenticated={isAuthenticated}
               returnUrl={returnUrl}
               insideDialog={insideDialog}
+              billingPeriod={billingPeriod}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect } from 'react';
+import React, { forwardRef, useEffect, useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Square, Loader2, ArrowUp } from 'lucide-react';
@@ -83,6 +83,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
     },
     ref,
   ) => {
+    const [billingModalOpen, setBillingModalOpen] = useState(false);
     const { enabled: customAgentsEnabled, loading: flagsLoading } = useFeatureFlag('custom_agents');
 
     useEffect(() => {
@@ -163,7 +164,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <p className='text-sm text-amber-500 hidden sm:block'>Upgrade for full performance</p>
+                  <p role='button' className='text-sm text-amber-500 hidden sm:block cursor-pointer' onClick={() => setBillingModalOpen(true)}>Upgrade for full performance</p>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>The free tier is severely limited by inferior models; upgrade to experience the true full Suna experience.</p>
@@ -182,6 +183,8 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
+                billingModalOpen={billingModalOpen}
+                setBillingModalOpen={setBillingModalOpen}
               />
             ) : (
               <ChatSettingsDropdown

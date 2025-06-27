@@ -14,24 +14,79 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
-import os
+from litellm import cost_per_token, model_cost
+import time
 
 # Initialize Stripe
 stripe.api_key = config.STRIPE_SECRET_KEY
 
+# Token price multiplier
+TOKEN_PRICE_MULTIPLIER = 2
+
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+# Hardcoded pricing for specific models (prices per million tokens)
+HARDCODED_MODEL_PRICES = {
+    "openrouter/deepseek/deepseek-chat": {
+        "input_cost_per_million_tokens": 0.38,
+        "output_cost_per_million_tokens": 0.89
+    },
+    "deepseek/deepseek-chat": {
+        "input_cost_per_million_tokens": 0.38,
+        "output_cost_per_million_tokens": 0.89
+    },
+    "qwen/qwen3-235b-a22b": {
+        "input_cost_per_million_tokens": 0.13,
+        "output_cost_per_million_tokens": 0.60
+    },
+    "openrouter/qwen/qwen3-235b-a22b": {
+        "input_cost_per_million_tokens": 0.13,
+        "output_cost_per_million_tokens": 0.60
+    },
+    "google/gemini-2.5-flash-preview-05-20": {
+        "input_cost_per_million_tokens": 0.15,
+        "output_cost_per_million_tokens": 0.60
+    },
+    "openrouter/google/gemini-2.5-flash-preview-05-20": {
+        "input_cost_per_million_tokens": 0.15,
+        "output_cost_per_million_tokens": 0.60
+    }
+}
+
+def get_model_pricing(model: str) -> tuple[float, float] | None:
+    """
+    Get pricing for a model. Returns (input_cost_per_million, output_cost_per_million) or None.
+    
+    Args:
+        model: The model name to get pricing for
+        
+    Returns:
+        Tuple of (input_cost_per_million_tokens, output_cost_per_million_tokens) or None if not found
+    """
+    if model in HARDCODED_MODEL_PRICES:
+        pricing = HARDCODED_MODEL_PRICES[model]
+        return pricing["input_cost_per_million_tokens"], pricing["output_cost_per_million_tokens"]
+    return None
+
 
 SUBSCRIPTION_TIERS = {
-    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60},
-    config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120},  # 2 hours
-    config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360},  # 6 hours
-    config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720},  # 12 hours
-    config.STRIPE_TIER_25_200_ID: {'name': 'tier_25_200', 'minutes': 1500},  # 25 hours
-    config.STRIPE_TIER_50_400_ID: {'name': 'tier_50_400', 'minutes': 3000},  # 50 hours
-    config.STRIPE_TIER_125_800_ID: {'name': 'tier_125_800', 'minutes': 7500},  # 125 hours
-    config.STRIPE_TIER_200_1000_ID: {'name': 'tier_200_1000', 'minutes': 12000},  # 200 hours
+    config.STRIPE_FREE_TIER_ID: {'name': 'free', 'minutes': 60, 'cost': 5},
+    config.STRIPE_TIER_2_20_ID: {'name': 'tier_2_20', 'minutes': 120, 'cost': 20},  # 2 hours
+    config.STRIPE_TIER_6_50_ID: {'name': 'tier_6_50', 'minutes': 360, 'cost': 50},  # 6 hours
+    config.STRIPE_TIER_12_100_ID: {'name': 'tier_12_100', 'minutes': 720, 'cost': 100},  # 12 hours
+    config.STRIPE_TIER_25_200_ID: {'name': 'tier_25_200', 'minutes': 1500, 'cost': 200},  # 25 hours
+    config.STRIPE_TIER_50_400_ID: {'name': 'tier_50_400', 'minutes': 3000, 'cost': 400},  # 50 hours
+    config.STRIPE_TIER_125_800_ID: {'name': 'tier_125_800', 'minutes': 7500, 'cost': 800},  # 125 hours
+    config.STRIPE_TIER_200_1000_ID: {'name': 'tier_200_1000', 'minutes': 12000, 'cost': 1000},  # 200 hours
+    # Yearly tiers (same usage limits, different billing period)
+    config.STRIPE_TIER_2_20_YEARLY_ID: {'name': 'tier_2_20', 'minutes': 120, 'cost': 20},  # 2 hours/month, $204/year
+    config.STRIPE_TIER_6_50_YEARLY_ID: {'name': 'tier_6_50', 'minutes': 360, 'cost': 50},  # 6 hours/month, $510/year
+    config.STRIPE_TIER_12_100_YEARLY_ID: {'name': 'tier_12_100', 'minutes': 720, 'cost': 100},  # 12 hours/month, $1020/year
+    config.STRIPE_TIER_25_200_YEARLY_ID: {'name': 'tier_25_200', 'minutes': 1500, 'cost': 200},  # 25 hours/month, $2040/year
+    config.STRIPE_TIER_50_400_YEARLY_ID: {'name': 'tier_50_400', 'minutes': 3000, 'cost': 400},  # 50 hours/month, $4080/year
+    config.STRIPE_TIER_125_800_YEARLY_ID: {'name': 'tier_125_800', 'minutes': 7500, 'cost': 800},  # 125 hours/month, $8160/year
+    config.STRIPE_TIER_200_1000_YEARLY_ID: {'name': 'tier_200_1000', 'minutes': 12000, 'cost': 1000},  # 200 hours/month, $10200/year
 }
 
 # Pydantic models for request/response validation
@@ -52,6 +107,7 @@ class SubscriptionStatus(BaseModel):
     cancel_at_period_end: bool = False
     trial_end: Optional[datetime] = None
     minutes_limit: Optional[int] = None
+    cost_limit: Optional[float] = None
     current_usage: Optional[float] = None
     # Fields for scheduled changes
     has_schedule: bool = False
@@ -125,7 +181,15 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
                     config.STRIPE_TIER_25_200_ID,
                     config.STRIPE_TIER_50_400_ID,
                     config.STRIPE_TIER_125_800_ID,
-                    config.STRIPE_TIER_200_1000_ID
+                    config.STRIPE_TIER_200_1000_ID,
+                    # Yearly tiers
+                    config.STRIPE_TIER_2_20_YEARLY_ID,
+                    config.STRIPE_TIER_6_50_YEARLY_ID,
+                    config.STRIPE_TIER_12_100_YEARLY_ID,
+                    config.STRIPE_TIER_25_200_YEARLY_ID,
+                    config.STRIPE_TIER_50_400_YEARLY_ID,
+                    config.STRIPE_TIER_125_800_YEARLY_ID,
+                    config.STRIPE_TIER_200_1000_YEARLY_ID
                 ]:
                     our_subscriptions.append(sub)
         
@@ -165,6 +229,13 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
     now = datetime.now(timezone.utc)
     start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
     
+    # Use fixed cutoff date: June 27, 2025 midnight UTC
+    # Ignore all token counts before this date
+    cutoff_date = datetime(2025, 6, 28, 0, 0, 0, tzinfo=timezone.utc)
+    
+    # Use the later of the two dates (start of month or cutoff date)
+    start_of_month = max(start_of_month, cutoff_date)
+    
     # First get all threads for this user
     threads_result = await client.table('threads') \
         .select('thread_id') \
@@ -175,37 +246,53 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
         return 0.0
     
     thread_ids = [t['thread_id'] for t in threads_result.data]
+
     
-    # Then get all agent runs for these threads in current month
-    runs_result = await client.table('agent_runs') \
-        .select('started_at, completed_at') \
+    start_time = time.time()
+    token_messages = await client.table('messages') \
+        .select('content') \
         .in_('thread_id', thread_ids) \
-        .gte('started_at', start_of_month.isoformat()) \
+        .gte('created_at', start_of_month.isoformat()) \
+        .eq('type', 'assistant_response_end') \
         .execute()
-    
-    if not runs_result.data:
+    end_time = time.time()
+    execution_time = end_time - start_time
+    logger.info(f"Database query for token messages took {execution_time:.3f} seconds")
+
+    if not token_messages.data:
         return 0.0
+
+    # Calculate total cost per message (to handle different models correctly)
+    total_cost = 0.0
     
-    # Calculate total minutes
-    total_seconds = 0
-    now_ts = now.timestamp()
-    
-    for run in runs_result.data:
-        start_time = datetime.fromisoformat(run['started_at'].replace('Z', '+00:00')).timestamp()
-        if run['completed_at']:
-            end_time = datetime.fromisoformat(run['completed_at'].replace('Z', '+00:00')).timestamp()
-            if start_time < end_time - 7200:
-                continue
+    for run in token_messages.data:
+        prompt_tokens = run['content']['usage']['prompt_tokens']
+        completion_tokens = run['content']['usage']['completion_tokens']
+        model = run['content']['model']
+
+        # Check if we have hardcoded pricing for this model
+        hardcoded_pricing = get_model_pricing(model)
+        if hardcoded_pricing:
+            input_cost_per_million, output_cost_per_million = hardcoded_pricing
+            input_cost = (prompt_tokens / 1_000_000) * input_cost_per_million
+            output_cost = (completion_tokens / 1_000_000) * output_cost_per_million
+            message_cost = input_cost + output_cost
         else:
-            # if the start time is more than an hour ago, don't consider that time in total. else use the current time
-            if start_time < now_ts - 3600:
+            # Use litellm pricing as fallback
+            try:
+                prompt_token_cost, completion_token_cost = cost_per_token(model, int(prompt_tokens), int(completion_tokens))
+                message_cost = prompt_token_cost + completion_token_cost
+            except Exception as e:
+                logger.warning(f"Could not get pricing for model {model}: {str(e)}, skipping message")
                 continue
-            else:
-                end_time = now_ts
         
-        total_seconds += (end_time - start_time)
-    
-    return total_seconds / 60  # Convert to minutes
+        total_cost += message_cost
+
+    # Return total cost * TOKEN_PRICE_MULTIPLIER (as per original logic)
+    total_cost = total_cost * TOKEN_PRICE_MULTIPLIER
+    logger.info(f"Total cost for user {user_id}: {total_cost}")
+
+    return total_cost
 
 async def get_allowed_models_for_user(client, user_id: str):
     """
@@ -293,8 +380,8 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     current_usage = await calculate_monthly_usage(client, user_id)
     
     # Check if within limits
-    if current_usage >= tier_info['minutes']:
-        return False, f"Monthly limit of {tier_info['minutes']} minutes reached. Please upgrade your plan or wait until next month.", subscription
+    if current_usage >= tier_info['cost']:
+        return False, f"Monthly limit of {tier_info['cost']} dollars reached. Please upgrade your plan or wait until next month.", subscription
     
     return True, "OK", subscription
 
@@ -695,6 +782,11 @@ async def get_subscription(
         subscription = await get_user_subscription(current_user_id)
         # print("Subscription data for status:", subscription)
         
+        # Calculate current usage
+        db = DBConnection()
+        client = await db.client
+        current_usage = await calculate_monthly_usage(client, current_user_id)
+
         if not subscription:
             # Default to free tier status if no active subscription for our product
             free_tier_id = config.STRIPE_FREE_TIER_ID
@@ -703,7 +795,9 @@ async def get_subscription(
                 status="no_subscription",
                 plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
                 price_id=free_tier_id,
-                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0
+                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
+                current_usage=round(current_usage, 2)
             )
         
         # Extract current plan details
@@ -715,11 +809,6 @@ async def get_subscription(
              logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
              current_tier_info = {'name': 'unknown', 'minutes': 0}
         
-        # Calculate current usage
-        db = DBConnection()
-        client = await db.client
-        current_usage = await calculate_monthly_usage(client, current_user_id)
-        
         status_response = SubscriptionStatus(
             status=subscription['status'], # 'active', 'trialing', etc.
             plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
@@ -728,6 +817,7 @@ async def get_subscription(
             cancel_at_period_end=subscription['cancel_at_period_end'],
             trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
             minutes_limit=current_tier_info['minutes'],
+            cost_limit=current_tier_info['cost'],
             current_usage=round(current_usage, 2),
             has_schedule=False # Default
         )
@@ -950,12 +1040,91 @@ async def get_available_models(
             # Check if model is available with current subscription
             is_available = model in allowed_models
             
+            # Get pricing information - check hardcoded prices first, then litellm
+            pricing_info = {}
+            
+            # Check if we have hardcoded pricing for this model
+            hardcoded_pricing = get_model_pricing(model)
+            if hardcoded_pricing:
+                input_cost_per_million, output_cost_per_million = hardcoded_pricing
+                pricing_info = {
+                    "input_cost_per_million_tokens": input_cost_per_million * TOKEN_PRICE_MULTIPLIER,
+                    "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
+                    "max_tokens": None
+                }
+            else:
+                try:
+                    # Try to get pricing using cost_per_token function
+                    models_to_try = []
+                    
+                    # Add the original model name
+                    models_to_try.append(model)
+                    
+                    # Try to resolve the model name using MODEL_NAME_ALIASES
+                    if model in MODEL_NAME_ALIASES:
+                        resolved_model = MODEL_NAME_ALIASES[model]
+                        models_to_try.append(resolved_model)
+                        # Also try without provider prefix if it has one
+                        if '/' in resolved_model:
+                            models_to_try.append(resolved_model.split('/', 1)[1])
+                    
+                    # If model is a value in aliases, try to find a matching key
+                    for alias_key, alias_value in MODEL_NAME_ALIASES.items():
+                        if alias_value == model:
+                            models_to_try.append(alias_key)
+                            break
+                    
+                    # Also try without provider prefix for the original model
+                    if '/' in model:
+                        models_to_try.append(model.split('/', 1)[1])
+                    
+                    # Special handling for Google models accessed via OpenRouter
+                    if model.startswith('openrouter/google/'):
+                        google_model_name = model.replace('openrouter/', '')
+                        models_to_try.append(google_model_name)
+                    
+                    # Try each model name variation until we find one that works
+                    input_cost_per_token = None
+                    output_cost_per_token = None
+                    
+                    for model_name in models_to_try:
+                        try:
+                            # Use cost_per_token with sample token counts to get the per-token costs
+                            input_cost, output_cost = cost_per_token(model_name, 1000000, 1000000)
+                            if input_cost is not None and output_cost is not None:
+                                input_cost_per_token = input_cost
+                                output_cost_per_token = output_cost
+                                break
+                        except Exception:
+                            continue
+                    
+                    if input_cost_per_token is not None and output_cost_per_token is not None:
+                        pricing_info = {
+                            "input_cost_per_million_tokens": input_cost_per_token * TOKEN_PRICE_MULTIPLIER,
+                            "output_cost_per_million_tokens": output_cost_per_token * TOKEN_PRICE_MULTIPLIER,
+                            "max_tokens": None  # cost_per_token doesn't provide max_tokens info
+                        }
+                    else:
+                        pricing_info = {
+                            "input_cost_per_million_tokens": None,
+                            "output_cost_per_million_tokens": None,
+                            "max_tokens": None
+                        }
+                except Exception as e:
+                    logger.warning(f"Could not get pricing for model {model}: {str(e)}")
+                    pricing_info = {
+                        "input_cost_per_million_tokens": None,
+                        "output_cost_per_million_tokens": None,
+                        "max_tokens": None
+                    }
+
             model_info.append({
                 "id": model,
                 "display_name": display_name,
                 "short_name": model_aliases.get(model),
                 "requires_subscription": requires_sub,
-                "is_available": is_available
+                "is_available": is_available,
+                **pricing_info
             })
         
         return {
