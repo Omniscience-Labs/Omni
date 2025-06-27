@@ -21,7 +21,7 @@ import time
 stripe.api_key = config.STRIPE_SECRET_KEY
 
 # Token price multiplier
-TOKEN_PRICE_MULTIPLIER = 2
+TOKEN_PRICE_MULTIPLIER = 1.5
 
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -51,7 +51,11 @@ HARDCODED_MODEL_PRICES = {
     "openrouter/google/gemini-2.5-flash-preview-05-20": {
         "input_cost_per_million_tokens": 0.15,
         "output_cost_per_million_tokens": 0.60
-    }
+    },
+    "anthropic/claude-sonnet-4": {
+        "input_cost_per_million_tokens": 3.00,
+        "output_cost_per_million_tokens": 15.00,
+    },
 }
 
 def get_model_pricing(model: str) -> tuple[float, float] | None:
