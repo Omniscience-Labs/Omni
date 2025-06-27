@@ -231,7 +231,7 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
     
     # Use fixed cutoff date: June 27, 2025 midnight UTC
     # Ignore all token counts before this date
-    cutoff_date = datetime(2025, 6, 28, 0, 0, 0, tzinfo=timezone.utc)
+    cutoff_date = datetime(2025, 6, 27, 0, 0, 0, tzinfo=timezone.utc)
     
     # Use the later of the two dates (start of month or cutoff date)
     start_of_month = max(start_of_month, cutoff_date)
