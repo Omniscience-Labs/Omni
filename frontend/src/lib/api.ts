@@ -1641,6 +1641,28 @@ export interface AvailableModelsResponse {
   total_models: number;
 }
 
+export interface UsageLogEntry {
+  message_id: string;
+  thread_id: string;
+  created_at: string;
+  content: {
+    usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+    };
+    model: string;
+  };
+  total_tokens: number;
+  estimated_cost: number;
+  project_id: string;
+}
+
+export interface UsageLogsResponse {
+  logs: UsageLogEntry[];
+  has_more: boolean;
+  message?: string;
+}
+
 export interface CreateCheckoutSessionResponse {
   status:
     | 'upgraded'
@@ -2005,7 +2027,7 @@ export const getWorkflows = async (projectId?: string): Promise<Workflow[]> => {
       throw new NoAccessTokenAvailableError();
     }
 
-    let url = `${API_URL}/workflows`;
+    const url = `${API_URL}/workflows`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${session.access_token}`,
     };

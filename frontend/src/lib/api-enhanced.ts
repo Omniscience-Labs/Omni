@@ -15,7 +15,8 @@ import {
   SubscriptionStatus,
   AvailableModelsResponse,
   BillingStatusResponse,
-  BillingError
+  BillingError,
+  UsageLogsResponse
 } from './api';
 
 export * from './api';
@@ -425,6 +426,17 @@ export const billingApi = {
       '/billing/available-models',
       {
         errorContext: { operation: 'load available models', resource: 'AI models' },
+      }
+    );
+
+    return result.data || null;
+  },
+
+  async getUsageLogs(page: number = 0, itemsPerPage: number = 1000): Promise<UsageLogsResponse | null> {
+    const result = await backendApi.get(
+      `/billing/usage-logs?page=${page}&items_per_page=${itemsPerPage}`,
+      {
+        errorContext: { operation: 'load usage logs', resource: 'usage history' },
       }
     );
 
