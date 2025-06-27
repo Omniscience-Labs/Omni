@@ -29,6 +29,8 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
+import Link from 'next/link';
+import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
 
 interface UsageLogEntry {
   message_id: string;
@@ -448,7 +450,14 @@ export default function UsageLogs({ accountId }: Props) {
         <CardHeader>
           <CardTitle>Daily Usage Logs</CardTitle>
           <CardDescription>
-            Your token usage organized by day, sorted by most recent
+            <div className='flex justify-between items-center'>
+              Your token usage organized by day, sorted by most recent.{" "}
+              <Button variant='outline' asChild className='text-sm ml-4'>
+                <Link href="/model-pricing">
+                  View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+                </Link>
+              </Button>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -491,7 +500,7 @@ export default function UsageLogs({ accountId }: Props) {
                               <TableHead>Time</TableHead>
                               <TableHead>Model</TableHead>
                               <TableHead className="text-right">
-                                Compute
+                                Tokens
                               </TableHead>
                               <TableHead className="text-right">Cost</TableHead>
                               <TableHead className="text-center">
@@ -513,7 +522,9 @@ export default function UsageLogs({ accountId }: Props) {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-medium text-sm">
-                                  {log.total_tokens.toLocaleString()}
+                                  {log.content.usage.prompt_tokens.toLocaleString()}{' '}
+                                  -&gt;{' '}
+                                  {log.content.usage.completion_tokens.toLocaleString()}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-medium text-sm">
                                   {formatCost(log.estimated_cost)}

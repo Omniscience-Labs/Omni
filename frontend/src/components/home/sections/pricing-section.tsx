@@ -133,9 +133,6 @@ function BillingPeriodToggle({
 }) {
   return (
     <div className="flex items-center justify-center gap-3">
-      <span className={cn("text-sm font-medium", billingPeriod === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
-        Monthly
-      </span>
       <div 
         className="relative bg-muted rounded-full p-1 cursor-pointer"
         onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}
@@ -148,18 +145,18 @@ function BillingPeriodToggle({
           )}>
             Monthly
           </div>
-          <div className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all duration-200", 
+          <div className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1", 
             billingPeriod === 'yearly' 
               ? 'bg-background text-foreground shadow-sm' 
               : 'text-muted-foreground'
           )}>
             Yearly
+            <span className="bg-green-600 text-green-50 dark:bg-green-500 dark:text-green-50 text-[10px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap">
+              15% off
+            </span>
           </div>
         </div>
       </div>
-      <span className={cn("text-sm font-medium", billingPeriod === 'yearly' ? 'text-foreground' : 'text-muted-foreground')}>
-        Yearly
-      </span>
     </div>
   );
 }
@@ -443,10 +440,10 @@ function PricingTier({
             </span>
           )}
           {/* Show upgrade badge for yearly plans when user is on monthly */}
-          {isAuthenticated && currentSubscription && billingPeriod === 'yearly' && 
-           currentTier && currentSubscription.price_id === currentTier.stripePriceId && 
-           tier.yearlyStripePriceId && (currentTier.name === tier.name || 
-           parseFloat(tier.price.slice(1)) >= parseFloat(currentTier.price.slice(1))) && (
+          {!tier.isPopular && isAuthenticated && currentSubscription && billingPeriod === 'yearly' && 
+            currentTier && currentSubscription.price_id === currentTier.stripePriceId && 
+            tier.yearlyStripePriceId && (currentTier.name === tier.name || 
+            parseFloat(tier.price.slice(1)) >= parseFloat(currentTier.price.slice(1))) && (
             <span className="bg-green-500/10 text-green-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
               Recommended
             </span>

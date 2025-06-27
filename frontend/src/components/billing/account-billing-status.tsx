@@ -8,6 +8,8 @@ import { createPortalSession } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSubscription } from '@/hooks/react-query';
+import Link from 'next/link';
+import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
 
 type Props = {
   accountId: string;
@@ -104,8 +106,8 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
       {subscriptionData ? (
         <>
           <div className="mb-6">
-            <div className="rounded-lg border bg-background p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex justify-between items-center">
+            <div className="rounded-lg border bg-background p-4">
+              <div className="flex justify-between items-center gap-4">
                 <span className="text-sm font-medium text-foreground/90">
                   Agent Usage This Month
                 </span>
@@ -113,6 +115,11 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
                   ${subscriptionData.current_usage?.toFixed(2) || '0'} /{' '}
                   ${subscriptionData.cost_limit || '0'}
                 </span>
+                <Button variant='outline' asChild className='text-sm'>
+                  <Link href="/settings/usage-logs">
+                    Usage logs
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -122,20 +129,22 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
 
           <div className="mt-20"></div>
           {/* Manage Subscription Button */}
-          <Button
-            onClick={() => window.open('/model-pricing', '_blank')}
-            variant="outline"
-            className="w-full border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all mb-3"
-          >
-            View Compute Pricing
-          </Button>
-          <Button
-            onClick={handleManageSubscription}
-            disabled={isManaging}
-            className="w-full bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-          >
-            {isManaging ? 'Loading...' : 'Manage Subscription'}
-          </Button>
+          <div className='flex justify-center items-center gap-4'>
+            <Button
+              onClick={() => window.open('/model-pricing', '_blank')}
+              variant="outline"
+              className="border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all"
+            >
+              View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+            </Button>
+            <Button
+              onClick={handleManageSubscription}
+              disabled={isManaging}
+              className="bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+            >
+              {isManaging ? 'Loading...' : 'Manage Subscription'}
+            </Button>
+          </div>
         </>
       ) : (
         <>
