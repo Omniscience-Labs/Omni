@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -27,26 +26,12 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Loader2 } from 'lucide-react';
-import { isLocalMode } from '@/lib/config';
-import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
 import Link from 'next/link';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
+import { useUsageLogs } from '@/hooks/react-query/subscriptions/use-billing';
+import { UsageLogEntry } from '@/lib/api';
 
-interface UsageLogEntry {
-  message_id: string;
-  thread_id: string;
-  created_at: string;
-  content: {
-    usage: {
-      prompt_tokens: number;
-      completion_tokens: number;
-    };
-    model: string;
-  };
-  total_tokens: number;
-  estimated_cost: number | string;
-  project_id: string;
-}
+
 
 interface DailyUsage {
   date: string;
@@ -62,259 +47,32 @@ interface Props {
 }
 
 export default function UsageLogs({ accountId }: Props) {
-  const [usageLogs, setUsageLogs] = useState<UsageLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [allLogs, setAllLogs] = useState<UsageLogEntry[]>([]);
   const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  // Use React Query hook instead of manual fetching
-  const {
-    data: modelsData,
-    isLoading: isLoadingModels,
-    error: modelsError,
-  } = useAvailableModels();
-
+  
   const ITEMS_PER_PAGE = 1000;
 
-  // Helper function to normalize model names for better matching
-  const normalizeModelName = (name: string): string => {
-    return name
-      .toLowerCase()
-      .replace(/[-_.]/g, '') // Remove hyphens, underscores, dots
-      .replace(/\s+/g, '') // Remove spaces
-      .replace(/latest$/, '') // Remove 'latest' suffix
-      .replace(/preview$/, '') // Remove 'preview' suffix
-      .replace(/\d{8}$/, ''); // Remove date suffixes like 20250514
-  };
+  // Use React Query hook for the current page
+  const { data: currentPageData, isLoading, error, refetch } = useUsageLogs(page, ITEMS_PER_PAGE);
 
-  // Helper function to find matching pricing for a model
-  const findModelPricing = (
-    modelName: string,
-    pricingData: Record<string, { input: number; output: number }>,
-  ) => {
-    // Direct match first
-    if (pricingData[modelName]) {
-      return pricingData[modelName];
-    }
-
-    // Try normalized matching
-    const normalizedTarget = normalizeModelName(modelName);
-
-    for (const [pricingKey, pricingValue] of Object.entries(pricingData)) {
-      const normalizedKey = normalizeModelName(pricingKey);
-
-      // Exact normalized match
-      if (normalizedKey === normalizedTarget) {
-        return pricingValue;
-      }
-
-      // Partial matches - check if one contains the other
-      if (
-        normalizedKey.includes(normalizedTarget) ||
-        normalizedTarget.includes(normalizedKey)
-      ) {
-        return pricingValue;
-      }
-
-      // Try matching without provider prefix from pricing key
-      const keyWithoutProvider = pricingKey.replace(/^[^\/]+\//, '');
-      const normalizedKeyWithoutProvider =
-        normalizeModelName(keyWithoutProvider);
-
-      if (
-        normalizedKeyWithoutProvider === normalizedTarget ||
-        normalizedKeyWithoutProvider.includes(normalizedTarget) ||
-        normalizedTarget.includes(normalizedKeyWithoutProvider)
-      ) {
-        return pricingValue;
-      }
-
-      // Try matching the end part of the pricing key with the model name
-      const pricingKeyParts = pricingKey.split('/');
-      const lastPart = pricingKeyParts[pricingKeyParts.length - 1];
-      const normalizedLastPart = normalizeModelName(lastPart);
-
-      if (
-        normalizedLastPart === normalizedTarget ||
-        normalizedLastPart.includes(normalizedTarget) ||
-        normalizedTarget.includes(normalizedLastPart)
-      ) {
-        return pricingValue;
-      }
-    }
-
-    console.log(`No pricing match found for: "${modelName}"`);
-    return null;
-  };
-
-  // Create pricing lookup from models data
-  const modelPricing = useMemo(() => {
-    if (!modelsData?.models) {
-      return {};
-    }
-
-    const pricing: Record<string, { input: number; output: number }> = {};
-    modelsData.models.forEach((model) => {
-      if (
-        model.input_cost_per_million_tokens &&
-        model.output_cost_per_million_tokens
-      ) {
-        // Use the model.id as the key, which should match the model names in usage logs
-        pricing[model.id] = {
-          input: model.input_cost_per_million_tokens,
-          output: model.output_cost_per_million_tokens,
-        };
-
-        // Also try to match by display_name and short_name if they exist
-        if (model.display_name && model.display_name !== model.id) {
-          pricing[model.display_name] = {
-            input: model.input_cost_per_million_tokens,
-            output: model.output_cost_per_million_tokens,
-          };
-        }
-
-        if (model.short_name && model.short_name !== model.id) {
-          pricing[model.short_name] = {
-            input: model.input_cost_per_million_tokens,
-            output: model.output_cost_per_million_tokens,
-          };
-        }
-      }
-    });
-
-    console.log(
-      'Pricing lookup ready with',
-      Object.keys(pricing).length,
-      'entries',
-    );
-    return pricing;
-  }, [modelsData, isLoadingModels, modelsError]);
-
-  const calculateTokenCost = (
-    promptTokens: number,
-    completionTokens: number,
-    model: string,
-  ): number | string => {
-    // Use the more lenient matching function
-    const costs = findModelPricing(model, modelPricing);
-
-    if (costs) {
-      // Convert from per-million to per-token costs
-      return (
-        (promptTokens / 1000000) * costs.input +
-        (completionTokens / 1000000) * costs.output
-      );
-    }
-
-    // Return "unknown" instead of fallback cost
-    return 'unknown';
-  };
-
-  const fetchUsageLogs = async (
-    pageNum: number = 0,
-    append: boolean = false,
-  ) => {
-    try {
-      if (!append) setLoading(true);
-      else setLoadingMore(true);
-
-      const supabase = createClient();
-
-      // First, get all thread IDs for this user
-      const { data: threads, error: threadsError } = await supabase
-        .from('threads')
-        .select('thread_id')
-        .eq('account_id', accountId);
-
-      if (threadsError) throw threadsError;
-
-      if (!threads || threads.length === 0) {
-        setUsageLogs([]);
-        setLoading(false);
-        setLoadingMore(false);
-        setHasMore(false);
-        return;
-      }
-
-      const threadIds = threads.map((t) => t.thread_id);
-
-      // Then fetch usage messages with pagination, including thread project info
-      const { data: messages, error: messagesError } = await supabase
-        .from('messages')
-        .select(
-          `
-          message_id, 
-          thread_id, 
-          created_at, 
-          content,
-          threads!inner(project_id)
-        `,
-        )
-        .in('thread_id', threadIds)
-        .eq('type', 'assistant_response_end')
-        .order('created_at', { ascending: false })
-        .range(pageNum * ITEMS_PER_PAGE, (pageNum + 1) * ITEMS_PER_PAGE - 1);
-
-      if (messagesError) throw messagesError;
-
-      const processedLogs: UsageLogEntry[] = (messages || []).map((message) => {
-        const usage = message.content?.usage || {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-        };
-        const model = message.content?.model || 'unknown';
-        const totalTokens = usage.prompt_tokens + usage.completion_tokens;
-        const estimatedCost = calculateTokenCost(
-          usage.prompt_tokens,
-          usage.completion_tokens,
-          model,
-        );
-
-        return {
-          message_id: message.message_id,
-          thread_id: message.thread_id,
-          created_at: message.created_at,
-          content: {
-            usage,
-            model,
-          },
-          total_tokens: totalTokens,
-          estimated_cost: estimatedCost,
-          project_id: message.threads?.[0]?.project_id || 'unknown',
-        };
-      });
-
-      if (append) {
-        setUsageLogs((prev) => [...prev, ...processedLogs]);
-      } else {
-        setUsageLogs(processedLogs);
-      }
-
-      setHasMore(processedLogs.length === ITEMS_PER_PAGE);
-    } catch (err) {
-      console.error('Error fetching usage logs:', err);
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch usage logs',
-      );
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
+  // Update accumulated logs when new data arrives
   useEffect(() => {
-    // Only fetch usage logs after models data is loaded
-    if (!isLoadingModels && modelsData) {
-      fetchUsageLogs(0, false);
+    if (currentPageData) {
+      if (page === 0) {
+        // First page - replace all logs
+        setAllLogs(currentPageData.logs || []);
+      } else {
+        // Subsequent pages - append to existing logs
+        setAllLogs(prev => [...prev, ...(currentPageData.logs || [])]);
+      }
+      setHasMore(currentPageData.has_more || false);
     }
-  }, [accountId, isLoadingModels, modelsData]);
+  }, [currentPageData, page]);
 
   const loadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchUsageLogs(nextPage, true);
   };
 
   const formatDate = (dateString: string) => {
@@ -322,8 +80,8 @@ export default function UsageLogs({ accountId }: Props) {
   };
 
   const formatCost = (cost: number | string) => {
-    if (typeof cost === 'string') {
-      return cost;
+    if (typeof cost === 'string' || cost === 0) {
+      return typeof cost === 'string' ? cost : '$0.0000';
     }
     return `$${cost.toFixed(4)}`;
   };
@@ -380,24 +138,9 @@ export default function UsageLogs({ accountId }: Props) {
     );
   };
 
-  if (isLocalMode()) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-muted/30 border border-border rounded-lg text-center">
-            <p className="text-sm text-muted-foreground">
-              Usage logs are not available in local development mode
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
-  if (loading || isLoadingModels) {
+
+  if (isLoading && page === 0) {
     return (
       <Card>
         <CardHeader>
@@ -415,7 +158,7 @@ export default function UsageLogs({ accountId }: Props) {
     );
   }
 
-  if (error || modelsError) {
+  if (error) {
     return (
       <Card>
         <CardHeader>
@@ -424,11 +167,7 @@ export default function UsageLogs({ accountId }: Props) {
         <CardContent>
           <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
             <p className="text-sm text-destructive">
-              Error:{' '}
-              {error ||
-                (modelsError instanceof Error
-                  ? modelsError.message
-                  : 'Failed to load data')}
+              Error: {error.message || 'Failed to load usage logs'}
             </p>
           </div>
         </CardContent>
@@ -436,8 +175,26 @@ export default function UsageLogs({ accountId }: Props) {
     );
   }
 
-  const dailyUsage = groupLogsByDate(usageLogs);
-  const totalUsage = usageLogs.reduce(
+  // Handle local development mode message
+  if (currentPageData?.message) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 bg-muted/30 border border-border rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">
+              {currentPageData.message}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const dailyUsage = groupLogsByDate(allLogs);
+  const totalUsage = allLogs.reduce(
     (sum, log) =>
       sum + (typeof log.estimated_cost === 'number' ? log.estimated_cost : 0),
     0,
@@ -558,10 +315,10 @@ export default function UsageLogs({ accountId }: Props) {
                 <div className="flex justify-center pt-6">
                   <Button
                     onClick={loadMore}
-                    disabled={loadingMore}
+                    disabled={isLoading}
                     variant="outline"
                   >
-                    {loadingMore ? (
+                    {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Loading...
