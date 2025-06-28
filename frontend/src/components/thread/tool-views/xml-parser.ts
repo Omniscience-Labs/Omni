@@ -114,6 +114,32 @@ export function extractToolNameFromStream(content: string): string | null {
 }
 
 export function formatToolNameForDisplay(toolName: string): string {
+  if (toolName.startsWith('mcp_')) {
+    const parts = toolName.split('_');
+    if (parts.length >= 3) {
+      const serverName = parts[1];
+      const toolNamePart = parts.slice(2).join('_');
+      const formattedServerName = serverName.charAt(0).toUpperCase() + serverName.slice(1);
+      
+      let formattedToolName = toolNamePart;
+      if (toolNamePart.includes('-')) {
+        formattedToolName = toolNamePart
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      } else if (toolNamePart.includes('_')) {
+        formattedToolName = toolNamePart
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      } else {
+        formattedToolName = toolNamePart.charAt(0).toUpperCase() + toolNamePart.slice(1);
+      }
+      
+      return `${formattedServerName}: ${formattedToolName}`;
+    }
+  }
+  
   return toolName
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))

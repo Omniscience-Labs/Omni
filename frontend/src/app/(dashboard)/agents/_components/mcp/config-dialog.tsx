@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Save, Sparkles } from 'lucide-react';
+import { Loader2, Save, Sparkles, AlertTriangle } from 'lucide-react';
 import { useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
+import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
+import { useCredentialProfilesForMcp, type CredentialProfile } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { cn } from '@/lib/utils';
 import { MCPConfiguration } from './types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ConfigDialogProps {
   server: any;
@@ -22,20 +24,27 @@ export const ConfigDialog: React.FC<ConfigDialogProps> = ({
   onSave, 
   onCancel 
 }) => {
-  const [config, setConfig] = useState<Record<string, any>>(existingConfig?.config || {});
   const [selectedTools, setSelectedTools] = useState<Set<string>>(
     new Set(existingConfig?.enabledTools || [])
+  );
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    existingConfig?.selectedProfileId || null
   );
 
   const { data: serverDetails, isLoading } = useMCPServerDetails(server.qualifiedName);
 
+  const requiresConfig = serverDetails?.connections?.[0]?.configSchema?.properties && 
+                        Object.keys(serverDetails.connections[0].configSchema.properties).length > 0;
+
   const handleSave = () => {
-    onSave({
+    const mcpConfig: MCPConfiguration = {
       name: server.displayName || server.name || server.qualifiedName,
       qualifiedName: server.qualifiedName,
-      config,
+      config: {}, // Always use empty config since we're using profiles
       enabledTools: Array.from(selectedTools),
-    });
+      selectedProfileId: selectedProfileId || undefined,
+    };
+    onSave(mcpConfig);
   };
 
   const handleToolToggle = (toolName: string) => {
@@ -46,6 +55,10 @@ export const ConfigDialog: React.FC<ConfigDialogProps> = ({
       newTools.add(toolName);
     }
     setSelectedTools(newTools);
+  };
+
+  const handleProfileSelect = (profileId: string | null, profile: CredentialProfile | null) => {
+    setSelectedProfileId(profileId);
   };
 
   return (
@@ -86,32 +99,32 @@ export const ConfigDialog: React.FC<ConfigDialogProps> = ({
               <div className="w-1 h-4 bg-primary rounded-full" />
               Connection Settings
             </h3>
-            {serverDetails?.connections?.[0]?.configSchema?.properties ? (
-              <ScrollArea className="border bg-muted/30 rounded-lg p-4 flex-1 min-h-0">
-                <div>
-                  {Object.entries(serverDetails.connections[0].configSchema.properties).map(([key, schema]: [string, any]) => (
-                    <div key={key} className="space-y-2">
-                      <Label htmlFor={key} className="text-sm font-medium">
-                        {schema.title || key}
-                        {serverDetails.connections[0].configSchema.required?.includes(key) && (
-                          <span className="text-destructive ml-1">*</span>
-                        )}
-                      </Label>
-                      <Input
-                        id={key}
-                        type={schema.format === 'password' ? 'password' : 'text'}
-                        placeholder={schema.description || `Enter ${key}`}
-                        value={config[key] || ''}
-                        onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                        className="bg-background"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+            
+            {requiresConfig ? (
+              <div className="space-y-4">
+                <CredentialProfileSelector
+                  mcpQualifiedName={server.qualifiedName}
+                  mcpDisplayName={server.displayName || server.name}
+                  selectedProfileId={selectedProfileId || undefined}
+                  onProfileSelect={handleProfileSelect}
+                />
+                
+                {!selectedProfileId && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Please select or create a credential profile to configure this MCP server.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <p className="text-sm">No configuration required</p>
+                <Card className="border-dashed border-2 w-full">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm">No configuration required for this MCP server</p>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>
@@ -164,7 +177,11 @@ export const ConfigDialog: React.FC<ConfigDialogProps> = ({
               </ScrollArea>
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <p className="text-sm">No tools available</p>
+                <Card className="border-dashed border-2 w-full">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm">No tools available for this MCP server</p>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>
@@ -177,7 +194,7 @@ export const ConfigDialog: React.FC<ConfigDialogProps> = ({
         </Button>
         <Button 
           onClick={handleSave}
-          disabled={isLoading}
+          disabled={isLoading || (requiresConfig && !selectedProfileId)}
           className="bg-primary hover:bg-primary/90"
         >
           <Save className="h-4 w-4" />

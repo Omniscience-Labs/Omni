@@ -399,37 +399,68 @@ const MCP_SERVER_NAMES = new Map([
   ['memory', 'Memory'],
 ]);
 
-const MCP_TOOL_MAPPINGS = new Map([
-  ['web_search_exa', 'Web Search'],
-  ['research_paper_search', 'Research Papers'],
-  ['search', 'Search'],
-  ['find_content', 'Find Content'],
-  ['get_content', 'Get Content'],
-  ['read_file', 'Read File'],
-  ['write_file', 'Write File'],
-  ['list_files', 'List Files'],
-]);
+function formatMCPToolName(serverName: string, toolName: string): string {
+  const serverMappings: Record<string, string> = {
+    'exa': 'Exa Search',
+    'github': 'GitHub',
+    'notion': 'Notion', 
+    'slack': 'Slack',
+    'filesystem': 'File System',
+    'memory': 'Memory',
+    'anthropic': 'Anthropic',
+    'openai': 'OpenAI',
+    'composio': 'Composio',
+    'langchain': 'LangChain',
+    'llamaindex': 'LlamaIndex'
+  };
+  
+  const formattedServerName = serverMappings[serverName.toLowerCase()] || 
+    serverName.charAt(0).toUpperCase() + serverName.slice(1);
+  
+  let formattedToolName = toolName;
+  
+  if (toolName.includes('-')) {
+    formattedToolName = toolName
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  else if (toolName.includes('_')) {
+    formattedToolName = toolName
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  else if (/[a-z][A-Z]/.test(toolName)) {
+    formattedToolName = toolName
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  else {
+    formattedToolName = toolName.charAt(0).toUpperCase() + toolName.slice(1);
+  }
+  
+  return `${formattedServerName}: ${formattedToolName}`;
+}
 
 export function getUserFriendlyToolName(toolName: string): string {
-  if (toolName?.startsWith('mcp_')) {
+  if (toolName.startsWith('mcp_')) {
     const parts = toolName.split('_');
     if (parts.length >= 3) {
       const serverName = parts[1];
       const toolNamePart = parts.slice(2).join('_');
-      
-      // Get friendly server name
-      const friendlyServerName = MCP_SERVER_NAMES.get(serverName) || 
-        serverName.charAt(0).toUpperCase() + serverName.slice(1);
-      
-      // Get friendly tool name
-      const friendlyToolName = MCP_TOOL_MAPPINGS.get(toolNamePart) || 
-        toolNamePart.split('_').map(word => 
-          word.charAt(0).toUpperCase() + word.slice(1)
-        ).join(' ');
-      
-      return `${friendlyServerName}: ${friendlyToolName}`;
+      return formatMCPToolName(serverName, toolNamePart);
     }
   }
-  
+  if (toolName.includes('-') && !TOOL_DISPLAY_NAMES.has(toolName)) {
+    const parts = toolName.split('-');
+    if (parts.length >= 2) {
+      const serverName = parts[0];
+      const toolNamePart = parts.slice(1).join('-');
+      return formatMCPToolName(serverName, toolNamePart);
+    }
+  }
   return TOOL_DISPLAY_NAMES.get(toolName) || toolName;
 }

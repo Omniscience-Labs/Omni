@@ -271,70 +271,32 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
   }, [item, open]);
 
+  // Add a function to refresh requirements when profiles are created
+  const refreshRequirements = React.useCallback(() => {
+    if (item && open) {
+      setIsCheckingRequirements(true);
+      checkRequirementsAndSetupSteps();
+    }
+  }, [item, open]);
+
   const checkRequirementsAndSetupSteps = async () => {
     if (!item?.mcp_requirements) return;
     
     const steps: SetupStep[] = [];
-    const missing: MissingProfile[] = [];
     const customServers = item.mcp_requirements.filter(req => req.custom_type);
     const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
-
-    // Check for credential profiles for regular services and create profile selection steps
     for (const req of regularServices) {
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          missing.push({
-            qualified_name: req.qualified_name,
-            display_name: req.display_name,
-            required_config: req.required_config
-          });
-          continue;
-        }
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/secure-mcp/credential-profiles/${encodeURIComponent(req.qualified_name)}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const profiles = await response.json();
-          if (!profiles || profiles.length === 0) {
-            missing.push({
-              qualified_name: req.qualified_name,
-              display_name: req.display_name,
-              required_config: req.required_config
-            });
-          } else {
-            steps.push({
-              id: req.qualified_name,
-              title: `Select Credential Profile for ${req.display_name}`,
-              description: `Choose which credential profile to use for ${req.display_name}.`,
-              type: 'credential_profile',
-              service_name: req.display_name,
-              qualified_name: req.qualified_name,
-            });
-          }
-        } else {
-          missing.push({
-            qualified_name: req.qualified_name,
-            display_name: req.display_name,
-            required_config: req.required_config
-          });
-        }
-      } catch (error) {
-        missing.push({
-          qualified_name: req.qualified_name,
-          display_name: req.display_name,
-          required_config: req.required_config
-        });
-      }
+      steps.push({
+        id: req.qualified_name,
+        title: `Select Credential Profile for ${req.display_name}`,
+        description: `Choose or create a credential profile for ${req.display_name}.`,
+        type: 'credential_profile',
+        service_name: req.display_name,
+        qualified_name: req.qualified_name,
+      });
     }
 
+    // Add custom server configuration steps (just ask for URL, no credentials needed)
     for (const req of customServers) {
       steps.push({
         id: req.qualified_name,
@@ -355,7 +317,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
 
     setSetupSteps(steps);
-    setMissingProfiles(missing);
+    setMissingProfiles([]); // Clear missing profiles since we handle them in setup steps
     setIsCheckingRequirements(false);
   };
 
@@ -425,7 +387,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const canInstall = () => {
     if (!item) return false;
     if (!instanceName.trim()) return false;
-    if (missingProfiles.length > 0) return false;
     
     // Check if all required profile mappings are selected
     const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
@@ -457,41 +418,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Checking requirements...</p>
-            </div>
-          ) : missingProfiles.length > 0 ? (
-            <div className="space-y-6">
-              <Alert className="border-destructive/50 bg-destructive/10 dark:bg-destructive/5 text-destructive">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <AlertTitle className="text-destructive">Missing Credential Profiles</AlertTitle>
-                <AlertDescription className="text-destructive/80">
-                  This agent requires profiles for the following services:
-                </AlertDescription>
-              </Alert>
-              
-              <div className="space-y-3">
-                {missingProfiles.map((profile) => (
-                  <Card key={profile.qualified_name} className="py-0 border-destructive/20 shadow-none bg-transparent">
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
-                          <AlertTriangle className="h-4 w-4 text-destructive" />
-                        </div>
-                        <div>
-                          <span className="font-medium">{profile.display_name}</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {profile.required_config.map((config) => (
-                              <Badge key={config} variant="outline" className="text-xs">
-                                {config}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="destructive">Missing</Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             </div>
           ) : setupSteps.length === 0 ? (
             <div className="space-y-6">
@@ -527,9 +453,9 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    {/* <p className="text-sm text-muted-foreground">
                       {currentStepData.description}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 
@@ -541,6 +467,9 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                       selectedProfileId={profileMappings[currentStepData.qualified_name]}
                       onProfileSelect={(profileId, profile) => {
                         handleProfileSelect(currentStepData.qualified_name, profileId);
+                        if (profile && !profileMappings[currentStepData.qualified_name]) {
+                          refreshRequirements();
+                        }
                       }}
                     />
                   ) : (
@@ -607,73 +536,56 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
         </div>
 
         <DialogFooter className="flex-col gap-3">
-          {missingProfiles.length > 0 ? (
-            <div className="flex gap-3 w-full justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
+          <div className="flex gap-3 w-full justify-end">
+            {currentStep > 0 && (
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
               </Button>
+            )}
+            
+            {setupSteps.length === 0 ? (
               <Button 
-                onClick={() => window.open('/settings/credentials', '_blank')}
+                onClick={handleInstall}
+                disabled={isInstalling || !canInstall()}
               >
-                <Settings className="h-4 w-4" />
-                Set Up Credential Profiles
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Install Agent
+                  </>
+                )}
               </Button>
-            </div>
-          ) : (
-            <div className="flex gap-3 w-full justify-end">
-              {currentStep > 0 && (
-                <Button variant="outline" onClick={handleBack} className="flex-1">
-                  Back
-                </Button>
-              )}
-              
-              {setupSteps.length === 0 ? (
-                <Button 
-                  onClick={handleInstall}
-                  disabled={isInstalling || !canInstall()}
-                >
-                  {isInstalling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Installing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Install Agent
-                    </>
-                  )}
-                </Button>
-              ) : currentStep < setupSteps.length ? (
-                <Button 
-                  onClick={handleNext}
-                  disabled={!isCurrentStepComplete()}
-                >
-                  Continue
-                </Button>
-              ) : (
-                <Button 
-                  onClick={handleInstall}
-                  disabled={isInstalling || !canInstall()}
-                >
-                  {isInstalling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Installing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Install Agent
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
+            ) : currentStep < setupSteps.length ? (
+              <Button 
+                onClick={handleNext}
+                disabled={!isCurrentStepComplete()}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleInstall}
+                disabled={isInstalling || !canInstall()}
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Install Agent
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1099,32 +1011,26 @@ export default function MarketplacePage() {
                     <User className="h-4 w-4 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-foreground">Agents from Community</h2>
-                    <p className="text-sm text-muted-foreground">Templates created by the community</p>
+                    <h2 className="text-lg font-semibold text-foreground">Agents from Community</h2>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {communityItems.map((item) => {
                     const { avatar, color } = getItemStyling(item);
-                    
                     return (
                       <div 
                         key={item.id} 
                         className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
                         onClick={() => handleItemClick(item)}
                       >
-                        <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
-                          <div className="text-4xl">
-                            {avatar}
-                          </div>
-                          <div className="absolute top-3 right-3 flex gap-2">
-                            <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                              <Download className="h-3 w-3 text-white" />
-                              <span className="text-white text-xs font-medium">{item.download_count}</span>
+                        <div className='p-4'>
+                          <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
+                            <div className="text-2xl">
+                              {avatar}
                             </div>
                           </div>
                         </div>
-                        <div className="p-4 flex flex-col flex-1">
+                        <div className="p-4 -mt-4 flex flex-col flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
                               {item.name}
@@ -1153,19 +1059,24 @@ export default function MarketplacePage() {
                               )}
                             </div>
                           )}
-                          <div className="space-y-1 mb-4">
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <User className="h-3 w-3" />
-                              <span>By {item.creator_name}</span>
-                            </div>
-                            {item.marketplace_published_at && (
+                          <div className="mb-4 w-full flex justify-between">
+                            <div className='space-y-1'>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                                <User className="h-3 w-3" />
+                                <span>By {item.creator_name}</span>
                               </div>
-                            )}
+                              {item.marketplace_published_at && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground text-xs font-medium">{item.download_count}</span>
+                            </div>
                           </div>
-
                           <Button 
                             onClick={(e) => handleInstallClick(item, e)}
                             disabled={installingItemId === item.id}
@@ -1180,7 +1091,7 @@ export default function MarketplacePage() {
                             ) : (
                               <>
                                 <Download className="h-4 w-4" />
-                                Install Template
+                                Add to Library
                               </>
                             )}
                           </Button>

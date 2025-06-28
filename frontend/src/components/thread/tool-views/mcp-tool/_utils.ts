@@ -24,6 +24,84 @@ export interface ParsedMCPTool {
   arguments: Record<string, any>;
 }
 
+/**
+ * Enhanced MCP tool name formatter that handles various naming conventions
+ */
+export function formatMCPToolDisplayName(serverName: string, toolName: string): string {
+  // Handle server name formatting
+  const formattedServerName = formatServerName(serverName);
+  
+  // Handle tool name formatting
+  const formattedToolName = formatToolName(toolName);
+  
+  return `${formattedServerName}: ${formattedToolName}`;
+}
+
+/**
+ * Format server names with special handling for known services
+ */
+function formatServerName(serverName: string): string {
+  const serverMappings: Record<string, string> = {
+    'exa': 'Exa Search',
+    'github': 'GitHub', 
+    'notion': 'Notion',
+    'slack': 'Slack',
+    'filesystem': 'File System',
+    'memory': 'Memory',
+    'anthropic': 'Anthropic',
+    'openai': 'OpenAI',
+    'composio': 'Composio',
+    'langchain': 'LangChain',
+    'llamaindex': 'LlamaIndex'
+  };
+  
+  const lowerName = serverName.toLowerCase();
+  return serverMappings[lowerName] || capitalizeWords(serverName);
+}
+
+function formatToolName(toolName: string): string {
+  if (toolName.includes('-')) {
+    return toolName
+      .split('-')
+      .map(word => capitalizeWord(word))
+      .join(' ');
+  }
+  if (toolName.includes('_')) {
+    return toolName
+      .split('_')
+      .map(word => capitalizeWord(word))
+      .join(' ');
+  }
+  if (/[a-z][A-Z]/.test(toolName)) {
+    return toolName
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .split(' ')
+      .map(word => capitalizeWord(word))
+      .join(' ');
+  }
+  return capitalizeWord(toolName);
+}
+
+function capitalizeWord(word: string): string {
+  if (!word) return '';
+  const upperCaseWords = new Set([
+    'api', 'url', 'http', 'https', 'json', 'xml', 'csv', 'pdf', 'id', 'uuid',
+    'oauth', 'jwt', 'sql', 'html', 'css', 'js', 'ts', 'ai', 'ml', 'ui', 'ux'
+  ]);
+  const lowerWord = word.toLowerCase();
+  if (upperCaseWords.has(lowerWord)) {
+    return word.toUpperCase();
+  }
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+function capitalizeWords(text: string): string {
+  return text
+    .split(/[\s_-]+/)
+    .map(word => capitalizeWord(word))
+    .join(' ');
+}
+
 function extractFromNewFormat(toolContent: string | object): MCPResult | null {
   try {
     let parsed: any;
@@ -220,16 +298,14 @@ export function parseMCPToolCall(assistantContent: string): ParsedMCPTool {
     const serverName = parts.length > 1 ? parts[1] : 'unknown';
     const toolName = parts.length > 2 ? parts.slice(2).join('_') : fullToolName;
     
-    const serverDisplayName = serverName.charAt(0).toUpperCase() + serverName.slice(1);
-    const toolDisplayName = toolName.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    // Use the enhanced formatting function
+    const displayName = formatMCPToolDisplayName(serverName, toolName);
     
     return {
       serverName,
       toolName,
       fullToolName,
-      displayName: `${serverDisplayName}: ${toolDisplayName}`,
+      displayName,
       arguments: args
     };
   } catch (e) {

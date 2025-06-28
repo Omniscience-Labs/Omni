@@ -13,6 +13,7 @@ import {
     getUserFriendlyToolName,
     safeJsonParse,
 } from '@/components/thread/utils';
+import { formatMCPToolDisplayName } from '@/components/thread/tool-views/mcp-tool/_utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
@@ -53,6 +54,22 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-data-provider-call',
     'execute-data-provider-endpoint',
 ]);
+
+function getEnhancedToolDisplayName(toolName: string, rawXml?: string): string {
+    if (toolName === 'call-mcp-tool' && rawXml) {
+        const toolNameMatch = rawXml.match(/tool_name="([^"]+)"/);
+        if (toolNameMatch) {
+            const fullToolName = toolNameMatch[1];
+            const parts = fullToolName.split('_');
+            if (parts.length >= 3 && fullToolName.startsWith('mcp_')) {
+                const serverName = parts[1];
+                const toolNamePart = parts.slice(2).join('_');
+                return formatMCPToolDisplayName(serverName, toolNamePart);
+            }
+        }
+    }
+    return getUserFriendlyToolName(toolName);
+}
 
 // Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
@@ -772,7 +789,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                             </div>
                                                                                             <span className="font-mono text-xs text-primary">
-                                                                                                {extractToolNameFromStream(streamingTextContent) || 'Using Tool...'}
+                                                                                                {(() => {
+                                                                                                    const extractedToolName = extractToolNameFromStream(streamingTextContent);
+                                                                                                    return extractedToolName ? getUserFriendlyToolName(extractedToolName) : 'Using Tool...';
+                                                                                                })()}
                                                                                             </span>
                                                                                         </button>
                                                                                     </div>
@@ -857,7 +877,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 >
                                                                                                     <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                                     <span className="font-mono text-xs text-primary">
-                                                                                                        {detectedTag === 'function_calls' ? (extractToolNameFromStream(streamingText) || 'Using Tool...') : detectedTag}
+                                                                                                        {detectedTag === 'function_calls' ? 
+                                                                                                            (() => {
+                                                                                                                const extractedToolName = extractToolNameFromStream(streamingText);
+                                                                                                                return extractedToolName ? getUserFriendlyToolName(extractedToolName) : 'Using Tool...';
+                                                                                                            })() : 
+                                                                                                            getUserFriendlyToolName(detectedTag)
+                                                                                                        }
                                                                                                     </span>
                                                                                                 </button>
                                                                                             </div>
