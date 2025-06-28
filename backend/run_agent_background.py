@@ -33,7 +33,6 @@ dramatiq.set_broker(rabbitmq_broker)
 
 _initialized = False
 db = DBConnection()
-db = DBConnection()
 workflow_executor = WorkflowExecutor(db)
 deterministic_executor = DeterministicWorkflowExecutor(db)
 instance_id = "single"
@@ -50,6 +49,11 @@ async def initialize():
     _initialized = True
     logger.info(f"Initialized agent API with instance ID: {instance_id}")
 
+@dramatiq.actor
+async def check_health(key: str):
+    """Run the agent in the background using Redis for state."""
+    structlog.contextvars.clear_contextvars()
+    await redis.set(key, "healthy", ex=redis.REDIS_KEY_TTL)
 
 @dramatiq.actor
 async def run_agent_background(

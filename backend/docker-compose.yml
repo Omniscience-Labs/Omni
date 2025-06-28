@@ -73,9 +73,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    healthcheck:
+      test: ["CMD", "uv", "run", "worker_health.py"]
+      timeout: 10s
+      interval: 30s
+      start_period: 40s
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     # ports:
     #   - "127.0.0.1:6379:6379"
     volumes:
