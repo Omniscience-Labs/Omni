@@ -338,26 +338,37 @@ class TemplateManager:
                     if profile_mappings and req.qualified_name in profile_mappings:
                         profile_id = profile_mappings[req.qualified_name]
                         
+                        # Validate profile_id is not empty
+                        if not profile_id or profile_id.strip() == '':
+                            logger.error(f"Empty profile_id provided for {req.qualified_name}")
+                            raise ValueError(f"Invalid credential profile selected for {req.display_name}")
+                        
                         # Get the credential profile
                         profile = await credential_manager.get_credential_by_profile(
                             account_id, profile_id
                         )
                         
                         if not profile:
-                            logger.warning(f"Credential profile not found for {req.qualified_name}")
-                            continue
+                            logger.error(f"Credential profile {profile_id} not found for {req.qualified_name}")
+                            raise ValueError(f"Credential profile not found for {req.display_name}. Please select a valid profile or create a new one.")
+                        
+                        # Validate profile is active
+                        if not profile.is_active:
+                            logger.error(f"Credential profile {profile_id} is inactive for {req.qualified_name}")
+                            raise ValueError(f"Selected credential profile for {req.display_name} is inactive. Please select an active profile.")
                         
                         mcp_config = {
                             'name': req.display_name,
                             'qualifiedName': req.qualified_name,
                             'config': profile.config,
-                            'enabledTools': req.enabled_tools
+                            'enabledTools': req.enabled_tools,
+                            'selectedProfileId': profile_id
                         }
                         configured_mcps.append(mcp_config)
                         logger.info(f"Added regular MCP with profile: {mcp_config}")
                     else:
-                        logger.warning(f"No profile mapping provided for {req.qualified_name}")
-                        continue
+                        logger.error(f"No profile mapping provided for {req.qualified_name}")
+                        raise ValueError(f"Missing credential profile for {req.display_name}. Please select a credential profile.")
             
             logger.info(f"Final configured_mcps: {configured_mcps}")
             logger.info(f"Final custom_mcps: {custom_mcps}")
@@ -381,8 +392,42 @@ class TemplateManager:
                 raise ValueError("Failed to create agent")
             
             instance_id = result.data[0]['agent_id']
-            
-            # Update template download count
+
+            try:
+                initial_version_data = {
+                    "agent_id": instance_id,
+                    "version_number": 1,
+                    "version_name": "v1",
+                    "system_prompt": agent_data['system_prompt'],
+                    "configured_mcps": agent_data['configured_mcps'],
+                    "custom_mcps": agent_data['custom_mcps'],
+                    "agentpress_tools": agent_data['agentpress_tools'],
+                    "is_active": True,
+                    "created_by": account_id
+                }
+                
+                version_result = await client.table('agent_versions').insert(initial_version_data).execute()
+                
+                if version_result.data:
+                    version_id = version_result.data[0]['version_id']
+                    await client.table('agents').update({
+                        'current_version_id': version_id,
+                        'version_count': 1
+                    }).eq('agent_id', instance_id).execute()
+                    await client.table('agent_version_history').insert({
+                        "agent_id": instance_id,
+                        "version_id": version_id,
+                        "action": "created",
+                        "changed_by": account_id,
+                        "change_description": "Initial version created from template installation"
+                    }).execute()
+                    
+                    logger.info(f"Created initial version v1 for installed agent {instance_id}")
+                else:
+                    logger.warning(f"Failed to create initial version for agent {instance_id}")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to create initial version for agent {instance_id}: {e}")
             await client.table('agent_templates')\
                 .update({'download_count': template.download_count + 1})\
                 .eq('template_id', template_id).execute()
