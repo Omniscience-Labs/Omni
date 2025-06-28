@@ -89,8 +89,7 @@ class WorkflowConverter:
                                 'gemini-2.0-flash-exp': 'google/gemini-2.0-flash-exp',
                                 'gemini-flash-2.5': 'openrouter/google/gemini-2.5-flash-preview-05-20',
                                 'gemini-2.5-flash:thinking': 'openrouter/google/gemini-2.5-flash-preview-05-20:thinking',
-                                'gemini-2.5-pro-preview': 'openrouter/google/gemini-2.5-pro-preview',
-                                'gemini-2.5-pro': 'openrouter/google/gemini-2.5-pro-preview',
+                                'gemini-2.5-pro': 'openrouter/google/gemini-2.5-pro',
                                 'qwen3': 'openrouter/qwen/qwen3-235b-a22b'
                             }
                             selected_model = model_mapping.get(selected_model, f"anthropic/{selected_model}")

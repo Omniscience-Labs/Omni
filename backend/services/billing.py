@@ -56,6 +56,14 @@ HARDCODED_MODEL_PRICES = {
         "input_cost_per_million_tokens": 3.00,
         "output_cost_per_million_tokens": 15.00,
     },
+    "google/gemini-2.5-pro": {
+        "input_cost_per_million_tokens": 1.25,
+        "output_cost_per_million_tokens": 10.00,
+    },
+    "openrouter/google/gemini-2.5-pro": {
+        "input_cost_per_million_tokens": 1.25,
+        "output_cost_per_million_tokens": 10.00,
+    },
 }
 
 def get_model_pricing(model: str) -> tuple[float, float] | None:

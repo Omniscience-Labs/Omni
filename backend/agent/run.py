@@ -193,7 +193,7 @@ async def run_agent(
 
     # Prepare system prompt
     # First, get the default system prompt
-    if "gemini-2.5-flash" in model_name.lower():
+    if "gemini-2.5-flash" in model_name.lower() and "gemini-2.5-pro" not in model_name.lower():
         default_system_content = get_gemini_system_prompt()
     else:
         # Use the original prompt - the LLM can only use tools that are registered
@@ -440,6 +440,9 @@ async def run_agent(
             max_tokens = 8192
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
+        elif "gemini-2.5-pro" in model_name.lower():
+            # Gemini 2.5 Pro has 64k max output tokens
+            max_tokens = 64000
             
         generation = trace.generation(name="thread_manager.run_thread")
         try:

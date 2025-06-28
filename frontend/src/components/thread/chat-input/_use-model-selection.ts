@@ -58,16 +58,9 @@ export const MODELS = {
     lowQuality: false,
     description: 'GPT-4.1 - OpenAI\'s most advanced model with enhanced reasoning'
   },
-  'gemini-2.5-pro-preview': { 
-    tier: 'premium', 
-    priority: 95,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini Pro 2.5 - Google\'s latest powerful model with strong reasoning'
-  },
   'gemini-2.5-pro': { 
     tier: 'premium', 
-    priority: 95,
+    priority: 99,
     recommended: true,
     lowQuality: false,
     description: 'Gemini Pro 2.5 - Google\'s latest advanced model'
@@ -78,13 +71,6 @@ export const MODELS = {
     recommended: true,
     lowQuality: false,
     description: 'Claude 3.5 - Anthropic\'s balanced model with solid capabilities'
-  },
-  'gemini-2.5': { 
-    tier: 'premium', 
-    priority: 90,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini 2.5 - Google\'s powerful versatile model'
   },
   'gemini-flash-2.5:thinking': { 
     tier: 'premium', 

@@ -11,6 +11,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -25,6 +26,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -39,6 +41,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -53,6 +56,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -67,6 +71,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -81,6 +86,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -95,6 +101,7 @@ MODEL_ACCESS_TIERS = {
         # "openai/gpt-4-turbo",
         # "xai/grok-3-fast-latest",
         "openrouter/google/gemini-2.5-flash-preview-05-20",  # Added
+        "openrouter/google/gemini-2.5-pro",  # Added Gemini 2.5 Pro
         # "openai/gpt-4",
         "anthropic/claude-3-7-sonnet-latest",
         "anthropic/claude-sonnet-4-20250514",
@@ -126,7 +133,7 @@ MODEL_NAME_ALIASES = {
     
     # "google/gemini-2.5-flash-preview":"openrouter/google/gemini-2.5-flash-preview",
     # "google/gemini-2.5-flash-preview:thinking":"openrouter/google/gemini-2.5-flash-preview:thinking",
-    "google/gemini-2.5-pro-preview":"openrouter/google/gemini-2.5-pro-preview",
+    "google/gemini-2.5-pro":"openrouter/google/gemini-2.5-pro",
     "deepseek/deepseek-chat-v3-0324":"openrouter/deepseek/deepseek-chat-v3-0324",
 
     # Also include full names as keys to ensure they map to themselves
