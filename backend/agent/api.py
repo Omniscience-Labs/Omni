@@ -1658,32 +1658,83 @@ async def update_agent(
     client = await db.client
     
     try:
-        # First verify the agent exists and belongs to the user, get with current version
         existing_agent = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
         
         if not existing_agent.data:
             raise HTTPException(status_code=404, detail="Agent not found")
         
         existing_data = existing_agent.data
-        current_version_data = existing_data.get('agent_versions', {})
+        current_version_data = existing_data.get('agent_versions')
         
-        # Check if we need to create a new version (if system prompt, tools, or MCPs are changing)
+        if current_version_data is None:
+            logger.info(f"Agent {agent_id} has no version data, creating initial version")
+            try:
+                initial_version_data = {
+                    "agent_id": agent_id,
+                    "version_number": 1,
+                    "version_name": "v1",
+                    "system_prompt": existing_data.get('system_prompt', ''),
+                    "configured_mcps": existing_data.get('configured_mcps', []),
+                    "custom_mcps": existing_data.get('custom_mcps', []),
+                    "agentpress_tools": existing_data.get('agentpress_tools', {}),
+                    "is_active": True,
+                    "created_by": user_id
+                }
+                
+                version_result = await client.table('agent_versions').insert(initial_version_data).execute()
+                
+                if version_result.data:
+                    version_id = version_result.data[0]['version_id']
+                    
+                    await client.table('agents').update({
+                        'current_version_id': version_id,
+                        'version_count': 1
+                    }).eq('agent_id', agent_id).execute()
+                    current_version_data = initial_version_data
+                    logger.info(f"Created initial version for agent {agent_id}")
+                else:
+                    current_version_data = {
+                        'system_prompt': existing_data.get('system_prompt', ''),
+                        'configured_mcps': existing_data.get('configured_mcps', []),
+                        'custom_mcps': existing_data.get('custom_mcps', []),
+                        'agentpress_tools': existing_data.get('agentpress_tools', {})
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to create initial version for agent {agent_id}: {e}")
+                current_version_data = {
+                    'system_prompt': existing_data.get('system_prompt', ''),
+                    'configured_mcps': existing_data.get('configured_mcps', []),
+                    'custom_mcps': existing_data.get('custom_mcps', []),
+                    'agentpress_tools': existing_data.get('agentpress_tools', {})
+                }
+        
         needs_new_version = False
         version_changes = {}
         
-        if agent_data.system_prompt is not None and agent_data.system_prompt != current_version_data.get('system_prompt'):
+        def values_different(new_val, old_val):
+            if new_val is None:
+                return False
+            import json
+            try:
+                new_json = json.dumps(new_val, sort_keys=True) if new_val is not None else None
+                old_json = json.dumps(old_val, sort_keys=True) if old_val is not None else None
+                return new_json != old_json
+            except (TypeError, ValueError):
+                return new_val != old_val
+        
+        if values_different(agent_data.system_prompt, current_version_data.get('system_prompt')):
             needs_new_version = True
             version_changes['system_prompt'] = agent_data.system_prompt
         
-        if agent_data.configured_mcps is not None and agent_data.configured_mcps != current_version_data.get('configured_mcps', []):
+        if values_different(agent_data.configured_mcps, current_version_data.get('configured_mcps', [])):
             needs_new_version = True
             version_changes['configured_mcps'] = agent_data.configured_mcps
             
-        if agent_data.custom_mcps is not None and agent_data.custom_mcps != current_version_data.get('custom_mcps', []):
+        if values_different(agent_data.custom_mcps, current_version_data.get('custom_mcps', [])):
             needs_new_version = True
             version_changes['custom_mcps'] = agent_data.custom_mcps
             
-        if agent_data.agentpress_tools is not None and agent_data.agentpress_tools != current_version_data.get('agentpress_tools', {}):
+        if values_different(agent_data.agentpress_tools, current_version_data.get('agentpress_tools', {})):
             needs_new_version = True
             version_changes['agentpress_tools'] = agent_data.agentpress_tools
         
@@ -1716,49 +1767,69 @@ async def update_agent(
         # Create new version if needed
         new_version_id = None
         if needs_new_version:
-            # Get next version number
-            versions_result = await client.table('agent_versions').select('version_number').eq('agent_id', agent_id).order('version_number', desc=True).limit(1).execute()
-            next_version_number = 1
-            if versions_result.data:
-                next_version_number = versions_result.data[0]['version_number'] + 1
-            
-            # Create new version with current data merged with changes
-            new_version_data = {
-                "agent_id": agent_id,
-                "version_number": next_version_number,
-                "version_name": f"v{next_version_number}",
-                "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt')),
-                "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
-                "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
-                "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
-                "is_active": True,
-                "created_by": user_id
-            }
-            
-            new_version = await client.table('agent_versions').insert(new_version_data).execute()
-            
-            if new_version.data:
+            try:
+                # Get next version number
+                versions_result = await client.table('agent_versions').select('version_number').eq('agent_id', agent_id).order('version_number', desc=True).limit(1).execute()
+                next_version_number = 1
+                if versions_result.data:
+                    next_version_number = versions_result.data[0]['version_number'] + 1
+                
+                # Validate version data before creating
+                new_version_data = {
+                    "agent_id": agent_id,
+                    "version_number": next_version_number,
+                    "version_name": f"v{next_version_number}",
+                    "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt', '')),
+                    "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
+                    "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
+                    "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
+                    "is_active": True,
+                    "created_by": user_id
+                }
+                
+                # Validate system prompt is not empty
+                if not new_version_data["system_prompt"] or new_version_data["system_prompt"].strip() == '':
+                    raise HTTPException(status_code=400, detail="System prompt cannot be empty")
+                
+                new_version = await client.table('agent_versions').insert(new_version_data).execute()
+                
+                if not new_version.data:
+                    raise HTTPException(status_code=500, detail="Failed to create new agent version")
+                
                 new_version_id = new_version.data[0]['version_id']
                 update_data['current_version_id'] = new_version_id
                 update_data['version_count'] = next_version_number
                 
                 # Add version history entry
-                await client.table('agent_version_history').insert({
-                    "agent_id": agent_id,
-                    "version_id": new_version_id,
-                    "action": "created",
-                    "changed_by": user_id,
-                    "change_description": f"New version v{next_version_number} created from update"
-                }).execute()
+                try:
+                    await client.table('agent_version_history').insert({
+                        "agent_id": agent_id,
+                        "version_id": new_version_id,
+                        "action": "created",
+                        "changed_by": user_id,
+                        "change_description": f"New version v{next_version_number} created from update"
+                    }).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to create version history entry: {e}")
                 
                 logger.info(f"Created new version v{next_version_number} for agent {agent_id}")
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error creating new version for agent {agent_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to create new agent version: {str(e)}")
         
         # Update the agent if there are changes
         if update_data:
-            update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
-            
-            if not update_result.data:
-                raise HTTPException(status_code=500, detail="Failed to update agent")
+            try:
+                update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
+                
+                if not update_result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update agent - no rows affected")
+            except Exception as e:
+                logger.error(f"Error updating agent {agent_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
         
         # Fetch the updated agent data with version info
         updated_agent = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()

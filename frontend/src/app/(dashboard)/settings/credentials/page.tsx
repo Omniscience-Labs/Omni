@@ -411,7 +411,7 @@ export default function CredentialsPage() {
                   </p>
                 </div>
                 <Button onClick={() => setShowAddDialog(true)} className="h-9">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4" />
                   Create First Profile
                 </Button>
               </div>

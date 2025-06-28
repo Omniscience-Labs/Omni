@@ -21,8 +21,9 @@ const MCPConfigurationItem: React.FC<{
   const { data: profiles = [] } = useCredentialProfilesForMcp(mcp.qualifiedName);
   const selectedProfile = profiles.find(p => p.profile_id === mcp.selectedProfileId);
   
+  const hasDirectConfig = mcp.config && Object.keys(mcp.config).length > 0;
   const hasCredentialProfile = !!mcp.selectedProfileId && !!selectedProfile;
-  const needsConfiguration = !hasCredentialProfile;
+  const needsConfiguration = !hasCredentialProfile && !hasDirectConfig && !mcp.isCustom;
 
   return (
     <Card className="p-3">
@@ -50,7 +51,13 @@ const MCPConfigurationItem: React.FC<{
                   </span>
                 </div>
               )}
-              {needsConfiguration && !mcp.isCustom && (
+              {hasDirectConfig && !hasCredentialProfile && (
+                <div className="flex items-center gap-1">
+                  <Key className="h-3 w-3 text-green-600" />
+                  <span className="text-green-600 font-medium">Configured</span>
+                </div>
+              )}
+              {needsConfiguration && (
                 <div className="flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3 text-amber-600" />
                   <span className="text-amber-600">Needs config</span>

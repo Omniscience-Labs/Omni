@@ -352,8 +352,17 @@ export function CredentialProfileSelector({
             <Select
               value={selectedProfileId || ''}
               onValueChange={(value) => {
-                const profile = profiles.find(p => p.profile_id === value);
-                onProfileSelect(value || null, profile || null);
+                if (value && value.trim() !== '') {
+                  const profile = profiles.find(p => p.profile_id === value);
+                  if (profile) {
+                    onProfileSelect(value, profile);
+                  } else {
+                    console.error('Selected profile not found:', value);
+                    toast.error('Selected profile not found. Please refresh and try again.');
+                  }
+                } else {
+                  onProfileSelect(null, null);
+                }
               }}
               disabled={disabled}
             >

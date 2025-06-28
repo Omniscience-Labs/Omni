@@ -714,6 +714,34 @@ export default function MarketplacePage() {
     setInstallingItemId(item.id);
     
     try {
+      if (!instanceName || instanceName.trim() === '') {
+        toast.error('Please provide a name for the agent');
+        return;
+      }
+
+      const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+      const missingProfiles = regularRequirements.filter(req => 
+        !profileMappings || !profileMappings[req.qualified_name] || profileMappings[req.qualified_name].trim() === ''
+      );
+      
+      if (missingProfiles.length > 0) {
+        const missingNames = missingProfiles.map(req => req.display_name).join(', ');
+        toast.error(`Please select credential profiles for: ${missingNames}`);
+        return;
+      }
+
+      const customRequirements = item.mcp_requirements?.filter(req => req.custom_type) || [];
+      const missingCustomConfigs = customRequirements.filter(req => 
+        !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
+        req.required_config.some(field => !customMcpConfigs[req.qualified_name][field]?.trim())
+      );
+      
+      if (missingCustomConfigs.length > 0) {
+        const missingNames = missingCustomConfigs.map(req => req.display_name).join(', ');
+        toast.error(`Please provide all required configuration for: ${missingNames}`);
+        return;
+      }
+
       const result = await installTemplateMutation.mutateAsync({
         template_id: item.template_id,
         instance_name: instanceName,
@@ -722,17 +750,35 @@ export default function MarketplacePage() {
       });
 
       if (result.status === 'installed') {
-        toast.success('Agent installed successfully!');
+        toast.success(`Agent "${instanceName}" installed successfully!`);
         setShowInstallDialog(false);
       } else if (result.status === 'configs_required') {
         toast.error('Please provide all required configurations');
         return;
+      } else {
+        toast.error('Unexpected response from server. Please try again.');
+        return;
       }
     } catch (error: any) {
+      console.error('Installation error:', error);
+      
+      // Handle specific error types
       if (error.message?.includes('already in your library')) {
         toast.error('This agent is already in your library');
+      } else if (error.message?.includes('Credential profile not found')) {
+        toast.error('One or more selected credential profiles could not be found. Please refresh and try again.');
+      } else if (error.message?.includes('Missing credential profile')) {
+        toast.error('Please select credential profiles for all required services');
+      } else if (error.message?.includes('Invalid credential profile')) {
+        toast.error('One or more selected credential profiles are invalid. Please select valid profiles.');
+      } else if (error.message?.includes('inactive')) {
+        toast.error('One or more selected credential profiles are inactive. Please select active profiles.');
+      } else if (error.message?.includes('Template not found')) {
+        toast.error('This agent template is no longer available');
+      } else if (error.message?.includes('Access denied')) {
+        toast.error('You do not have permission to install this agent');
       } else {
-        toast.error(error.message || 'Failed to install agent');
+        toast.error(error.message || 'Failed to install agent. Please try again.');
       }
     } finally {
       setInstallingItemId(null);
