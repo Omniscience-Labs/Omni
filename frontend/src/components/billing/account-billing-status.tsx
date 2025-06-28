@@ -132,10 +132,10 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           <div className='flex justify-center items-center gap-4'>
             <Button
               variant="outline"
-              className="border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+              className="border-border hover:bg-muted/50 shadow-sm hover:shadow-md transition-all whitespace-nowrap flex items-center"
             >
               <Link href="/model-pricing">
-                View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+                View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4 inline ml-2' />
               </Link>
             </Button>
             <Button
