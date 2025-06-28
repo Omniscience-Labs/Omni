@@ -37,10 +37,17 @@ export const MODELS = {
     lowQuality: false,
     description: 'Claude Sonnet 4 - Anthropic\'s latest and most advanced AI assistant'
   },
-  'claude-sonnet-3.7': { 
+  'google/gemini-2.5-pro': { 
+    tier: 'premium', 
+    priority: 100,
+    recommended: false,
+    lowQuality: false,
+    description: 'Gemini Pro 2.5 - Google\'s latest advanced model'
+  },
+  'sonnet-3.7': { 
     tier: 'premium', 
     priority: 95, 
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'Claude 3.7 - Anthropic\'s most powerful AI assistant'
   },
@@ -58,13 +65,6 @@ export const MODELS = {
     lowQuality: false,
     description: 'GPT-4.1 - OpenAI\'s most advanced model with enhanced reasoning'
   },
-  'gemini-2.5-pro': { 
-    tier: 'premium', 
-    priority: 99,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini Pro 2.5 - Google\'s latest advanced model'
-  },
   'claude-3.5': { 
     tier: 'premium', 
     priority: 90,
@@ -72,10 +72,10 @@ export const MODELS = {
     lowQuality: false,
     description: 'Claude 3.5 - Anthropic\'s balanced model with solid capabilities'
   },
-  'gemini-flash-2.5:thinking': { 
+  'gemini-2.5-flash:thinking': { 
     tier: 'premium', 
     priority: 90,
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'Gemini Flash 2.5 - Google\'s fast, responsive AI model'
   },
@@ -100,10 +100,10 @@ export const MODELS = {
     lowQuality: false,
     description: 'GPT-4 - OpenAI\'s highly capable model with advanced reasoning'
   },
-  'deepseek-chat-v3-0324': { 
+  'deepseek/deepseek-chat-v3-0324': { 
     tier: 'premium', 
     priority: 75,
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'DeepSeek Chat - Advanced AI assistant with strong reasoning'
   },
@@ -325,12 +325,12 @@ export const useModelSelection = () => {
     // 1. First by free/premium (free first)
     // 2. Then by priority (higher first)
     // 3. Finally by name (alphabetical)
-    return models.sort((a, b) => {
+    const sortedModels = models.sort((a, b) => {
       // First by free/premium status
       if (a.requiresSubscription !== b.requiresSubscription) {
-        return a.requiresSubscription ? 1 : -1;
+        return a.requiresSubscription ? -1 : 1;
       }
-      
+
       // Then by priority (higher first)
       if (a.priority !== b.priority) {
         return b.priority - a.priority;
@@ -339,6 +339,7 @@ export const useModelSelection = () => {
       // Finally by name
       return a.label.localeCompare(b.label);
     });
+    return sortedModels;
   }, [modelsData, isLoadingModels, customModels]);
 
   // Get filtered list of models the user can access (no additional sorting)
