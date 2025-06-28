@@ -636,7 +636,7 @@ export const EnhancedAddCredentialDialog: React.FC<EnhancedAddCredentialDialogPr
             {step === 'browse' ? 'Cancel' : 
              createProfileMutation.isPending ? (
                <>
-                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                 <Loader2 className="h-4 w-4 animate-spin" />
                  Creating...
                </>
              ) : 'Create Profile'}

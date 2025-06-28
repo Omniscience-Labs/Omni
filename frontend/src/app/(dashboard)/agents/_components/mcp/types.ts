@@ -3,6 +3,7 @@ export interface MCPConfiguration {
   qualifiedName: string;
   config: Record<string, any>;
   enabledTools?: string[];
+  selectedProfileId?: string;
   isCustom?: boolean;
   customType?: 'http' | 'sse';
 }

@@ -67,6 +67,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       qualifiedName: `custom_${customConfig.type}_${Date.now()}`,
       config: customConfig.config,
       enabledTools: customConfig.enabledTools,
+      selectedProfileId: customConfig.selectedProfileId,
       isCustom: true,
       customType: customConfig.type as 'http' | 'sse'
     };

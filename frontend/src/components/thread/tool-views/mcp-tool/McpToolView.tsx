@@ -25,6 +25,7 @@ import {
   parseMCPToolCall, 
   getMCPServerIcon, 
   getMCPServerColor,
+  formatMCPToolDisplayName,
   MCPResult,
   ParsedMCPTool
 } from './_utils';
@@ -52,7 +53,7 @@ export function McpToolView({
   const argumentsCount = result?.mcp_metadata?.arguments_count ?? Object.keys(parsedTool.arguments).length;
   
   const displayName = result?.mcp_metadata ? 
-    `${serverName.charAt(0).toUpperCase() + serverName.slice(1)}: ${toolName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}` :
+    formatMCPToolDisplayName(serverName, toolName) :
     parsedTool.displayName;
   
   const ServerIcon = getMCPServerIcon(serverName);

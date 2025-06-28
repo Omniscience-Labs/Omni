@@ -1,5 +1,10 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Plus, FileText, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
+import { DEFAULT_AGENTPRESS_TOOLS } from '../_data/tools';
+import { generateRandomAvatar } from '../_utils/_avatar-generator';
 
 interface ResultsInfoProps {
   isLoading: boolean;
@@ -22,6 +27,40 @@ export const ResultsInfo = ({
   currentPage,
   totalPages
 }: ResultsInfoProps) => {
+  const router = useRouter();
+  const createAgentMutation = useCreateAgent();
+
+  const handleCreateNewAgent = async () => {
+    try {
+      const { avatar, avatar_color } = generateRandomAvatar();
+      
+      const defaultAgentData = {
+        name: 'New Agent',
+        description: 'A newly created agent',
+        system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
+        avatar,
+        avatar_color,
+        configured_mcps: [],
+        agentpress_tools: Object.fromEntries(
+          Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
+            key, 
+            { enabled: value.enabled, description: value.description }
+          ])
+        ),
+        is_default: false,
+      };
+
+      const newAgent = await createAgentMutation.mutateAsync(defaultAgentData);
+      router.push(`/agents/new/${newAgent.agent_id}`);
+    } catch (error) {
+      console.error('Error creating agent:', error);
+    }
+  };
+
+  const handleMyTemplates = () => {
+    router.push('/marketplace/my-templates');
+  };
+
   if (isLoading || totalAgents === 0) {
     return null;
   }
@@ -39,11 +78,31 @@ export const ResultsInfo = ({
         {showingText()}
         {searchQuery && ` for "${searchQuery}"`}
       </span>
-      {activeFiltersCount > 0 && (
-        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto p-0">
-          Clear all filters
+      <div className="flex items-center gap-2">
+        {activeFiltersCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto p-0">
+            Clear all filters
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={handleMyTemplates}>
+          <FileText className="h-4 w-4" />
+          My Templates
         </Button>
-      )}
+        <Button 
+          size="sm" 
+          onClick={handleCreateNewAgent}
+          disabled={createAgentMutation.isPending}
+        >
+          {createAgentMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              New Agent
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
