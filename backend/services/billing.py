@@ -276,7 +276,7 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     
     # Use fixed cutoff date: June 26, 2025 midnight UTC
     # Ignore all token counts before this date
-    cutoff_date = datetime(2025, 6, 28, 18, 0, 0, tzinfo=timezone.utc)
+    cutoff_date = datetime(2025, 6, 30, 9, 0, 0, tzinfo=timezone.utc)
     
     start_of_month = max(start_of_month, cutoff_date)
     
