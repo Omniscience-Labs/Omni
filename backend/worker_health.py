@@ -13,7 +13,7 @@ async def main():
     await retry(lambda: redis.initialize_async())
     key = uuid.uuid4().hex
     run_agent_background.check_health.send(key)
-    timeout = 5  # seconds
+    timeout = 20  # seconds
     elapsed = 0
     while elapsed < timeout:
         if await redis.get(key) == "healthy":
