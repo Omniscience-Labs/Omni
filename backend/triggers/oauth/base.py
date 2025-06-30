@@ -207,7 +207,12 @@ class BaseOAuthProvider(abc.ABC):
         
         import os
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-        webhook_url = f"{base_url}/api/triggers/{trigger_config.trigger_id}/webhook"
+        # For Slack, use the universal webhook URL (no trigger_id parameter)
+        # Slack requires a single Event Request URL per app
+        if self.config.provider == OAuthProvider.SLACK:
+            webhook_url = f"{base_url}/api/triggers/slack/webhook"
+        else:
+            webhook_url = f"{base_url}/api/triggers/{trigger_config.trigger_id}/webhook"
         
         return {
             "trigger_id": trigger_config.trigger_id,

@@ -17,6 +17,7 @@ import {
 } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
 import { getTriggerIcon } from './utils';
+import { OneClickIntegrations } from './one-click-integrations';
 
 interface AgentTriggersConfigurationProps {
   agentId: string;
@@ -130,41 +131,13 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   }
 
   return (
-    <div className="space-y-6">
-      {/* <div className="rounded-xl p-6 border">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-4">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                Configure external triggers that can activate your agent automatically from services like Telegram, Slack, webhooks, and more
-              </p>
-              {triggers.length > 0 && (
-                <div className="flex items-center mt-3 space-x-2">
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      {triggers.filter(t => t.is_active).length} active trigger{triggers.filter(t => t.is_active).length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  {triggers.some(t => !t.is_active) && (
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                        {triggers.filter(t => !t.is_active).length} inactive
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div> */}
-      <div>
-        <h4 className="text-sm font-medium text-foreground mb-3">Connect</h4>
+    <div className="space-y-8">
+      <OneClickIntegrations agentId={agentId} />
+      {/* <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Manual Configuration</h4>
+        <p className="text-xs text-muted-foreground mb-4">
+          For advanced users who want to configure triggers manually with custom settings.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {availableProviders.map((provider) => (
             <Button
@@ -179,8 +152,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
             </Button>
           ))}
         </div>
-      </div>
-
+      </div> */}
       {triggers.length > 0 && (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border bg-muted/30">

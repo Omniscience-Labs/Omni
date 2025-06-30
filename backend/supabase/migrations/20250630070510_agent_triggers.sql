@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Enum for trigger types
 DO $$ BEGIN
-    CREATE TYPE agent_trigger_type AS ENUM ('telegram', 'slack', 'webhook', 'schedule', 'email', 'github', 'discord');
+    CREATE TYPE agent_trigger_type AS ENUM ('telegram', 'slack', 'webhook', 'schedule', 'email', 'github', 'discord', 'teams');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS custom_trigger_providers (
     created_by UUID REFERENCES basejump.accounts(id)
 );
 
+-- OAuth installations table for storing OAuth integration data
+CREATE TABLE IF NOT EXISTS oauth_installations (
+    installation_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trigger_id UUID NOT NULL REFERENCES agent_triggers(trigger_id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL, -- slack, discord, teams, etc.
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_in INTEGER,
+    scope TEXT,
+    provider_data JSONB DEFAULT '{}'::jsonb, -- Provider-specific data like workspace info
+    installed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_agent_triggers_agent_id ON agent_triggers(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_triggers_trigger_type ON agent_triggers(trigger_type);
@@ -70,6 +84,10 @@ CREATE INDEX IF NOT EXISTS idx_trigger_events_success ON trigger_events(success)
 
 CREATE INDEX IF NOT EXISTS idx_custom_trigger_providers_trigger_type ON custom_trigger_providers(trigger_type);
 CREATE INDEX IF NOT EXISTS idx_custom_trigger_providers_is_active ON custom_trigger_providers(is_active);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_installations_trigger_id ON oauth_installations(trigger_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_installations_provider ON oauth_installations(provider);
+CREATE INDEX IF NOT EXISTS idx_oauth_installations_installed_at ON oauth_installations(installed_at);
 
 -- Create updated_at trigger function if it doesn't exist
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -89,10 +107,15 @@ CREATE TRIGGER update_custom_trigger_providers_updated_at
     BEFORE UPDATE ON custom_trigger_providers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_oauth_installations_updated_at 
+    BEFORE UPDATE ON oauth_installations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Enable RLS on all tables
 ALTER TABLE agent_triggers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trigger_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_trigger_providers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE oauth_installations ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for agent_triggers
 -- Users can only see triggers for agents they own
@@ -164,20 +187,46 @@ CREATE POLICY custom_trigger_providers_update_policy ON custom_trigger_providers
 CREATE POLICY custom_trigger_providers_delete_policy ON custom_trigger_providers
     FOR DELETE USING (basejump.has_role_on_account(created_by, 'owner'));
 
+-- RLS Policies for oauth_installations
+-- Users can see OAuth installations for triggers on agents they own
+CREATE POLICY oauth_installations_select_policy ON oauth_installations
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM agent_triggers
+            JOIN agents ON agents.agent_id = agent_triggers.agent_id
+            WHERE agent_triggers.trigger_id = oauth_installations.trigger_id
+            AND basejump.has_role_on_account(agents.account_id)
+        )
+    );
+
+-- Service role can insert/update/delete OAuth installations
+CREATE POLICY oauth_installations_insert_policy ON oauth_installations
+    FOR INSERT WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
+
+CREATE POLICY oauth_installations_update_policy ON oauth_installations
+    FOR UPDATE USING (auth.jwt() ->> 'role' = 'service_role');
+
+CREATE POLICY oauth_installations_delete_policy ON oauth_installations
+    FOR DELETE USING (auth.jwt() ->> 'role' = 'service_role');
+
 -- Grant permissions
 GRANT ALL PRIVILEGES ON TABLE agent_triggers TO authenticated, service_role;
 GRANT ALL PRIVILEGES ON TABLE trigger_events TO service_role;
 GRANT SELECT ON TABLE trigger_events TO authenticated;
 GRANT ALL PRIVILEGES ON TABLE custom_trigger_providers TO authenticated, service_role;
+GRANT ALL PRIVILEGES ON TABLE oauth_installations TO service_role;
+GRANT SELECT ON TABLE oauth_installations TO authenticated;
 
 -- Add comments for documentation
 COMMENT ON TABLE agent_triggers IS 'Stores trigger configurations for agents';
 COMMENT ON TABLE trigger_events IS 'Audit log of trigger events and their results';
 COMMENT ON TABLE custom_trigger_providers IS 'Custom trigger provider definitions for dynamic loading';
+COMMENT ON TABLE oauth_installations IS 'OAuth integration data for triggers (tokens, workspace info, etc.)';
 
 COMMENT ON COLUMN agent_triggers.config IS 'Provider-specific configuration including credentials and settings';
 COMMENT ON COLUMN trigger_events.metadata IS 'Additional event data and processing results';
 COMMENT ON COLUMN custom_trigger_providers.provider_class IS 'Full Python import path for custom provider classes';
 COMMENT ON COLUMN custom_trigger_providers.field_mappings IS 'Maps webhook fields to execution variables using dot notation';
+COMMENT ON COLUMN oauth_installations.provider_data IS 'Provider-specific data like workspace info, bot details, etc.';
 
 COMMIT; 

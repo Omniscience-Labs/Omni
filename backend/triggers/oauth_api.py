@@ -113,7 +113,6 @@ async def get_slack_status(
     try:
         await verify_agent_access(agent_id, user_id)
         
-        # Check if agent has Slack OAuth trigger
         client = await db.client
         result = await client.table('agent_triggers')\
             .select('trigger_id, name, is_active')\
@@ -123,7 +122,6 @@ async def get_slack_status(
         
         slack_triggers = []
         for trigger in result.data:
-            # Get OAuth installation details
             oauth_result = await client.table('slack_oauth_installations')\
                 .select('team_name, bot_name, installed_at')\
                 .eq('trigger_id', trigger['trigger_id'])\
@@ -157,7 +155,6 @@ async def uninstall_slack_integration(
 ):
     """Uninstall Slack integration for a trigger."""
     try:
-        # Get trigger to verify ownership
         client = await db.client
         trigger_result = await client.table('agent_triggers')\
             .select('agent_id')\
@@ -170,13 +167,11 @@ async def uninstall_slack_integration(
         agent_id = trigger_result.data[0]['agent_id']
         await verify_agent_access(agent_id, user_id)
         
-        # Delete trigger (this will also trigger cleanup)
         from .core import TriggerManager
         trigger_manager = TriggerManager(db)
         success = await trigger_manager.delete_trigger(trigger_id)
         
         if success:
-            # Clean up OAuth installation data
             await client.table('slack_oauth_installations')\
                 .delete()\
                 .eq('trigger_id', trigger_id)\

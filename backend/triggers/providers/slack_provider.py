@@ -22,21 +22,40 @@ class SlackTriggerProvider(TriggerProvider):
         """
         Validate Slack trigger configuration.
         
-        Required config:
-        - signing_secret: Slack app signing secret
-        - bot_token: Optional Slack bot token for responses
+        For OAuth-based triggers: access_token is required
+        For webhook-based triggers: signing_secret is required
         """
-        if not config.get('signing_secret'):
-            raise ValueError("signing_secret is required for Slack triggers")
+        is_oauth = config.get('oauth_installed', False) or config.get('access_token')
         
-        validated_config = {
-            'signing_secret': config['signing_secret'],
-            'bot_token': config.get('bot_token', ''),
-            'allowed_channels': config.get('allowed_channels', []),
-            'trigger_keywords': config.get('trigger_keywords', []),
-            'respond_to_mentions': config.get('respond_to_mentions', True),
-            'respond_to_direct_messages': config.get('respond_to_direct_messages', True),
-        }
+        if is_oauth:
+            if not config.get('access_token'):
+                raise ValueError("access_token is required for OAuth-based Slack triggers")
+            
+            validated_config = {
+                'access_token': config['access_token'],
+                'bot_user_id': config.get('bot_user_id', ''),
+                'team_id': config.get('team_id', ''),
+                'team_name': config.get('team_name', ''),
+                'bot_name': config.get('bot_name', ''),
+                'allowed_channels': config.get('allowed_channels', []),
+                'trigger_keywords': config.get('trigger_keywords', []),
+                'respond_to_mentions': config.get('respond_to_mentions', True),
+                'respond_to_direct_messages': config.get('respond_to_direct_messages', True),
+                'oauth_installed': True,
+                'provider': config.get('provider', 'slack')
+            }
+        else:
+            if not config.get('signing_secret'):
+                raise ValueError("signing_secret is required for webhook-based Slack triggers")
+            
+            validated_config = {
+                'signing_secret': config['signing_secret'],
+                'bot_token': config.get('bot_token', ''),
+                'allowed_channels': config.get('allowed_channels', []),
+                'trigger_keywords': config.get('trigger_keywords', []),
+                'respond_to_mentions': config.get('respond_to_mentions', True),
+                'respond_to_direct_messages': config.get('respond_to_direct_messages', True),
+            }
         
         for list_field in ['allowed_channels', 'trigger_keywords']:
             if not isinstance(validated_config[list_field], list):
@@ -45,15 +64,25 @@ class SlackTriggerProvider(TriggerProvider):
         return validated_config
     
     async def setup_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Set up Slack webhook for the trigger."""
+        """Set up Slack integration for the trigger."""
         try:
-            signing_secret = trigger_config.config['signing_secret']
+            is_oauth = trigger_config.config.get('oauth_installed', False)
             
-            if not signing_secret:
-                logger.error(f"Invalid signing secret for trigger {trigger_config.trigger_id}")
-                return False
+            if is_oauth:
+                # OAuth trigger setup
+                access_token = trigger_config.config.get('access_token')
+                if not access_token:
+                    logger.error(f"Invalid access token for OAuth trigger {trigger_config.trigger_id}")
+                    return False
+                logger.info(f"Successfully set up Slack OAuth trigger {trigger_config.trigger_id}")
+            else:
+                # Webhook trigger setup
+                signing_secret = trigger_config.config.get('signing_secret')
+                if not signing_secret:
+                    logger.error(f"Invalid signing secret for webhook trigger {trigger_config.trigger_id}")
+                    return False
+                logger.info(f"Successfully set up Slack webhook trigger {trigger_config.trigger_id}")
             
-            logger.info(f"Successfully set up Slack webhook for trigger {trigger_config.trigger_id}")
             return True
                 
         except Exception as e:
@@ -143,8 +172,16 @@ class SlackTriggerProvider(TriggerProvider):
     async def health_check(self, trigger_config: TriggerConfig) -> bool:
         """Check if Slack integration is healthy."""
         try:
-            signing_secret = trigger_config.config.get('signing_secret')
-            return bool(signing_secret)
+            is_oauth = trigger_config.config.get('oauth_installed', False)
+            
+            if is_oauth:
+                # Check OAuth trigger health
+                access_token = trigger_config.config.get('access_token')
+                return bool(access_token)
+            else:
+                # Check webhook trigger health
+                signing_secret = trigger_config.config.get('signing_secret')
+                return bool(signing_secret)
                     
         except Exception as e:
             logger.error(f"Health check failed for Slack trigger {trigger_config.trigger_id}: {e}")
@@ -157,11 +194,36 @@ class SlackTriggerProvider(TriggerProvider):
             "properties": {
                 "signing_secret": {
                     "type": "string",
-                    "description": "Slack app signing secret for webhook verification"
+                    "description": "Slack app signing secret for webhook verification (required for webhook triggers)"
+                },
+                "access_token": {
+                    "type": "string",
+                    "description": "Slack bot access token (required for OAuth triggers)"
                 },
                 "bot_token": {
                     "type": "string",
                     "description": "Slack bot token for sending responses"
+                },
+                "oauth_installed": {
+                    "type": "boolean",
+                    "description": "Whether this is an OAuth-based trigger",
+                    "default": False
+                },
+                "team_id": {
+                    "type": "string",
+                    "description": "Slack team/workspace ID"
+                },
+                "team_name": {
+                    "type": "string",
+                    "description": "Slack team/workspace name"
+                },
+                "bot_user_id": {
+                    "type": "string",
+                    "description": "Slack bot user ID"
+                },
+                "bot_name": {
+                    "type": "string",
+                    "description": "Slack bot name"
                 },
                 "allowed_channels": {
                     "type": "array",
@@ -184,13 +246,18 @@ class SlackTriggerProvider(TriggerProvider):
                     "default": True
                 }
             },
-            "required": ["signing_secret"],
+            "anyOf": [
+                {"required": ["signing_secret"]},
+                {"required": ["access_token"]}
+            ],
             "additionalProperties": False
         }
     
     def get_webhook_url(self, trigger_id: str, base_url: str) -> str:
         """Get webhook URL for this Slack trigger."""
-        return f"{base_url}/api/triggers/{trigger_id}/webhook"
+        # Slack requires a single Event Request URL per app
+        # All Slack events go to the universal webhook endpoint
+        return f"{base_url}/api/triggers/slack/webhook"
     
     async def _should_trigger_agent(self, event_data: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """Determine if Slack event should trigger the agent."""

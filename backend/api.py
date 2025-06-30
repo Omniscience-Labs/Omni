@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
         
         # Initialize triggers API
         triggers_api.initialize(db)
+        unified_oauth_api.initialize(db)
         
         yield
         
@@ -174,7 +175,9 @@ from knowledge_base import api as knowledge_base_api
 app.include_router(knowledge_base_api.router, prefix="/api")
 
 from triggers import api as triggers_api
+from triggers import unified_oauth_api
 app.include_router(triggers_api.router)
+app.include_router(unified_oauth_api.router)
 
 @app.get("/api/health")
 async def health_check():

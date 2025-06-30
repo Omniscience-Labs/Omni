@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from typing import Optional, List
 from pydantic import BaseModel
 from enum import Enum
+import os
 
 from .oauth.base import OAuthProvider
 from .oauth.providers import get_oauth_provider
@@ -74,9 +75,7 @@ async def initiate_integration_install(
 ):
     try:
         await verify_agent_access(request.agent_id, user_id)
-
         oauth_provider = get_oauth_provider(request.provider, db)
-
         install_url = oauth_provider.generate_authorization_url(request.agent_id, user_id)
         
         return IntegrationInstallResponse(
@@ -84,6 +83,15 @@ async def initiate_integration_install(
             provider=request.provider.value
         )
         
+    except ValueError as e:
+        error_msg = str(e)
+        if "environment variable is required" in error_msg:
+            logger.error(f"Missing OAuth configuration for {request.provider.value}: {e}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"OAuth integration for {request.provider.value.title()} is not configured. Please contact your administrator to set up the required environment variables."
+            )
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error initiating {request.provider.value} install: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -98,19 +106,20 @@ async def handle_oauth_callback(
     """Handle OAuth callback for any provider."""
     if error:
         logger.error(f"{provider.value} OAuth error: {error}")
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(
-            url=f"http://localhost:3000/agents?{provider.value}_error={error}",
+            url=f"{frontend_url}/agents?{provider.value}_error={error}",
             status_code=302
         )
     
     try:
         oauth_provider = get_oauth_provider(provider, db)
-
         result = await oauth_provider.handle_callback(code, state)
         
         if result.success:
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             redirect_url = (
-                f"http://localhost:3000/agents?"
+                f"{frontend_url}/agents?"
                 f"{provider.value}_success=true&"
                 f"trigger_id={result.trigger_id}&"
                 f"workspace={result.workspace_name or ''}&"
@@ -118,15 +127,17 @@ async def handle_oauth_callback(
             )
             return RedirectResponse(url=redirect_url, status_code=302)
         else:
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             return RedirectResponse(
-                url=f"http://localhost:3000/agents?{provider.value}_error={result.error}",
+                url=f"{frontend_url}/agents?{provider.value}_error={result.error}",
                 status_code=302
             )
             
     except Exception as e:
         logger.error(f"Error handling {provider.value} callback: {e}")
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(
-            url=f"http://localhost:3000/agents?{provider.value}_error=callback_failed",
+            url=f"{frontend_url}/agents?{provider.value}_error=callback_failed",
             status_code=302
         )
 
@@ -184,7 +195,6 @@ async def uninstall_integration(
 ):
     """Uninstall any OAuth integration."""
     try:
-        # Get trigger to verify ownership
         client = await db.client
         trigger_result = await client.table('agent_triggers')\
             .select('agent_id, trigger_type')\
@@ -199,13 +209,11 @@ async def uninstall_integration(
         
         await verify_agent_access(agent_id, user_id)
         
-        # Delete trigger
         from .core import TriggerManager
         trigger_manager = TriggerManager(db)
         success = await trigger_manager.delete_trigger(trigger_id)
         
         if success:
-            # Clean up OAuth installation data
             await client.table('oauth_installations')\
                 .delete()\
                 .eq('trigger_id', trigger_id)\

@@ -84,12 +84,12 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   <h4 className="text-sm font-medium truncate">
                     {trigger.name}
                   </h4>
-                  <Badge 
+                  {/* <Badge 
                     variant="secondary" 
                     className={`text-xs ${getTriggerTypeColor(trigger.trigger_type)}`}
                   >
                     {trigger.trigger_type}
-                  </Badge>
+                  </Badge> */}
                   <Badge 
                     variant={trigger.is_active ? "default" : "secondary"}
                     className="text-xs"

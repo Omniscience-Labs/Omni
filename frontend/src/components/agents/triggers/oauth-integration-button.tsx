@@ -52,10 +52,11 @@ export const OAuthIntegrationButton: React.FC<OAuthIntegrationButtonProps> = ({
       setIsLoading(true);
       
       // Call the unified OAuth API
-      const response = await fetch('/api/integrations/install', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/integrations/install`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({
           agent_id: agentId,
@@ -64,10 +65,15 @@ export const OAuthIntegrationButton: React.FC<OAuthIntegrationButtonProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to initiate installation');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to initiate installation');
       }
 
       const data = await response.json();
+      
+      // Store the agent ID in session storage for callback handling
+      sessionStorage.setItem('oauth_agent_id', agentId);
+      sessionStorage.setItem('oauth_provider', provider);
       
       // Redirect to OAuth provider
       window.location.href = data.install_url;
@@ -77,6 +83,13 @@ export const OAuthIntegrationButton: React.FC<OAuthIntegrationButtonProps> = ({
       toast.error(`Failed to install ${config.name} integration`);
       setIsLoading(false);
     }
+  };
+
+  const getAccessToken = async () => {
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || '';
   };
 
   if (isInstalled) {

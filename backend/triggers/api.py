@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, Body
+from fastapi import APIRouter, HTTPException, Depends, Request, Body, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
@@ -304,6 +304,139 @@ async def delete_trigger(
     else:
         raise HTTPException(status_code=500, detail="Failed to delete trigger")
 
+@router.post("/slack/webhook")
+async def universal_slack_webhook(request: Request):
+    """
+    Universal Slack webhook endpoint that handles all Slack events.
+    
+    This endpoint:
+    1. Receives Slack events from a single URL (required by Slack)
+    2. Extracts team_id from the event data
+    3. Finds all active Slack triggers for that team
+    4. Processes the event for each matching trigger
+    """
+    try:
+        logger.info("Universal Slack webhook received event")
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        logger.debug(f"Webhook body: {body[:500]}...")
+        logger.debug(f"Webhook headers: {headers}")
+        
+        try:
+            if body:
+                data = await request.json()
+            else:
+                data = {}
+        except Exception as e:
+            logger.warning(f"Failed to parse JSON body: {e}")
+            data = {
+                "raw_body": body.decode('utf-8', errors='ignore'),
+                "content_type": headers.get('content-type', '')
+            }
+        
+        if data.get('type') == 'url_verification':
+            logger.info("Handling Slack URL verification challenge")
+            return JSONResponse(content={"challenge": data.get('challenge')})
+        
+        team_id = data.get('team_id')
+        if not team_id:
+            logger.warning("No team_id found in Slack event")
+            return JSONResponse(content={"message": "No team_id found in event"})
+        
+        logger.info(f"Processing Slack event for team_id: {team_id}")
+
+        manager = await get_trigger_manager()
+        client = await db.client
+        
+        result = await client.table('agent_triggers')\
+            .select('*')\
+            .eq('trigger_type', 'slack')\
+            .eq('is_active', True)\
+            .execute()
+        
+        matching_triggers = []
+        for trigger_data in result.data:
+            trigger_config = trigger_data.get('config', {})
+            if trigger_config.get('team_id') == team_id:
+                matching_triggers.append(trigger_data)
+        
+        if not matching_triggers:
+            logger.info(f"No active Slack triggers found for team_id: {team_id}")
+            return JSONResponse(content={"message": "No active triggers found for this workspace"})
+        
+        logger.info(f"Found {len(matching_triggers)} matching triggers for team_id: {team_id}")
+
+        results = []
+        data["headers"] = headers
+        
+        for trigger_data in matching_triggers:
+            trigger_id = trigger_data['trigger_id']
+            try:
+                logger.info(f"Processing event for trigger {trigger_id}")
+                result = await manager.process_trigger_event(trigger_id, data)
+                
+                if result.success and result.should_execute_agent:
+                    executor = AgentTriggerExecutor(db)
+                    trigger_config = await manager.get_trigger(trigger_id)
+                    if trigger_config:
+                        from .core import TriggerEvent, TriggerType
+                        trigger_type = trigger_config.trigger_type
+                        if isinstance(trigger_type, str):
+                            trigger_type = TriggerType(trigger_type)
+                        
+                        trigger_event = TriggerEvent(
+                            trigger_id=trigger_id,
+                            agent_id=trigger_config.agent_id,
+                            trigger_type=trigger_type,
+                            raw_data=data
+                        )
+                        
+                        execution_result = await executor.execute_triggered_agent(
+                            agent_id=trigger_config.agent_id,
+                            trigger_result=result,
+                            trigger_event=trigger_event
+                        )
+                        
+                        results.append({
+                            "trigger_id": trigger_id,
+                            "agent_id": trigger_config.agent_id,
+                            "executed": True,
+                            "thread_id": execution_result.get("thread_id"),
+                            "agent_run_id": execution_result.get("agent_run_id")
+                        })
+                        logger.info(f"Agent execution started for trigger {trigger_id}")
+                else:
+                    results.append({
+                        "trigger_id": trigger_id,
+                        "executed": False,
+                        "reason": result.error_message or "Event did not meet trigger criteria"
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Error processing trigger {trigger_id}: {e}")
+                results.append({
+                    "trigger_id": trigger_id,
+                    "executed": False,
+                    "error": str(e)
+                })
+        
+        return JSONResponse(content={
+            "message": "Slack webhook processed",
+            "team_id": team_id,
+            "processed_triggers": len(results),
+            "results": results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in universal Slack webhook: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
 @router.post("/{trigger_id}/webhook")
 async def handle_webhook(
     trigger_id: str,
@@ -314,7 +447,7 @@ async def handle_webhook(
         body = await request.body()
         headers = dict(request.headers)
         
-        logger.debug(f"Webhook body: {body[:500]}...")  # Log first 500 chars
+        logger.debug(f"Webhook body: {body[:500]}...")
         logger.debug(f"Webhook headers: {headers}")
         
         try:

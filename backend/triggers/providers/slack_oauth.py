@@ -179,7 +179,8 @@ class SlackOAuthManager:
         await self._store_oauth_data(trigger_config.trigger_id, oauth_data, workspace_info, bot_info)
         
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-        webhook_url = f"{base_url}/api/triggers/{trigger_config.trigger_id}/webhook"
+        # Slack requires a single Event Request URL per app
+        webhook_url = f"{base_url}/api/triggers/slack/webhook"
         
         return {
             "trigger_id": trigger_config.trigger_id,
