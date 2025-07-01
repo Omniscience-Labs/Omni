@@ -291,6 +291,34 @@ class TriggerManager:
                 response_template={
                     "agent_prompt": "GitHub {github_event} event in {github_repo} by {github_sender}"
                 }
+            ),
+            ProviderDefinition(
+                provider_id="schedule",
+                name="Schedule",
+                description="Schedule agent execution using Cloudflare Workers and cron expressions",
+                trigger_type="schedule",
+                provider_class="triggers.providers.schedule_provider.ScheduleTriggerProvider",
+                webhook_enabled=True,
+                config_schema={
+                    "type": "object",
+                    "properties": {
+                        "cron_expression": {
+                            "type": "string", 
+                            "description": "Cron expression for scheduling",
+                            "pattern": r"^(\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\*\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\*|([0-9]|1[0-9]|2[0-3])|\*\/([0-9]|1[0-9]|2[0-3])) (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\*|([1-9]|1[0-2])|\*\/([1-9]|1[0-2])) (\*|([0-6])|\*\/([0-6]))$"
+                        },
+                        "agent_prompt": {
+                            "type": "string", 
+                            "description": "The prompt to run the agent with when triggered"
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for schedule execution (default: UTC)",
+                            "default": "UTC"
+                        }
+                    },
+                    "required": ["cron_expression", "agent_prompt"]
+                }
             )
         ]
         

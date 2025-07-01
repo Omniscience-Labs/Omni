@@ -34,7 +34,6 @@ export default function AgentConfigurationPage() {
   const updateAgentMutation = useUpdateAgent();
   const { state, setOpen, setOpenMobile } = useSidebar();
 
-  // Ref to track if initial layout has been applied (for sidebar closing)
   const initialLayoutAppliedRef = useRef(false);
 
   const [formData, setFormData] = useState({
@@ -395,6 +394,7 @@ export default function AgentConfigurationPage() {
                       <div className="flex items-center gap-2">
                         <Zap className="h-4 w-4" />
                         Triggers
+                        <Badge variant='new'>New</Badge>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 overflow-x-hidden">

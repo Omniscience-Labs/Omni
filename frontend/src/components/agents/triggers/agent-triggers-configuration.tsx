@@ -89,7 +89,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
       toast.error(error.message || 'Failed to save trigger');
       console.error('Error saving trigger:', error);
     }
-    
     setConfiguringProvider(null);
     setEditingTrigger(null);
   };
@@ -107,7 +106,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
     }
   };
 
-  // Get available providers that can be directly configured
   const availableProviders = providers.filter(provider => 
     ['telegram', 'slack', 'webhook'].includes(provider.trigger_type)
   );
@@ -136,7 +134,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
       {/* <div>
         <h4 className="text-sm font-medium text-foreground mb-3">Manual Configuration</h4>
         <p className="text-xs text-muted-foreground mb-4">
-          For advanced users who want to configure triggers manually with custom settings.
+          Configure triggers manually with custom settings for advanced use cases.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {availableProviders.map((provider) => (
@@ -173,7 +171,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
         </div>
       )}
 
-      {/* Empty State */}
       {!isLoading && triggers.length === 0 && (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">

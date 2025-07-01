@@ -27,10 +27,11 @@ import {
   Copy,
   ExternalLink
 } from 'lucide-react';
-import { TriggerProvider, TriggerConfiguration, TelegramTriggerConfig, SlackTriggerConfig } from './types';
+import { TriggerProvider, TriggerConfiguration, TelegramTriggerConfig, SlackTriggerConfig, ScheduleTriggerConfig } from './types';
 import { TelegramTriggerConfigForm } from './providers/telegram-config';
 import { SlackTriggerConfigForm } from './providers/slack-config';
 import { WebhookTriggerConfigForm } from './providers/webhook-config';
+import { ScheduleTriggerConfigForm } from './providers/schedule-config';
 import { getDialogIcon } from './utils';
 
 
@@ -41,27 +42,6 @@ interface TriggerConfigDialogProps {
   onCancel: () => void;
   isLoading?: boolean;
 }
-
-const getTriggerIcon = (triggerType: string) => {
-  switch (triggerType) {
-    case 'telegram':
-      return <MessageSquare className="h-5 w-5" />;
-    case 'slack':
-      return <MessageSquare className="h-5 w-5" />;
-    case 'webhook':
-      return <Webhook className="h-5 w-5" />;
-    case 'schedule':
-      return <Clock className="h-5 w-5" />;
-    case 'email':
-      return <Mail className="h-5 w-5" />;
-    case 'github':
-      return <Github className="h-5 w-5" />;
-    case 'discord':
-      return <Gamepad2 className="h-5 w-5" />;
-    default:
-      return <Activity className="h-5 w-5" />;
-  }
-};
 
 export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
   provider,
@@ -95,6 +75,13 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
       if (!config.signing_secret) {
         newErrors.signing_secret = 'Signing secret is required';
       }
+    } else if (provider.provider_id === 'schedule') {
+      if (!config.cron_expression) {
+        newErrors.cron_expression = 'Cron expression is required';
+      }
+      if (!config.agent_prompt) {
+        newErrors.agent_prompt = 'Agent prompt is required';
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -125,6 +112,15 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
         return (
           <SlackTriggerConfigForm
             config={config as SlackTriggerConfig}
+            onChange={setConfig}
+            errors={errors}
+          />
+        );
+      case 'schedule':
+        return (
+          <ScheduleTriggerConfigForm
+            provider={provider}
+            config={config as ScheduleTriggerConfig}
             onChange={setConfig}
             errors={errors}
           />
@@ -242,7 +238,6 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
           </div>
         )}
       </div>
-      
       <DialogFooter>
         <Button variant="outline" onClick={onCancel} disabled={isLoading}>
           Cancel

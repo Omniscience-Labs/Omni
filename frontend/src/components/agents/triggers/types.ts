@@ -59,4 +59,10 @@ export interface DiscordTriggerConfig {
   bot_token?: string;
   allowed_channels?: string[];
   trigger_keywords?: string[];
+}
+
+export interface ScheduleTriggerConfig {
+  cron_expression: string;
+  agent_prompt: string;
+  timezone?: string;
 } 

@@ -437,6 +437,191 @@ async def universal_slack_webhook(request: Request):
             content={"error": "Internal server error"}
         )
 
+@router.post("/qstash/webhook")
+async def handle_qstash_webhook(request: Request):
+    try:
+        logger.info("QStash webhook received")
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        logger.debug(f"QStash webhook body: {body[:500]}...")
+        logger.debug(f"QStash webhook headers: {headers}")
+        
+        try:
+            if body:
+                data = await request.json()
+            else:
+                data = {}
+        except Exception as e:
+            logger.warning(f"Failed to parse JSON body: {e}")
+            data = {
+                "raw_body": body.decode('utf-8', errors='ignore'),
+                "content_type": headers.get('content-type', '')
+            }
+        
+        trigger_id = data.get('trigger_id')
+        
+        if not trigger_id:
+            logger.error("No trigger_id in QStash webhook payload")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "trigger_id is required"}
+            )
+        
+        data["headers"] = headers
+        data["qstash_message_id"] = headers.get('upstash-message-id')
+        data["qstash_schedule_id"] = headers.get('upstash-schedule-id')
+        
+        logger.info(f"Processing QStash trigger event for {trigger_id}")
+        manager = await get_trigger_manager()
+        result = await manager.process_trigger_event(trigger_id, data)
+        
+        logger.info(f"QStash trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
+        
+        if result.success and result.should_execute_agent:
+            executor = AgentTriggerExecutor(db)
+            trigger_config = await manager.get_trigger(trigger_id)
+            if trigger_config:
+                from .core import TriggerEvent, TriggerType
+                trigger_type = trigger_config.trigger_type
+                if isinstance(trigger_type, str):
+                    trigger_type = TriggerType(trigger_type)
+                
+                trigger_event = TriggerEvent(
+                    trigger_id=trigger_id,
+                    agent_id=trigger_config.agent_id,
+                    trigger_type=trigger_type,
+                    raw_data=data
+                )
+                
+                execution_result = await executor.execute_triggered_agent(
+                    agent_id=trigger_config.agent_id,
+                    trigger_result=result,
+                    trigger_event=trigger_event
+                )
+                
+                logger.info(f"QStash agent execution result: {execution_result}")
+                return JSONResponse(content={
+                    "message": "QStash webhook processed and agent execution started",
+                    "trigger_id": trigger_id,
+                    "agent_id": trigger_config.agent_id,
+                    "thread_id": execution_result.get("thread_id"),
+                    "agent_run_id": execution_result.get("agent_run_id")
+                })
+        
+        if result.response_data:
+            return JSONResponse(content=result.response_data)
+        elif result.success:
+            return {"message": "QStash webhook processed successfully"}
+        else:
+            logger.warning(f"QStash webhook processing failed for {trigger_id}: {result.error_message}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": result.error_message}
+            )
+            
+    except Exception as e:
+        logger.error(f"Error processing QStash webhook: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
+@router.post("/schedule/webhook")
+async def handle_schedule_webhook(request: Request):
+    try:
+        logger.info("Schedule webhook received from Pipedream")
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        logger.debug(f"Schedule webhook body: {body[:500]}...")
+        logger.debug(f"Schedule webhook headers: {headers}")
+        
+        try:
+            if body:
+                data = await request.json()
+            else:
+                data = {}
+        except Exception as e:
+            logger.warning(f"Failed to parse JSON body: {e}")
+            data = {
+                "raw_body": body.decode('utf-8', errors='ignore'),
+                "content_type": headers.get('content-type', '')
+            }
+        
+        trigger_id = data.get('trigger_id')
+        agent_id = data.get('agent_id')
+        
+        if not trigger_id:
+            logger.error("No trigger_id in schedule webhook payload")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "trigger_id is required"}
+            )
+        
+        logger.info(f"Processing scheduled trigger event for {trigger_id}")
+        manager = await get_trigger_manager()
+
+        trigger_config = await manager.get_trigger(trigger_id)
+        if trigger_config:
+            data['trigger_config'] = trigger_config.config
+        
+        result = await manager.process_trigger_event(trigger_id, data)
+        
+        logger.info(f"Schedule trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
+        
+        if result.success and result.should_execute_agent:
+            executor = AgentTriggerExecutor(db)
+            if trigger_config:
+                from .core import TriggerEvent, TriggerType
+                trigger_type = trigger_config.trigger_type
+                if isinstance(trigger_type, str):
+                    trigger_type = TriggerType(trigger_type)
+                
+                trigger_event = TriggerEvent(
+                    trigger_id=trigger_id,
+                    agent_id=trigger_config.agent_id,
+                    trigger_type=trigger_type,
+                    raw_data=data
+                )
+                
+                execution_result = await executor.execute_triggered_agent(
+                    agent_id=trigger_config.agent_id,
+                    trigger_result=result,
+                    trigger_event=trigger_event
+                )
+                
+                logger.info(f"Scheduled agent execution result: {execution_result}")
+                return JSONResponse(content={
+                    "message": "Schedule webhook processed and agent execution started",
+                    "trigger_id": trigger_id,
+                    "agent_id": trigger_config.agent_id,
+                    "thread_id": execution_result.get("thread_id"),
+                    "agent_run_id": execution_result.get("agent_run_id")
+                })
+        
+        if result.response_data:
+            return JSONResponse(content=result.response_data)
+        elif result.success:
+            return {"message": "Schedule webhook processed successfully"}
+        else:
+            logger.warning(f"Schedule webhook processing failed for {trigger_id}: {result.error_message}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": result.error_message}
+            )
+            
+    except Exception as e:
+        logger.error(f"Error processing schedule webhook: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
 @router.post("/{trigger_id}/webhook")
 async def handle_webhook(
     trigger_id: str,
