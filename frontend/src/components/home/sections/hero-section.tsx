@@ -1,7 +1,7 @@
 'use client';
 import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
 import { siteConfig } from '@/lib/home';
-import { ArrowRight, Github, X, AlertCircle } from 'lucide-react';
+import { ArrowRight, Github, X, AlertCircle, Square } from 'lucide-react';
 import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useState, useEffect, useRef, FormEvent } from 'react';
@@ -340,7 +340,7 @@ export function HeroSection() {
                               disabled={!inputValue.trim() || isSubmitting}
                             >
                               {isSubmitting ? (
-                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                <Square className="h-5 w-5" />
                               ) : (
                                 <ArrowUp className="h-5 w-5" />
                               )}
