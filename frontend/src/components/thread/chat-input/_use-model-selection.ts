@@ -289,7 +289,6 @@ export const useModelSelection = () => {
         
         // Get model data from our central MODELS constant
         const modelData = MODELS[shortName] || {};
-        console.log({model, modelData})
         const isPremium = model?.requires_subscription || modelData.tier === 'premium' || false;
         
         return {
