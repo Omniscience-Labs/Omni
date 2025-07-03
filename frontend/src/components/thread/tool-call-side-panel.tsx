@@ -48,16 +48,6 @@ interface ToolCallSidePanelProps {
   isLoading?: boolean;
   agentName?: string;
   onFileClick?: (filePath: string) => void;
-  showFloatingPreview?: boolean;
-  onToggleFloatingPreview?: () => void;
-}
-
-interface FloatingPreviewProps {
-  toolCalls: ToolCallInput[];
-  currentIndex: number;
-  onExpand: () => void;
-  agentName?: string;
-  isVisible: boolean;
 }
 
 interface ToolCallSnapshot {
@@ -69,110 +59,6 @@ interface ToolCallSnapshot {
 
 const FLOATING_LAYOUT_ID = 'tool-panel-float';
 const CONTENT_LAYOUT_ID = 'tool-panel-content';
-
-const FloatingPreview: React.FC<FloatingPreviewProps> = ({
-  toolCalls,
-  currentIndex,
-  onExpand,
-  agentName,
-  isVisible,
-}) => {
-  const currentToolCall = toolCalls[currentIndex];
-  const totalCalls = toolCalls.length;
-  
-  if (!currentToolCall || totalCalls === 0) return null;
-
-  const toolName = currentToolCall.assistantCall?.name || 'Tool Call';
-  const CurrentToolIcon = getToolIcon(toolName);
-  const isStreaming = currentToolCall.toolResult?.content === 'STREAMING';
-  const isSuccess = currentToolCall.toolResult?.isSuccess ?? true;
-
-  return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          layoutId={FLOATING_LAYOUT_ID}
-          layout
-          transition={{
-            layout: {
-              type: "spring",
-              stiffness: 300,
-              damping: 30
-            }
-          }}
-          className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40"
-          style={{ pointerEvents: 'auto' }}
-        >
-          <motion.div
-            layoutId={CONTENT_LAYOUT_ID}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="bg-background/95 backdrop-blur-md border border-border/50 shadow-2xl rounded-2xl p-4 max-w-sm mx-auto cursor-pointer group"
-            onClick={onExpand}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0">
-                <motion.div 
-                  layoutId="tool-icon"
-                  className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center",
-                    isStreaming 
-                      ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" 
-                      : isSuccess 
-                        ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                        : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                  )}
-                >
-                  {isStreaming ? (
-                    <CircleDashed className="h-5 w-5 text-blue-500 dark:text-blue-400 animate-spin" />
-                  ) : (
-                    <CurrentToolIcon className="h-5 w-5 text-foreground" />
-                  )}
-                </motion.div>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <motion.div layoutId="tool-title" className="flex items-center gap-2 mb-1">
-                  <h4 className="text-sm font-medium text-foreground truncate">
-                    {getUserFriendlyToolName(toolName)}
-                  </h4>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">
-                      {currentIndex + 1}/{totalCalls}
-                    </span>
-                  </div>
-                </motion.div>
-                
-                <motion.div layoutId="tool-status" className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    isStreaming 
-                      ? "bg-blue-500 animate-pulse" 
-                      : isSuccess 
-                        ? "bg-green-500" 
-                        : "bg-red-500"
-                  )} />
-                  <span className="text-xs text-muted-foreground truncate">
-                    {isStreaming 
-                      ? `${agentName || 'Suna'} is working...` 
-                      : isSuccess 
-                        ? "Completed successfully" 
-                        : "Failed to execute"
-                    }
-                  </span>
-                </motion.div>
-              </div>
-              
-              <div className="flex-shrink-0">
-                <Maximize2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
 
 export function ToolCallSidePanel({
   isOpen,
@@ -187,25 +73,17 @@ export function ToolCallSidePanel({
   externalNavigateToIndex,
   agentName,
   onFileClick,
-  showFloatingPreview = true,
-  onToggleFloatingPreview,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
   const [navigationMode, setNavigationMode] = React.useState<'live' | 'manual'>('live');
   const [toolCallSnapshots, setToolCallSnapshots] = React.useState<ToolCallSnapshot[]>([]);
   const [isInitialized, setIsInitialized] = React.useState(false);
-  const [showFloatingPreviewState, setShowFloatingPreviewState] = React.useState(false);
-  const [isExiting, setIsExiting] = React.useState(false);
 
   const isMobile = useIsMobile();
 
   const handleClose = React.useCallback(() => {
-    setIsExiting(true);
-    setTimeout(() => {
-      onClose();
-      setIsExiting(false);
-    }, 400);
+    onClose();
   }, [onClose]);
 
   React.useEffect(() => {
@@ -523,20 +401,6 @@ export function ToolCallSidePanel({
     }
   }, [externalNavigateToIndex, totalCalls, internalNavigate]);
 
-  // Show floating preview when side panel is closed and there are tool calls
-  React.useEffect(() => {
-    const hasToolCalls = toolCallSnapshots.length > 0;
-    const shouldShowFloating = !isOpen && hasToolCalls && showFloatingPreview && !isExiting;
-    setShowFloatingPreviewState(shouldShowFloating);
-  }, [isOpen, toolCallSnapshots.length, showFloatingPreview, isExiting]);
-
-  const handleExpandFromFloating = React.useCallback(() => {
-    // This will be handled by the parent component through onClose callback
-    if (onToggleFloatingPreview) {
-      onToggleFloatingPreview();
-    }
-  }, [onToggleFloatingPreview]);
-
   React.useEffect(() => {
     if (!isStreaming) return;
     const interval = setInterval(() => {
@@ -549,57 +413,51 @@ export function ToolCallSidePanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  // Render floating preview when side panel is closed
-  if (!isOpen && !isExiting) {
-    return (
-      <FloatingPreview
-        toolCalls={toolCalls}
-        currentIndex={safeInternalIndex}
-        onExpand={handleExpandFromFloating}
-        agentName={agentName}
-        isVisible={showFloatingPreviewState}
-      />
-    );
+  if (!isOpen) {
+    return null;
   }
 
   if (isLoading) {
     return (
-      <div
-        className={cn(
-          'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
-          isMobile
-            ? 'w-full'
-            : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
-          !isOpen && 'translate-x-full',
-        )}
-      >
-        <div className="flex-1 flex flex-col overflow-hidden bg-background">
-          <div className="flex flex-col h-full">
-            <div className="pt-4 pl-4 pr-4">
-              <div className="flex items-center justify-between">
-                <div className="ml-2 flex items-center gap-2">
-                  <Computer className="h-4 w-4" />
-                  <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                    {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
-                  </h2>
+      <div className="fixed inset-0 z-30 pointer-events-none">
+        <div className="p-4 h-full flex items-stretch justify-end pointer-events-auto">
+          <div
+            className={cn(
+              'border rounded-2xl flex flex-col shadow-2xl bg-background',
+              isMobile
+                ? 'w-full'
+                : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+            )}
+          >
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex flex-col h-full">
+                <div className="pt-4 pl-4 pr-4">
+                  <div className="flex items-center justify-between">
+                    <div className="ml-2 flex items-center gap-2">
+                      <Computer className="h-4 w-4" />
+                      <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
+                        {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
+                      </h2>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleClose}
+                      className="h-8 w-8"
+                      title="Minimize to floating preview"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleClose}
-                  className="h-8 w-8"
-                  title="Minimize to floating preview"
-                >
-                  <Minimize2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 p-4 overflow-auto">
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-32" />
-                <Skeleton className="h-20 w-full rounded-md" />
-                <Skeleton className="h-40 w-full rounded-md" />
-                <Skeleton className="h-20 w-full rounded-md" />
+                <div className="flex-1 p-4 overflow-auto">
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-32" />
+                    <Skeleton className="h-20 w-full rounded-md" />
+                    <Skeleton className="h-40 w-full rounded-md" />
+                    <Skeleton className="h-20 w-full rounded-md" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -829,20 +687,24 @@ export function ToolCallSidePanel({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{
-            opacity: { duration: 0.2 }
+            opacity: { duration: 0.15 },
+            layout: {
+              type: "spring",
+              stiffness: 400,
+              damping: 35
+            }
           }}
           className={cn(
-            'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen',
+            'fixed top-2 right-2 bottom-4 border rounded-2xl flex flex-col z-30',
             isMobile
-              ? 'w-full'
-              : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+              ? 'left-2'
+              : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[645px]',
           )}
           style={{ 
             overflow: 'hidden', 
-            boxShadow: '0 8px 32px rgba(0,0,0,0.18)'
           }}
         >
-          <div className="flex-1 flex flex-col overflow-hidden bg-background">
+          <div className="flex-1 flex flex-col overflow-hidden bg-sidebar">
             {renderContent()}
           </div>
           {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (

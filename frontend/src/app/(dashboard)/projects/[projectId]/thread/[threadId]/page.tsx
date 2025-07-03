@@ -664,6 +664,13 @@ export default function ThreadPage({
               agentName={agent && agent.name}
               selectedAgentId={selectedAgentId}
               onAgentSelect={setSelectedAgentId}
+              toolCalls={toolCalls}
+              toolCallIndex={currentToolIndex}
+              showToolPreview={!isSidePanelOpen && toolCalls.length > 0}
+              onExpandToolPreview={() => {
+                setIsSidePanelOpen(true);
+                userClosedPanelRef.current = false;
+              }}
             />
           </div>
         </div>

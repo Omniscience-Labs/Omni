@@ -513,14 +513,6 @@ export default function ThreadPage({
     };
   }, [threadId]);
 
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } =
-      messagesContainerRef.current;
-    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 100;
-    setShowScrollButton(isScrolledUp);
-    setUserHasScrolled(isScrolledUp);
-  };
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -806,7 +798,6 @@ export default function ThreadPage({
         externalNavigateToIndex={externalNavIndex}
         project={project}
         onFileClick={handleOpenFileViewer}
-        onToggleFloatingPreview={() => setIsSidePanelOpen(true)}
       />
 
       <FileViewerModal
