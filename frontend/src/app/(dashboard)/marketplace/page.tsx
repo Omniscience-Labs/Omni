@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +20,13 @@ import {
   useMarketplaceTemplates, 
   useInstallTemplate
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
-import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
+import { 
+  useCredentialProfilesForMcp, 
+  useCreateCredentialProfile,
+  type CredentialProfile,
+  type CreateCredentialProfileRequest
+} from '@/hooks/react-query/mcp/use-credential-profiles';
+import { useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { createClient } from '@/lib/supabase/client';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { useRouter } from 'next/navigation';
@@ -259,6 +266,23 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
   const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
   const [missingProfiles, setMissingProfiles] = useState<MissingProfile[]>([]);
+  const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
+  const [createProfileForQualifiedName, setCreateProfileForQualifiedName] = useState<string>('');
+  const [createProfileForDisplayName, setCreateProfileForDisplayName] = useState<string>('');
+  const [formData, setFormData] = useState<{
+    profile_name: string;
+    display_name: string;
+    config: Record<string, string>;
+    is_default: boolean;
+  }>({
+    profile_name: '',
+    display_name: '',
+    config: {},
+    is_default: false
+  });
+
+  const createProfileMutation = useCreateCredentialProfile();
+  const { data: serverDetails } = useMCPServerDetails(createProfileForQualifiedName);
 
   React.useEffect(() => {
     if (item && open) {
@@ -271,7 +295,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
   }, [item, open]);
 
-  // Add a function to refresh requirements when profiles are created
   const refreshRequirements = React.useCallback(() => {
     if (item && open) {
       setIsCheckingRequirements(true);
@@ -296,7 +319,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       });
     }
 
-    // Add custom server configuration steps (just ask for URL, no credentials needed)
     for (const req of customServers) {
       steps.push({
         id: req.qualified_name,
@@ -317,7 +339,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
 
     setSetupSteps(steps);
-    setMissingProfiles([]); // Clear missing profiles since we handle them in setup steps
+    setMissingProfiles([]); 
     setIsCheckingRequirements(false);
   };
 
@@ -336,6 +358,76 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       ...prev,
       [qualifiedName]: profileId || ''
     }));
+  };
+
+  const handleCreateNewProfile = (qualifiedName: string, displayName: string) => {
+    setCreateProfileForQualifiedName(qualifiedName);
+    setCreateProfileForDisplayName(displayName);
+    setFormData({
+      profile_name: `${displayName} Profile`,
+      display_name: displayName,
+      config: {},
+      is_default: false
+    });
+    setShowCreateProfileDialog(true);
+  };
+
+  const getConfigProperties = () => {
+    const schema = serverDetails?.connections?.[0]?.configSchema;
+    return schema?.properties || {};
+  };
+
+  const getRequiredFields = () => {
+    const schema = serverDetails?.connections?.[0]?.configSchema;
+    return schema?.required || [];
+  };
+
+  const isFieldRequired = (fieldName: string) => {
+    return getRequiredFields().includes(fieldName);
+  };
+
+  const handleConfigChange = (key: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      config: {
+        ...prev.config,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleCreateSubmit = async () => {
+    try {
+      const request: CreateCredentialProfileRequest = {
+        mcp_qualified_name: createProfileForQualifiedName,
+        profile_name: formData.profile_name,
+        display_name: formData.display_name,
+        config: formData.config,
+        is_default: formData.is_default
+      };
+
+      const response = await createProfileMutation.mutateAsync(request);
+      toast.success('Credential profile created successfully!');
+      
+      // Auto-select the newly created profile
+      setProfileMappings(prev => ({
+        ...prev,
+        [createProfileForQualifiedName]: response.profile_id || 'new-profile'
+      }));
+      
+      setShowCreateProfileDialog(false);
+      refreshRequirements();
+      
+      // Reset form
+      setFormData({
+        profile_name: '',
+        display_name: '',
+        config: {},
+        is_default: false
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create credential profile');
+    }
   };
 
   const isCurrentStepComplete = (): boolean => {
@@ -461,17 +553,33 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
 
                 <div className="space-y-4">
                   {currentStepData.type === 'credential_profile' ? (
-                    <CredentialProfileSelector
-                      mcpQualifiedName={currentStepData.qualified_name}
-                      mcpDisplayName={currentStepData.service_name}
-                      selectedProfileId={profileMappings[currentStepData.qualified_name]}
-                      onProfileSelect={(profileId, profile) => {
-                        handleProfileSelect(currentStepData.qualified_name, profileId);
-                        if (profile && !profileMappings[currentStepData.qualified_name]) {
-                          refreshRequirements();
-                        }
-                      }}
-                    />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <CredentialProfileSelector
+                            mcpQualifiedName={currentStepData.qualified_name}
+                            mcpDisplayName={currentStepData.service_name}
+                            selectedProfileId={profileMappings[currentStepData.qualified_name]}
+                            onProfileSelect={(profileId, profile) => {
+                              handleProfileSelect(currentStepData.qualified_name, profileId);
+                              if (profile && !profileMappings[currentStepData.qualified_name]) {
+                                refreshRequirements();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleCreateNewProfile(currentStepData.qualified_name, currentStepData.service_name)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create New Profile
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     currentStepData.required_fields?.map((field) => (
                       <div key={field.key} className="space-y-2">
@@ -588,6 +696,105 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Create Profile Dialog */}
+      <Dialog open={showCreateProfileDialog} onOpenChange={setShowCreateProfileDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-primary" />
+              Create Credential Profile
+            </DialogTitle>
+            <DialogDescription>
+              Create a new credential profile for <strong>{createProfileForDisplayName}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 flex-1 overflow-y-auto">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="profile_name">Profile Name *</Label>
+                  <Input
+                    id="profile_name"
+                    value={formData.profile_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, profile_name: e.target.value }))}
+                    placeholder="Enter a name for this profile"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This helps you identify different configurations for the same MCP server
+                  </p>
+                </div>
+              </div>
+
+              {Object.keys(getConfigProperties()).length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Connection Settings
+                  </h3>
+                  {Object.entries(getConfigProperties()).map(([key, schema]: [string, any]) => (
+                    <div key={key} className="space-y-2">
+                      <Label htmlFor={key}>
+                        {schema.title || key}
+                        {isFieldRequired(key) && (
+                          <span className="text-destructive ml-1">*</span>
+                        )}
+                      </Label>
+                      <Input
+                        id={key}
+                        type={schema.format === 'password' ? 'password' : 'text'}
+                        placeholder={schema.description || `Enter ${key}`}
+                        value={formData.config[key] || ''}
+                        onChange={(e) => handleConfigChange(key, e.target.value)}
+                      />
+                      {schema.description && (
+                        <p className="text-xs text-muted-foreground">{schema.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Alert>
+                  <Key className="h-4 w-4" />
+                  <AlertDescription>
+                    This MCP server doesn't require any API credentials to use.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your credentials will be encrypted and stored securely. You can create multiple profiles for the same MCP server to handle different use cases.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateProfileDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateSubmit}
+              disabled={!formData.profile_name.trim() || createProfileMutation.isPending}
+            >
+              {createProfileMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  Create Profile
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

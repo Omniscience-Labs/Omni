@@ -23,4 +23,6 @@ export * from './usage/use-health';
 
 export * from './scheduling/use-scheduling';
 
-export * from './knowledge-base/use-knowledge-base-queries'; 
+export * from './knowledge-base/use-knowledge-base-queries';
+
+export * from './triggers'; 

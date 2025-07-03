@@ -228,16 +228,19 @@ async def run_agent(
             kb_db = DBConnection()
             kb_client = await kb_db.client
             
-            kb_result = await kb_client.rpc('get_knowledge_base_context', {
+            current_agent_id = agent_config.get('agent_id') if agent_config else None
+            
+            kb_result = await kb_client.rpc('get_combined_knowledge_base_context', {
                 'p_thread_id': thread_id,
+                'p_agent_id': current_agent_id,
                 'p_max_tokens': 4000
             }).execute()
             
             if kb_result.data and kb_result.data.strip():
-                logger.info(f"Adding knowledge base context to system prompt for thread {thread_id}")
-                system_content += "Here is the user's knowledge base context for this thread:\n\n" + kb_result.data
+                logger.info(f"Adding combined knowledge base context to system prompt for thread {thread_id}, agent {current_agent_id}")
+                system_content += "\n\n" + kb_result.data
             else:
-                logger.debug(f"No knowledge base context found for thread {thread_id}")
+                logger.debug(f"No knowledge base context found for thread {thread_id}, agent {current_agent_id}")
                 
         except Exception as e:
             logger.error(f"Error retrieving knowledge base context for thread {thread_id}: {e}")
