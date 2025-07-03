@@ -46,6 +46,10 @@ class ScheduleTriggerProvider(TriggerProvider):
     
     async def setup_trigger(self, trigger_config: TriggerConfig) -> bool:
         """Set up scheduled trigger using QStash."""
+        if config.ENV_MODE == EnvMode.STAGING:
+            vercel_bypass_key = os.getenv("VERCEL_PROTECTION_BYPASS_KEY", "")
+        else:
+            vercel_bypass_key = ""
         try:
             webhook_url = f"{self.webhook_base_url}/api/triggers/qstash/webhook"
             webhook_payload = {
@@ -66,7 +70,8 @@ class ScheduleTriggerProvider(TriggerProvider):
                     "Content-Type": "application/json",
                     "X-Schedule-Provider": "qstash",
                     "X-Trigger-ID": trigger_config.trigger_id,
-                    "X-Agent-ID": trigger_config.agent_id
+                    "X-Agent-ID": trigger_config.agent_id,
+                    "X-Vercel-Protection-Bypass": vercel_bypass_key
                 },
                 retries=3,
                 delay="5s"
