@@ -25,7 +25,8 @@ import {
   Eye,
   EyeOff,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import { TriggerProvider, TriggerConfiguration, TelegramTriggerConfig, SlackTriggerConfig, ScheduleTriggerConfig } from './types';
 import { TelegramTriggerConfigForm } from './providers/telegram-config';
@@ -245,7 +246,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
         <Button onClick={handleSave} disabled={isLoading}>
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+              <Loader2 className="animate-spin rounded-full h-4 w-4" />
               {existingConfig ? 'Updating...' : 'Creating...'}
             </>
           ) : (

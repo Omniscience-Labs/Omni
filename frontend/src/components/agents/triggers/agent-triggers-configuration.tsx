@@ -173,10 +173,10 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
 
       {!isLoading && triggers.length === 0 && (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <Zap className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h4 className="text-sm font-medium text-foreground mb-2">
+          <h4 className="text-sm font-semibold text-foreground">
             No triggers configured
           </h4>
           <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">

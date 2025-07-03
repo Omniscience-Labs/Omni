@@ -257,7 +257,7 @@ async def update_trigger(
         
         webhook_url = None
         if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
-            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+            base_url = os.getenv("TEST_PUBLIC_URL", "http://localhost:3000")
             webhook_url = provider.get_webhook_url(trigger_id, base_url)
         
         return TriggerResponse(
