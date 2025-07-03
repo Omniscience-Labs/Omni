@@ -1,10 +1,3 @@
-"""
-Slack OAuth integration for one-click agent installation.
-
-This module handles the OAuth flow for installing agents directly into Slack workspaces
-with automatic configuration and webhook setup.
-"""
-
 import httpx
 import secrets
 import json
@@ -21,7 +14,7 @@ class SlackOAuthManager:
         self.db = db_connection
         self.client_id = os.getenv("SLACK_CLIENT_ID")
         self.client_secret = os.getenv("SLACK_CLIENT_SECRET")
-        self.redirect_uri = os.getenv("SLACK_REDIRECT_URI", "http://localhost:3000/integrations/slack/callback")
+        self.redirect_uri = os.getenv("SLACK_REDIRECT_URI", "http://localhost:3000/api/integrations/slack/callback")
         
     def generate_install_url(self, agent_id: str, user_id: str) -> str:
         """Generate Slack app installation URL with state parameter."""

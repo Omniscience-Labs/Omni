@@ -22,7 +22,7 @@ class SlackOAuthProvider(BaseOAuthProvider):
             authorization_url="https://slack.com/oauth/v2/authorize",
             token_url="https://slack.com/api/oauth.v2.access",
             scopes=["app_mentions:read", "channels:read", "chat:write", "im:read", "im:write", "users:read"],
-            redirect_uri=os.getenv("SLACK_REDIRECT_URI", "http://localhost:8000/api/integrations/slack/callback")
+            redirect_uri=os.getenv("SLACK_REDIRECT_URI", "http://localhost:3000/api/integrations/slack/callback")
         )
         super().__init__(config, db_connection)
     
@@ -126,7 +126,7 @@ class DiscordOAuthProvider(BaseOAuthProvider):
             authorization_url="https://discord.com/api/oauth2/authorize",
             token_url="https://discord.com/api/oauth2/token",
             scopes=["bot", "applications.commands"],
-            redirect_uri=os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/api/integrations/discord/callback"),
+            redirect_uri=os.getenv("DISCORD_REDIRECT_URI", "http://localhost:3000/api/integrations/discord/callback"),
             additional_params={"permissions": "2048"}
         )
         super().__init__(config, db_connection)
@@ -178,7 +178,7 @@ class TeamsOAuthProvider(BaseOAuthProvider):
             authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
             token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
             scopes=["https://graph.microsoft.com/ChannelMessage.Read.All", "https://graph.microsoft.com/ChannelMessage.Send"],
-            redirect_uri=os.getenv("TEAMS_REDIRECT_URI", "http://localhost:8000/api/integrations/teams/callback")
+            redirect_uri=os.getenv("TEAMS_REDIRECT_URI", "http://localhost:3000/api/integrations/teams/callback")
         )
         super().__init__(config, db_connection)
     

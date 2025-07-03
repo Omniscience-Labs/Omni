@@ -13,6 +13,7 @@ from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from flags.flags import is_enabled
 from .integration import AgentTriggerExecutor
+from utils.config import config, EnvMode
 
 router = APIRouter(prefix="/api/triggers", tags=["triggers"])
 
@@ -257,9 +258,9 @@ async def update_trigger(
         
         webhook_url = None
         if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
-            base_url = os.getenv("TEST_PUBLIC_URL", "http://localhost:3000")
+            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:3000")
             webhook_url = provider.get_webhook_url(trigger_id, base_url)
-        
+
         return TriggerResponse(
             trigger_id=updated_config.trigger_id,
             agent_id=updated_config.agent_id,

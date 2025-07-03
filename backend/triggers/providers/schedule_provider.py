@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from qstash.client import QStash
 from utils.logger import logger
 from ..core import TriggerProvider, TriggerType, TriggerEvent, TriggerResult, TriggerConfig, ProviderDefinition
+from utils.config import config, EnvMode
 
 class ScheduleTriggerProvider(TriggerProvider):
     """Schedule trigger provider using Upstash QStash."""
@@ -14,7 +15,7 @@ class ScheduleTriggerProvider(TriggerProvider):
         super().__init__(TriggerType.SCHEDULE, provider_definition)
         
         self.qstash_token = os.getenv("QSTASH_TOKEN")
-        self.webhook_base_url = os.getenv("TEST_PUBLIC_URL", "http://localhost:3000")
+        self.webhook_base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:3000")
         
         if not self.qstash_token:
             logger.warning("QSTASH_TOKEN not found. QStash provider will not work without it.")
@@ -232,8 +233,8 @@ class ScheduleTriggerProvider(TriggerProvider):
     
     def get_webhook_url(self, trigger_id: str, base_url: str) -> Optional[str]:
         """Return webhook URL for QStash schedules."""
-        frontend_url = os.getenv("TEST_PUBLIC_URL", "http://localhost:3000")
-        return f"{frontend_url}/api/triggers/qstash/webhook"
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:3000")
+        return f"{base_url}/api/triggers/qstash/webhook"
     
     async def list_schedules(self) -> list:
         """List all QStash schedules."""
