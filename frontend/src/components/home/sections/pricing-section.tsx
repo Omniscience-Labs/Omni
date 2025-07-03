@@ -420,8 +420,8 @@ function PricingTier({
       className={cn(
         'rounded-xl flex flex-col relative',
         insideDialog 
-          ? 'min-h-[420px]' 
-          : 'h-full min-h-[480px]',
+          ? 'min-h-[300px]' 
+          : 'h-full min-h-[300px]',
         tier.isPopular && !insideDialog
           ? 'md:shadow-[0px_61px_24px_-10px_rgba(0,0,0,0.01),0px_34px_20px_-8px_rgba(0,0,0,0.05),0px_15px_15px_-6px_rgba(0,0,0,0.09),0px_4px_8px_-2px_rgba(0,0,0,0.10),0px_0px_0px_1px_rgba(0,0,0,0.08)] bg-accent'
           : 'bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] border border-border',
@@ -473,14 +473,14 @@ function PricingTier({
             </div>
           )}
         </div>
-        <p className="text-sm mt-2">{tier.description}</p>
+        <p className="hidden text-sm mt-2">{tier.description}</p>
 
         {billingPeriod === 'yearly' && tier.yearlyPrice && tier.discountPercentage ? (
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-green-50 border-green-200 text-green-700 w-fit">
             Save ${Math.round(parseFloat(tier.originalYearlyPrice?.slice(1) || '0') - parseFloat(tier.yearlyPrice.slice(1)))} per year
           </div>
         ) : (
-          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 border-primary/20 text-primary w-fit">
+          <div className="hidden items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 border-primary/20 text-primary w-fit">
             {billingPeriod === 'yearly' && tier.yearlyPrice && displayPrice !== '$0' 
               ? `$${Math.round(parseFloat(tier.yearlyPrice.slice(1)) / 12)}/month (billed yearly)`
               : `${displayPrice}/month`

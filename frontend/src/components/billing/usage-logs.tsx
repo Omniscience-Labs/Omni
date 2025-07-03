@@ -211,7 +211,7 @@ export default function UsageLogs({ accountId }: Props) {
               Your token usage organized by day, sorted by most recent.{" "}
               <Button variant='outline' asChild className='text-sm ml-4'>
                 <Link href="/model-pricing">
-                  View Compute Pricing <OpenInNewWindowIcon className='w-4 h-4' />
+                  View Model Pricing <OpenInNewWindowIcon className='w-4 h-4' />
                 </Link>
               </Button>
             </div>
