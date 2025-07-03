@@ -1187,7 +1187,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteEntryId && handleDelete(deleteEntryId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90"
             >
               Delete Entry
             </AlertDialogAction>
