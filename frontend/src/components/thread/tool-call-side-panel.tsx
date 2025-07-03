@@ -6,11 +6,12 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { ToolView } from './tool-views/wrapper';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ToolCallInput {
   assistantCall: {
@@ -47,6 +48,16 @@ interface ToolCallSidePanelProps {
   isLoading?: boolean;
   agentName?: string;
   onFileClick?: (filePath: string) => void;
+  showFloatingPreview?: boolean;
+  onToggleFloatingPreview?: () => void;
+}
+
+interface FloatingPreviewProps {
+  toolCalls: ToolCallInput[];
+  currentIndex: number;
+  onExpand: () => void;
+  agentName?: string;
+  isVisible: boolean;
 }
 
 interface ToolCallSnapshot {
@@ -55,6 +66,113 @@ interface ToolCallSnapshot {
   index: number;
   timestamp: number;
 }
+
+const FLOATING_LAYOUT_ID = 'tool-panel-float';
+const CONTENT_LAYOUT_ID = 'tool-panel-content';
+
+const FloatingPreview: React.FC<FloatingPreviewProps> = ({
+  toolCalls,
+  currentIndex,
+  onExpand,
+  agentName,
+  isVisible,
+}) => {
+  const currentToolCall = toolCalls[currentIndex];
+  const totalCalls = toolCalls.length;
+  
+  if (!currentToolCall || totalCalls === 0) return null;
+
+  const toolName = currentToolCall.assistantCall?.name || 'Tool Call';
+  const CurrentToolIcon = getToolIcon(toolName);
+  const isStreaming = currentToolCall.toolResult?.content === 'STREAMING';
+  const isSuccess = currentToolCall.toolResult?.isSuccess ?? true;
+
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          layoutId={FLOATING_LAYOUT_ID}
+          layout
+          transition={{
+            layout: {
+              type: "spring",
+              stiffness: 300,
+              damping: 30
+            }
+          }}
+          className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40"
+          style={{ pointerEvents: 'auto' }}
+        >
+          <motion.div
+            layoutId={CONTENT_LAYOUT_ID}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="bg-background/95 backdrop-blur-md border border-border/50 shadow-2xl rounded-2xl p-4 max-w-sm mx-auto cursor-pointer group"
+            onClick={onExpand}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <motion.div 
+                  layoutId="tool-icon"
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    isStreaming 
+                      ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" 
+                      : isSuccess 
+                        ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                        : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                  )}
+                >
+                  {isStreaming ? (
+                    <CircleDashed className="h-5 w-5 text-blue-500 dark:text-blue-400 animate-spin" />
+                  ) : (
+                    <CurrentToolIcon className="h-5 w-5 text-foreground" />
+                  )}
+                </motion.div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <motion.div layoutId="tool-title" className="flex items-center gap-2 mb-1">
+                  <h4 className="text-sm font-medium text-foreground truncate">
+                    {getUserFriendlyToolName(toolName)}
+                  </h4>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      {currentIndex + 1}/{totalCalls}
+                    </span>
+                  </div>
+                </motion.div>
+                
+                <motion.div layoutId="tool-status" className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    isStreaming 
+                      ? "bg-blue-500 animate-pulse" 
+                      : isSuccess 
+                        ? "bg-green-500" 
+                        : "bg-red-500"
+                  )} />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {isStreaming 
+                      ? `${agentName || 'Suna'} is working...` 
+                      : isSuccess 
+                        ? "Completed successfully" 
+                        : "Failed to execute"
+                    }
+                  </span>
+                </motion.div>
+              </div>
+              
+              <div className="flex-shrink-0">
+                <Maximize2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 export function ToolCallSidePanel({
   isOpen,
@@ -69,14 +187,26 @@ export function ToolCallSidePanel({
   externalNavigateToIndex,
   agentName,
   onFileClick,
+  showFloatingPreview = true,
+  onToggleFloatingPreview,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
   const [navigationMode, setNavigationMode] = React.useState<'live' | 'manual'>('live');
   const [toolCallSnapshots, setToolCallSnapshots] = React.useState<ToolCallSnapshot[]>([]);
   const [isInitialized, setIsInitialized] = React.useState(false);
+  const [showFloatingPreviewState, setShowFloatingPreviewState] = React.useState(false);
+  const [isExiting, setIsExiting] = React.useState(false);
 
   const isMobile = useIsMobile();
+
+  const handleClose = React.useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => {
+      onClose();
+      setIsExiting(false);
+    }, 400);
+  }, [onClose]);
 
   React.useEffect(() => {
     const newSnapshots = toolCalls.map((toolCall, index) => ({
@@ -147,30 +277,22 @@ export function ToolCallSidePanel({
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
 
-  // Extract meaningful tool name, especially for MCP tools
   const extractToolName = (toolCall: any) => {
     const rawName = toolCall?.assistantCall?.name || 'Tool Call';
-
-    // Handle MCP tools specially
     if (rawName === 'call-mcp-tool') {
       const assistantContent = toolCall?.assistantCall?.content;
       if (assistantContent) {
         try {
-          // Try to extract the actual MCP tool name from the content
           const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
           if (toolNameMatch && toolNameMatch[1]) {
             const mcpToolName = toolNameMatch[1];
-            // Use the MCP tool name for better display
             return getUserFriendlyToolName(mcpToolName);
           }
         } catch (e) {
-          // Fall back to generic name if parsing fails
         }
       }
       return 'External Tool';
     }
-
-    // For all other tools, use the friendly name
     return getUserFriendlyToolName(rawName);
   };
 
@@ -368,19 +490,19 @@ export function ToolCallSidePanel({
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
         event.preventDefault();
-        onClose();
+        handleClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   React.useEffect(() => {
     if (!isOpen) return;
     const handleSidebarToggle = (event: CustomEvent) => {
       if (event.detail.expanded) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -393,13 +515,27 @@ export function ToolCallSidePanel({
         'sidebar-left-toggled',
         handleSidebarToggle as EventListener,
       );
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   React.useEffect(() => {
     if (externalNavigateToIndex !== undefined && externalNavigateToIndex >= 0 && externalNavigateToIndex < totalCalls) {
       internalNavigate(externalNavigateToIndex, 'external_click');
     }
   }, [externalNavigateToIndex, totalCalls, internalNavigate]);
+
+  // Show floating preview when side panel is closed and there are tool calls
+  React.useEffect(() => {
+    const hasToolCalls = toolCallSnapshots.length > 0;
+    const shouldShowFloating = !isOpen && hasToolCalls && showFloatingPreview && !isExiting;
+    setShowFloatingPreviewState(shouldShowFloating);
+  }, [isOpen, toolCallSnapshots.length, showFloatingPreview, isExiting]);
+
+  const handleExpandFromFloating = React.useCallback(() => {
+    // This will be handled by the parent component through onClose callback
+    if (onToggleFloatingPreview) {
+      onToggleFloatingPreview();
+    }
+  }, [onToggleFloatingPreview]);
 
   React.useEffect(() => {
     if (!isStreaming) return;
@@ -413,7 +549,18 @@ export function ToolCallSidePanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  if (!isOpen) return null;
+  // Render floating preview when side panel is closed
+  if (!isOpen && !isExiting) {
+    return (
+      <FloatingPreview
+        toolCalls={toolCalls}
+        currentIndex={safeInternalIndex}
+        onExpand={handleExpandFromFloating}
+        agentName={agentName}
+        isVisible={showFloatingPreviewState}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -439,10 +586,11 @@ export function ToolCallSidePanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="h-8 w-8"
+                  title="Minimize to floating preview"
                 >
-                  <X className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -475,7 +623,7 @@ export function ToolCallSidePanel({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -527,7 +675,7 @@ export function ToolCallSidePanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="h-8 w-8 ml-1"
                   >
                     <X className="h-4 w-4" />
@@ -569,7 +717,7 @@ export function ToolCallSidePanel({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -606,24 +754,28 @@ export function ToolCallSidePanel({
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-3">
+        <motion.div 
+          layoutId={CONTENT_LAYOUT_ID}
+          className="p-3"
+        >
           <div className="flex items-center justify-between">
-            <div className="ml-2 flex items-center gap-2">
+            <motion.div layoutId="tool-icon" className="ml-2 flex items-center gap-2">
               <Computer className="h-4 w-4" />
               <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
                 {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
               </h2>
-            </div>
+            </motion.div>
 
             {displayToolCall.toolResult?.content && !isStreaming && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="h-8 w-8 ml-1"
+                  title="Minimize to floating preview"
                 >
-                  <X className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -637,10 +789,11 @@ export function ToolCallSidePanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="h-8 w-8 ml-1"
+                  title="Minimize to floating preview"
                 >
-                  <X className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -649,14 +802,15 @@ export function ToolCallSidePanel({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
+                title="Minimize to floating preview"
               >
-                <X className="h-4 w-4" />
+                <Minimize2 className="h-4 w-4" />
               </Button>
             )}
           </div>
-        </div>
+        </motion.div>
 
         <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           {toolView}
@@ -666,101 +820,115 @@ export function ToolCallSidePanel({
   };
 
   return (
-    <div
-      className={cn(
-        'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
-        isMobile
-          ? 'w-full'
-          : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
-        !isOpen && 'translate-x-full',
-      )}
-    >
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        {renderContent()}
-      </div>
-
-      {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (
-        <div
+    <AnimatePresence mode="wait">
+      {isOpen && (
+        <motion.div
+          key="sidepanel"
+          layoutId={FLOATING_LAYOUT_ID}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{
+            opacity: { duration: 0.2 }
+          }}
           className={cn(
-            'border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900',
-            isMobile ? 'p-2' : 'px-4 py-2.5',
+            'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen',
+            isMobile
+              ? 'w-full'
+              : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
           )}
+          style={{ 
+            overflow: 'hidden', 
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)'
+          }}
         >
-          {isMobile ? (
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={navigateToPrevious}
-                disabled={displayIndex <= 0}
-                className="h-8 px-2.5 text-xs"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-                <span>Prev</span>
-              </Button>
+          <div className="flex-1 flex flex-col overflow-hidden bg-background">
+            {renderContent()}
+          </div>
+          {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (
+            <div
+              className={cn(
+                'border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900',
+                isMobile ? 'p-2' : 'px-4 py-2.5',
+              )}
+            >
+              {isMobile ? (
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToPrevious}
+                    disabled={displayIndex <= 0}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    <span>Prev</span>
+                  </Button>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums min-w-[44px]">
-                  {displayIndex + 1}/{displayTotalCalls}
-                </span>
-                {renderStatusButton()}
-              </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums min-w-[44px]">
+                      {displayIndex + 1}/{displayTotalCalls}
+                    </span>
+                    {renderStatusButton()}
+                  </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={navigateToNext}
-                disabled={displayIndex >= displayTotalCalls - 1}
-                className="h-8 px-2.5 text-xs"
-              >
-                <span>Next</span>
-                <ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={navigateToPrevious}
-                  disabled={displayIndex <= 0}
-                  className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums px-1 min-w-[44px] text-center">
-                  {displayIndex + 1}/{displayTotalCalls}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={navigateToNext}
-                  disabled={displayIndex >= displayTotalCalls - 1}
-                  className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToNext}
+                    disabled={displayIndex >= displayTotalCalls - 1}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={navigateToPrevious}
+                      disabled={displayIndex <= 0}
+                      className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums px-1 min-w-[44px] text-center">
+                      {displayIndex + 1}/{displayTotalCalls}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={navigateToNext}
+                      disabled={displayIndex >= displayTotalCalls - 1}
+                      className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-              <div className="flex-1 relative">
-                <Slider
-                  min={0}
-                  max={displayTotalCalls - 1}
-                  step={1}
-                  value={[displayIndex]}
-                  onValueChange={handleSliderChange}
-                  className="w-full [&>span:first-child]:h-1.5 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1.5"
-                />
-              </div>
+                  <div className="flex-1 relative">
+                    <Slider
+                      min={0}
+                      max={displayTotalCalls - 1}
+                      step={1}
+                      value={[displayIndex]}
+                      onValueChange={handleSliderChange}
+                      className="w-full [&>span:first-child]:h-1.5 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1.5"
+                    />
+                  </div>
 
-              <div className="flex items-center gap-1.5">
-                {renderStatusButton()}
-              </div>
+                  <div className="flex items-center gap-1.5">
+                    {renderStatusButton()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }

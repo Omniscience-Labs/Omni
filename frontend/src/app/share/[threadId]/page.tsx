@@ -806,6 +806,7 @@ export default function ThreadPage({
         externalNavigateToIndex={externalNavIndex}
         project={project}
         onFileClick={handleOpenFileViewer}
+        onToggleFloatingPreview={() => setIsSidePanelOpen(true)}
       />
 
       <FileViewerModal

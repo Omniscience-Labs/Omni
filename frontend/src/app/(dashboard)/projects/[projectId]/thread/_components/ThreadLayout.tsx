@@ -117,6 +117,7 @@ export function ThreadLayout({
         isLoading={!initialLoadCompleted || isLoading}
         onFileClick={onViewFiles}
         agentName={agentName}
+        onToggleFloatingPreview={() => onToggleSidePanel()}
       />
 
       {sandboxId && (
