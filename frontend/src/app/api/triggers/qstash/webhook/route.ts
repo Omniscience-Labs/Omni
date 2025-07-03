@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log(`[QStash Webhook Proxy] Received QStash webhook`);
-    
     const body = await request.arrayBuffer();
     const headers: Record<string, string> = {};
     request.headers.forEach((value, key) => {
@@ -11,9 +9,8 @@ export async function POST(request: NextRequest) {
         headers[key] = value;
       }
     });
-    
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
-    const targetUrl = `${backendUrl}/api/triggers/qstash/webhook`;
+    const targetUrl = `${backendUrl}/triggers/qstash/webhook`;
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -22,7 +19,6 @@ export async function POST(request: NextRequest) {
       },
       body: body,
     });
-
     const responseData = await response.text();
     return new NextResponse(responseData, {
       status: response.status,
@@ -30,7 +26,6 @@ export async function POST(request: NextRequest) {
         'Content-Type': response.headers.get('Content-Type') || 'application/json',
       },
     });
-
   } catch (error) {
     console.error('[QStash Webhook Proxy] Error:', error);
     return NextResponse.json(
