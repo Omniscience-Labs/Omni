@@ -16,7 +16,8 @@ let nextConfig: NextConfig = {
   },
 };
 
-if (process.env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
+/** Removing Sentry for now */
+if (false && process.env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
   nextConfig = withSentryConfig(nextConfig, {
     org: 'kortix-ai',
     project: 'suna-nextjs',
