@@ -122,9 +122,9 @@ export const siteConfig = {
       /** @deprecated */
       hours: '60 min',
       features: [
-        '$5/month usage',
+        'Free $5/month usage included',
         'Public Projects',
-        'Basic Model (Limited capabilities)',
+        'Limited models',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.FREE.priceId,
       upgradePlans: [],
@@ -143,8 +143,9 @@ export const siteConfig = {
       hours: '2 hours',
       features: [
         '$20/month usage',
+        '+ $5 free included',
         'Private projects',
-        'Access to intelligent Model (Full Suna)',
+        'More models',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_20.priceId,
       yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_2_20_YEARLY.priceId,
@@ -164,8 +165,9 @@ export const siteConfig = {
       hours: '6 hours',
       features: [
         '$50/month usage',
+        '+ $5 free included',
         'Private projects',
-        'Access to intelligent Model (Full Suna)',
+        'More models',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_6_50.priceId,
       yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_6_50_YEARLY.priceId,
@@ -184,8 +186,8 @@ export const siteConfig = {
       hours: '12 hours',
       features: [
         '$100/month usage',
+        '+ $5 free included',
         'Private projects',
-        'Access to intelligent Model (Full Suna)',
         'Priority support',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_12_100.priceId,
@@ -206,8 +208,9 @@ export const siteConfig = {
       hours: '25 hours',
       features: [
         '$200/month usage',
+        '+ $5 free included',
         'Private projects',
-        'Access to intelligent Model (Full Suna)',
+        'More models',
       ],
       stripePriceId: config.SUBSCRIPTION_TIERS.TIER_25_200.priceId,
       yearlyStripePriceId: config.SUBSCRIPTION_TIERS.TIER_25_200_YEARLY.priceId,
@@ -226,6 +229,7 @@ export const siteConfig = {
       hours: '50 hours',
       features: [
         '$400/month usage',
+        '+ $5 free included',
         'Private projects',
         'Access to intelligent Model (Full Suna)',
         'Priority support',
@@ -249,6 +253,7 @@ export const siteConfig = {
       hours: '125 hours',
       features: [
         '$800/month usage',
+        '+ $5 free included',
         'Private projects',
         'Access to intelligent Model (Full Suna)',
         'Priority support',
@@ -273,6 +278,7 @@ export const siteConfig = {
       hours: '200 hours',
       features: [
         '$1000/month usage',
+        '+ $5 free included',
         'Private projects',
         'Access to intelligent Model (Full Suna)',
         'Priority support',
