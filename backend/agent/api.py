@@ -482,53 +482,7 @@ async def start_agent(
                 agent_config = agent_data
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
     
-    # Check if thread is associated with a workflow and override system prompt
-    workflow_id = thread_metadata.get('workflow_id')
-    if workflow_id:
-        try:
-            # Get the workflow and its system prompt
-            workflow_result = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', account_id).execute()
-            if workflow_result.data:
-                workflow_data = workflow_result.data[0]
-                workflow_definition = workflow_data.get('definition', {})
-                
-                # Get the workflow's system prompt from the first step
-                workflow_steps = workflow_definition.get('steps', [])
-                if workflow_steps:
-                    workflow_system_prompt = workflow_steps[0].get('config', {}).get('system_prompt', '')
-                    
-                    if workflow_system_prompt:
-                        # Create or modify agent config to use workflow's system prompt
-                        if not agent_config:
-                            agent_config = {
-                                'name': f"Workflow Agent: {workflow_data.get('name', 'Unknown')}",
-                                'description': workflow_data.get('description', 'Generated workflow agent'),
-                                'system_prompt': workflow_system_prompt,
-                                'configured_mcps': [],
-                                'custom_mcps': [],
-                                'agentpress_tools': {
-                                    "sb_files_tool": {"enabled": True, "description": "File operations"},
-                                    "message_tool": {"enabled": True, "description": "Send messages"},
-                                    "expand_msg_tool": {"enabled": True, "description": "Expand messages"}
-                                }
-                            }
-                        else:
-                            # Override the system prompt in existing agent config
-                            agent_config = agent_config.copy()
-                            agent_config['system_prompt'] = workflow_system_prompt
-                            agent_config['name'] = f"Workflow Agent: {workflow_data.get('name', agent_config.get('name', 'Unknown'))}"
-                        
-                        logger.info(f"Using workflow system prompt for thread {thread_id} (workflow: {workflow_data.get('name', workflow_id)})")
-                    else:
-                        logger.warning(f"Workflow {workflow_id} has no system prompt defined")
-                else:
-                    logger.warning(f"Workflow {workflow_id} has no steps defined")
-            else:
-                logger.warning(f"Workflow {workflow_id} not found or access denied for user {account_id}")
-        except Exception as e:
-            logger.error(f"Error loading workflow {workflow_id} for thread {thread_id}: {e}")
-            # Continue with existing agent config if workflow loading fails
-    
+
     # Don't update thread's agent_id since threads are now agent-agnostic
     # The agent selection is handled per message/agent run
     if body.agent_id and body.agent_id != thread_agent_id and agent_config:
