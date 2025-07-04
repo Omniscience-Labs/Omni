@@ -196,7 +196,7 @@ export function ToolCallSidePanel({
       displayIndex = completedIndex;
       displayTotalCalls = totalCompletedCalls;
     }
-  }
+  } 
 
   const currentToolName = displayToolCall?.assistantCall?.name || 'Tool Call';
   const CurrentToolIcon = getToolIcon(
