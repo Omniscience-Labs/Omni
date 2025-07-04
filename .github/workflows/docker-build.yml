@@ -75,4 +75,5 @@ jobs:
           key: ${{ secrets.PROD_KEY }}
           script: |
             cd /mnt/gluster-shared/data/infra/suna
+            set -a; source .env; set +a
             docker stack deploy -c docker-compose.yml suna
