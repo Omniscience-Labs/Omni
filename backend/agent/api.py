@@ -136,7 +136,7 @@ class AgentBuilderChatResponse(BaseModel):
 
 def initialize(
     _db: DBConnection,
-    _instance_id: str = None
+    _instance_id: Optional[str] = None
 ):
     """Initialize the agent API with resources from the main API."""
     global db, instance_id
@@ -1027,13 +1027,13 @@ async def initiate_agent_with_files(
         sandbox_id = None
         try:
           sandbox_pass = str(uuid.uuid4())
-          sandbox = create_sandbox(sandbox_pass, project_id)
+          sandbox = await create_sandbox(sandbox_pass, project_id)
           sandbox_id = sandbox.id
           logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
           
           # Get preview links
-          vnc_link = sandbox.get_preview_link(6080)
-          website_link = sandbox.get_preview_link(8080)
+          vnc_link = await sandbox.get_preview_link(6080)
+          website_link = await sandbox.get_preview_link(8080)
           vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
           website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
           token = None
@@ -1120,11 +1120,7 @@ async def initiate_agent_with_files(
                         upload_successful = False
                         try:
                             if hasattr(sandbox, 'fs') and hasattr(sandbox.fs, 'upload_file'):
-                                import inspect
-                                if inspect.iscoroutinefunction(sandbox.fs.upload_file):
-                                    await sandbox.fs.upload_file(content, target_path)
-                                else:
-                                    sandbox.fs.upload_file(content, target_path)
+                                await sandbox.fs.upload_file(content, target_path)
                                 logger.debug(f"Called sandbox.fs.upload_file for {target_path}")
                                 upload_successful = True
                             else:
@@ -1136,7 +1132,7 @@ async def initiate_agent_with_files(
                             try:
                                 await asyncio.sleep(0.2)
                                 parent_dir = os.path.dirname(target_path)
-                                files_in_dir = sandbox.fs.list_files(parent_dir)
+                                files_in_dir = await sandbox.fs.list_files(parent_dir)
                                 file_names_in_dir = [f.name for f in files_in_dir]
                                 if safe_filename in file_names_in_dir:
                                     successful_uploads.append(target_path)
