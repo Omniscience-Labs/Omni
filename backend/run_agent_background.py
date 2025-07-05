@@ -227,6 +227,8 @@ async def run_agent_background(
         )
 
     finally:
+        instance_key = f"active_run:{instance_id}:{agent_run_id}"
+        await redis.client.delete(instance_key)
         logger.info(
             f"Agent run completed for: {agent_run_id} (Instance: {instance_id}) with final status: {final_status}"
         )

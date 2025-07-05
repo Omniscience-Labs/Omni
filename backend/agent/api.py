@@ -202,6 +202,8 @@ async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None)
     await update_agent_run_status(
         client, agent_run_id, final_status, error=error_message
     )
+    instance_key = f"active_run:{instance_id}:{agent_run_id}"
+    await redis.client.delete(instance_key)
     logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
 
 # async def restore_running_agent_runs():
