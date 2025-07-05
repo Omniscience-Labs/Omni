@@ -329,21 +329,28 @@ export function HeroSection() {
 
                           <div className='flex items-center gap-2'>
                             <ChatDropdown />
-                            <Button
-                              type="submit"
-                              size="sm"
-                              className={cn(
-                                'w-8 h-8 flex-shrink-0 self-end rounded-xl',
-                                (!inputValue.trim() || isSubmitting) ? 'opacity-50' : '',
-                              )}
-                              disabled={!inputValue.trim() || isSubmitting}
-                            >
-                              {isSubmitting ? (
-                                <Square className="h-5 w-5" />
-                              ) : (
-                                <ArrowUp className="h-5 w-5" />
-                              )}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  className={cn(
+                                    'w-8 h-8 flex-shrink-0 self-end rounded-xl',
+                                    (!inputValue.trim() || isSubmitting) ? 'opacity-50' : '',
+                                  )}
+                                  disabled={!inputValue.trim() || isSubmitting}
+                                >
+                                  {isSubmitting ? (
+                                    <Square className="h-5 w-5" />
+                                  ) : (
+                                    <ArrowUp className="h-5 w-5" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Send message</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </div>
                       </div>
