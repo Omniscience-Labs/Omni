@@ -57,7 +57,7 @@ async def run_agent(
 
     if not trace:
         trace = langfuse.trace(name="run_agent", session_id=thread_id, metadata={"project_id": project_id})
-    thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder, target_agent_id=target_agent_id, agent_config=agent_config)
+    thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder or False, target_agent_id=target_agent_id, agent_config=agent_config)
 
     client = await thread_manager.db.client
 
