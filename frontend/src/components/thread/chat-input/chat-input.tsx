@@ -243,7 +243,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           isVisible={showToolPreview}
         />
         <Card
-          className="-mb-2 bg-red-400 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden"
+          className="-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={(e) => {
