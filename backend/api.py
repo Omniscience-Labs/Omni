@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-import sentry # Keep this import here, right after fastapi imports
+import sentry
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
@@ -25,6 +25,7 @@ from services import transcription as transcription_api
 from services.mcp_custom import discover_custom_tools
 import sys
 from services import email_api
+from triggers import api as triggers_api
 
 
 load_dotenv()
@@ -64,6 +65,10 @@ async def lifespan(app: FastAPI):
         
         # Start background tasks
         # asyncio.create_task(agent_api.restore_running_agent_runs())
+        
+        # Initialize triggers API
+        triggers_api.initialize(db)
+        unified_oauth_api.initialize(db)
         
         yield
         
@@ -152,21 +157,16 @@ from mcp_local import secure_api as secure_mcp_api
 app.include_router(mcp_api.router, prefix="/api")
 app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
 
-
 app.include_router(transcription_api.router, prefix="/api")
-
 app.include_router(email_api.router, prefix="/api")
 
-from workflows import api as workflows_api
-workflows_api.initialize(db)
-app.include_router(workflows_api.router, prefix="/api")
+from knowledge_base import api as knowledge_base_api
+app.include_router(knowledge_base_api.router, prefix="/api")
 
-from webhooks import api as webhooks_api
-webhooks_api.initialize(db)
-app.include_router(webhooks_api.router, prefix="/api")
-
-from scheduling import api as scheduling_api
-app.include_router(scheduling_api.router)
+from triggers import api as triggers_api
+from triggers import unified_oauth_api
+app.include_router(triggers_api.router)
+app.include_router(unified_oauth_api.router)
 
 @app.get("/api/health")
 async def health_check():

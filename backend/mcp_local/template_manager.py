@@ -71,24 +71,18 @@ class TemplateManager:
         tags: Optional[List[str]] = None
     ) -> str:
         """
-        Create an agent template from an existing agent, stripping all credentials
+        Create a secure template from an existing agent
         
-        Args:
-            agent_id: ID of the existing agent
-            creator_id: ID of the user creating the template
-            make_public: Whether to make the template public immediately
-            tags: Optional tags for the template
-            
-        Returns:
-            template_id: ID of the created template
+        This extracts the agent configuration and creates a template with
+        MCP requirements (without credentials) that can be safely shared
         """
-        logger.info(f"Creating template from agent {agent_id}")
+        logger.info(f"Creating template from agent {agent_id} for user {creator_id}")
         
         try:
             client = await db.client
             
-            # Get the existing agent with current version
-            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
+            # Get the agent
+            agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
             if not agent_result.data:
                 raise ValueError("Agent not found")
             
@@ -96,61 +90,63 @@ class TemplateManager:
             
             # Verify ownership
             if agent['account_id'] != creator_id:
-                raise ValueError("Access denied: not agent owner")
+                raise ValueError("Access denied - you can only create templates from your own agents")
             
-            # Extract MCP requirements (remove credentials)
+            # Extract MCP requirements from agent configuration
             mcp_requirements = []
             
-            # Process configured_mcps
-            for mcp_config in agent.get('configured_mcps', []):
-                requirement = {
-                    'qualified_name': mcp_config.get('qualifiedName'),
-                    'display_name': mcp_config.get('name'),
-                    'enabled_tools': mcp_config.get('enabledTools', []),
-                    'required_config': list(mcp_config.get('config', {}).keys())
-                }
-                mcp_requirements.append(requirement)
+            # Process configured_mcps (regular MCP servers)
+            for mcp in agent.get('configured_mcps', []):
+                if isinstance(mcp, dict) and 'qualifiedName' in mcp:
+                    # Extract required config keys from the config
+                    config_keys = list(mcp.get('config', {}).keys())
+                    
+                    requirement = {
+                        'qualified_name': mcp['qualifiedName'],
+                        'display_name': mcp.get('name', mcp['qualifiedName']),
+                        'enabled_tools': mcp.get('enabledTools', []),
+                        'required_config': config_keys
+                    }
+                    mcp_requirements.append(requirement)
             
-            # Process custom_mcps
+            # Process custom_mcps (custom MCP servers)
             for custom_mcp in agent.get('custom_mcps', []):
-                custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
-                requirement = {
-                    'qualified_name': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",
-                    'display_name': custom_mcp['name'],
-                    'enabled_tools': custom_mcp.get('enabledTools', []),
-                    'required_config': list(custom_mcp.get('config', {}).keys()),
-                    'custom_type': custom_type
-                }
-                logger.info(f"Created custom MCP requirement: {requirement}")
-                mcp_requirements.append(requirement)
+                if isinstance(custom_mcp, dict) and 'name' in custom_mcp:
+                    # Extract required config keys from the config
+                    config_keys = list(custom_mcp.get('config', {}).keys())
+                    
+                    requirement = {
+                        'qualified_name': custom_mcp['name'].lower().replace(' ', '_'),
+                        'display_name': custom_mcp['name'],
+                        'enabled_tools': custom_mcp.get('enabledTools', []),
+                        'required_config': config_keys,
+                        'custom_type': custom_mcp.get('type', 'http')  # Default to http
+                    }
+                    mcp_requirements.append(requirement)
             
-            # Use version data if available, otherwise fall back to agent data
-            version_data = agent.get('agent_versions', {})
-            if version_data:
-                system_prompt = version_data.get('system_prompt', agent['system_prompt'])
-                agentpress_tools = version_data.get('agentpress_tools', agent.get('agentpress_tools', {}))
-                version_name = version_data.get('version_name', 'v1')
-            else:
-                system_prompt = agent['system_prompt']
-                agentpress_tools = agent.get('agentpress_tools', {})
-                version_name = 'v1'
+            kortix_team_account_ids = [
+                'xxxxxxxx',
+            ]
             
-            # Create template
+            is_kortix_team = creator_id in kortix_team_account_ids
+            
+            # Create the template
             template_data = {
                 'creator_id': creator_id,
                 'name': agent['name'],
                 'description': agent.get('description'),
-                'system_prompt': system_prompt,
+                'system_prompt': agent['system_prompt'],
                 'mcp_requirements': mcp_requirements,
-                'agentpress_tools': agentpress_tools,
+                'agentpress_tools': agent.get('agentpress_tools', {}),
                 'tags': tags or [],
                 'is_public': make_public,
+                'is_kortix_team': is_kortix_team,
                 'avatar': agent.get('avatar'),
                 'avatar_color': agent.get('avatar_color'),
                 'metadata': {
                     'source_agent_id': agent_id,
                     'source_version_id': agent.get('current_version_id'),
-                    'source_version_name': version_name
+                    'source_version_name': agent.get('current_version', {}).get('version_name', 'v1.0')
                 }
             }
             
@@ -163,7 +159,7 @@ class TemplateManager:
                 raise ValueError("Failed to create template")
             
             template_id = result.data[0]['template_id']
-            logger.info(f"Successfully created template {template_id} from agent {agent_id}")
+            logger.info(f"Successfully created template {template_id} from agent {agent_id} with is_kortix_team={is_kortix_team}")
             
             return template_id
             
@@ -342,26 +338,37 @@ class TemplateManager:
                     if profile_mappings and req.qualified_name in profile_mappings:
                         profile_id = profile_mappings[req.qualified_name]
                         
+                        # Validate profile_id is not empty
+                        if not profile_id or profile_id.strip() == '':
+                            logger.error(f"Empty profile_id provided for {req.qualified_name}")
+                            raise ValueError(f"Invalid credential profile selected for {req.display_name}")
+                        
                         # Get the credential profile
                         profile = await credential_manager.get_credential_by_profile(
                             account_id, profile_id
                         )
                         
                         if not profile:
-                            logger.warning(f"Credential profile not found for {req.qualified_name}")
-                            continue
+                            logger.error(f"Credential profile {profile_id} not found for {req.qualified_name}")
+                            raise ValueError(f"Credential profile not found for {req.display_name}. Please select a valid profile or create a new one.")
+                        
+                        # Validate profile is active
+                        if not profile.is_active:
+                            logger.error(f"Credential profile {profile_id} is inactive for {req.qualified_name}")
+                            raise ValueError(f"Selected credential profile for {req.display_name} is inactive. Please select an active profile.")
                         
                         mcp_config = {
                             'name': req.display_name,
                             'qualifiedName': req.qualified_name,
                             'config': profile.config,
-                            'enabledTools': req.enabled_tools
+                            'enabledTools': req.enabled_tools,
+                            'selectedProfileId': profile_id
                         }
                         configured_mcps.append(mcp_config)
                         logger.info(f"Added regular MCP with profile: {mcp_config}")
                     else:
-                        logger.warning(f"No profile mapping provided for {req.qualified_name}")
-                        continue
+                        logger.error(f"No profile mapping provided for {req.qualified_name}")
+                        raise ValueError(f"Missing credential profile for {req.display_name}. Please select a credential profile.")
             
             logger.info(f"Final configured_mcps: {configured_mcps}")
             logger.info(f"Final custom_mcps: {custom_mcps}")
@@ -385,8 +392,42 @@ class TemplateManager:
                 raise ValueError("Failed to create agent")
             
             instance_id = result.data[0]['agent_id']
-            
-            # Update template download count
+
+            try:
+                initial_version_data = {
+                    "agent_id": instance_id,
+                    "version_number": 1,
+                    "version_name": "v1",
+                    "system_prompt": agent_data['system_prompt'],
+                    "configured_mcps": agent_data['configured_mcps'],
+                    "custom_mcps": agent_data['custom_mcps'],
+                    "agentpress_tools": agent_data['agentpress_tools'],
+                    "is_active": True,
+                    "created_by": account_id
+                }
+                
+                version_result = await client.table('agent_versions').insert(initial_version_data).execute()
+                
+                if version_result.data:
+                    version_id = version_result.data[0]['version_id']
+                    await client.table('agents').update({
+                        'current_version_id': version_id,
+                        'version_count': 1
+                    }).eq('agent_id', instance_id).execute()
+                    await client.table('agent_version_history').insert({
+                        "agent_id": instance_id,
+                        "version_id": version_id,
+                        "action": "created",
+                        "changed_by": account_id,
+                        "change_description": "Initial version created from template installation"
+                    }).execute()
+                    
+                    logger.info(f"Created initial version v1 for installed agent {instance_id}")
+                else:
+                    logger.warning(f"Failed to create initial version for agent {instance_id}")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to create initial version for agent {instance_id}: {e}")
             await client.table('agent_templates')\
                 .update({'download_count': template.download_count + 1})\
                 .eq('template_id', template_id).execute()
@@ -554,10 +595,19 @@ class TemplateManager:
             if not template or template.creator_id != creator_id:
                 raise ValueError("Template not found or access denied")
             
+            # Check if this is a Kortix team account
+            kortix_team_account_ids = [
+                'bc14b70b-2edf-473c-95be-5f5b109d6553',  # Your Kortix team account ID
+                # Add more Kortix team account IDs here as needed
+            ]
+            
+            is_kortix_team = template.creator_id in kortix_team_account_ids
+            
             # Update template
             update_data = {
                 'is_public': True,
-                'marketplace_published_at': datetime.now(timezone.utc).isoformat()
+                'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
+                'is_kortix_team': is_kortix_team  # Set based on account
             }
             
             if tags:
@@ -568,6 +618,7 @@ class TemplateManager:
                 .eq('template_id', template_id)\
                 .execute()
             
+            logger.info(f"Published template {template_id} with is_kortix_team={is_kortix_team}")
             return len(result.data) > 0
             
         except Exception as e:
@@ -615,6 +666,7 @@ class TemplateManager:
             query = client.table('agent_templates')\
                 .select('*')\
                 .eq('is_public', True)\
+                .order('is_kortix_team', desc=True)\
                 .order('marketplace_published_at', desc=True)\
                 .range(offset, offset + limit - 1)
             
@@ -628,6 +680,9 @@ class TemplateManager:
             
             templates = []
             for template_data in result.data:
+                # Use the database field for is_kortix_team
+                is_kortix_team = template_data.get('is_kortix_team', False)
+                
                 templates.append({
                     'template_id': template_data['template_id'],
                     'name': template_data['name'],
@@ -639,11 +694,13 @@ class TemplateManager:
                     'download_count': template_data.get('download_count', 0),
                     'marketplace_published_at': template_data.get('marketplace_published_at'),
                     'created_at': template_data['created_at'],
-                    'creator_name': 'Anonymous',
+                    'creator_name': 'Kortix Team' if is_kortix_team else 'Community',
                     'avatar': template_data.get('avatar'),
-                    'avatar_color': template_data.get('avatar_color')
+                    'avatar_color': template_data.get('avatar_color'),
+                    'is_kortix_team': is_kortix_team
                 })
             
+            # Templates are already sorted by database query (Kortix team first, then by date)
             return templates
             
         except Exception as e:

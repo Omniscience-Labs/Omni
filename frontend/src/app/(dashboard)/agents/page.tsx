@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Plus, AlertCircle, Loader2, File } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, AlertCircle, Loader2, File, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UpdateAgentDialog } from './_components/update-agent-dialog';
@@ -16,8 +16,9 @@ import { Pagination } from './_components/pagination';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
-import { useFeatureFlags } from '@/lib/feature-flags';
+import { useFeatureFlag, useFeatureFlags } from '@/lib/feature-flags';
 import { generateRandomAvatar } from './_utils/_avatar-generator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -31,7 +32,14 @@ interface FilterOptions {
 }
 
 export default function AgentsPage() {
+  const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
   const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !customAgentsEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, customAgentsEnabled, router]);
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -182,6 +190,39 @@ export default function AgentsPage() {
     }
   };
 
+  if (flagLoading) {
+    return (
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Your Agents
+            </h1>
+            <p className="text-md text-muted-foreground max-w-2xl">
+              Create and manage your AI agents with custom instructions and tools
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!customAgentsEnabled) {
+    return null;
+  }
+
   if (error) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -199,60 +240,36 @@ export default function AgentsPage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="space-y-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Your Agents
-            </h1>
-            <p className="text-md text-muted-foreground max-w-2xl">
-              Create and manage your AI agents with custom instructions and tools
-            </p>
-          </div>
-          <div className="flex gap-2 items-center">
-            <Button 
-              onClick={() => router.push('/marketplace/my-templates')}
-              className="self-start sm:self-center"
-              variant="outline"
-            >
-              <File className="h-5 w-5" />
-              My Templates
-            </Button>
-            <Button 
-              onClick={handleCreateNewAgent}
-              disabled={createAgentMutation.isPending}
-              className="self-start sm:self-center"
-            >
-              {createAgentMutation.isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-5 w-5" />
-                  New Agent
-                </>
-              )}
-            </Button>
+        <div className='w-full space-y-4 bg-gradient-to-b from-primary/10 to-primary/5 border rounded-xl h-60 flex items-center justify-center'>
+          <div className="space-y-4">
+            <div className="space-y-2 text-center">
+              <div className='flex items-center justify-center gap-2'>
+                <Bot className='h-6 w-6 text-primary' />
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                  Agents
+                </h1>
+              </div>
+              <p className="text-md text-muted-foreground max-w-2xl">
+                Create and manage your agents with custom instructions and tools
+              </p>
+            </div>
+            <SearchAndFilters
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              filters={filters}
+              setFilters={setFilters}
+              activeFiltersCount={activeFiltersCount}
+              clearFilters={clearFilters}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              allTools={allTools}
+            />
           </div>
         </div>
-
-        <SearchAndFilters
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          filters={filters}
-          setFilters={setFilters}
-          activeFiltersCount={activeFiltersCount}
-          clearFilters={clearFilters}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          allTools={allTools}
-        />
-
         <ResultsInfo
           isLoading={isLoading}
           totalAgents={pagination?.total || 0}

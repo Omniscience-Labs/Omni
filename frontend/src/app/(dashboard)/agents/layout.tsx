@@ -18,9 +18,5 @@ export default async function AgentsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
-  if (!agentPlaygroundEnabled) {
-    redirect('/dashboard');
-  }
   return <>{children}</>;
 }

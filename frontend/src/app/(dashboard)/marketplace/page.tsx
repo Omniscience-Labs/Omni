@@ -1,25 +1,36 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
+
 
 import { 
   useMarketplaceTemplates, 
   useInstallTemplate
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
-import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
+import { 
+  useCredentialProfilesForMcp, 
+  useCreateCredentialProfile,
+  type CredentialProfile,
+  type CreateCredentialProfileRequest
+} from '@/hooks/react-query/mcp/use-credential-profiles';
+import { useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
 import { createClient } from '@/lib/supabase/client';
+import { useFeatureFlag } from '@/lib/feature-flags';
+import { useRouter } from 'next/navigation';
+import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
@@ -35,6 +46,7 @@ interface MarketplaceTemplate {
   avatar?: string;
   avatar_color?: string;
   template_id: string;
+  is_kortix_team?: boolean;
   mcp_requirements?: Array<{
     qualified_name: string;
     display_name: string;
@@ -72,6 +84,14 @@ interface MissingProfile {
   required_config: string[];
 }
 
+interface AgentPreviewSheetProps {
+  item: MarketplaceTemplate | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onInstall: (item: MarketplaceTemplate) => void;
+  isInstalling: boolean;
+}
+
 interface InstallDialogProps {
   item: MarketplaceTemplate | null;
   open: boolean;
@@ -79,6 +99,159 @@ interface InstallDialogProps {
   onInstall: (item: MarketplaceTemplate, instanceName?: string, profileMappings?: Record<string, string>, customMcpConfigs?: Record<string, Record<string, any>>) => Promise<void>;
   isInstalling: boolean;
 }
+
+const AgentPreviewSheet: React.FC<AgentPreviewSheetProps> = ({
+  item,
+  open,
+  onOpenChange,
+  onInstall,
+  isInstalling
+}) => {
+  if (!item) return null;
+
+  const { avatar, color } = item.avatar && item.avatar_color 
+    ? { avatar: item.avatar, color: item.avatar_color }
+    : getAgentAvatar(item.id);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader className="space-y-4">
+          <div className="flex items-start gap-4">
+            <div 
+              className="h-16 w-16 flex items-center justify-center rounded-xl shrink-0"
+              style={{ backgroundColor: color }}
+            >
+              <div className="text-3xl">{avatar}</div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <SheetTitle className="text-xl font-semibold line-clamp-2">
+                  {item.name}
+                </SheetTitle>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  <span>{item.creator_name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Download className="h-4 w-4" />
+                  <span>{item.download_count} downloads</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <Button
+            onClick={() => onInstall(item)}
+            disabled={isInstalling}
+            size='sm'
+            className='w-48'
+          >
+            {isInstalling ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Installing...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Add to Library
+              </>
+            )}
+          </Button>
+        </SheetHeader>
+        <div className="px-4 space-y-6 py-6">
+          <div className="space-y-2">
+            <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+              Description
+            </h3>
+            <p className="text-sm leading-relaxed">
+              {item.description || 'No description available for this agent.'}
+            </p>
+          </div>
+
+          {item.tags && item.tags.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {item.tags.map(tag => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    <Tags className="h-3 w-3 mr-1" />
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {item.mcp_requirements && item.mcp_requirements.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+                Required Tools & MCPs
+              </h3>
+              <div className="space-y-2">
+                {item.mcp_requirements.map((mcp, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted-foreground/10 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                        <Wrench className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{mcp.display_name}</div>
+                        {mcp.enabled_tools && mcp.enabled_tools.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {mcp.enabled_tools.length} tool{mcp.enabled_tools.length !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {mcp.custom_type && (
+                      <Badge variant="outline" className="text-xs">
+                        {mcp.custom_type.toUpperCase()}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {item.metadata?.source_version_name && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                Version
+              </h3>
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{item.metadata.source_version_name}</span>
+              </div>
+            </div>
+          )}
+          {item.marketplace_published_at && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+                Published
+              </h3>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{formatDate(item.marketplace_published_at)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 const InstallDialog: React.FC<InstallDialogProps> = ({ 
   item, 
@@ -94,6 +267,23 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
   const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
   const [missingProfiles, setMissingProfiles] = useState<MissingProfile[]>([]);
+  const [showCreateProfileDialog, setShowCreateProfileDialog] = useState(false);
+  const [createProfileForQualifiedName, setCreateProfileForQualifiedName] = useState<string>('');
+  const [createProfileForDisplayName, setCreateProfileForDisplayName] = useState<string>('');
+  const [formData, setFormData] = useState<{
+    profile_name: string;
+    display_name: string;
+    config: Record<string, string>;
+    is_default: boolean;
+  }>({
+    profile_name: '',
+    display_name: '',
+    config: {},
+    is_default: false
+  });
+
+  const createProfileMutation = useCreateCredentialProfile();
+  const { data: serverDetails } = useMCPServerDetails(createProfileForQualifiedName);
 
   React.useEffect(() => {
     if (item && open) {
@@ -106,68 +296,28 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
   }, [item, open]);
 
+  const refreshRequirements = React.useCallback(() => {
+    if (item && open) {
+      setIsCheckingRequirements(true);
+      checkRequirementsAndSetupSteps();
+    }
+  }, [item, open]);
+
   const checkRequirementsAndSetupSteps = async () => {
     if (!item?.mcp_requirements) return;
     
     const steps: SetupStep[] = [];
-    const missing: MissingProfile[] = [];
     const customServers = item.mcp_requirements.filter(req => req.custom_type);
     const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
-
-    // Check for credential profiles for regular services and create profile selection steps
     for (const req of regularServices) {
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          missing.push({
-            qualified_name: req.qualified_name,
-            display_name: req.display_name,
-            required_config: req.required_config
-          });
-          continue;
-        }
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/secure-mcp/credential-profiles/${encodeURIComponent(req.qualified_name)}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const profiles = await response.json();
-          if (!profiles || profiles.length === 0) {
-            missing.push({
-              qualified_name: req.qualified_name,
-              display_name: req.display_name,
-              required_config: req.required_config
-            });
-          } else {
-            steps.push({
-              id: req.qualified_name,
-              title: `Select Credential Profile for ${req.display_name}`,
-              description: `Choose which credential profile to use for ${req.display_name}.`,
-              type: 'credential_profile',
-              service_name: req.display_name,
-              qualified_name: req.qualified_name,
-            });
-          }
-        } else {
-          missing.push({
-            qualified_name: req.qualified_name,
-            display_name: req.display_name,
-            required_config: req.required_config
-          });
-        }
-      } catch (error) {
-        missing.push({
-          qualified_name: req.qualified_name,
-          display_name: req.display_name,
-          required_config: req.required_config
-        });
-      }
+      steps.push({
+        id: req.qualified_name,
+        title: `Select Credential Profile for ${req.display_name}`,
+        description: `Choose or create a credential profile for ${req.display_name}.`,
+        type: 'credential_profile',
+        service_name: req.display_name,
+        qualified_name: req.qualified_name,
+      });
     }
 
     for (const req of customServers) {
@@ -190,7 +340,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     }
 
     setSetupSteps(steps);
-    setMissingProfiles(missing);
+    setMissingProfiles([]); 
     setIsCheckingRequirements(false);
   };
 
@@ -209,6 +359,76 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       ...prev,
       [qualifiedName]: profileId || ''
     }));
+  };
+
+  const handleCreateNewProfile = (qualifiedName: string, displayName: string) => {
+    setCreateProfileForQualifiedName(qualifiedName);
+    setCreateProfileForDisplayName(displayName);
+    setFormData({
+      profile_name: `${displayName} Profile`,
+      display_name: displayName,
+      config: {},
+      is_default: false
+    });
+    setShowCreateProfileDialog(true);
+  };
+
+  const getConfigProperties = () => {
+    const schema = serverDetails?.connections?.[0]?.configSchema;
+    return schema?.properties || {};
+  };
+
+  const getRequiredFields = () => {
+    const schema = serverDetails?.connections?.[0]?.configSchema;
+    return schema?.required || [];
+  };
+
+  const isFieldRequired = (fieldName: string) => {
+    return getRequiredFields().includes(fieldName);
+  };
+
+  const handleConfigChange = (key: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      config: {
+        ...prev.config,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleCreateSubmit = async () => {
+    try {
+      const request: CreateCredentialProfileRequest = {
+        mcp_qualified_name: createProfileForQualifiedName,
+        profile_name: formData.profile_name,
+        display_name: formData.display_name,
+        config: formData.config,
+        is_default: formData.is_default
+      };
+
+      const response = await createProfileMutation.mutateAsync(request);
+      toast.success('Credential profile created successfully!');
+      
+      // Auto-select the newly created profile
+      setProfileMappings(prev => ({
+        ...prev,
+        [createProfileForQualifiedName]: response.profile_id || 'new-profile'
+      }));
+      
+      setShowCreateProfileDialog(false);
+      refreshRequirements();
+      
+      // Reset form
+      setFormData({
+        profile_name: '',
+        display_name: '',
+        config: {},
+        is_default: false
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create credential profile');
+    }
   };
 
   const isCurrentStepComplete = (): boolean => {
@@ -260,7 +480,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const canInstall = () => {
     if (!item) return false;
     if (!instanceName.trim()) return false;
-    if (missingProfiles.length > 0) return false;
     
     // Check if all required profile mappings are selected
     const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
@@ -292,41 +511,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Checking requirements...</p>
-            </div>
-          ) : missingProfiles.length > 0 ? (
-            <div className="space-y-6">
-              <Alert className="border-destructive/50 bg-destructive/10 dark:bg-destructive/5 text-destructive">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <AlertTitle className="text-destructive">Missing Credential Profiles</AlertTitle>
-                <AlertDescription className="text-destructive/80">
-                  This agent requires credential profiles for the following services:
-                </AlertDescription>
-              </Alert>
-              
-              <div className="space-y-3">
-                {missingProfiles.map((profile) => (
-                  <Card key={profile.qualified_name} className="border-destructive/20 shadow-none bg-transparent">
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
-                          <AlertTriangle className="h-4 w-4 text-destructive" />
-                        </div>
-                        <div>
-                          <span className="font-medium">{profile.display_name}</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {profile.required_config.map((config) => (
-                              <Badge key={config} variant="outline" className="text-xs">
-                                {config}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="destructive">Missing</Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             </div>
           ) : setupSteps.length === 0 ? (
             <div className="space-y-6">
@@ -362,22 +546,41 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    {/* <p className="text-sm text-muted-foreground">
                       {currentStepData.description}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   {currentStepData.type === 'credential_profile' ? (
-                    <CredentialProfileSelector
-                      mcpQualifiedName={currentStepData.qualified_name}
-                      mcpDisplayName={currentStepData.service_name}
-                      selectedProfileId={profileMappings[currentStepData.qualified_name]}
-                      onProfileSelect={(profileId, profile) => {
-                        handleProfileSelect(currentStepData.qualified_name, profileId);
-                      }}
-                    />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <CredentialProfileSelector
+                            mcpQualifiedName={currentStepData.qualified_name}
+                            mcpDisplayName={currentStepData.service_name}
+                            selectedProfileId={profileMappings[currentStepData.qualified_name]}
+                            onProfileSelect={(profileId, profile) => {
+                              handleProfileSelect(currentStepData.qualified_name, profileId);
+                              if (profile && !profileMappings[currentStepData.qualified_name]) {
+                                refreshRequirements();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleCreateNewProfile(currentStepData.qualified_name, currentStepData.service_name)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create New Profile
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     currentStepData.required_fields?.map((field) => (
                       <div key={field.key} className="space-y-2">
@@ -442,80 +645,170 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
         </div>
 
         <DialogFooter className="flex-col gap-3">
-          {missingProfiles.length > 0 ? (
-            <div className="flex gap-3 w-full justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
+          <div className="flex gap-3 w-full justify-end">
+            {currentStep > 0 && (
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
               </Button>
+            )}
+            
+            {setupSteps.length === 0 ? (
               <Button 
-                onClick={() => window.open('/settings/credentials', '_blank')}
+                onClick={handleInstall}
+                disabled={isInstalling || !canInstall()}
               >
-                <Settings className="h-4 w-4" />
-                Set Up Credential Profiles
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Install Agent
+                  </>
+                )}
               </Button>
-            </div>
-          ) : (
-            <div className="flex gap-3 w-full justify-end">
-              {currentStep > 0 && (
-                <Button variant="outline" onClick={handleBack} className="flex-1">
-                  Back
-                </Button>
-              )}
-              
-              {setupSteps.length === 0 ? (
-                <Button 
-                  onClick={handleInstall}
-                  disabled={isInstalling || !canInstall()}
-                >
-                  {isInstalling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Installing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Install Agent
-                    </>
-                  )}
-                </Button>
-              ) : currentStep < setupSteps.length ? (
-                <Button 
-                  onClick={handleNext}
-                  disabled={!isCurrentStepComplete()}
-                >
-                  Continue
-                </Button>
-              ) : (
-                <Button 
-                  onClick={handleInstall}
-                  disabled={isInstalling || !canInstall()}
-                >
-                  {isInstalling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Installing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Install Agent
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
+            ) : currentStep < setupSteps.length ? (
+              <Button 
+                onClick={handleNext}
+                disabled={!isCurrentStepComplete()}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleInstall}
+                disabled={isInstalling || !canInstall()}
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Install Agent
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Create Profile Dialog */}
+      <Dialog open={showCreateProfileDialog} onOpenChange={setShowCreateProfileDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-primary" />
+              Create Credential Profile
+            </DialogTitle>
+            <DialogDescription>
+              Create a new credential profile for <strong>{createProfileForDisplayName}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 flex-1 overflow-y-auto">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="profile_name">Profile Name *</Label>
+                  <Input
+                    id="profile_name"
+                    value={formData.profile_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, profile_name: e.target.value }))}
+                    placeholder="Enter a name for this profile"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This helps you identify different configurations for the same MCP server
+                  </p>
+                </div>
+              </div>
+
+              {Object.keys(getConfigProperties()).length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Connection Settings
+                  </h3>
+                  {Object.entries(getConfigProperties()).map(([key, schema]: [string, any]) => (
+                    <div key={key} className="space-y-2">
+                      <Label htmlFor={key}>
+                        {schema.title || key}
+                        {isFieldRequired(key) && (
+                          <span className="text-destructive ml-1">*</span>
+                        )}
+                      </Label>
+                      <Input
+                        id={key}
+                        type={schema.format === 'password' ? 'password' : 'text'}
+                        placeholder={schema.description || `Enter ${key}`}
+                        value={formData.config[key] || ''}
+                        onChange={(e) => handleConfigChange(key, e.target.value)}
+                      />
+                      {schema.description && (
+                        <p className="text-xs text-muted-foreground">{schema.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Alert>
+                  <Key className="h-4 w-4" />
+                  <AlertDescription>
+                    This MCP server doesn't require any API credentials to use.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your credentials will be encrypted and stored securely. You can create multiple profiles for the same MCP server to handle different use cases.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateProfileDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateSubmit}
+              disabled={!formData.profile_name.trim() || createProfileMutation.isPending}
+            >
+              {createProfileMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  Create Profile
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
 
 export default function MarketplacePage() {
+  const { enabled: agentMarketplaceEnabled, loading: flagLoading } = useFeatureFlag("agent_marketplace");
+  const router = useRouter();
+  useEffect(() => {
+    if (!flagLoading && !agentMarketplaceEnabled) {
+      router.replace("/dashboard");
+    }
+  }, [flagLoading, agentMarketplaceEnabled, router]);
+
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -523,6 +816,7 @@ export default function MarketplacePage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [showPreviewSheet, setShowPreviewSheet] = useState(false);
 
   // Secure marketplace data (all templates are now secure)
   const secureQueryParams = useMemo(() => ({
@@ -536,13 +830,14 @@ export default function MarketplacePage() {
   const installTemplateMutation = useInstallTemplate();
 
   // Transform secure templates data
-  const marketplaceItems = useMemo(() => {
-    const items: MarketplaceTemplate[] = [];
+  const { kortixTeamItems, communityItems } = useMemo(() => {
+    const kortixItems: MarketplaceTemplate[] = [];
+    const communityItems: MarketplaceTemplate[] = [];
 
     // Add secure templates (all items are now secure)
     if (secureTemplates) {
       secureTemplates.forEach(template => {
-        items.push({
+        const item: MarketplaceTemplate = {
           id: template.template_id,
           name: template.name,
           description: template.description,
@@ -554,28 +849,47 @@ export default function MarketplacePage() {
           avatar: template.avatar,
           avatar_color: template.avatar_color,
           template_id: template.template_id,
+          is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
-        });
+        };
+
+        if (template.is_kortix_team) {
+          kortixItems.push(item);
+        } else {
+          communityItems.push(item);
+        }
       });
     }
 
-    // Sort items
-    return items.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.marketplace_published_at || b.created_at).getTime() - 
-                 new Date(a.marketplace_published_at || a.created_at).getTime();
-        case 'popular':
-        case 'most_downloaded':
-          return b.download_count - a.download_count;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
-    });
+    // Sort function
+    const sortItems = (items: MarketplaceTemplate[]) => {
+      return items.sort((a, b) => {
+        switch (sortBy) {
+          case 'newest':
+            return new Date(b.marketplace_published_at || b.created_at).getTime() - 
+                   new Date(a.marketplace_published_at || a.created_at).getTime();
+          case 'popular':
+          case 'most_downloaded':
+            return b.download_count - a.download_count;
+          case 'name':
+            return a.name.localeCompare(b.name);
+          default:
+            return 0;
+        }
+      });
+    };
+
+    return {
+      kortixTeamItems: sortItems(kortixItems),
+      communityItems: sortItems(communityItems)
+    };
   }, [secureTemplates, sortBy]);
+
+  // Combined items for tag filtering and search stats
+  const allMarketplaceItems = useMemo(() => {
+    return [...kortixTeamItems, ...communityItems];
+  }, [kortixTeamItems, communityItems]);
 
   React.useEffect(() => {
     setPage(1);
@@ -583,6 +897,11 @@ export default function MarketplacePage() {
 
   const handleItemClick = (item: MarketplaceTemplate) => {
     setSelectedItem(item);
+    setShowPreviewSheet(true);
+  };
+
+  const handlePreviewInstall = (item: MarketplaceTemplate) => {
+    setShowPreviewSheet(false);
     setShowInstallDialog(true);
   };
 
@@ -603,6 +922,34 @@ export default function MarketplacePage() {
     setInstallingItemId(item.id);
     
     try {
+      if (!instanceName || instanceName.trim() === '') {
+        toast.error('Please provide a name for the agent');
+        return;
+      }
+
+      const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+      const missingProfiles = regularRequirements.filter(req => 
+        !profileMappings || !profileMappings[req.qualified_name] || profileMappings[req.qualified_name].trim() === ''
+      );
+      
+      if (missingProfiles.length > 0) {
+        const missingNames = missingProfiles.map(req => req.display_name).join(', ');
+        toast.error(`Please select credential profiles for: ${missingNames}`);
+        return;
+      }
+
+      const customRequirements = item.mcp_requirements?.filter(req => req.custom_type) || [];
+      const missingCustomConfigs = customRequirements.filter(req => 
+        !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
+        req.required_config.some(field => !customMcpConfigs[req.qualified_name][field]?.trim())
+      );
+      
+      if (missingCustomConfigs.length > 0) {
+        const missingNames = missingCustomConfigs.map(req => req.display_name).join(', ');
+        toast.error(`Please provide all required configuration for: ${missingNames}`);
+        return;
+      }
+
       const result = await installTemplateMutation.mutateAsync({
         template_id: item.template_id,
         instance_name: instanceName,
@@ -611,17 +958,35 @@ export default function MarketplacePage() {
       });
 
       if (result.status === 'installed') {
-        toast.success('Agent installed successfully!');
+        toast.success(`Agent "${instanceName}" installed successfully!`);
         setShowInstallDialog(false);
       } else if (result.status === 'configs_required') {
         toast.error('Please provide all required configurations');
         return;
+      } else {
+        toast.error('Unexpected response from server. Please try again.');
+        return;
       }
     } catch (error: any) {
+      console.error('Installation error:', error);
+      
+      // Handle specific error types
       if (error.message?.includes('already in your library')) {
         toast.error('This agent is already in your library');
+      } else if (error.message?.includes('Credential profile not found')) {
+        toast.error('One or more selected credential profiles could not be found. Please refresh and try again.');
+      } else if (error.message?.includes('Missing credential profile')) {
+        toast.error('Please select credential profiles for all required services');
+      } else if (error.message?.includes('Invalid credential profile')) {
+        toast.error('One or more selected credential profiles are invalid. Please select valid profiles.');
+      } else if (error.message?.includes('inactive')) {
+        toast.error('One or more selected credential profiles are inactive. Please select active profiles.');
+      } else if (error.message?.includes('Template not found')) {
+        toast.error('This agent template is no longer available');
+      } else if (error.message?.includes('Access denied')) {
+        toast.error('You do not have permission to install this agent');
       } else {
-        toast.error(error.message || 'Failed to install agent');
+        toast.error(error.message || 'Failed to install agent. Please try again.');
       }
     } finally {
       setInstallingItemId(null);
@@ -648,16 +1013,16 @@ export default function MarketplacePage() {
 
   const allTags = React.useMemo(() => {
     const tags = new Set<string>();
-    marketplaceItems.forEach(item => {
+    allMarketplaceItems.forEach(item => {
       item.tags?.forEach(tag => tags.add(tag));
     });
     return Array.from(tags);
-  }, [marketplaceItems]);
+  }, [allMarketplaceItems]);
 
-  return (
-    <div className="container mx-auto max-w-7xl px-4 py-8">
-      <div className="space-y-8">
-        <div className="space-y-4">
+  if (flagLoading) {
+    return (
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center">
           <div className="space-y-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               Agent Marketplace
@@ -667,44 +1032,81 @@ export default function MarketplacePage() {
             </p>
           </div>
         </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search agent templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Newest First
-                </div>
-              </SelectItem>
-              <SelectItem value="popular">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4" />
-                  Most Popular
-                </div>
-              </SelectItem>
-              <SelectItem value="most_downloaded">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Most Downloaded
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="p-2 bg-neutral-100 dark:bg-sidebar rounded-2xl overflow-hidden group">
+              <div className="h-24 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100">
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-2 mt-4 mb-4">
+                <Skeleton className="h-6 w-32 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
+    );
+  }
 
+  if (!agentMarketplaceEnabled) {
+    return null;
+  }
+
+  return (
+    <div className="container mx-auto max-w-7xl px-4 py-8">
+      <div className="space-y-8">
+        <div className='w-full space-y-4 bg-gradient-to-b from-primary/10 to-primary/5 border rounded-xl h-60 flex items-center justify-center'>
+          <div className="space-y-4">
+            <div className="space-y-2 text-center">
+              <div className='flex items-center justify-center gap-2'>
+                <ShoppingBag className='h-6 w-6 text-primary' />
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                  Marketplace
+                </h1>
+              </div>
+              <p className="text-md text-muted-foreground max-w-2xl">
+                Discover and install powerful agents created by the community
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1 border rounded-xl">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search agents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              {/* <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Newest First
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="popular">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4" />
+                      Most Popular
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="most_downloaded">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Most Downloaded
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select> */}
+            </div>
+          </div>
+        </div>
         {allTags.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Filter by tags:</p>
@@ -728,7 +1130,7 @@ export default function MarketplacePage() {
           {isLoading ? (
             "Loading marketplace..."
           ) : (
-            `${marketplaceItems.length} secure template${marketplaceItems.length !== 1 ? 's' : ''} found`
+            `${allMarketplaceItems.length} template${allMarketplaceItems.length !== 1 ? 's' : ''} found`
           )}
         </div>
 
@@ -748,104 +1150,222 @@ export default function MarketplacePage() {
               </div>
             ))}
           </div>
-        ) : marketplaceItems.length === 0 ? (
+        ) : allMarketplaceItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               {searchQuery || selectedTags.length > 0
                 ? "No templates found matching your criteria. Try adjusting your search or filters."
-                : "No secure agent templates are currently available in the marketplace."}
+                : "No agent templates are currently available in the marketplace."}
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {marketplaceItems.map((item) => {
-              const { avatar, color } = getItemStyling(item);
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
-                  onClick={() => handleItemClick(item)}
-                >
-                  <div className={`h-50 flex items-center justify-center relative`} style={{ backgroundColor: color }}>
-                    <div className="text-4xl">
-                      {avatar}
-                    </div>
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                        <Download className="h-3 w-3 text-white" />
-                        <span className="text-white text-xs font-medium">{item.download_count}</span>
-                      </div>
-                    </div>
+          <div className="space-y-12">
+            {kortixTeamItems.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
+                    <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
-                        {item.name}
-                      </h3>
-                      {item.metadata?.source_version_name && (
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          <GitBranch className="h-3 w-3" />
-                          {item.metadata.source_version_name}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                      {item.description || 'No description available'}
-                    </p>
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {item.tags.slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {item.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{item.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    <div className="space-y-1 mb-4">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        <span>By {item.creator_name}</span>
-                      </div>
-                      {item.marketplace_published_at && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <Button 
-                      onClick={(e) => handleInstallClick(item, e)}
-                      disabled={installingItemId === item.id}
-                      className="w-full transition-opacity mt-auto"
-                      size="sm"
-                    >
-                      {installingItemId === item.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Installing...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Install Template
-                        </>
-                      )}
-                    </Button>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Agents from Kortix Team</h2>
                   </div>
                 </div>
-              );
-            })}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {kortixTeamItems.map((item) => {
+                    const { avatar, color } = getItemStyling(item);
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className='p-4'>
+                          <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
+                            <div className="text-2xl">
+                              {avatar}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 -mt-4 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
+                              {item.name}
+                            </h3>
+                            {item.metadata?.source_version_name && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                <GitBranch className="h-3 w-3" />
+                                {item.metadata.source_version_name}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                            {item.description || 'No description available'}
+                          </p>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {item.tags.slice(0, 2).map(tag => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {item.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="mb-4 w-full flex justify-between">
+                            <div className='space-y-1'>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <User className="h-3 w-3" />
+                                <span>By {item.creator_name}</span>
+                              </div>
+                              {item.marketplace_published_at && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground text-xs font-medium">{item.download_count}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={(e) => handleInstallClick(item, e)}
+                            disabled={installingItemId === item.id}
+                            className="w-full transition-opacity mt-auto"
+                            size="sm"
+                          >
+                            {installingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Installing...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Add to Library
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {communityItems.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                    <User className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Agents from Community</h2>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {communityItems.map((item) => {
+                    const { avatar, color } = getItemStyling(item);
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className='p-4'>
+                          <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
+                            <div className="text-2xl">
+                              {avatar}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 -mt-4 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-foreground font-medium text-lg line-clamp-1 flex-1">
+                              {item.name}
+                            </h3>
+                            {item.metadata?.source_version_name && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                <GitBranch className="h-3 w-3" />
+                                {item.metadata.source_version_name}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                            {item.description || 'No description available'}
+                          </p>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {item.tags.slice(0, 2).map(tag => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {item.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="mb-4 w-full flex justify-between">
+                            <div className='space-y-1'>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <User className="h-3 w-3" />
+                                <span>By {item.creator_name}</span>
+                              </div>
+                              {item.marketplace_published_at && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(item.marketplace_published_at).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground text-xs font-medium">{item.download_count}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={(e) => handleInstallClick(item, e)}
+                            disabled={installingItemId === item.id}
+                            className="w-full transition-opacity mt-auto"
+                            size="sm"
+                          >
+                            {installingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Installing...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Add to Library
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-
+      <AgentPreviewSheet
+        item={selectedItem}
+        open={showPreviewSheet}
+        onOpenChange={setShowPreviewSheet}
+        onInstall={handlePreviewInstall}
+        isInstalling={installingItemId === selectedItem?.id}
+      />
       <InstallDialog
         item={selectedItem}
         open={showInstallDialog}

@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
+import { CredentialProfile } from '@/hooks/react-query/mcp/use-credential-profiles';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -25,6 +26,7 @@ interface CustomMCPConfiguration {
   type: 'http' | 'sse';
   config: any;
   enabledTools: string[];
+  selectedProfileId?: string;
 }
 
 interface MCPTool {
@@ -119,6 +121,16 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     }
   };
 
+  const handleToolsNext = () => {
+    if (selectedTools.size === 0) {
+      setValidationError('Please select at least one tool to continue.');
+      return;
+    }
+    setValidationError(null);
+    // Custom MCPs don't need credentials, so save directly
+    handleSave();
+  };
+
   const handleSave = () => {
     if (discoveredTools.length === 0 || selectedTools.size === 0) {
       setValidationError('Please select at least one tool to continue.');
@@ -137,7 +149,9 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
         name: serverName,
         type: serverType,
         config: configToSave,
-        enabledTools: Array.from(selectedTools)
+        enabledTools: Array.from(selectedTools),
+        // Custom MCPs don't need credential profiles since they're just URLs
+        selectedProfileId: undefined
       });
       
       setConfigText('');
@@ -146,6 +160,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
       setSelectedTools(new Set());
       setServerName('');
       setProcessedConfig(null);
+
       setValidationError(null);
       setStep('setup');
       onOpenChange(false);
@@ -165,7 +180,9 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
   };
 
   const handleBack = () => {
-    setStep('setup');
+    if (step === 'tools') {
+      setStep('setup');
+    }
     setValidationError(null);
   };
 
@@ -176,6 +193,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     setSelectedTools(new Set());
     setServerName('');
     setProcessedConfig(null);
+    
     setValidationError(null);
     setStep('setup');
   };
@@ -325,7 +343,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 </Alert>
               )}
             </div>
-          ) : (
+          ) : step === 'tools' ? (
             <div className="space-y-6 p-1 flex-1 flex flex-col">
               <Alert className="border-green-200 bg-green-50 text-green-800">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -409,7 +427,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 </Alert>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         <DialogFooter className="flex-shrink-0 pt-4">
@@ -422,7 +440,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 Cancel
               </Button>
               <Button 
-                onClick={handleSave}
+                onClick={handleToolsNext}
                 disabled={selectedTools.size === 0}
               >
                 Add Connection ({selectedTools.size} tools)

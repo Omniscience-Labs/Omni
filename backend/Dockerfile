@@ -3,6 +3,8 @@ FROM ghcr.io/astral-sh/uv:python3.11-alpine
 ENV ENV_MODE production
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 # Install Python dependencies
 COPY pyproject.toml uv.lock ./
 ENV UV_LINK_MODE=copy
@@ -17,6 +19,7 @@ ENV WORKERS=33
 ENV THREADS=2
 ENV WORKER_CONNECTIONS=2000
 
+ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Gunicorn configuration

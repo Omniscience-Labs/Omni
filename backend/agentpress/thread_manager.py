@@ -38,19 +38,21 @@ class ThreadManager:
     XML-based tool execution patterns.
     """
 
-    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None):
+    def __init__(self, trace: Optional[StatefulTraceClient] = None, is_agent_builder: bool = False, target_agent_id: Optional[str] = None, agent_config: Optional[dict] = None):
         """Initialize ThreadManager.
 
         Args:
             trace: Optional trace client for logging
             is_agent_builder: Whether this is an agent builder session
             target_agent_id: ID of the agent being built (if in agent builder mode)
+            agent_config: Optional agent configuration with version information
         """
         self.db = DBConnection()
         self.tool_registry = ToolRegistry()
         self.trace = trace
         self.is_agent_builder = is_agent_builder
         self.target_agent_id = target_agent_id
+        self.agent_config = agent_config
         if not self.trace:
             self.trace = langfuse.trace(name="anonymous:thread_manager")
         self.response_processor = ResponseProcessor(
@@ -58,7 +60,8 @@ class ThreadManager:
             add_message_callback=self.add_message,
             trace=self.trace,
             is_agent_builder=self.is_agent_builder,
-            target_agent_id=self.target_agent_id
+            target_agent_id=self.target_agent_id,
+            agent_config=self.agent_config
         )
         self.context_manager = ContextManager()
 
@@ -345,7 +348,9 @@ class ThreadManager:
         type: str,
         content: Union[Dict[str, Any], List[Any], str],
         is_llm_message: bool = False,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        agent_id: Optional[str] = None,
+        agent_version_id: Optional[str] = None
     ):
         """Add a message to the thread in the database.
 
@@ -358,8 +363,10 @@ class ThreadManager:
                             Defaults to False (user message).
             metadata: Optional dictionary for additional message metadata.
                       Defaults to None, stored as an empty JSONB object if None.
+            agent_id: Optional ID of the agent associated with this message.
+            agent_version_id: Optional ID of the specific agent version used.
         """
-        logger.debug(f"Adding message of type '{type}' to thread {thread_id}")
+        logger.debug(f"Adding message of type '{type}' to thread {thread_id} (agent: {agent_id}, version: {agent_version_id})")
         client = await self.db.client
 
         # Prepare data for insertion
@@ -370,6 +377,12 @@ class ThreadManager:
             'is_llm_message': is_llm_message,
             'metadata': metadata or {},
         }
+        
+        # Add agent information if provided
+        if agent_id:
+            data_to_insert['agent_id'] = agent_id
+        if agent_version_id:
+            data_to_insert['agent_version_id'] = agent_version_id
 
         try:
             # Add returning='representation' to get the inserted row data including the id

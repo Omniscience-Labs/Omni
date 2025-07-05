@@ -136,7 +136,7 @@ class AgentBuilderChatResponse(BaseModel):
 
 def initialize(
     _db: DBConnection,
-    _instance_id: str = None
+    _instance_id: Optional[str] = None
 ):
     """Initialize the agent API with resources from the main API."""
     global db, instance_id
@@ -482,60 +482,11 @@ async def start_agent(
                 agent_config = agent_data
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
     
-    # Check if thread is associated with a workflow and override system prompt
-    workflow_id = thread_metadata.get('workflow_id')
-    if workflow_id:
-        try:
-            # Get the workflow and its system prompt
-            workflow_result = await client.table('workflows').select('*').eq('id', workflow_id).eq('created_by', account_id).execute()
-            if workflow_result.data:
-                workflow_data = workflow_result.data[0]
-                workflow_definition = workflow_data.get('definition', {})
-                
-                # Get the workflow's system prompt from the first step
-                workflow_steps = workflow_definition.get('steps', [])
-                if workflow_steps:
-                    workflow_system_prompt = workflow_steps[0].get('config', {}).get('system_prompt', '')
-                    
-                    if workflow_system_prompt:
-                        # Create or modify agent config to use workflow's system prompt
-                        if not agent_config:
-                            agent_config = {
-                                'name': f"Workflow Agent: {workflow_data.get('name', 'Unknown')}",
-                                'description': workflow_data.get('description', 'Generated workflow agent'),
-                                'system_prompt': workflow_system_prompt,
-                                'configured_mcps': [],
-                                'custom_mcps': [],
-                                'agentpress_tools': {
-                                    "sb_files_tool": {"enabled": True, "description": "File operations"},
-                                    "message_tool": {"enabled": True, "description": "Send messages"},
-                                    "expand_msg_tool": {"enabled": True, "description": "Expand messages"}
-                                }
-                            }
-                        else:
-                            # Override the system prompt in existing agent config
-                            agent_config = agent_config.copy()
-                            agent_config['system_prompt'] = workflow_system_prompt
-                            agent_config['name'] = f"Workflow Agent: {workflow_data.get('name', agent_config.get('name', 'Unknown'))}"
-                        
-                        logger.info(f"Using workflow system prompt for thread {thread_id} (workflow: {workflow_data.get('name', workflow_id)})")
-                    else:
-                        logger.warning(f"Workflow {workflow_id} has no system prompt defined")
-                else:
-                    logger.warning(f"Workflow {workflow_id} has no steps defined")
-            else:
-                logger.warning(f"Workflow {workflow_id} not found or access denied for user {account_id}")
-        except Exception as e:
-            logger.error(f"Error loading workflow {workflow_id} for thread {thread_id}: {e}")
-            # Continue with existing agent config if workflow loading fails
-    
-    # Update thread's agent_id if a different agent was explicitly requested
+
+    # Don't update thread's agent_id since threads are now agent-agnostic
+    # The agent selection is handled per message/agent run
     if body.agent_id and body.agent_id != thread_agent_id and agent_config:
-        try:
-            await client.table('threads').update({"agent_id": agent_config['agent_id']}).eq('thread_id', thread_id).execute()
-            logger.info(f"Updated thread {thread_id} to use agent {agent_config['agent_id']}")
-        except Exception as e:
-            logger.warning(f"Failed to update thread agent_id: {e}")
+        logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
@@ -570,7 +521,9 @@ async def start_agent(
 
     agent_run = await client.table('agent_runs').insert({
         "thread_id": thread_id, "status": "running",
-        "started_at": datetime.now(timezone.utc).isoformat()
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "agent_id": agent_config.get('agent_id') if agent_config else None,
+        "agent_version_id": agent_config.get('current_version_id') if agent_config else None
     }).execute()
     agent_run_id = agent_run.data[0]['id']
     structlog.contextvars.bind_contextvars(
@@ -648,7 +601,8 @@ async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_us
 
 @router.get("/thread/{thread_id}/agent", response_model=ThreadAgentResponse)
 async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get the agent details for a specific thread."""
+    """Get the agent details for a specific thread. Since threads are now agent-agnostic, 
+    this returns the most recently used agent or the default agent."""
     structlog.contextvars.bind_contextvars(
         thread_id=thread_id,
     )
@@ -667,36 +621,68 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
         thread_agent_id = thread_data.get('agent_id')
         account_id = thread_data.get('account_id')
         
-        # If no agent_id is set in the thread, try to get the default agent
-        effective_agent_id = thread_agent_id
-        agent_source = "thread"
+        effective_agent_id = None
+        agent_source = "none"
         
-        if not effective_agent_id:
-            # No agent set in thread, get default agent for the account
+        # First, try to get the most recently used agent from agent_runs
+        recent_agent_result = await client.table('agent_runs').select('agent_id', 'agent_version_id').eq('thread_id', thread_id).not_.is_('agent_id', 'null').order('created_at', desc=True).limit(1).execute()
+        if recent_agent_result.data:
+            effective_agent_id = recent_agent_result.data[0]['agent_id']
+            recent_version_id = recent_agent_result.data[0].get('agent_version_id')
+            agent_source = "recent"
+            logger.info(f"Found most recently used agent: {effective_agent_id} (version: {recent_version_id})")
+        
+        # If no recent agent, fall back to thread default agent
+        elif thread_agent_id:
+            effective_agent_id = thread_agent_id
+            agent_source = "thread"
+            logger.info(f"Using thread default agent: {effective_agent_id}")
+        
+        # If no thread agent, try to get the default agent for the account
+        else:
             default_agent_result = await client.table('agents').select('agent_id').eq('account_id', account_id).eq('is_default', True).execute()
             if default_agent_result.data:
                 effective_agent_id = default_agent_result.data[0]['agent_id']
                 agent_source = "default"
-            else:
-                # No default agent found
-                return {
-                    "agent": None,
-                    "source": "none",
-                    "message": "No agent configured for this thread"
-                }
+                logger.info(f"Using account default agent: {effective_agent_id}")
         
-        # Fetch the agent details
-        agent_result = await client.table('agents').select('*').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        # If still no agent found
+        if not effective_agent_id:
+            return {
+                "agent": None,
+                "source": "none",
+                "message": "No agent configured for this thread. Threads are agent-agnostic - you can select any agent."
+            }
+        
+        # Fetch the agent details with version information
+        agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
         
         if not agent_result.data:
             # Agent was deleted or doesn't exist
             return {
                 "agent": None,
                 "source": "missing",
-                "message": f"Agent {effective_agent_id} not found or was deleted"
+                "message": f"Agent {effective_agent_id} not found or was deleted. You can select a different agent."
             }
         
         agent_data = agent_result.data[0]
+        
+        # Use version data if available, otherwise fall back to agent data (for backward compatibility)
+        if agent_data.get('agent_versions'):
+            version_data = agent_data['agent_versions']
+            # Use the version data for the response
+            system_prompt = version_data['system_prompt']
+            configured_mcps = version_data.get('configured_mcps', [])
+            custom_mcps = version_data.get('custom_mcps', [])
+            agentpress_tools = version_data.get('agentpress_tools', {})
+            logger.info(f"Using agent {agent_data['name']} version {version_data.get('version_name', 'v1')}")
+        else:
+            # Backward compatibility - use agent data directly
+            system_prompt = agent_data['system_prompt']
+            configured_mcps = agent_data.get('configured_mcps', [])
+            custom_mcps = agent_data.get('custom_mcps', [])
+            agentpress_tools = agent_data.get('agentpress_tools', {})
+            logger.info(f"Using agent {agent_data['name']} - no version data (backward compatibility)")
         
         return {
             "agent": AgentResponse(
@@ -704,10 +690,10 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 account_id=agent_data['account_id'],
                 name=agent_data['name'],
                 description=agent_data.get('description'),
-                system_prompt=agent_data['system_prompt'],
-                configured_mcps=agent_data.get('configured_mcps', []),
-                custom_mcps=agent_data.get('custom_mcps', []),
-                agentpress_tools=agent_data.get('agentpress_tools', {}),
+                system_prompt=system_prompt,
+                configured_mcps=configured_mcps,
+                custom_mcps=custom_mcps,
+                agentpress_tools=agentpress_tools,
                 is_default=agent_data.get('is_default', False),
                 is_public=agent_data.get('is_public', False),
                 marketplace_published_at=agent_data.get('marketplace_published_at'),
@@ -716,10 +702,12 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 avatar=agent_data.get('avatar'),
                 avatar_color=agent_data.get('avatar_color'),
                 created_at=agent_data['created_at'],
-                updated_at=agent_data['updated_at']
+                updated_at=agent_data['updated_at'],
+                current_version_id=agent_data.get('current_version_id'),
+                version_count=agent_data.get('version_count', 1)
             ),
             "source": agent_source,
-            "message": f"Using {agent_source} agent: {agent_data['name']}"
+            "message": f"Using {agent_source} agent: {agent_data['name']}. Threads are agent-agnostic - you can change agents anytime."
         }
         
     except HTTPException:
@@ -1039,13 +1027,13 @@ async def initiate_agent_with_files(
         sandbox_id = None
         try:
           sandbox_pass = str(uuid.uuid4())
-          sandbox = create_sandbox(sandbox_pass, project_id)
+          sandbox = await create_sandbox(sandbox_pass, project_id)
           sandbox_id = sandbox.id
           logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
           
           # Get preview links
-          vnc_link = sandbox.get_preview_link(6080)
-          website_link = sandbox.get_preview_link(8080)
+          vnc_link = await sandbox.get_preview_link(6080)
+          website_link = await sandbox.get_preview_link(8080)
           vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
           website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
           token = None
@@ -1091,10 +1079,10 @@ async def initiate_agent_with_files(
             account_id=account_id,
         )
         
-        # Store the agent_id in the thread if we have one
+        # Don't store agent_id in thread since threads are now agent-agnostic
+        # The agent selection will be handled per message/agent run
         if agent_config:
-            thread_data["agent_id"] = agent_config['agent_id']
-            logger.info(f"Storing agent_id {agent_config['agent_id']} in thread")
+            logger.info(f"Using agent {agent_config['agent_id']} for this conversation (thread remains agent-agnostic)")
             structlog.contextvars.bind_contextvars(
                 agent_id=agent_config['agent_id'],
             )
@@ -1132,11 +1120,7 @@ async def initiate_agent_with_files(
                         upload_successful = False
                         try:
                             if hasattr(sandbox, 'fs') and hasattr(sandbox.fs, 'upload_file'):
-                                import inspect
-                                if inspect.iscoroutinefunction(sandbox.fs.upload_file):
-                                    await sandbox.fs.upload_file(content, target_path)
-                                else:
-                                    sandbox.fs.upload_file(content, target_path)
+                                await sandbox.fs.upload_file(content, target_path)
                                 logger.debug(f"Called sandbox.fs.upload_file for {target_path}")
                                 upload_successful = True
                             else:
@@ -1148,7 +1132,7 @@ async def initiate_agent_with_files(
                             try:
                                 await asyncio.sleep(0.2)
                                 parent_dir = os.path.dirname(target_path)
-                                files_in_dir = sandbox.fs.list_files(parent_dir)
+                                files_in_dir = await sandbox.fs.list_files(parent_dir)
                                 file_names_in_dir = [f.name for f in files_in_dir]
                                 if safe_filename in file_names_in_dir:
                                     successful_uploads.append(target_path)
@@ -1186,7 +1170,9 @@ async def initiate_agent_with_files(
         # 6. Start Agent Run
         agent_run = await client.table('agent_runs').insert({
             "thread_id": thread_id, "status": "running",
-            "started_at": datetime.now(timezone.utc).isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "agent_id": agent_config.get('agent_id') if agent_config else None,
+            "agent_version_id": agent_config.get('current_version_id') if agent_config else None
         }).execute()
         agent_run_id = agent_run.data[0]['id']
         logger.info(f"Created new agent run: {agent_run_id}")
@@ -1622,32 +1608,83 @@ async def update_agent(
     client = await db.client
     
     try:
-        # First verify the agent exists and belongs to the user, get with current version
         existing_agent = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
         
         if not existing_agent.data:
             raise HTTPException(status_code=404, detail="Agent not found")
         
         existing_data = existing_agent.data
-        current_version_data = existing_data.get('agent_versions', {})
+        current_version_data = existing_data.get('agent_versions')
         
-        # Check if we need to create a new version (if system prompt, tools, or MCPs are changing)
+        if current_version_data is None:
+            logger.info(f"Agent {agent_id} has no version data, creating initial version")
+            try:
+                initial_version_data = {
+                    "agent_id": agent_id,
+                    "version_number": 1,
+                    "version_name": "v1",
+                    "system_prompt": existing_data.get('system_prompt', ''),
+                    "configured_mcps": existing_data.get('configured_mcps', []),
+                    "custom_mcps": existing_data.get('custom_mcps', []),
+                    "agentpress_tools": existing_data.get('agentpress_tools', {}),
+                    "is_active": True,
+                    "created_by": user_id
+                }
+                
+                version_result = await client.table('agent_versions').insert(initial_version_data).execute()
+                
+                if version_result.data:
+                    version_id = version_result.data[0]['version_id']
+                    
+                    await client.table('agents').update({
+                        'current_version_id': version_id,
+                        'version_count': 1
+                    }).eq('agent_id', agent_id).execute()
+                    current_version_data = initial_version_data
+                    logger.info(f"Created initial version for agent {agent_id}")
+                else:
+                    current_version_data = {
+                        'system_prompt': existing_data.get('system_prompt', ''),
+                        'configured_mcps': existing_data.get('configured_mcps', []),
+                        'custom_mcps': existing_data.get('custom_mcps', []),
+                        'agentpress_tools': existing_data.get('agentpress_tools', {})
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to create initial version for agent {agent_id}: {e}")
+                current_version_data = {
+                    'system_prompt': existing_data.get('system_prompt', ''),
+                    'configured_mcps': existing_data.get('configured_mcps', []),
+                    'custom_mcps': existing_data.get('custom_mcps', []),
+                    'agentpress_tools': existing_data.get('agentpress_tools', {})
+                }
+        
         needs_new_version = False
         version_changes = {}
         
-        if agent_data.system_prompt is not None and agent_data.system_prompt != current_version_data.get('system_prompt'):
+        def values_different(new_val, old_val):
+            if new_val is None:
+                return False
+            import json
+            try:
+                new_json = json.dumps(new_val, sort_keys=True) if new_val is not None else None
+                old_json = json.dumps(old_val, sort_keys=True) if old_val is not None else None
+                return new_json != old_json
+            except (TypeError, ValueError):
+                return new_val != old_val
+        
+        if values_different(agent_data.system_prompt, current_version_data.get('system_prompt')):
             needs_new_version = True
             version_changes['system_prompt'] = agent_data.system_prompt
         
-        if agent_data.configured_mcps is not None and agent_data.configured_mcps != current_version_data.get('configured_mcps', []):
+        if values_different(agent_data.configured_mcps, current_version_data.get('configured_mcps', [])):
             needs_new_version = True
             version_changes['configured_mcps'] = agent_data.configured_mcps
             
-        if agent_data.custom_mcps is not None and agent_data.custom_mcps != current_version_data.get('custom_mcps', []):
+        if values_different(agent_data.custom_mcps, current_version_data.get('custom_mcps', [])):
             needs_new_version = True
             version_changes['custom_mcps'] = agent_data.custom_mcps
             
-        if agent_data.agentpress_tools is not None and agent_data.agentpress_tools != current_version_data.get('agentpress_tools', {}):
+        if values_different(agent_data.agentpress_tools, current_version_data.get('agentpress_tools', {})):
             needs_new_version = True
             version_changes['agentpress_tools'] = agent_data.agentpress_tools
         
@@ -1680,49 +1717,69 @@ async def update_agent(
         # Create new version if needed
         new_version_id = None
         if needs_new_version:
-            # Get next version number
-            versions_result = await client.table('agent_versions').select('version_number').eq('agent_id', agent_id).order('version_number', desc=True).limit(1).execute()
-            next_version_number = 1
-            if versions_result.data:
-                next_version_number = versions_result.data[0]['version_number'] + 1
-            
-            # Create new version with current data merged with changes
-            new_version_data = {
-                "agent_id": agent_id,
-                "version_number": next_version_number,
-                "version_name": f"v{next_version_number}",
-                "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt')),
-                "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
-                "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
-                "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
-                "is_active": True,
-                "created_by": user_id
-            }
-            
-            new_version = await client.table('agent_versions').insert(new_version_data).execute()
-            
-            if new_version.data:
+            try:
+                # Get next version number
+                versions_result = await client.table('agent_versions').select('version_number').eq('agent_id', agent_id).order('version_number', desc=True).limit(1).execute()
+                next_version_number = 1
+                if versions_result.data:
+                    next_version_number = versions_result.data[0]['version_number'] + 1
+                
+                # Validate version data before creating
+                new_version_data = {
+                    "agent_id": agent_id,
+                    "version_number": next_version_number,
+                    "version_name": f"v{next_version_number}",
+                    "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt', '')),
+                    "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
+                    "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
+                    "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
+                    "is_active": True,
+                    "created_by": user_id
+                }
+                
+                # Validate system prompt is not empty
+                if not new_version_data["system_prompt"] or new_version_data["system_prompt"].strip() == '':
+                    raise HTTPException(status_code=400, detail="System prompt cannot be empty")
+                
+                new_version = await client.table('agent_versions').insert(new_version_data).execute()
+                
+                if not new_version.data:
+                    raise HTTPException(status_code=500, detail="Failed to create new agent version")
+                
                 new_version_id = new_version.data[0]['version_id']
                 update_data['current_version_id'] = new_version_id
                 update_data['version_count'] = next_version_number
                 
                 # Add version history entry
-                await client.table('agent_version_history').insert({
-                    "agent_id": agent_id,
-                    "version_id": new_version_id,
-                    "action": "created",
-                    "changed_by": user_id,
-                    "change_description": f"New version v{next_version_number} created from update"
-                }).execute()
+                try:
+                    await client.table('agent_version_history').insert({
+                        "agent_id": agent_id,
+                        "version_id": new_version_id,
+                        "action": "created",
+                        "changed_by": user_id,
+                        "change_description": f"New version v{next_version_number} created from update"
+                    }).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to create version history entry: {e}")
                 
                 logger.info(f"Created new version v{next_version_number} for agent {agent_id}")
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error creating new version for agent {agent_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to create new agent version: {str(e)}")
         
         # Update the agent if there are changes
         if update_data:
-            update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
-            
-            if not update_result.data:
-                raise HTTPException(status_code=500, detail="Failed to update agent")
+            try:
+                update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
+                
+                if not update_result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update agent - no rows affected")
+            except Exception as e:
+                logger.error(f"Error updating agent {agent_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to update agent: {str(e)}")
         
         # Fetch the updated agent data with version info
         updated_agent = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
@@ -1834,6 +1891,7 @@ class MarketplaceAgent(BaseModel):
     creator_name: str
     avatar: Optional[str]
     avatar_color: Optional[str]
+    is_kortix_team: Optional[bool] = False
 
 class MarketplaceAgentsResponse(BaseModel):
     agents: List[MarketplaceAgent]
@@ -1901,6 +1959,25 @@ async def get_marketplace_agents(
         total_pages = max(page, (estimated_total + limit - 1) // limit)
         if has_more:
             total_pages = page + 1
+        
+        # Add Kortix team identification
+        kortix_team_creators = [
+            'kortix', 'kortix team', 'suna team', 'official', 'kortix official'
+        ]
+        
+        for agent in agents_data:
+            creator_name = agent.get('creator_name', '').lower()
+            agent['is_kortix_team'] = any(
+                kortix_creator in creator_name 
+                for kortix_creator in kortix_team_creators
+            )
+        
+        agents_data = sorted(agents_data, key=lambda x: (
+            not x.get('is_kortix_team', False),
+            -x.get('download_count', 0) if sort_by == "most_downloaded" else 0,
+            x.get('name', '').lower() if sort_by == "name" else '',
+            -(datetime.fromisoformat(x.get('marketplace_published_at', x.get('created_at', ''))).timestamp()) if sort_by == "newest" else 0
+        ))
         
         logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
         return {

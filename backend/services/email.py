@@ -147,11 +147,13 @@ class EmailService:
 
     <p>To get started, we'd like to get to know you better: fill out this short <a href="https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform">form</a>!</p>
 
-    <p>To celebrate your arrival, here's a <strong>15% discount</strong> to try out the best version of Suna (1 month):</p>
+    <p>To celebrate your arrival, here's a <strong>15% discount</strong> for your first month to get more usage:</p>
 
     <p>🎁 Use code <strong>WELCOME15</strong> at checkout.</p>
 
     <p>Let us know if you need help getting started or have questions — we're always here, and join our <a href="https://discord.com/invite/FjD644cfcs">Discord community</a>.</p>
+
+    <p><strong>For your business:</strong> if you want to automate manual and ordinary tasks for your company, book a call with us <a href="https://cal.com/team/kortix/enterprise-demo">here</a></p>
 
     <p>Thanks again, and welcome to the Suna community <span class="emoji">🌞</span></p>
 
@@ -170,10 +172,12 @@ Welcome to Suna — we're excited to have you on board!
 To get started, we'd like to get to know you better: fill out this short form!
 https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform
 
-To celebrate your arrival, here's a 15% discount to try out the best version of Suna (1 month):
+To celebrate your arrival, here's a 15% discount for your first month to get more usage:
 🎁 Use code WELCOME15 at checkout.
 
 Let us know if you need help getting started or have questions — we're always here, and join our Discord community: https://discord.com/invite/FjD644cfcs
+
+For your business: if you want to automate manual and ordinary tasks for your company, book a call with us here: https://cal.com/team/kortix/enterprise-demo 
 
 Thanks again, and welcome to the Suna community 🌞
 

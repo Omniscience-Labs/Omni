@@ -13,6 +13,7 @@ import {
     getUserFriendlyToolName,
     safeJsonParse,
 } from '@/components/thread/utils';
+import { formatMCPToolDisplayName } from '@/components/thread/tool-views/mcp-tool/_utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
@@ -53,6 +54,22 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-data-provider-call',
     'execute-data-provider-endpoint',
 ]);
+
+function getEnhancedToolDisplayName(toolName: string, rawXml?: string): string {
+    if (toolName === 'call-mcp-tool' && rawXml) {
+        const toolNameMatch = rawXml.match(/tool_name="([^"]+)"/);
+        if (toolNameMatch) {
+            const fullToolName = toolNameMatch[1];
+            const parts = fullToolName.split('_');
+            if (parts.length >= 3 && fullToolName.startsWith('mcp_')) {
+                const serverName = parts[1];
+                const toolNamePart = parts.slice(2).join('_');
+                return formatMCPToolDisplayName(serverName, toolNamePart);
+            }
+        }
+    }
+    return getUserFriendlyToolName(toolName);
+}
 
 // Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
@@ -410,7 +427,25 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         // Create a new user message group
                                         groupedMessages.push({ type: 'user', messages: [message], key });
                                     } else if (messageType === 'assistant' || messageType === 'tool' || messageType === 'browser_state') {
-                                        if (currentGroup && currentGroup.type === 'assistant_group') {
+                                        // Check if we can add to existing assistant group (same agent)
+                                        const canAddToExistingGroup = currentGroup && 
+                                            currentGroup.type === 'assistant_group' &&
+                                            (() => {
+                                                // For assistant messages, check if agent matches
+                                                if (messageType === 'assistant') {
+                                                    const lastAssistantMsg = currentGroup.messages.findLast(m => m.type === 'assistant');
+                                                    if (!lastAssistantMsg) return true; // No assistant message yet, can add
+                                                    
+                                                    // Compare agent info - both null/undefined should be treated as same (default agent)
+                                                    const currentAgentId = message.agent_id;
+                                                    const lastAgentId = lastAssistantMsg.agent_id;
+                                                    return currentAgentId === lastAgentId;
+                                                }
+                                                // For tool/browser_state messages, always add to current group
+                                                return true;
+                                            })();
+
+                                        if (canAddToExistingGroup) {
                                             // Add to existing assistant group
                                             currentGroup.messages.push(message);
                                         } else {
@@ -571,12 +606,37 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
-                                                    {/* Logo positioned above the message content - ONLY ONCE PER GROUP */}
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center">
-                                                            {agentAvatar}
+                                                            {(() => {
+                                                                const firstAssistantWithAgent = group.messages.find(msg => 
+                                                                    msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color)
+                                                                );
+                                                                if (firstAssistantWithAgent?.agents?.avatar) {
+                                                                    const avatar = firstAssistantWithAgent.agents.avatar;
+                                                                    const color = firstAssistantWithAgent.agents.avatar_color;
+                                                                    return (
+                                                                        <div 
+                                                                            className="h-4 w-5 flex items-center justify-center rounded text-xs"
+                                                                        >
+                                                                            <span className="text-lg">{avatar}</span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return <KortixLogo size={16} />;
+                                                            })()}
                                                         </div>
-                                                        <p className='ml-2 text-sm text-muted-foreground'>{agentName ? agentName : 'Suna'}</p>
+                                                        <p className='ml-2 text-sm text-muted-foreground'>
+                                                            {(() => {
+                                                                const firstAssistantWithAgent = group.messages.find(msg => 
+                                                                    msg.type === 'assistant' && msg.agents?.name
+                                                                );
+                                                                if (firstAssistantWithAgent?.agents?.name) {
+                                                                    return firstAssistantWithAgent.agents.name;
+                                                                }
+                                                                return 'Suna';
+                                                            })()}
+                                                        </p>
                                                     </div>
                                                     
                                                     {/* Message content - ALL messages in the group */}
@@ -729,7 +789,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                             </div>
                                                                                             <span className="font-mono text-xs text-primary">
-                                                                                                {extractToolNameFromStream(streamingTextContent) || 'Using Tool...'}
+                                                                                                {(() => {
+                                                                                                    const extractedToolName = extractToolNameFromStream(streamingTextContent);
+                                                                                                    return extractedToolName ? getUserFriendlyToolName(extractedToolName) : 'Using Tool...';
+                                                                                                })()}
                                                                                             </span>
                                                                                         </button>
                                                                                     </div>
@@ -814,7 +877,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                                 >
                                                                                                     <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
                                                                                                     <span className="font-mono text-xs text-primary">
-                                                                                                        {detectedTag === 'function_calls' ? (extractToolNameFromStream(streamingText) || 'Using Tool...') : detectedTag}
+                                                                                                        {detectedTag === 'function_calls' ? 
+                                                                                                            (() => {
+                                                                                                                const extractedToolName = extractToolNameFromStream(streamingText);
+                                                                                                                return extractedToolName ? getUserFriendlyToolName(extractedToolName) : 'Using Tool...';
+                                                                                                            })() : 
+                                                                                                            getUserFriendlyToolName(detectedTag)
+                                                                                                        }
                                                                                                     </span>
                                                                                                 </button>
                                                                                             </div>
@@ -845,7 +914,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 <div className="rounded-md flex items-center justify-center">
                                                     {agentAvatar}
                                                 </div>
-                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                             </div>
                                             
                                             {/* Loader content */}
@@ -865,7 +934,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div className="rounded-md flex items-center justify-center">
                                                 {agentAvatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                         </div>
                                         
                                         {/* Tool call content */}
@@ -890,7 +959,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div className="rounded-md flex items-center justify-center">
                                                 {agentAvatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
                                         </div>
                                         
                                         {/* Streaming indicator content */}

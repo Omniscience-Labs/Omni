@@ -1,4 +1,5 @@
 import React from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -31,7 +32,7 @@ export class FeatureFlagManager {
     }
     return FeatureFlagManager.instance;
   }
-  
+
   async isEnabled(flagName: string): Promise<boolean> {
     try {
       const cached = flagCache.get(flagName);
@@ -162,93 +163,172 @@ export const preloadFlags = (flagNames: string[]): Promise<void> => {
   return featureFlagManager.preloadFlags(flagNames);
 };
 
-export const useFeatureFlag = (flagName: string) => {
-  const [enabled, setEnabled] = React.useState<boolean>(false);
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | null>(null);
-  
-  React.useEffect(() => {
-    let mounted = true;
-    
-    const checkFlag = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await isFlagEnabled(flagName);
-        if (mounted) {
-          setEnabled(result);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-          setEnabled(false);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-    
-    checkFlag();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [flagName]);
-  
-  return { enabled, loading, error };
+// React Query key factories
+export const featureFlagKeys = {
+  all: ['feature-flags'] as const,
+  flag: (flagName: string) => [...featureFlagKeys.all, 'flag', flagName] as const,
+  flagDetails: (flagName: string) => [...featureFlagKeys.all, 'details', flagName] as const,
+  allFlags: () => [...featureFlagKeys.all, 'allFlags'] as const,
 };
 
-export const useFeatureFlags = (flagNames: string[]) => {
-  const [flags, setFlags] = React.useState<Record<string, boolean>>({});
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | null>(null);
+// Query functions
+const fetchFeatureFlag = async (flagName: string): Promise<boolean> => {
+  const response = await fetch(`${API_URL}/feature-flags/${flagName}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
   
-  React.useEffect(() => {
-    let mounted = true;
-    
-    const checkFlags = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const results = await Promise.all(
-          flagNames.map(async (flagName) => {
-            const enabled = await isFlagEnabled(flagName);
-            return [flagName, enabled] as [string, boolean];
-          })
-        );
-        
-        if (mounted) {
-          const flagsObject = Object.fromEntries(results);
-          setFlags(flagsObject);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-          const disabledFlags = Object.fromEntries(
-            flagNames.map(name => [name, false])
-          );
-          setFlags(disabledFlags);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+  if (!response.ok) {
+    throw new Error(`Failed to fetch feature flag ${flagName}: ${response.status}`);
+  }
+  
+  const data: FeatureFlag = await response.json();
+  return data.enabled;
+};
+
+const fetchFeatureFlagDetails = async (flagName: string): Promise<FeatureFlag> => {
+  const response = await fetch(`${API_URL}/feature-flags/${flagName}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch feature flag details for ${flagName}: ${response.status}`);
+  }
+  
+  const data: FeatureFlag = await response.json();
+  return data;
+};
+
+const fetchAllFeatureFlags = async (): Promise<Record<string, boolean>> => {
+  const response = await fetch(`${API_URL}/feature-flags`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch all feature flags: ${response.status}`);
+  }
+  
+  const data: FeatureFlagsResponse = await response.json();
+  return data.flags;
+};
+
+// React Query Hooks
+export const useFeatureFlag = (flagName: string, options?: {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}) => {
+  const query = useQuery({
+    queryKey: featureFlagKeys.flag(flagName),
+    queryFn: () => fetchFeatureFlag(flagName),
+    staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
+    gcTime: options?.gcTime ?? 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
+    enabled: options?.enabled ?? true,
+    retry: (failureCount, error) => {
+      // Don't retry on 4xx errors, but retry on network errors
+      if (error instanceof Error && error.message.includes('4')) {
+        return false;
       }
-    };
-    
-    if (flagNames.length > 0) {
-      checkFlags();
-    } else {
-      setLoading(false);
-    }
-    
-    return () => {
-      mounted = false;
-    };
-  }, [flagNames.join(',')]);
-  
+      return failureCount < 3;
+    },
+    meta: {
+      errorMessage: `Failed to fetch feature flag: ${flagName}`,
+    },
+  });
+
+  // Return backward-compatible interface
+  return {
+    enabled: query.data ?? false,
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    // Also expose React Query properties for advanced usage
+    ...query,
+  };
+};
+
+export const useFeatureFlagDetails = (flagName: string, options?: {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+}) => {
+  return useQuery({
+    queryKey: featureFlagKeys.flagDetails(flagName),
+    queryFn: () => fetchFeatureFlagDetails(flagName),
+    staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
+    gcTime: options?.gcTime ?? 10 * 60 * 1000, // 10 minutes
+    enabled: options?.enabled ?? true,
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message.includes('4')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
+};
+
+export const useAllFeatureFlags = (options?: {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+}) => {
+  return useQuery({
+    queryKey: featureFlagKeys.allFlags(),
+    queryFn: fetchAllFeatureFlags,
+    staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
+    gcTime: options?.gcTime ?? 10 * 60 * 1000, // 10 minutes
+    enabled: options?.enabled ?? true,
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message.includes('4')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
+};
+
+export const useFeatureFlags = (flagNames: string[], options?: {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+}) => {
+  const queries = useQueries({
+    queries: flagNames.map((flagName) => ({
+      queryKey: featureFlagKeys.flag(flagName),
+      queryFn: () => fetchFeatureFlag(flagName),
+      staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
+      gcTime: options?.gcTime ?? 10 * 60 * 1000, // 10 minutes
+      enabled: options?.enabled ?? true,
+      retry: (failureCount: number, error: Error) => {
+        if (error.message.includes('4')) {
+          return false;
+        }
+        return failureCount < 3;
+      },
+    })),
+  });
+
+  // Transform the results into a more convenient format
+  const flags = React.useMemo(() => {
+    const result: Record<string, boolean> = {};
+    flagNames.forEach((flagName, index) => {
+      const query = queries[index];
+      result[flagName] = query.data ?? false;
+    });
+    return result;
+  }, [queries, flagNames]);
+
+  const loading = queries.some(query => query.isLoading);
+  const error = queries.find(query => query.error)?.error?.message ?? null;
+
   return { flags, loading, error };
 };

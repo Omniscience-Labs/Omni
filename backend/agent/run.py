@@ -11,7 +11,7 @@ from agent.tools.sb_expose_tool import SandboxExposeTool
 from agent.tools.web_search_tool import SandboxWebSearchTool
 from dotenv import load_dotenv
 from utils.config import config
-
+from flags.flags import is_enabled
 from agent.agent_builder_prompt import get_agent_builder_prompt
 from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
@@ -58,7 +58,7 @@ async def run_agent(
 
     if not trace:
         trace = langfuse.trace(name="run_agent", session_id=thread_id, metadata={"project_id": project_id})
-    thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder, target_agent_id=target_agent_id)
+    thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder, target_agent_id=target_agent_id, agent_config=agent_config)
 
     client = await thread_manager.db.client
 
@@ -195,7 +195,7 @@ async def run_agent(
 
     # Prepare system prompt
     # First, get the default system prompt
-    if "gemini-2.5-flash" in model_name.lower():
+    if "gemini-2.5-flash" in model_name.lower() and "gemini-2.5-pro" not in model_name.lower():
         default_system_content = get_gemini_system_prompt()
     else:
         # Use the original prompt - the LLM can only use tools that are registered
@@ -224,7 +224,30 @@ async def run_agent(
         system_content = default_system_content
         logger.info("Using default system prompt only")
     
-    # Add MCP tool information to system prompt if MCP tools are configured
+    if await is_enabled("knowledge_base"):
+        try:
+            from services.supabase import DBConnection
+            kb_db = DBConnection()
+            kb_client = await kb_db.client
+            
+            current_agent_id = agent_config.get('agent_id') if agent_config else None
+            
+            kb_result = await kb_client.rpc('get_combined_knowledge_base_context', {
+                'p_thread_id': thread_id,
+                'p_agent_id': current_agent_id,
+                'p_max_tokens': 4000
+            }).execute()
+            
+            if kb_result.data and kb_result.data.strip():
+                logger.info(f"Adding combined knowledge base context to system prompt for thread {thread_id}, agent {current_agent_id}")
+                system_content += "\n\n" + kb_result.data
+            else:
+                logger.debug(f"No knowledge base context found for thread {thread_id}, agent {current_agent_id}")
+                
+        except Exception as e:
+            logger.error(f"Error retrieving knowledge base context for thread {thread_id}: {e}")
+
+
     if agent_config and (agent_config.get('configured_mcps') or agent_config.get('custom_mcps')) and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
         mcp_info = "\n\n--- MCP Tools Available ---\n"
         mcp_info += "You have access to external MCP (Model Context Protocol) server tools.\n"
@@ -422,6 +445,9 @@ async def run_agent(
             max_tokens = 8192
         elif "gpt-4" in model_name.lower():
             max_tokens = 4096
+        elif "gemini-2.5-pro" in model_name.lower():
+            # Gemini 2.5 Pro has 64k max output tokens
+            max_tokens = 64000
             
         generation = trace.generation(name="thread_manager.run_thread")
         try:
@@ -686,18 +712,18 @@ async def run_agent(
 #     tool_usage_counter = 0 # Renamed from tool_call_counter as we track usage via status
 
 #     # Create a test sandbox for processing with a unique test prefix to avoid conflicts with production sandboxes
-#     sandbox_pass = str(uuid4())
-#     sandbox = create_sandbox(sandbox_pass)
+#     # sandbox_pass = str(uuid4())
+#     # sandbox = await create_sandbox(sandbox_pass)
 
 #     # Store the original ID so we can refer to it
-#     original_sandbox_id = sandbox.id
+#     # original_sandbox_id = sandbox.id
 
 #     # Generate a clear test identifier
-#     test_prefix = f"test_{uuid4().hex[:8]}_"
+#     # test_prefix = f"test_{uuid4().hex[:8]}_"
 #     logger.info(f"Created test sandbox with ID {original_sandbox_id} and test prefix {test_prefix}")
 
 #     # Log the sandbox URL for debugging
-#     print(f"\033[91mTest sandbox created: {str(sandbox.get_preview_link(6080))}/vnc_lite.html?password={sandbox_pass}\033[0m")
+#     # print(f"\033[91mTest sandbox created: {str(await sandbox.get_preview_link(6080))}/vnc_lite.html?password={sandbox_pass}\033[0m")
 
 #     async for chunk in run_agent(
 #         thread_id=thread_id,

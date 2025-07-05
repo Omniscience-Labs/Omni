@@ -156,18 +156,38 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
       return;
     }
 
-    if (!agentId) return;
+    if (!agentId) {
+      toast.error('Invalid agent ID');
+      return;
+    }
 
     try {
       await updateAgentMutation.mutateAsync({
         agentId,
         ...formData
       });
+      
+      toast.success('Agent updated successfully!');
       onOpenChange(false);
       onAgentUpdated?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating agent:', error);
-      // Error handling is managed by the mutation hook
+      
+      if (error.message?.includes('System prompt cannot be empty')) {
+        toast.error('System prompt cannot be empty');
+      } else if (error.message?.includes('Failed to create new agent version')) {
+        toast.error('Failed to create new version. Please try again.');
+      } else if (error.message?.includes('Failed to update agent')) {
+        toast.error('Failed to update agent. Please check your configuration and try again.');
+      } else if (error.message?.includes('Agent not found')) {
+        toast.error('Agent not found. It may have been deleted.');
+        onOpenChange(false);
+      } else if (error.message?.includes('Access denied')) {
+        toast.error('You do not have permission to update this agent.');
+        onOpenChange(false);
+      } else {
+        toast.error(error.message || 'Failed to update agent. Please try again.');
+      }
     }
   };
 

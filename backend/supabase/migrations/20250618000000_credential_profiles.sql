@@ -45,33 +45,39 @@ ADD COLUMN mcp_credential_mappings JSONB DEFAULT '{}';
 COMMENT ON COLUMN workflows.mcp_credential_mappings IS 
 'JSON mapping of MCP qualified names to credential profile IDs. Example: {"@smithery-ai/slack": "profile_id_123", "github": "profile_id_456"}';
 
-INSERT INTO user_mcp_credential_profiles (
-    account_id,
-    mcp_qualified_name,
-    profile_name,
-    display_name,
-    encrypted_config,
-    config_hash,
-    is_active,
-    is_default,
-    created_at,
-    updated_at,
-    last_used_at
-)
-SELECT 
-    account_id,
-    mcp_qualified_name,
-    'Default' as profile_name,
-    COALESCE(display_name, mcp_qualified_name) as display_name,
-    encrypted_config,
-    config_hash,
-    is_active,
-    true as is_default, -- Mark migrated credentials as default
-    created_at,
-    updated_at,
-    last_used_at
-FROM user_mcp_credentials
-WHERE is_active = true;
+-- Migrate existing credentials if the table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_mcp_credentials') THEN
+        INSERT INTO user_mcp_credential_profiles (
+            account_id,
+            mcp_qualified_name,
+            profile_name,
+            display_name,
+            encrypted_config,
+            config_hash,
+            is_active,
+            is_default,
+            created_at,
+            updated_at,
+            last_used_at
+        )
+        SELECT 
+            account_id,
+            mcp_qualified_name,
+            'Default' as profile_name,
+            COALESCE(display_name, mcp_qualified_name) as display_name,
+            encrypted_config,
+            config_hash,
+            is_active,
+            true as is_default,
+            created_at,
+            updated_at,
+            last_used_at
+        FROM user_mcp_credentials
+        WHERE is_active = true;
+    END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION ensure_single_default_profile()
 RETURNS TRIGGER AS $$

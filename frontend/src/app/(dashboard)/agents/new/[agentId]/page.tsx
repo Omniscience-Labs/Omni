@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentBuilderChat } from '../../_components/agent-builder-chat';
 import { useFeatureAlertHelpers } from '@/hooks/use-feature-alerts';
+import { AgentTriggersConfiguration } from '@/components/agents/triggers/agent-triggers-configuration';
+import { AgentKnowledgeBaseManager } from '@/components/agents/knowledge-base/agent-knowledge-base-manager';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -33,7 +35,6 @@ export default function AgentConfigurationPage() {
   const updateAgentMutation = useUpdateAgent();
   const { state, setOpen, setOpenMobile } = useSidebar();
 
-  // Ref to track if initial layout has been applied (for sidebar closing)
   const initialLayoutAppliedRef = useRef(false);
 
   const [formData, setFormData] = useState({
@@ -385,6 +386,37 @@ export default function AgentConfigurationPage() {
                         onMCPsChange={(mcps) => handleBatchMCPChange({ configured_mcps: mcps, custom_mcps: formData.custom_mcps })}
                         onCustomMCPsChange={(customMcps) => handleBatchMCPChange({ configured_mcps: formData.configured_mcps, custom_mcps: customMcps })}
                         onBatchMCPChange={handleBatchMCPChange}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="triggers" className="border-b">
+                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Triggers
+                        <Badge variant='new'>New</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 overflow-x-hidden">
+                      <AgentTriggersConfiguration
+                        agentId={agentId}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="knowledge-base" className="border-b">
+                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4" />
+                        Knowledge Base
+                        <Badge variant='new'>New</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 overflow-x-hidden">
+                      <AgentKnowledgeBaseManager
+                        agentId={agentId}
+                        agentName={formData.name || 'Agent'}
                       />
                     </AccordionContent>
                   </AccordionItem>
