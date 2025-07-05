@@ -6,6 +6,7 @@ import httpx
 from io import BytesIO
 import uuid
 from litellm import aimage_generation, aimage_edit
+import base64
 
 
 class SandboxImageEditTool(SandboxToolsBase):
@@ -92,7 +93,7 @@ class SandboxImageEditTool(SandboxToolsBase):
                 )
 
                 response = await aimage_edit(
-                    image=image_io,
+                    image=[image_io],  # Type in the LiteLLM SDK is wrong
                     prompt=prompt,
                     model="gpt-image-1",
                     n=1,
@@ -155,19 +156,16 @@ class SandboxImageEditTool(SandboxToolsBase):
     async def _process_image_response(self, response) -> str | ToolResult:
         """Download generated image and save to sandbox with random name."""
         try:
-            original_url = response.data[0].url
-
-            async with httpx.AsyncClient() as client:
-                img_response = await client.get(original_url)
-                img_response.raise_for_status()
+            original_b64_str = response.data[0].b64_json
+            # Decode base64 image data
+            image_data = base64.b64decode(original_b64_str)
 
             # Generate random filename
-
             random_filename = f"generated_image_{uuid.uuid4().hex[:8]}.png"
             sandbox_path = f"{self.workspace_path}/{random_filename}"
 
             # Save image to sandbox
-            await self.sandbox.fs.upload_file(sandbox_path, img_response.content)
+            await self.sandbox.fs.upload_file(image_data, sandbox_path)
             return random_filename
 
         except Exception as e:
