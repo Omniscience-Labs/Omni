@@ -16,7 +16,6 @@ import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-init
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -365,7 +364,7 @@ export function HeroSection() {
       {/* Auth Dialog */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
         <BlurredDialogOverlay />
-        <DialogContent className="sm:max-w-md rounded-xl bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] border border-border">
+        <DialogContent className="sm:max-w-md rounded-xl bg-background border border-border">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl font-medium">
@@ -402,58 +401,24 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Sign in form */}
-          <form className="space-y-4">
-            <div>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Email address"
-                className="h-12 rounded-full bg-background border-border"
-                required
-              />
-            </div>
+          {/* Sign in options */}
+          <div className="space-y-4 pt-4">
+            <Link
+              href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
+              className="flex h-12 items-center justify-center w-full text-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
+              onClick={() => setAuthDialogOpen(false)}
+            >
+              Sign in with email
+            </Link>
 
-            <div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Password"
-                className="h-12 rounded-full bg-background border-border"
-                required
-              />
-            </div>
-
-            <div className="space-y-4 pt-4">
-              <Link
-                href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
-                className="flex h-12 items-center justify-center w-full text-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
-                onClick={() => setAuthDialogOpen(false)}
-              >
-                Sign in
-              </Link>
-
-              <Link
-                href={`/auth?mode=signup&returnUrl=${encodeURIComponent('/dashboard')}`}
-                className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
-                onClick={() => setAuthDialogOpen(false)}
-              >
-                Create new account
-              </Link>
-            </div>
-
-            <div className="text-center pt-2">
-              <Link
-                href={`/auth?returnUrl=${encodeURIComponent('/dashboard')}`}
-                className="text-sm text-primary hover:underline"
-                onClick={() => setAuthDialogOpen(false)}
-              >
-                More sign in options
-              </Link>
-            </div>
-          </form>
+            <Link
+              href={`/auth?mode=signup&returnUrl=${encodeURIComponent('/dashboard')}`}
+              className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
+              onClick={() => setAuthDialogOpen(false)}
+            >
+              Create new account
+            </Link>
+          </div>
 
           <div className="mt-4 text-center text-xs text-muted-foreground">
             By continuing, you agree to our{' '}
