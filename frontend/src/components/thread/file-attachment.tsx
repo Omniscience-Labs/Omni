@@ -294,7 +294,7 @@ export function FileAttachment({
             <button
                 onClick={handleClick}
                 className={cn(
-                    "group relative min-h-[54px] rounded-xl cursor-pointer",
+                    "group relative min-h-[54px] rounded-2xl cursor-pointer",
                     "border border-black/10 dark:border-white/10",
                     "bg-black/5 dark:bg-black/20",
                     "p-0 overflow-hidden", // No padding, content touches borders
