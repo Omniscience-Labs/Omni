@@ -139,13 +139,13 @@ class SandboxImageEditTool(SandboxToolsBase):
             full_path = f"{self.workspace_path}/{cleaned_path}"
 
             # Check if file exists and is not a directory
-            file_info = self.sandbox.fs.get_file_info(full_path)
+            file_info = await self.sandbox.fs.get_file_info(full_path)
             if file_info.is_dir:
                 return self.fail_response(
                     f"Path '{cleaned_path}' is a directory, not an image file."
                 )
 
-            return self.sandbox.fs.download_file(full_path)
+            return await self.sandbox.fs.download_file(full_path)
 
         except Exception as e:
             return self.fail_response(
@@ -167,7 +167,7 @@ class SandboxImageEditTool(SandboxToolsBase):
             sandbox_path = f"{self.workspace_path}/{random_filename}"
 
             # Save image to sandbox
-            self.sandbox.fs.upload_file(sandbox_path, img_response.content)
+            await self.sandbox.fs.upload_file(sandbox_path, img_response.content)
             return random_filename
 
         except Exception as e:
