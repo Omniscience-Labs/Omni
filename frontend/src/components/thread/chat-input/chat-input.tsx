@@ -311,7 +311,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           </div>
         </Card>
 
-        {isAgentRunning && (
+        {/* {isAgentRunning && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -322,7 +322,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               <span>{agentName ? `${agentName} is working...` : 'Suna is working...'}</span>
             </div>
           </motion.div>
-        )}
+        )} */}
+
       </div>
     );
   },
