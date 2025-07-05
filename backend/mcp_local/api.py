@@ -236,62 +236,6 @@ async def get_mcp_server_details(
             detail=f"Failed to fetch MCP server details: {str(e)}"
         )
 
-@router.get("/mcp/popular-servers")
-async def get_popular_mcp_servers(
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    """
-    Get a curated list of popular/recommended MCP servers.
-    This is a convenience endpoint that returns commonly used servers.
-    """
-    # Define some popular servers based on actual Smithery data
-    popular_servers = [
-        {
-            "qualifiedName": "@wonderwhy-er/desktop-commander",
-            "displayName": "Desktop Commander",
-            "description": "Execute terminal commands and manage files with diff editing capabilities. Coding, shell and terminal, task automation",
-            "icon": "💻",
-            "category": "development"
-        },
-        {
-            "qualifiedName": "@smithery-ai/server-sequential-thinking",
-            "displayName": "Sequential Thinking",
-            "description": "Dynamic and reflective problem-solving through a structured thinking process",
-            "icon": "🧠",
-            "category": "ai"
-        },
-        {
-            "qualifiedName": "@microsoft/playwright-mcp",
-            "displayName": "Playwright Automation",
-            "description": "Automate web interactions, navigate, extract data, and perform actions on web pages",
-            "icon": "🎭",
-            "category": "automation"
-        },
-        {
-            "qualifiedName": "exa",
-            "displayName": "Exa Search",
-            "description": "Fast, intelligent web search and crawling. Combines embeddings and traditional search",
-            "icon": "🔍",
-            "category": "search"
-        },
-        {
-            "qualifiedName": "@smithery-ai/github",
-            "displayName": "GitHub",
-            "description": "Access the GitHub API, enabling file operations, repository management, and search",
-            "icon": "🐙",
-            "category": "development"
-        },
-        {
-            "qualifiedName": "@nickclyde/duckduckgo-mcp-server",
-            "displayName": "DuckDuckGo Search",
-            "description": "Enable web search capabilities through DuckDuckGo. Fetch and parse webpage content",
-            "icon": "🦆",
-            "category": "search"
-        }
-    ]
-    
-    return {"servers": popular_servers}
-
 @router.get("/mcp/popular-servers/v2", response_model=PopularServersV2Response)
 async def get_popular_mcp_servers_v2(
     page: int = Query(1, ge=1, description="Page number"),
