@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { getAgentAvatar } from '../_utils/get-agent-style';
-import { usePublishAgent, useUnpublishAgent } from '@/hooks/react-query/marketplace/use-marketplace';
 import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 
@@ -187,10 +186,8 @@ export const AgentsGrid = ({
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const router = useRouter();
   
-  const publishAgentMutation = usePublishAgent();
   const unpublishAgentMutation = useUnpublishAgent();
   const createTemplateMutation = useCreateTemplate();
-  const unpublishTemplateMutation = useUnpublishTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
