@@ -22,7 +22,6 @@ from sandbox import api as sandbox_api
 from services import billing as billing_api
 from flags import api as feature_flags_api
 from services import transcription as transcription_api
-from mcp_service.mcp_custom import discover_custom_tools
 import sys
 from services import email_api
 from triggers import api as triggers_api
@@ -183,20 +182,6 @@ async def health_check():
         "instance_id": instance_id
     }
 
-class CustomMCPDiscoverRequest(BaseModel):
-    type: str
-    config: Dict[str, Any]
-
-
-@app.post("/api/mcp/discover-custom-tools")
-async def discover_custom_mcp_tools(request: CustomMCPDiscoverRequest):
-    try:
-        return await discover_custom_tools(request.type, request.config)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error discovering custom MCP tools: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

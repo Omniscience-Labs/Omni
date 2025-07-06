@@ -1822,99 +1822,99 @@ class MarketplaceAgentsResponse(BaseModel):
 class PublishAgentRequest(BaseModel):
     tags: Optional[List[str]] = []
 
-@router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
-async def get_marketplace_agents(
-    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
-    limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
-    search: Optional[str] = Query(None, description="Search in name and description"),
-    tags: Optional[str] = Query(None, description="Comma-separated string of tags"),
-    sort_by: Optional[str] = Query("newest", description="Sort by: newest, popular, most_downloaded, name"),
-    creator: Optional[str] = Query(None, description="Filter by creator name")
-):
-    """Get public agents from the marketplace with pagination, search, sort, and filter support."""
-    if not await is_enabled("agent_marketplace"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agent currently disabled. This feature is not available at the moment."
-        )
+# @router.get("/marketplace/agents", response_model=MarketplaceAgentsResponse)
+# async def get_marketplace_agents(
+#     page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+#     limit: Optional[int] = Query(20, ge=1, le=100, description="Number of items per page"),
+#     search: Optional[str] = Query(None, description="Search in name and description"),
+#     tags: Optional[str] = Query(None, description="Comma-separated string of tags"),
+#     sort_by: Optional[str] = Query("newest", description="Sort by: newest, popular, most_downloaded, name"),
+#     creator: Optional[str] = Query(None, description="Filter by creator name")
+# ):
+#     """Get public agents from the marketplace with pagination, search, sort, and filter support."""
+#     if not await is_enabled("agent_marketplace"):
+#         raise HTTPException(
+#             status_code=403, 
+#             detail="Custom agent currently disabled. This feature is not available at the moment."
+#         )
     
-    logger.info(f"Fetching marketplace agents with page={page}, limit={limit}, search='{search}', tags='{tags}', sort_by={sort_by}")
-    client = await db.client
+#     logger.info(f"Fetching marketplace agents with page={page}, limit={limit}, search='{search}', tags='{tags}', sort_by={sort_by}")
+#     client = await db.client
     
-    try:
-        offset = (page - 1) * limit
-        tags_array = None
-        if tags:
-            tags_array = [tag.strip() for tag in tags.split(',') if tag.strip()]
+#     try:
+#         offset = (page - 1) * limit
+#         tags_array = None
+#         if tags:
+#             tags_array = [tag.strip() for tag in tags.split(',') if tag.strip()]
         
-        result = await client.rpc('get_marketplace_agents', {
-            'p_search': search,
-            'p_tags': tags_array,
-            'p_limit': limit + 1,
-            'p_offset': offset
-        }).execute()
+#         result = await client.rpc('get_marketplace_agents', {
+#             'p_search': search,
+#             'p_tags': tags_array,
+#             'p_limit': limit + 1,
+#             'p_offset': offset
+#         }).execute()
         
-        if result.data is None:
-            result.data = []
+#         if result.data is None:
+#             result.data = []
         
-        has_more = len(result.data) > limit
-        agents_data = result.data[:limit] 
-        if creator:
-            agents_data = [
-                agent for agent in agents_data 
-                if creator.lower() in agent.get('creator_name', '').lower()
-            ]
+#         has_more = len(result.data) > limit
+#         agents_data = result.data[:limit] 
+#         if creator:
+#             agents_data = [
+#                 agent for agent in agents_data 
+#                 if creator.lower() in agent.get('creator_name', '').lower()
+#             ]
 
-        if sort_by == "most_downloaded":
-            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
-        elif sort_by == "popular":
-            agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
-        elif sort_by == "name":
-            agents_data = sorted(agents_data, key=lambda x: x.get('name', '').lower())
-        else:
-            agents_data = sorted(agents_data, key=lambda x: x.get('marketplace_published_at', ''), reverse=True)
+#         if sort_by == "most_downloaded":
+#             agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+#         elif sort_by == "popular":
+#             agents_data = sorted(agents_data, key=lambda x: x.get('download_count', 0), reverse=True)
+#         elif sort_by == "name":
+#             agents_data = sorted(agents_data, key=lambda x: x.get('name', '').lower())
+#         else:
+#             agents_data = sorted(agents_data, key=lambda x: x.get('marketplace_published_at', ''), reverse=True)
         
-        estimated_total = (page - 1) * limit + len(agents_data)
-        if has_more:
-            estimated_total += 1
+#         estimated_total = (page - 1) * limit + len(agents_data)
+#         if has_more:
+#             estimated_total += 1
         
-        total_pages = max(page, (estimated_total + limit - 1) // limit)
-        if has_more:
-            total_pages = page + 1
+#         total_pages = max(page, (estimated_total + limit - 1) // limit)
+#         if has_more:
+#             total_pages = page + 1
         
-        # Add Kortix team identification
-        kortix_team_creators = [
-            'kortix', 'kortix team', 'suna team', 'official', 'kortix official'
-        ]
+#         # Add Kortix team identification
+#         kortix_team_creators = [
+#             'kortix', 'kortix team', 'suna team', 'official', 'kortix official'
+#         ]
         
-        for agent in agents_data:
-            creator_name = agent.get('creator_name', '').lower()
-            agent['is_kortix_team'] = any(
-                kortix_creator in creator_name 
-                for kortix_creator in kortix_team_creators
-            )
+#         for agent in agents_data:
+#             creator_name = agent.get('creator_name', '').lower()
+#             agent['is_kortix_team'] = any(
+#                 kortix_creator in creator_name 
+#                 for kortix_creator in kortix_team_creators
+#             )
         
-        agents_data = sorted(agents_data, key=lambda x: (
-            not x.get('is_kortix_team', False),
-            -x.get('download_count', 0) if sort_by == "most_downloaded" else 0,
-            x.get('name', '').lower() if sort_by == "name" else '',
-            -(datetime.fromisoformat(x.get('marketplace_published_at', x.get('created_at', ''))).timestamp()) if sort_by == "newest" else 0
-        ))
+#         agents_data = sorted(agents_data, key=lambda x: (
+#             not x.get('is_kortix_team', False),
+#             -x.get('download_count', 0) if sort_by == "most_downloaded" else 0,
+#             x.get('name', '').lower() if sort_by == "name" else '',
+#             -(datetime.fromisoformat(x.get('marketplace_published_at', x.get('created_at', ''))).timestamp()) if sort_by == "newest" else 0
+#         ))
         
-        logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
-        return {
-            "agents": agents_data,
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": estimated_total,
-                "pages": total_pages
-            }
-        }
+#         logger.info(f"Found {len(agents_data)} marketplace agents (page {page}, estimated {total_pages} pages)")
+#         return {
+#             "agents": agents_data,
+#             "pagination": {
+#                 "page": page,
+#                 "limit": limit,
+#                 "total": estimated_total,
+#                 "pages": total_pages
+#             }
+#         }
         
-    except Exception as e:
-        logger.error(f"Error fetching marketplace agents: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+#     except Exception as e:
+#         logger.error(f"Error fetching marketplace agents: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/agents/{agent_id}/publish")
 async def publish_agent_to_marketplace(
@@ -2002,81 +2002,82 @@ async def unpublish_agent_from_marketplace(
         logger.error(f"Error unpublishing agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/marketplace/agents/{agent_id}/add-to-library")
-async def add_agent_to_library(
-    agent_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    """Add an agent from the marketplace to user's library."""
-    if not await is_enabled("agent_marketplace"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agent currently disabled. This feature is not available at the moment."
-        )
 
-    logger.info(f"Adding marketplace agent {agent_id} to user {user_id} library")
-    client = await db.client
+# @router.post("/marketplace/agents/{agent_id}/add-to-library")
+# async def add_agent_to_library(
+#     agent_id: str,
+#     user_id: str = Depends(get_current_user_id_from_jwt)
+# ):
+#     """Add an agent from the marketplace to user's library."""
+#     if not await is_enabled("agent_marketplace"):
+#         raise HTTPException(
+#             status_code=403, 
+#             detail="Custom agent currently disabled. This feature is not available at the moment."
+#         )
+
+#     logger.info(f"Adding marketplace agent {agent_id} to user {user_id} library")
+#     client = await db.client
     
-    try:
-        # Call the database function with user_id
-        result = await client.rpc('add_agent_to_library', {
-            'p_original_agent_id': agent_id,
-            'p_user_account_id': user_id
-        }).execute()
+#     try:
+#         # Call the database function with user_id
+#         result = await client.rpc('add_agent_to_library', {
+#             'p_original_agent_id': agent_id,
+#             'p_user_account_id': user_id
+#         }).execute()
         
-        if result.data:
-            new_agent_id = result.data
-            logger.info(f"Successfully added agent {agent_id} to library as {new_agent_id}")
-            return {"message": "Agent added to library successfully", "new_agent_id": new_agent_id}
-        else:
-            raise HTTPException(status_code=400, detail="Failed to add agent to library")
+#         if result.data:
+#             new_agent_id = result.data
+#             logger.info(f"Successfully added agent {agent_id} to library as {new_agent_id}")
+#             return {"message": "Agent added to library successfully", "new_agent_id": new_agent_id}
+#         else:
+#             raise HTTPException(status_code=400, detail="Failed to add agent to library")
         
-    except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Error adding agent {agent_id} to library: {error_msg}")
+#     except Exception as e:
+#         error_msg = str(e)
+#         logger.error(f"Error adding agent {agent_id} to library: {error_msg}")
         
-        if "Agent not found or not public" in error_msg:
-            raise HTTPException(status_code=404, detail="Agent not found or not public")
-        elif "Agent already in your library" in error_msg:
-            raise HTTPException(status_code=409, detail="Agent already in your library")
-        else:
-            raise HTTPException(status_code=500, detail="Internal server error")
+#         if "Agent not found or not public" in error_msg:
+#             raise HTTPException(status_code=404, detail="Agent not found or not public")
+#         elif "Agent already in your library" in error_msg:
+#             raise HTTPException(status_code=409, detail="Agent already in your library")
+#         else:
+#             raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/user/agent-library")
-async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get user's agent library (agents added from marketplace)."""
-    if not await is_enabled("agent_marketplace"):
-        raise HTTPException(
-            status_code=403, 
-            detail="Custom agent currently disabled. This feature is not available at the moment."
-        )
+# @router.get("/user/agent-library")
+# async def get_user_agent_library(user_id: str = Depends(get_current_user_id_from_jwt)):
+#     """Get user's agent library (agents added from marketplace)."""
+#     if not await is_enabled("agent_marketplace"):
+#         raise HTTPException(
+#             status_code=403, 
+#             detail="Custom agent currently disabled. This feature is not available at the moment."
+#         )
 
-    logger.info(f"Fetching agent library for user {user_id}")
-    client = await db.client
+#     logger.info(f"Fetching agent library for user {user_id}")
+#     client = await db.client
     
-    try:
-        result = await client.table('user_agent_library').select("""
-            *,
-            original_agent:agents!user_agent_library_original_agent_id_fkey(
-                agent_id,
-                name,
-                description,
-                download_count
-            ),
-            agent:agents!user_agent_library_agent_id_fkey(
-                agent_id,
-                name,
-                description,
-                system_prompt
-            )
-        """).eq('user_account_id', user_id).order('added_at', desc=True).execute()
+#     try:
+#         result = await client.table('user_agent_library').select("""
+#             *,
+#             original_agent:agents!user_agent_library_original_agent_id_fkey(
+#                 agent_id,
+#                 name,
+#                 description,
+#                 download_count
+#             ),
+#             agent:agents!user_agent_library_agent_id_fkey(
+#                 agent_id,
+#                 name,
+#                 description,
+#                 system_prompt
+#             )
+#         """).eq('user_account_id', user_id).order('added_at', desc=True).execute()
         
-        logger.info(f"Found {len(result.data or [])} agents in user library")
-        return {"library": result.data or []}
+#         logger.info(f"Found {len(result.data or [])} agents in user library")
+#         return {"library": result.data or []}
         
-    except Exception as e:
-        logger.error(f"Error fetching user agent library: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+#     except Exception as e:
+#         logger.error(f"Error fetching user agent library: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/agents/{agent_id}/builder-chat-history")
 async def get_agent_builder_chat_history(
@@ -2135,6 +2136,9 @@ async def get_agent_builder_chat_history(
     except Exception as e:
         logger.error(f"Error fetching agent builder chat history for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")
+
+
+# agent versioning
 
 @router.get("/agents/{agent_id}/versions", response_model=List[AgentVersionResponse])
 async def get_agent_versions(
