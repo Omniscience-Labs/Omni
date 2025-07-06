@@ -192,13 +192,13 @@ export const Examples = ({
             }}
           >
             <Card
-              className="group cursor-pointer h-full shadow-none transition-all bg-sidebar hover:bg-neutral-100 dark:hover:bg-neutral-800/60 p-0 justify-center"
+              className="group cursor-pointer h-full shadow-none transition-all bg-card hover:bg-neutral-100 dark:hover:bg-neutral-800/60 p-0 justify-center"
               onClick={() => onSelectPrompt && onSelectPrompt(prompt.query)}
             >
               <CardHeader className="p-2 grid-rows-1">
-                <div className="flex items-start justify-center gap-1.5">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {React.cloneElement(prompt.icon as React.ReactElement, { size: 14 })}
+                <div className="flex items-center justify-center gap-1.5">
+                  <div className="flex-shrink-0">
+                    {React.cloneElement(prompt.icon as React.ReactElement, { size: 14, })}
                   </div>
                   <CardTitle className="font-normal group-hover:text-foreground transition-all text-muted-foreground text-xs leading-relaxed line-clamp-3">
                     {prompt.title}
