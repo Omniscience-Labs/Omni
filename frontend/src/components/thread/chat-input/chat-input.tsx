@@ -78,7 +78,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onAgentSelect,
       agentName,
       messages = [],
-      bgColor = 'bg-sidebar',
+      bgColor = 'bg-card',
       toolCalls = [],
       toolCallIndex = 0,
       showToolPreview = false,
