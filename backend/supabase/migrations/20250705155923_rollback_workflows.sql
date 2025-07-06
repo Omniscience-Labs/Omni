@@ -1,8 +1,4 @@
--- Rollback script for workflow system migrations
--- This script reverses all changes made by:
--- - 20250417000000_workflow_system.sql
--- - 20250418000000_workflow_flows.sql
-
+-- Rollback script for old workflow system
 DROP TABLE IF EXISTS workflow_flows CASCADE;
 
 -- Drop workflow execution logs (depends on workflow_executions)
