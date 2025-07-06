@@ -32,7 +32,6 @@ instance_id = None # Global instance ID for this backend instance
 # TTL for Redis response lists (24 hours)
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
-
 class AgentStartRequest(BaseModel):
     model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
     enable_thinking: Optional[bool] = False
@@ -1797,6 +1796,7 @@ async def delete_agent(agent_id: str, user_id: str = Depends(get_current_user_id
     except Exception as e:
         logger.error(f"Error deleting agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 # Marketplace Models
 class MarketplaceAgent(BaseModel):
