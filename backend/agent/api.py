@@ -124,16 +124,6 @@ class ThreadAgentResponse(BaseModel):
     source: str  # "thread", "default", "none", "missing"
     message: str
 
-class AgentBuilderChatRequest(BaseModel):
-    message: str
-    conversation_history: List[Dict[str, str]] = []
-    partial_config: Optional[Dict[str, Any]] = None
-
-class AgentBuilderChatResponse(BaseModel):
-    response: str
-    suggested_config: Optional[Dict[str, Any]] = None
-    next_step: Optional[str] = None
-
 def initialize(
     _db: DBConnection,
     _instance_id: Optional[str] = None
@@ -298,7 +288,6 @@ async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: st
     thread_id = agent_run_data['thread_id']
     await verify_thread_access(client, thread_id, user_id)
     return agent_run_data
-
 
 @router.post("/thread/{thread_id}/agent/start")
 async def start_agent(
@@ -1146,10 +1135,7 @@ async def initiate_agent_with_files(
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
 
 
-
 # Custom agents
-
-
 
 @router.get("/agents", response_model=AgentsResponse)
 async def get_agents(
