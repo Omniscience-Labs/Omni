@@ -862,7 +862,6 @@ async def initiate_agent_with_files(
 
     # Use model from config if not specified in the request
     logger.info(f"Original model_name from request: {model_name}")
-    
 
     if model_name is None:
         model_name = config.MODEL_TO_USE
