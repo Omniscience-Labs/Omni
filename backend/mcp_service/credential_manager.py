@@ -25,7 +25,6 @@ from services.supabase import DBConnection
 
 db = DBConnection()
 
-
 @dataclass
 class MCPCredential:
     """Represents an MCP credential"""

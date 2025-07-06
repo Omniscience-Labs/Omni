@@ -117,7 +117,7 @@ const AgentModal = ({ agent, isOpen, onClose, onCustomize, onChat, onPublish, on
                 Chat
               </Button>
             </div>
-            <div className="pt-2 border-t">
+            <div className="pt-2">
               {agent.is_public ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
