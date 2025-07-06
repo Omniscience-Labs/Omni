@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Response, Depends
+from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import sentry
@@ -98,7 +98,7 @@ async def log_requests_middleware(request: Request, call_next):
 
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    client_ip = request.client.host
+    client_ip = request.client.host if request.client else "unknown"
     method = request.method
     path = request.url.path
     query_params = str(request.query_params)
@@ -147,32 +147,36 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Project-Id"],
 )
 
-app.include_router(agent_api.router, prefix="/api")
+# Create a main API router
+api_router = APIRouter()
 
-app.include_router(sandbox_api.router, prefix="/api")
-
-app.include_router(billing_api.router, prefix="/api")
-
-app.include_router(feature_flags_api.router, prefix="/api")
+# Include all API routers without individual prefixes
+api_router.include_router(agent_api.router)
+api_router.include_router(sandbox_api.router)
+api_router.include_router(billing_api.router)
+api_router.include_router(feature_flags_api.router)
 
 from mcp_service import api as mcp_api
 from mcp_service import secure_api as secure_mcp_api
+from mcp_service import template_api as template_api
 
-app.include_router(mcp_api.router, prefix="/api")
-app.include_router(secure_mcp_api.router, prefix="/api/secure-mcp")
+api_router.include_router(mcp_api.router)
+api_router.include_router(secure_mcp_api.router, prefix="/secure-mcp")
+api_router.include_router(template_api.router, prefix="/templates")
 
-app.include_router(transcription_api.router, prefix="/api")
-app.include_router(email_api.router, prefix="/api")
+api_router.include_router(transcription_api.router)
+api_router.include_router(email_api.router)
 
 from knowledge_base import api as knowledge_base_api
-app.include_router(knowledge_base_api.router, prefix="/api")
+api_router.include_router(knowledge_base_api.router)
 
 from triggers import api as triggers_api
 from triggers import unified_oauth_api
-app.include_router(triggers_api.router)
-app.include_router(unified_oauth_api.router)
+api_router.include_router(triggers_api.router)
+api_router.include_router(unified_oauth_api.router)
 
-@app.get("/api/health")
+# Add health check to API router
+@api_router.get("/health")
 async def health_check():
     """Health check endpoint to verify API is working."""
     logger.info("Health check endpoint called")
@@ -181,6 +185,9 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "instance_id": instance_id
     }
+
+# Include the main API router with /api prefix
+app.include_router(api_router, prefix="/api")
 
 
 if __name__ == "__main__":

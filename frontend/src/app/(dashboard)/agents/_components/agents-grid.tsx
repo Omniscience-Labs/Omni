@@ -186,7 +186,7 @@ export const AgentsGrid = ({
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const router = useRouter();
   
-  const unpublishAgentMutation = useUnpublishAgent();
+  const unpublishAgentMutation = useUnpublishTemplate();
   const createTemplateMutation = useCreateTemplate();
 
   const handleAgentClick = (agent: Agent) => {
@@ -231,16 +231,6 @@ export const AgentsGrid = ({
     } finally {
       setUnpublishingId(null);
     }
-  };
-
-  const handleQuickPublish = async (agentId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    await handlePublish(agentId);
-  };
-
-  const handleQuickUnpublish = async (agentId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    await handleUnpublish(agentId);
   };
 
   const getAgentStyling = (agent: Agent) => {
