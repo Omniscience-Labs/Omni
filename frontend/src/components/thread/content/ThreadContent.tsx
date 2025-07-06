@@ -169,7 +169,7 @@ export function renderMarkdownContent(
                         <div key={`tool-${match.index}-${index}`} className="my-1">
                             <button
                                 onClick={() => handleToolClick(messageId, toolName)}
-                                className="inline-flex items-center gap-1.5 py-1 px-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
+                                className="inline-flex items-center gap-1.5 py-1 px-1 pr-1.5 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
                             >
                                 <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
                                     <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -251,7 +251,7 @@ export function renderMarkdownContent(
                 <div key={toolCallKey} className="my-1">
                     <button
                         onClick={() => handleToolClick(messageId, toolName)}
-                        className="inline-flex items-center gap-1.5 py-1 px-1 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
+                        className="inline-flex items-center gap-1.5 py-1 px-1 pr-1.5 text-xs text-muted-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors cursor-pointer border border-neutral-200 dark:border-neutral-700/50"
                     >
                         <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
                             <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -567,7 +567,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         if (debugMode) {
                                             return (
                                                 <div key={group.key} className="flex justify-end">
-                                                    <div className="flex max-w-[85%] rounded-2xl bg-primary/10 px-4 py-3 break-words overflow-hidden">
+                                                    <div className="flex max-w-[85%] rounded-2xl bg-card px-4 py-3 break-words overflow-hidden">
                                                         <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto min-w-0 flex-1">
                                                             {message.content}
                                                         </pre>
@@ -590,7 +590,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         return (
                                             <div key={group.key} className="flex justify-end">
-                                                <div className="flex max-w-[85%] rounded-2xl bg-primary/10 px-4 py-3 break-words overflow-hidden">
+                                                <div className="flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
                                                     <div className="space-y-3 min-w-0 flex-1">
                                                         {cleanContent && (
                                                             <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{cleanContent}</Markdown>
@@ -640,7 +640,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                     </div>
 
                                                     {/* Message content - ALL messages in the group */}
-                                                    <div className="flex max-w-[90%] rounded-lg text-sm break-words overflow-hidden">
+                                                    <div className="flex max-w-[90%] text-sm break-words overflow-hidden">
                                                         <div className="space-y-2 min-w-0 flex-1">
                                                             {(() => {
                                                                 // In debug mode, just show raw messages content
