@@ -364,9 +364,7 @@ export function HeroSection() {
           </div>
         </div>
       </div>
-      <div className="mb-10 sm:mt-40 max-w-4xl mx-auto">
-        <HeroVideoSection />
-      </div>
+      <div className="mb-16 sm:mt-52 max-w-4xl mx-auto"></div>
 
       {/* Auth Dialog */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
