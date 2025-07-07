@@ -18,6 +18,7 @@ from pydantic import BaseModel
 import uuid
 # Import the agent API module
 from agent import api as agent_api
+from agent import workflows as workflows_api
 from sandbox import api as sandbox_api
 from services import billing as billing_api
 from flags import api as feature_flags_api
@@ -50,6 +51,9 @@ async def lifespan(app: FastAPI):
             db,
             instance_id
         )
+        
+        # Initialize workflow API
+        workflows_api.initialize(db, instance_id)
         
         sandbox_api.initialize(db)
         
@@ -151,6 +155,7 @@ app.add_middleware(
 api_router = APIRouter()
 
 # Include all API routers without individual prefixes
+api_router.include_router(workflows_api.router)
 api_router.include_router(agent_api.router)
 api_router.include_router(sandbox_api.router)
 api_router.include_router(billing_api.router)

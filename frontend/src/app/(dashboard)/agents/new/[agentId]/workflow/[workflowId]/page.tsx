@@ -13,8 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
@@ -22,88 +20,9 @@ import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-quer
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 
-const WORKFLOW_TEMPLATES = [
-  {
-    id: 'customer-support',
-    name: 'Customer Support',
-    description: 'Handle customer inquiries with structured responses',
-    steps: [
-      { 
-        name: 'Gather Issue', 
-        description: 'Collect customer issue details',
-        type: 'instruction' as const,
-        children: []
-      },
-      { 
-        name: 'If technical issue', 
-        description: '',
-        type: 'condition' as const,
-        conditions: { type: 'if' as const, expression: 'customer has a technical issue' },
-        children: [
-          { name: 'Search Knowledge Base', description: 'Search for technical solutions', type: 'instruction' as const },
-          { name: 'Escalate to Tech Support', description: 'Create tech support ticket', type: 'instruction' as const }
-        ]
-      },
-      { 
-        name: 'Otherwise', 
-        description: '',
-        type: 'condition' as const,
-        conditions: { type: 'else' as const },
-        children: [
-          { name: 'Provide General Help', description: 'Send general assistance info', type: 'instruction' as const }
-        ]
-      },
-      { 
-        name: 'Generate Report', 
-        description: 'Create support ticket summary',
-        type: 'instruction' as const,
-        children: []
-      }
-    ]
-  },
-  {
-    id: 'data-analysis',
-    name: 'Data Analysis',
-    description: 'Process and analyze data with conditional logic',
-    steps: [
-      { 
-        name: 'Data Upload', 
-        description: 'Upload data for analysis',
-        type: 'instruction' as const
-      },
-      { 
-        name: 'Data Validation', 
-        description: 'Validate data format and quality',
-        type: 'instruction' as const
-      },
-      { 
-        name: 'If data is valid', 
-        description: '',
-        type: 'condition' as const,
-        conditions: { type: 'if' as const, expression: 'data passes validation checks' },
-        children: [
-          { name: 'Perform Analysis', description: 'Run statistical analysis', type: 'instruction' as const },
-          { name: 'Generate Visualizations', description: 'Create charts and graphs', type: 'instruction' as const }
-        ]
-      },
-      { 
-        name: 'Otherwise', 
-        description: '',
-        type: 'condition' as const,
-        conditions: { type: 'else' as const },
-        children: [
-          { name: 'Show Error Report', description: 'Display validation errors', type: 'instruction' as const },
-          { name: 'Request New Data', description: 'Ask user to fix and reupload', type: 'instruction' as const }
-        ]
-      }
-    ]
-  }
-];
-
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
   const result: any[] = [];
   let globalOrder = 1;
-  
   const flattenSteps = (stepList: ConditionalStep[], parentConditions?: any) => {
     stepList.forEach((step) => {
       const jsonStep: any = {
@@ -113,26 +32,18 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
         config: step.config,
         order: globalOrder++
       };
-      
-      // For conditional steps, add the conditions
       if (step.type === 'condition' && step.conditions) {
         jsonStep.conditions = step.conditions;
       } else if (parentConditions) {
-        // For steps inside a condition branch, inherit the parent's conditions
         jsonStep.conditions = parentConditions;
       }
-      
       result.push(jsonStep);
-      
-      // Recursively process children
       if (step.children && step.children.length > 0) {
-        // Pass the current step's conditions to children if it's a conditional step
         const conditionsToPass = step.type === 'condition' ? step.conditions : parentConditions;
         flattenSteps(step.children, conditionsToPass);
       }
     });
   };
-  
   flattenSteps(steps);
   return result;
 };
@@ -141,55 +52,92 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
   if (!flatSteps || flatSteps.length === 0) return [];
   
   const result: ConditionalStep[] = [];
-  const conditionStack: { step: ConditionalStep, conditions: any }[] = [];
+  const conditionSteps = new Map<string, ConditionalStep>();
   
-  flatSteps.forEach((flatStep) => {
-    const step: ConditionalStep = {
-      id: flatStep.id || Math.random().toString(36).substr(2, 9),
-      name: flatStep.name,
-      description: flatStep.description || '',
-      type: flatStep.type || 'instruction',
-      config: flatStep.config || {},
-      conditions: flatStep.conditions,
-      order: flatStep.order || flatStep.step_order,
-      children: []
-    };
-    
-    // Handle conditional steps
-    if (step.type === 'condition') {
-      // This is a condition node
-      result.push(step);
-      
-      // If it's an 'if' condition, add it to the stack
-      if (step.conditions?.type === 'if') {
-        conditionStack.push({ step, conditions: step.conditions });
-      } else if (step.conditions?.type === 'else') {
-        // For 'else', find the matching 'if' and use it
-        const matchingIf = conditionStack[conditionStack.length - 1];
-        if (matchingIf) {
-          conditionStack.push({ step, conditions: step.conditions });
+  // First pass: create all condition steps
+  for (const flatStep of flatSteps) {
+    if (flatStep.type === 'condition') {
+      const conditionStep: ConditionalStep = {
+        id: flatStep.id || Math.random().toString(36).substr(2, 9),
+        name: flatStep.name,
+        description: flatStep.description || '',
+        type: 'condition',
+        config: flatStep.config || {},
+        conditions: flatStep.conditions,
+        order: flatStep.order || flatStep.step_order,
+        children: []
+      };
+      conditionSteps.set(conditionStep.id, conditionStep);
+    }
+  }
+  
+  // Second pass: assign child steps to conditions
+  for (const flatStep of flatSteps) {
+    if (flatStep.type !== 'condition' && flatStep.conditions) {
+      // Find the parent condition
+      for (const [conditionId, conditionStep] of conditionSteps) {
+        if (JSON.stringify(conditionStep.conditions) === JSON.stringify(flatStep.conditions)) {
+          const childStep: ConditionalStep = {
+            id: flatStep.id || Math.random().toString(36).substr(2, 9),
+            name: flatStep.name,
+            description: flatStep.description || '',
+            type: flatStep.type || 'instruction',
+            config: flatStep.config || {},
+            order: flatStep.order || flatStep.step_order,
+            children: []
+          };
+          conditionStep.children!.push(childStep);
+          break;
         }
       }
-    } else if (flatStep.conditions) {
-      // This step belongs to a condition branch
-      // Find the parent condition step
-      const parentCondition = conditionStack.find(
-        cs => JSON.stringify(cs.conditions) === JSON.stringify(flatStep.conditions)
-      );
-      
-      if (parentCondition) {
-        parentCondition.step.children!.push(step);
-      } else {
-        // If we can't find the parent, add to root (shouldn't happen)
-        result.push(step);
-      }
-    } else {
-      // Regular step at root level
-      result.push(step);
-      // Clear condition stack when we hit a root level step
-      conditionStack.length = 0;
     }
-  });
+  }
+  
+  // Third pass: build result in order, grouping consecutive conditions
+  const sortedSteps = [...flatSteps].sort((a, b) => (a.order || a.step_order || 0) - (b.order || b.step_order || 0));
+  let i = 0;
+  
+  while (i < sortedSteps.length) {
+    const flatStep = sortedSteps[i];
+    
+    if (flatStep.type === 'condition') {
+      // Group consecutive conditions together
+      const conditionGroup: ConditionalStep[] = [];
+      
+      while (i < sortedSteps.length && sortedSteps[i].type === 'condition') {
+        const conditionStep = conditionSteps.get(sortedSteps[i].id);
+        if (conditionStep) {
+          conditionGroup.push(conditionStep);
+        }
+        i++;
+      }
+      
+      // Sort conditions within group: if, elseif, else
+      conditionGroup.sort((a, b) => {
+        const typeOrder = { 'if': 0, 'elseif': 1, 'else': 2 };
+        return (typeOrder[a.conditions?.type as keyof typeof typeOrder] || 0) - 
+               (typeOrder[b.conditions?.type as keyof typeof typeOrder] || 0);
+      });
+      
+      result.push(...conditionGroup);
+    } else if (!flatStep.conditions) {
+      // Regular step (not part of a condition)
+      const step: ConditionalStep = {
+        id: flatStep.id || Math.random().toString(36).substr(2, 9),
+        name: flatStep.name,
+        description: flatStep.description || '',
+        type: flatStep.type || 'instruction',
+        config: flatStep.config || {},
+        order: flatStep.order || flatStep.step_order,
+        children: []
+      };
+      result.push(step);
+      i++;
+    } else {
+      // Skip child steps as they're already assigned to conditions
+      i++;
+    }
+  }
   
   return result;
 };
@@ -220,17 +168,6 @@ const convertToLLMFormat = (steps: ConditionalStep[]): any[] => {
   });
 };
 
-const generateWorkflowPrompt = (workflowName: string, workflowDescription: string, steps: ConditionalStep[]): string => {
-  const llmFormat = convertToLLMFormat(steps);
-  const prompt = {
-    workflow: workflowName,
-    description: workflowDescription || undefined,
-    steps: llmFormat
-  };
-  if (!prompt.description) delete prompt.description;
-  return JSON.stringify(prompt, null, 2);
-};
-
 export default function WorkflowPage() {
   const params = useParams();
   const router = useRouter();
@@ -249,7 +186,6 @@ export default function WorkflowPage() {
   const [triggerPhrase, setTriggerPhrase] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [steps, setSteps] = useState<ConditionalStep[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
 
@@ -266,57 +202,19 @@ export default function WorkflowPage() {
         setIsLoading(false);
       } else if (!isLoadingWorkflows) {
         toast.error('Workflow not found');
-        router.push(`/agents/${agentId}`);
       }
     } else if (!isEditing) {
       setIsLoading(false);
     }
   }, [isEditing, workflows, workflowId, isLoadingWorkflows, router, agentId]);
 
-  const loadTemplate = useCallback((templateId: string) => {
-    const template = WORKFLOW_TEMPLATES.find(t => t.id === templateId);
-    if (!template) return;
-
-    setWorkflowName(template.name);
-    setWorkflowDescription(template.description);
-    setSelectedTemplate(templateId);
-
-    const templateSteps: ConditionalStep[] = template.steps.map((step, index) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      name: step.name,
-      description: step.description,
-      type: step.type,
-      config: {},
-      conditions: step.conditions,
-      children: step.children?.map((child: any) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        name: child.name,
-        description: child.description,
-        type: child.type,
-        config: {},
-        order: 0
-      })),
-      order: index + 1
-    }));
-
-    setSteps(templateSteps);
-  }, []);
-
   const handleSave = useCallback(async () => {
     if (!workflowName.trim()) {
       toast.error('Please enter a workflow name');
       return;
     }
-
-    // Convert to nested JSON structure for API
     const nestedSteps = convertToNestedJSON(steps);
-
-    // Log the LLM-friendly format for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('LLM-friendly workflow format:');
-      console.log(generateWorkflowPrompt(workflowName, workflowDescription, steps));
-    }
-
+    console.log('nestedSteps', nestedSteps);
     try {
       if (isEditing) {
         const updateRequest: UpdateWorkflowRequest = {
@@ -326,7 +224,6 @@ export default function WorkflowPage() {
           is_default: isDefault,
           steps: nestedSteps
         };
-        
         await updateWorkflowMutation.mutateAsync({ agentId, workflowId, workflow: updateRequest });
         toast.success('Workflow updated successfully');
       } else {
@@ -337,12 +234,9 @@ export default function WorkflowPage() {
           is_default: isDefault,
           steps: nestedSteps
         };
-        
         await createWorkflowMutation.mutateAsync({ agentId, workflow: createRequest });
         toast.success('Workflow created successfully');
       }
-      
-      router.push(`/agents/${agentId}`);
     } catch (error) {
       toast.error(`Failed to ${isEditing ? 'update' : 'create'} workflow`);
     }
@@ -405,63 +299,6 @@ export default function WorkflowPage() {
                       className="resize-none text-sm"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Trigger Phrase</Label>
-                    <Input
-                      value={triggerPhrase}
-                      onChange={(e) => setTriggerPhrase(e.target.value)}
-                      placeholder="e.g., 'start support workflow'"
-                      className="h-8"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Users can start this workflow by typing this phrase
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="is-default" className="text-xs font-medium cursor-pointer">Default workflow</Label>
-                      <p className="text-xs text-muted-foreground">Run automatically for new conversations</p>
-                    </div>
-                    <Switch
-                      id="is-default"
-                      checked={isDefault}
-                      onCheckedChange={setIsDefault}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">{isEditing ? 'Load Template' : 'Start from Template'}</Label>
-                    <Select value={selectedTemplate} onValueChange={loadTemplate}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Choose a template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {WORKFLOW_TEMPLATES.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            <div className="flex flex-col items-start">
-                              <span className="text-sm font-medium">{template.name}</span>
-                              <span className="text-xs text-muted-foreground">{template.description}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {process.env.NODE_ENV === 'development' && steps.length > 0 && (
-                    <>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">LLM-Friendly Format</Label>
-                        <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-40 font-mono">
-                          {generateWorkflowPrompt(workflowName, workflowDescription, steps)}
-                        </pre>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Full JSON Structure</Label>
-                        <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-40 font-mono">
-                          {JSON.stringify(convertToNestedJSON(steps), null, 2)}
-                        </pre>
-                      </div>
-                    </>
-                  )}
                   <Button 
                     onClick={() => setIsSettingsPopoverOpen(false)}
                     className="w-full h-8"
@@ -480,7 +317,7 @@ export default function WorkflowPage() {
           size="sm"
           className="h-8"
         >
-          <Save className="h-3.5 w-3.5 mr-1.5" />
+          <Save className="h-3.5 w-3.5" />
           {(createWorkflowMutation.isPending || updateWorkflowMutation.isPending) 
             ? 'Saving...' 
             : 'Save Workflow'
