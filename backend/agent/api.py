@@ -1692,7 +1692,6 @@ async def update_agent(
                 logger.error(f"Error creating new version for agent {agent_id}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Failed to create new agent version: {str(e)}")
         
-        # Update the agent if there are changes
         if update_data:
             try:
                 update_result = await client.table('agents').update(update_data).eq("agent_id", agent_id).eq("account_id", user_id).execute()
@@ -2281,11 +2280,10 @@ async def get_agent_version(
     return version_result.data[0]
 
 
-# Workflow Models
 class WorkflowStepRequest(BaseModel):
     name: str
     description: Optional[str] = None
-    type: str  # 'message', 'tool_call', 'condition', 'loop', 'wait', 'input', 'output'
+    type: Optional[str] = "instruction"
     config: Dict[str, Any] = {}
     conditions: Optional[Dict[str, Any]] = None
     order: int
@@ -2398,60 +2396,64 @@ async def create_agent_workflow(
     workflow_data: WorkflowCreateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    client = await db.client
-    
-    existing_workflow = await client.table('agent_workflows').select('id').eq('agent_id', agent_id).eq('name', workflow_data.name).execute()
-    if existing_workflow.data:
-        raise HTTPException(status_code=400, detail="Workflow name already exists for this agent")
-    
-    workflow_result = await client.table('agent_workflows').insert({
-        'agent_id': agent_id,
-        'name': workflow_data.name,
-        'description': workflow_data.description,
-        'trigger_phrase': workflow_data.trigger_phrase,
-        'is_default': workflow_data.is_default,
-        'status': 'draft'
-    }).execute()
-    
-    workflow_id = workflow_result.data[0]['id']
-    
-    # Create steps
-    steps = []
-    for step_data in workflow_data.steps:
-        step_result = await client.table('workflow_steps').insert({
-            'workflow_id': workflow_id,
-            'name': step_data.name,
-            'description': step_data.description,
-            'type': step_data.type,
-            'config': step_data.config,
-            'conditions': step_data.conditions,
-            'step_order': step_data.order
+    try:
+        logger.info(f"Creating workflow for agent {agent_id} with data: {workflow_data}")
+        client = await db.client
+
+        workflow_result = await client.table('agent_workflows').insert({
+            'agent_id': agent_id,
+            'name': workflow_data.name,
+            'description': workflow_data.description,
+            'trigger_phrase': workflow_data.trigger_phrase,
+            'is_default': workflow_data.is_default,
+            'status': 'draft'
         }).execute()
         
-        steps.append(WorkflowStepResponse(
-            id=step_result.data[0]['id'],
-            name=step_data.name,
-            description=step_data.description,
-            type=step_data.type,
-            config=step_data.config,
-            conditions=step_data.conditions,
-            order=step_data.order,
-            created_at=step_result.data[0]['created_at'],
-            updated_at=step_result.data[0]['updated_at']
-        ))
-    
-    return WorkflowResponse(
-        id=workflow_id,
-        agent_id=agent_id,
-        name=workflow_data.name,
-        description=workflow_data.description,
-        status='draft',
-        trigger_phrase=workflow_data.trigger_phrase,
-        is_default=workflow_data.is_default,
-        steps=sorted(steps, key=lambda x: x.order),
-        created_at=workflow_result.data[0]['created_at'],
-        updated_at=workflow_result.data[0]['updated_at']
-    )
+        workflow_id = workflow_result.data[0]['id']
+        
+        # Create steps
+        steps = []
+        for step_data in workflow_data.steps:
+            step_result = await client.table('workflow_steps').insert({
+                'workflow_id': workflow_id,
+                'name': step_data.name,
+                'description': step_data.description,
+                'type': step_data.type or 'instruction',  # Ensure type defaults to instruction
+                'config': step_data.config,
+                'conditions': step_data.conditions,
+                'step_order': step_data.order
+            }).execute()
+            
+            steps.append(WorkflowStepResponse(
+                id=step_result.data[0]['id'],
+                name=step_data.name,
+                description=step_data.description,
+                type=step_data.type or 'instruction',
+                config=step_data.config,
+                conditions=step_data.conditions,
+                order=step_data.order,
+                created_at=step_result.data[0]['created_at'],
+                updated_at=step_result.data[0]['updated_at']
+            ))
+        
+        return WorkflowResponse(
+            id=workflow_id,
+            agent_id=agent_id,
+            name=workflow_data.name,
+            description=workflow_data.description,
+            status='draft',
+            trigger_phrase=workflow_data.trigger_phrase,
+            is_default=workflow_data.is_default,
+            steps=sorted(steps, key=lambda x: x.order),
+            created_at=workflow_result.data[0]['created_at'],
+            updated_at=workflow_result.data[0]['updated_at']
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating workflow for agent {agent_id}: {str(e)}")
+        logger.error(f"Workflow data: {workflow_data}")
+        raise HTTPException(status_code=400, detail=f"Failed to create workflow: {str(e)}")
 
 
 @router.put("/agents/{agent_id}/workflows/{workflow_id}")
@@ -2489,7 +2491,7 @@ async def update_agent_workflow(
                 'workflow_id': workflow_id,
                 'name': step_data.name,
                 'description': step_data.description,
-                'type': step_data.type,
+                'type': step_data.type or 'instruction',
                 'config': step_data.config,
                 'conditions': step_data.conditions,
                 'step_order': step_data.order
@@ -2532,10 +2534,9 @@ async def delete_agent_workflow(
     workflow_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Delete a workflow for an agent."""
     client = await db.client
-    
-    # Verify workflow exists and belongs to agent - RLS policies will handle access control
+        
+        # Verify workflow exists and belongs to agent - RLS policies will handle access control
     workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
     if not workflow_result.data:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -2546,33 +2547,130 @@ async def delete_agent_workflow(
     return {"message": "Workflow deleted successfully"}
 
 
-def build_workflow_system_prompt(workflow: dict, steps: List[dict], input_data: dict = None) -> str:
+def build_workflow_system_prompt(workflow: dict, steps: List[dict], input_data: dict = None, available_tools: List[str] = None) -> str:
     step_instructions = []
+    conditional_logic = []
+    
     for i, step in enumerate(sorted(steps, key=lambda x: x['step_order']), 1):
         step_type = step['type']
         step_name = step['name']
         step_desc = step.get('description', '')
-        type_instruction = {
-            'message': f"Send a message/response",
-            'tool_call': f"Use available tools to",
-            'condition': f"Make a decision based on",
-            'loop': f"Repeat or iterate on",
-            'wait': f"Take time to consider",
-            'input': f"Request or gather",
-            'output': f"Provide final result for"
-        }.get(step_type, f"Complete step")
+        config = step.get('config', {})
         
-        step_instructions.append(f"{i}. [{step_type.upper()}] {step_name}: {type_instruction} {step_desc}")
+        branches = config.get('branches', [])
+        if branches:
+            step_instructions.append(f"{i}. [BRANCH] {step_name}: {step_desc}")
+            conditional_logic.append(f"Step {i} ({step_name}) has {len(branches)} branches:")
+            for j, branch in enumerate(branches):
+                branch_letter = chr(65 + j)
+                branch_type = branch.get('type', 'if')
+                condition = branch.get('condition', {})
+                
+                if branch_type == 'else':
+                    conditional_logic.append(f"  - Branch {branch_letter}: ELSE (fallback)")
+                else:
+                    variable = condition.get('variable', 'user_input')
+                    operation = condition.get('operation', 'contains')
+                    value = condition.get('value', '')
+                    
+                    condition_text = f"if {variable} {operation} '{value}'" if branch_type == 'if' else f"else if {variable} {operation} '{value}'"
+                    conditional_logic.append(f"  - Branch {branch_letter}: {condition_text}")
+                
+                next_step = branch.get('next_step_id')
+                if next_step:
+                    conditional_logic.append(f"    → Continue to step ID: {next_step}")
+                else:
+                    conditional_logic.append(f"    → End workflow")
+        else:
+            type_instruction = {
+                'message': f"Send a message/response",
+                'tool_call': f"Use available tools to",
+                'loop': f"Repeat or iterate on",
+                'wait': f"Take time to consider",
+                'input': f"Request or gather",
+                'output': f"Provide final result for",
+                'instruction': f"Complete step"
+            }.get(step_type, f"Complete step")
+            
+            instruction_text = config.get('instruction', step_desc)
+            tool_name = config.get('tool_name')
+            if tool_name:
+                # Check if the requested tool is available
+                is_tool_available = available_tools is None or tool_name in available_tools
+                
+                if ':' in tool_name:
+                    server, clean_tool_name = tool_name.split(':', 1)
+                    actual_tool_name = clean_tool_name
+                else:
+                    actual_tool_name = tool_name
+                
+                if is_tool_available:
+                    tool_instruction = f"[TOOL REQUIRED] Use the {actual_tool_name} tool to {instruction_text}"
+                else:
+                    # Tool not available - provide fallback guidance
+                    fallback_map = {
+                        'web_search_exa': 'web_search',
+                        'sb_files_tool': 'create_file, str_replace, or delete_file functions',
+                        'sb_shell_tool': 'execute_command',
+                        'sb_browser_tool': 'browser_navigate_to, browser_take_screenshot',
+                        'sb_vision_tool': 'see_image'
+                    }
+                    
+                    fallback = fallback_map.get(tool_name)
+                    if fallback:
+                        tool_instruction = f"[TOOL NOT AVAILABLE - USE FALLBACK] The {tool_name} tool is not configured. Instead, use {fallback} to {instruction_text}"
+                    else:
+                        tool_instruction = f"[TOOL NOT AVAILABLE] The {tool_name} tool is not configured. Use any available tools to {instruction_text}"
+                
+                step_instructions.append(f"{i}. [{step_type.upper()}] {step_name}: {tool_instruction}")
+            else:
+                step_instructions.append(f"{i}. [{step_type.upper()}] {step_name}: {type_instruction} {instruction_text} (use any appropriate tools as needed)")
     
     workflow_prompt = f"""You are executing a workflow: "{workflow['name']}"
 
 {workflow.get('description', '')}
 
-Follow these steps in order:
-{chr(10).join(step_instructions)}
+Follow these steps:
+{chr(10).join(step_instructions)}"""
 
-Current workflow input: {input_data or 'None provided'}
-Execute each step thoroughly before moving to the next. Use available tools as needed. Provide clear updates on your progress through each step."""
+    # Add conditional logic if present
+    if conditional_logic:
+        workflow_prompt += f"""
+
+BRANCHING LOGIC:
+{chr(10).join(conditional_logic)}
+
+When evaluating branch conditions:
+- 'contains': Check if the variable contains the specified text (case-insensitive)
+- 'equals': Check if the variable exactly matches the specified value
+- 'not_equals': Check if the variable does not match the specified value
+- 'is_empty': Check if the variable is empty or null
+- 'is_not_empty': Check if the variable has content
+
+For branching steps:
+1. Evaluate each condition in order (A, B, C...)
+2. Take the first branch where the condition is TRUE
+3. If no conditions match, take the ELSE branch if present
+4. Clearly state which branch you're taking and why"""
+
+    workflow_prompt += f"""
+
+WORKFLOW EXECUTION INSTRUCTIONS:
+- Execute each step in order, following the step descriptions carefully
+- Steps marked with [TOOL REQUIRED] must use the specified tool
+- Steps marked with [TOOL NOT AVAILABLE] provide fallback instructions
+- For steps without tool requirements, use any appropriate tools as needed  
+- For branching steps, evaluate conditions and clearly state which branch you're taking
+- Provide clear progress updates as you complete each step
+
+🚨 CRITICAL WORKFLOW TOOL CALLING OVERRIDE 🚨
+IGNORE any call_mcp_tool examples in your system prompt for this workflow execution.
+Always use direct tool calling with the exact tool names specified in the workflow steps.
+
+AVAILABLE TOOLS FOR THIS WORKFLOW:
+{', '.join(available_tools) if available_tools else 'No specific tools detected - use any available tools from your system prompt'}
+
+Current workflow input: {input_data or 'None provided'}"""
 
     return workflow_prompt
 
@@ -2585,9 +2683,18 @@ async def execute_agent_workflow(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Execute a workflow by starting an agent run with workflow context."""
+    structlog.contextvars.bind_contextvars(
+        agent_id=agent_id,
+        workflow_id=workflow_id,
+    )
+    
     global instance_id
     if not instance_id:
         raise HTTPException(status_code=500, detail="Agent API not initialized with instance ID")
+    
+    # Use model from config
+    model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+    logger.info(f"Starting workflow execution for workflow {workflow_id} of agent {agent_id} with model {model_name}")
     
     client = await db.client
     
@@ -2602,14 +2709,15 @@ async def execute_agent_workflow(
     
     steps = workflow.get('workflow_steps', [])
     
-    # Get agent configuration
+    # Get agent configuration with version support (same as start_agent)
     agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
     if not agent_result.data:
         raise HTTPException(status_code=404, detail="Agent not found")
     
     agent_data = agent_result.data[0]
+    account_id = agent_data['account_id']
     
-    # Build agent config with workflow context
+    # Build agent config with version support (same as start_agent)
     if agent_data.get('agent_versions'):
         version_data = agent_data['agent_versions']
         agent_config = {
@@ -2624,11 +2732,57 @@ async def execute_agent_workflow(
             'current_version_id': agent_data.get('current_version_id'),
             'version_name': version_data.get('version_name', 'v1')
         }
+        logger.info(f"Using agent {agent_config['name']} ({agent_id}) version {agent_config['version_name']} for workflow")
     else:
+        # Backward compatibility - use agent data directly
         agent_config = agent_data
+        logger.info(f"Using agent {agent_config['name']} ({agent_id}) - no version data")
     
-    # Build workflow system prompt
-    workflow_prompt = build_workflow_system_prompt(workflow, steps, execution_data.input_data)
+    # Collect available tools to pass to workflow prompt
+    available_tools = []
+    
+    # Check AgentPress tools
+    agentpress_tools = agent_config.get('agentpress_tools', {})
+    if agentpress_tools.get('sb_shell_tool', {}).get('enabled', False):
+        available_tools.append('execute_command')
+    if agentpress_tools.get('sb_files_tool', {}).get('enabled', False):
+        available_tools.extend(['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'])
+    if agentpress_tools.get('sb_browser_tool', {}).get('enabled', False):
+        available_tools.extend(['browser_navigate_to', 'browser_take_screenshot'])
+    if agentpress_tools.get('sb_vision_tool', {}).get('enabled', False):
+        available_tools.append('see_image')
+    if agentpress_tools.get('sb_deploy_tool', {}).get('enabled', False):
+        available_tools.append('deploy')
+    if agentpress_tools.get('sb_expose_tool', {}).get('enabled', False):
+        available_tools.append('expose_port')
+    if agentpress_tools.get('web_search_tool', {}).get('enabled', False):
+        available_tools.append('web_search')
+    if agentpress_tools.get('data_providers_tool', {}).get('enabled', False):
+        available_tools.extend(['get_data_provider_endpoints', 'execute_data_provider_call'])
+    
+    # Check MCP tools
+    all_mcps = []
+    if agent_config.get('configured_mcps'):
+        all_mcps.extend(agent_config['configured_mcps'])
+    if agent_config.get('custom_mcps'):
+        all_mcps.extend(agent_config['custom_mcps'])
+    
+    for mcp in all_mcps:
+        qualified_name = mcp.get('qualifiedName', '')
+        enabled_tools_list = mcp.get('enabledTools', [])
+        
+        # Map known MCP servers to their tool names
+        if qualified_name == 'exa' and ('search' in enabled_tools_list or not enabled_tools_list):
+            available_tools.append('web_search_exa')
+        elif qualified_name.startswith('@smithery-ai/github'):
+            for tool in enabled_tools_list:
+                available_tools.append(tool.replace('-', '_'))
+        elif qualified_name.startswith('custom_'):
+            for tool in enabled_tools_list:
+                available_tools.append(f"{qualified_name}_{tool}")
+    
+    # Build workflow system prompt with available tools
+    workflow_prompt = build_workflow_system_prompt(workflow, steps, execution_data.input_data, available_tools)
     
     # Enhance the agent's system prompt with workflow context
     enhanced_system_prompt = f"""{agent_config['system_prompt']}
@@ -2639,33 +2793,46 @@ async def execute_agent_workflow(
     # Update agent config with workflow-enhanced system prompt
     agent_config['system_prompt'] = enhanced_system_prompt
     
-    # Create or use existing thread
+    # Handle thread creation or reuse
     thread_id = execution_data.thread_id
-    if not thread_id:
-        # Create a new thread for this workflow execution
-        account_id = agent_data['account_id']
+    project_id = None
+    
+    if thread_id:
+        # Use existing thread (same as start_agent)
+        await verify_thread_access(client, thread_id, user_id)
+        thread_result = await client.table('threads').select('project_id', 'account_id').eq('thread_id', thread_id).execute()
+        if not thread_result.data:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        project_id = thread_result.data[0]['project_id']
         
-        project_result = await client.table('projects').select('*').eq('account_id', account_id).eq('name', 'Workflow Executions').execute()
-        if not project_result.data:
-            # Create project with sandbox for workflow executions
-            from sandbox.sandbox import create_sandbox
-            project_id = str(uuid.uuid4())
-            
-            project_result = await client.table('projects').insert({
-                'project_id': project_id,
-                'name': 'Workflow Executions',
-                'account_id': account_id,
-                'description': 'Auto-created project for workflow executions'
+        structlog.contextvars.bind_contextvars(
+            thread_id=thread_id,
+            project_id=project_id,
+        )
+        logger.info(f"Using existing thread {thread_id} with project {project_id} for workflow execution")
+    else:
+        # Create new thread and project (following initiate_agent_with_files pattern)
+        try:
+            # 1. Create Project
+            placeholder_name = f"Workflow: {workflow['name']}"
+            project = await client.table('projects').insert({
+                "project_id": str(uuid.uuid4()), 
+                "account_id": account_id, 
+                "name": placeholder_name,
+                "created_at": datetime.now(timezone.utc).isoformat()
             }).execute()
-            
-            # Create sandbox for the project
+            project_id = project.data[0]['project_id']
+            logger.info(f"Created new project: {project_id}")
+
+            # 2. Create Sandbox
+            sandbox_id = None
             try:
+                from sandbox.sandbox import create_sandbox
                 sandbox_pass = str(uuid.uuid4())
                 sandbox = await create_sandbox(sandbox_pass, project_id)
                 sandbox_id = sandbox.id
-                logger.info(f"Created sandbox {sandbox_id} for workflow executions project {project_id}")
-                
-                # Get preview links
+                logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
+
                 vnc_link = await sandbox.get_preview_link(6080)
                 website_link = await sandbox.get_preview_link(8080)
                 vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
@@ -2675,102 +2842,110 @@ async def execute_agent_workflow(
                     token = vnc_link.token
                 elif "token='" in str(vnc_link):
                     token = str(vnc_link).split("token='")[1].split("'")[0]
-                
-                # Update project with sandbox info
-                await client.table('projects').update({
-                    'sandbox': {
-                        'id': sandbox_id,
-                        'pass': sandbox_pass,
-                        'vnc_preview': vnc_url,
-                        'sandbox_url': website_url,
-                        'token': token
-                    }
-                }).eq('project_id', project_id).execute()
-                
-                logger.info(f"Updated workflow executions project {project_id} with sandbox {sandbox_id}")
-                
             except Exception as e:
-                logger.error(f"Failed to create sandbox for workflow executions project {project_id}: {e}")
-                # Clean up the project if sandbox creation fails
+                logger.error(f"Error creating sandbox: {str(e)}")
                 await client.table('projects').delete().eq('project_id', project_id).execute()
-                raise HTTPException(status_code=500, detail=f"Failed to create sandbox for workflow execution: {str(e)}")
-        else:
-            # Project exists, check if it has a sandbox
-            project_data = project_result.data[0]
-            project_id = project_data['project_id']
-            sandbox_info = project_data.get('sandbox', {})
-            
-            if not sandbox_info.get('id'):
-                # Existing project doesn't have a sandbox, create one
-                from sandbox.sandbox import create_sandbox
-                logger.info(f"Existing workflow executions project {project_id} doesn't have a sandbox, creating one")
-                
-                try:
-                    sandbox_pass = str(uuid.uuid4())
-                    sandbox = await create_sandbox(sandbox_pass, project_id)
-                    sandbox_id = sandbox.id
-                    logger.info(f"Created sandbox {sandbox_id} for existing workflow executions project {project_id}")
-                    
-                    # Get preview links
-                    vnc_link = await sandbox.get_preview_link(6080)
-                    website_link = await sandbox.get_preview_link(8080)
-                    vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
-                    website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
-                    token = None
-                    if hasattr(vnc_link, 'token'):
-                        token = vnc_link.token
-                    elif "token='" in str(vnc_link):
-                        token = str(vnc_link).split("token='")[1].split("'")[0]
-                    
-                    # Update project with sandbox info
-                    await client.table('projects').update({
-                        'sandbox': {
-                            'id': sandbox_id,
-                            'pass': sandbox_pass,
-                            'vnc_preview': vnc_url,
-                            'sandbox_url': website_url,
-                            'token': token
-                        }
-                    }).eq('project_id', project_id).execute()
-                    
-                    logger.info(f"Updated existing workflow executions project {project_id} with sandbox {sandbox_id}")
-                    
-                except Exception as e:
-                    logger.error(f"Failed to create sandbox for existing workflow executions project {project_id}: {e}")
-                    raise HTTPException(status_code=500, detail=f"Failed to create sandbox for workflow execution: {str(e)}")
-            else:
-                logger.info(f"Using existing workflow executions project {project_id} with sandbox {sandbox_info.get('id')}")
-        
-        thread_id = str(uuid.uuid4())
-        await client.table('threads').insert({
-            'thread_id': thread_id,
-            'project_id': project_id,
-            'account_id': account_id,
-            'metadata': {
-                'workflow_execution': True,
-                'workflow_id': workflow_id,
-                'workflow_name': workflow['name']
+                if sandbox_id:
+                    try: 
+                        from sandbox.sandbox import delete_sandbox
+                        await delete_sandbox(sandbox_id)
+                    except Exception as e: 
+                        pass
+                raise Exception("Failed to create sandbox")
+
+            update_result = await client.table('projects').update({
+                'sandbox': {
+                    'id': sandbox_id, 
+                    'pass': sandbox_pass, 
+                    'vnc_preview': vnc_url,
+                    'sandbox_url': website_url, 
+                    'token': token
+                }
+            }).eq('project_id', project_id).execute()
+
+            if not update_result.data:
+                logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
+                if sandbox_id:
+                    try: 
+                        from sandbox.sandbox import delete_sandbox
+                        await delete_sandbox(sandbox_id)
+                    except Exception as e: 
+                        logger.error(f"Error deleting sandbox: {str(e)}")
+                raise Exception("Database update failed")
+
+            # 3. Create Thread
+            thread_data = {
+                "thread_id": str(uuid.uuid4()), 
+                "project_id": project_id, 
+                "account_id": account_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "metadata": {
+                    "workflow_execution": True,
+                    "workflow_id": workflow_id,
+                    "workflow_name": workflow['name']
+                }
             }
-        }).execute()
-        
-        await client.table('messages').insert({
-            'message_id': str(uuid.uuid4()),
-            'thread_id': thread_id,
-            'type': 'user',
-            'is_llm_message': True,
-            'content': json.dumps({
-                'role': 'user',
-                'content': f"Execute workflow: {workflow['name']}\n\nInput: {json.dumps(execution_data.input_data) if execution_data.input_data else 'None'}"
-            }),
-            'created_at': datetime.now(timezone.utc).isoformat()
-        }).execute()
-    else:
-        await verify_thread_access(client, thread_id, user_id)
-        thread_result = await client.table('threads').select('project_id, account_id').eq('thread_id', thread_id).execute()
-        if not thread_result.data:
-            raise HTTPException(status_code=404, detail="Thread not found")
-        project_id = thread_result.data[0]['project_id']
+
+            thread = await client.table('threads').insert(thread_data).execute()
+            thread_id = thread.data[0]['thread_id']
+            logger.info(f"Created new thread: {thread_id}")
+            
+            structlog.contextvars.bind_contextvars(
+                thread_id=thread_id,
+                project_id=project_id,
+            )
+
+            # 4. Create initial message
+            message_content = f"Execute workflow: {workflow['name']}\n\nInput: {json.dumps(execution_data.input_data) if execution_data.input_data else 'None'}"
+            message = await client.table('messages').insert({
+                "message_id": str(uuid.uuid4()),
+                "thread_id": thread_id,
+                "type": "user",
+                "is_llm_message": True,
+                "content": json.dumps({"role": "user", "content": message_content}),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }).execute()
+            logger.info(f"Created initial message for workflow execution")
+
+        except Exception as e:
+            logger.error(f"Error in workflow project/thread creation: {str(e)}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Failed to initiate workflow session: {str(e)}")
     
+    # Check model access and billing (same as start_agent)
+    can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+    if not can_use:
+        raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
+
+    can_run, message, subscription = await check_billing_status(client, account_id)
+    if not can_run:
+        raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
+
+    # Stop any active runs for this project
+    active_run_id = await check_for_active_project_agent_run(client, project_id)
+    if active_run_id:
+        logger.info(f"Stopping existing agent run {active_run_id} for project {project_id}")
+        await stop_agent_run(active_run_id)
+
+    # Ensure sandbox is running (same as start_agent)
+    try:
+        # Get project data to find sandbox ID
+        project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
+        if not project_result.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        project_data = project_result.data[0]
+        sandbox_info = project_data.get('sandbox', {})
+        if not sandbox_info.get('id'):
+            raise HTTPException(status_code=404, detail="No sandbox found for this project")
+            
+        sandbox_id = sandbox_info['id']
+        sandbox = await get_or_start_sandbox(sandbox_id)
+        logger.info(f"Successfully started sandbox {sandbox_id} for project {project_id}")
+    except Exception as e:
+        logger.error(f"Failed to start sandbox for project {project_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to initialize sandbox: {str(e)}")
+
+    # Create workflow execution record
     execution_result = await client.table('workflow_executions').insert({
         'workflow_id': workflow_id,
         'agent_id': agent_id,
@@ -2782,43 +2957,48 @@ async def execute_agent_workflow(
     
     execution_id = execution_result.data[0]['id']
     
+    # Create agent run (same as start_agent)
     agent_run = await client.table('agent_runs').insert({
-        'thread_id': thread_id,
-        'status': 'running',
-        'started_at': datetime.now(timezone.utc).isoformat(),
-        'agent_id': agent_id,
-        'agent_version_id': agent_config.get('current_version_id'),
+        "thread_id": thread_id, 
+        "status": "running",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "agent_id": agent_config.get('agent_id') if agent_config else None,
+        "agent_version_id": agent_config.get('current_version_id') if agent_config else None
     }).execute()
-    
     agent_run_id = agent_run.data[0]['id']
     
+    structlog.contextvars.bind_contextvars(
+        agent_run_id=agent_run_id,
+    )
+    logger.info(f"Created new agent run: {agent_run_id}")
+
+    # Register this run in Redis with TTL using instance ID
     instance_key = f"active_run:{instance_id}:{agent_run_id}"
     try:
         await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
     except Exception as e:
         logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
-    
+
+    request_id = structlog.contextvars.get_contextvars().get('request_id')
+
+    # Run the agent in the background (same as start_agent)
     from run_agent_background import run_agent_background
-    # Ensure we have a valid model name
-    model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
-    logger.info(f"Using model for workflow execution: {model_name}")
-    
     run_agent_background.send(
-        agent_run_id=agent_run_id,
-        thread_id=thread_id,
+        agent_run_id=agent_run_id, 
+        thread_id=thread_id, 
         instance_id=instance_id,
         project_id=project_id,
         model_name=model_name,
-        enable_thinking=False,
+        enable_thinking=False, 
         reasoning_effort='medium',
-        stream=True,
+        stream=True, 
         enable_context_manager=True,
         agent_config=agent_config,
         is_agent_builder=False,
         target_agent_id=None,
-        request_id=None
+        request_id=request_id,
     )
-    
+
     return {
         "execution_id": execution_id,
         "thread_id": thread_id,

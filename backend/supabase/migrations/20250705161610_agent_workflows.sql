@@ -35,9 +35,6 @@ CREATE TABLE IF NOT EXISTS agent_workflows (
     is_default BOOLEAN DEFAULT FALSE, -- Whether this is the default workflow for the agent
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Ensure unique names per agent
-    CONSTRAINT agent_workflows_name_unique UNIQUE (agent_id, name)
 );
 
 -- Workflow steps table

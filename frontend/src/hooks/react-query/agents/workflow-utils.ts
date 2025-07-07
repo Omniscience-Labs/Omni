@@ -7,7 +7,7 @@ export interface WorkflowStep {
   id: string;
   name: string;
   description?: string;
-  type: 'message' | 'tool_call' | 'condition' | 'loop' | 'wait' | 'input' | 'output';
+  type: string;
   config: Record<string, any>;
   conditions?: Record<string, any>;
   order: number;
@@ -52,7 +52,7 @@ export interface CreateWorkflowRequest {
   steps: Array<{
     name: string;
     description?: string;
-    type: 'message' | 'tool_call' | 'condition' | 'loop' | 'wait' | 'input' | 'output';
+    type?: string;
     config?: Record<string, any>;
     conditions?: Record<string, any>;
     order: number;
@@ -68,8 +68,8 @@ export interface UpdateWorkflowRequest {
   steps?: Array<{
     name: string;
     description?: string;
-    type: 'message' | 'tool_call' | 'condition' | 'loop' | 'wait' | 'input' | 'output';
-    config?: Record<string, any>;
+    type?: string; // Optional, defaults to 'instruction'
+    config?: Record<string, any>; // Contains optional tool_name and settings
     conditions?: Record<string, any>;
     order: number;
   }>;
@@ -157,6 +157,7 @@ export const updateAgentWorkflow = async (
   workflow: UpdateWorkflowRequest
 ): Promise<AgentWorkflow> => {
   try {
+    console.log('[API] Updating workflow:', workflow);
     const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
