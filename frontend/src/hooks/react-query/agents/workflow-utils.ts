@@ -80,6 +80,68 @@ export interface ExecuteWorkflowRequest {
   thread_id?: string;
 }
 
+export interface LLMWorkflowStep {
+  step: string;
+  description?: string;
+  tool?: string;
+  condition?: string;
+  then?: LLMWorkflowStep[];
+}
+
+export interface LLMWorkflowFormat {
+  workflow: string;
+  description?: string;
+  steps: LLMWorkflowStep[];
+}
+
+export const convertWorkflowToLLMFormat = (workflow: AgentWorkflow): LLMWorkflowFormat => {
+  const convertSteps = (steps: any[]): LLMWorkflowStep[] => {
+    return steps.map(step => {
+      const llmStep: LLMWorkflowStep = {
+        step: step.name,
+      };
+
+      if (step.description) {
+        llmStep.description = step.description;
+      }
+
+      if (step.config?.tool_name) {
+        llmStep.tool = step.config.tool_name;
+      }
+
+      if (step.type === 'condition' && step.conditions) {
+        if (step.conditions.type === 'if' && step.conditions.expression) {
+          llmStep.condition = step.conditions.expression;
+        } else if (step.conditions.type === 'else') {
+          llmStep.condition = 'else';
+        }
+      }
+
+      if (step.steps && step.steps.length > 0) {
+        llmStep.then = convertSteps(step.steps);
+      }
+
+      return llmStep;
+    });
+  };
+
+  const llmFormat: LLMWorkflowFormat = {
+    workflow: workflow.name,
+    steps: convertSteps(workflow.steps)
+  };
+
+  if (workflow.description) {
+    llmFormat.description = workflow.description;
+  }
+
+  return llmFormat;
+};
+
+export const generateLLMWorkflowPrompt = (workflow: AgentWorkflow): string => {
+  const llmFormat = convertWorkflowToLLMFormat(workflow);
+  return JSON.stringify(llmFormat, null, 2);
+};
+
 export const getAgentWorkflows = async (agentId: string): Promise<AgentWorkflow[]> => {
   try {
     const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');

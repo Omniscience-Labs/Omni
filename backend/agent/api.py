@@ -2548,129 +2548,108 @@ async def delete_agent_workflow(
 
 
 def build_workflow_system_prompt(workflow: dict, steps: List[dict], input_data: dict = None, available_tools: List[str] = None) -> str:
-    step_instructions = []
-    conditional_logic = []
+    """Build a workflow system prompt using LLM-friendly nested JSON format."""
     
-    for i, step in enumerate(sorted(steps, key=lambda x: x['step_order']), 1):
-        step_type = step['type']
-        step_name = step['name']
-        step_desc = step.get('description', '')
-        config = step.get('config', {})
+    # Convert flat steps to nested structure for LLM
+    def build_nested_steps(flat_steps: List[dict], parent_conditions: dict = None) -> List[dict]:
+        """Convert flat database steps to nested LLM-friendly format."""
+        result = []
+        i = 0
         
-        branches = config.get('branches', [])
-        if branches:
-            step_instructions.append(f"{i}. [BRANCH] {step_name}: {step_desc}")
-            conditional_logic.append(f"Step {i} ({step_name}) has {len(branches)} branches:")
-            for j, branch in enumerate(branches):
-                branch_letter = chr(65 + j)
-                branch_type = branch.get('type', 'if')
-                condition = branch.get('condition', {})
-                
-                if branch_type == 'else':
-                    conditional_logic.append(f"  - Branch {branch_letter}: ELSE (fallback)")
-                else:
-                    variable = condition.get('variable', 'user_input')
-                    operation = condition.get('operation', 'contains')
-                    value = condition.get('value', '')
-                    
-                    condition_text = f"if {variable} {operation} '{value}'" if branch_type == 'if' else f"else if {variable} {operation} '{value}'"
-                    conditional_logic.append(f"  - Branch {branch_letter}: {condition_text}")
-                
-                next_step = branch.get('next_step_id')
-                if next_step:
-                    conditional_logic.append(f"    → Continue to step ID: {next_step}")
-                else:
-                    conditional_logic.append(f"    → End workflow")
-        else:
-            type_instruction = {
-                'message': f"Send a message/response",
-                'tool_call': f"Use available tools to",
-                'loop': f"Repeat or iterate on",
-                'wait': f"Take time to consider",
-                'input': f"Request or gather",
-                'output': f"Provide final result for",
-                'instruction': f"Complete step"
-            }.get(step_type, f"Complete step")
+        while i < len(flat_steps):
+            step = flat_steps[i]
+            llm_step = {
+                "step": step['name'],
+            }
             
-            instruction_text = config.get('instruction', step_desc)
-            tool_name = config.get('tool_name')
-            if tool_name:
-                # Check if the requested tool is available
-                is_tool_available = available_tools is None or tool_name in available_tools
-                
+            # Add description if present
+            if step.get('description'):
+                llm_step["description"] = step['description']
+            
+            # Add tool if specified
+            if step.get('config', {}).get('tool_name'):
+                tool_name = step['config']['tool_name']
+                # Clean up tool names for LLM
                 if ':' in tool_name:
                     server, clean_tool_name = tool_name.split(':', 1)
-                    actual_tool_name = clean_tool_name
+                    llm_step["tool"] = clean_tool_name
                 else:
-                    actual_tool_name = tool_name
+                    llm_step["tool"] = tool_name
+            
+            # Handle conditional steps
+            if step['type'] == 'condition' and step.get('conditions'):
+                if step['conditions'].get('type') == 'if' and step['conditions'].get('expression'):
+                    llm_step["condition"] = step['conditions']['expression']
+                elif step['conditions'].get('type') == 'else':
+                    llm_step["condition"] = "else"
                 
-                if is_tool_available:
-                    tool_instruction = f"[TOOL REQUIRED] Use the {actual_tool_name} tool to {instruction_text}"
-                else:
-                    # Tool not available - provide fallback guidance
-                    fallback_map = {
-                        'web_search_exa': 'web_search',
-                        'sb_files_tool': 'create_file, str_replace, or delete_file functions',
-                        'sb_shell_tool': 'execute_command',
-                        'sb_browser_tool': 'browser_navigate_to, browser_take_screenshot',
-                        'sb_vision_tool': 'see_image'
-                    }
-                    
-                    fallback = fallback_map.get(tool_name)
-                    if fallback:
-                        tool_instruction = f"[TOOL NOT AVAILABLE - USE FALLBACK] The {tool_name} tool is not configured. Instead, use {fallback} to {instruction_text}"
+                # Find all steps that belong to this condition branch
+                branch_steps = []
+                j = i + 1
+                while j < len(flat_steps):
+                    next_step = flat_steps[j]
+                    # Check if this step belongs to the current condition
+                    if (next_step.get('conditions') == step['conditions'] or 
+                        (parent_conditions and next_step.get('conditions') == parent_conditions)):
+                        branch_steps.append(next_step)
+                        j += 1
                     else:
-                        tool_instruction = f"[TOOL NOT AVAILABLE] The {tool_name} tool is not configured. Use any available tools to {instruction_text}"
+                        break
                 
-                step_instructions.append(f"{i}. [{step_type.upper()}] {step_name}: {tool_instruction}")
-            else:
-                step_instructions.append(f"{i}. [{step_type.upper()}] {step_name}: {type_instruction} {instruction_text} (use any appropriate tools as needed)")
+                # Recursively process branch steps
+                if branch_steps:
+                    llm_step["then"] = build_nested_steps(branch_steps, step['conditions'])
+                
+                # Skip the steps we've already processed
+                i = j - 1
+            
+            result.append(llm_step)
+            i += 1
+        
+        return result
     
-    workflow_prompt = f"""You are executing a workflow: "{workflow['name']}"
+    # Sort steps by order
+    sorted_steps = sorted(steps, key=lambda x: x.get('step_order', x.get('order', 0)))
+    
+    # Build LLM-friendly workflow structure
+    llm_workflow = {
+        "workflow": workflow['name'],
+        "steps": build_nested_steps(sorted_steps)
+    }
+    
+    if workflow.get('description'):
+        llm_workflow["description"] = workflow['description']
+    
+    # Convert to formatted JSON string
+    workflow_json = json.dumps(llm_workflow, indent=2)
+    
+    # Build the prompt
+    workflow_prompt = f"""You are executing a structured workflow. Follow the steps exactly as specified in the JSON below.
 
-{workflow.get('description', '')}
+WORKFLOW STRUCTURE:
+{workflow_json}
 
-Follow these steps:
-{chr(10).join(step_instructions)}"""
+EXECUTION INSTRUCTIONS:
+1. Execute each step in the order presented
+2. For steps with a "tool" field, you MUST use that specific tool
+3. For conditional steps (with "condition" field):
+   - Evaluate the condition based on the current context
+   - If the condition is true (or if it's an "else" condition), execute the steps in the "then" array
+   - State clearly which branch you're taking and why
+4. Provide clear progress updates as you complete each step
+5. If a tool is not available, explain what you would do instead
 
-    # Add conditional logic if present
-    if conditional_logic:
-        workflow_prompt += f"""
+AVAILABLE TOOLS:
+{', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'}
 
-BRANCHING LOGIC:
-{chr(10).join(conditional_logic)}
+IMPORTANT TOOL USAGE:
+- When a step specifies a tool, that tool MUST be used
+- If the specified tool is not available, adapt using similar available tools
+- For example, if "web_search_exa" is specified but not available, use "web_search" instead
 
-When evaluating branch conditions:
-- 'contains': Check if the variable contains the specified text (case-insensitive)
-- 'equals': Check if the variable exactly matches the specified value
-- 'not_equals': Check if the variable does not match the specified value
-- 'is_empty': Check if the variable is empty or null
-- 'is_not_empty': Check if the variable has content
+Current input data: {json.dumps(input_data) if input_data else 'None provided'}
 
-For branching steps:
-1. Evaluate each condition in order (A, B, C...)
-2. Take the first branch where the condition is TRUE
-3. If no conditions match, take the ELSE branch if present
-4. Clearly state which branch you're taking and why"""
-
-    workflow_prompt += f"""
-
-WORKFLOW EXECUTION INSTRUCTIONS:
-- Execute each step in order, following the step descriptions carefully
-- Steps marked with [TOOL REQUIRED] must use the specified tool
-- Steps marked with [TOOL NOT AVAILABLE] provide fallback instructions
-- For steps without tool requirements, use any appropriate tools as needed  
-- For branching steps, evaluate conditions and clearly state which branch you're taking
-- Provide clear progress updates as you complete each step
-
-🚨 CRITICAL WORKFLOW TOOL CALLING OVERRIDE 🚨
-IGNORE any call_mcp_tool examples in your system prompt for this workflow execution.
-Always use direct tool calling with the exact tool names specified in the workflow steps.
-
-AVAILABLE TOOLS FOR THIS WORKFLOW:
-{', '.join(available_tools) if available_tools else 'No specific tools detected - use any available tools from your system prompt'}
-
-Current workflow input: {input_data or 'None provided'}"""
+Begin executing the workflow now, starting with the first step."""
 
     return workflow_prompt
 
@@ -2740,8 +2719,7 @@ async def execute_agent_workflow(
     
     # Collect available tools to pass to workflow prompt
     available_tools = []
-    
-    # Check AgentPress tools
+
     agentpress_tools = agent_config.get('agentpress_tools', {})
     if agentpress_tools.get('sb_shell_tool', {}).get('enabled', False):
         available_tools.append('execute_command')

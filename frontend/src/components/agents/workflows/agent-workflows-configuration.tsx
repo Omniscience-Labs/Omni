@@ -243,7 +243,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
               {workflows.map((workflow) => (
                 <Card 
                   key={workflow.id} 
-                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-4 cursor-pointer hover:opacity-80 transition-colors"
                   onClick={() => handleWorkflowClick(workflow.id)}
                 >
                   <div className="flex items-center justify-between">
