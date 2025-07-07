@@ -5,14 +5,11 @@ import json
 import traceback
 from datetime import datetime, timezone
 import uuid
-from typing import Optional, List, Dict, Any, AsyncIterable
-import jwt
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-import tempfile
 import os
 from resumable_stream.runtime import create_resumable_stream_context, ResumableStreamContext
 
-from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from services import redis
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
@@ -21,7 +18,7 @@ from services.billing import check_billing_status, can_use_model
 from utils.config import config
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
-from run_agent_background import run_agent_background, update_agent_run_status
+from agent.run_agent import run_agent_run_stream, update_agent_run_status, StreamBroadcaster
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
@@ -34,43 +31,6 @@ instance_id = None # Global instance ID for this backend instance
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
 stream_context_global: Optional[ResumableStreamContext] = None
-
-# Create stream broadcaster for multiple consumers
-class StreamBroadcaster:
-    def __init__(self, source: AsyncIterable[Any]):
-        self.source = source
-        self.queues: List[asyncio.Queue] = []
-
-    def add_consumer(self) -> asyncio.Queue:
-        q: asyncio.Queue = asyncio.Queue()
-        self.queues.append(q)
-        return q
-
-    async def start(self) -> None:
-        async for chunk in self.source:
-            for q in self.queues:
-                await q.put(chunk)
-        for q in self.queues:
-            await q.put(None)  # Sentinel to close consumers
-
-    # Consumer wrapper as an async generator
-    @staticmethod
-    async def queue_to_stream(queue: asyncio.Queue) -> AsyncIterable[Any]:
-        while True:
-            chunk = await queue.get()
-            if chunk is None:
-                break
-            yield chunk
-    
-    # Print consumer task
-    @staticmethod
-    async def iterate_bg(queue: asyncio.Queue) -> None:
-        while True:
-            chunk = await queue.get()
-            if chunk is None:
-                break
-            pass
-
 
 async def get_stream_context():
     global stream_context_global
@@ -438,8 +398,6 @@ async def start_agent(
     except Exception as e:
         logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
 
-    request_id = structlog.contextvars.get_contextvars().get('request_id')
-
     return {"agent_run_id": agent_run_id, "status": "running"}
 
 @router.post("/agent-run/{agent_run_id}/stop")
@@ -718,7 +676,7 @@ async def stream_agent_run(
             return
         
         # Create the stream
-        stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_background(
+        stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
             agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
             project_id=project_id,
             model_name=model_name,
@@ -1036,8 +994,6 @@ async def initiate_agent_with_files(
             await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
         except Exception as e:
             logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
-
-        request_id = structlog.contextvars.get_contextvars().get('request_id')
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
 

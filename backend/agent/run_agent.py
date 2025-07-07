@@ -6,7 +6,7 @@ import sentry
 import asyncio
 import traceback
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncIterable
 from services import redis
 from agent.run import run_agent
 from utils.logger import logger, structlog
@@ -20,6 +20,43 @@ import json
 _initialized = False
 db = DBConnection()
 instance_id = "single"
+
+
+# Create stream broadcaster for multiple consumers
+class StreamBroadcaster:
+    def __init__(self, source: AsyncIterable[Any]):
+        self.source = source
+        self.queues: List[asyncio.Queue] = []
+
+    def add_consumer(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue()
+        self.queues.append(q)
+        return q
+
+    async def start(self) -> None:
+        async for chunk in self.source:
+            for q in self.queues:
+                await q.put(chunk)
+        for q in self.queues:
+            await q.put(None)  # Sentinel to close consumers
+
+    # Consumer wrapper as an async generator
+    @staticmethod
+    async def queue_to_stream(queue: asyncio.Queue) -> AsyncIterable[Any]:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            yield chunk
+
+    # Print consumer task
+    @staticmethod
+    async def iterate_bg(queue: asyncio.Queue) -> None:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            pass
 
 
 async def initialize():
@@ -41,7 +78,7 @@ async def check_health(key: str):
     await redis.set(key, "healthy", ex=redis.REDIS_KEY_TTL)
 
 
-async def run_agent_background(
+async def run_agent_run_stream(
     agent_run_id: str,
     thread_id: str,
     instance_id: str,
@@ -107,22 +144,28 @@ async def run_agent_background(
     stop_signal_received = False
 
     stop_redis_key = f"stop_signal:{agent_run_id}"
-    
+
     async def check_for_stop_signal():
         nonlocal stop_signal_received
         try:
             while not stop_signal_received:
                 message = await redis.client.get(stop_redis_key)
                 if message == "STOP":
-                    logger.info(f"Received STOP signal for agent run {agent_run_id} (Instance: {instance_id})")
+                    logger.info(
+                        f"Received STOP signal for agent run {agent_run_id} (Instance: {instance_id})"
+                    )
                     stop_signal_received = True
                     break
-                await asyncio.sleep(0.5) # Short sleep to prevent tight loop
+                await asyncio.sleep(0.5)  # Short sleep to prevent tight loop
         except asyncio.CancelledError:
-            logger.info(f"Stop signal checker cancelled for {agent_run_id} (Instance: {instance_id})")
+            logger.info(
+                f"Stop signal checker cancelled for {agent_run_id} (Instance: {instance_id})"
+            )
         except Exception as e:
-            logger.error(f"Error in stop signal checker for {agent_run_id}: {e}", exc_info=True)
-            stop_signal_received = True # Stop the run if the checker fails
+            logger.error(
+                f"Error in stop signal checker for {agent_run_id}: {e}", exc_info=True
+            )
+            stop_signal_received = True  # Stop the run if the checker fails
 
     asyncio.create_task(check_for_stop_signal())
 
@@ -150,7 +193,9 @@ async def run_agent_background(
             if stop_signal_received:
                 logger.info(f"Agent run {agent_run_id} stopped by signal.")
                 final_status = "stopped"
-                trace.span(name="agent_run_stopped").end(status_message="agent_run_stopped", level="WARNING")
+                trace.span(name="agent_run_stopped").end(
+                    status_message="agent_run_stopped", level="WARNING"
+                )
                 break
 
             all_responses.append(response)  # Keep for DB updates
@@ -158,7 +203,7 @@ async def run_agent_background(
                 yield f"data: {json.dumps(response)}\n\n"
             else:
                 yield f"data: {response}\n\n"
-            
+
             # Check for agent-signaled completion or error
             if response.get("type") == "status":
                 status_val = response.get("status")
