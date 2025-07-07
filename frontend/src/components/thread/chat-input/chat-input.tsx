@@ -49,6 +49,7 @@ export interface ChatInputProps {
   toolCallIndex?: number;
   showToolPreview?: boolean;
   onExpandToolPreview?: () => void;
+  isLoggedIn?: boolean;
 }
 
 export interface UploadedFile {
@@ -78,11 +79,12 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onAgentSelect,
       agentName,
       messages = [],
-      bgColor = 'bg-sidebar',
+      bgColor = 'bg-card',
       toolCalls = [],
       toolCallIndex = 0,
       showToolPreview = false,
       onExpandToolPreview,
+      isLoggedIn = true,
     },
     ref,
   ) => {
@@ -238,12 +240,12 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         <FloatingToolPreview
           toolCalls={toolCalls}
           currentIndex={toolCallIndex}
-          onExpand={onExpandToolPreview || (() => {})}
+          onExpand={onExpandToolPreview || (() => { })}
           agentName={agentName}
           isVisible={showToolPreview}
         />
         <Card
-          className="-mb-2 bg-red-400 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-xl overflow-hidden"
+          className="-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={(e) => {
@@ -265,7 +267,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           }}
         >
           <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-            <CardContent className={`w-full p-1.5 pb-2 ${bgColor} rounded-2xl border`}>
+            <CardContent className={`w-full p-1.5 pb-2 ${bgColor} rounded-3xl border`}>
               <AttachmentGroup
                 files={uploadedFiles || []}
                 sandboxId={sandboxId}
@@ -303,6 +305,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
+                isLoggedIn={isLoggedIn}
 
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={onAgentSelect}

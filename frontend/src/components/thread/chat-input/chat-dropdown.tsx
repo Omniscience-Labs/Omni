@@ -7,6 +7,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import Image from 'next/image'
 
 const ChatDropdown = () => {
     const [isOpen, setIsOpen] = useState(false)
@@ -23,7 +24,7 @@ const ChatDropdown = () => {
                     }}
                 >
                     <div className="flex items-center gap-2">
-                        <User size={16} />
+                        <Image src="/kortix-symbol.svg" alt="Suna" width={16} height={16} className="h-4 w-4 dark:invert" />
                         <span>Suna</span>
                         <ChevronDown size={14} className="opacity-50" />
                     </div>
@@ -34,9 +35,6 @@ const ChatDropdown = () => {
                 align="end"
                 className="w-64 p-0 border"
                 sideOffset={4}
-                style={{
-                    borderRadius: '16px'
-                }}
             >
                 <DropdownMenuItem
                     className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent border-b m-0"

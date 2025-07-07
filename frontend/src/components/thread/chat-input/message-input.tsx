@@ -8,13 +8,14 @@ import { FileUploadHandler } from './file-upload-handler';
 import { VoiceRecorder } from './voice-recorder';
 import { ModelSelector } from './model-selector';
 import { ChatSettingsDropdown } from './chat-settings-dropdown';
-import { SubscriptionStatus } from './_use-model-selection';
+import { canAccessModel, SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { TooltipContent } from '@/components/ui/tooltip';
 import { Tooltip } from '@/components/ui/tooltip';
 import { TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
 import { BillingModal } from '@/components/billing/billing-modal';
+import ChatDropdown from './chat-dropdown';
 
 interface MessageInputProps {
   value: string;
@@ -37,6 +38,7 @@ interface MessageInputProps {
   setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
   hideAttachments?: boolean;
   messages?: any[]; // Add messages prop
+  isLoggedIn?: boolean;
 
   selectedModel: string;
   onModelChange: (model: string) => void;
@@ -71,6 +73,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       setIsUploading,
       hideAttachments = false,
       messages = [],
+      isLoggedIn = true,
 
       selectedModel,
       onModelChange,
@@ -122,10 +125,40 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       }
     };
 
-    return (
-      <div className="relative flex flex-col w-full h-auto gap-4 justify-between">
+    const renderDropdown = () => {
+      if (isLoggedIn) {
+        if (!customAgentsEnabled || flagsLoading) {
+          return <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+            billingModalOpen={billingModalOpen}
+            setBillingModalOpen={setBillingModalOpen}
+          />
+        } else {
+          return <ChatSettingsDropdown
+            selectedAgentId={selectedAgentId}
+            onAgentSelect={onAgentSelect}
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+            disabled={loading || (disabled && !isAgentRunning)}
+          />
+        }
+      }
+      return <ChatDropdown />;
+    }
 
-        <div className="flex flex-col gap-2 items-center px-2">
+    return (
+      <div className="relative flex flex-col w-full h-full gap-2 justify-between">
+
+        <div className="flex flex-col gap-1 px-2">
           <Textarea
             ref={ref}
             value={value}
@@ -133,16 +166,16 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={cn(
-              'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-2 py-1 text-base min-h-[40px] max-h-[200px] overflow-y-auto resize-none',
+              'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-0.5 pb-6 pt-4 !text-[15px] min-h-[36px] max-h-[200px] overflow-y-auto resize-none',
               isDraggingOver ? 'opacity-40' : '',
             )}
             disabled={loading || (disabled && !isAgentRunning)}
-            rows={2}
+            rows={1}
           />
         </div>
 
 
-        <div className="flex items-center justify-between mt-1 ml-3 mb-1 pr-2">
+        <div className="flex items-center justify-between mt-0 mb-1 px-2">
           <div className="flex items-center gap-3">
             {!hideAttachments && (
               <FileUploadHandler
@@ -156,11 +189,12 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 setUploadedFiles={setUploadedFiles}
                 setIsUploading={setIsUploading}
                 messages={messages}
+                isLoggedIn={isLoggedIn}
               />
             )}
 
           </div>
-          
+
           {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
             <TooltipProvider>
               <Tooltip>
@@ -173,34 +207,11 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               </Tooltip>
             </TooltipProvider>
           }
-          
+
           <div className='flex items-center gap-2'>
             {/* Show model selector inline if custom agents are disabled, otherwise show settings dropdown */}
-            {!customAgentsEnabled || flagsLoading ? (
-              <ModelSelector
-                selectedModel={selectedModel}
-                onModelChange={onModelChange}
-                modelOptions={modelOptions}
-                subscriptionStatus={subscriptionStatus}
-                canAccessModel={canAccessModel}
-                refreshCustomModels={refreshCustomModels}
-                billingModalOpen={billingModalOpen}
-                setBillingModalOpen={setBillingModalOpen}
-              />
-            ) : (
-              <ChatSettingsDropdown
-                selectedAgentId={selectedAgentId}
-                onAgentSelect={onAgentSelect}
-                selectedModel={selectedModel}
-                onModelChange={onModelChange}
-                modelOptions={modelOptions}
-                subscriptionStatus={subscriptionStatus}
-                canAccessModel={canAccessModel}
-                refreshCustomModels={refreshCustomModels}
-                disabled={loading || (disabled && !isAgentRunning)}
-              />
-            )}
-            
+            {renderDropdown()}
+
             {/* Billing Modal */}
             <BillingModal
               open={billingModalOpen}
@@ -208,18 +219,17 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               returnUrl={typeof window !== 'undefined' ? window.location.href : '/'}
             />
 
-            <VoiceRecorder
+            {isLoggedIn && <VoiceRecorder
               onTranscription={onTranscription}
               disabled={loading || (disabled && !isAgentRunning)}
-            />
-            
+            />}
+
             <Button
               type="submit"
               onClick={isAgentRunning && onStopAgent ? onStopAgent : onSubmit}
               size="sm"
               className={cn(
-                'w-7 h-7 flex-shrink-0 self-end',
-                isAgentRunning ? 'bg-red-500 hover:bg-red-600' : '',
+                'w-8 h-8 flex-shrink-0 self-end rounded-xl',
                 (!value.trim() && uploadedFiles.length === 0 && !isAgentRunning) ||
                   loading ||
                   (disabled && !isAgentRunning)
@@ -233,11 +243,11 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               }
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : isAgentRunning ? (
-                <Square className="h-4 w-4" />
+                <div className="min-h-[14px] min-w-[14px] w-[14px] h-[14px] rounded-sm bg-current" />
               ) : (
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="h-5 w-5" />
               )}
             </Button>
           </div>
