@@ -5,7 +5,7 @@ import json
 import traceback
 from datetime import datetime, timezone
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncIterable
 import jwt
 from pydantic import BaseModel
 import tempfile
@@ -34,6 +34,43 @@ instance_id = None # Global instance ID for this backend instance
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
 stream_context_global: Optional[ResumableStreamContext] = None
+
+# Create stream broadcaster for multiple consumers
+class StreamBroadcaster:
+    def __init__(self, source: AsyncIterable[Any]):
+        self.source = source
+        self.queues: List[asyncio.Queue] = []
+
+    def add_consumer(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue()
+        self.queues.append(q)
+        return q
+
+    async def start(self) -> None:
+        async for chunk in self.source:
+            for q in self.queues:
+                await q.put(chunk)
+        for q in self.queues:
+            await q.put(None)  # Sentinel to close consumers
+
+    # Consumer wrapper as an async generator
+    @staticmethod
+    async def queue_to_stream(queue: asyncio.Queue) -> AsyncIterable[Any]:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            yield chunk
+    
+    # Print consumer task
+    @staticmethod
+    async def iterate_bg(queue: asyncio.Queue) -> None:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            pass
+
 
 async def get_stream_context():
     global stream_context_global
@@ -413,7 +450,13 @@ async def start_agent(
         "thread_id": thread_id, "status": "running",
         "started_at": datetime.now(timezone.utc).isoformat(),
         "agent_id": agent_config.get('agent_id') if agent_config else None,
-        "agent_version_id": agent_config.get('current_version_id') if agent_config else None
+        "agent_version_id": agent_config.get('current_version_id') if agent_config else None,
+        "metadata": {
+            "model_name": model_name,
+            "enable_thinking": body.enable_thinking,
+            "reasoning_effort": body.reasoning_effort,
+            "enable_context_manager": body.enable_context_manager
+        }
     }).execute()
     agent_run_id = agent_run.data[0]['id']
     structlog.contextvars.bind_contextvars(
@@ -429,26 +472,6 @@ async def start_agent(
         logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
 
     request_id = structlog.contextvars.get_contextvars().get('request_id')
-
-    stream_context = await get_stream_context()
-
-    stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_background(
-        agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
-        project_id=project_id,
-        model_name=model_name,  # Already resolved above
-        enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
-        stream=body.stream, enable_context_manager=body.enable_context_manager,
-        agent_config=agent_config,  # Pass agent configuration
-        is_agent_builder=is_agent_builder,
-        target_agent_id=target_agent_id,
-        request_id=request_id
-    ))
-
-    async def stream_in_background(s):
-        async for _ in s:
-            pass
-    
-    asyncio.create_task(stream_in_background(stream))
 
     return {"agent_run_id": agent_run_id, "status": "running"}
 
@@ -635,17 +658,128 @@ async def stream_agent_run(
     # Use resumable stream to get existing stream for this agent run
     stream = await stream_context.resume_existing_stream(agent_run_id)
     
-    # If stream is None, retry for 5 seconds
+    # If stream doesn't exist, create it
     if stream is None:
-        import time
-        start_time = time.time()
-        while stream is None and (time.time() - start_time) < 10:
-            await asyncio.sleep(0.5)
-            stream = await stream_context.resume_existing_stream(agent_run_id)
+        logger.info(f"No existing stream found for agent run {agent_run_id}, creating new stream")
+        
+        # Get necessary data from database
+        thread_id = agent_run_data['thread_id']
+        
+        # Get thread data including project_id and metadata
+        thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id', 'metadata').eq('thread_id', thread_id).execute()
+        if not thread_result.data:
+            logger.error(f"Thread {thread_id} not found for agent run {agent_run_id}")
+            return
+        
+        thread_data = thread_result.data[0]
+        project_id = thread_data.get('project_id')
+        account_id = thread_data.get('account_id')
+        thread_agent_id = thread_data.get('agent_id')
+        thread_metadata = thread_data.get('metadata', {})
+        
+        # Check if this is an agent builder thread
+        is_agent_builder = thread_metadata.get('is_agent_builder', False)
+        target_agent_id = thread_metadata.get('target_agent_id')
+        
+        # Get agent configuration
+        agent_config = None
+        effective_agent_id = agent_run_data.get('agent_id') or thread_agent_id
+        
+        if effective_agent_id:
+            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+            if agent_result.data:
+                agent_data = agent_result.data[0]
+                if agent_data.get('agent_versions'):
+                    version_data = agent_data['agent_versions']
+                    agent_config = {
+                        'agent_id': agent_data['agent_id'],
+                        'name': agent_data['name'],
+                        'description': agent_data.get('description'),
+                        'system_prompt': version_data['system_prompt'],
+                        'configured_mcps': version_data.get('configured_mcps', []),
+                        'custom_mcps': version_data.get('custom_mcps', []),
+                        'agentpress_tools': version_data.get('agentpress_tools', {}),
+                        'is_default': agent_data.get('is_default', False),
+                        'current_version_id': agent_data.get('current_version_id'),
+                        'version_name': version_data.get('version_name', 'v1')
+                    }
+                else:
+                    agent_config = agent_data
+        
+        # Get streaming parameters from the agent run metadata
+        metadata = agent_run_data.get('metadata', {})
+        model_name = metadata.get('model_name') or config.MODEL_TO_USE
+        enable_thinking = metadata.get('enable_thinking', False)
+        reasoning_effort = metadata.get('reasoning_effort', 'low')
+        stream_enabled = True  # Always true for streaming endpoint
+        enable_context_manager = metadata.get('enable_context_manager', False)
+        
+        # Check if user has access to the model
+        can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+        if not can_use:
+            logger.error(f"User {user_id} cannot use model {model_name}: {model_message}")
+            return
+        
+        # Check billing status
+        can_run, billing_message, subscription = await check_billing_status(client, account_id)
+        if not can_run:
+            logger.error(f"User {user_id} billing check failed: {billing_message}")
+            return
+        
+        # Get request_id from context
+        request_id = structlog.contextvars.get_contextvars().get('request_id')
+        
+        # Ensure sandbox is running
+        try:
+            # Get project data to find sandbox ID
+            project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
+            if not project_result.data:
+                logger.error(f"Project {project_id} not found for agent run {agent_run_id}")
+                return
+            
+            project_data = project_result.data[0]
+            sandbox_info = project_data.get('sandbox', {})
+            if not sandbox_info.get('id'):
+                logger.error(f"No sandbox found for project {project_id} in agent run {agent_run_id}")
+                return
+                
+            sandbox_id = sandbox_info['id']
+            sandbox = await get_or_start_sandbox(sandbox_id)
+            logger.info(f"Successfully started sandbox {sandbox_id} for project {project_id}")
+        except Exception as e:
+            logger.error(f"Failed to start sandbox for project {project_id}: {str(e)}")
+            return
+        
+        # Create the stream
+        stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_background(
+            agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
+            project_id=project_id,
+            model_name=model_name,
+            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
+            stream=stream_enabled, enable_context_manager=enable_context_manager,
+            agent_config=agent_config,
+            is_agent_builder=is_agent_builder,
+            target_agent_id=target_agent_id,
+            request_id=request_id
+        ))
+        
+        broadcaster = StreamBroadcaster(stream)
+        stream_q = broadcaster.add_consumer()
+        print_q = broadcaster.add_consumer()
+
+        asyncio.create_task(broadcaster.start())
+        asyncio.create_task(StreamBroadcaster.iterate_bg(print_q))
+
+        stream = StreamBroadcaster.queue_to_stream(stream_q)
+
+        logger.info(f"Created new stream for agent run {agent_run_id}")
+    else:
+        logger.info(f"Resuming existing stream for agent run {agent_run_id}")
     
     if stream is None:
+        logger.error(f"Failed to create or resume stream for agent run {agent_run_id}")
         return
-    
+
     return StreamingResponse(stream, media_type="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive",
         "X-Accel-Buffering": "no", "Content-Type": "text/event-stream",
@@ -916,7 +1050,13 @@ async def initiate_agent_with_files(
             "thread_id": thread_id, "status": "running",
             "started_at": datetime.now(timezone.utc).isoformat(),
             "agent_id": agent_config.get('agent_id') if agent_config else None,
-            "agent_version_id": agent_config.get('current_version_id') if agent_config else None
+            "agent_version_id": agent_config.get('current_version_id') if agent_config else None,
+            "metadata": {
+                "model_name": model_name,
+                "enable_thinking": enable_thinking,
+                "reasoning_effort": reasoning_effort,
+                "enable_context_manager": enable_context_manager
+            }
         }).execute()
         agent_run_id = agent_run.data[0]['id']
         logger.info(f"Created new agent run: {agent_run_id}")
@@ -932,25 +1072,6 @@ async def initiate_agent_with_files(
             logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
 
         request_id = structlog.contextvars.get_contextvars().get('request_id')
-
-        stream_context = await get_stream_context()
-        stream_generator = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_background(
-            agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
-            project_id=project_id,
-            model_name=model_name,  # Already resolved above
-            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
-            stream=stream, enable_context_manager=enable_context_manager,
-            agent_config=agent_config,  # Pass agent configuration
-            is_agent_builder=is_agent_builder,
-            target_agent_id=target_agent_id,
-            request_id=request_id,
-        ))
-
-        async def stream_in_background(s):
-            async for _ in s:
-                pass
-        
-        asyncio.create_task(stream_in_background(stream_generator))
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
 
