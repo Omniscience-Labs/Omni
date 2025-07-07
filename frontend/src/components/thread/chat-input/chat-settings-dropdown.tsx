@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, ChevronRight, Bot, Presentation, FileSpreadsheet, Search, Plus, User, Check, ChevronDown } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -86,7 +87,7 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
       name: 'Suna',
       description: 'Your personal AI assistant',
       type: 'default' as const,
-      icon: <User className="h-4 w-4" />
+      icon: <Image src="/kortix-symbol.svg" alt="Suna" width={16} height={16} className="h-4 w-4 dark:invert" />
     },
     ...PREDEFINED_AGENTS.map(agent => ({
       ...agent,
@@ -127,7 +128,7 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
     }
     return {
       name: 'Suna',
-      icon: <User className="h-4 w-4" />
+      icon: <Image src="/kortix-symbol.svg" alt="Suna" width={16} height={16} className="h-4 w-4 dark:invert" />
     };
   };
 
