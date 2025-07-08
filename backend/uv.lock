@@ -582,18 +582,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dramatiq"
-version = "1.18.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "prometheus-client" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/9f/c8be928a88c387ed27344de089278e76d893dc71ad9e4b2a39a61deab0d8/dramatiq-1.18.0.tar.gz", hash = "sha256:5ea436b6e50dae64d4de04f1eb519ad239a6b1ba6315ba1dce1c0c4c1ebedfaf", size = 100868, upload-time = "2025-05-30T12:00:31.913Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/00/d9ea755cdeda3d498504775b62122b72ba282b91446fd58980171fb1084c/dramatiq-1.18.0-py3-none-any.whl", hash = "sha256:d360f608aa3cd06f5db714bfcd23825dc7098bacfee52aca536b0bb0faae3c69", size = 121231, upload-time = "2025-05-30T12:00:30.199Z" },
-]
-
-[[package]]
 name = "e2b"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2207,6 +2195,11 @@ wheels = [
 ]
 
 [[package]]
+name = "resumable-stream"
+version = "0.0.1"
+source = { git = "https://github.com/kortix-ai/resumable-stream-python?tag=v0.1.1#6fc86de52ebc6a3c764798464ebd1287c53e6d62" }
+
+[[package]]
 name = "rpds-py"
 version = "0.25.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2423,7 +2416,6 @@ dependencies = [
     { name = "daytona-api-client" },
     { name = "daytona-api-client-async" },
     { name = "daytona-sdk" },
-    { name = "dramatiq" },
     { name = "e2b-code-interpreter" },
     { name = "email-validator" },
     { name = "exa-py" },
@@ -2457,6 +2449,7 @@ dependencies = [
     { name = "questionary" },
     { name = "redis" },
     { name = "requests" },
+    { name = "resumable-stream" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "setuptools" },
     { name = "stripe" },
@@ -2483,7 +2476,6 @@ requires-dist = [
     { name = "daytona-api-client", specifier = "==0.21.0" },
     { name = "daytona-api-client-async", specifier = "==0.21.0" },
     { name = "daytona-sdk", specifier = "==0.21.0" },
-    { name = "dramatiq", specifier = "==1.18.0" },
     { name = "e2b-code-interpreter", specifier = "==1.2.0" },
     { name = "email-validator", specifier = "==2.0.0" },
     { name = "exa-py", specifier = "==1.9.1" },
@@ -2517,6 +2509,7 @@ requires-dist = [
     { name = "questionary", specifier = "==2.0.1" },
     { name = "redis", specifier = "==5.2.1" },
     { name = "requests", specifier = "==2.32.3" },
+    { name = "resumable-stream", git = "https://github.com/kortix-ai/resumable-stream-python?tag=v0.1.1" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = "==2.29.1" },
     { name = "setuptools", specifier = "==75.3.0" },
     { name = "stripe", specifier = "==12.0.1" },

@@ -783,7 +783,14 @@ export function FileViewerModal({
         console.log(`[FILE VIEWER] Created blob URL: ${url} for ${selectedFilePath}`);
         setBlobUrlForRenderer(url);
         setTextContentForRenderer(null);
-      } else {
+      } else if (typeof cachedFileContent === 'object') {
+        // convert to json string if file_contents is a object
+        const jsonString = JSON.stringify(cachedFileContent, null, 2);
+        console.log(`[FILE VIEWER] Setting text content for object file: ${selectedFilePath}`);
+        setTextContentForRenderer(jsonString);
+        setBlobUrlForRenderer(null);
+      }
+      else {
         // Unknown content type
         console.warn(`[FILE VIEWER] Unknown content type for: ${selectedFilePath}`, typeof cachedFileContent);
         setTextContentForRenderer(null);
