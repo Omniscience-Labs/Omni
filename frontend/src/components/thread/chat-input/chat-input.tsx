@@ -49,6 +49,7 @@ export interface ChatInputProps {
   toolCallIndex?: number;
   showToolPreview?: boolean;
   onExpandToolPreview?: () => void;
+  isLoggedIn?: boolean;
 }
 
 export interface UploadedFile {
@@ -83,6 +84,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       toolCallIndex = 0,
       showToolPreview = false,
       onExpandToolPreview,
+      isLoggedIn = true,
     },
     ref,
   ) => {
@@ -303,6 +305,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
+                isLoggedIn={isLoggedIn}
 
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={onAgentSelect}

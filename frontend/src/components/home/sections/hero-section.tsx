@@ -16,6 +16,7 @@ import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-init
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { generateThreadName } from '@/lib/actions/threads';
 import GoogleSignIn from '@/components/GoogleSignIn';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import {
   Dialog,
   DialogContent,
@@ -30,13 +31,11 @@ import { useAccounts } from '@/hooks/use-accounts';
 import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
 import { useModal } from '@/hooks/use-modal-store';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Send, ArrowUp, Paperclip } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import ChatDropdown from '@/components/thread/chat-input/chat-dropdown';
+import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { createQueryHook } from '@/hooks/use-query';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
+import { getAgents } from '@/hooks/react-query/agents/utils';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -55,6 +54,7 @@ export function HeroSection() {
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const { scrollY } = useScroll();
   const [inputValue, setInputValue] = useState('');
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const { billingError, handleBillingError, clearBillingError } =
@@ -65,6 +65,28 @@ export function HeroSection() {
   const initiateAgentMutation = useInitiateAgentMutation();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
+  const chatInputRef = useRef<ChatInputHandles>(null);
+
+  // Fetch agents for selection
+  const { data: agentsResponse } = createQueryHook(
+    agentKeys.list({
+      limit: 100,
+      sort_by: 'name',
+      sort_order: 'asc'
+    }),
+    () => getAgents({
+      limit: 100,
+      sort_by: 'name',
+      sort_order: 'asc'
+    }),
+    {
+      enabled: !!user && !isLoading,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    }
+  )();
+
+  const agents = agentsResponse?.agents || [];
 
   // Auth dialog state
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -116,31 +138,66 @@ export function HeroSection() {
       if (thread.project_id) {
         router.push(`/projects/${thread.project_id}/thread/${initiatedThreadId}`);
       } else {
-        router.push(`/thread/${initiatedThreadId}`);
+        router.push(`/agents/${initiatedThreadId}`);
       }
       setInitiatedThreadId(null);
     }
   }, [threadQuery.data, initiatedThreadId, router]);
 
-  const createAgentWithPrompt = async () => {
-    if (!inputValue.trim() || isSubmitting) return;
+  // Handle ChatInput submission
+  const handleChatInputSubmit = async (
+    message: string,
+    options?: { model_name?: string; enable_thinking?: boolean }
+  ) => {
+    if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
+
+    // If user is not logged in, save prompt and show auth dialog
+    if (!user && !isLoading) {
+      localStorage.setItem(PENDING_PROMPT_KEY, message.trim());
+      setAuthDialogOpen(true);
+      return;
+    }
+
+    // User is logged in, create the agent with files like dashboard does
     setIsSubmitting(true);
     try {
+      const files = chatInputRef.current?.getPendingFiles() || [];
+      localStorage.removeItem(PENDING_PROMPT_KEY);
+
       const formData = new FormData();
-      formData.append('prompt', inputValue.trim());
-      formData.append('model_name', 'openrouter/deepseek/deepseek-chat');
-      formData.append('enable_thinking', 'false');
+      formData.append('prompt', message);
+
+      // Add selected agent if one is chosen
+      if (selectedAgentId) {
+        formData.append('agent_id', selectedAgentId);
+      }
+
+      // Add files if any
+      files.forEach((file) => {
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        formData.append('files', file, normalizedName);
+      });
+
+      if (options?.model_name) formData.append('model_name', options.model_name);
+      formData.append('enable_thinking', String(options?.enable_thinking ?? false));
       formData.append('reasoning_effort', 'low');
       formData.append('stream', 'true');
       formData.append('enable_context_manager', 'false');
 
       const result = await initiateAgentMutation.mutateAsync(formData);
 
-      setInitiatedThreadId(result.thread_id);
+      if (result.thread_id) {
+        setInitiatedThreadId(result.thread_id);
+      } else {
+        throw new Error('Agent initiation did not return a thread_id.');
+      }
+
+      chatInputRef.current?.clearPendingFiles();
       setInputValue('');
     } catch (error: any) {
       if (error instanceof BillingError) {
-        console.log('Billing error:');
+        console.log('Billing error:', error.detail);
+        onOpen("paymentRequiredDialog");
       } else {
         const isConnectionError =
           error instanceof TypeError &&
@@ -155,38 +212,6 @@ export function HeroSection() {
       setIsSubmitting(false);
     }
   };
-
-  // Handle form submission
-  const handleSubmit = async (e?: FormEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation(); // Stop event propagation to prevent dialog closing
-    }
-
-    if (!inputValue.trim() || isSubmitting) return;
-
-    // If user is not logged in, save prompt and show auth dialog
-    if (!user && !isLoading) {
-      // Save prompt to localStorage BEFORE showing the dialog
-      localStorage.setItem(PENDING_PROMPT_KEY, inputValue.trim());
-      setAuthDialogOpen(true);
-      return;
-    }
-
-    // User is logged in, create the agent
-    createAgentWithPrompt();
-  };
-
-  // Handle Enter key press
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault(); // Prevent default form submission
-      e.stopPropagation(); // Stop event propagation
-      handleSubmit();
-    }
-  };
-
-
 
   return (
     <section id="hero" className="w-full relative overflow-hidden">
@@ -280,87 +305,27 @@ export function HeroSection() {
               {hero.description}
             </p>
           </div>
+
           <div className="flex items-center w-full max-w-4xl gap-2 flex-wrap justify-center">
-            <form className="w-full relative" onSubmit={handleSubmit}>
-              {/* Input that looks exactly like ChatInput */}
+            <div className="w-full relative">
               <div className="relative z-10">
-                <Card className="shadow-none w-full max-w-8xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden">
-                  <div className="w-full text-sm flex flex-col justify-between items-start rounded-2xl">
-                    <CardContent className="w-full p-1.5 pb-2 bg-card rounded-3xl border">
-                      <div className="relative flex flex-col w-full h-full gap-2 justify-between">
-                        <div className="flex flex-col gap-1 px-2">
-                          <Textarea
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Describe what you need help with..."
-                            className={cn(
-                              'w-full bg-transparent dark:bg-transparent border-none shadow-none focus-visible:ring-0 px-2 pb-6 pt-4 !text-[15px] min-h-[36px] max-h-[200px] overflow-y-auto resize-none'
-                            )}
-                            disabled={isSubmitting}
-                            rows={1}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between mt-0 mb-1 px-2">
-                          <div className="flex items-center gap-3">
-                            {/* Attach files button */}
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 py-2 bg-transparent border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-2"
-                                    disabled={isSubmitting}
-                                  >
-                                    <Paperclip className="h-4 w-4" />
-                                    <span className="text-sm">Attach</span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Please login to attach files</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-
-
-                          <div className='flex items-center gap-2'>
-                            <ChatDropdown />
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="submit"
-                                  size="sm"
-                                  className={cn(
-                                    'w-8 h-8 flex-shrink-0 self-end rounded-xl',
-                                    (!inputValue.trim() || isSubmitting) ? 'opacity-50' : '',
-                                  )}
-                                  disabled={!inputValue.trim() || isSubmitting}
-                                >
-                                  {isSubmitting ? (
-                                    <Square className="h-5 w-5" />
-                                  ) : (
-                                    <ArrowUp className="h-5 w-5" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Send message</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </div>
-                </Card>
+                <ChatInput
+                  ref={chatInputRef}
+                  onSubmit={handleChatInputSubmit}
+                  placeholder="Describe what you need help with..."
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  value={inputValue}
+                  onChange={setInputValue}
+                  isLoggedIn={!!user}
+                  selectedAgentId={selectedAgentId}
+                  onAgentSelect={setSelectedAgentId}
+                  autoFocus={false}
+                />
               </div>
               {/* Subtle glow effect */}
               <div className="absolute -bottom-4 inset-x-0 h-6 bg-secondary/20 blur-xl rounded-full -z-10 opacity-70"></div>
-            </form>
+            </div>
           </div>
         </div>
       </div>
