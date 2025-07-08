@@ -73,6 +73,16 @@ export function ConditionalWorkflowBuilder({
   const [toolSearchOpen, setToolSearchOpen] = useState<{[key: string]: boolean}>({});
   const [activeConditionTab, setActiveConditionTab] = useState<{[key: string]: string}>({});
 
+  steps.forEach((step, index) => {
+    console.log(`Step ${index}:`, {
+      name: step.name,
+      type: step.type,
+      hasChildren: !!step.children,
+      childrenCount: step.children?.length || 0,
+      children: step.children?.map(child => ({ name: child.name, type: child.type }))
+    });
+  });
+
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const addStep = useCallback((parentId?: string, afterStepId?: string) => {
@@ -420,7 +430,7 @@ export function ConditionalWorkflowBuilder({
 
     return (
       <div key={step.id} className="group">
-        <div className="bg-card rounded-lg border shadow-sm p-4 hover:shadow-md transition-shadow">
+        <div className="bg-card rounded-lg border shadow-sm p-4 transition-shadow">
           <div className="flex items-start gap-4">
             <div className="flex items-center gap-2 shrink-0">
               {step.hasIssues && (
@@ -614,7 +624,7 @@ export function ConditionalWorkflowBuilder({
         }
         stepCounter++;
         result.push(
-          <div key={conditionGroup[0].id} className="bg-card rounded-lg border shadow-sm p-4 hover:shadow-md transition-shadow">
+          <div key={conditionGroup[0].id} className="bg-card rounded-lg border shadow-sm p-4 transition-shadow">
             <div className="flex items-start gap-4">
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
@@ -652,7 +662,7 @@ export function ConditionalWorkflowBuilder({
           <Button 
             onClick={() => addStep()}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add step
           </Button>
         </div>

@@ -26,6 +26,7 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
+from triggers import unified_oauth_api
 
 
 load_dotenv()
@@ -175,8 +176,6 @@ api_router.include_router(email_api.router)
 from knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
-from triggers import api as triggers_api
-from triggers import unified_oauth_api
 api_router.include_router(triggers_api.router)
 api_router.include_router(unified_oauth_api.router)
 

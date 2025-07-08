@@ -15,7 +15,7 @@ from flags.flags import is_enabled
 from .integration import AgentTriggerExecutor
 from utils.config import config, EnvMode
 
-router = APIRouter(prefix="/api/triggers", tags=["triggers"])
+router = APIRouter(prefix="/triggers", tags=["triggers"])
 
 trigger_manager: Optional[TriggerManager] = None
 db = None
@@ -377,8 +377,9 @@ async def universal_slack_webhook(request: Request):
                 logger.info(f"Processing event for trigger {trigger_id}")
                 result = await manager.process_trigger_event(trigger_id, data)
                 
-                if result.success and result.should_execute_agent:
-                    executor = AgentTriggerExecutor(db)
+                if result.success and (result.should_execute_agent or result.should_execute_workflow):
+                    from .integration import TriggerExecutor
+                    executor = TriggerExecutor(db)
                     trigger_config = await manager.get_trigger(trigger_id)
                     if trigger_config:
                         from .core import TriggerEvent, TriggerType
@@ -393,20 +394,23 @@ async def universal_slack_webhook(request: Request):
                             raw_data=data
                         )
                         
-                        execution_result = await executor.execute_triggered_agent(
+                        execution_result = await executor.execute_trigger_result(
                             agent_id=trigger_config.agent_id,
                             trigger_result=result,
                             trigger_event=trigger_event
                         )
                         
+                        execution_type = "workflow" if result.should_execute_workflow else "agent"
                         results.append({
                             "trigger_id": trigger_id,
                             "agent_id": trigger_config.agent_id,
                             "executed": True,
+                            "execution_type": execution_type,
                             "thread_id": execution_result.get("thread_id"),
-                            "agent_run_id": execution_result.get("agent_run_id")
+                            "agent_run_id": execution_result.get("agent_run_id"),
+                            "execution_id": execution_result.get("execution_id")
                         })
-                        logger.info(f"Agent execution started for trigger {trigger_id}")
+                        logger.info(f"{execution_type.title()} execution started for trigger {trigger_id}")
                 else:
                     results.append({
                         "trigger_id": trigger_id,
@@ -479,8 +483,9 @@ async def handle_qstash_webhook(request: Request):
         
         logger.info(f"QStash trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
         
-        if result.success and result.should_execute_agent:
-            executor = AgentTriggerExecutor(db)
+        if result.success and (result.should_execute_agent or result.should_execute_workflow):
+            from .integration import TriggerExecutor
+            executor = TriggerExecutor(db)
             trigger_config = await manager.get_trigger(trigger_id)
             if trigger_config:
                 from .core import TriggerEvent, TriggerType
@@ -495,19 +500,23 @@ async def handle_qstash_webhook(request: Request):
                     raw_data=data
                 )
                 
-                execution_result = await executor.execute_triggered_agent(
+                execution_result = await executor.execute_trigger_result(
                     agent_id=trigger_config.agent_id,
                     trigger_result=result,
                     trigger_event=trigger_event
                 )
                 
-                logger.info(f"QStash agent execution result: {execution_result}")
+                logger.info(f"QStash execution result: {execution_result}")
+                
+                execution_type = "workflow" if result.should_execute_workflow else "agent"
                 return JSONResponse(content={
-                    "message": "QStash webhook processed and agent execution started",
+                    "message": f"QStash webhook processed and {execution_type} execution started",
                     "trigger_id": trigger_id,
                     "agent_id": trigger_config.agent_id,
+                    "execution_type": execution_type,
                     "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id")
+                    "agent_run_id": execution_result.get("agent_run_id"),
+                    "execution_id": execution_result.get("execution_id")
                 })
         
         if result.response_data:
@@ -573,8 +582,9 @@ async def handle_schedule_webhook(request: Request):
         
         logger.info(f"Schedule trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
         
-        if result.success and result.should_execute_agent:
-            executor = AgentTriggerExecutor(db)
+        if result.success and (result.should_execute_agent or result.should_execute_workflow):
+            from .integration import TriggerExecutor
+            executor = TriggerExecutor(db)
             if trigger_config:
                 from .core import TriggerEvent, TriggerType
                 trigger_type = trigger_config.trigger_type
@@ -588,19 +598,23 @@ async def handle_schedule_webhook(request: Request):
                     raw_data=data
                 )
                 
-                execution_result = await executor.execute_triggered_agent(
+                execution_result = await executor.execute_trigger_result(
                     agent_id=trigger_config.agent_id,
                     trigger_result=result,
                     trigger_event=trigger_event
                 )
                 
-                logger.info(f"Scheduled agent execution result: {execution_result}")
+                logger.info(f"Scheduled execution result: {execution_result}")
+                
+                execution_type = "workflow" if result.should_execute_workflow else "agent"
                 return JSONResponse(content={
-                    "message": "Schedule webhook processed and agent execution started",
+                    "message": f"Schedule webhook processed and {execution_type} execution started",
                     "trigger_id": trigger_id,
                     "agent_id": trigger_config.agent_id,
+                    "execution_type": execution_type,
                     "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id")
+                    "agent_run_id": execution_result.get("agent_run_id"),
+                    "execution_id": execution_result.get("execution_id")
                 })
         
         if result.response_data:
@@ -655,8 +669,9 @@ async def handle_webhook(
         
         logger.info(f"Trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
         
-        if result.success and result.should_execute_agent:
-            executor = AgentTriggerExecutor(db)
+        if result.success and (result.should_execute_agent or result.should_execute_workflow):
+            from .integration import TriggerExecutor
+            executor = TriggerExecutor(db)
             trigger_config = await manager.get_trigger(trigger_id)
             if trigger_config:
                 from .core import TriggerEvent, TriggerType
@@ -671,19 +686,23 @@ async def handle_webhook(
                     raw_data=data
                 )
                 
-                execution_result = await executor.execute_triggered_agent(
+                execution_result = await executor.execute_trigger_result(
                     agent_id=trigger_config.agent_id,
                     trigger_result=result,
                     trigger_event=trigger_event
                 )
                 
-                logger.info(f"Agent execution result: {execution_result}")
+                logger.info(f"Execution result: {execution_result}")
+                
+                execution_type = "workflow" if result.should_execute_workflow else "agent"
                 return JSONResponse(content={
-                    "message": "Webhook processed and agent execution started",
+                    "message": f"Webhook processed and {execution_type} execution started",
                     "trigger_id": trigger_id,
                     "agent_id": trigger_config.agent_id,
+                    "execution_type": execution_type,
                     "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id")
+                    "agent_run_id": execution_result.get("agent_run_id"),
+                    "execution_id": execution_result.get("execution_id")
                 })
         
         if result.response_data:

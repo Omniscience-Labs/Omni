@@ -8,7 +8,7 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 
-router = APIRouter(prefix="/api/integrations/slack", tags=["slack-oauth"])
+router = APIRouter(prefix="/integrations/slack", tags=["slack-oauth"])
 
 slack_oauth_manager: Optional[SlackOAuthManager] = None
 db = None

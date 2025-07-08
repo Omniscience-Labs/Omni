@@ -21,11 +21,11 @@ import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
-  const result: any[] = [];
   let globalOrder = 1;
-  const flattenSteps = (stepList: ConditionalStep[], parentConditions?: any) => {
-    stepList.forEach((step) => {
+  const convertStepsWithNesting = (stepList: ConditionalStep[]): any[] => {
+    return stepList.map((step) => {
       const jsonStep: any = {
+        id: step.id,
         name: step.name,
         description: step.description,
         type: step.type,
@@ -34,27 +34,53 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
       };
       if (step.type === 'condition' && step.conditions) {
         jsonStep.conditions = step.conditions;
-      } else if (parentConditions) {
-        jsonStep.conditions = parentConditions;
       }
-      result.push(jsonStep);
       if (step.children && step.children.length > 0) {
-        const conditionsToPass = step.type === 'condition' ? step.conditions : parentConditions;
-        flattenSteps(step.children, conditionsToPass);
+        jsonStep.children = convertStepsWithNesting(step.children);
       }
+      
+      return jsonStep;
     });
   };
-  flattenSteps(steps);
-  return result;
+  
+  return convertStepsWithNesting(steps);
 };
 
-const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
-  if (!flatSteps || flatSteps.length === 0) return [];
+const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
+  if (!nestedSteps || nestedSteps.length === 0) return [];
   
+  const convertStepsFromNested = (stepList: any[]): ConditionalStep[] => {
+    return stepList.map((step) => {
+      const conditionalStep: ConditionalStep = {
+        id: step.id || Math.random().toString(36).substr(2, 9),
+        name: step.name,
+        description: step.description || '',
+        type: step.type || 'instruction',
+        config: step.config || {},
+        order: step.order || step.step_order || 0,
+        enabled: step.enabled !== false,
+        hasIssues: step.hasIssues || false
+      };
+      
+      if (step.type === 'condition' && step.conditions) {
+        conditionalStep.conditions = step.conditions;
+      }
+      if (step.children && Array.isArray(step.children) && step.children.length > 0) {
+        conditionalStep.children = convertStepsFromNested(step.children);
+      } else {
+        conditionalStep.children = [];
+      }
+      return conditionalStep;
+    });
+  };
+  
+  return convertStepsFromNested(nestedSteps);
+};
+
+const reconstructFromFlatJSON = (flatSteps: any[]): ConditionalStep[] => {
+  if (!flatSteps || flatSteps.length === 0) return [];
   const result: ConditionalStep[] = [];
   const conditionSteps = new Map<string, ConditionalStep>();
-  
-  // First pass: create all condition steps
   for (const flatStep of flatSteps) {
     if (flatStep.type === 'condition') {
       const conditionStep: ConditionalStep = {
@@ -70,11 +96,8 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
       conditionSteps.set(conditionStep.id, conditionStep);
     }
   }
-  
-  // Second pass: assign child steps to conditions
   for (const flatStep of flatSteps) {
     if (flatStep.type !== 'condition' && flatStep.conditions) {
-      // Find the parent condition
       for (const [conditionId, conditionStep] of conditionSteps) {
         if (JSON.stringify(conditionStep.conditions) === JSON.stringify(flatStep.conditions)) {
           const childStep: ConditionalStep = {
@@ -93,17 +116,13 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
     }
   }
   
-  // Third pass: build result in order, grouping consecutive conditions
   const sortedSteps = [...flatSteps].sort((a, b) => (a.order || a.step_order || 0) - (b.order || b.step_order || 0));
   let i = 0;
   
   while (i < sortedSteps.length) {
     const flatStep = sortedSteps[i];
-    
     if (flatStep.type === 'condition') {
-      // Group consecutive conditions together
       const conditionGroup: ConditionalStep[] = [];
-      
       while (i < sortedSteps.length && sortedSteps[i].type === 'condition') {
         const conditionStep = conditionSteps.get(sortedSteps[i].id);
         if (conditionStep) {
@@ -111,8 +130,6 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
         }
         i++;
       }
-      
-      // Sort conditions within group: if, elseif, else
       conditionGroup.sort((a, b) => {
         const typeOrder = { 'if': 0, 'elseif': 1, 'else': 2 };
         return (typeOrder[a.conditions?.type as keyof typeof typeOrder] || 0) - 
@@ -121,7 +138,6 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
       
       result.push(...conditionGroup);
     } else if (!flatStep.conditions) {
-      // Regular step (not part of a condition)
       const step: ConditionalStep = {
         id: flatStep.id || Math.random().toString(36).substr(2, 9),
         name: flatStep.name,
@@ -134,7 +150,6 @@ const reconstructFromNestedJSON = (flatSteps: any[]): ConditionalStep[] => {
       result.push(step);
       i++;
     } else {
-      // Skip child steps as they're already assigned to conditions
       i++;
     }
   }
@@ -197,7 +212,18 @@ export default function WorkflowPage() {
         setWorkflowDescription(workflow.description || '');
         setTriggerPhrase(workflow.trigger_phrase || '');
         setIsDefault(workflow.is_default);
-        const treeSteps = reconstructFromNestedJSON(workflow.steps);
+        let treeSteps: ConditionalStep[];
+        try {
+          // Check if workflow has proper nested structure
+          if (workflow.steps.some((step: any) => step.children && Array.isArray(step.children))) {
+            treeSteps = reconstructFromNestedJSON(workflow.steps);
+          } else {
+            treeSteps = reconstructFromFlatJSON(workflow.steps);
+          }
+        } catch (error) {
+          console.warn('Error reconstructing workflow steps, using fallback:', error);
+          treeSteps = reconstructFromFlatJSON(workflow.steps);
+        }
         setSteps(treeSteps);
         setIsLoading(false);
       } else if (!isLoadingWorkflows) {
@@ -214,7 +240,6 @@ export default function WorkflowPage() {
       return;
     }
     const nestedSteps = convertToNestedJSON(steps);
-    console.log('nestedSteps', nestedSteps);
     try {
       if (isEditing) {
         const updateRequest: UpdateWorkflowRequest = {

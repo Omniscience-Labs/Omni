@@ -196,7 +196,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
           );
         })}
       </div>
-
       {configuringSchedule && (
         <Dialog open={configuringSchedule} onOpenChange={setConfiguringSchedule}>
           <TriggerConfigDialog
@@ -205,9 +204,10 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
             onSave={handleScheduleSave}
             onCancel={() => setConfiguringSchedule(false)}
             isLoading={createTriggerMutation.isPending}
+            agentId={agentId}
           />
         </Dialog>
       )}
     </div>
   );
-}; 
+};

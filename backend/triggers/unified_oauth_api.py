@@ -18,7 +18,7 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 
-router = APIRouter(prefix="/api/integrations", tags=["oauth-integrations"])
+router = APIRouter(prefix="/integrations", tags=["oauth-integrations"])
 
 db = None
 

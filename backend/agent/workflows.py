@@ -44,6 +44,7 @@ class WorkflowStepRequest(BaseModel):
     config: Dict[str, Any] = {}
     conditions: Optional[Dict[str, Any]] = None
     order: int
+    children: Optional[List['WorkflowStepRequest']] = None
 
 class WorkflowCreateRequest(BaseModel):
     name: str
@@ -70,6 +71,7 @@ class WorkflowStepResponse(BaseModel):
     order: int
     created_at: str
     updated_at: str
+    children: Optional[List['WorkflowStepResponse']] = None
 
 class WorkflowResponse(BaseModel):
     id: str
@@ -102,30 +104,35 @@ class WorkflowExecuteRequest(BaseModel):
     input_data: Optional[Dict[str, Any]] = None
     thread_id: Optional[str] = None
 
+WorkflowStepRequest.model_rebuild()
+WorkflowStepResponse.model_rebuild()
 
 @router.get("/agents/{agent_id}/workflows")
 async def get_agent_workflows(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get all workflows for an agent."""
     client = await db.client
-    workflows_result = await client.table('agent_workflows').select('*, workflow_steps(*)').eq('agent_id', agent_id).order('created_at', desc=True).execute()
+    workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).order('created_at', desc=True).execute()
     workflows = []
     for workflow_data in workflows_result.data:
         steps = []
-        for step_data in workflow_data.get('workflow_steps', []):
-            steps.append(WorkflowStepResponse(
-                id=step_data['id'],
-                name=step_data['name'],
-                description=step_data.get('description'),
-                type=step_data['type'],
-                config=step_data.get('config', {}),
-                conditions=step_data.get('conditions'),
-                order=step_data['step_order'],
-                created_at=step_data['created_at'],
-                updated_at=step_data['updated_at']
-            ))
+        if workflow_data.get('steps'):
+            steps = convert_json_to_steps(workflow_data['steps'])
+        else:
+            workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_data['id']).order('step_order').execute()
+            for step_data in workflow_steps_result.data:
+                steps.append(WorkflowStepResponse(
+                    id=step_data['id'],
+                    name=step_data['name'],
+                    description=step_data.get('description'),
+                    type=step_data['type'],
+                    config=step_data.get('config', {}),
+                    conditions=step_data.get('conditions'),
+                    order=step_data['step_order'],
+                    created_at=step_data['created_at'],
+                    updated_at=step_data['updated_at']
+                ))
         
         workflows.append(WorkflowResponse(
             id=workflow_data['id'],
@@ -135,13 +142,57 @@ async def get_agent_workflows(
             status=workflow_data['status'],
             trigger_phrase=workflow_data.get('trigger_phrase'),
             is_default=workflow_data['is_default'],
-            steps=sorted(steps, key=lambda x: x.order),
+            steps=steps,
             created_at=workflow_data['created_at'],
             updated_at=workflow_data['updated_at']
         ))
     
     return workflows
 
+
+def convert_steps_to_json(steps: List[WorkflowStepRequest]) -> List[Dict[str, Any]]:
+    if not steps:
+        return []
+    
+    result = []
+    for step in steps:
+        step_dict = {
+            'name': step.name,
+            'description': step.description,
+            'type': step.type or 'instruction',
+            'config': step.config,
+            'conditions': step.conditions,
+            'order': step.order
+        }
+        if step.children:
+            step_dict['children'] = convert_steps_to_json(step.children)
+        result.append(step_dict)
+    return result
+
+def convert_json_to_steps(steps_json: List[Dict[str, Any]]) -> List[WorkflowStepResponse]:
+    if not steps_json:
+        return []
+    
+    result = []
+    for step_data in steps_json:
+        children = None
+        if step_data.get('children'):
+            children = convert_json_to_steps(step_data['children'])
+        
+        step = WorkflowStepResponse(
+            id=step_data.get('id', ''),
+            name=step_data['name'],
+            description=step_data.get('description'),
+            type=step_data.get('type', 'instruction'),
+            config=step_data.get('config', {}),
+            conditions=step_data.get('conditions'),
+            order=step_data.get('order', 0),
+            created_at=step_data.get('created_at', ''),
+            updated_at=step_data.get('updated_at', ''),
+            children=children
+        )
+        result.append(step)
+    return result
 
 @router.post("/agents/{agent_id}/workflows")
 async def create_agent_workflow(
@@ -153,39 +204,23 @@ async def create_agent_workflow(
         logger.info(f"Creating workflow for agent {agent_id} with data: {workflow_data}")
         client = await db.client
 
+        # Convert nested steps to JSON format
+        steps_json = convert_steps_to_json(workflow_data.steps)
+        
         workflow_result = await client.table('agent_workflows').insert({
             'agent_id': agent_id,
             'name': workflow_data.name,
             'description': workflow_data.description,
             'trigger_phrase': workflow_data.trigger_phrase,
             'is_default': workflow_data.is_default,
-            'status': 'draft'
+            'status': 'draft',
+            'steps': steps_json  # Store nested JSON structure
         }).execute()
         
         workflow_id = workflow_result.data[0]['id']
-        steps = []
-        for step_data in workflow_data.steps:
-            step_result = await client.table('workflow_steps').insert({
-                'workflow_id': workflow_id,
-                'name': step_data.name,
-                'description': step_data.description,
-                'type': step_data.type or 'instruction',
-                'config': step_data.config,
-                'conditions': step_data.conditions,
-                'step_order': step_data.order
-            }).execute()
-            
-            steps.append(WorkflowStepResponse(
-                id=step_result.data[0]['id'],
-                name=step_data.name,
-                description=step_data.description,
-                type=step_data.type or 'instruction',
-                config=step_data.config,
-                conditions=step_data.conditions,
-                order=step_data.order,
-                created_at=step_result.data[0]['created_at'],
-                updated_at=step_result.data[0]['updated_at']
-            ))
+        
+        # Convert back to response format
+        steps = convert_json_to_steps(steps_json)
         
         return WorkflowResponse(
             id=workflow_id,
@@ -195,7 +230,7 @@ async def create_agent_workflow(
             status='draft',
             trigger_phrase=workflow_data.trigger_phrase,
             is_default=workflow_data.is_default,
-            steps=sorted(steps, key=lambda x: x.order),
+            steps=steps,
             created_at=workflow_result.data[0]['created_at'],
             updated_at=workflow_result.data[0]['updated_at']
         )
@@ -231,39 +266,37 @@ async def update_agent_workflow(
     if workflow_data.status is not None:
         update_data['status'] = workflow_data.status
     
+    if workflow_data.steps is not None:
+        steps_json = convert_steps_to_json(workflow_data.steps)
+        update_data['steps'] = steps_json
+        
+        # Clean up old workflow_steps entries (for backward compatibility)
+        await client.table('workflow_steps').delete().eq('workflow_id', workflow_id).execute()
+    
     if update_data:
         await client.table('agent_workflows').update(update_data).eq('id', workflow_id).execute()
-
-    if workflow_data.steps is not None:
-        await client.table('workflow_steps').delete().eq('workflow_id', workflow_id).execute()
-        
-        for step_data in workflow_data.steps:
-            await client.table('workflow_steps').insert({
-                'workflow_id': workflow_id,
-                'name': step_data.name,
-                'description': step_data.description,
-                'type': step_data.type or 'instruction',
-                'config': step_data.config,
-                'conditions': step_data.conditions,
-                'step_order': step_data.order
-            }).execute()
     
-    updated_workflow = await client.table('agent_workflows').select('*, workflow_steps(*)').eq('id', workflow_id).execute()
+    updated_workflow = await client.table('agent_workflows').select('*').eq('id', workflow_id).execute()
     workflow_data = updated_workflow.data[0]
     
     steps = []
-    for step_data in workflow_data.get('workflow_steps', []):
-        steps.append(WorkflowStepResponse(
-            id=step_data['id'],
-            name=step_data['name'],
-            description=step_data.get('description'),
-            type=step_data['type'],
-            config=step_data.get('config', {}),
-            conditions=step_data.get('conditions'),
-            order=step_data['step_order'],
-            created_at=step_data['created_at'],
-            updated_at=step_data['updated_at']
-        ))
+    if workflow_data.get('steps'):
+        steps = convert_json_to_steps(workflow_data['steps'])
+    else:
+        # Fallback to old workflow_steps table format for backward compatibility
+        workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_id).order('step_order').execute()
+        for step_data in workflow_steps_result.data:
+            steps.append(WorkflowStepResponse(
+                id=step_data['id'],
+                name=step_data['name'],
+                description=step_data.get('description'),
+                type=step_data['type'],
+                config=step_data.get('config', {}),
+                conditions=step_data.get('conditions'),
+                order=step_data['step_order'],
+                created_at=step_data['created_at'],
+                updated_at=step_data['updated_at']
+            ))
     
     return WorkflowResponse(
         id=workflow_data['id'],
@@ -273,7 +306,7 @@ async def update_agent_workflow(
         status=workflow_data['status'],
         trigger_phrase=workflow_data.get('trigger_phrase'),
         is_default=workflow_data['is_default'],
-        steps=sorted(steps, key=lambda x: x.order),
+        steps=steps,
         created_at=workflow_data['created_at'],
         updated_at=workflow_data['updated_at']
     )
@@ -294,13 +327,12 @@ async def delete_agent_workflow(
     return {"message": "Workflow deleted successfully"}
 
 
-def build_workflow_system_prompt(workflow: dict, steps: List[dict], input_data: dict = None, available_tools: List[str] = None) -> str:
+def build_workflow_system_prompt(workflow: dict, steps_json: List[dict], input_data: dict = None, available_tools: List[str] = None) -> str:
     """Build a workflow system prompt using LLM-friendly nested JSON format."""
-    def build_nested_steps(flat_steps: List[dict], parent_conditions: dict = None) -> List[dict]:
+    def convert_to_llm_format(steps: List[dict]) -> List[dict]:
+        """Convert nested workflow steps to LLM-friendly format."""
         result = []
-        i = 0
-        while i < len(flat_steps):
-            step = flat_steps[i]
+        for step in steps:
             llm_step = {
                 "step": step['name'],
             }
@@ -319,33 +351,22 @@ def build_workflow_system_prompt(workflow: dict, steps: List[dict], input_data: 
             if step['type'] == 'condition' and step.get('conditions'):
                 if step['conditions'].get('type') == 'if' and step['conditions'].get('expression'):
                     llm_step["condition"] = step['conditions']['expression']
+                elif step['conditions'].get('type') == 'elseif' and step['conditions'].get('expression'):
+                    llm_step["condition"] = f"else if {step['conditions']['expression']}"
                 elif step['conditions'].get('type') == 'else':
                     llm_step["condition"] = "else"
                 
-                branch_steps = []
-                j = i + 1
-                while j < len(flat_steps):
-                    next_step = flat_steps[j]
-                    if (next_step.get('conditions') == step['conditions'] or 
-                        (parent_conditions and next_step.get('conditions') == parent_conditions)):
-                        branch_steps.append(next_step)
-                        j += 1
-                    else:
-                        break
-                
-                if branch_steps:
-                    llm_step["then"] = build_nested_steps(branch_steps, step['conditions'])
-                
-                i = j - 1
+                # Process children for conditional steps
+                if step.get('children'):
+                    llm_step["then"] = convert_to_llm_format(step['children'])
+            
             result.append(llm_step)
-            i += 1
         
         return result
     
-    sorted_steps = sorted(steps, key=lambda x: x.get('step_order', x.get('order', 0)))
     llm_workflow = {
         "workflow": workflow['name'],
-        "steps": build_nested_steps(sorted_steps)
+        "steps": convert_to_llm_format(steps_json)
     }
     
     if workflow.get('description'):
@@ -403,7 +424,7 @@ async def execute_agent_workflow(
     logger.info(f"Starting workflow execution for workflow {workflow_id} of agent {agent_id} with model {model_name}")
     
     client = await db.client
-    workflow_result = await client.table('agent_workflows').select('*, workflow_steps(*)').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+    workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
     if not workflow_result.data:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
@@ -411,7 +432,22 @@ async def execute_agent_workflow(
     if workflow['status'] != 'active':
         raise HTTPException(status_code=400, detail="Workflow is not active")
     
-    steps = workflow.get('workflow_steps', [])
+    # Get steps from the new JSON format or fallback to old format
+    if workflow.get('steps'):
+        steps_json = workflow['steps']
+    else:
+        # Fallback to old workflow_steps table format
+        workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_id).order('step_order').execute()
+        steps_json = []
+        for step_data in workflow_steps_result.data:
+            steps_json.append({
+                'name': step_data['name'],
+                'description': step_data.get('description'),
+                'type': step_data['type'],
+                'config': step_data.get('config', {}),
+                'conditions': step_data.get('conditions'),
+                'order': step_data['step_order']
+            })
     
     agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
     if not agent_result.data:
@@ -479,7 +515,7 @@ async def execute_agent_workflow(
             for tool in enabled_tools_list:
                 available_tools.append(f"{qualified_name}_{tool}")
     
-    workflow_prompt = build_workflow_system_prompt(workflow, steps, execution_data.input_data, available_tools)
+    workflow_prompt = build_workflow_system_prompt(workflow, steps_json, execution_data.input_data, available_tools)
     enhanced_system_prompt = f"""{agent_config['system_prompt']}
 
 --- WORKFLOW EXECUTION MODE ---
@@ -724,3 +760,161 @@ async def get_workflow_executions(
         ))
     
     return executions
+
+
+@router.post("/agents/{agent_id}/workflows/{workflow_id}/webhook")
+async def trigger_workflow_webhook(
+    agent_id: str,
+    workflow_id: str,
+    request: Request
+):
+    try:
+        logger.info(f"Workflow webhook received for agent {agent_id}, workflow {workflow_id}")
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        try:
+            if body:
+                webhook_data = await request.json()
+            else:
+                webhook_data = {}
+        except Exception as e:
+            logger.warning(f"Failed to parse JSON body: {e}")
+            webhook_data = {
+                "raw_body": body.decode('utf-8', errors='ignore'),
+                "content_type": headers.get('content-type', '')
+            }
+        
+        webhook_data["webhook_headers"] = headers
+        webhook_data["webhook_timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        client = await db.client
+        
+        workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+        if not workflow_result.data:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Workflow not found"}
+            )
+        
+        workflow = workflow_result.data[0]
+        if workflow['status'] != 'active':
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Workflow is not active"}
+            )
+        
+        agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
+        if not agent_result.data:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Agent not found"}
+            )
+        
+        agent_data = agent_result.data[0]
+        account_id = agent_data['account_id']
+        
+        if agent_data.get('agent_versions'):
+            version_data = agent_data['agent_versions']
+            agent_config = {
+                'agent_id': agent_data['agent_id'],
+                'name': agent_data['name'],
+                'description': agent_data.get('description'),
+                'system_prompt': version_data['system_prompt'],
+                'configured_mcps': version_data.get('configured_mcps', []),
+                'custom_mcps': version_data.get('custom_mcps', []),
+                'agentpress_tools': version_data.get('agentpress_tools', {}),
+                'is_default': agent_data.get('is_default', False),
+                'current_version_id': agent_data.get('current_version_id'),
+                'version_name': version_data.get('version_name', 'v1'),
+                'account_id': account_id
+            }
+        else:
+            agent_config = {**agent_data, 'account_id': account_id}
+        
+        from triggers.integration import WorkflowTriggerExecutor
+        from triggers.core import TriggerResult, TriggerEvent, TriggerType
+
+        trigger_result = TriggerResult(
+            success=True,
+            should_execute_workflow=True,
+            workflow_id=workflow_id,
+            workflow_input=webhook_data,
+            execution_variables={
+                'triggered_by': 'webhook',
+                'webhook_timestamp': webhook_data["webhook_timestamp"],
+                'webhook_source': headers.get('user-agent', 'unknown'),
+                'webhook_ip': headers.get('x-forwarded-for', headers.get('x-real-ip', 'unknown'))
+            }
+        )
+        trigger_event = TriggerEvent(
+            trigger_id=f"webhook_{workflow_id}",
+            agent_id=agent_id,
+            trigger_type=TriggerType.WEBHOOK,
+            raw_data=webhook_data
+        )
+        executor = WorkflowTriggerExecutor(db)
+        execution_result = await executor.execute_triggered_workflow(
+            agent_id=agent_id,
+            workflow_id=workflow_id,
+            workflow_input=webhook_data,
+            trigger_result=trigger_result,
+            trigger_event=trigger_event
+        )
+        if execution_result["success"]:
+            logger.info(f"Workflow webhook execution started: {execution_result}")
+            return JSONResponse(content={
+                "message": f"Workflow '{workflow['name']}' execution started via webhook",
+                "execution_id": execution_result.get("execution_id"),
+                "thread_id": execution_result.get("thread_id"),
+                "agent_run_id": execution_result.get("agent_run_id"),
+                "workflow_id": workflow_id,
+                "agent_id": agent_id,
+                "status": "running"
+            })
+        else:
+            logger.error(f"Workflow webhook execution failed: {execution_result}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "Failed to start workflow execution",
+                    "details": execution_result.get("error", "Unknown error")
+                }
+            )
+            
+    except Exception as e:
+        logger.error(f"Error processing workflow webhook: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
+
+@router.get("/agents/{agent_id}/workflows/{workflow_id}/webhook-url")
+async def get_workflow_webhook_url(
+    agent_id: str,
+    workflow_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    request: Request = None
+):
+    client = await db.client
+    workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+    if not workflow_result.data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    agent_result = await client.table('agents').select('account_id').eq('agent_id', agent_id).execute()
+    if not agent_result.data:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+    webhook_url = f"{base_url}/api/agents/{agent_id}/workflows/{workflow_id}/webhook"
+    
+    return {
+        "webhook_url": webhook_url,
+        "workflow_id": workflow_id,
+        "agent_id": agent_id,
+        "workflow_name": workflow_result.data[0]['name'],
+        "status": workflow_result.data[0]['status']
+    }

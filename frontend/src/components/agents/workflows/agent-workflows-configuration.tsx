@@ -232,12 +232,15 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
               </div>
             </div>
           ) : workflows.length === 0 ? (
-            <Alert>
-              <Workflow className="h-4 w-4" />
-              <AlertDescription>
-                No workflows created yet. Create your first workflow to get started with automated task execution.
-              </AlertDescription>
-            </Alert>
+            <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                <Workflow className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-semibold mb-2">No Agent Workflows</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                Create workflows to automate tasks and streamline your agent's operations.
+              </p>
+            </div>
           ) : (
             <div className="grid gap-4">
               {workflows.map((workflow) => (
