@@ -25,6 +25,7 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .utils import check_for_active_project_agent_run, stop_agent_run as _stop_agent_run
+from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
 
 # Initialize shared resources
 router = APIRouter()
@@ -174,7 +175,6 @@ async def cleanup():
     logger.info("Completed cleanup of agent API resources")
 
 async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: str):
-    """Get agent run data after verifying user access."""
     agent_run = await client.table('agent_runs').select('*').eq('id', agent_run_id).execute()
     if not agent_run.data:
         raise HTTPException(status_code=404, detail="Agent run not found")
@@ -255,56 +255,27 @@ async def start_agent(
                 effective_agent_id = None
         else:
             agent_data = agent_result.data[0]
-            # Use version data if available, otherwise fall back to agent data (for backward compatibility)
-            if agent_data.get('agent_versions'):
-                version_data = agent_data['agent_versions']
-                agent_config = {
-                    'agent_id': agent_data['agent_id'],
-                    'name': agent_data['name'],
-                    'description': agent_data.get('description'),
-                    'system_prompt': version_data['system_prompt'],
-                    'configured_mcps': version_data.get('configured_mcps', []),
-                    'custom_mcps': version_data.get('custom_mcps', []),
-                    'agentpress_tools': version_data.get('agentpress_tools', {}),
-                    'is_default': agent_data.get('is_default', False),
-                    'current_version_id': agent_data.get('current_version_id'),
-                    'version_name': version_data.get('version_name', 'v1')
-                }
-                logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config['version_name']}")
+            version_data = agent_data.get('agent_versions')
+            agent_config = extract_agent_config(agent_data, version_data)
+            
+            if version_data:
+                logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config.get('version_name', 'v1')}")
             else:
-                # Backward compatibility - use agent data directly
-                agent_config = agent_data
                 logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
             source = "request" if body.agent_id else "thread"
     
-    # If no agent found yet, try to get default agent for the account
     if not agent_config:
         default_agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('account_id', account_id).eq('is_default', True).execute()
         if default_agent_result.data:
             agent_data = default_agent_result.data[0]
-            # Use version data if available
-            if agent_data.get('agent_versions'):
-                version_data = agent_data['agent_versions']
-                agent_config = {
-                    'agent_id': agent_data['agent_id'],
-                    'name': agent_data['name'],
-                    'description': agent_data.get('description'),
-                    'system_prompt': version_data['system_prompt'],
-                    'configured_mcps': version_data.get('configured_mcps', []),
-                    'custom_mcps': version_data.get('custom_mcps', []),
-                    'agentpress_tools': version_data.get('agentpress_tools', {}),
-                    'is_default': agent_data.get('is_default', False),
-                    'current_version_id': agent_data.get('current_version_id'),
-                    'version_name': version_data.get('version_name', 'v1')
-                }
-                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config['version_name']}")
+            version_data = agent_data.get('agent_versions')
+            agent_config = extract_agent_config(agent_data, version_data)
+            
+            if version_data:
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
             else:
-                agent_config = agent_data
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
     
-
-    # Don't update thread's agent_id since threads are now agent-agnostic
-    # The agent selection is handled per message/agent run
     if body.agent_id and body.agent_id != thread_agent_id and agent_config:
         logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
@@ -1321,11 +1292,23 @@ async def create_agent(
         if agent_data.is_default:
             await client.table('agents').update({"is_default": False}).eq("account_id", user_id).eq("is_default", True).execute()
         
+        # Build unified config
+        unified_config = build_unified_config(
+            system_prompt=agent_data.system_prompt,
+            agentpress_tools=agent_data.agentpress_tools or {},
+            configured_mcps=agent_data.configured_mcps or [],
+            custom_mcps=agent_data.custom_mcps or [],
+            avatar=agent_data.avatar,
+            avatar_color=agent_data.avatar_color
+        )
+        
         # Create the agent
         insert_data = {
             "account_id": user_id,
             "name": agent_data.name,
             "description": agent_data.description,
+            "config": unified_config,
+            # Keep legacy columns for backward compatibility
             "system_prompt": agent_data.system_prompt, 
             "configured_mcps": agent_data.configured_mcps or [],
             "custom_mcps": agent_data.custom_mcps or [],
@@ -1348,6 +1331,8 @@ async def create_agent(
             "agent_id": agent['agent_id'],
             "version_number": 1,
             "version_name": "v1",
+            "config": unified_config,
+            # Keep legacy columns for backward compatibility
             "system_prompt": agent_data.system_prompt,
             "configured_mcps": agent_data.configured_mcps or [],
             "custom_mcps": agent_data.custom_mcps or [],
@@ -1364,16 +1349,7 @@ async def create_agent(
             await client.table('agents').update({
                 "current_version_id": version['version_id']
             }).eq("agent_id", agent['agent_id']).execute()
-            
-            # Add version history entry
-            await client.table('agent_version_history').insert({
-                "agent_id": agent['agent_id'],
-                "version_id": version['version_id'],
-                "action": "created",
-                "changed_by": user_id,
-                "change_description": "Initial version v1 created"
-            }).execute()
-            
+
             agent['current_version_id'] = version['version_id']
             agent['current_version'] = version
         
@@ -1520,6 +1496,24 @@ async def update_agent(
         if agent_data.avatar_color is not None:
             update_data["avatar_color"] = agent_data.avatar_color
         
+        # Build unified config with all current values
+        current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
+        current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
+        current_custom_mcps = agent_data.custom_mcps if agent_data.custom_mcps is not None else current_version_data.get('custom_mcps', [])
+        current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
+        current_avatar = agent_data.avatar if agent_data.avatar is not None else existing_data.get('avatar')
+        current_avatar_color = agent_data.avatar_color if agent_data.avatar_color is not None else existing_data.get('avatar_color')
+        
+        unified_config = build_unified_config(
+            system_prompt=current_system_prompt,
+            agentpress_tools=current_agentpress_tools,
+            configured_mcps=current_configured_mcps,
+            custom_mcps=current_custom_mcps,
+            avatar=current_avatar,
+            avatar_color=current_avatar_color
+        )
+        update_data["config"] = unified_config
+        
         # Also update the agent table with the latest values (for backward compatibility)
         if agent_data.system_prompt is not None:
             update_data["system_prompt"] = agent_data.system_prompt
@@ -1553,6 +1547,17 @@ async def update_agent(
                     "created_by": user_id
                 }
                 
+                # Build unified config for the new version
+                version_unified_config = build_unified_config(
+                    system_prompt=new_version_data["system_prompt"],
+                    agentpress_tools=new_version_data["agentpress_tools"],
+                    configured_mcps=new_version_data["configured_mcps"],
+                    custom_mcps=new_version_data["custom_mcps"],
+                    avatar=None,  # Avatar is not versioned
+                    avatar_color=None  # Avatar color is not versioned
+                )
+                new_version_data["config"] = version_unified_config
+                
                 # Validate system prompt is not empty
                 if not new_version_data["system_prompt"] or new_version_data["system_prompt"].strip() == '':
                     raise HTTPException(status_code=400, detail="System prompt cannot be empty")
@@ -1566,17 +1571,17 @@ async def update_agent(
                 update_data['current_version_id'] = new_version_id
                 update_data['version_count'] = next_version_number
                 
-                # Add version history entry
-                try:
-                    await client.table('agent_version_history').insert({
-                        "agent_id": agent_id,
-                        "version_id": new_version_id,
-                        "action": "created",
-                        "changed_by": user_id,
-                        "change_description": f"New version v{next_version_number} created from update"
-                    }).execute()
-                except Exception as e:
-                    logger.warning(f"Failed to create version history entry: {e}")
+                # Don't add version history entry - table was dropped in migration
+                # try:
+                #     await client.table('agent_version_history').insert({
+                #         "agent_id": agent_id,
+                #         "version_id": new_version_id,
+                #         "action": "created",
+                #         "changed_by": user_id,
+                #         "change_description": f"New version v{next_version_number} created from update"
+                #     }).execute()
+                # except Exception as e:
+                #     logger.warning(f"Failed to create version history entry: {e}")
                 
                 logger.info(f"Created new version v{next_version_number} for agent {agent_id}")
                 
@@ -1808,6 +1813,17 @@ async def create_agent_version(
         "created_by": user_id
     }
     
+    # Build unified config for the new version
+    version_unified_config = build_unified_config(
+        system_prompt=new_version_data["system_prompt"],
+        agentpress_tools=new_version_data["agentpress_tools"],
+        configured_mcps=new_version_data["configured_mcps"],
+        custom_mcps=new_version_data["custom_mcps"],
+        avatar=None,  # Avatar is not versioned
+        avatar_color=None  # Avatar color is not versioned
+    )
+    new_version_data["config"] = version_unified_config
+    
     new_version = await client.table('agent_versions').insert(new_version_data).execute()
     
     if not new_version.data:
@@ -1821,14 +1837,14 @@ async def create_agent_version(
         "version_count": next_version_number
     }).eq("agent_id", agent_id).execute()
     
-    # Add version history entry
-    await client.table('agent_version_history').insert({
-        "agent_id": agent_id,
-        "version_id": version['version_id'],
-        "action": "created",
-        "changed_by": user_id,
-        "change_description": f"New version v{next_version_number} created"
-    }).execute()
+    # Don't add version history entry - table was dropped in migration
+    # await client.table('agent_version_history').insert({
+    #     "agent_id": agent_id,
+    #     "version_id": version['version_id'],
+    #     "action": "created",
+    #     "changed_by": user_id,
+    #     "change_description": f"New version v{next_version_number} created"
+    # }).execute()
     
     logger.info(f"Created version v{next_version_number} for agent {agent_id}")
     
@@ -1858,14 +1874,14 @@ async def activate_agent_version(
         "current_version_id": version_id
     }).eq("agent_id", agent_id).execute()
     
-    # Add version history entry
-    await client.table('agent_version_history').insert({
-        "agent_id": agent_id,
-        "version_id": version_id,
-        "action": "activated",
-        "changed_by": user_id,
-        "change_description": f"Switched to version {version_result.data[0]['version_name']}"
-    }).execute()
+    # Don't add version history entry - table was dropped in migration
+    # await client.table('agent_version_history').insert({
+    #     "agent_id": agent_id,
+    #     "version_id": version_id,
+    #     "action": "activated",
+    #     "changed_by": user_id,
+    #     "change_description": f"Switched to version {version_result.data[0]['version_name']}"
+    # }).execute()
     
     return {"message": "Version activated successfully"}
 

@@ -24,6 +24,7 @@ from run_agent_background import run_agent_background, _cleanup_redis_response_l
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 from .utils import check_for_active_project_agent_run, stop_agent_run as _stop_agent_run
+from .config_helper import extract_agent_config
 
 router = APIRouter()
 db = None
@@ -456,24 +457,12 @@ async def execute_agent_workflow(
     agent_data = agent_result.data[0]
     account_id = agent_data['account_id']
     
-    if agent_data.get('agent_versions'):
-        version_data = agent_data['agent_versions']
-        agent_config = {
-            'agent_id': agent_data['agent_id'],
-            'name': agent_data['name'],
-            'description': agent_data.get('description'),
-            'system_prompt': version_data['system_prompt'],
-            'configured_mcps': version_data.get('configured_mcps', []),
-            'custom_mcps': version_data.get('custom_mcps', []),
-            'agentpress_tools': version_data.get('agentpress_tools', {}),
-            'is_default': agent_data.get('is_default', False),
-            'current_version_id': agent_data.get('current_version_id'),
-            'version_name': version_data.get('version_name', 'v1')
-        }
-        logger.info(f"Using agent {agent_config['name']} ({agent_id}) version {agent_config['version_name']} for workflow")
+    version_data = agent_data.get('agent_versions')
+    agent_config = extract_agent_config(agent_data, version_data)
+    if version_data:
+        logger.info(f"Using agent {agent_config['name']} ({agent_id}) version {agent_config.get('version_name', 'v1')} for workflow")
     else:
-        agent_config = agent_data
-        logger.info(f"Using agent {agent_config['name']} ({agent_id}) - no version data")
+        logger.info(f"Using agent {agent_config['name']} ({agent_id}) - no version data for workflow")
     
     available_tools = []
 
@@ -814,23 +803,9 @@ async def trigger_workflow_webhook(
         agent_data = agent_result.data[0]
         account_id = agent_data['account_id']
         
-        if agent_data.get('agent_versions'):
-            version_data = agent_data['agent_versions']
-            agent_config = {
-                'agent_id': agent_data['agent_id'],
-                'name': agent_data['name'],
-                'description': agent_data.get('description'),
-                'system_prompt': version_data['system_prompt'],
-                'configured_mcps': version_data.get('configured_mcps', []),
-                'custom_mcps': version_data.get('custom_mcps', []),
-                'agentpress_tools': version_data.get('agentpress_tools', {}),
-                'is_default': agent_data.get('is_default', False),
-                'current_version_id': agent_data.get('current_version_id'),
-                'version_name': version_data.get('version_name', 'v1'),
-                'account_id': account_id
-            }
-        else:
-            agent_config = {**agent_data, 'account_id': account_id}
+        version_data = agent_data.get('agent_versions')
+        agent_config = extract_agent_config(agent_data, version_data)
+        agent_config['account_id'] = account_id  # Ensure account_id is in the config
         
         from triggers.integration import WorkflowTriggerExecutor
         from triggers.core import TriggerResult, TriggerEvent, TriggerType
