@@ -177,7 +177,6 @@ class MCPToolWrapper(Tool):
                     logger.info(f"  {server_name}: Connected via stdio ({len(tools_info)} tools)")
 
     async def _initialize_custom_mcps(self, custom_configs):
-        """Initialize custom MCP servers."""
         for config in custom_configs:
             try:
                 logger.info(f"Initializing custom MCP: {config}")
@@ -188,7 +187,81 @@ class MCPToolWrapper(Tool):
                 
                 logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")
                 
-                if custom_type == 'sse':
+                if custom_type == 'pipedream':
+                    app_slug = server_config.get('app_slug')
+
+                    if not app_slug and 'headers' in server_config and 'x-pd-app-slug' in server_config['headers']:
+                        app_slug = server_config['headers']['x-pd-app-slug']
+                        server_config['app_slug'] = app_slug
+                    
+                    external_user_id = server_config.get('external_user_id')
+                    oauth_app_id = server_config.get('oauth_app_id')
+                    
+                    if not app_slug or not external_user_id:
+                        logger.error(f"Custom MCP {server_name}: Missing app_slug or external_user_id for Pipedream")
+                        continue
+                    
+                    logger.info(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id})")
+                    
+                    try:
+                        # Import Pipedream client
+                        from pipedream.client import get_pipedream_client
+                        from mcp import ClientSession
+                        from mcp.client.streamable_http import streamablehttp_client
+                        
+                        client = get_pipedream_client()
+                        
+                        # Get access token and headers
+                        access_token = await client._obtain_access_token()
+                        await client._ensure_rate_limit_token()
+                        
+                        headers = {
+                            "Authorization": f"Bearer {access_token}",
+                            "x-pd-project-id": client.config.project_id,
+                            "x-pd-environment": client.config.environment,
+                            "x-pd-external-user-id": external_user_id,
+                            "x-pd-app-slug": app_slug,
+                        }
+                        
+                        if client.rate_limit_token:
+                            headers["x-pd-rate-limit"] = client.rate_limit_token
+                        
+                        if oauth_app_id:
+                            headers["x-pd-oauth-app-id"] = oauth_app_id
+
+                        url = "https://remote.mcp.pipedream.net"
+                        
+                        async with streamablehttp_client(url, headers=headers) as (read_stream, write_stream, _):
+                            async with ClientSession(read_stream, write_stream) as session:
+                                await session.initialize()
+                                tools_result = await session.list_tools()
+                                tools = tools_result.tools if hasattr(tools_result, 'tools') else tools_result
+                                
+                                tools_registered = 0
+                                for tool in tools:
+                                    tool_name_from_server = tool.name
+                                    if not enabled_tools or tool_name_from_server in enabled_tools:
+                                        tool_name = f"custom_{server_name.replace(' ', '_').lower()}_{tool_name_from_server}"
+                                        self._custom_tools[tool_name] = {
+                                            'name': tool_name,
+                                            'description': tool.description,
+                                            'parameters': tool.inputSchema,
+                                            'server': server_name,
+                                            'original_name': tool_name_from_server,
+                                            'is_custom': True,
+                                            'custom_type': custom_type,
+                                            'custom_config': server_config
+                                        }
+                                        tools_registered += 1
+                                        logger.debug(f"Registered Pipedream tool: {tool_name}")
+                                
+                                logger.info(f"Successfully initialized Pipedream MCP {server_name} with {tools_registered} tools")
+                                
+                    except Exception as e:
+                        logger.error(f"Pipedream MCP {server_name}: Connection failed - {str(e)}")
+                        continue
+                
+                elif custom_type == 'sse':
                     if 'url' not in server_config:
                         logger.error(f"Custom MCP {server_name}: Missing 'url' in config")
                         continue
@@ -318,14 +391,6 @@ class MCPToolWrapper(Tool):
                 continue
     
     async def initialize_and_register_tools(self, tool_registry=None):
-        """Initialize MCP tools and optionally update the tool registry.
-        
-        This method should be called after the tool has been registered to dynamically
-        add the MCP tool schemas to the registry.
-        
-        Args:
-            tool_registry: Optional ToolRegistry instance to update with new schemas
-        """
         await self._ensure_initialized()
         
         if tool_registry and self._dynamic_tools:
@@ -335,9 +400,7 @@ class MCPToolWrapper(Tool):
                     pass
     
     async def _create_dynamic_tools(self):
-        """Create dynamic tool methods for each available MCP tool."""
         try:
-            # Get standard MCP tools
             available_tools = self.mcp_manager.get_all_tools_openapi()
             logger.info(f"MCPManager returned {len(available_tools)} tools")
             
@@ -345,14 +408,11 @@ class MCPToolWrapper(Tool):
                 tool_name = tool_info.get('name', '')
                 logger.info(f"Processing tool: {tool_name}")
                 if tool_name:
-                    # Create a dynamic method for this tool with proper OpenAI schema
                     self._create_dynamic_method(tool_name, tool_info)
             
-            # Get custom MCP tools
             logger.info(f"Processing {len(self._custom_tools)} custom MCP tools")
             for tool_name, tool_info in self._custom_tools.items():
                 logger.info(f"Processing custom tool: {tool_name}")
-                # Convert custom tool info to the expected format
                 openapi_tool_info = {
                     "name": tool_name,
                     "description": tool_info['description'],
@@ -366,7 +426,6 @@ class MCPToolWrapper(Tool):
             logger.error(f"Error creating dynamic MCP tools: {e}")
     
     def _create_dynamic_method(self, tool_name: str, tool_info: Dict[str, Any]):
-        """Create a dynamic method for a specific MCP tool with proper OpenAI schema."""
         if tool_name.startswith("custom_"):
             if tool_name in self._custom_tools:
                 clean_tool_name = self._custom_tools[tool_name]['original_name']
@@ -508,30 +567,88 @@ class MCPToolWrapper(Tool):
             return self.fail_response(f"Error executing tool: {str(e)}")
     
     async def _execute_custom_mcp_tool(self, tool_name: str, arguments: Dict[str, Any], tool_info: Dict[str, Any]) -> ToolResult:
-        """Execute a custom MCP tool call."""
         try:
             custom_type = tool_info['custom_type']
             custom_config = tool_info['custom_config']
             original_tool_name = tool_info['original_name']
             
-            if custom_type == 'sse':
-                # Execute SSE-based custom MCP using the same pattern as _connect_sse_server
+            if custom_type == 'pipedream':
+                app_slug = custom_config.get('app_slug')
+                if not app_slug and 'headers' in custom_config and 'x-pd-app-slug' in custom_config['headers']:
+                    app_slug = custom_config['headers']['x-pd-app-slug']
+                
+                external_user_id = custom_config.get('external_user_id')
+                oauth_app_id = custom_config.get('oauth_app_id')
+    
+                logger.info(f"Executing Pipedream MCP tool {original_tool_name} for {app_slug}")
+                try:
+                    from pipedream.client import get_pipedream_client
+                    from mcp import ClientSession
+                    from mcp.client.streamable_http import streamablehttp_client
+                    
+                    client = get_pipedream_client()
+
+                    access_token = await client._obtain_access_token()
+                    await client._ensure_rate_limit_token()
+                    
+                    headers = {
+                        "Authorization": f"Bearer {access_token}",
+                        "x-pd-project-id": client.config.project_id,
+                        "x-pd-environment": client.config.environment,
+                        "x-pd-external-user-id": external_user_id,
+                        "x-pd-app-slug": app_slug,
+                    }
+                    
+                    if client.rate_limit_token:
+                        headers["x-pd-rate-limit"] = client.rate_limit_token
+                    
+                    if oauth_app_id:
+                        headers["x-pd-oauth-app-id"] = oauth_app_id
+                    
+                    url = "https://remote.mcp.pipedream.net"
+                    
+                    async with asyncio.timeout(30):
+                        async with streamablehttp_client(url, headers=headers) as (read_stream, write_stream, _):
+                            async with ClientSession(read_stream, write_stream) as session:
+                                await session.initialize()
+                                result = await session.call_tool(original_tool_name, arguments)
+                                
+                                if hasattr(result, 'content'):
+                                    content = result.content
+                                    if isinstance(content, list):
+                                        text_parts = []
+                                        for item in content:
+                                            if hasattr(item, 'text'):
+                                                text_parts.append(item.text)
+                                            else:
+                                                text_parts.append(str(item))
+                                        content_str = "\n".join(text_parts)
+                                    elif hasattr(content, 'text'):
+                                        content_str = content.text
+                                    else:
+                                        content_str = str(content)
+                                    
+                                    return self.success_response(content_str)
+                                else:
+                                    return self.success_response(str(result))
+                                    
+                except Exception as e:
+                    logger.error(f"Error executing Pipedream MCP tool: {str(e)}")
+                    return self.fail_response(f"Error executing Pipedream tool: {str(e)}")
+                    
+            elif custom_type == 'sse':
                 url = custom_config['url']
                 headers = custom_config.get('headers', {})
                 
-                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                async with asyncio.timeout(30):
                     try:
-                        # Try with headers first (same pattern as _connect_sse_server)
                         async with sse_client(url, headers=headers) as (read, write):
                             async with ClientSession(read, write) as session:
                                 await session.initialize()
                                 result = await session.call_tool(original_tool_name, arguments)
-                                
-                                # Handle the result properly
                                 if hasattr(result, 'content'):
                                     content = result.content
                                     if isinstance(content, list):
-                                        # Extract text from content list
                                         text_parts = []
                                         for item in content:
                                             if hasattr(item, 'text'):
@@ -550,17 +667,14 @@ class MCPToolWrapper(Tool):
                                     
                     except TypeError as e:
                         if "unexpected keyword argument" in str(e):
-                            # Fallback: try without headers (exact pattern from _connect_sse_server)
                             async with sse_client(url) as (read, write):
                                 async with ClientSession(read, write) as session:
                                     await session.initialize()
                                     result = await session.call_tool(original_tool_name, arguments)
                                     
-                                    # Handle the result properly
                                     if hasattr(result, 'content'):
                                         content = result.content
                                         if isinstance(content, list):
-                                            # Extract text from content list
                                             text_parts = []
                                             for item in content:
                                                 if hasattr(item, 'text'):
@@ -580,20 +694,16 @@ class MCPToolWrapper(Tool):
                             raise
             
             elif custom_type == 'http':
-                # Execute HTTP-based custom MCP
                 url = custom_config['url']
                 
-                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                async with asyncio.timeout(30):
                     async with streamablehttp_client(url) as (read, write, _):
                         async with ClientSession(read, write) as session:
                             await session.initialize()
                             result = await session.call_tool(original_tool_name, arguments)
-                            
-                            # Handle the result properly
                             if hasattr(result, 'content'):
                                 content = result.content
                                 if isinstance(content, list):
-                                    # Extract text from content list
                                     text_parts = []
                                     for item in content:
                                         if hasattr(item, 'text'):
@@ -611,24 +721,21 @@ class MCPToolWrapper(Tool):
                                 return self.success_response(str(result))
                                 
             elif custom_type == 'json':
-                # Execute stdio-based custom MCP using the same pattern as _connect_stdio_server
                 server_params = StdioServerParameters(
                     command=custom_config["command"],
                     args=custom_config.get("args", []),
                     env=custom_config.get("env", {})
                 )
                 
-                async with asyncio.timeout(30):  # 30 second timeout for tool execution
+                async with asyncio.timeout(30):
                     async with stdio_client(server_params) as (read, write):
                         async with ClientSession(read, write) as session:
                             await session.initialize()
                             result = await session.call_tool(original_tool_name, arguments)
                             
-                            # Handle the result properly
                             if hasattr(result, 'content'):
                                 content = result.content
                                 if isinstance(content, list):
-                                    # Extract text from content list
                                     text_parts = []
                                     for item in content:
                                         if hasattr(item, 'text'):
@@ -692,20 +799,9 @@ class MCPToolWrapper(Tool):
         '''
     )
     async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
-        """
-        Execute an MCP tool call (fallback method).
-        
-        Args:
-            tool_name: The full MCP tool name (e.g., "mcp_exa_web_search_exa")
-            arguments: The arguments to pass to the tool
-            
-        Returns:
-            ToolResult with the tool execution result
-        """
         return await self._execute_mcp_tool(tool_name, arguments)
             
     async def cleanup(self):
-        """Disconnect all MCP servers."""
         if self._initialized:
             try:
                 await self.mcp_manager.disconnect_all()

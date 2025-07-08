@@ -73,17 +73,64 @@ export interface PipedreamConfigStatus {
   base_url: string;
 }
 
+export interface PipedreamApp {
+  id: string;
+  name: string;
+  name_slug: string;
+  app_hid: string;
+  description: string;
+  categories: string[];
+  featured_weight: number;
+  api_docs_url: string | null;
+  status: number;
+}
+
+export interface PipedreamAppResponse {
+  success: boolean;
+  apps: PipedreamApp[];
+  page_info: {
+    total_count: number;
+    current_page: number;
+    page_size: number;
+    has_more: boolean;
+  };
+  total_count: number;
+}
+
+export interface PipedreamTool {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
+
+export interface PipedreamAppWithTools {
+  app_name: string;
+  app_slug: string;
+  tools: PipedreamTool[];
+  tool_count: number;
+}
+
+export interface PipedreamToolsResponse {
+  success: boolean;
+  apps: PipedreamAppWithTools[];
+  total_apps: number;
+  total_tools: number;
+  user_id?: string;
+  timestamp?: number;
+  error?: string;
+}
+
 export const usePipedreamConnections = createQueryHook(
   pipedreamKeys.connections(),
   async (): Promise<ConnectionResponse> => {
     return await pipedreamApi.getConnections();
   },
   {
-    staleTime: 10 * 60 * 1000, // 10 minutes instead of 2 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes cache time
-    refetchOnWindowFocus: false, // 🚨 DISABLE this to prevent excessive refetching
-    refetchOnMount: false, // Only refetch if data is stale
-    refetchInterval: false, // No polling
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
   }
 );
 
@@ -114,6 +161,46 @@ export const pipedreamApi = {
 
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get connections');
+    }
+
+    return result.data!;
+  },
+
+  async getApps(page: number = 1, search?: string, category?: string): Promise<PipedreamAppResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+    });
+    
+    if (search) {
+      params.append('search', search);
+    }
+    if (category) {
+      params.append('category', category);
+    }
+    
+    const result = await backendApi.get<PipedreamAppResponse>(
+      `/pipedream/apps?${params.toString()}`,
+      {
+        errorContext: { operation: 'load apps', resource: 'Pipedream apps' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get apps');
+    }
+
+    return result.data!;
+  },
+
+  async getAvailableTools(): Promise<PipedreamToolsResponse> {
+    const result = await backendApi.get<PipedreamToolsResponse>(
+      '/pipedream/mcp/available-tools',
+      {
+        errorContext: { operation: 'load available tools', resource: 'Pipedream tools' },
+      }
+    );
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get available tools');
     }
 
     return result.data!;

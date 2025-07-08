@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Shield, Key, Workflow, Plus } from 'lucide-react';
+import { Bot, Menu, Store, Plus, Zap } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -171,9 +171,9 @@ export function SidebarLeft({
                 <SidebarMenuButton className={cn({
                   'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
                 })}>
-                  <Key className="h-4 w-4 mr-2" />
+                  <Zap className="h-4 w-4 mr-2" />
                   <span className="flex items-center justify-between w-full">
-                    Credentials
+                    App Profiles
                   </span>
                 </SidebarMenuButton>
               </Link>

@@ -521,7 +521,7 @@ export function ConditionalWorkflowBuilder({
                         ) : agentTools ? (
                           <>
                             {agentTools.agentpress_tools.filter(tool => tool.enabled).length > 0 && (
-                              <CommandGroup heading="AgentPress Tools">
+                              <CommandGroup heading="Default Tools">
                                 {agentTools.agentpress_tools.filter(tool => tool.enabled).map((tool) => (
                                   <CommandItem
                                     key={tool.name}
@@ -546,7 +546,7 @@ export function ConditionalWorkflowBuilder({
                               </CommandGroup>
                             )}
                             {agentTools.mcp_tools.length > 0 && (
-                              <CommandGroup heading="MCP Tools">
+                              <CommandGroup heading="External Tools">
                                 {agentTools.mcp_tools.map((tool) => (
                                   <CommandItem
                                     key={`${tool.server || 'default'}-${tool.name}`}

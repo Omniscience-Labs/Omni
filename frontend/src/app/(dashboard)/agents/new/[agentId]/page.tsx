@@ -382,11 +382,9 @@ export default function AgentConfigurationPage() {
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 overflow-x-hidden">
                       <AgentMCPConfiguration
-                        mcps={formData.configured_mcps}
-                        customMcps={formData.custom_mcps}
-                        onMCPsChange={(mcps) => handleBatchMCPChange({ configured_mcps: mcps, custom_mcps: formData.custom_mcps })}
-                        onCustomMCPsChange={(customMcps) => handleBatchMCPChange({ configured_mcps: formData.configured_mcps, custom_mcps: customMcps })}
-                        onBatchMCPChange={handleBatchMCPChange}
+                        configuredMCPs={formData.configured_mcps}
+                        customMCPs={formData.custom_mcps}
+                        onMCPChange={handleBatchMCPChange}
                       />
                     </AccordionContent>
                   </AccordionItem>

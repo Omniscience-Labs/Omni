@@ -1571,18 +1571,6 @@ async def update_agent(
                 update_data['current_version_id'] = new_version_id
                 update_data['version_count'] = next_version_number
                 
-                # Don't add version history entry - table was dropped in migration
-                # try:
-                #     await client.table('agent_version_history').insert({
-                #         "agent_id": agent_id,
-                #         "version_id": new_version_id,
-                #         "action": "created",
-                #         "changed_by": user_id,
-                #         "change_description": f"New version v{next_version_number} created from update"
-                #     }).execute()
-                # except Exception as e:
-                #     logger.warning(f"Failed to create version history entry: {e}")
-                
                 logger.info(f"Created new version v{next_version_number} for agent {agent_id}")
                 
             except HTTPException:
@@ -1837,15 +1825,6 @@ async def create_agent_version(
         "version_count": next_version_number
     }).eq("agent_id", agent_id).execute()
     
-    # Don't add version history entry - table was dropped in migration
-    # await client.table('agent_version_history').insert({
-    #     "agent_id": agent_id,
-    #     "version_id": version['version_id'],
-    #     "action": "created",
-    #     "changed_by": user_id,
-    #     "change_description": f"New version v{next_version_number} created"
-    # }).execute()
-    
     logger.info(f"Created version v{next_version_number} for agent {agent_id}")
     
     return version
@@ -1873,15 +1852,6 @@ async def activate_agent_version(
     await client.table('agents').update({
         "current_version_id": version_id
     }).eq("agent_id", agent_id).execute()
-    
-    # Don't add version history entry - table was dropped in migration
-    # await client.table('agent_version_history').insert({
-    #     "agent_id": agent_id,
-    #     "version_id": version_id,
-    #     "action": "activated",
-    #     "changed_by": user_id,
-    #     "change_description": f"Switched to version {version_result.data[0]['version_name']}"
-    # }).execute()
     
     return {"message": "Version activated successfully"}
 

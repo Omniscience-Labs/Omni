@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS agent_workflows (
     trigger_phrase VARCHAR(255), -- Optional phrase to trigger this workflow
     is_default BOOLEAN DEFAULT FALSE, -- Whether this is the default workflow for the agent
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Workflow steps table

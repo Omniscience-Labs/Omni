@@ -83,4 +83,17 @@ export const usePipedreamMCPDiscoveryForApp = (
 
 export const usePipedreamMCPServers = (enabled: boolean = true) => {
   return usePipedreamMCPDiscovery({}, enabled);
+};
+
+export const usePipedreamCustomMCPDiscovery = () => {
+  return useQuery({
+    queryKey: pipedreamKeys.mcpDiscovery({ custom: true }),
+    queryFn: async () => {
+      const response = await backendApi.post('/pipedream/mcp/discover-custom');
+      return response.data;
+    },
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 }; 
