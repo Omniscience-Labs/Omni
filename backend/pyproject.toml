@@ -76,4 +76,4 @@ repository = "https://github.com/kortix-ai/suna"
 package = false
 
 [tool.uv.sources]
-resumable-stream = { git = "https://github.com/kortix-ai/resumable-stream-python", tag = "v0.0.2" }
+resumable-stream = { git = "https://github.com/kortix-ai/resumable-stream-python", tag = "v0.1.1" }

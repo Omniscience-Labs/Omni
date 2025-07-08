@@ -16,47 +16,22 @@ from services.langfuse import langfuse
 from utils.retry import retry
 from typing import AsyncGenerator
 import json
+from resumable_stream.runtime import create_resumable_stream_context, ResumableStreamContext
 
 _initialized = False
 db = DBConnection()
 instance_id = "single"
 
 
-# Create stream broadcaster for multiple consumers
-class StreamBroadcaster:
-    def __init__(self, source: AsyncIterable[Any]):
-        self.source = source
-        self.queues: List[asyncio.Queue] = []
+stream_context_global: Optional[ResumableStreamContext] = None
 
-    def add_consumer(self) -> asyncio.Queue:
-        q: asyncio.Queue = asyncio.Queue()
-        self.queues.append(q)
-        return q
-
-    async def start(self) -> None:
-        async for chunk in self.source:
-            for q in self.queues:
-                await q.put(chunk)
-        for q in self.queues:
-            await q.put(None)  # Sentinel to close consumers
-
-    # Consumer wrapper as an async generator
-    @staticmethod
-    async def queue_to_stream(queue: asyncio.Queue) -> AsyncIterable[Any]:
-        while True:
-            chunk = await queue.get()
-            if chunk is None:
-                break
-            yield chunk
-
-    # Print consumer task
-    @staticmethod
-    async def iterate_bg(queue: asyncio.Queue) -> None:
-        while True:
-            chunk = await queue.get()
-            if chunk is None:
-                break
-            pass
+async def get_stream_context():
+    global stream_context_global
+    if stream_context_global:
+        return stream_context_global
+    r = await redis.initialize_async()
+    stream_context_global = create_resumable_stream_context(r, "resumable_stream")
+    return stream_context_global
 
 
 async def initialize():

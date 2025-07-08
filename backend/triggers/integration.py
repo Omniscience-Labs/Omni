@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from .core import TriggerResult, TriggerEvent
 from services.supabase import DBConnection
 from utils.logger import logger
+from agent.run_agent import get_stream_context, run_agent_run_stream
 
 class AgentTriggerExecutor:
     """Handles execution of agents when triggered by external events."""
@@ -242,6 +243,8 @@ Please respond appropriately to this trigger event."""
     ) -> str:
         """Start agent execution using the existing agent system."""
         client = await self.db.client
+
+        model_name = "anthropic/claude-sonnet-4-20250514"
         
         # Create agent run record
         agent_run_data = {
@@ -251,7 +254,7 @@ Please respond appropriately to this trigger event."""
             "status": "running",
             "started_at": datetime.now(timezone.utc).isoformat(),
             "metadata": {
-                "model_name": "anthropic/claude-sonnet-4-20250514",
+                "model_name": model_name,
                 "enable_thinking": False,
                 "reasoning_effort": "low",
                 "enable_context_manager": True,
@@ -268,8 +271,24 @@ Please respond appropriately to this trigger event."""
         instance_key = f"active_run:{instance_id}:{agent_run_id}"
         try:
             from services import redis
+            stream_context = await get_stream_context()
             await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
-            logger.info(f"Registered trigger agent run in Redis ({instance_key})")
+            
+            _ = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
+                agent_run_id=agent_run_id, thread_id=thread_id, instance_id="trigger_executor",
+                project_id=project_id,
+                model_name=model_name,
+                enable_thinking=False,
+                reasoning_effort="low",
+                stream=False,
+                enable_context_manager=True,
+                agent_config=agent_config,
+                is_agent_builder=False,
+                target_agent_id=None,
+                request_id=None
+            ))
+
+            logger.info(f"Started agent trigger execution ({instance_key})")
         except Exception as e:
             logger.warning(f"Failed to register trigger agent run in Redis ({instance_key}): {str(e)}")
         

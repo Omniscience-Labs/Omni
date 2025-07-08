@@ -8,7 +8,6 @@ import uuid
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 import os
-from resumable_stream.runtime import create_resumable_stream_context, ResumableStreamContext
 
 from services.supabase import DBConnection
 from services import redis
@@ -18,7 +17,7 @@ from services.billing import check_billing_status, can_use_model
 from utils.config import config
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
-from agent.run_agent import run_agent_run_stream, update_agent_run_status, StreamBroadcaster
+from agent.run_agent import run_agent_run_stream, update_agent_run_status, get_stream_context
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
@@ -29,16 +28,6 @@ instance_id = None # Global instance ID for this backend instance
 
 # TTL for Redis response lists (24 hours)
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
-
-stream_context_global: Optional[ResumableStreamContext] = None
-
-async def get_stream_context():
-    global stream_context_global
-    if stream_context_global:
-        return stream_context_global
-    r = await redis.initialize_async()
-    stream_context_global = create_resumable_stream_context(r, "resumable_stream")
-    return stream_context_global
 
 class AgentStartRequest(BaseModel):
     model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
@@ -675,7 +664,6 @@ async def stream_agent_run(
             logger.error(f"Failed to start sandbox for project {project_id}: {str(e)}")
             return
         
-        # Create the stream
         stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
             agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
             project_id=project_id,
@@ -687,15 +675,6 @@ async def stream_agent_run(
             target_agent_id=target_agent_id,
             request_id=request_id
         ))
-        
-        broadcaster = StreamBroadcaster(stream)
-        stream_q = broadcaster.add_consumer()
-        print_q = broadcaster.add_consumer()
-
-        asyncio.create_task(broadcaster.start())
-        asyncio.create_task(StreamBroadcaster.iterate_bg(print_q))
-
-        stream = StreamBroadcaster.queue_to_stream(stream_q)
 
         logger.info(f"Created new stream for agent run {agent_run_id}")
     else:
@@ -703,7 +682,7 @@ async def stream_agent_run(
     
     if stream is None:
         logger.error(f"Failed to create or resume stream for agent run {agent_run_id}")
-        return
+        raise HTTPException(status_code=500, detail=f"Failed to create or resume stream for agent run {agent_run_id}")
 
     return StreamingResponse(stream, media_type="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive",
