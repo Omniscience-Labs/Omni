@@ -450,7 +450,7 @@ class SetupWizard:
                 "uv": "https://github.com/astral-sh/uv#installation",
                 "node": "https://nodejs.org/en/download/",
                 "npm": "https://docs.npmjs.com/downloading-and-installing-node-js-and-npm",
-                "docker": "https://docs.docker.com/get-docker/",  # For Redis/RabbitMQ
+                "docker": "https://docs.docker.com/get-docker/",  # For Redis
             }
 
         missing = []
@@ -1018,15 +1018,12 @@ class SetupWizard:
         # --- Backend .env ---
         is_docker = self.env_vars["setup_method"] == "docker"
         redis_host = "redis" if is_docker else "localhost"
-        rabbitmq_host = "rabbitmq" if is_docker else "localhost"
 
         backend_env = {
             "ENV_MODE": "local",
             **self.env_vars["supabase"],
             "REDIS_HOST": redis_host,
             "REDIS_PORT": "6379",
-            "RABBITMQ_HOST": rabbitmq_host,
-            "RABBITMQ_PORT": "5672",
             **self.env_vars["llm"],
             **self.env_vars["search"],
             **self.env_vars["rapidapi"],
@@ -1276,20 +1273,13 @@ class SetupWizard:
             print(
                 f"\n{Colors.BOLD}1. Start Infrastructure (in project root):{Colors.ENDC}"
             )
-            print(f"{Colors.CYAN}   docker compose up redis rabbitmq -d{Colors.ENDC}")
+            print(f"{Colors.CYAN}   docker compose up redis -d{Colors.ENDC}")
 
             print(f"\n{Colors.BOLD}2. Start Frontend (in a new terminal):{Colors.ENDC}")
             print(f"{Colors.CYAN}   cd frontend && npm run dev{Colors.ENDC}")
 
             print(f"\n{Colors.BOLD}3. Start Backend (in a new terminal):{Colors.ENDC}")
             print(f"{Colors.CYAN}   cd backend && python run api.py{Colors.ENDC}")
-
-            print(
-                f"\n{Colors.BOLD}4. Start Background Worker (in a new terminal):{Colors.ENDC}"
-            )
-            print(
-                f"{Colors.CYAN}   cd backend && uv run dramatiq run_agent_background{Colors.ENDC}"
-            )
 
         print("\nOnce all services are running, access Suna at: http://localhost:3000")
 

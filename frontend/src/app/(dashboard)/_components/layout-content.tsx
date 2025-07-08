@@ -13,7 +13,6 @@ import { checkApiHealth } from '@/lib/api';
 import { MaintenancePage } from '@/components/maintenance/maintenance-page';
 import { DeleteOperationProvider } from '@/contexts/DeleteOperationContext';
 import { StatusOverlay } from '@/components/ui/status-overlay';
-import { VSentry } from '@/components/sentry';
 import type { IMaintenanceNotice } from '@/lib/edge-flags';
 import { MaintenanceNotice } from './maintenance-notice';
 import { MaintenanceBanner } from './maintenance-banner';
@@ -134,7 +133,6 @@ export default function DashboardLayoutContent({
           onOpenChange={setShowMaintenanceAlert}
           closeable={true}
         />
-        <VSentry />
 
         {/* Status overlay for deletion operations */}
         <StatusOverlay />

@@ -507,8 +507,12 @@ export function extractFileContent(
   return null;
 }
 
-function processFileContent(content: string): string {
-  if (!content) return content;
+function processFileContent(content: string | object): string {
+  if (!content) return '';
+  if (typeof content === 'object') {
+    return JSON.stringify(content, null, 2);
+  }
+
   const trimmedContent = content.trim();
   const isLikelyJson = (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) ||
                        (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'));
