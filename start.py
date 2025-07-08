@@ -63,7 +63,7 @@ def print_manual_instructions():
     print(f"{Colors.CYAN}   cd frontend && npm run dev{Colors.ENDC}\n")
 
     print(f"{Colors.BOLD}3. Start Backend (in a new terminal):{Colors.ENDC}")
-    print(f"{Colors.CYAN}   cd backend && python run api.py{Colors.ENDC}\n")
+    print(f"{Colors.CYAN}   cd backend && uv run api.py{Colors.ENDC}\n")
 
     print("Once all services are running, access Suna at: http://localhost:3000\n")
 

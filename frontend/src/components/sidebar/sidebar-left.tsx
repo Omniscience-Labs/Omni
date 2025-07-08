@@ -130,56 +130,54 @@ export function SidebarLeft({
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        {!flagsLoading && (customAgentsEnabled || marketplaceEnabled) && (
-          <SidebarGroup>
-            <Link href="/dashboard">
+        <SidebarGroup>
+          <Link href="/dashboard">
+            <SidebarMenuButton className={cn({
+              'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
+            })}>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="flex items-center justify-between w-full">
+                New Task
+              </span>
+            </SidebarMenuButton>
+          </Link>
+          {!flagsLoading && marketplaceEnabled && (
+            <Link href="/marketplace">
               <SidebarMenuButton className={cn({
-                'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
+                'bg-accent text-accent-foreground font-medium': pathname === '/marketplace',
               })}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Store className="h-4 w-4 mr-2" />
                 <span className="flex items-center justify-between w-full">
-                  New Task
+                  Marketplace
                 </span>
               </SidebarMenuButton>
             </Link>
-            {marketplaceEnabled && (
-              <Link href="/marketplace">
-                <SidebarMenuButton className={cn({
-                  'bg-accent text-accent-foreground font-medium': pathname === '/marketplace',
-                })}>
-                  <Store className="h-4 w-4 mr-2" />
-                  <span className="flex items-center justify-between w-full">
-                    Marketplace
-                  </span>
-                </SidebarMenuButton>
-              </Link>
-            )}
-            {customAgentsEnabled && (
-              <Link href="/agents">
-                <SidebarMenuButton className={cn({
-                  'bg-accent text-accent-foreground font-medium': pathname === '/agents',
-                })}>
-                  <Bot className="h-4 w-4 mr-2" />
-                  <span className="flex items-center justify-between w-full">
-                  Agents
-                  </span>
-                </SidebarMenuButton>
-              </Link>
-            )}
-            {customAgentsEnabled && (
-              <Link href="/settings/credentials">
-                <SidebarMenuButton className={cn({
-                  'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
-                })}>
-                  <Key className="h-4 w-4 mr-2" />
-                  <span className="flex items-center justify-between w-full">
-                    Credentials
-                  </span>
-                </SidebarMenuButton>
-              </Link>
-            )}
-          </SidebarGroup>
-        )}
+          )}
+          {!flagsLoading && customAgentsEnabled && (
+            <Link href="/agents">
+              <SidebarMenuButton className={cn({
+                'bg-accent text-accent-foreground font-medium': pathname === '/agents',
+              })}>
+                <Bot className="h-4 w-4 mr-2" />
+                <span className="flex items-center justify-between w-full">
+                Agents
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          )}
+          {!flagsLoading && customAgentsEnabled && (
+            <Link href="/settings/credentials">
+              <SidebarMenuButton className={cn({
+                'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
+              })}>
+                <Key className="h-4 w-4 mr-2" />
+                <span className="flex items-center justify-between w-full">
+                  Credentials
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          )}
+        </SidebarGroup>
         <NavAgents />
       </SidebarContent>
       {state !== 'collapsed' && (
