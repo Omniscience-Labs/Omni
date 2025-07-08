@@ -35,11 +35,7 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
     token = auth_header.split(' ')[1]
     
     try:
-        # For Supabase JWT, we just need to decode and extract the user ID
-        # The actual validation is handled by Supabase's RLS
         payload = jwt.decode(token, options={"verify_signature": False})
-        
-        # Supabase stores the user ID in the 'sub' claim
         user_id = payload.get('sub')
         
         if not user_id:

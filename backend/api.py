@@ -179,10 +179,11 @@ api_router.include_router(knowledge_base_api.router)
 api_router.include_router(triggers_api.router)
 api_router.include_router(unified_oauth_api.router)
 
-# Add health check to API router
+from pipedream import api as pipedream_api
+api_router.include_router(pipedream_api.router)
+
 @api_router.get("/health")
 async def health_check():
-    """Health check endpoint to verify API is working."""
     logger.info("Health check endpoint called")
     return {
         "status": "ok", 
@@ -190,7 +191,6 @@ async def health_check():
         "instance_id": instance_id
     }
 
-# Include the main API router with /api prefix
 app.include_router(api_router, prefix="/api")
 
 
