@@ -10,4 +10,12 @@ export const pipedreamKeys = {
   availableTools: () => [...pipedreamKeys.all, 'available-tools'] as const,
   mcpDiscovery: (options?: { app_slug?: string; oauth_app_id?: string; custom?: boolean }) => 
     [...pipedreamKeys.all, 'mcp-discovery', options?.app_slug, options?.oauth_app_id, options?.custom] as const,
+  
+  profiles: {
+    all: () => [...pipedreamKeys.all, 'profiles'] as const,
+    list: (params?: { app_slug?: string; is_active?: boolean }) => 
+      [...pipedreamKeys.profiles.all(), 'list', params?.app_slug || '', params?.is_active ?? ''] as const,
+    detail: (profileId: string) => [...pipedreamKeys.profiles.all(), 'detail', profileId] as const,
+    connections: (profileId: string) => [...pipedreamKeys.profiles.all(), 'connections', profileId] as const,
+  }
 }; 

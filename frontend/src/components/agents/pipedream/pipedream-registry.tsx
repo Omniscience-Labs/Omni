@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, ExternalLink, Zap, Filter, Grid, List } from 'lucide-react';
+import { Search, Loader2, ExternalLink, Zap, Filter, Grid, List, User, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
-import { PipedreamConnectButton } from './pipedream-connect-button';
+import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
+import { CredentialProfileSelector } from './credential-profile-selector';
 import { PipedreamToolSelector } from './pipedream-tool-selector';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import type { PipedreamProfile } from '@/types/pipedream-profiles';
 
 interface PipedreamApp {
   id: string;
@@ -24,12 +26,12 @@ interface PipedreamApp {
 }
 
 interface PipedreamRegistryProps {
-  onAppConnected?: (app: PipedreamApp) => void;
-  onToolsSelected?: (appSlug: string, selectedTools: string[]) => void;
+  onProfileSelected?: (profile: PipedreamProfile) => void;
+  onToolsSelected?: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
 }
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
-  onAppConnected,
+  onProfileSelected,
   onToolsSelected
 }) => {
   const [search, setSearch] = useState('');
@@ -37,9 +39,10 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showToolSelector, setShowToolSelector] = useState(false);
-  const [selectedApp, setSelectedApp] = useState<PipedreamApp | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<PipedreamProfile | null>(null);
 
   const { data: appsData, isLoading, error, refetch } = usePipedreamApps(page, search, selectedCategory);
+  const { data: profiles, refetch: refetchProfiles } = usePipedreamProfiles();
   
   const { data: allAppsData } = usePipedreamApps(1, '', '');
 
@@ -62,35 +65,28 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     setPage(1);
   };
 
-  const handleAppConnect = async (app: PipedreamApp) => {
-    try {
-      // Show success message immediately
-      toast.success(`Connected to ${app.name}! Loading tools...`);
-      
-      // Wait a moment for the connection to be processed by Pipedream
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Refresh the tools data to get the latest
-      await refetch();
-      
-      // Open tool selector
-      setSelectedApp(app);
-      setShowToolSelector(true);
-      
-      onAppConnected?.(app);
-      
-    } catch (error) {
-      console.error('Failed to handle app connection:', error);
-      toast.error('Failed to load tools. Please try again.');
+  const handleProfileSelect = async (profileId: string | null, app: PipedreamApp) => {
+    if (!profileId) return;
+    
+    const profile = profiles?.find(p => p.profile_id === profileId);
+    if (!profile) return;
+
+    if (!profile.is_connected) {
+      toast.error('Please connect this profile first');
+      return;
     }
+
+    setSelectedProfile(profile);
+    setShowToolSelector(true);
+    onProfileSelected?.(profile);
   };
 
   const handleToolsSelected = (selectedTools: string[]) => {
-    if (selectedApp && onToolsSelected) {
-      onToolsSelected(selectedApp.name_slug, selectedTools);
+    if (selectedProfile && onToolsSelected) {
+      onToolsSelected(selectedProfile.profile_id, selectedTools, selectedProfile.app_name, selectedProfile.app_slug);
       setShowToolSelector(false);
-      setSelectedApp(null);
-      toast.success(`Added ${selectedTools.length} tools from ${selectedApp.name}!`);
+      setSelectedProfile(null);
+      toast.success(`Added ${selectedTools.length} tools from ${selectedProfile.app_name}!`);
     }
   };
 
@@ -99,80 +95,111 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     return `https://logo.clearbit.com/${logoSlug}.com`;
   };
 
-  const AppCard: React.FC<{ app: PipedreamApp }> = ({ app }) => (
-    <Card className="group transition-all duration-200 border-border/50 hover:border-border">
-      <CardContent>
-        <div className="flex flex-col items-start gap-2.5">
-          <div className="flex-shrink-0">
-            <div className='h-8 w-8 rounded-md flex items-center justify-center overflow-hidden'>
-              <img
-                src={getAppLogoUrl(app)}
-                alt={`${app.name} logo`}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector('.fallback-logo')) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'fallback-logo w-6 h-6 rounded bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs';
-                    fallback.textContent = app.name.charAt(0).toUpperCase();
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-1.5">
-              <h3 className="font-medium text-sm truncate pr-2">{app.name}</h3>
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-              {app.description}
-            </p>
+  const getAppProfiles = (appSlug: string) => {
+    return profiles?.filter(p => p.app_slug === appSlug && p.is_active) || [];
+  };
 
-            {app.categories.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {app.categories.slice(0, 2).map((category) => (
-                  <Badge 
-                    key={category} 
-                    variant="outline" 
-                    className="text-xs px-1.5 py-0.5 bg-muted/50 hover:bg-muted cursor-pointer h-5"
-                    onClick={() => handleCategorySelect(category)}
+  const AppCard: React.FC<{ app: PipedreamApp }> = ({ app }) => {
+    const appProfiles = getAppProfiles(app.name_slug);
+    const connectedProfiles = appProfiles.filter(p => p.is_connected);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+    return (
+      <Card className="group transition-all duration-200 border-border/50 hover:border-border">
+        <CardContent>
+          <div className="flex flex-col items-start gap-2.5">
+            <div className="flex-shrink-0">
+              <div className='h-8 w-8 rounded-md flex items-center justify-center overflow-hidden'>
+                <img
+                  src={getAppLogoUrl(app)}
+                  alt={`${app.name} logo`}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.fallback-logo')) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'fallback-logo w-6 h-6 rounded bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs';
+                      fallback.textContent = app.name.charAt(0).toUpperCase();
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 w-full">
+              <div className="flex items-start justify-between mb-1.5">
+                <h3 className="font-medium text-sm truncate pr-2">{app.name}</h3>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                {app.description}
+              </p>
+
+              {app.categories.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {app.categories.slice(0, 2).map((category) => (
+                    <Badge 
+                      key={category} 
+                      variant="outline" 
+                      className="text-xs px-1.5 py-0.5 bg-muted/50 hover:bg-muted cursor-pointer h-5"
+                      onClick={() => handleCategorySelect(category)}
+                    >
+                      {category}
+                    </Badge>
+                  ))}
+                  {app.categories.length > 2 && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-muted/50 h-5">
+                      +{app.categories.length - 2}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              {connectedProfiles.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <User className="h-3 w-3" />
+                    <span>{connectedProfiles.length} profile{connectedProfiles.length !== 1 ? 's' : ''} connected</span>
+                  </div>
+                  <CredentialProfileSelector
+                    appSlug={app.name_slug}
+                    appName={app.name}
+                    selectedProfileId={selectedProfileId}
+                    onProfileSelect={(profileId) => {
+                      setSelectedProfileId(profileId);
+                      if (profileId) {
+                        handleProfileSelect(profileId, app);
+                      }
+                    }}
+                    showCreateOption={false}
+                  />
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  No profiles connected for this app
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 mt-2">
+                {app.api_docs_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(app.api_docs_url!, '_blank')}
+                    className="h-7 text-xs"
                   >
-                    {category}
-                  </Badge>
-                ))}
-                {app.categories.length > 2 && (
-                  <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-muted/50 h-5">
-                    +{app.categories.length - 2}
-                  </Badge>
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Docs
+                  </Button>
                 )}
               </div>
-            )}
-
-            <div className="flex items-center gap-1.5">
-              <PipedreamConnectButton
-                app={app.name_slug}
-                onConnect={() => handleAppConnect(app)}
-                className="flex-1 h-7 text-xs"
-              />
-              {app.api_docs_url && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(app.api_docs_url!, '_blank')}
-                  className="h-7 w-7 p-0"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              )}
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (error) {
     return (
@@ -237,7 +264,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
             <div>
               <h2 className="text-lg font-semibold">Integrations</h2>
               <p className="text-xs text-muted-foreground">
-                Connect to thousands of apps to use in your agents
+                Select from your connected credential profiles to add tools
               </p>
             </div>
           </div>
@@ -325,10 +352,11 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
       <Dialog open={showToolSelector} onOpenChange={setShowToolSelector}>
         <DialogContent className='max-w-3xl'>
           <DialogHeader>
-            <DialogTitle>Select Tools for {selectedApp?.name}</DialogTitle>
+            <DialogTitle>Select Tools for {selectedProfile?.app_name}</DialogTitle>
           </DialogHeader>
           <PipedreamToolSelector
-            appSlug={selectedApp?.name_slug || ''}
+            appSlug={selectedProfile?.app_slug || ''}
+            profile={selectedProfile}
             onToolsSelected={handleToolsSelected}
           />
         </DialogContent>

@@ -4,39 +4,69 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Zap, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
-import { usePipedreamAvailableTools } from '@/hooks/react-query/pipedream/use-pipedream';
-import { type PipedreamTool, type PipedreamAppWithTools } from '@/hooks/react-query/pipedream/utils';
+import { type PipedreamTool, type PipedreamAppWithTools, pipedreamApi } from '@/hooks/react-query/pipedream/utils';
 import { toast } from 'sonner';
+import type { PipedreamProfile } from '@/types/pipedream-profiles';
 
 interface PipedreamToolSelectorProps {
   appSlug: string;
+  profile?: PipedreamProfile;
   onToolsSelected: (selectedTools: string[]) => void;
   initialSelectedTools?: string[];
 }
 
 export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
   appSlug,
+  profile,
   onToolsSelected,
   initialSelectedTools = []
 }) => {
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(initialSelectedTools));
+  const [isLoading, setIsLoading] = useState(true);
+  const [tools, setTools] = useState<PipedreamTool[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  const { data: toolsData, isLoading, error, refetch, isRefetching } = usePipedreamAvailableTools();
+  const fetchTools = async () => {
+    if (!profile) {
+      setError('No profile selected');
+      setIsLoading(false);
+      return;
+    }
 
-  const appData = toolsData?.apps?.find((app: PipedreamAppWithTools) => app.app_slug === appSlug);
-  const tools = appData?.tools || [];
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Discover MCP servers for this profile's external_user_id
+      const servers = await pipedreamApi.discoverMCPServers(profile.external_user_id, appSlug);
+      
+      // Find the server for this app
+      const server = servers.find(s => s.app_slug === appSlug);
+      
+      if (!server) {
+        setError('App not found in connected servers');
+        return;
+      }
+
+      if (server.status !== 'connected') {
+        setError('App is not properly connected');
+        return;
+      }
+
+      setTools(server.available_tools || []);
+      
+    } catch (err: any) {
+      console.error('Error fetching tools:', err);
+      setError(err.message || 'Failed to load tools');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!isLoading && !error && toolsData && !appData && !isRetrying) {
-      setIsRetrying(true);
-      const retryTimeout = setTimeout(() => {
-        refetch();
-        setIsRetrying(false);
-      }, 2000);
-      return () => clearTimeout(retryTimeout);
-    }
-  }, [isLoading, error, toolsData, appData, isRetrying, refetch]);
+    fetchTools();
+  }, [profile?.profile_id, appSlug]);
 
   const handleToolToggle = (toolName: string) => {
     const newSelected = new Set(selectedTools);
@@ -67,21 +97,15 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
 
   const handleRetry = async () => {
     setIsRetrying(true);
-    try {
-      await refetch();
-      toast.success('Tools refreshed successfully');
-    } catch (err) {
-      toast.error('Failed to refresh tools. Please try connecting the app again.');
-    } finally {
-      setIsRetrying(false);
-    }
+    await fetchTools();
+    setIsRetrying(false);
   };
 
   const handleCancel = () => {
     onToolsSelected([]);
   };
 
-  if (isLoading || isRefetching || isRetrying) {
+  if (isLoading || isRetrying) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3">
@@ -89,7 +113,7 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
           <div className="text-center">
             <p className="font-medium">Loading available tools...</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {isRetrying ? 'Checking for newly connected apps...' : 'This may take a moment'}
+              Fetching tools for {profile?.profile_name || appSlug}
             </p>
           </div>
         </div>
@@ -102,9 +126,7 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
       <div className="text-center py-12">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <div className="text-red-500 mb-2 font-medium">Failed to load tools</div>
-        <p className="text-sm text-muted-foreground mb-4">
-          There was an error fetching tools for this app. This might happen if the app was just connected.
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <div className="flex gap-2 justify-center">
           <Button variant="outline" onClick={handleCancel}>
             Cancel
@@ -127,36 +149,6 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
     );
   }
 
-  if (!appData) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-4xl mb-4">🔗</div>
-        <h3 className="text-base font-medium mb-2">App not connected</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          It looks like this app isn't connected to your Pipedream account yet, or the connection is still being processed.
-        </p>
-        <div className="flex gap-2 justify-center">
-          <Button variant="outline" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button onClick={handleRetry} disabled={isRetrying}>
-            {isRetrying ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Check Again
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // No tools available state
   if (tools.length === 0) {
     return (
@@ -164,7 +156,7 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
         <div className="text-4xl mb-4">🔧</div>
         <h3 className="text-base font-medium mb-2">No tools available</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          This app doesn't have any MCP tools available yet, or they're still being loaded.
+          This app doesn't have any MCP tools available yet.
         </p>
         <div className="flex gap-2 justify-center">
           <Button variant="outline" onClick={handleCancel}>
@@ -195,7 +187,7 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
         <div>
           <h3 className="font-medium">Available Tools</h3>
           <p className="text-sm text-muted-foreground">
-            Select tools to add to your agent ({tools.length} available)
+            Select tools from {profile?.profile_name} ({tools.length} available)
           </p>
         </div>
         <div className="flex gap-2">

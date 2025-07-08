@@ -17,6 +17,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import StdioServerParameters
 import asyncio
+from pipedream.client import get_pipedream_client
 
 
 class MCPToolWrapper(Tool):
@@ -194,14 +195,59 @@ class MCPToolWrapper(Tool):
                         app_slug = server_config['headers']['x-pd-app-slug']
                         server_config['app_slug'] = app_slug
                     
+                    # Check if we have a profile_id to resolve the external_user_id
+                    profile_id = server_config.get('profile_id')
                     external_user_id = server_config.get('external_user_id')
+                    
+                    logger.info(f"Pipedream MCP init - profile_id: {profile_id}, initial external_user_id: {external_user_id}")
+                    
+                    if profile_id:
+                        try:
+                            from services.supabase import DBConnection
+                            from utils.encryption import decrypt_data
+                            
+                            db = DBConnection()
+                            supabase = await db.client
+                            
+                            # Get the profile
+                            result = await supabase.table('user_mcp_credential_profiles').select(
+                                'encrypted_config'
+                            ).eq('profile_id', profile_id).single().execute()
+                            
+                            if result.data:
+                                # Decrypt config to get external_user_id
+                                decrypted_config = decrypt_data(result.data['encrypted_config'])
+                                config_data = json.loads(decrypted_config)
+                                profile_external_user_id = config_data.get('external_user_id')
+                                
+                                if external_user_id and external_user_id != profile_external_user_id:
+                                    logger.warning(f"Overriding external_user_id {external_user_id} with profile's external_user_id {profile_external_user_id}")
+                                
+                                external_user_id = profile_external_user_id
+                                server_config['external_user_id'] = external_user_id
+                                
+                                # Also get oauth_app_id if available
+                                if 'oauth_app_id' in config_data:
+                                    server_config['oauth_app_id'] = config_data['oauth_app_id']
+                                
+                                logger.info(f"Resolved external_user_id from profile {profile_id}: {external_user_id}")
+                                logger.info(f"Full decrypted config: {json.dumps(config_data, indent=2)}")
+                            else:
+                                logger.error(f"Custom MCP {server_name}: Profile {profile_id} not found")
+                                continue
+                                
+                        except Exception as e:
+                            logger.error(f"Custom MCP {server_name}: Failed to resolve profile {profile_id}: {str(e)}")
+                            continue
+                    
                     oauth_app_id = server_config.get('oauth_app_id')
                     
                     if not app_slug or not external_user_id:
                         logger.error(f"Custom MCP {server_name}: Missing app_slug or external_user_id for Pipedream")
+                        logger.error(f"app_slug: {app_slug}, external_user_id: {external_user_id}")
                         continue
                     
-                    logger.info(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id})")
+                    logger.info(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id}, oauth_app_id: {oauth_app_id})")
                     
                     try:
                         # Import Pipedream client
@@ -572,15 +618,67 @@ class MCPToolWrapper(Tool):
             custom_config = tool_info['custom_config']
             original_tool_name = tool_info['original_name']
             
+            logger.info(f"Executing custom MCP tool {tool_name} (type: {custom_type}, original: {original_tool_name})")
+            
             if custom_type == 'pipedream':
                 app_slug = custom_config.get('app_slug')
                 if not app_slug and 'headers' in custom_config and 'x-pd-app-slug' in custom_config['headers']:
                     app_slug = custom_config['headers']['x-pd-app-slug']
                 
+                # Check if we have a profile_id to resolve the external_user_id
+                profile_id = custom_config.get('profile_id')
                 external_user_id = custom_config.get('external_user_id')
-                oauth_app_id = custom_config.get('oauth_app_id')
+                
+                logger.info(f"Pipedream tool execution - profile_id: {profile_id}, initial external_user_id: {external_user_id}")
+                logger.info(f"Custom config: {json.dumps(custom_config, indent=2)}")
+                
+                # If we have a profile_id, ALWAYS resolve external_user_id from it
+                if profile_id:
+                    try:
+                        from services.supabase import DBConnection
+                        from utils.encryption import decrypt_data
+                        
+                        db = DBConnection()
+                        supabase = await db.client
+                        
+                        logger.info(f"Resolving external_user_id from profile {profile_id} (overriding any existing external_user_id)")
+                        
+                        # Get the profile
+                        result = await supabase.table('user_mcp_credential_profiles').select(
+                            'encrypted_config'
+                        ).eq('profile_id', profile_id).single().execute()
+                        
+                        if result.data:
+                            # Decrypt config to get external_user_id
+                            decrypted_config = decrypt_data(result.data['encrypted_config'])
+                            config_data = json.loads(decrypted_config)
+                            profile_external_user_id = config_data.get('external_user_id')
+                            
+                            if external_user_id and external_user_id != profile_external_user_id:
+                                logger.warning(f"Overriding external_user_id {external_user_id} with profile's external_user_id {profile_external_user_id}")
+                            
+                            external_user_id = profile_external_user_id
+                            
+                            logger.info(f"Resolved external_user_id from profile during execution: {external_user_id}")
+                            logger.info(f"Full decrypted profile config: {json.dumps(config_data, indent=2)}")
+                            
+                            # Also get oauth_app_id if available
+                            oauth_app_id = config_data.get('oauth_app_id')
+                        else:
+                            logger.error(f"Profile {profile_id} not found")
+                            return self.fail_response(f"Profile {profile_id} not found")
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to resolve profile {profile_id}: {str(e)}")
+                        return self.fail_response(f"Failed to resolve profile: {str(e)}")
+                else:
+                    oauth_app_id = custom_config.get('oauth_app_id')
+                    
+                if not external_user_id:
+                    logger.error(f"No external_user_id available for Pipedream tool execution")
+                    return self.fail_response("No external_user_id available")
     
-                logger.info(f"Executing Pipedream MCP tool {original_tool_name} for {app_slug}")
+                logger.info(f"Executing Pipedream MCP tool {original_tool_name} for {app_slug} with external_user_id: {external_user_id}")
                 try:
                     from pipedream.client import get_pipedream_client
                     from mcp import ClientSession

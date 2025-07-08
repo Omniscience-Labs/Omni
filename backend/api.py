@@ -74,6 +74,9 @@ async def lifespan(app: FastAPI):
         triggers_api.initialize(db)
         unified_oauth_api.initialize(db)
         
+        # Initialize pipedream API
+        pipedream_api.initialize(db)
+        
         yield
         
         # Clean up agent resources

@@ -42,23 +42,25 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
     onConfigurationChange([...configuredMCPs.filter(mcp => mcp.customType !== 'pipedream'), mcpConfig]);
   };
 
-  const handleToolsSelected = (appSlug: string, selectedTools: string[]) => {
+  const handleToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
     const pipedreamMCP: MCPConfigurationType = {
-      name: `${appSlug}`,
-      qualifiedName: `pipedream_${appSlug}_${Date.now()}`,
+      name: appName,
+      qualifiedName: `pipedream_${appSlug}_${profileId}`,
       config: {
         url: 'https://remote.mcp.pipedream.net',
         headers: {
           'x-pd-app-slug': appSlug,
-        }
+        },
+        profile_id: profileId
       },
       enabledTools: selectedTools,
       isCustom: true,
-      customType: 'pipedream'
+      customType: 'pipedream',
+      selectedProfileId: profileId
     };
     const nonPipedreamMCPs = configuredMCPs.filter(mcp => 
       mcp.customType !== 'pipedream' || 
-      mcp.config?.headers?.['x-pd-app-slug'] !== appSlug
+      mcp.selectedProfileId !== profileId
     );
     onConfigurationChange([...nonPipedreamMCPs, pipedreamMCP]);
     setShowRegistryDialog(false);

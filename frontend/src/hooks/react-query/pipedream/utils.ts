@@ -1,6 +1,13 @@
 import { createQueryHook } from '@/hooks/use-query';
 import { backendApi } from '@/lib/api-client';
 import { pipedreamKeys } from './keys';
+import type {
+  PipedreamProfile,
+  CreateProfileRequest,
+  UpdateProfileRequest,
+  ProfileConnectionResponse,
+  ProfileConnectionsResponse
+} from '@/types/pipedream-profiles';
 
 export interface CreateConnectionTokenRequest {
   app?: string;
@@ -216,6 +223,139 @@ export const pipedreamApi = {
 
     if (!result.success) {
       throw new Error(result.error?.message || 'Health check failed');
+    }
+
+    return result.data!;
+  },
+
+  async discoverMCPServers(externalUserId: string, appSlug?: string): Promise<any> {
+    const request = {
+      external_user_id: externalUserId,
+      app_slug: appSlug
+    };
+    
+    const result = await backendApi.post<any>(
+      '/pipedream/mcp/discover-profile',
+      request,
+      {
+        errorContext: { operation: 'discover MCP servers', resource: 'Pipedream MCP' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to discover MCP servers');
+    }
+
+    return result.data?.mcp_servers || [];
+  },
+
+  // Credential Profile Methods
+  async createProfile(request: CreateProfileRequest): Promise<PipedreamProfile> {
+    const result = await backendApi.post<PipedreamProfile>(
+      '/pipedream/profiles',
+      request,
+      {
+        errorContext: { operation: 'create profile', resource: 'Pipedream credential profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to create profile');
+    }
+
+    return result.data!;
+  },
+
+  async getProfiles(params?: { app_slug?: string; is_active?: boolean }): Promise<PipedreamProfile[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.app_slug) queryParams.append('app_slug', params.app_slug);
+    if (params?.is_active !== undefined) queryParams.append('is_active', params.is_active.toString());
+
+    const result = await backendApi.get<PipedreamProfile[]>(
+      `/pipedream/profiles${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+      {
+        errorContext: { operation: 'get profiles', resource: 'Pipedream credential profiles' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get profiles');
+    }
+
+    return result.data!;
+  },
+
+  async getProfile(profileId: string): Promise<PipedreamProfile> {
+    const result = await backendApi.get<PipedreamProfile>(
+      `/pipedream/profiles/${profileId}`,
+      {
+        errorContext: { operation: 'get profile', resource: 'Pipedream credential profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get profile');
+    }
+
+    return result.data!;
+  },
+
+  async updateProfile(profileId: string, request: UpdateProfileRequest): Promise<PipedreamProfile> {
+    const result = await backendApi.put<PipedreamProfile>(
+      `/pipedream/profiles/${profileId}`,
+      request,
+      {
+        errorContext: { operation: 'update profile', resource: 'Pipedream credential profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to update profile');
+    }
+
+    return result.data!;
+  },
+
+  async deleteProfile(profileId: string): Promise<void> {
+    const result = await backendApi.delete(
+      `/pipedream/profiles/${profileId}`,
+      {
+        errorContext: { operation: 'delete profile', resource: 'Pipedream credential profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to delete profile');
+    }
+  },
+
+  async connectProfile(profileId: string, app?: string): Promise<ProfileConnectionResponse> {
+    const queryParams = app ? `?app=${encodeURIComponent(app)}` : '';
+    const result = await backendApi.post<ProfileConnectionResponse>(
+      `/pipedream/profiles/${profileId}/connect${queryParams}`,
+      {},
+      {
+        errorContext: { operation: 'connect profile', resource: 'Pipedream credential profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to connect profile');
+    }
+
+    return result.data!;
+  },
+
+  async getProfileConnections(profileId: string): Promise<ProfileConnectionsResponse> {
+    const result = await backendApi.get<ProfileConnectionsResponse>(
+      `/pipedream/profiles/${profileId}/connections`,
+      {
+        errorContext: { operation: 'get profile connections', resource: 'Pipedream profile connections' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get profile connections');
     }
 
     return result.data!;
