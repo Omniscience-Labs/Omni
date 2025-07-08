@@ -4,6 +4,7 @@ from utils.files_utils import should_exclude_file, clean_path
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
 import os
+import json
 
 class SandboxFilesTool(SandboxToolsBase):
     """Tool for executing file system operations in a Daytona sandbox. All operations are performed relative to the /workspace directory."""
@@ -133,6 +134,10 @@ class SandboxFilesTool(SandboxToolsBase):
             parent_dir = '/'.join(full_path.split('/')[:-1])
             if parent_dir:
                 await self.sandbox.fs.create_folder(parent_dir, "755")
+            
+            # convert to json string if file_contents is a dict
+            if isinstance(file_contents, dict):
+                file_contents = json.dumps(file_contents, indent=4)
             
             # Write the file content
             await self.sandbox.fs.upload_file(file_contents.encode(), full_path)
