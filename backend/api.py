@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -7,7 +10,6 @@ from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 from utils.config import config, EnvMode
 import asyncio
 from utils.logger import logger, structlog
@@ -27,8 +29,6 @@ import sys
 from services import email_api
 from triggers import api as triggers_api
 
-
-load_dotenv()
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
