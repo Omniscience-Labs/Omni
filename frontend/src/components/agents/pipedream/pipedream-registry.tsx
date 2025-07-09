@@ -3,15 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, ExternalLink, Zap, Filter, Grid, List, User, CheckCircle2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Loader2, ExternalLink, Zap, Filter, Grid, List, User, CheckCircle2, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { CredentialProfileSelector } from './credential-profile-selector';
 import { PipedreamToolSelector } from './pipedream-tool-selector';
+import { CredentialProfileManager } from './credential-profile-manager';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { PipedreamProfile } from '@/types/pipedream-profiles';
+import { useQueryClient } from '@tanstack/react-query';
+import { pipedreamKeys } from '@/hooks/react-query/pipedream/keys';
 
 interface PipedreamApp {
   id: string;
@@ -40,9 +43,12 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showToolSelector, setShowToolSelector] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<PipedreamProfile | null>(null);
+  const [showProfileManager, setShowProfileManager] = useState(false);
+  const [selectedAppForProfile, setSelectedAppForProfile] = useState<{ app_slug: string; app_name: string } | null>(null);
 
+  const queryClient = useQueryClient();
   const { data: appsData, isLoading, error, refetch } = usePipedreamApps(page, search, selectedCategory);
-  const { data: profiles, refetch: refetchProfiles } = usePipedreamProfiles();
+  const { data: profiles } = usePipedreamProfiles();
   
   const { data: allAppsData } = usePipedreamApps(1, '', '');
 
@@ -88,6 +94,17 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
       setSelectedProfile(null);
       toast.success(`Added ${selectedTools.length} tools from ${selectedProfile.app_name}!`);
     }
+  };
+
+  const handleCreateProfile = (app: PipedreamApp) => {
+    setSelectedAppForProfile({ app_slug: app.name_slug, app_name: app.name });
+    setShowProfileManager(true);
+  };
+
+  const handleProfileManagerClose = () => {
+    setShowProfileManager(false);
+    setSelectedAppForProfile(null);
+    queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
   };
 
   const getAppLogoUrl = (app: PipedreamApp) => {
@@ -172,28 +189,24 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                         handleProfileSelect(profileId, app);
                       }
                     }}
-                    showCreateOption={false}
                   />
                 </div>
               ) : (
-                <div className="text-xs text-muted-foreground">
-                  No profiles connected for this app
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    No profiles connected for this app
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCreateProfile(app)}
+                    className="h-7 text-xs w-full"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Profile
+                  </Button>
                 </div>
               )}
-
-              <div className="flex items-center gap-1.5 mt-2">
-                {app.api_docs_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(app.api_docs_url!, '_blank')}
-                    className="h-7 text-xs"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Docs
-                  </Button>
-                )}
-              </div>
             </div>
           </div>
         </CardContent>
@@ -358,6 +371,28 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
             appSlug={selectedProfile?.app_slug || ''}
             profile={selectedProfile}
             onToolsSelected={handleToolsSelected}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProfileManager} onOpenChange={handleProfileManagerClose}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Create {selectedAppForProfile?.app_name} Profile
+            </DialogTitle>
+            <DialogDescription>
+              Create a credential profile for {selectedAppForProfile?.app_name} to connect and use its tools
+            </DialogDescription>
+          </DialogHeader>
+          <CredentialProfileManager
+            appSlug={selectedAppForProfile?.app_slug}
+            appName={selectedAppForProfile?.app_name}
+            onProfileSelect={() => {
+              queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
+              handleProfileManagerClose();
+              toast.success(`Profile created for ${selectedAppForProfile?.app_name}!`);
+            }}
           />
         </DialogContent>
       </Dialog>

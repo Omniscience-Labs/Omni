@@ -21,7 +21,6 @@ from agent.run_agent import run_agent_run_stream, update_agent_run_status, get_s
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
-from .utils import check_for_active_project_agent_run, stop_agent_run as _stop_agent_run
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
 
 # Initialize shared resources

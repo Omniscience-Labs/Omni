@@ -2,7 +2,16 @@ import json
 from typing import Optional
 from utils.logger import logger
 from services import redis
-from run_agent_background import _cleanup_redis_response_list, update_agent_run_status
+from agent.run_agent import update_agent_run_status
+
+
+async def _cleanup_redis_response_list(agent_run_id: str):
+    try:
+        response_list_key = f"agent_run:{agent_run_id}:responses"
+        await redis.delete(response_list_key)
+        logger.debug(f"Cleaned up Redis response list for agent run {agent_run_id}")
+    except Exception as e:
+        logger.warning(f"Failed to clean up Redis response list for {agent_run_id}: {str(e)}")
 
 
 async def check_for_active_project_agent_run(client, project_id: str):

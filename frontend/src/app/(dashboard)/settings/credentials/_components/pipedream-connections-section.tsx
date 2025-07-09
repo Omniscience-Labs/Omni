@@ -6,23 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DataTable, DataTableColumn } from '@/components/ui/data-table';
 import { 
-  Zap, 
-  RefreshCw, 
   AlertCircle, 
-  CheckCircle2,
-  Calendar,
   Settings,
   User,
-  Star,
-  XCircle,
   Plus,
 } from 'lucide-react';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { CredentialProfileManager } from '@/components/agents/pipedream/credential-profile-manager';
-import { PipedreamConnectButton } from '@/components/agents/pipedream/pipedream-connect-button';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { PipedreamAppBrowser } from '@/components/agents/pipedream/pipedream-app-browser';
+import { useQueryClient } from '@tanstack/react-query';
+import { pipedreamKeys } from '@/hooks/react-query/pipedream/keys';
 import {
   Dialog,
   DialogContent,
@@ -32,120 +27,152 @@ import {
 } from '@/components/ui/dialog';
 import type { PipedreamProfile } from '@/types/pipedream-profiles';
 
-interface PipedreamProfileCardProps {
-  profile: PipedreamProfile;
-  onManage: () => void;
+interface AppTableProps {
+  appSlug: string;
+  appName: string;
+  profiles: PipedreamProfile[];
+  onManageProfile: (profile: PipedreamProfile) => void;
 }
 
-const PipedreamProfileCard: React.FC<PipedreamProfileCardProps> = ({ profile, onManage }) => {
+const AppTable: React.FC<AppTableProps> = ({ appSlug, appName, profiles, onManageProfile }) => {
   const getAppLogoUrl = (appSlug: string) => {
     const logoSlug = appSlug.toLowerCase().replace(/_/g, '-');
     return `https://logo.clearbit.com/${logoSlug}.com`;
   };
 
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return 'Never';
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-  };
+  const columns: DataTableColumn<PipedreamProfile>[] = [
+    {
+      id: 'name',
+      header: 'Profile Name',
+      width: 'w-1/2',
+      cell: (profile) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{profile.profile_name}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      width: 'w-1/4',
+      cell: (profile) => (
+        <div className="flex items-center gap-2">
+          {profile.is_connected ? (
+            <div className="text-xs flex items-center gap-2">
+              <div className="h-2 w-2 bg-green-500 rounded-full" />
+              Connected
+            </div>
+          ) : (
+            <div className="text-xs flex items-center gap-2">
+              <div className="h-2 w-2 bg-red-500 rounded-full" />
+              Not connected
+            </div>
+          )}
+          {!profile.is_active && (
+            <Badge variant="destructive" className="text-xs">
+              Inactive
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      width: 'w-1/4',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      cell: (profile) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onManageProfile(profile);
+          }}
+          className="h-7 text-xs"
+        >
+          <Settings className="h-3 w-3" />
+          Manage
+        </Button>
+      ),
+    },
+  ];
 
   return (
-    <Card className="p-0 group transition-all duration-200 border-border/50 hover:border-border bg-card">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0">
-            <div className="h-10 w-10 rounded-lg flex items-center justify-center overflow-hidden bg-muted/50">
-              <img
-                src={getAppLogoUrl(profile.app_slug)}
-                alt={`${profile.app_name} logo`}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector('.fallback-logo')) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'fallback-logo w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm';
-                    fallback.textContent = profile.app_name.charAt(0).toUpperCase();
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
-            </div>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-6 w-6 rounded-lg flex items-center justify-center overflow-hidden bg-muted/50">
+            <img
+              src={getAppLogoUrl(appSlug)}
+              alt={`${appName} logo`}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector('.fallback-logo')) {
+                  const fallback = document.createElement('div');
+                  fallback.className = 'fallback-logo w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs';
+                  fallback.textContent = appName.charAt(0).toUpperCase();
+                  parent.appendChild(fallback);
+                }
+              }}
+            />
           </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-medium text-sm truncate flex items-center gap-2">
-                  {profile.profile_name}
-                  {profile.is_default && (
-                    <Star className="h-3 w-3 text-yellow-500" />
-                  )}
-                </h3>
-                <p className="text-xs text-muted-foreground truncate">
-                  {profile.app_name}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {profile.is_connected ? (
-                  <Badge variant="default" className="text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Connected
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">
-                    <XCircle className="h-3 w-3 mr-1" />
-                    Not Connected
-                  </Badge>
-                )}
-                {!profile.is_active && (
-                  <Badge variant="destructive" className="text-xs">
-                    Inactive
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>Used {formatDate(profile.last_used_at)}</span>
-                </div>
-                {profile.enabled_tools.length > 0 && (
-                  <span>{profile.enabled_tools.length} tools</span>
-                )}
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onManage}
-                className="h-7 text-xs"
-              >
-                <Settings className="h-3 w-3 mr-1" />
-                Manage
-              </Button>
-            </div>
+          <div>
+            <h3 className="font-semibold text-md">{appName}</h3>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      
+      <DataTable
+        columns={columns}
+        data={profiles}
+        emptyMessage={`No ${appName} profiles found`}
+        className="bg-card border rounded-lg"
+      />
+    </div>
   );
 };
 
-export const PipedreamConnectionsSection: React.FC = () => {
-  const [showProfileManager, setShowProfileManager] = useState(false);
-  const { data: profiles, isLoading, error, refetch } = usePipedreamProfiles();
+interface PipedreamConnectionsSectionProps {
+  onConnectNewApp?: (app: { app_slug: string; app_name: string }) => void;
+}
 
-  const handleRefresh = async () => {
-    try {
-      await refetch();
-      toast.success('Refreshed credential profiles');
-    } catch (error) {
-      toast.error('Failed to refresh profiles');
+export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionProps> = ({
+  onConnectNewApp
+}) => {
+  const [showProfileManager, setShowProfileManager] = useState(false);
+  const [showAppBrowser, setShowAppBrowser] = useState(false);
+  const [selectedAppForProfile, setSelectedAppForProfile] = useState<{ app_slug: string; app_name: string } | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<PipedreamProfile | null>(null);
+  const queryClient = useQueryClient();
+  const { data: profiles, isLoading, error } = usePipedreamProfiles();
+
+  const handleAppSelect = (app: { app_slug: string; app_name: string }) => {
+    setShowAppBrowser(false);
+    setSelectedAppForProfile(app);
+    if (onConnectNewApp) {
+      onConnectNewApp(app);
     }
+    setShowProfileManager(true);
   };
 
-  // Group profiles by app
+  const handleManageProfile = (profile: PipedreamProfile) => {
+    setSelectedProfile(profile);
+    setSelectedAppForProfile({ app_slug: profile.app_slug, app_name: profile.app_name });
+    setShowProfileManager(true);
+  };
+
+  const handleProfileManagerClose = () => {
+    setShowProfileManager(false);
+    setSelectedAppForProfile(null);
+    setSelectedProfile(null);
+    queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
+  };
+
   const profilesByApp = profiles?.reduce((acc, profile) => {
     const key = profile.app_slug;
     if (!acc[key]) {
@@ -160,26 +187,26 @@ export const PipedreamConnectionsSection: React.FC = () => {
   const uniqueApps = Object.keys(profilesByApp).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i} className="bg-card border-border/50">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Skeleton className="h-10 w-10 rounded-lg" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24" />
-                    <div className="flex gap-1">
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                    <Skeleton className="h-3 w-28" />
-                  </div>
+        <div className="space-y-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="rounded-md border">
+                <div className="p-4 space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : error ? (
@@ -199,95 +226,74 @@ export const PipedreamConnectionsSection: React.FC = () => {
               <div className="space-y-1">
                 <h3 className="font-semibold text-foreground">No credential profiles yet</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Create credential profiles to manage multiple accounts for your Pipedream apps
+                  Connect your favorite apps to create credential profiles for your agents
                 </p>
               </div>
-              <PipedreamConnectButton 
-                createProfile={true}
-                onConnect={handleRefresh}
+              <Button 
+                onClick={() => setShowAppBrowser(true)}
                 className="h-9"
-              />
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Connect New App
+              </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
-                {totalProfiles} profile{totalProfiles !== 1 ? 's' : ''}
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                {uniqueApps} app{uniqueApps !== 1 ? 's' : ''}
-              </Badge>
-              {connectedProfiles > 0 && (
-                <Badge variant="default" className="text-xs">
-                  {connectedProfiles} connected
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRefresh}
-                disabled={isLoading}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <PipedreamConnectButton 
-                createProfile={true}
-                onConnect={handleRefresh}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowProfileManager(true)}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Manage
-              </Button>
-            </div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-end">
+            <Button
+              size="sm"
+              onClick={() => setShowAppBrowser(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Connect New App
+            </Button>
           </div>
-          <div className="space-y-6">
-            {Object.entries(profilesByApp).map(([appSlug, appProfiles]) => (
-              <div key={appSlug} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    {appProfiles[0].app_name}
-                  </h3>
-                  <Badge variant="outline" className="text-xs">
-                    {appProfiles.length} profile{appProfiles.length !== 1 ? 's' : ''}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {appProfiles.map((profile) => (
-                    <PipedreamProfileCard
-                      key={profile.profile_id}
-                      profile={profile}
-                      onManage={() => setShowProfileManager(true)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="space-y-8">
+            {Object.entries(profilesByApp)
+              .sort(([, a], [, b]) => b.length - a.length)
+              .map(([appSlug, appProfiles]) => (
+                <AppTable
+                  key={appSlug}
+                  appSlug={appSlug}
+                  appName={appProfiles[0].app_name}
+                  profiles={appProfiles}
+                  onManageProfile={handleManageProfile}
+                />
+              ))}
           </div>
         </div>
       )}
 
-      {/* Profile Manager Dialog */}
-      <Dialog open={showProfileManager} onOpenChange={setShowProfileManager}>
+      <PipedreamAppBrowser
+        open={showAppBrowser}
+        onOpenChange={setShowAppBrowser}
+        onSelectApp={handleAppSelect}
+      />
+
+      <Dialog open={showProfileManager} onOpenChange={handleProfileManagerClose}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Manage Pipedream Profiles</DialogTitle>
+            <DialogTitle>
+              {selectedAppForProfile 
+                ? `Manage ${selectedAppForProfile.app_name} Profiles`
+                : 'Manage Pipedream Profiles'
+              }
+            </DialogTitle>
             <DialogDescription>
-              Create and manage credential profiles for your Pipedream apps
+              {selectedAppForProfile
+                ? `Create and manage credential profiles for ${selectedAppForProfile.app_name}`
+                : 'Create and manage credential profiles for your Pipedream apps'
+              }
             </DialogDescription>
           </DialogHeader>
           <CredentialProfileManager
+            appSlug={selectedAppForProfile?.app_slug}
+            appName={selectedAppForProfile?.app_name}
             onProfileSelect={() => {
-              refetch();
-              setShowProfileManager(false);
+              queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
+              handleProfileManagerClose();
             }}
           />
         </DialogContent>

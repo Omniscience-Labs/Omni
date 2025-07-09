@@ -20,7 +20,7 @@ from services.billing import check_billing_status, can_use_model
 from utils.config import config
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
-from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
+from agent.run_agent import get_stream_context, run_agent_run_stream
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 from .utils import check_for_active_project_agent_run, stop_agent_run as _stop_agent_run
@@ -690,26 +690,40 @@ async def execute_agent_workflow(
     instance_key = f"active_run:{instance_id}:{agent_run_id}"
     try:
         await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
-    except Exception as e:
-        logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
+        
+        # Use new agent execution format from integration.py
+        stream_context = await get_stream_context()
+        request_id = structlog.contextvars.get_contextvars().get('request_id')
+        
+        _ = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
+            agent_run_id=agent_run_id, 
+            thread_id=thread_id, 
+            instance_id=instance_id,
+            project_id=project_id,
+            model_name=model_name,
+            enable_thinking=False,
+            reasoning_effort='medium',
+            stream=False,
+            enable_context_manager=True,
+            agent_config=agent_config,
+            is_agent_builder=False,
+            target_agent_id=None,
+            request_id=request_id
+        ))
 
-    request_id = structlog.contextvars.get_contextvars().get('request_id')
-    from run_agent_background import run_agent_background
-    run_agent_background.send(
-        agent_run_id=agent_run_id, 
-        thread_id=thread_id, 
-        instance_id=instance_id,
-        project_id=project_id,
-        model_name=model_name,
-        enable_thinking=False, 
-        reasoning_effort='medium',
-        stream=True, 
-        enable_context_manager=True,
-        agent_config=agent_config,
-        is_agent_builder=False,
-        target_agent_id=None,
-        request_id=request_id,
-    )
+        logger.info(f"Started workflow agent execution ({instance_key})")
+    except Exception as e:
+        logger.warning(f"Failed to register workflow agent run in Redis ({instance_key}): {str(e)}")
+        # Try to update the agent run status to failed
+        try:
+            await client.table('agent_runs').update({
+                "status": "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": f"Failed to start execution: {str(e)}"
+            }).eq('id', agent_run_id).execute()
+        except Exception as update_error:
+            logger.error(f"Failed to update agent run status: {str(update_error)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow execution: {str(e)}")
 
     return {
         "execution_id": execution_id,

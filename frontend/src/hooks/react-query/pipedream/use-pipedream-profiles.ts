@@ -8,12 +8,11 @@ import type {
 } from '@/types/pipedream-profiles';
 import { toast } from 'sonner';
 
-// Hook to get all profiles
 export const usePipedreamProfiles = (params?: { app_slug?: string; is_active?: boolean }) => {
   return useQuery({
     queryKey: pipedreamKeys.profiles.list(params),
     queryFn: () => pipedreamApi.getProfiles(params),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -71,7 +70,6 @@ export const useUpdatePipedreamProfile = () => {
   });
 };
 
-// Hook to delete a profile
 export const useDeletePipedreamProfile = () => {
   const queryClient = useQueryClient();
 
@@ -88,7 +86,7 @@ export const useDeletePipedreamProfile = () => {
   });
 };
 
-// Hook to connect a profile
+
 export const useConnectPipedreamProfile = () => {
   const queryClient = useQueryClient();
 
@@ -96,26 +94,21 @@ export const useConnectPipedreamProfile = () => {
     mutationFn: ({ profileId, app }: { profileId: string; app?: string }) =>
       pipedreamApi.connectProfile(profileId, app),
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
       queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.detail(data.profile_id) });
       queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.connections(data.profile_id) });
-      
-      // Open connection window
       if (data.link) {
         const connectWindow = window.open(data.link, '_blank', 'width=600,height=700');
-        
         if (connectWindow) {
-          // Poll for window closure
           const checkClosed = setInterval(() => {
             if (connectWindow.closed) {
               clearInterval(checkClosed);
-              // Refresh profile data
+              queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
               queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.detail(data.profile_id) });
               queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.connections(data.profile_id) });
               toast.success('Connection process completed');
             }
           }, 1000);
-          
-          // Timeout after 5 minutes
           setTimeout(() => {
             clearInterval(checkClosed);
           }, 5 * 60 * 1000);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   AlertTriangle, 
   Zap
@@ -9,10 +9,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PipedreamConnectionsSection } from './_components/pipedream-connections-section';
 import { useRouter } from 'next/navigation';
 import { useFeatureFlag } from '@/lib/feature-flags';
+import { toast } from 'sonner';
 
 export default function AppProfilesPage() {
   const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
   const router = useRouter();
+  const [selectedApp, setSelectedApp] = useState<{ app_slug: string; app_name: string } | null>(null);
   
   useEffect(() => {
     if (!flagLoading && !customAgentsEnabled) {
@@ -20,9 +22,14 @@ export default function AppProfilesPage() {
     }
   }, [flagLoading, customAgentsEnabled, router]);
 
+  const handleAppSelection = (app: { app_slug: string; app_name: string }) => {
+    setSelectedApp(app);
+    toast.success(`Selected ${app.app_name} for profile creation`);
+  };
+
   if (flagLoading) {
     return (
-      <div className="container mx-auto max-w-6xl px-6 py-6">
+      <div className="container mx-auto max-w-4xl px-6 py-6">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -54,7 +61,7 @@ export default function AppProfilesPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-6xl px-6 py-6">
+    <div className="container mx-auto max-w-4xl px-6 py-6">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -67,15 +74,7 @@ export default function AppProfilesPage() {
             </div>
           </div>
         </div>
-
-        <Alert className="border-primary/30 bg-primary/5">
-          <Zap className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-sm">
-            Connect your favorite apps to unlock powerful automation capabilities for your AI agents.
-          </AlertDescription>
-        </Alert>
-
-        <PipedreamConnectionsSection />
+        <PipedreamConnectionsSection onConnectNewApp={handleAppSelection} />
       </div>
     </div>
   );

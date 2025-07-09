@@ -173,7 +173,6 @@ export const CredentialProfileSelector: React.FC<CredentialProfileSelectorProps>
   return (
     <div className={className}>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Credential Profile</label>
         <div className="flex gap-2">
           <Select
             value={selectedProfileId || ''}
@@ -201,30 +200,24 @@ export const CredentialProfileSelector: React.FC<CredentialProfileSelectorProps>
                 <SelectItem key={profile.profile_id} value={profile.profile_id}>
                   <div className="flex items-center gap-2">
                     <span>{profile.profile_name}</span>
-                    {profile.is_default && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Star className="h-3 w-3 mr-1" />
-                        Default
-                      </Badge>
-                    )}
-                    <Badge variant="default" className="text-xs">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Connected
-                    </Badge>
+                    <div className="text-xs flex items-center gap-2">
+                      <div className="h-2 w-2 bg-green-500 rounded-full" />
+                    </div>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={() => setShowProfileManager(true)}
-            title="Manage profiles"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+          {showCreateOption && (
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setShowProfileManager(true)}
+              title="Add new profile"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         
         {selectedProfile && !selectedProfile.is_connected && (

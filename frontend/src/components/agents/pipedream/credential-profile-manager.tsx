@@ -110,7 +110,6 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
       });
       setEditingProfile(null);
     } catch (error) {
-      // Error is handled by the mutation hook
     }
   };
 
@@ -119,7 +118,6 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
       await deleteProfile.mutateAsync(profile.profile_id);
       setDeletingProfile(null);
     } catch (error) {
-      // Error is handled by the mutation hook
     }
   };
 
@@ -130,7 +128,6 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
         app: appSlug,
       });
     } catch (error) {
-      // Error is handled by the mutation hook
     }
   };
 
@@ -146,18 +143,6 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-medium">Credential Profiles</h3>
-          <p className="text-sm text-muted-foreground">
-            {appName ? `Manage credential profiles for ${appName}` : 'Manage your Pipedream credential profiles'}
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          New Profile
-        </Button>
-      </div>
       {profilesForApp.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
@@ -167,7 +152,7 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
               Create credential profiles to manage multiple accounts or configurations for {appName || 'your apps'}.
             </p>
             <Button onClick={() => setShowCreateDialog(true)} variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Create First Profile
             </Button>
           </CardContent>
@@ -176,25 +161,25 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
         <div className="space-y-4">
           {profilesForApp.map((profile) => (
             <Card key={profile.profile_id}>
-              <CardContent className="p-6">
+              <CardContent>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="font-medium">{profile.profile_name}</h4>
                       {profile.is_default && (
                         <Badge variant="secondary" className="text-xs">
-                          <Star className="h-3 w-3 mr-1" />
+                          <Star className="h-3 w-3" />
                           Default
                         </Badge>
                       )}
                       {profile.is_connected ? (
                         <Badge variant="default" className="text-xs">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          <CheckCircle2 className="h-3 w-3" />
                           Connected
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-xs">
-                          <XCircle className="h-3 w-3 mr-1" />
+                          <XCircle className="h-3 w-3" />
                           Not Connected
                         </Badge>
                       )}
@@ -204,18 +189,7 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                         </Badge>
                       )}
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <p>{profile.display_name}</p>
-                      {profile.last_used_at && (
-                        <p>Last used {formatDistanceToNow(new Date(profile.last_used_at), { addSuffix: true })}</p>
-                      )}
-                      {profile.enabled_tools.length > 0 && (
-                        <p>{profile.enabled_tools.length} tools enabled</p>
-                      )}
-                    </div>
                   </div>
-
                   <div className="flex items-center gap-2">
                     {!profile.is_connected && (
                       <Button
@@ -224,21 +198,10 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                         onClick={() => handleConnectProfile(profile)}
                         disabled={connectProfile.isPending}
                       >
-                        <Link2 className="h-4 w-4 mr-2" />
+                        <Link2 className="h-4 w-4" />
                         Connect
                       </Button>
                     )}
-                    
-                    {onProfileSelect && (
-                      <Button
-                        size="sm"
-                        onClick={() => onProfileSelect(profile)}
-                        disabled={!profile.is_connected}
-                      >
-                        Select
-                      </Button>
-                    )}
-
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button size="sm" variant="ghost">
@@ -247,12 +210,12 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditingProfile(profile)}>
-                          <Settings className="h-4 w-4 mr-2" />
+                          <Settings className="h-4 w-4" />
                           Edit Profile
                         </DropdownMenuItem>
                         {profile.is_connected && (
                           <DropdownMenuItem onClick={() => handleConnectProfile(profile)}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <RefreshCw className="h-4 w-4" />
                             Reconnect
                           </DropdownMenuItem>
                         )}
@@ -260,7 +223,7 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                           <DropdownMenuItem
                             onClick={() => handleUpdateProfile(profile, { is_default: true })}
                           >
-                            <Star className="h-4 w-4 mr-2" />
+                            <Star className="h-4 w-4" />
                             Set as Default
                           </DropdownMenuItem>
                         )}
@@ -268,7 +231,7 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                           <DropdownMenuItem
                             onClick={() => handleUpdateProfile(profile, { is_default: false })}
                           >
-                            <StarOff className="h-4 w-4 mr-2" />
+                            <StarOff className="h-4 w-4" />
                             Remove Default
                           </DropdownMenuItem>
                         )}
@@ -276,7 +239,7 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
                           className="text-destructive"
                           onClick={() => setDeletingProfile(profile)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <Trash2 className="h-4 w-4" />
                           Delete Profile
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -286,12 +249,17 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
               </CardContent>
             </Card>
           ))}
+          <div className="w-full rounded-lg h-24 bg-muted border-dashed border-muted flex items-center justify-center">
+            <Button onClick={() => setShowCreateDialog(true)} size="sm" variant="outline" className="w-full h-full">
+              <div className="flex bg-primary/10 items-center justify-center h-10 w-10 rounded-full">
+                <Plus className="h-4 w-4" />
+              </div>
+            </Button>
+          </div>
         </div>
       )}
-
-      {/* Create Profile Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create Credential Profile</DialogTitle>
             <DialogDescription>
@@ -340,11 +308,9 @@ export const CredentialProfileManager: React.FC<CredentialProfileManagerProps> =
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Profile Dialog */}
       {editingProfile && (
         <Dialog open={!!editingProfile} onOpenChange={() => setEditingProfile(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Profile</DialogTitle>
               <DialogDescription>
