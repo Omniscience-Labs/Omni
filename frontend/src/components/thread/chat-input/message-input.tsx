@@ -49,6 +49,7 @@ interface MessageInputProps {
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
   enableAdvancedConfig?: boolean;
+  hideAgentSelection?: boolean;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -86,6 +87,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       selectedAgentId,
       onAgentSelect,
       enableAdvancedConfig = false,
+      hideAgentSelection = false,
     },
     ref,
   ) => {
@@ -129,7 +131,18 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
     const renderDropdown = () => {
       if (isLoggedIn) {
-        if (enableAdvancedConfig || (customAgentsEnabled && !flagsLoading)) {
+        if (hideAgentSelection) {
+          return <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+            billingModalOpen={billingModalOpen}
+            setBillingModalOpen={setBillingModalOpen}
+          />
+        } else if (enableAdvancedConfig || (customAgentsEnabled && !flagsLoading)) {
           return <ChatSettingsDropdown
             selectedAgentId={selectedAgentId}
             onAgentSelect={onAgentSelect}

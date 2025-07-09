@@ -404,6 +404,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           agentName="Agent Builder"
           hideAttachments={true}
           bgColor='bg-muted-foreground/10'
+          hideAgentSelection={true}
         />
       </div>
     </div>
