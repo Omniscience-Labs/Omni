@@ -24,7 +24,6 @@ export default function AppProfilesPage() {
 
   const handleAppSelection = (app: { app_slug: string; app_name: string }) => {
     setSelectedApp(app);
-    toast.success(`Selected ${app.app_name} for profile creation`);
   };
 
   if (flagLoading) {

@@ -31,11 +31,15 @@ interface PipedreamApp {
 interface PipedreamRegistryProps {
   onProfileSelected?: (profile: PipedreamProfile) => void;
   onToolsSelected?: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
+  onAppSelected?: (app: { app_slug: string; app_name: string }) => void;
+  mode?: 'full' | 'simple';
 }
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onProfileSelected,
-  onToolsSelected
+  onToolsSelected,
+  onAppSelected,
+  mode = 'full'
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -178,39 +182,52 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                 </div>
               )}
 
-              {connectedProfiles.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <User className="h-3 w-3" />
-                    <span>{connectedProfiles.length} profile{connectedProfiles.length !== 1 ? 's' : ''} connected</span>
-                  </div>
-                  <CredentialProfileSelector
-                    appSlug={app.name_slug}
-                    appName={app.name}
-                    selectedProfileId={selectedProfileId}
-                    onProfileSelect={(profileId) => {
-                      setSelectedProfileId(profileId);
-                      if (profileId) {
-                        handleProfileSelect(profileId, app);
-                      }
-                    }}
-                  />
-                </div>
+              {mode === 'simple' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onAppSelected?.({ app_slug: app.name_slug, app_name: app.name })}
+                  className="h-7 text-xs w-full"
+                >
+                  Connect App
+                </Button>
               ) : (
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">
-                    No profiles connected for this app
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCreateProfile(app)}
-                    className="h-7 text-xs w-full"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add Profile
-                  </Button>
-                </div>
+                <>
+                  {connectedProfiles.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <User className="h-3 w-3" />
+                        <span>{connectedProfiles.length} profile{connectedProfiles.length !== 1 ? 's' : ''} connected</span>
+                      </div>
+                      <CredentialProfileSelector
+                        appSlug={app.name_slug}
+                        appName={app.name}
+                        selectedProfileId={selectedProfileId}
+                        onProfileSelect={(profileId) => {
+                          setSelectedProfileId(profileId);
+                          if (profileId) {
+                            handleProfileSelect(profileId, app);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground">
+                        No profiles connected for this app
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCreateProfile(app)}
+                        className="h-7 text-xs w-full"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Profile
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

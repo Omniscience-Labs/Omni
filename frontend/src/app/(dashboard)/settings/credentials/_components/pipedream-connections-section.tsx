@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { CredentialProfileManager } from '@/components/agents/pipedream/credential-profile-manager';
-import { PipedreamAppBrowser } from '@/components/agents/pipedream/pipedream-app-browser';
+import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { pipedreamKeys } from '@/hooks/react-query/pipedream/keys';
 import {
@@ -266,11 +266,14 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
         </div>
       )}
 
-      <PipedreamAppBrowser
-        open={showAppBrowser}
-        onOpenChange={setShowAppBrowser}
-        onSelectApp={handleAppSelect}
-      />
+      <Dialog open={showAppBrowser} onOpenChange={setShowAppBrowser}>
+        <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+          <PipedreamRegistry
+            mode="simple"
+            onAppSelected={handleAppSelect}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showProfileManager} onOpenChange={handleProfileManagerClose}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
