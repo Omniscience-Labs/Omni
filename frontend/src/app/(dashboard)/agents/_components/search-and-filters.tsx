@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 
-type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
+type AgentSortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
 
@@ -20,8 +20,8 @@ interface FilterOptions {
 interface SearchAndFiltersProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  sortBy: SortOption;
-  setSortBy: (sort: SortOption) => void;
+  sortBy: AgentSortOption;
+  setSortBy: (sort: AgentSortOption) => void;
   sortOrder: SortOrder;
   setSortOrder: (order: SortOrder) => void;
   filters: FilterOptions;

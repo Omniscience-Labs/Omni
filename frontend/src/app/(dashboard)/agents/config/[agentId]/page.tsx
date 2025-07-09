@@ -20,7 +20,6 @@ import { StylePicker } from '../../_components/style-picker';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentBuilderChat } from '../../_components/agent-builder-chat';
-import { useFeatureAlertHelpers } from '@/hooks/use-feature-alerts';
 import { AgentTriggersConfiguration } from '@/components/agents/triggers/agent-triggers-configuration';
 import { AgentKnowledgeBaseManager } from '@/components/agents/knowledge-base/agent-knowledge-base-manager';
 import { AgentWorkflowsConfiguration } from '@/components/agents/workflows/agent-workflows-configuration';

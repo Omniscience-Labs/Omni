@@ -141,7 +141,7 @@ export function SidebarLeft({
               </span>
             </SidebarMenuButton>
           </Link>
-          {!flagsLoading && marketplaceEnabled && (
+          {/* {!flagsLoading && marketplaceEnabled && (
             <Link href="/marketplace">
               <SidebarMenuButton className={cn({
                 'bg-accent text-accent-foreground font-medium': pathname === '/marketplace',
@@ -152,7 +152,7 @@ export function SidebarLeft({
                 </span>
               </SidebarMenuButton>
             </Link>
-          )}
+          )} */}
           {!flagsLoading && customAgentsEnabled && (
             <Link href="/agents">
               <SidebarMenuButton className={cn({

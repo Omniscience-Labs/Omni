@@ -42,7 +42,8 @@ import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
 
 type ViewMode = 'grid' | 'list';
-type SortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count' | 'newest' | 'popular' | 'most_downloaded';
+type AgentSortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
+type MarketplaceSortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 type SortOrder = 'asc' | 'desc';
 
 interface FilterOptions {
@@ -924,7 +925,7 @@ export default function AgentsPage() {
   // My Agents state
   const [agentsPage, setAgentsPage] = useState(1);
   const [agentsSearchQuery, setAgentsSearchQuery] = useState('');
-  const [agentsSortBy, setAgentsSortBy] = useState<SortOption>('created_at');
+  const [agentsSortBy, setAgentsSortBy] = useState<AgentSortOption>('created_at');
   const [agentsSortOrder, setAgentsSortOrder] = useState<SortOrder>('desc');
   const [agentsFilters, setAgentsFilters] = useState<FilterOptions>({
     hasDefaultAgent: false,
@@ -937,7 +938,7 @@ export default function AgentsPage() {
   const [marketplacePage, setMarketplacePage] = useState(1);
   const [marketplaceSearchQuery, setMarketplaceSearchQuery] = useState('');
   const [marketplaceSelectedTags, setMarketplaceSelectedTags] = useState<string[]>([]);
-  const [marketplaceSortBy, setMarketplaceSortBy] = useState<SortOption>('newest');
+  const [marketplaceSortBy, setMarketplaceSortBy] = useState<MarketplaceSortOption>('newest');
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
@@ -1460,9 +1461,6 @@ export default function AgentsPage() {
                 isLoading={agentsLoading}
                 totalAgents={agentsPagination?.total || 0}
                 filteredCount={agents.length}
-                searchQuery={agentsSearchQuery}
-                activeFiltersCount={agentsActiveFiltersCount}
-                clearFilters={clearAgentsFilters}
                 currentPage={agentsPagination?.page || 1}
                 totalPages={agentsPagination?.pages || 1}
               />
