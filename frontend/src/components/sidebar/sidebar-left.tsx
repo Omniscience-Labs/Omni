@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Store, Plus, Zap, Key } from 'lucide-react';
+import { Bot, Menu, Store, Plus, Zap, Plug } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -135,7 +135,7 @@ export function SidebarLeft({
             <SidebarMenuButton className={cn({
               'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
             })}>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 mr-1" />
               <span className="flex items-center justify-between w-full">
                 New Task
               </span>
@@ -158,7 +158,7 @@ export function SidebarLeft({
               <SidebarMenuButton className={cn({
                 'bg-accent text-accent-foreground font-medium': pathname === '/agents',
               })}>
-                <Bot className="h-4 w-4 mr-2" />
+                <Bot className="h-4 w-4 mr-1" />
                 <span className="flex items-center justify-between w-full">
                 Agents
                 </span>
@@ -170,9 +170,9 @@ export function SidebarLeft({
               <SidebarMenuButton className={cn({
                 'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
               })}>
-                <Key className="h-4 w-4 mr-2" />
+                <Plug className="h-4 w-4 mr-1" />
                 <span className="flex items-center justify-between w-full">
-                  Credentials
+                  Integrations
                 </span>
               </SidebarMenuButton>
             </Link>
