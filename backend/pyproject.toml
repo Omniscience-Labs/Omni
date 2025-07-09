@@ -44,6 +44,7 @@ dependencies = [
   "tavily-python==0.5.4",
   "pytesseract==0.3.13",
   "stripe==12.0.1",
+  "dramatiq==1.18.0",
   "pika==1.3.2",
   "prometheus-client==0.21.1",
   "langfuse==2.60.5",
@@ -65,7 +66,6 @@ dependencies = [
   "openpyxl==3.1.2",
   "chardet==5.2.0",
   "PyYAML==6.0.1",
-  "resumable-stream",
 ]
 
 [project.urls]
@@ -74,6 +74,3 @@ repository = "https://github.com/kortix-ai/suna"
 
 [tool.uv]
 package = false
-
-[tool.uv.sources]
-resumable-stream = { git = "https://github.com/kortix-ai/resumable-stream-python", tag = "v0.1.1" }

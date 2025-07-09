@@ -16,9 +16,10 @@ This guide provides detailed instructions for setting up and hosting your own in
 Suna consists of four main components:
 
 1. **Backend API** - Python/FastAPI service for REST endpoints, thread management, and LLM integration
-2. **Frontend** - Next.js/React application providing the user interface
-3. **Agent Docker** - Isolated execution environment for each agent
-4. **Supabase Database** - Handles data persistence and authentication
+2. **Backend Worker** - Python/Dramatiq worker service for handling agent tasks
+3. **Frontend** - Next.js/React application providing the user interface
+4. **Agent Docker** - Isolated execution environment for each agent
+5. **Supabase Database** - Handles data persistence and authentication
 
 ## Prerequisites
 
@@ -160,6 +161,10 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_SSL=false
 
+# RABBITMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+
 # LLM Providers
 ANTHROPIC_API_KEY=your-anthropic-key
 OPENAI_API_KEY=your-openai-key
@@ -237,10 +242,10 @@ python start.py # Use the same to stop it later
 
 This method requires you to start each component separately:
 
-1. Start Redis (required for backend):
+1. Start Redis and RabbitMQ (required for backend):
 
 ```bash
-docker compose up redis -d
+docker compose up redis rabbitmq -d
 # or
 python start.py # Use the same to stop it later
 ```
@@ -257,6 +262,13 @@ npm run dev
 ```bash
 cd backend
 uv run api.py
+```
+
+4. Start the worker (in one more terminal):
+
+```bash
+cd backend
+uv run dramatiq run_agent_background
 ```
 
 ## Troubleshooting
@@ -310,6 +322,10 @@ npm run dev -- --turbopack
 # Backend logs (manual setup)
 cd backend
 uv run api.py
+
+# Worker logs (manual setup)
+cd backend
+uv run dramatiq run_agent_background
 ```
 
 ### Resuming Setup
