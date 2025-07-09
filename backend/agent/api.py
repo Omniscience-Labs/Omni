@@ -1330,13 +1330,34 @@ async def create_agent(
         logger.error(f"Error creating agent for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
 
+def merge_custom_mcps(existing_mcps: List[Dict[str, Any]], new_mcps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not new_mcps:
+        return existing_mcps
+    
+    merged_mcps = existing_mcps.copy()
+    
+    for new_mcp in new_mcps:
+        new_mcp_name = new_mcp.get('name')
+        existing_index = None
+        
+        for i, existing_mcp in enumerate(merged_mcps):
+            if existing_mcp.get('name') == new_mcp_name:
+                existing_index = i
+                break
+        
+        if existing_index is not None:
+            merged_mcps[existing_index] = new_mcp
+        else:
+            merged_mcps.append(new_mcp)
+    
+    return merged_mcps
+
 @router.put("/agents/{agent_id}", response_model=AgentResponse)
 async def update_agent(
     agent_id: str,
     agent_data: AgentUpdateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Update an existing agent. Creates a new version if system prompt, tools, or MCPs are changed."""
     if not await is_enabled("custom_agents"):
         raise HTTPException(
             status_code=403, 
@@ -1420,7 +1441,14 @@ async def update_agent(
             
         if values_different(agent_data.custom_mcps, current_version_data.get('custom_mcps', [])):
             needs_new_version = True
-            version_changes['custom_mcps'] = agent_data.custom_mcps
+            if agent_data.custom_mcps is not None:
+                merged_custom_mcps = merge_custom_mcps(
+                    current_version_data.get('custom_mcps', []),
+                    agent_data.custom_mcps
+                )
+                version_changes['custom_mcps'] = merged_custom_mcps
+            else:
+                version_changes['custom_mcps'] = current_version_data.get('custom_mcps', [])
             
         if values_different(agent_data.agentpress_tools, current_version_data.get('agentpress_tools', {})):
             needs_new_version = True
@@ -1445,7 +1473,16 @@ async def update_agent(
         # Build unified config with all current values
         current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
         current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
-        current_custom_mcps = agent_data.custom_mcps if agent_data.custom_mcps is not None else current_version_data.get('custom_mcps', [])
+        
+        # Use merged custom MCPs if they were changed, otherwise use existing ones
+        if agent_data.custom_mcps is not None:
+            current_custom_mcps = merge_custom_mcps(
+                current_version_data.get('custom_mcps', []),
+                agent_data.custom_mcps
+            )
+        else:
+            current_custom_mcps = current_version_data.get('custom_mcps', [])
+            
         current_agentpress_tools = agent_data.agentpress_tools if agent_data.agentpress_tools is not None else current_version_data.get('agentpress_tools', {})
         current_avatar = agent_data.avatar if agent_data.avatar is not None else existing_data.get('avatar')
         current_avatar_color = agent_data.avatar_color if agent_data.avatar_color is not None else existing_data.get('avatar_color')

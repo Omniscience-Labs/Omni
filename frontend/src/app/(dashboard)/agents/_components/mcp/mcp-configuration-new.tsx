@@ -39,7 +39,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       isCustom: true,
       customType: customConfig.type as 'http' | 'sse'
     };
-    onConfigurationChange([...configuredMCPs.filter(mcp => mcp.customType !== 'pipedream'), mcpConfig]);
+    onConfigurationChange([...configuredMCPs, mcpConfig]);
   };
 
   const handleToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
