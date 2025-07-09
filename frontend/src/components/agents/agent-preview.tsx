@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getAgentAvatar } from '../_utils/get-agent-style';
+import { getAgentAvatar } from '../../lib/utils/get-agent-style';
 import {
   ChatInput,
   ChatInputHandles
@@ -359,7 +359,7 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
                   <div className="text-4xl">{avatar}</div>
                 </div>
-                <p className='w-[60%] text-2xl mb-3'>Start conversation with your new agent <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
+                <p className='w-[60%] text-2xl mb-3'>Start conversation with <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
                 <p className='w-[70%] text-sm text-muted-foreground/60'>Test your agent's configuration and chat back and forth to see how it performs with your current settings, tools, and knowledge base.</p>
               </div>
             }

@@ -28,7 +28,7 @@ import { ModalProviders } from '@/providers/modal-providers';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
-import { Examples } from './suggestions/examples';
+import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 

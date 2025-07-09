@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Settings2, Sparkles } from 'lucide-react';
-import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
+import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from './tools';
 import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 

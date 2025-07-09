@@ -7,7 +7,7 @@ import type {
   UpdateProfileRequest,
   ProfileConnectionResponse,
   ProfileConnectionsResponse
-} from '@/types/pipedream-profiles';
+} from '@/components/agents/pipedream/pipedream-profiles';
 
 export interface CreateConnectionTokenRequest {
   app?: string;
@@ -206,10 +206,6 @@ export const pipedreamApi = {
       throw new Error(data.error);
     }
     return data;
-  },
-
-  async searchApps(query: string, page: number = 1, category?: string): Promise<PipedreamAppResponse> {
-    return await this.getApps(page, query, category);
   },
 
   async getAvailableTools(): Promise<PipedreamToolsResponse> {

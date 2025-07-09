@@ -296,7 +296,7 @@ export function extractSeeImageData(
   if (assistantNewFormat.filePath || assistantNewFormat.description) {
     filePath = assistantNewFormat.filePath;
     description = assistantNewFormat.description;
-    output = assistantNewFormat.output;
+    output = assistantNewFormat.output ?? null;
     if (assistantNewFormat.success !== undefined) {
       actualIsSuccess = assistantNewFormat.success;
     }
@@ -307,7 +307,7 @@ export function extractSeeImageData(
   } else if (toolNewFormat.filePath || toolNewFormat.description) {
     filePath = toolNewFormat.filePath;
     description = toolNewFormat.description;
-    output = toolNewFormat.output;
+    output = toolNewFormat.output ?? null;
     if (toolNewFormat.success !== undefined) {
       actualIsSuccess = toolNewFormat.success;
     }

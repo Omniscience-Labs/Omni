@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Shield, ExternalLink, ChevronRight, Sparkles } from 'lucide-react';
 import { truncateString } from '@/lib/utils';
 

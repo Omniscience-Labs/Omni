@@ -3,15 +3,9 @@ import {
   Globe,
   CheckCircle,
   AlertTriangle,
-  ExternalLink,
   Loader2,
   FileText,
-  Clock,
   Copy,
-  Download,
-  Folder,
-  ChevronRight,
-  Server,
   Calendar,
   Check,
   ArrowUpRight,
@@ -42,17 +36,12 @@ export function WebScrapeToolView({
   isStreaming = false,
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
-  const isDarkTheme = resolvedTheme === 'dark';
   const [progress, setProgress] = useState(0);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   const {
     url,
-    urls,
-    success,
-    message,
     files,
-    urlCount,
     actualIsSuccess,
     actualToolTimestamp,
     actualAssistantTimestamp

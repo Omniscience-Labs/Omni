@@ -3,7 +3,7 @@ import { Search, Settings2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
+import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from './tools';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, { enabled: boolean; description: string }>;

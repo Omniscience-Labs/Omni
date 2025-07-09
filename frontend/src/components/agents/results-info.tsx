@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, FileText, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCreateAgent } from '@/hooks/react-query/agents/use-agents';
-import { DEFAULT_AGENTPRESS_TOOLS } from '../_data/tools';
-import { generateRandomAvatar } from '../_utils/_avatar-generator';
+import { DEFAULT_AGENTPRESS_TOOLS } from './tools';
+import { generateRandomAvatar } from '../../lib/utils/_avatar-generator';
 
 interface ResultsInfoProps {
   isLoading: boolean;

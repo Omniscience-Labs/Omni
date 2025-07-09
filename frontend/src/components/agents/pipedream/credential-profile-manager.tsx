@@ -54,7 +54,7 @@ import {
   useDeletePipedreamProfile,
   useConnectPipedreamProfile,
 } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
-import type { PipedreamProfile, CreateProfileRequest } from '@/types/pipedream-profiles';
+import type { PipedreamProfile, CreateProfileRequest } from '@/components/agents/pipedream/pipedream-profiles';
 import { formatDistanceToNow } from 'date-fns';
 
 interface CredentialProfileManagerProps {

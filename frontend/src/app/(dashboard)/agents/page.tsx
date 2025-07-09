@@ -25,20 +25,20 @@ import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedrea
 import { useFeatureFlag } from '@/lib/feature-flags';
 
 // Import components from existing pages
-import { UpdateAgentDialog } from './_components/update-agent-dialog';
-import { SearchAndFilters } from './_components/search-and-filters';
-import { ResultsInfo } from './_components/results-info';
-import { EmptyState } from './_components/empty-state';
-import { AgentsGrid } from './_components/agents-grid';
-import { LoadingState } from './_components/loading-state';
-import { Pagination } from './_components/pagination';
+import { UpdateAgentDialog } from '../../../components/agents/update-agent-dialog';
+import { SearchAndFilters } from '../../../components/agents/search-and-filters';
+import { ResultsInfo } from '../../../components/agents/results-info';
+import { EmptyState } from '../../../components/agents/empty-state';
+import { AgentsGrid } from '../../../components/agents/agents-grid';
+import { LoadingState } from '../../../components/agents/loading-state';
+import { Pagination } from '../../../components/agents/pagination';
 import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
 import { CredentialProfileSelector as PipedreamCredentialProfileSelector } from '@/components/agents/pipedream/credential-profile-selector';
 
 // Import utilities
-import { getAgentAvatar } from './_utils/get-agent-style';
-import { generateRandomAvatar } from './_utils/_avatar-generator';
-import { DEFAULT_AGENTPRESS_TOOLS } from './_data/tools';
+import { getAgentAvatar } from '../../../lib/utils/get-agent-style';
+import { generateRandomAvatar } from '../../../lib/utils/_avatar-generator';
+import { DEFAULT_AGENTPRESS_TOOLS } from '../../../components/agents/tools';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
 
 type ViewMode = 'grid' | 'list';

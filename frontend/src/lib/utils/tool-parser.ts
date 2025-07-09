@@ -113,7 +113,7 @@ interface ParseResult {
         result.output = JSON.parse(extracted);
       } catch (e) {
         // Leave as raw string if JSON.parse fails
-        result.error = `Output JSON.parse error: ${e.message}`;
+        result.error = `Output JSON.parse error: ${e instanceof Error ? e.message : String(e)}`;
         result.output = extracted;
       }
   
@@ -251,7 +251,7 @@ export function cleanAndParse(messy: string): string {
           throw new Error(`Unexpected ${tk.type}`);
       }
     } catch (e) {
-      console.warn(`Parse error at ${tk.line}:${tk.col}: ${e.message}`);
+      console.warn(`Parse error at ${tk.line}:${tk.col}: ${e instanceof Error ? e.message : String(e)}`);
       // error recovery: skip to next comma or closing delimiter
       while (p < tokens.length &&
              !['COMMA','RBRACE','RBRACK','EOF'].includes(peek()!)) {
@@ -281,7 +281,9 @@ export function cleanAndParse(messy: string): string {
       else { console.warn(`Missing ':' after key at ${tk.line}:${tk.col}`); }
 
       const val = parseValue();
-      obj[key] = val;
+      if (key !== null) {
+        obj[key] = val;
+      }
       if (peek() === 'COMMA') advance();
     }
     if (peek() === 'RBRACE') advance();

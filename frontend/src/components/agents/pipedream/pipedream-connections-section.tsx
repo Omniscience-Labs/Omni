@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { PipedreamProfile } from '@/types/pipedream-profiles';
+import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-profiles';
 
 interface AppTableProps {
   appSlug: string;
@@ -35,10 +35,6 @@ interface AppTableProps {
 }
 
 const AppTable: React.FC<AppTableProps> = ({ appSlug, appName, profiles, onManageProfile }) => {
-  const getAppLogoUrl = (appSlug: string) => {
-    const logoSlug = appSlug.toLowerCase().replace(/_/g, '-');
-    return `https://logo.clearbit.com/${logoSlug}.com`;
-  };
 
   const columns: DataTableColumn<PipedreamProfile>[] = [
     {
@@ -103,23 +99,8 @@ const AppTable: React.FC<AppTableProps> = ({ appSlug, appName, profiles, onManag
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-6 w-6 rounded-lg flex items-center justify-center overflow-hidden bg-muted/50">
-            <img
-              src={getAppLogoUrl(appSlug)}
-              alt={`${appName} logo`}
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector('.fallback-logo')) {
-                  const fallback = document.createElement('div');
-                  fallback.className = 'fallback-logo w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs';
-                  fallback.textContent = appName.charAt(0).toUpperCase();
-                  parent.appendChild(fallback);
-                }
-              }}
-            />
+          <div className="h-6 w-6 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">
+            {appName.charAt(0).toUpperCase()}
           </div>
           <div>
             <h3 className="font-semibold text-md">{appName}</h3>
@@ -268,6 +249,12 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
 
       <Dialog open={showAppBrowser} onOpenChange={setShowAppBrowser}>
         <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Browse Apps</DialogTitle>
+            <DialogDescription>
+              Select an app to create a credential profile
+            </DialogDescription>
+          </DialogHeader>
           <PipedreamRegistry
             mode="simple"
             onAppSelected={handleAppSelect}

@@ -17,6 +17,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
 import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FaGoogle, FaDiscord } from 'react-icons/fa';
+import { SiNotion } from 'react-icons/si';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -330,10 +332,16 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <span className="hidden sm:inline">Integrations</span>
                         <span className="sm:hidden">Integrations</span>
-                        <div className="flex items-center gap-1 ml-1">
-                          <div className="w-4 h-4 bg-red-500 rounded-sm flex items-center justify-center text-white text-xs font-bold">G</div>
-                          <div className="w-4 h-4 bg-blue-500 rounded-sm flex items-center justify-center text-white text-xs font-bold">D</div>
-                          <div className="w-4 h-4 bg-black rounded-sm flex items-center justify-center text-white text-xs font-bold">N</div>
+                        <div className="flex items-center -space-x-1 ml-1">
+                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <FaGoogle className="w-2.5 h-2.5" />
+                          </div>
+                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <FaDiscord className="w-2.5 h-2.5" />
+                          </div>
+                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <SiNotion className="w-2.5 h-2.5" />
+                          </div>
                         </div>
                       </div>
                       <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />

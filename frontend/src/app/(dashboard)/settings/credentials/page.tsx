@@ -6,7 +6,7 @@ import {
   Zap
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PipedreamConnectionsSection } from './_components/pipedream-connections-section';
+import { PipedreamConnectionsSection } from '../../../../components/agents/pipedream/pipedream-connections-section';
 import { useRouter } from 'next/navigation';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { toast } from 'sonner';

@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { CreateAgentDialog } from '@/app/(dashboard)/agents/_components/create-agent-dialog';
+import { CreateAgentDialog } from '@/components/agents/create-agent-dialog';
 import { useFeatureFlags } from '@/lib/feature-flags';
 
 interface AgentSelectorProps {

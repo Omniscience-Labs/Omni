@@ -3,20 +3,11 @@ import {
   Globe,
   CheckCircle,
   AlertTriangle,
-  ExternalLink,
   Loader2,
   FileText,
-  Clock,
   Copy,
-  Download,
-  Folder,
-  ChevronRight,
-  Server,
-  Calendar,
   Check,
   ArrowUpRight,
-  Zap,
-  Eye,
   BookOpen
 } from 'lucide-react';
 import { ToolViewProps } from './types';
@@ -46,7 +37,6 @@ export function WebCrawlToolView({
   isStreaming = false,
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
-  const isDarkTheme = resolvedTheme === 'dark';
   const [progress, setProgress] = useState(0);
   const [copiedContent, setCopiedContent] = useState(false);
 

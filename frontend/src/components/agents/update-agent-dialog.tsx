@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, Save, Settings2, Sparkles, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from '../_data/tools';
+import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from './tools';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { MCPConfigurationNew } from './mcp/mcp-configuration-new';
 import { AgentVersionManager } from './AgentVersionManager';
