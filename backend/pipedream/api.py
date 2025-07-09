@@ -355,10 +355,10 @@ async def get_available_pipedream_tools(
 @router.get("/apps", response_model=Dict[str, Any])
 async def get_pipedream_apps(
     page: int = Query(1, ge=1),
-    search: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
     category: Optional[str] = Query(None)
 ):
-    logger.info(f"Fetching Pipedream apps registry, page: {page}")
+    logger.info(f"Fetching Pipedream apps registry, page: {page}, search: {q}")
     
     try:
         import httpx
@@ -367,8 +367,8 @@ async def get_pipedream_apps(
             url = f"https://mcp.pipedream.com/api/apps"
             params = {"page": page}
             
-            if search:
-                params["search"] = search
+            if q:
+                params["q"] = q
             if category:
                 params["category"] = category
                 
