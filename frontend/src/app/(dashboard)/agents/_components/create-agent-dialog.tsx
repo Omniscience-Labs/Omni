@@ -289,7 +289,10 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
 
                 <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
                   <MCPConfigurationNew
-                    configuredMCPs={formData.configured_mcps}
+                    configuredMCPs={formData.configured_mcps.map(mcp => ({
+                      ...mcp,
+                      enabledTools: mcp.enabledTools || []
+                    }))}
                     onConfigurationChange={handleMCPConfigurationChange}
                   />
                 </TabsContent>

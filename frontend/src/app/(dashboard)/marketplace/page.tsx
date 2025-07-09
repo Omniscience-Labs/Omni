@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Download, Star, Calendar, User, Tags, TrendingUp, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag, Key } from 'lucide-react';
+import { Search, Download, Star, Calendar, User, Tags, Shield, CheckCircle, Loader2, Settings, Wrench, AlertTriangle, GitBranch, Plus, ShoppingBag, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Card, CardContent } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../agents/_utils/get-agent-style';
@@ -21,16 +19,15 @@ import {
   useInstallTemplate
 } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { 
-  useCredentialProfilesForMcp, 
   useCreateCredentialProfile,
-  type CredentialProfile,
   type CreateCredentialProfileRequest
 } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
-import { createClient } from '@/lib/supabase/client';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { useRouter } from 'next/navigation';
 import { CredentialProfileSelector } from '@/components/workflows/CredentialProfileSelector';
+import { CredentialProfileSelector as PipedreamCredentialProfileSelector } from '@/components/agents/pipedream/credential-profile-selector';
+import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 
 type SortOption = 'newest' | 'popular' | 'most_downloaded' | 'name';
 
@@ -52,7 +49,7 @@ interface MarketplaceTemplate {
     display_name: string;
     enabled_tools?: string[];
     required_config: string[];
-    custom_type?: 'sse' | 'http';
+    custom_type?: 'sse' | 'http' | 'pipedream';
   }>;
   metadata?: {
     source_agent_id?: string;
@@ -65,7 +62,7 @@ interface SetupStep {
   id: string;
   title: string;
   description: string;
-  type: 'credential_profile' | 'custom_server';
+  type: 'credential_profile' | 'custom_server' | 'pipedream_profile';
   service_name: string;
   qualified_name: string;
   required_fields?: Array<{
@@ -75,7 +72,9 @@ interface SetupStep {
     placeholder: string;
     description?: string;
   }>;
-  custom_type?: 'sse' | 'http';
+  custom_type?: 'sse' | 'http' | 'pipedream'; 
+  app_slug?: string;
+  app_name?: string;
 }
 
 interface MissingProfile {
@@ -264,6 +263,7 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
   const [instanceName, setInstanceName] = useState('');
   const [setupData, setSetupData] = useState<Record<string, Record<string, string>>>({});
   const [profileMappings, setProfileMappings] = useState<Record<string, string>>({});
+  const [pipedreamProfileMappings, setPipedreamProfileMappings] = useState<Record<string, string>>({});
   const [isCheckingRequirements, setIsCheckingRequirements] = useState(false);
   const [setupSteps, setSetupSteps] = useState<SetupStep[]>([]);
   const [missingProfiles, setMissingProfiles] = useState<MissingProfile[]>([]);
@@ -284,12 +284,14 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
 
   const createProfileMutation = useCreateCredentialProfile();
   const { data: serverDetails } = useMCPServerDetails(createProfileForQualifiedName);
+  const { data: pipedreamProfiles } = usePipedreamProfiles();
 
   React.useEffect(() => {
     if (item && open) {
       setInstanceName(`${item.name}`);
       setSetupData({});
       setProfileMappings({});
+      setPipedreamProfileMappings({});
       setIsCheckingRequirements(true);
       setMissingProfiles([]);
       checkRequirementsAndSetupSteps();
@@ -307,8 +309,35 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     if (!item?.mcp_requirements) return;
     
     const steps: SetupStep[] = [];
-    const customServers = item.mcp_requirements.filter(req => req.custom_type);
-    const regularServices = item.mcp_requirements.filter(req => !req.custom_type);
+    
+    // First, separate Pipedream services (custom_type === "pipedream")
+    const pipedreamServices = item.mcp_requirements.filter(req => 
+      req.custom_type === 'pipedream'
+    );
+    
+    // Then, get custom servers (custom_type exists but is not "pipedream")
+    const customServers = item.mcp_requirements.filter(req => 
+      req.custom_type && req.custom_type !== 'pipedream'
+    );
+    
+    // Finally, get regular services (no custom_type)
+    const regularServices = item.mcp_requirements.filter(req => 
+      !req.custom_type
+    );
+
+    for (const req of pipedreamServices) {
+      const appSlug = req.qualified_name; // Use the full qualified_name as app_slug
+      steps.push({
+        id: req.qualified_name,
+        title: `Select Pipedream Profile for ${req.display_name}`,
+        description: `Choose a Pipedream credential profile for ${req.display_name}.`,
+        type: 'pipedream_profile',
+        service_name: req.display_name,
+        qualified_name: req.qualified_name,
+        app_slug: appSlug,
+      });
+    }
+
     for (const req of regularServices) {
       steps.push({
         id: req.qualified_name,
@@ -356,6 +385,13 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
 
   const handleProfileSelect = (qualifiedName: string, profileId: string | null) => {
     setProfileMappings(prev => ({
+      ...prev,
+      [qualifiedName]: profileId || ''
+    }));
+  };
+
+  const handlePipedreamProfileSelect = (qualifiedName: string, profileId: string | null) => {
+    setPipedreamProfileMappings(prev => ({
       ...prev,
       [qualifiedName]: profileId || ''
     }));
@@ -410,7 +446,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       const response = await createProfileMutation.mutateAsync(request);
       toast.success('Credential profile created successfully!');
       
-      // Auto-select the newly created profile
       setProfileMappings(prev => ({
         ...prev,
         [createProfileForQualifiedName]: response.profile_id || 'new-profile'
@@ -419,7 +454,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
       setShowCreateProfileDialog(false);
       refreshRequirements();
       
-      // Reset form
       setFormData({
         profile_name: '',
         display_name: '',
@@ -439,6 +473,8 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
     
     if (step.type === 'credential_profile') {
       return !!profileMappings[step.qualified_name];
+    } else if (step.type === 'pipedream_profile') {
+      return !!pipedreamProfileMappings[step.qualified_name];
     } else if (step.type === 'custom_server') {
       const stepData = setupData[step.id] || {};
       return step.required_fields?.every(field => {
@@ -473,18 +509,41 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
         customMcpConfigs[step.qualified_name] = setupData[step.id] || {};
       }
     });
+
+    setupSteps.forEach(step => {
+      if (step.type === 'pipedream_profile') {
+        const profileId = pipedreamProfileMappings[step.qualified_name];
+        if (profileId) {
+          customMcpConfigs[step.qualified_name] = {
+            url: 'https://remote.mcp.pipedream.net',
+            headers: {
+              'x-pd-app-slug': step.app_slug,
+            },
+            profile_id: profileId
+          };
+        }
+      }
+    });
     
-    await onInstall(item, instanceName, profileMappings, customMcpConfigs);
+    const regularProfileMappings = { ...profileMappings };
+    await onInstall(item, instanceName, regularProfileMappings, customMcpConfigs);
   };
 
   const canInstall = () => {
     if (!item) return false;
     if (!instanceName.trim()) return false;
     
-    // Check if all required profile mappings are selected
-    const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+    const regularRequirements = item.mcp_requirements?.filter(req => 
+      !req.custom_type
+    ) || [];
     const missingProfileMappings = regularRequirements.filter(req => !profileMappings[req.qualified_name]);
     if (missingProfileMappings.length > 0) return false;
+    
+    const pipedreamRequirements = item.mcp_requirements?.filter(req => 
+      req.custom_type === 'pipedream'
+    ) || [];
+    const missingPipedreamMappings = pipedreamRequirements.filter(req => !pipedreamProfileMappings[req.qualified_name]);
+    if (missingPipedreamMappings.length > 0) return false;
     
     if (setupSteps.length > 0 && currentStep < setupSteps.length) return false;
     return true;
@@ -546,9 +605,6 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                         </Badge>
                       )}
                     </div>
-                    {/* <p className="text-sm text-muted-foreground">
-                      {currentStepData.description}
-                    </p> */}
                   </div>
                 </div>
 
@@ -580,6 +636,27 @@ const InstallDialog: React.FC<InstallDialogProps> = ({
                           Create New Profile
                         </Button>
                       </div>
+                    </div>
+                  ) : currentStepData.type === 'pipedream_profile' ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <PipedreamCredentialProfileSelector
+                          appSlug={currentStepData.app_slug || ''}
+                          appName={currentStepData.service_name}
+                          selectedProfileId={pipedreamProfileMappings[currentStepData.qualified_name]}
+                          onProfileSelect={(profileId) => {
+                            handlePipedreamProfileSelect(currentStepData.qualified_name, profileId);
+                          }}
+                        />
+                      </div>
+                      {!pipedreamProfiles?.some(p => 
+                        p.app_slug === currentStepData.app_slug && p.is_connected
+                      ) && (
+                        <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                          <p>No connected Pipedream profiles found for {currentStepData.service_name}.</p>
+                          <p className="mt-1">Create and connect a profile in the credentials section first.</p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     currentStepData.required_fields?.map((field) => (
@@ -927,7 +1004,9 @@ export default function MarketplacePage() {
         return;
       }
 
-      const regularRequirements = item.mcp_requirements?.filter(req => !req.custom_type) || [];
+      const regularRequirements = item.mcp_requirements?.filter(req => 
+        !req.custom_type
+      ) || [];
       const missingProfiles = regularRequirements.filter(req => 
         !profileMappings || !profileMappings[req.qualified_name] || profileMappings[req.qualified_name].trim() === ''
       );
@@ -938,7 +1017,9 @@ export default function MarketplacePage() {
         return;
       }
 
-      const customRequirements = item.mcp_requirements?.filter(req => req.custom_type) || [];
+      const customRequirements = item.mcp_requirements?.filter(req => 
+        req.custom_type && req.custom_type !== 'pipedream'
+      ) || [];
       const missingCustomConfigs = customRequirements.filter(req => 
         !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
         req.required_config.some(field => !customMcpConfigs[req.qualified_name][field]?.trim())
@@ -950,12 +1031,31 @@ export default function MarketplacePage() {
         return;
       }
 
+      // Check if all Pipedream services have custom MCP configs
+      const pipedreamRequirements = item.mcp_requirements?.filter(req => 
+        req.custom_type === 'pipedream'
+      ) || [];
+      const missingPipedreamConfigs = pipedreamRequirements.filter(req => 
+        !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
+        !customMcpConfigs[req.qualified_name].profile_id
+      );
+      
+      if (missingPipedreamConfigs.length > 0) {
+        const missingNames = missingPipedreamConfigs.map(req => req.display_name).join(', ');
+        toast.error(`Please select Pipedream profiles for: ${missingNames}`);
+        return;
+      }
+
       const result = await installTemplateMutation.mutateAsync({
         template_id: item.template_id,
         instance_name: instanceName,
         profile_mappings: profileMappings,
         custom_mcp_configs: customMcpConfigs
       });
+
+      console.log('Profile mappings being sent:', profileMappings);
+      console.log('Custom MCP configs being sent:', customMcpConfigs);
+      console.log('Item MCP requirements:', item.mcp_requirements);
 
       if (result.status === 'installed') {
         toast.success(`Agent "${instanceName}" installed successfully!`);

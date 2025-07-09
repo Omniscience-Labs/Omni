@@ -193,6 +193,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
             onSave={handleSaveTrigger}
             onCancel={() => setConfiguringProvider(null)}
             isLoading={createTriggerMutation.isPending || updateTriggerMutation.isPending}
+            agentId={agentId}
           />
         </Dialog>
       )}

@@ -31,8 +31,18 @@ class ScheduleTriggerProvider(TriggerProvider):
         if 'cron_expression' not in config:
             raise ValueError("cron_expression is required for QStash schedule triggers")
         
-        if 'agent_prompt' not in config:
-            raise ValueError("agent_prompt is required for schedule triggers")
+        # Validate execution type
+        execution_type = config.get('execution_type', 'agent')
+        if execution_type not in ['agent', 'workflow']:
+            raise ValueError("execution_type must be either 'agent' or 'workflow'")
+        
+        # Validate based on execution type
+        if execution_type == 'agent':
+            if 'agent_prompt' not in config:
+                raise ValueError("agent_prompt is required for agent execution")
+        elif execution_type == 'workflow':
+            if 'workflow_id' not in config:
+                raise ValueError("workflow_id is required for workflow execution")
         
         try:
             import croniter
@@ -52,15 +62,23 @@ class ScheduleTriggerProvider(TriggerProvider):
             vercel_bypass_key = ""
         try:
             webhook_url = f"{self.webhook_base_url}/api/triggers/qstash/webhook"
+            execution_type = trigger_config.config.get('execution_type', 'agent')
+            
             webhook_payload = {
                 "trigger_id": trigger_config.trigger_id,
                 "agent_id": trigger_config.agent_id,
-                "agent_prompt": trigger_config.config['agent_prompt'],
+                "execution_type": execution_type,
                 "schedule_name": trigger_config.name,
                 "cron_expression": trigger_config.config['cron_expression'],
                 "event_type": "scheduled",
                 "provider": "qstash"
             }
+            
+            if execution_type == 'agent':
+                webhook_payload["agent_prompt"] = trigger_config.config['agent_prompt']
+            elif execution_type == 'workflow':
+                webhook_payload["workflow_id"] = trigger_config.config['workflow_id']
+                webhook_payload["workflow_input"] = trigger_config.config.get('workflow_input', {})
             schedule_id = await asyncio.to_thread(
                 self.qstash.schedule.create,
                 destination=webhook_url,
@@ -106,22 +124,41 @@ class ScheduleTriggerProvider(TriggerProvider):
         """Process scheduled trigger event from QStash."""
         try:
             raw_data = event.raw_data
-            agent_prompt = raw_data.get('agent_prompt', 'Execute scheduled task')
+            execution_type = raw_data.get('execution_type', 'agent')
+            
             execution_variables = {
                 'scheduled_at': event.timestamp.isoformat(),
                 'trigger_id': event.trigger_id,
                 'agent_id': event.agent_id,
                 'schedule_name': raw_data.get('schedule_name', 'Scheduled Task'),
                 'execution_source': 'qstash',
+                'execution_type': execution_type,
                 'cron_expression': raw_data.get('cron_expression'),
                 'qstash_message_id': raw_data.get('messageId')
             }
-            return TriggerResult(
-                success=True,
-                should_execute_agent=True,
-                agent_prompt=agent_prompt,
-                execution_variables=execution_variables
-            )
+            
+            if execution_type == 'workflow':
+                # Workflow execution
+                workflow_id = raw_data.get('workflow_id')
+                workflow_input = raw_data.get('workflow_input', {})
+                
+                return TriggerResult(
+                    success=True,
+                    should_execute_workflow=True,
+                    workflow_id=workflow_id,
+                    workflow_input=workflow_input,
+                    execution_variables=execution_variables
+                )
+            else:
+                # Agent execution (default)
+                agent_prompt = raw_data.get('agent_prompt', 'Execute scheduled task')
+                
+                return TriggerResult(
+                    success=True,
+                    should_execute_agent=True,
+                    agent_prompt=agent_prompt,
+                    execution_variables=execution_variables
+                )
             
         except Exception as e:
             return TriggerResult(
@@ -190,16 +227,23 @@ class ScheduleTriggerProvider(TriggerProvider):
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             webhook_url = f"{self.webhook_base_url}/api/triggers/qstash/webhook"
+            execution_type = trigger_config.config.get('execution_type', 'agent')
             
             webhook_payload = {
                 "trigger_id": trigger_config.trigger_id,
                 "agent_id": trigger_config.agent_id,
-                "agent_prompt": trigger_config.config['agent_prompt'],
+                "execution_type": execution_type,
                 "schedule_name": trigger_config.name,
                 "cron_expression": trigger_config.config['cron_expression'],
                 "event_type": "scheduled",
                 "provider": "qstash"
             }
+            
+            if execution_type == 'agent':
+                webhook_payload["agent_prompt"] = trigger_config.config['agent_prompt']
+            elif execution_type == 'workflow':
+                webhook_payload["workflow_id"] = trigger_config.config['workflow_id']
+                webhook_payload["workflow_input"] = trigger_config.config.get('workflow_input', {})
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(

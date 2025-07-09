@@ -13,17 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { 
-  MessageSquare, 
-  Webhook, 
-  Clock, 
-  Mail,
-  Github,
-  Gamepad2,
   Activity,
-  Eye,
-  EyeOff,
   Copy,
   ExternalLink,
   Loader2
@@ -42,6 +33,7 @@ interface TriggerConfigDialogProps {
   onSave: (config: any) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  agentId: string;
 }
 
 export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
@@ -50,6 +42,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
   onSave,
   onCancel,
   isLoading = false,
+  agentId,
 }) => {
   const [name, setName] = useState(existingConfig?.name || '');
   const [description, setDescription] = useState(existingConfig?.description || '');
@@ -80,8 +73,14 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
       if (!config.cron_expression) {
         newErrors.cron_expression = 'Cron expression is required';
       }
-      if (!config.agent_prompt) {
-        newErrors.agent_prompt = 'Agent prompt is required';
+      if (config.execution_type === 'workflow') {
+        if (!config.workflow_id) {
+          newErrors.workflow_id = 'Workflow selection is required';
+        }
+      } else {
+        if (!config.agent_prompt) {
+          newErrors.agent_prompt = 'Agent prompt is required';
+        }
       }
     }
     setErrors(newErrors);
@@ -124,6 +123,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
             config={config as ScheduleTriggerConfig}
             onChange={setConfig}
             errors={errors}
+            agentId={agentId}
           />
         );
       case 'webhook':

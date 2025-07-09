@@ -146,6 +146,20 @@ async def run_agent(
             for custom_mcp in agent_config['custom_mcps']:
                 # Transform custom MCP to standard format
                 custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'sse'))
+                
+                # For Pipedream MCPs, ensure we have the user ID and proper config
+                if custom_type == 'pipedream':
+                    # Get user ID from thread
+                    if 'config' not in custom_mcp:
+                        custom_mcp['config'] = {}
+                    
+                    if not custom_mcp['config'].get('external_user_id'):
+                        thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
+                        if thread_result.data:
+                            custom_mcp['config']['external_user_id'] = thread_result.data[0]['account_id']
+                    if 'headers' in custom_mcp['config'] and 'x-pd-app-slug' in custom_mcp['config']['headers']:
+                        custom_mcp['config']['app_slug'] = custom_mcp['config']['headers']['x-pd-app-slug']
+                
                 mcp_config = {
                     'name': custom_mcp['name'],
                     'qualifiedName': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",

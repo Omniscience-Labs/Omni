@@ -35,11 +35,6 @@ const MCPConfigurationItem: React.FC<{
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <div className="font-medium text-sm truncate">{mcp.name}</div>
-              {mcp.isCustom && (
-                <Badge variant="outline" className="text-xs">
-                  Custom
-                </Badge>
-              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>{mcp.enabledTools?.length || 0} tools enabled</span>
@@ -67,13 +62,6 @@ const MCPConfigurationItem: React.FC<{
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onEdit(index)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
           <Button
             size="sm"
             variant="ghost"

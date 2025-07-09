@@ -203,7 +203,8 @@ class BaseOAuthProvider(abc.ABC):
         )
         
         # Store OAuth data
-        await self._store_oauth_data(trigger_config.trigger_id, token_response, provider_data)
+        
+        # await self._store_oauth_data(trigger_config.trigger_id, token_response, provider_data)
         
         import os
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
@@ -245,22 +246,3 @@ class BaseOAuthProvider(abc.ABC):
         except Exception as e:
             logger.error(f"Error verifying state token: {e}")
             return None
-    
-    async def _store_oauth_data(
-        self, 
-        trigger_id: str, 
-        token_response: OAuthTokenResponse, 
-        provider_data: Dict[str, Any]
-    ):
-        """Store OAuth installation data."""
-        client = await self.db.client
-        await client.table('oauth_installations').insert({
-            'trigger_id': trigger_id,
-            'provider': self.config.provider.value,
-            'access_token': token_response.access_token,
-            'refresh_token': token_response.refresh_token,
-            'expires_in': token_response.expires_in,
-            'scope': token_response.scope,
-            'provider_data': provider_data,
-            'installed_at': 'now()'
-        }).execute() 

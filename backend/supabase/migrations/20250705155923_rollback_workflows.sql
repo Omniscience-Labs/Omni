@@ -1,4 +1,4 @@
--- Rollback script for old workflow migrations
+-- Rollback script for old workflow system
 DROP TABLE IF EXISTS workflow_flows CASCADE;
 
 -- Drop workflow execution logs (depends on workflow_executions)

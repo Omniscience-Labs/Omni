@@ -414,14 +414,6 @@ class TemplateManager:
                         'current_version_id': version_id,
                         'version_count': 1
                     }).eq('agent_id', instance_id).execute()
-                    await client.table('agent_version_history').insert({
-                        "agent_id": instance_id,
-                        "version_id": version_id,
-                        "action": "created",
-                        "changed_by": account_id,
-                        "change_description": "Initial version created from template installation"
-                    }).execute()
-                    
                     logger.info(f"Created initial version v1 for installed agent {instance_id}")
                 else:
                     logger.warning(f"Failed to create initial version for agent {instance_id}")

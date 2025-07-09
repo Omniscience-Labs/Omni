@@ -66,14 +66,14 @@ jobs:
             docker compose build
             docker compose up -d
 
-      # - name: Deploy to prod
-      #   if: steps.get_tag_name.outputs.environment == 'prod'
-      #   uses: appleboy/ssh-action@v1
-      #   with:
-      #     host: ${{ secrets.PROD_HOST }}
-      #     username: ${{ secrets.PROD_USERNAME }}
-      #     key: ${{ secrets.PROD_KEY }}
-      #     script: |
-      #       cd /mnt/gluster-shared/data/infra/suna
-      #       set -a; source .env; set +a
-      #       docker stack deploy -c docker-compose.yml suna
+      - name: Deploy to prod
+        if: steps.get_tag_name.outputs.environment == 'prod'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          script: |
+            cd /mnt/gluster-shared/data/infra/suna
+            set -a; source .env; set +a
+            docker stack deploy -c docker-compose.yml suna

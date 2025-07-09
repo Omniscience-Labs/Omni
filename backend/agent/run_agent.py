@@ -19,7 +19,6 @@ import json
 from resumable_stream.runtime import create_resumable_stream_context, ResumableStreamContext
 
 _initialized = False
-db = DBConnection()
 instance_id = "single"
 
 
@@ -36,12 +35,11 @@ async def get_stream_context():
 
 async def initialize():
     """Initialize the agent API with resources from the main API."""
-    global db, instance_id, _initialized
+    global instance_id, _initialized
 
     if not instance_id:
         instance_id = str(uuid.uuid4())[:8]
     await retry(lambda: redis.initialize_async())
-    await db.initialize()
 
     _initialized = True
     logger.info(f"Initialized agent API with instance ID: {instance_id}")
@@ -78,6 +76,8 @@ async def run_agent_run_stream(
 
     try:
         await initialize()
+        db = DBConnection()
+        await db.initialize()
     except Exception as e:
         logger.critical(f"Failed to initialize: {e}")
         raise e
