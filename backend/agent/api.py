@@ -22,6 +22,7 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
+from .utils import check_for_active_project_agent_run
 
 # Initialize shared resources
 router = APIRouter()
@@ -31,8 +32,7 @@ instance_id = None # Global instance ID for this backend instance
 # TTL for Redis response lists (24 hours)
 REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
-async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None):
-    return await _stop_agent_run(db, agent_run_id, error_message)
+
 
 class AgentStartRequest(BaseModel):
     model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
@@ -185,19 +185,7 @@ async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None)
     await redis.client.delete(instance_key)
     logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
 
-async def check_for_active_project_agent_run(client, project_id: str):
-    """
-    Check if there is an active agent run for any thread in the given project.
-    If found, returns the ID of the active run, otherwise returns None.
-    """
-    project_threads = await client.table('threads').select('thread_id').eq('project_id', project_id).execute()
-    project_thread_ids = [t['thread_id'] for t in project_threads.data]
 
-    if project_thread_ids:
-        active_runs = await client.table('agent_runs').select('id').in_('thread_id', project_thread_ids).eq('status', 'running').execute()
-        if active_runs.data and len(active_runs.data) > 0:
-            return active_runs.data[0]['id']
-    return None
 
 async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: str):
     agent_run = await client.table('agent_runs').select('*').eq('id', agent_run_id).execute()

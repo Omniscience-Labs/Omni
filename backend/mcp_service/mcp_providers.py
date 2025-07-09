@@ -1,15 +1,8 @@
 from typing import Dict, Any, Optional, Protocol
-from dataclasses import dataclass
 import os
 from utils.logger import logger
 
-@dataclass
-class MCPProviderConfig:
-    provider_type: str
-    server_url: str
-    api_key: Optional[str] = None
-    headers: Optional[Dict[str, str]] = None
-    additional_config: Optional[Dict[str, Any]] = None
+
 
 class MCPProvider(Protocol):
     def get_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
@@ -99,6 +92,4 @@ class MCPProviderFactory:
         
         return cls._providers[provider_type]()
     
-    @classmethod
-    def register_provider(cls, provider_type: str, provider_class: type):
-        cls._providers[provider_type] = provider_class 
+ 

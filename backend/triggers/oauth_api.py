@@ -122,13 +122,7 @@ async def get_slack_status(
         
         slack_triggers = []
         for trigger in result.data:
-            # COMMENTED OUT: OAuth installations table deprecated
-            # oauth_result = await client.table('slack_oauth_installations')\
-            #     .select('team_name, bot_name, installed_at')\
-            #     .eq('trigger_id', trigger['trigger_id'])\
-            #     .execute()
-            
-            # oauth_data = oauth_result.data[0] if oauth_result.data else {}
+
             
             # Get data from trigger config instead
             config = trigger.get('config', {})
@@ -176,11 +170,7 @@ async def uninstall_slack_integration(
         success = await trigger_manager.delete_trigger(trigger_id)
         
         if success:
-            # COMMENTED OUT: OAuth installations table deprecated
-            # await client.table('slack_oauth_installations')\
-            #     .delete()\
-            #     .eq('trigger_id', trigger_id)\
-            #     .execute()
+
             
             return {"success": True, "message": "Slack integration uninstalled"}
         else:

@@ -329,9 +329,7 @@ async def delete_agent_workflow(
 
 
 def build_workflow_system_prompt(workflow: dict, steps_json: List[dict], input_data: dict = None, available_tools: List[str] = None) -> str:
-    """Build a workflow system prompt using LLM-friendly nested JSON format."""
     def convert_to_llm_format(steps: List[dict]) -> List[dict]:
-        """Convert nested workflow steps to LLM-friendly format."""
         result = []
         for step in steps:
             llm_step = {

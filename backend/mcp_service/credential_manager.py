@@ -1,13 +1,3 @@
-"""
-Secure MCP Credential Manager
-
-This module handles:
-1. Encrypting and storing MCP credentials securely
-2. Retrieving and decrypting credentials for runtime use
-3. Managing credential lifecycle and validation
-4. Auditing credential usage
-"""
-
 import os
 import json
 import hashlib
