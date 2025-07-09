@@ -86,15 +86,25 @@ export const PipedreamAppBrowser: React.FC<PipedreamAppBrowserProps> = ({
 
         <div className="space-y-4">
           <div className="flex gap-2">
-            <div className="relative flex-1">
+            <form onSubmit={(e) => {e.preventDefault()}} className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search apps..."
+                placeholder="Search apps... (e.g., Gmail, Slack, Notion)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
-            </div>
+              {searchQuery && (
+                <Button 
+                  type="submit" 
+                  size="sm" 
+                  variant="ghost" 
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 px-2"
+                >
+                  Search
+                </Button>
+              )}
+            </form>
             {selectedCategory && (
               <Button
                 variant="outline"

@@ -66,6 +66,11 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     setPage(1);
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    refetch();
+  };
+
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category === selectedCategory ? '' : category);
     setPage(1);
@@ -281,15 +286,25 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
               </p>
             </div>
           </div>
-          <div className="relative">
+          <form onSubmit={handleSearchSubmit} className="relative">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <Input
-              placeholder="Search apps..."
+              placeholder="Search apps... (e.g., Gmail, Slack, Notion)"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-8 h-8 text-sm"
             />
-          </div>
+            {search && (
+              <Button 
+                type="submit" 
+                size="sm" 
+                variant="ghost" 
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2"
+              >
+                Search
+              </Button>
+            )}
+          </form>
         </div>
         <div className="flex-1 overflow-auto p-4">
           {isLoading && (

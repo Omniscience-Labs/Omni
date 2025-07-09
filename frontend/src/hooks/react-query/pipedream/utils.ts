@@ -100,8 +100,13 @@ export interface PipedreamAppResponse {
     current_page: number;
     page_size: number;
     has_more: boolean;
+    count?: number;
+    start_cursor?: string;
+    end_cursor?: string;
   };
   total_count: number;
+  error?: string;
+  search_query?: string;
 }
 
 export interface PipedreamTool {
@@ -174,13 +179,14 @@ export const pipedreamApi = {
   },
 
   async getApps(page: number = 1, search?: string, category?: string): Promise<PipedreamAppResponse> {
+    if (search) {
+      return await this.searchApps(search, page, category);
+    }
+    
     const params = new URLSearchParams({
       page: page.toString(),
     });
     
-    if (search) {
-      params.append('search', search);
-    }
     if (category) {
       params.append('category', category);
     }
@@ -195,8 +201,41 @@ export const pipedreamApi = {
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get apps');
     }
+    const data = result.data!;
+    if (!data.success && data.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  },
 
-    return result.data!;
+  async searchApps(query: string, page: number = 1, category?: string): Promise<PipedreamAppResponse> {
+    const params = new URLSearchParams({
+      q: query,
+      page: page.toString(),
+    });
+    
+    if (category) {
+      params.append('category', category);
+    }
+    
+    const result = await backendApi.get<PipedreamAppResponse>(
+      `/pipedream/apps/search?${params.toString()}`,
+      {
+        errorContext: { operation: 'search apps', resource: 'Pipedream apps' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to search apps');
+    }
+
+    // Handle both success response and potential error in the data
+    const data = result.data!;
+    if (!data.success && data.error) {
+      throw new Error(data.error);
+    }
+
+    return data;
   },
 
   async getAvailableTools(): Promise<PipedreamToolsResponse> {
