@@ -29,7 +29,7 @@ def initialize():
     redis_password = os.getenv("REDIS_PASSWORD", "")
     
     # Connection pool configuration
-    max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", 1024))
+    max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", 2048))
     retry_on_timeout = not (os.getenv("REDIS_RETRY_ON_TIMEOUT", "True").lower() != "true")
 
     logger.info(f"Initializing Redis connection pool to {redis_host}:{redis_port} with max {max_connections} connections")
@@ -40,8 +40,8 @@ def initialize():
         port=redis_port,
         password=redis_password,
         decode_responses=True,
-        socket_timeout=5.0,
-        socket_connect_timeout=5.0,
+        socket_timeout=20.0,
+        socket_connect_timeout=20.0,
         retry_on_timeout=retry_on_timeout,
         health_check_interval=30,
         max_connections=max_connections,
