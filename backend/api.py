@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from services import redis
 import sentry
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
@@ -178,13 +179,36 @@ api_router.include_router(unified_oauth_api.router)
 # Add health check to API router
 @api_router.get("/health")
 async def health_check():
-    """Health check endpoint to verify API is working."""
+    """Health check endpoint to check if API server is up."""
     logger.info("Health check endpoint called")
     return {
         "status": "ok", 
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "instance_id": instance_id
     }
+
+# Add health check to API router
+@api_router.get("/health-docker")
+async def health_check():
+    """Health check endpoint to verify API is working."""
+    logger.info("Health docker check endpoint called")
+    try:
+        client = await redis.get_client()
+        await client.ping()
+        db = DBConnection()
+        await db.initialize()
+        db_client = await db.client
+        await db_client.table("threads").select("thread_id").limit(1).execute()
+        logger.info("Health docker check complete")
+        return {
+            "status": "ok", 
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "instance_id": instance_id
+        }
+    except Exception as e:
+        logger.error(f"Failed health docker check: {e}")
+        raise HTTPException(status_code=500, detail="Health check failed")
+
 
 # Include the main API router with /api prefix
 app.include_router(api_router, prefix="/api")

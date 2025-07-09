@@ -131,7 +131,7 @@ async def run_agent_run_stream(
                     )
                     stop_signal_received = True
                     break
-                await asyncio.sleep(0.5)  # Short sleep to prevent tight loop
+                await asyncio.sleep(5)  # Short sleep to prevent tight loop
         except asyncio.CancelledError:
             logger.info(
                 f"Stop signal checker cancelled for {agent_run_id} (Instance: {instance_id})"
@@ -140,7 +140,6 @@ async def run_agent_run_stream(
             logger.error(
                 f"Error in stop signal checker for {agent_run_id}: {e}", exc_info=True
             )
-            stop_signal_received = True  # Stop the run if the checker fails
 
     asyncio.create_task(check_for_stop_signal())
 
