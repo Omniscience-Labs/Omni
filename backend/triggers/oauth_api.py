@@ -8,7 +8,7 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 
-router = APIRouter(prefix="/api/integrations/slack", tags=["slack-oauth"])
+router = APIRouter(prefix="/integrations/slack", tags=["slack-oauth"])
 
 slack_oauth_manager: Optional[SlackOAuthManager] = None
 db = None
@@ -115,27 +115,25 @@ async def get_slack_status(
         
         client = await db.client
         result = await client.table('agent_triggers')\
-            .select('trigger_id, name, is_active')\
+            .select('trigger_id, name, is_active, config')\
             .eq('agent_id', agent_id)\
             .eq('trigger_type', 'slack')\
             .execute()
         
         slack_triggers = []
         for trigger in result.data:
-            oauth_result = await client.table('slack_oauth_installations')\
-                .select('team_name, bot_name, installed_at')\
-                .eq('trigger_id', trigger['trigger_id'])\
-                .execute()
+
             
-            oauth_data = oauth_result.data[0] if oauth_result.data else {}
+            # Get data from trigger config instead
+            config = trigger.get('config', {})
             
             slack_triggers.append({
                 "trigger_id": trigger["trigger_id"],
                 "name": trigger["name"],
                 "is_active": trigger["is_active"],
-                "workspace_name": oauth_data.get("team_name"),
-                "bot_name": oauth_data.get("bot_name"),
-                "installed_at": oauth_data.get("installed_at")
+                "workspace_name": config.get("team_name"),
+                "bot_name": config.get("bot_name"),
+                "installed_at": None  # No longer tracked separately
             })
         
         return {
@@ -172,10 +170,7 @@ async def uninstall_slack_integration(
         success = await trigger_manager.delete_trigger(trigger_id)
         
         if success:
-            await client.table('slack_oauth_installations')\
-                .delete()\
-                .eq('trigger_id', trigger_id)\
-                .execute()
+
             
             return {"success": True, "message": "Slack integration uninstalled"}
         else:

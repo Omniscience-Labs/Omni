@@ -5,7 +5,6 @@ import asyncio
 from flags import enable_flag, disable_flag, is_enabled, list_flags, delete_flag, get_flag_details
 
 async def enable_command(flag_name: str, description: str = ""):
-    """Enable a feature flag"""
     if await enable_flag(flag_name, description):
         print(f"✓ Enabled flag: {flag_name}")
         if description:
@@ -15,7 +14,6 @@ async def enable_command(flag_name: str, description: str = ""):
 
 
 async def disable_command(flag_name: str, description: str = ""):
-    """Disable a feature flag"""
     if await disable_flag(flag_name, description):
         print(f"✓ Disabled flag: {flag_name}")
         if description:
@@ -25,7 +23,6 @@ async def disable_command(flag_name: str, description: str = ""):
 
 
 async def list_command():
-    """List all feature flags"""
     flags = await list_flags()
     
     if not flags:
@@ -50,7 +47,6 @@ async def list_command():
 
 
 async def status_command(flag_name: str):
-    """Show status of a specific feature flag"""
     details = await get_flag_details(flag_name)
     
     if not details:
@@ -68,7 +64,6 @@ async def status_command(flag_name: str):
 
 
 async def delete_command(flag_name: str):
-    """Delete a feature flag"""
     if not await get_flag_details(flag_name):
         print(f"✗ Flag '{flag_name}' not found.")
         return
@@ -84,7 +79,6 @@ async def delete_command(flag_name: str):
 
 
 async def toggle_command(flag_name: str, description: str = ""):
-    """Toggle a feature flag"""
     current_status = await is_enabled(flag_name)
     
     if current_status:

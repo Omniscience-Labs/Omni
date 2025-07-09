@@ -1,39 +1,25 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings, Zap, Code2, Server } from 'lucide-react';
-import { Dialog } from '@/components/ui/dialog';
+import { Plus, Settings, Zap, Code2, Server, Store } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
-import { BrowseDialog } from './browse-dialog';
-import { ConfigDialog } from './config-dialog';
 import { CustomMCPDialog } from './custom-mcp-dialog';
+import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 
 export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,
   onConfigurationChange,
 }) => {
-  const [showBrowseDialog, setShowBrowseDialog] = useState(false);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
-  const [configuringServer, setConfiguringServer] = useState<any>(null);
+  const [showRegistryDialog, setShowRegistryDialog] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
-  const handleAddMCP = (server: any) => {
-    setConfiguringServer(server);
-    setEditingIndex(null);
-    setShowBrowseDialog(false);
-  };
 
   const handleEditMCP = (index: number) => {
     const mcp = configuredMCPs[index];
-    if (mcp.isCustom) {
-      // For custom MCPs, we'll need to handle editing differently
+    if (mcp.customType === 'pipedream') {
       return;
     }
-    setConfiguringServer({
-      qualifiedName: mcp.qualifiedName,
-      displayName: mcp.name,
-      name: mcp.name,
-    });
     setEditingIndex(index);
   };
 
@@ -41,24 +27,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
     const newMCPs = [...configuredMCPs];
     newMCPs.splice(index, 1);
     onConfigurationChange(newMCPs);
-  };
-
-  const handleSaveConfiguration = (config: MCPConfigurationType) => {
-    const regularMCPConfig = {
-      ...config,
-      isCustom: false,
-      customType: undefined
-    };
-    
-    if (editingIndex !== null) {
-      const newMCPs = [...configuredMCPs];
-      newMCPs[editingIndex] = regularMCPConfig;
-      onConfigurationChange(newMCPs);
-    } else {
-      onConfigurationChange([...configuredMCPs, regularMCPConfig]);
-    }
-    setConfiguringServer(null);
-    setEditingIndex(null);
   };
 
   const handleSaveCustomMCP = (customConfig: any) => {
@@ -71,9 +39,31 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       isCustom: true,
       customType: customConfig.type as 'http' | 'sse'
     };
-    console.log('Transformed MCP config:', mcpConfig);
     onConfigurationChange([...configuredMCPs, mcpConfig]);
-    console.log('Updated MCPs list:', [...configuredMCPs, mcpConfig]);
+  };
+
+  const handleToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
+    const pipedreamMCP: MCPConfigurationType = {
+      name: appName,
+      qualifiedName: `pipedream_${appSlug}_${profileId}`,
+      config: {
+        url: 'https://remote.mcp.pipedream.net',
+        headers: {
+          'x-pd-app-slug': appSlug,
+        },
+        profile_id: profileId
+      },
+      enabledTools: selectedTools,
+      isCustom: true,
+      customType: 'pipedream',
+      selectedProfileId: profileId
+    };
+    const nonPipedreamMCPs = configuredMCPs.filter(mcp => 
+      mcp.customType !== 'pipedream' || 
+      mcp.selectedProfileId !== profileId
+    );
+    onConfigurationChange([...nonPipedreamMCPs, pipedreamMCP]);
+    setShowRegistryDialog(false);
   };
 
   return (
@@ -86,14 +76,14 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
             </div>
             <div>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                Connect Model Context Protocol servers to extend agent capabilities with external tools and data sources
+                Give your agent access to external tools and services.
               </p>
               {configuredMCPs.length > 0 && (
                 <div className="flex items-center mt-3 space-x-2">
                   <div className="flex items-center space-x-1">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                     <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      {configuredMCPs.length} server{configuredMCPs.length !== 1 ? 's' : ''} configured
+                      {configuredMCPs.length} integration{configuredMCPs.length !== 1 ? 's' : ''} configured
                     </span>
                   </div>
                 </div>
@@ -104,19 +94,20 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setShowRegistryDialog(true)}
+              className="transition-all duration-200"
+            >
+              <Store className="h-4 w-4" />
+              Browse Apps
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setShowCustomDialog(true)}
               className="transition-all duration-200"
             >
               <Server className="h-4 w-4" />
-              Custom
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowBrowseDialog(true)}
-              className="transition-all duration-200"
-            >
-              <Plus className="h-4 w-4" />
-              Browse
+              Custom MCP
             </Button>
           </div>
         </div>
@@ -128,18 +119,29 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
             <Zap className="h-6 w-6 text-muted-foreground" />
           </div>
           <h4 className="text-sm font-medium text-foreground mb-2">
-            No MCP servers configured
+            No integrations configured
           </h4>
           <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Add your first MCP server to unlock powerful integrations and extend your agent's capabilities
+            Browse the app registry to connect your apps through Pipedream or add custom MCP servers
           </p>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => setShowRegistryDialog(true)} variant="default">
+              <Store className="h-4 w-4 mr-2" />
+              Browse Apps
+            </Button>
+            <Button onClick={() => setShowCustomDialog(true)} variant="outline">
+              <Server className="h-4 w-4 mr-2" />
+              Custom MCP
+            </Button>
+          </div>
         </div>
       )}
+      
       {configuredMCPs.length > 0 && (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h4 className="text-sm font-medium text-foreground">
-              Configured Servers
+              Configured Integrations
             </h4>
           </div>
           <div className="p-2 divide-y divide-border">
@@ -151,26 +153,16 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           </div>
         </div>
       )}
-      <BrowseDialog
-        open={showBrowseDialog}
-        onOpenChange={setShowBrowseDialog}
-        onServerSelect={handleAddMCP}
-      />
+      <Dialog open={showRegistryDialog} onOpenChange={setShowRegistryDialog}>
+        <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+          <PipedreamRegistry onToolsSelected={handleToolsSelected} />
+        </DialogContent>
+      </Dialog>
       <CustomMCPDialog
         open={showCustomDialog}
         onOpenChange={setShowCustomDialog}
         onSave={handleSaveCustomMCP}
       />
-      {configuringServer && (
-        <Dialog open={!!configuringServer} onOpenChange={() => setConfiguringServer(null)}>
-          <ConfigDialog
-            server={configuringServer}
-            existingConfig={editingIndex !== null ? configuredMCPs[editingIndex] : undefined}
-            onSave={handleSaveConfiguration}
-            onCancel={() => setConfiguringServer(null)}
-          />
-        </Dialog>
-      )}
     </div>
   );
 };

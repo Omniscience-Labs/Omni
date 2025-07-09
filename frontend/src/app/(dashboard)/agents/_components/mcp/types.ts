@@ -2,10 +2,10 @@ export interface MCPConfiguration {
   name: string;
   qualifiedName: string;
   config: Record<string, any>;
-  enabledTools?: string[];
+  enabledTools: string[];
   selectedProfileId?: string;
   isCustom?: boolean;
-  customType?: 'http' | 'sse';
+  customType?: 'http' | 'sse' | 'pipedream';
 }
   
 export interface MCPConfigurationProps {

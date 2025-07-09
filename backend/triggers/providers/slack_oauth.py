@@ -169,7 +169,8 @@ class SlackOAuthManager:
             config=config
         )
         
-        await self._store_oauth_data(trigger_config.trigger_id, oauth_data, workspace_info, bot_info)
+        # COMMENTED OUT: OAuth installations functionality deprecated
+        # await self._store_oauth_data(trigger_config.trigger_id, oauth_data, workspace_info, bot_info)
         
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         # Slack requires a single Event Request URL per app
@@ -200,25 +201,26 @@ class SlackOAuthManager:
             logger.error(f"Error verifying state token: {e}")
             return None
     
-    async def _store_oauth_data(
-        self, 
-        trigger_id: str, 
-        oauth_data: Dict[str, Any], 
-        workspace_info: Dict[str, Any], 
-        bot_info: Dict[str, Any]
-    ):
-        """Store OAuth data for the trigger."""
-        client = await self.db.client
-        await client.table('slack_oauth_installations').insert({
-            'trigger_id': trigger_id,
-            'team_id': oauth_data['team_id'],
-            'team_name': oauth_data['team_name'],
-            'access_token': oauth_data['access_token'],
-            'bot_user_id': oauth_data['bot_user_id'],
-            'bot_name': bot_info.get('name'),
-            'app_id': oauth_data['app_id'],
-            'scope': oauth_data['scope'],
-            'workspace_info': workspace_info,
-            'bot_info': bot_info,
-            'installed_at': 'now()'
-        }).execute() 
+    # COMMENTED OUT: OAuth installations functionality deprecated
+    # async def _store_oauth_data(
+    #     self, 
+    #     trigger_id: str, 
+    #     oauth_data: Dict[str, Any], 
+    #     workspace_info: Dict[str, Any], 
+    #     bot_info: Dict[str, Any]
+    # ):
+    #     """Store OAuth data for the trigger."""
+    #     client = await self.db.client
+    #     await client.table('slack_oauth_installations').insert({
+    #         'trigger_id': trigger_id,
+    #         'team_id': oauth_data['team_id'],
+    #         'team_name': oauth_data['team_name'],
+    #         'access_token': oauth_data['access_token'],
+    #         'bot_user_id': oauth_data['bot_user_id'],
+    #         'bot_name': bot_info.get('name'),
+    #         'app_id': oauth_data['app_id'],
+    #         'scope': oauth_data['scope'],
+    #         'workspace_info': workspace_info,
+    #         'bot_info': bot_info,
+    #         'installed_at': 'now()'
+    #     }).execute() 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import { AgentBuilderChat } from '../../_components/agent-builder-chat';
 import { useFeatureAlertHelpers } from '@/hooks/use-feature-alerts';
 import { AgentTriggersConfiguration } from '@/components/agents/triggers/agent-triggers-configuration';
 import { AgentKnowledgeBaseManager } from '@/components/agents/knowledge-base/agent-knowledge-base-manager';
+import { AgentWorkflowsConfiguration } from '@/components/agents/workflows/agent-workflows-configuration';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -381,11 +382,9 @@ export default function AgentConfigurationPage() {
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 overflow-x-hidden">
                       <AgentMCPConfiguration
-                        mcps={formData.configured_mcps}
-                        customMcps={formData.custom_mcps}
-                        onMCPsChange={(mcps) => handleBatchMCPChange({ configured_mcps: mcps, custom_mcps: formData.custom_mcps })}
-                        onCustomMCPsChange={(customMcps) => handleBatchMCPChange({ configured_mcps: formData.configured_mcps, custom_mcps: customMcps })}
-                        onBatchMCPChange={handleBatchMCPChange}
+                        configuredMCPs={formData.configured_mcps}
+                        customMCPs={formData.custom_mcps}
+                        onMCPChange={handleBatchMCPChange}
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -415,6 +414,22 @@ export default function AgentConfigurationPage() {
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 overflow-x-hidden">
                       <AgentKnowledgeBaseManager
+                        agentId={agentId}
+                        agentName={formData.name || 'Agent'}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="workflows" className="border-b">
+                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
+                      <div className="flex items-center gap-2">
+                        <Workflow className="h-4 w-4" />
+                        Workflows
+                        <Badge variant='new'>New</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 overflow-x-hidden">
+                      <AgentWorkflowsConfiguration
                         agentId={agentId}
                         agentName={formData.name || 'Agent'}
                       />
