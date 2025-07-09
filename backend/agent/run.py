@@ -1,7 +1,6 @@
 import os
 import json
-import re
-from uuid import uuid4
+import asyncio
 from typing import Optional
 
 # from agent.tools.message_tool import MessageTool
@@ -633,4 +632,4 @@ async def run_agent(
         if generation:
             generation.end(output=full_response)
 
-    langfuse.flush()
+    asyncio.create_task(asyncio.to_thread(lambda: langfuse.flush()))
