@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
 import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { useAgentStream } from '@/hooks/useAgentStream';
@@ -11,10 +10,6 @@ import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/
 import { useAgentBuilderChatHistory } from '@/hooks/react-query/agents/use-agents';
 import { toast } from 'sonner';
 import { UnifiedMessage } from '@/components/thread/types';
-import { StylePicker } from './style-picker';
-import { EditableText } from '@/components/ui/editable';
-import { Badge } from '@/components/ui/badge';
-import { Check, Clock } from 'lucide-react';
 import { BillingError } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
@@ -387,7 +382,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
                   <div className="text-4xl">🤖</div>
                 </div>
-                <p className='w-[60%] text-2xl'>Lets start with a brief <span className='text-primary/80 font-semibold'>description</span> of what you'd like to build</p>
+                <p className='w-[60%] text-2xl'>I'm your <span className='text-primary/80 font-semibold'>Agent Builder</span>. Describe the exact workflows and tasks you want to automate, and I'll configure your agent to handle them.</p>
               </div>
             }
           />

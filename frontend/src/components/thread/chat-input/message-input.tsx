@@ -48,6 +48,7 @@ interface MessageInputProps {
   refreshCustomModels?: () => void;
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
+  enableAdvancedConfig?: boolean;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -84,6 +85,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
       selectedAgentId,
       onAgentSelect,
+      enableAdvancedConfig = false,
     },
     ref,
   ) => {
@@ -127,18 +129,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
     const renderDropdown = () => {
       if (isLoggedIn) {
-        if (!customAgentsEnabled || flagsLoading) {
-          return <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-            modelOptions={modelOptions}
-            subscriptionStatus={subscriptionStatus}
-            canAccessModel={canAccessModel}
-            refreshCustomModels={refreshCustomModels}
-            billingModalOpen={billingModalOpen}
-            setBillingModalOpen={setBillingModalOpen}
-          />
-        } else {
+        if (enableAdvancedConfig || (customAgentsEnabled && !flagsLoading)) {
           return <ChatSettingsDropdown
             selectedAgentId={selectedAgentId}
             onAgentSelect={onAgentSelect}
@@ -149,6 +140,17 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             canAccessModel={canAccessModel}
             refreshCustomModels={refreshCustomModels}
             disabled={loading || (disabled && !isAgentRunning)}
+          />
+        } else {
+          return <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+            billingModalOpen={billingModalOpen}
+            setBillingModalOpen={setBillingModalOpen}
           />
         }
       }

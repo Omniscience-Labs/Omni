@@ -7,17 +7,16 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
-import { AgentSelector } from './agent-selector';
 import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
 import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
+import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -50,6 +49,8 @@ export interface ChatInputProps {
   showToolPreview?: boolean;
   onExpandToolPreview?: () => void;
   isLoggedIn?: boolean;
+  enableAdvancedConfig?: boolean;
+  onConfigureAgent?: (agentId: string) => void;
 }
 
 export interface UploadedFile {
@@ -85,6 +86,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       showToolPreview = false,
       onExpandToolPreview,
       isLoggedIn = true,
+      enableAdvancedConfig = false,
+      onConfigureAgent,
     },
     ref,
   ) => {
@@ -244,8 +247,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           agentName={agentName}
           isVisible={showToolPreview}
         />
+        
         <Card
-          className="-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden"
+          className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-hidden ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={(e) => {
@@ -267,7 +271,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           }}
         >
           <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-            <CardContent className={`w-full p-1.5 pb-2 ${bgColor} rounded-3xl border`}>
+            <CardContent className={`w-full p-1.5 ${enableAdvancedConfig && selectedAgentId ? 'pb-1' : 'pb-2'} ${bgColor} border ${enableAdvancedConfig && selectedAgentId ? 'rounded-t-3xl' : 'rounded-3xl'}`}>
               <AttachmentGroup
                 files={uploadedFiles || []}
                 sandboxId={sandboxId}
@@ -311,6 +315,46 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 onAgentSelect={onAgentSelect}
               />
             </CardContent>
+            
+            {enableAdvancedConfig && selectedAgentId && (
+              <div 
+                className="w-full border-t border-border/30 bg-muted/20 px-4 py-2.5 rounded-b-3xl border-l border-r border-b border-border cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => onConfigureAgent?.(selectedAgentId)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-xs min-w-0 flex-1">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <span className="hidden sm:inline">Integrations</span>
+                        <span className="sm:hidden">Integrations</span>
+                        <div className="flex items-center gap-1 ml-1">
+                          <div className="w-4 h-4 bg-red-500 rounded-sm flex items-center justify-center text-white text-xs font-bold">G</div>
+                          <div className="w-4 h-4 bg-blue-500 rounded-sm flex items-center justify-center text-white text-xs font-bold">D</div>
+                          <div className="w-4 h-4 bg-black rounded-sm flex items-center justify-center text-white text-xs font-bold">N</div>
+                        </div>
+                      </div>
+                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Brain className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span className="hidden sm:inline">Instructions</span>
+                        <span className="sm:hidden">Instructions</span>
+                      </div>
+                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
+                      <div className="flex items-center gap-1 text-muted-foreground hidden sm:flex">
+                        <Zap className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span>Triggers</span>
+                      </div>
+                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
+                      <div className="flex items-center gap-1 text-muted-foreground hidden sm:flex">
+                        <Workflow className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span>Workflows</span>
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Settings, Zap, Code2, Server, Store } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
 import { CustomMCPDialog } from './custom-mcp-dialog';
@@ -155,6 +155,9 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       )}
       <Dialog open={showRegistryDialog} onOpenChange={setShowRegistryDialog}>
         <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Select Integration</DialogTitle>
+          </DialogHeader>
           <PipedreamRegistry onToolsSelected={handleToolsSelected} />
         </DialogContent>
       </Dialog>

@@ -194,7 +194,7 @@ export const AgentsGrid = ({
   };
 
   const handleCustomize = (agentId: string) => {
-    router.push(`/agents/new/${agentId}`);
+    router.push(`/agents/config/${agentId}`);
     setSelectedAgent(null);
   };
 

@@ -137,6 +137,12 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
     setIsOpen(false);
   };
 
+  const handleAgentSettings = (agentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    router.push(`/agents/config/${agentId}`);
+  };
+
   const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.stopPropagation();
     if (e.key === 'ArrowDown') {
@@ -168,6 +174,65 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
     setDialogOpen(true);
   };
 
+  const renderAgentItem = (agent: any, index: number) => {
+    const isSelected = agent.id === selectedAgentId;
+    const isHighlighted = index === highlightedIndex;
+    const hasSettings = agent.type === 'custom' && agent.id;
+
+    return (
+      <TooltipProvider key={agent.id || 'default'}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuItem
+              className={cn(
+                "flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-accent/40 transition-colors duration-200 group",
+                isHighlighted && "bg-accent/40",
+                index === 0 && "rounded-t-xl",
+                index === filteredAgents.length - 1 && "rounded-b-xl"
+              )}
+              onClick={() => handleAgentSelect(agent.id)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+            >
+              <div className="flex-shrink-0">
+                {agent.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm text-foreground/90 truncate">
+                    {agent.name}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground/80 truncate leading-relaxed">
+                  {agent.description}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {hasSettings && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-muted/60 rounded-full opacity-0 group-hover:opacity-70 transition-opacity duration-200"
+                    onClick={(e) => handleAgentSettings(agent.id, e)}
+                  >
+                    <Settings className="h-3 w-3" />
+                  </Button>
+                )}
+                {isSelected && (
+                  <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-blue-600/80" />
+                  </div>
+                )}
+              </div>
+            </DropdownMenuItem>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs max-w-xs">
+            <p className="truncate">{truncateString(agent.description, 35)}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const agentDisplay = getAgentDisplay();
 
   return (
@@ -180,18 +245,27 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="px-3 py-2 text-sm font-medium hover:bg-accent"
+                  className={cn(
+                    "px-2.5 py-1.5 text-sm font-normal hover:bg-accent/40 transition-all duration-200 rounded-xl",
+                    "focus:ring-1 focus:ring-ring focus:ring-offset-1 focus:outline-none",
+                    isOpen && "bg-accent/40"
+                  )}
                   disabled={disabled}
-                  style={{
-                    borderRadius: '12px'
-                  }}
                 >
                   <div className="flex items-center gap-2">
-                    {agentDisplay.icon}
-                    <span className="hidden sm:inline-block truncate max-w-[80px]">
+                    <div className="flex-shrink-0">
+                      {agentDisplay.icon}
+                    </div>
+                    <span className="hidden sm:inline-block truncate max-w-[80px] font-normal">
                       {agentDisplay.name}
                     </span>
-                    <ChevronDown size={14} className="opacity-50" />
+                    <ChevronDown 
+                      size={12} 
+                      className={cn(
+                        "opacity-50 transition-transform duration-200",
+                        isOpen && "rotate-180"
+                      )} 
+                    />
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -204,15 +278,16 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
 
         <DropdownMenuContent
           align="end"
-          className="w-80 p-0 border"
-          sideOffset={4}
+          className="w-88 p-0 border-0 shadow-md bg-card/98 backdrop-blur-sm"
+          sideOffset={6}
           style={{
-            borderRadius: '16px'
+            borderRadius: '20px'
           }}
         >
-          <div className="p-4 border-b">
+          {/* Search Header */}
+          <div className="p-4 pb-3">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -220,81 +295,42 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchInputKeyDown}
-                className="w-full pl-10 pr-3 py-2 text-sm bg-transparent border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className={cn(
+                  "w-full pl-10 pr-3 py-2 text-sm bg-muted/40 border-0 rounded-xl",
+                  "focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-0 focus:bg-muted/60",
+                  "placeholder:text-muted-foreground/60 transition-all duration-200"
+                )}
               />
             </div>
           </div>
 
-          <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+          {/* Agent List */}
+          <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent px-1.5">
             {agentsLoading ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                Loading agents...
+              <div className="px-4 py-6 text-sm text-muted-foreground/70 text-center">
+                <div className="animate-pulse">Loading agents...</div>
               </div>
             ) : filteredAgents.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                No agents found
+              <div className="px-4 py-6 text-sm text-muted-foreground/70 text-center">
+                <Search className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                <p>No agents found</p>
+                <p className="text-xs mt-1 opacity-60">Try adjusting your search</p>
               </div>
             ) : (
-              filteredAgents.map((agent, index) => {
-                const isSelected = agent.id === selectedAgentId;
-                const isHighlighted = index === highlightedIndex;
-
-                return (
-                  <TooltipProvider key={agent.id || 'default'}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuItem
-                          className={cn(
-                            "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent border-b m-0",
-                            isHighlighted && "bg-accent",
-                            index === filteredAgents.length - 1 && "border-b-0"
-                          )}
-                          style={{
-                            borderRadius: '0'
-                          }}
-                          onClick={() => handleAgentSelect(agent.id)}
-                          onMouseEnter={() => setHighlightedIndex(index)}
-                        >
-                          <div className="flex-shrink-0">
-                            {agent.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm truncate">
-                                {agent.name}
-                              </span>
-                              {agent.type === 'custom' && (
-                                <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                                  custom
-                                </Badge>
-                              )}
-                            </div>
-                            <span className="text-xs text-muted-foreground truncate">
-                              {agent.description}
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                          )}
-                        </DropdownMenuItem>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs max-w-xs">
-                        <p className="truncate">{truncateString(agent.description, 35)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
-              })
+              <div className="space-y-0.5">
+                {filteredAgents.map((agent, index) => renderAgentItem(agent, index))}
+              </div>
             )}
           </div>
 
-          <div className="border-t p-4">
+          {/* Footer Actions */}
+          <div className="p-4 pt-3 border-t border-border/40">
             <div className="flex items-center justify-between gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleExploreAll}
-                className="text-xs flex items-center gap-2"
+                className="text-xs flex items-center gap-1.5 rounded-lg hover:bg-accent/30 transition-colors duration-200 border-border/50"
               >
                 <Search className="h-3 w-3" />
                 Explore All
@@ -304,11 +340,11 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleMoreOptions}
-                className="text-xs flex items-center gap-1"
+                className="text-xs flex items-center gap-1.5 rounded-lg hover:bg-accent/30 transition-colors duration-200 border-border/50"
               >
                 <Settings className="h-3 w-3" />
                 More Options
-                <ChevronRight className="h-3 w-3" />
+                <ChevronRight className="h-2.5 w-2.5" />
               </Button>
             </div>
           </div>

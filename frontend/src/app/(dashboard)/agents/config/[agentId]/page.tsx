@@ -294,12 +294,12 @@ export default function AgentConfigurationPage() {
             <div className='w-auto flex items-center gap-2'>
               <TabsList className="grid h-auto w-full grid-cols-2 bg-muted-foreground/10">
                 <TabsTrigger value="agent-builder" className="w-48 flex items-center gap-1.5 px-2">
-                  <span className="truncate">Agent Builder</span>
-                  <Badge variant="beta">
+                  <span className="truncate">Prompt to configure</span>
+                  {/* <Badge variant="beta">
                     Beta
-                  </Badge>
+                  </Badge> */}
                 </TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
+                <TabsTrigger value="manual">Config</TabsTrigger>
               </TabsList>
             </div>
           </div>

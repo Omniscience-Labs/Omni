@@ -51,7 +51,7 @@ export const ResultsInfo = ({
       };
 
       const newAgent = await createAgentMutation.mutateAsync(defaultAgentData);
-      router.push(`/agents/new/${newAgent.agent_id}`);
+      router.push(`/agents/config/${newAgent.agent_id}`);
     } catch (error) {
       console.error('Error creating agent:', error);
     }

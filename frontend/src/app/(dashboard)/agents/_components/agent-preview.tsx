@@ -359,7 +359,8 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
                   <div className="text-4xl">{avatar}</div>
                 </div>
-                <p className='w-[60%] text-2xl'>Start conversation with your new agent <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
+                <p className='w-[60%] text-2xl mb-3'>Start conversation with your new agent <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
+                <p className='w-[70%] text-sm text-muted-foreground/60'>Test your agent's configuration and chat back and forth to see how it performs with your current settings, tools, and knowledge base.</p>
               </div>
             }
           />
@@ -381,6 +382,10 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
             agentName={agent.name}
             hideAttachments={false}
             bgColor='bg-muted-foreground/10'
+            selectedAgentId={agent.agent_id}
+            onAgentSelect={() => {
+              toast.info("You can only test the agent you are currently configuring");
+            }}
           />
         </div>
       </div>
