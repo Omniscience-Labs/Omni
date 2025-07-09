@@ -393,14 +393,20 @@ export const UpdateAgentDialog = ({ agentId, isOpen, onOpenChange, onAgentUpdate
 
                 <TabsContent value="mcp" className="flex-1 m-0 p-6 overflow-y-auto">
                   <MCPConfigurationNew
-                    configuredMCPs={[...(formData.configured_mcps || []), ...(formData.custom_mcps || []).map(customMcp => ({
-                      name: customMcp.name,
-                      qualifiedName: `custom_${customMcp.type}_${customMcp.name.replace(' ', '_').toLowerCase()}`,
-                      config: customMcp.config,
-                      enabledTools: customMcp.enabledTools,
-                      isCustom: true,
-                      customType: customMcp.type
-                    }))]}
+                    configuredMCPs={[
+                      ...(formData.configured_mcps || []).map(mcp => ({
+                        ...mcp,
+                        enabledTools: mcp.enabledTools || []
+                      })), 
+                      ...(formData.custom_mcps || []).map(customMcp => ({
+                        name: customMcp.name,
+                        qualifiedName: `custom_${customMcp.type}_${customMcp.name.replace(' ', '_').toLowerCase()}`,
+                        config: customMcp.config,
+                        enabledTools: customMcp.enabledTools,
+                        isCustom: true,
+                        customType: customMcp.type
+                      }))
+                    ]}
                     onConfigurationChange={handleMCPConfigurationChange}
                   />
                 </TabsContent>

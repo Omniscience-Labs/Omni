@@ -62,6 +62,18 @@ export const usePipedreamApps = (page: number = 1, search?: string, category?: s
   });
 };
 
+export const usePipedreamAppsSearch = (query: string, page: number = 1, category?: string) => {
+  return useQuery({
+    queryKey: ['pipedream', 'apps', 'search', query, page, category],
+    queryFn: async (): Promise<PipedreamAppResponse> => {
+      return await pipedreamApi.searchApps(query, page, category);
+    },
+    staleTime: 5 * 60 * 1000, 
+    retry: 2,
+    enabled: !!query && query.length > 0,
+  });
+};
+
 export const usePipedreamAvailableTools = createQueryHook(
   pipedreamKeys.availableTools(),
   async (forceRefresh: boolean = false): Promise<PipedreamToolsResponse> => {
