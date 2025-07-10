@@ -15,10 +15,10 @@ import { useModelSelection } from './_use-model-selection';
 import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
 import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
-import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow, Database, Wrench } from 'lucide-react';
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
+import { AgentConfigModal } from '@/components/agents/agent-config-modal';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -105,6 +105,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalTab, setConfigModalTab] = useState('integrations');
 
     const {
       selectedModel,
@@ -322,47 +324,82 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </CardContent>
             
             {enableAdvancedConfig && selectedAgentId && (
-              <div 
-                className="w-full border-t border-border/30 bg-muted/20 px-4 py-2.5 rounded-b-3xl border-l border-r border-b border-border cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => onConfigureAgent?.(selectedAgentId)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-xs min-w-0 flex-1">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <span className="hidden sm:inline">Integrations</span>
-                        <span className="sm:hidden">Integrations</span>
-                        <div className="flex items-center -space-x-1 ml-1">
-                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaGoogle className="w-2.5 h-2.5" />
-                          </div>
-                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaDiscord className="w-2.5 h-2.5" />
-                          </div>
-                          <div className="w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <SiNotion className="w-2.5 h-2.5" />
-                          </div>
+              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-2.5 rounded-b-3xl border-l border-r border-b border-border">
+                <div className="flex items-center justify-center">
+                  <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
+                    <button
+                      onClick={() => {
+                        setConfigModalTab('integrations');
+                        setConfigModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <div className="flex items-center -space-x-0.5">
+                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaGoogle className="w-2 h-2" />
+                        </div>
+                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaDiscord className="w-2 h-2" />
+                        </div>
+                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <SiNotion className="w-2 h-2" />
                         </div>
                       </div>
-                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Brain className="h-2.5 w-2.5 flex-shrink-0" />
-                        <span className="hidden sm:inline">Instructions</span>
-                        <span className="sm:hidden">Instructions</span>
-                      </div>
-                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
-                      <div className="flex items-center gap-1 text-muted-foreground hidden sm:flex">
-                        <Zap className="h-2.5 w-2.5 flex-shrink-0" />
-                        <span>Triggers</span>
-                      </div>
-                      <div className="w-1 h-1 bg-muted-foreground/60 rounded-full hidden sm:block" />
-                      <div className="flex items-center gap-1 text-muted-foreground hidden sm:flex">
-                        <Workflow className="h-2.5 w-2.5 flex-shrink-0" />
-                        <span>Workflows</span>
-                      </div>
-                    </div>
+                      <span className="text-xs font-medium">Integrations</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => {
+                        setConfigModalTab('instructions');
+                        setConfigModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Brain className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Instructions</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => {
+                        setConfigModalTab('knowledge');
+                        setConfigModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Database className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Knowledge</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => {
+                        setConfigModalTab('triggers');
+                        setConfigModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Triggers</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => {
+                        setConfigModalTab('workflows');
+                        setConfigModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Workflows</span>
+                    </button>
                   </div>
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 </div>
               </div>
             )}
@@ -381,6 +418,15 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </div>
           </motion.div>
         )} */}
+
+        {/* Agent Configuration Modal */}
+        <AgentConfigModal
+          isOpen={configModalOpen}
+          onOpenChange={setConfigModalOpen}
+          selectedAgentId={selectedAgentId}
+          onAgentSelect={onAgentSelect}
+          initialTab={configModalTab}
+        />
 
       </div>
     );

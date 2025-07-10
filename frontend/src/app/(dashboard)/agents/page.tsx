@@ -23,7 +23,6 @@ import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedrea
 import { useFeatureFlag } from '@/lib/feature-flags';
 
 // Import components from existing pages
-import { UpdateAgentDialog } from '../../../components/agents/update-agent-dialog';
 import { SearchAndFilters } from '../../../components/agents/search-and-filters';
 import { ResultsInfo } from '../../../components/agents/results-info';
 import { EmptyState } from '../../../components/agents/empty-state';
@@ -1508,24 +1507,6 @@ export default function AgentsPage() {
                   className="pl-10"
                 />
               </div>
-              {allTags.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Filter by tags:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {allTags.map(tag => (
-                      <Badge
-                        key={tag}
-                        variant={marketplaceSelectedTags.includes(tag) ? "default" : "outline"}
-                        className="cursor-pointer hover:bg-primary/80"
-                        onClick={() => handleTagFilter(tag)}
-                      >
-                        <Tags className="h-3 w-3 mr-1" />
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="text-sm text-muted-foreground">
@@ -1940,17 +1921,6 @@ export default function AgentsPage() {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Dialogs */}
-        <UpdateAgentDialog
-          agentId={editingAgentId}
-          isOpen={editDialogOpen}
-          onOpenChange={(open) => {
-            setEditDialogOpen(open);
-            if (!open) setEditingAgentId(null);
-          }}
-          onAgentUpdated={loadAgents}
-        />
 
         {/* Publish Dialog */}
         <Dialog open={!!publishDialog} onOpenChange={() => setPublishDialog(null)}>
