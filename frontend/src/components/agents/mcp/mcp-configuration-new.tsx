@@ -81,11 +81,11 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           </p>
           <div className="flex gap-2 justify-center">
             <Button onClick={() => setShowRegistryDialog(true)} variant="default">
-              <Store className="h-4 w-4 mr-2" />
+              <Store className="h-4 w-4" />
               Browse Apps
             </Button>
             <Button onClick={() => setShowCustomDialog(true)} variant="outline">
-              <Server className="h-4 w-4 mr-2" />
+              <Server className="h-4 w-4" />
               Custom MCP
             </Button>
           </div>

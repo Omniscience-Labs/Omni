@@ -51,11 +51,11 @@ export const useInvalidatePipedreamQueries = () => {
   };
 }; 
 
-export const usePipedreamApps = (page: number = 1, search?: string, category?: string) => {
+export const usePipedreamApps = (after?: string, search?: string) => {
   return useQuery({
-    queryKey: ['pipedream', 'apps', page, search, category],
+    queryKey: ['pipedream', 'apps', after, search],
     queryFn: async (): Promise<PipedreamAppResponse> => {
-      return await pipedreamApi.getApps(page, search, category);
+      return await pipedreamApi.getApps(after, search);
     },
     staleTime: 5 * 60 * 1000, 
     retry: 2,

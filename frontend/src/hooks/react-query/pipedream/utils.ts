@@ -84,12 +84,17 @@ export interface PipedreamApp {
   id: string;
   name: string;
   name_slug: string;
-  app_hid: string;
+  auth_type: string;
   description: string;
+  img_src: string;
+  custom_fields_json: string;
   categories: string[];
   featured_weight: number;
-  api_docs_url: string | null;
-  status: number;
+  connect: {
+    allowed_domains: string[] | null;
+    base_proxy_target_url: string;
+    proxy_enabled: boolean;
+  };
 }
 
 export interface PipedreamAppResponse {
@@ -97,10 +102,8 @@ export interface PipedreamAppResponse {
   apps: PipedreamApp[];
   page_info: {
     total_count: number;
-    current_page: number;
-    page_size: number;
+    count: number;
     has_more: boolean;
-    count?: number;
     start_cursor?: string;
     end_cursor?: string;
   };
@@ -178,21 +181,19 @@ export const pipedreamApi = {
     return result.data!;
   },
 
-  async getApps(page: number = 1, search?: string, category?: string): Promise<PipedreamAppResponse> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-    });
+  async getApps(after?: string, search?: string): Promise<PipedreamAppResponse> {
+    const params = new URLSearchParams();
+    
+    if (after) {
+      params.append('after', after);
+    }
     
     if (search) {
       params.append('q', search);
     }
     
-    if (category) {
-      params.append('category', category);
-    }
-    
     const result = await backendApi.get<PipedreamAppResponse>(
-      `/pipedream/apps?${params.toString()}`,
+      `/pipedream/apps${params.toString() ? `?${params.toString()}` : ''}`,
       {
         errorContext: { operation: 'load apps', resource: 'Pipedream apps' },
       }
