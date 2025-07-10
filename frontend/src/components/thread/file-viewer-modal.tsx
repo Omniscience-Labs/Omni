@@ -8,11 +8,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   File,
   Folder,
-  FolderOpen,
   Upload,
   Download,
   ChevronRight,
@@ -27,11 +25,9 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FileRenderer,
-  getFileTypeFromExtension,
 } from '@/components/file-renderers';
 import {
   listSandboxFiles,
-  getSandboxFileContent,
   type FileInfo,
   Project,
 } from '@/lib/api';
@@ -47,7 +43,6 @@ import {
 import {
   useDirectoryQuery,
   useFileContentQuery,
-  useFileUpload,
   FileCache
 } from '@/hooks/react-query/files';
 import JSZip from 'jszip';
@@ -109,7 +104,6 @@ export function FileViewerModal({
   });
 
   // Add a navigation lock to prevent race conditions
-  const [isNavigationLocked, setIsNavigationLocked] = useState(false);
   const currentNavigationRef = useRef<string | null>(null);
 
   // File content state
@@ -130,7 +124,7 @@ export function FileViewerModal({
     error: cachedFileError,
   } = useFileContentQuery(
     sandboxId,
-    selectedFilePath,
+    selectedFilePath || undefined,
     {
       // Auto-detect content type consistently with other components
       enabled: !!selectedFilePath,
@@ -153,13 +147,7 @@ export function FileViewerModal({
 
   // Add state for PDF export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const markdownContainerRef = useRef<HTMLDivElement>(null);
   const markdownRef = useRef<HTMLDivElement>(null);
-
-  // Add state for print orientation
-  const [pdfOrientation, setPdfOrientation] = useState<
-    'portrait' | 'landscape'
-  >('portrait');
 
   // Add a ref to track active download URLs
   const activeDownloadUrls = useRef<Set<string>>(new Set());
@@ -572,7 +560,7 @@ export function FileViewerModal({
   );
 
   // Add a helper to directly interact with the raw cache
-  const directlyAccessCache = useCallback(
+  const _directlyAccessCache = useCallback(
     (filePath: string): {
       found: boolean;
       content: any;
@@ -888,7 +876,7 @@ export function FileViewerModal({
         }
 
         // Get the base URL for resolving relative URLs
-        const baseUrl = window.location.origin;
+        const _baseUrl = window.location.origin;
 
         // Generate HTML content
         const fileName = selectedFilePath.split('/').pop() || 'document';
@@ -1253,13 +1241,13 @@ export function FileViewerModal({
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <div className="text-xs text-muted-foreground px-1">
-                    {currentFileIndex + 1} / {filePathList.length}
+                    {currentFileIndex + 1} / {(filePathList?.length || 0)}
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={navigateNext}
-                    disabled={currentFileIndex >= filePathList.length - 1}
+                    disabled={currentFileIndex >= (filePathList?.length || 0) - 1}
                     className="h-8 w-8 p-0"
                     title="Next file (→)"
                   >
@@ -1294,7 +1282,7 @@ export function FileViewerModal({
 
             {currentPath !== '/workspace' && (
               <>
-                {getBreadcrumbSegments(currentPath).map((segment, index) => (
+                {getBreadcrumbSegments(currentPath).map((segment) => (
                   <Fragment key={segment.path}>
                     <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground opacity-50 flex-shrink-0" />
                     <Button

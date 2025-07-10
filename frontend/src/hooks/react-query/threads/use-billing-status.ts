@@ -1,7 +1,6 @@
 import { createQueryHook } from "@/hooks/use-query";
 import { threadKeys } from "./keys";
-import { checkBillingStatus, BillingStatusResponse } from "@/lib/api";
-import { Query } from "@tanstack/react-query";
+import { checkBillingStatus } from "@/lib/api";
 
 export const useBillingStatusQuery = (enabled = true) =>
   createQueryHook(
@@ -15,7 +14,7 @@ export const useBillingStatusQuery = (enabled = true) =>
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
-      refetchInterval: (query: Query<BillingStatusResponse, Error>) => {
+      refetchInterval: (query: any) => {
         if (query.state.data && !query.state.data.can_run) {
           return 1000 * 60;
         }

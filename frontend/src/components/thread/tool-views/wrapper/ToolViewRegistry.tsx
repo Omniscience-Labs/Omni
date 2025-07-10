@@ -76,7 +76,14 @@ class ToolViewRegistry {
   private registry: ToolViewRegistryType;
 
   constructor(initialRegistry: Partial<ToolViewRegistryType> = {}) {
-    this.registry = { ...defaultRegistry, ...initialRegistry };
+    this.registry = { ...defaultRegistry };
+    
+    // Only add non-undefined values from initialRegistry
+    Object.entries(initialRegistry).forEach(([key, value]) => {
+      if (value !== undefined) {
+        this.registry[key] = value;
+      }
+    });
   }
 
   register(toolName: string, component: ToolViewComponent): void {

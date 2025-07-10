@@ -1,33 +1,21 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React from 'react';
 import {
   ExternalLink,
   CheckCircle,
   AlertTriangle,
-  Globe,
-  Loader2,
-  Link2,
-  Computer,
-  Check
+  Computer
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import {
   formatTimestamp,
-  getToolTitle,
-  normalizeContentToString,
-  extractToolData,
 } from '../utils';
 import { extractExposePortData } from './_utils';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Button } from '@/components/ui/button';
 import { LoadingState } from '../shared/LoadingState';
 
 export function ExposePortToolView({
-  name = 'expose-port',
   assistantContent,
   toolContent,
   isSuccess = true,
@@ -41,8 +29,7 @@ export function ExposePortToolView({
     url,
     message,
     actualIsSuccess,
-    actualToolTimestamp,
-    actualAssistantTimestamp
+    actualToolTimestamp
   } = extractExposePortData(
     assistantContent,
     toolContent,
