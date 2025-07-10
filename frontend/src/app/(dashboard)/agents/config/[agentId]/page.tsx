@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain, Workflow } from 'lucide-react';
+import { Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
@@ -375,7 +375,7 @@ export default function AgentConfigurationPage() {
                     <AccordionTrigger className="hover:no-underline text-sm md:text-base">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
-                        Integrations (via MCP)
+                        Integrations & MCPs
                         <Badge variant='new'>New</Badge>
                       </div>
                     </AccordionTrigger>

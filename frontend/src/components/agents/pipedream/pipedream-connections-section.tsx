@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-profiles';
+import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-types';
 
 interface AppTableProps {
   appSlug: string;

@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, ExternalLink, Zap, Filter, Grid, List, User, CheckCircle2, Plus, X, Settings, Star, Globe, Database, MessageSquare, Mail, Bot, FileText, Calculator, Calendar, Building, Workflow, Sparkles } from 'lucide-react';
+import { Search, Loader2, Grid, User, CheckCircle2, Plus, X, Settings, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { CredentialProfileSelector } from './credential-profile-selector';
@@ -13,21 +12,10 @@ import { PipedreamToolSelector } from './pipedream-tool-selector';
 import { CredentialProfileManager } from './credential-profile-manager';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-profiles';
+import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { pipedreamKeys } from '@/hooks/react-query/pipedream/keys';
-
-interface PipedreamApp {
-  id: string;
-  name: string;
-  name_slug: string;
-  app_hid: string;
-  description: string;
-  categories: string[];
-  featured_weight: number;
-  api_docs_url: string | null;
-  status: number;
-}
+import type { PipedreamApp } from '@/hooks/react-query/pipedream/utils';
 
 interface PipedreamRegistryProps {
   onProfileSelected?: (profile: PipedreamProfile) => void;
@@ -36,25 +24,6 @@ interface PipedreamRegistryProps {
   mode?: 'full' | 'simple';
   onClose?: () => void;
 }
-
-const getCategoryIcon = (category: string) => {
-  const icons: Record<string, React.ReactNode> = {
-    'All': <Globe className="h-4 w-4" />,
-    'Storage & Drive': <Database className="h-4 w-4" />,
-    'Tasks': <CheckCircle2 className="h-4 w-4" />,
-    'Management': <Settings className="h-4 w-4" />,
-    'Communication': <MessageSquare className="h-4 w-4" />,
-    'Mail': <Mail className="h-4 w-4" />,
-    'Automation': <Bot className="h-4 w-4" />,
-    'Knowledge': <FileText className="h-4 w-4" />,
-    'Finance': <Calculator className="h-4 w-4" />,
-    'Calendar': <Calendar className="h-4 w-4" />,
-    'Business': <Building className="h-4 w-4" />,
-    'Workflow': <Workflow className="h-4 w-4" />,
-    'AI': <Sparkles className="h-4 w-4" />,
-  };
-  return icons[category] || <Grid className="h-4 w-4" />;
-};
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onProfileSelected,
@@ -169,7 +138,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   const AppCard: React.FC<{ app: PipedreamApp; compact?: boolean }> = ({ app, compact = false }) => {
     const appProfiles = getAppProfiles(app.name_slug);
     const connectedProfiles = appProfiles.filter(p => p.is_connected);
-    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
 
     return (
       <Card className="group transition-all duration-200 hover:shadow-md border-border/50 hover:border-border/80 bg-card/50 hover:bg-card/80 w-full">
@@ -252,7 +221,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                           appName={app.name}
                           selectedProfileId={selectedProfileId}
                           onProfileSelect={(profileId) => {
-                            setSelectedProfileId(profileId);
+                            setSelectedProfileId(profileId || undefined);
                             if (profileId) {
                               handleProfileSelect(profileId, app);
                             }
@@ -303,7 +272,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                   : "hover:bg-muted/50"
               )}
             >
-              {getCategoryIcon(category)}
+              <Grid className="h-4 w-4" />
               <span>{category}</span>
               {categoryCount > 0 && (
                 <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-xs bg-muted/50">
@@ -414,24 +383,11 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           {selectedCategory !== 'All' && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-4">
-                {getCategoryIcon(selectedCategory)}
+                <Grid className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-foreground">{selectedCategory}</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                {selectedCategory === 'Storage & Drive' && 'Access and manage your files across cloud storage platforms'}
-                {selectedCategory === 'Communication' && 'Connect your messaging and communication tools'}
-                {selectedCategory === 'Mail' && 'Integrate with your email services and providers'}
-                {selectedCategory === 'Tasks' && 'Manage and track your tasks and project workflows'}
-                {selectedCategory === 'Management' && 'Connect your business and project management tools'}
-                {selectedCategory === 'Automation' && 'Automate workflows with powerful automation tools'}
-                {selectedCategory === 'Knowledge' && 'Access your knowledge bases and documentation'}
-                {selectedCategory === 'Calendar' && 'Sync and manage your calendar events and schedules'}
-                {selectedCategory === 'Finance' && 'Connect your financial and accounting tools'}
-                {selectedCategory === 'Business' && 'Integrate with your business and enterprise tools'}
-                {selectedCategory === 'Workflow' && 'Streamline your workflows and processes'}
-                {selectedCategory === 'AI' && 'Enhance your workflows with AI-powered tools'}
-                {!['Storage & Drive', 'Communication', 'Mail', 'Tasks', 'Management', 'Automation', 'Knowledge', 'Calendar', 'Finance', 'Business', 'Workflow', 'AI'].includes(selectedCategory) && 
-                  `Explore ${selectedCategory} integrations and tools`}
+                Explore {selectedCategory} integrations and tools
               </p>
             </div>
           )}
@@ -507,7 +463,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           </DialogHeader>
           <PipedreamToolSelector
             appSlug={selectedProfile?.app_slug || ''}
-            profile={selectedProfile}
+            profile={selectedProfile || undefined}
             onToolsSelected={handleToolsSelected}
           />
         </DialogContent>

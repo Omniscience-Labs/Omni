@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings, Zap, Code2, Server, Store } from 'lucide-react';
+import { Zap, Server, Store } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MCPConfigurationProps, MCPConfiguration as MCPConfigurationType } from './types';
 import { ConfiguredMcpList } from './configured-mcp-list';
@@ -68,51 +68,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl p-6 border">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-4">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Settings className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                Give your agent access to external tools and services.
-              </p>
-              {configuredMCPs.length > 0 && (
-                <div className="flex items-center mt-3 space-x-2">
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      {configuredMCPs.length} integration{configuredMCPs.length !== 1 ? 's' : ''} configured
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowRegistryDialog(true)}
-              className="transition-all duration-200"
-            >
-              <Store className="h-4 w-4" />
-              Browse Apps
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowCustomDialog(true)}
-              className="transition-all duration-200"
-            >
-              <Server className="h-4 w-4" />
-              Custom MCP
-            </Button>
-          </div>
-        </div>
-      </div>
-      
       {configuredMCPs.length === 0 && (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">

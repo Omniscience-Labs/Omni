@@ -2,14 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  AlertTriangle, 
   Zap
 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PipedreamConnectionsSection } from '../../../../components/agents/pipedream/pipedream-connections-section';
 import { useRouter } from 'next/navigation';
 import { useFeatureFlag } from '@/lib/feature-flags';
-import { toast } from 'sonner';
 
 export default function AppProfilesPage() {
   const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");

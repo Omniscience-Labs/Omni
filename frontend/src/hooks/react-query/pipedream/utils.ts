@@ -7,7 +7,7 @@ import type {
   UpdateProfileRequest,
   ProfileConnectionResponse,
   ProfileConnectionsResponse
-} from '@/components/agents/pipedream/pipedream-profiles';
+} from '@/components/agents/pipedream/pipedream-types';
 
 export interface CreateConnectionTokenRequest {
   app?: string;
