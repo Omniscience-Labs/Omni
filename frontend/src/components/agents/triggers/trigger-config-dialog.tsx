@@ -19,10 +19,7 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react';
-import { TriggerProvider, TriggerConfiguration, TelegramTriggerConfig, SlackTriggerConfig, ScheduleTriggerConfig } from './types';
-import { TelegramTriggerConfigForm } from './providers/telegram-config';
-import { SlackTriggerConfigForm } from './providers/slack-config';
-import { WebhookTriggerConfigForm } from './providers/webhook-config';
+import { TriggerProvider, TriggerConfiguration, ScheduleTriggerConfig } from './types';
 import { ScheduleTriggerConfigForm } from './providers/schedule-config';
 import { getDialogIcon } from './utils';
 
@@ -100,22 +97,6 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
 
   const renderProviderSpecificConfig = () => {
     switch (provider.provider_id) {
-      case 'telegram':
-        return (
-          <TelegramTriggerConfigForm
-            config={config as TelegramTriggerConfig}
-            onChange={setConfig}
-            errors={errors}
-          />
-        );
-      case 'slack':
-        return (
-          <SlackTriggerConfigForm
-            config={config as SlackTriggerConfig}
-            onChange={setConfig}
-            errors={errors}
-          />
-        );
       case 'schedule':
         return (
           <ScheduleTriggerConfigForm
@@ -124,17 +105,6 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
             onChange={setConfig}
             errors={errors}
             agentId={agentId}
-          />
-        );
-      case 'webhook':
-      case 'github_webhook':
-      case 'discord':
-        return (
-          <WebhookTriggerConfigForm
-            provider={provider}
-            config={config}
-            onChange={setConfig}
-            errors={errors}
           />
         );
       default:

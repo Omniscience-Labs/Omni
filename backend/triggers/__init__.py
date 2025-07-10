@@ -1,5 +1,5 @@
 from .core import TriggerManager, TriggerProvider, TriggerEvent, TriggerResult
-from .providers import TelegramTriggerProvider
+from .providers import ScheduleTriggerProvider
 from .registry import TriggerRegistry
 
 __all__ = [
@@ -7,6 +7,6 @@ __all__ = [
     'TriggerProvider', 
     'TriggerEvent',
     'TriggerResult',
-    'TelegramTriggerProvider',
+    'ScheduleTriggerProvider',
     'TriggerRegistry'
 ] 

@@ -19,8 +19,7 @@ import {
 } from 'lucide-react';
 import { TriggerConfiguration } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getDisplayName } from 'next/dist/shared/lib/utils';
-import { getDialogIcon, getTriggerIcon } from './utils';
+import { getTriggerIcon } from './utils';
 
 interface ConfiguredTriggersListProps {
   triggers: TriggerConfiguration[];
@@ -29,27 +28,6 @@ interface ConfiguredTriggersListProps {
   onToggle: (trigger: TriggerConfiguration) => void;
   isLoading?: boolean;
 }
-
-const getTriggerTypeColor = (triggerType: string) => {
-  switch (triggerType) {
-    case 'telegram':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-    case 'slack':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
-    case 'webhook':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-    case 'schedule':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-    case 'email':
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-    case 'github':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    case 'discord':
-      return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-  }
-};
 
 const copyToClipboard = async (text: string) => {
   try {
@@ -84,12 +62,6 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   <h4 className="text-sm font-medium truncate">
                     {trigger.name}
                   </h4>
-                  {/* <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${getTriggerTypeColor(trigger.trigger_type)}`}
-                  >
-                    {trigger.trigger_type}
-                  </Badge> */}
                   <Badge 
                     variant={trigger.is_active ? "default" : "secondary"}
                     className="text-xs"

@@ -31,16 +31,10 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   const [editingTrigger, setEditingTrigger] = useState<TriggerConfiguration | null>(null);
 
   const { data: triggers = [], isLoading, error } = useAgentTriggers(agentId);
-  const { data: providers = [] } = useTriggerProviders();
   const createTriggerMutation = useCreateTrigger();
   const updateTriggerMutation = useUpdateTrigger();
   const deleteTriggerMutation = useDeleteTrigger();
   const toggleTriggerMutation = useToggleTrigger();
-
-  const handleProviderClick = (provider: TriggerProvider) => {
-    setConfiguringProvider(provider);
-    setEditingTrigger(null);
-  };
 
   const handleEditTrigger = (trigger: TriggerConfiguration) => {
     setEditingTrigger(trigger);
@@ -106,10 +100,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
     }
   };
 
-  const availableProviders = providers.filter(provider => 
-    ['telegram', 'slack', 'webhook'].includes(provider.trigger_type)
-  );
-
   if (error) {
     return (
       <div className="rounded-xl p-6 border border-destructive/20 bg-destructive/5">
@@ -131,26 +121,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   return (
     <div className="space-y-8">
       <OneClickIntegrations agentId={agentId} />
-      {/* <div>
-        <h4 className="text-sm font-medium text-foreground mb-3">Manual Configuration</h4>
-        <p className="text-xs text-muted-foreground mb-4">
-          Configure triggers manually with custom settings for advanced use cases.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {availableProviders.map((provider) => (
-            <Button
-              key={provider.provider_id}
-              variant="outline"
-              size="sm"
-              onClick={() => handleProviderClick(provider)}
-              disabled={isLoading}
-            >
-              {getTriggerIcon(provider.trigger_type)}
-              <span className="text-xs font-medium capitalize">{provider.trigger_type}</span>
-            </Button>
-          ))}
-        </div>
-      </div> */}
       {triggers.length > 0 && (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border bg-muted/30">

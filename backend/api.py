@@ -26,7 +26,6 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
-from triggers import unified_oauth_api
 
 
 load_dotenv()
@@ -72,8 +71,7 @@ async def lifespan(app: FastAPI):
         
         # Initialize triggers API
         triggers_api.initialize(db)
-        unified_oauth_api.initialize(db)
-        
+
         # Initialize pipedream API
         pipedream_api.initialize(db)
         
@@ -180,7 +178,6 @@ from knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
-api_router.include_router(unified_oauth_api.router)
 
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)

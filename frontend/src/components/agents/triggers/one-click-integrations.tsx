@@ -2,11 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
-import { SlackIcon } from '@/components/ui/icons/slack';
-import { getTriggerIcon } from './utils';
+import { Loader2, AlertCircle, Clock } from 'lucide-react';
 import { TriggerConfigDialog } from './trigger-config-dialog';
-import { TriggerProvider, ScheduleTriggerConfig } from './types';
+import { TriggerProvider } from './types';
 import { Dialog } from '@/components/ui/dialog';
 import { 
   useOAuthIntegrations, 
@@ -26,11 +24,6 @@ interface OneClickIntegrationsProps {
 }
 
 const OAUTH_PROVIDERS = {
-  slack: {
-    name: 'Slack',
-    icon: <SlackIcon className="h-4 w-4" />,
-    isOAuth: true
-  },
   schedule: {
     name: 'Schedule',
     icon: <Clock className="h-4 w-4" color="#10b981" />,

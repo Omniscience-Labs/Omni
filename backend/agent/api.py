@@ -1390,6 +1390,16 @@ async def update_agent(
                     "created_by": user_id
                 }
                 
+                initial_config = build_unified_config(
+                    system_prompt=initial_version_data["system_prompt"],
+                    agentpress_tools=initial_version_data["agentpress_tools"],
+                    configured_mcps=initial_version_data["configured_mcps"],
+                    custom_mcps=initial_version_data["custom_mcps"],
+                    avatar=None,
+                    avatar_color=None
+                )
+                initial_version_data["config"] = initial_config
+                
                 version_result = await client.table('agent_versions').insert(initial_version_data).execute()
                 
                 if version_result.data:
@@ -1517,27 +1527,27 @@ async def update_agent(
                 if versions_result.data:
                     next_version_number = versions_result.data[0]['version_number'] + 1
                 
-                # Validate version data before creating
                 new_version_data = {
                     "agent_id": agent_id,
                     "version_number": next_version_number,
                     "version_name": f"v{next_version_number}",
-                    "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt', '')),
-                    "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
-                    "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
-                    "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
+                    "system_prompt": current_system_prompt, 
+                    "configured_mcps": current_configured_mcps,  
+                    "custom_mcps": current_custom_mcps,  
+                    "agentpress_tools": current_agentpress_tools,  
                     "is_active": True,
                     "created_by": user_id
                 }
                 
-                # Build unified config for the new version
+                logger.info(f"Creating version v{next_version_number} with tools - configured_mcps: {len(current_configured_mcps)}, custom_mcps: {len(current_custom_mcps)}, agentpress_tools: {len(current_agentpress_tools)}")
+
                 version_unified_config = build_unified_config(
                     system_prompt=new_version_data["system_prompt"],
                     agentpress_tools=new_version_data["agentpress_tools"],
                     configured_mcps=new_version_data["configured_mcps"],
                     custom_mcps=new_version_data["custom_mcps"],
-                    avatar=None,  # Avatar is not versioned
-                    avatar_color=None  # Avatar color is not versioned
+                    avatar=None,
+                    avatar_color=None
                 )
                 new_version_data["config"] = version_unified_config
                 
