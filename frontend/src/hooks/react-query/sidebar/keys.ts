@@ -1,14 +1,17 @@
 import { createQueryKeys } from "@/hooks/use-query";
 
+const projectKeysBase = ['projects'] as const;
+const threadKeysBase = ['threads'] as const;
+
 export const projectKeys = createQueryKeys({
-  all: ['projects'] as const,
-  lists: () => [...projectKeys.all, 'list'] as const,
-  details: (projectId: string) => [...projectKeys.all, 'detail', projectId] as const,
-  public: () => [...projectKeys.all, 'public'] as const,
+  all: projectKeysBase,
+  lists: () => [...projectKeysBase, 'list'] as const,
+  details: (projectId: string) => [...projectKeysBase, 'detail', projectId] as const,
+  public: () => [...projectKeysBase, 'public'] as const,
 });
 
 export const threadKeys = createQueryKeys({
-  all: ['threads'] as const,
-  lists: () => [...threadKeys.all, 'list'] as const,
-  byProject: (projectId: string) => [...threadKeys.all, 'by-project', projectId] as const,
+  all: threadKeysBase,
+  lists: () => [...threadKeysBase, 'list'] as const,
+  byProject: (projectId: string) => [...threadKeysBase, 'by-project', projectId] as const,
 });

@@ -1,12 +1,15 @@
 import { createQueryKeys } from '@/hooks/use-query';
 
+const sandboxKeysBase = ['sandbox'] as const;
+const healthKeysBase = ['health'] as const;
+
 export const sandboxKeys = createQueryKeys({
-  all: ['sandbox'] as const,
-  files: (sandboxId: string, path: string) => [...sandboxKeys.all, sandboxId, 'files', path] as const,
-  fileContent: (sandboxId: string, path: string) => [...sandboxKeys.all, sandboxId, 'content', path] as const,
+  all: sandboxKeysBase,
+  files: (sandboxId: string, path: string) => [...sandboxKeysBase, sandboxId, 'files', path] as const,
+  fileContent: (sandboxId: string, path: string) => [...sandboxKeysBase, sandboxId, 'content', path] as const,
 });
 
 export const healthKeys = createQueryKeys({
-  all: ['health'] as const,
-  api: () => [...healthKeys.all, 'api'] as const,
+  all: healthKeysBase,
+  api: () => [...healthKeysBase, 'api'] as const,
 }); 

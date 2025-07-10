@@ -250,7 +250,6 @@ export const useFeatureFlag = (flagName: string, options?: {
   return {
     enabled: query.data ?? false,
     loading: query.isLoading,
-    error: query.error?.message ?? null,
     // Also expose React Query properties for advanced usage
     ...query,
   };

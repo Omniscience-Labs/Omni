@@ -10,18 +10,15 @@ import {
   Clock,
   BookOpen,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
 import { cleanUrl, formatTimestamp, getToolTitle } from '../utils';
-import { cn, truncateString } from '@/lib/utils';
+import { truncateString } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LoadingState } from '../shared/LoadingState';
 import { extractWebSearchData } from './_utils';
 
@@ -35,7 +32,6 @@ export function WebSearchToolView({
   isStreaming = false,
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
-  const isDarkTheme = resolvedTheme === 'dark';
   const [expandedResults, setExpandedResults] = useState<Record<number, boolean>>({});
 
   const {
@@ -55,13 +51,6 @@ export function WebSearchToolView({
   );
 
   const toolTitle = getToolTitle(name);
-
-  const toggleExpand = (idx: number) => {
-    setExpandedResults(prev => ({
-      ...prev,
-      [idx]: !prev[idx]
-    }));
-  };
 
   const getFavicon = (url: string) => {
     try {

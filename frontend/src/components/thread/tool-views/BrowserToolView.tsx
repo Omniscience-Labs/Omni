@@ -72,7 +72,7 @@ export function BrowserToolView({
       if (toolResultMatch) {
         const outputString = toolResultMatch[1];
         try {
-          const cleanedOutput = outputString.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\u([0-9a-fA-F]{4})/g, (match, grp) => String.fromCharCode(parseInt(grp, 16)));
+          const cleanedOutput = outputString.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\u([0-9a-fA-F]{4})/g, (_match, grp) => String.fromCharCode(parseInt(grp, 16)));
           const outputJson = JSON.parse(cleanedOutput);
 
           if (outputJson.image_url) {

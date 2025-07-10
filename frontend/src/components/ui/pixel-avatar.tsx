@@ -213,7 +213,7 @@ export const PixelAvatar: React.FC<PixelAvatarProps> = ({
   className = "",
   customPixels 
 }) => {
-  const pixelArt = customPixels || PIXEL_ART_DESIGNS[design];
+  const pixelArt = customPixels || PIXEL_ART_DESIGNS[design as keyof typeof PIXEL_ART_DESIGNS];
   
   if (!pixelArt) {
     return (
@@ -245,7 +245,7 @@ export const getAllPixelDesigns = (): string[] => {
 };
 
 export const getPixelDesignsByCategory = (category: string): string[] => {
-  return PIXEL_ART_CATEGORIES[category]?.designs || [];
+  return PIXEL_ART_CATEGORIES[category as keyof typeof PIXEL_ART_CATEGORIES]?.designs || [];
 };
 
 export const getRandomPixelDesign = (): string => {

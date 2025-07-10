@@ -16,7 +16,6 @@ import {
   useTriggerProviders 
 } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
-import { getTriggerIcon } from './utils';
 import { OneClickIntegrations } from './one-click-integrations';
 
 interface AgentTriggersConfigurationProps {

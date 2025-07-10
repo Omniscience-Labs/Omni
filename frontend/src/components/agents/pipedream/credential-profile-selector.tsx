@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -23,14 +22,12 @@ import {
   Plus,
   CheckCircle2,
   XCircle,
-  Star,
   Loader2,
   Settings,
   AlertCircle,
 } from 'lucide-react';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { CredentialProfileManager } from './credential-profile-manager';
-import type { PipedreamProfile } from '@/types/pipedream-profiles';
 
 interface CredentialProfileSelectorProps {
   appSlug: string;
@@ -51,15 +48,6 @@ export const CredentialProfileSelector: React.FC<CredentialProfileSelectorProps>
 }) => {
   const [showProfileManager, setShowProfileManager] = useState(false);
   const { data: profiles, isLoading } = usePipedreamProfiles({ app_slug: appSlug, is_active: true });
-
-  useEffect(() => {
-    if (!selectedProfileId && profiles && profiles.length > 0) {
-      const defaultProfile = profiles.find(p => p.is_default);
-      if (defaultProfile) {
-        onProfileSelect(defaultProfile.profile_id);
-      }
-    }
-  }, [profiles, selectedProfileId, onProfileSelect]);
 
   const selectedProfile = profiles?.find(p => p.profile_id === selectedProfileId);
   const connectedProfiles = profiles?.filter(p => p.is_connected) || [];
@@ -183,9 +171,6 @@ export const CredentialProfileSelector: React.FC<CredentialProfileSelectorProps>
                 {selectedProfile && (
                   <div className="flex items-center gap-2">
                     <span>{selectedProfile.profile_name}</span>
-                    {selectedProfile.is_default && (
-                      <Star className="h-3 w-3 text-yellow-500" />
-                    )}
                     {selectedProfile.is_connected ? (
                       <CheckCircle2 className="h-3 w-3 text-green-500" />
                     ) : (

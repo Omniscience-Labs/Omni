@@ -28,10 +28,12 @@ import {
 } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
-import { threadErrorCodeMessages } from '@/lib/constants/errorCodeMessages';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
-import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { extractToolName } from '@/components/thread/tool-views/xml-parser';
+
+const threadErrorCodeMessages: Record<string, string> = {
+  PGRST116: 'The requested chat does not exist, has been deleted, or you do not have access to it.',
+};
 
 interface ApiMessageType extends BaseApiMessageType {
   message_id?: string;

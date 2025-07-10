@@ -139,7 +139,7 @@ export function TerminateCommandToolView({
       .replace(/\\"/g, '"')
       .replace(/\\'/g, "'");
 
-    processedOutput = processedOutput.replace(/\\u([0-9a-fA-F]{4})/g, (match, group) => {
+    processedOutput = processedOutput.replace(/\\u([0-9a-fA-F]{4})/g, (_match, group) => {
       return String.fromCharCode(parseInt(group, 16));
     });
     return processedOutput.split('\n');

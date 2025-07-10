@@ -14,7 +14,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { ToolViewProps } from '../types';
-import { formatTimestamp, getToolTitle } from '../utils';
+import { formatTimestamp } from '../utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +66,6 @@ const PROVIDER_CONFIG = {
 };
 
 export function DataProviderEndpointsToolView({
-  name = 'get-data-provider-endpoints',
   assistantContent,
   toolContent,
   assistantTimestamp,
@@ -89,8 +88,8 @@ export function DataProviderEndpointsToolView({
     assistantTimestamp
   );
 
-  const providerConfig = serviceName && PROVIDER_CONFIG[serviceName]
-    ? PROVIDER_CONFIG[serviceName]
+  const providerConfig = serviceName && PROVIDER_CONFIG[serviceName as keyof typeof PROVIDER_CONFIG]
+    ? PROVIDER_CONFIG[serviceName as keyof typeof PROVIDER_CONFIG]
     : PROVIDER_CONFIG['linkedin'];
   const IconComponent = providerConfig.icon;
 
