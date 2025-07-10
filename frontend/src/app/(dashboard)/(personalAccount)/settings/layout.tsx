@@ -3,7 +3,6 @@
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Script from 'next/script';
 
 export default function PersonalAccountSettingsPage({
   children,

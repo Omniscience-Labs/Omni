@@ -1,5 +1,5 @@
 // Import at the top
-import { formatDistanceToNow } from 'date-fns';
+// import { formatDistanceToNow } from 'date-fns';
 import {
   FileText,
   FileCode,
@@ -94,7 +94,7 @@ export function extractCommand(content: string | object | undefined | null): str
   try {
     const parsed = JSON.parse(contentStr);
     if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
-      const execCommand = parsed.tool_calls.find(tc => 
+      const execCommand = parsed.tool_calls.find((tc: any) => 
         tc.function?.name === 'execute-command' || 
         tc.function?.name === 'execute_command'
       );
@@ -146,7 +146,7 @@ export function extractSessionName(content: string | object | undefined | null):
   try {
     const parsed = JSON.parse(contentStr);
     if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
-      const checkCommand = parsed.tool_calls.find(tc => 
+      const checkCommand = parsed.tool_calls.find((tc: any) => 
         tc.function?.name === 'check-command-output' || 
         tc.function?.name === 'check_command_output'
       );
@@ -692,7 +692,7 @@ export function extractUrlsAndTitles(
       }));
     }
     if (parsed.results && Array.isArray(parsed.results)) {
-      return parsed.results.map(result => ({
+      return parsed.results.map((result: any) => ({
         title: result.title || '',
         url: result.url || '',
         snippet: result.content || '',
@@ -1154,7 +1154,7 @@ export function extractSearchResults(
     
     // Check if this is the new Tavily response format
     if (parsedContent.results && Array.isArray(parsedContent.results)) {
-      return parsedContent.results.map(result => ({
+      return parsedContent.results.map((result: any) => ({
         title: result.title || '',
         url: result.url || '',
         snippet: result.content || '',

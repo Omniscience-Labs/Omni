@@ -138,9 +138,9 @@ export function useCachedFile<T = string>(
       let cacheType: 'content' | 'url' | 'error' = 'content';
       
       // Important: Check if this is a binary file that needs special handling
-      const isOfficeFile = filePath.toLowerCase().match(/\.(xlsx|xls|docx|doc|pptx|ppt)$/);
-      const isImageFile = FileCache.isImageFile(filePath);
-      const isPdfFile = FileCache.isPdfFile(filePath);
+      const isOfficeFile = filePath?.toLowerCase().match(/\.(xlsx|xls|docx|doc|pptx|ppt)$/);
+      const isImageFile = filePath ? FileCache.isImageFile(filePath) : false;
+      const isPdfFile = filePath ? FileCache.isPdfFile(filePath) : false;
       const isBinaryFile = isOfficeFile || isImageFile || isPdfFile;
       
       // Create a mutable copy of contentType if needed for binary files

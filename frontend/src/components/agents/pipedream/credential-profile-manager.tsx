@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,6 @@ import {
   Loader2,
   User,
   Link2,
-  AlertCircle,
 } from 'lucide-react';
 import {
   usePipedreamProfiles,
@@ -54,8 +53,7 @@ import {
   useDeletePipedreamProfile,
   useConnectPipedreamProfile,
 } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
-import type { PipedreamProfile, CreateProfileRequest } from '@/types/pipedream-profiles';
-import { formatDistanceToNow } from 'date-fns';
+import type { PipedreamProfile, CreateProfileRequest } from '@/components/agents/pipedream/pipedream-types';
 
 interface CredentialProfileManagerProps {
   appSlug?: string;

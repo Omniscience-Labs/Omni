@@ -113,7 +113,7 @@ export function renderMarkdownContent(
 
         // Find all function_calls blocks
         const functionCallsRegex = /<function_calls>([\s\S]*?)<\/function_calls>/gi;
-        let match;
+        let match: RegExpExecArray | null = null;
 
         while ((match = functionCallsRegex.exec(content)) !== null) {
             // Add text before the function_calls block
@@ -204,7 +204,7 @@ export function renderMarkdownContent(
     const xmlRegex = /<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?>(?:[\s\S]*?)<\/\1>|<(?!inform\b)([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/g;
     let lastIndex = 0;
     const contentParts: React.ReactNode[] = [];
-    let match;
+    let match: RegExpExecArray | null = null;
 
     // If no XML tags found, just return the full content as markdown
     if (!content.match(xmlRegex)) {
@@ -322,7 +322,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
-    const [userHasScrolled, setUserHasScrolled] = useState(false);
+    const [, setUserHasScrolled] = useState(false);
     const { session } = useAuth();
 
     // React Query file preloader
@@ -447,7 +447,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         if (canAddToExistingGroup) {
                                             // Add to existing assistant group
-                                            currentGroup.messages.push(message);
+                                            currentGroup?.messages.push(message);
                                         } else {
                                             // Finalize any existing group
                                             if (currentGroup) {
@@ -479,7 +479,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 const mergedGroups: MessageGroup[] = [];
                                 let currentMergedGroup: MessageGroup | null = null;
 
-                                groupedMessages.forEach((group, index) => {
+                                groupedMessages.forEach((group) => {
                                     if (group.type === 'assistant_group') {
                                         if (currentMergedGroup && currentMergedGroup.type === 'assistant_group') {
                                             // Merge with the current group
@@ -579,7 +579,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         // Extract attachments from the message content
                                         const attachmentsMatch = messageContent.match(/\[Uploaded File: (.*?)\]/g);
                                         const attachments = attachmentsMatch
-                                            ? attachmentsMatch.map(match => {
+                                            ? attachmentsMatch.map((match: string) => {
                                                 const pathMatch = match.match(/\[Uploaded File: (.*?)\]/);
                                                 return pathMatch ? pathMatch[1] : null;
                                             }).filter(Boolean)
@@ -614,7 +614,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                 );
                                                                 if (firstAssistantWithAgent?.agents?.avatar) {
                                                                     const avatar = firstAssistantWithAgent.agents.avatar;
-                                                                    const color = firstAssistantWithAgent.agents.avatar_color;
                                                                     return (
                                                                         <div
                                                                             className="h-4 w-5 flex items-center justify-center rounded text-xs"
@@ -682,7 +681,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                     }
                                                                 });
 
-                                                                const renderedToolResultIds = new Set<string>();
                                                                 const elements: React.ReactNode[] = [];
                                                                 let assistantMessageCount = 0; // Move this outside the loop
 
@@ -756,7 +754,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                         const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
-                                                                        const IconComponent = detectedTag && detectedTag !== 'function_calls' ? getToolIcon(detectedTag) : null;
 
                                                                         return (
                                                                             <>
@@ -802,7 +799,6 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     <div className="mt-2 mb-1">
                                                                                         {(() => {
                                                                                             const toolName = streamingToolCall.name || streamingToolCall.xml_tag_name || 'Tool';
-                                                                                            const IconComponent = getToolIcon(toolName);
                                                                                             const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
                                                                                             return (
                                                                                                 <button

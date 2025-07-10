@@ -57,7 +57,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
         agentId, 
         workflow: defaultWorkflow 
       });
-      router.push(`/agents/new/${agentId}/workflow/${newWorkflow.id}`);
+      router.push(`/agents/config/${agentId}/workflow/${newWorkflow.id}`);
     } catch (error) {
       toast.error('Failed to create workflow');
     }
@@ -77,7 +77,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
   }, []);
 
   const handleWorkflowClick = useCallback((workflowId: string) => {
-    router.push(`/agents/new/${agentId}/workflow/${workflowId}`);
+    router.push(`/agents/config/${agentId}/workflow/${workflowId}`);
   }, [agentId, router]);
 
   const handleDeleteWorkflow = useCallback((workflow: AgentWorkflow) => {

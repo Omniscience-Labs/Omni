@@ -53,11 +53,11 @@ const extractFromNewFormat = (content: any): {
     
     if (args.urls) {
       if (typeof args.urls === 'string') {
-        urls = args.urls.split(',').map(u => u.trim());
-        url = urls[0];
+        urls = args.urls.split(',').map((u: string) => u.trim());
+        url = urls?.[0] || null;
       } else if (Array.isArray(args.urls)) {
         urls = args.urls;
-        url = urls[0];
+        url = urls?.[0] || null;
       }
     }
 
@@ -73,7 +73,7 @@ const extractFromNewFormat = (content: any): {
       urlCount = successMatch ? parseInt(successMatch[1]) : 0;
       
       const fileMatches = outputStr.match(/- ([^\n]+\.json)/g);
-      files = fileMatches ? fileMatches.map(match => match.replace('- ', '')) : [];
+      files = fileMatches ? fileMatches.map((match: string) => match.replace('- ', '')) : [];
     }
 
     const extractedData = {

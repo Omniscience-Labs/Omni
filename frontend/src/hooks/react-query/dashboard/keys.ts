@@ -1,7 +1,10 @@
 import { createQueryKeys } from '@/hooks/use-query';
 
+const dashboardKeysBase = ['dashboard'] as const;
+const dashboardAgentsBase = ['dashboard', 'agents'] as const;
+
 export const dashboardKeys = createQueryKeys({
-  all: ['dashboard'] as const,
-  agents: ['dashboard', 'agents'] as const,
-  initiateAgent: () => [...dashboardKeys.agents, 'initiate'] as const,
+  all: dashboardKeysBase,
+  agents: dashboardAgentsBase,
+  initiateAgent: () => [...dashboardAgentsBase, 'initiate'] as const,
 });

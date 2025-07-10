@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Zap, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
 import { type PipedreamTool, type PipedreamAppWithTools, pipedreamApi } from '@/hooks/react-query/pipedream/utils';
 import { toast } from 'sonner';
-import type { PipedreamProfile } from '@/types/pipedream-profiles';
+import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-types';
 
 interface PipedreamToolSelectorProps {
   appSlug: string;

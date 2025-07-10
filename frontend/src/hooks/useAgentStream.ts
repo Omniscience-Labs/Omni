@@ -94,7 +94,7 @@ export function useAgentStream(
 
   const orderedTextContent = useMemo(() => {
     return textContent
-      .sort((a, b) => a.sequence - b.sequence)
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
       .reduce((acc, curr) => acc + curr.content, '');
   }, [textContent]);
 
@@ -284,7 +284,7 @@ export function useAgentStream(
       }
 
       // --- Process JSON messages ---
-      const message: UnifiedMessage = safeJsonParse(processedData, null);
+      const message = safeJsonParse(processedData, null) as UnifiedMessage | null;
       if (!message) {
         console.warn(
           '[useAgentStream] Failed to parse streamed message:',

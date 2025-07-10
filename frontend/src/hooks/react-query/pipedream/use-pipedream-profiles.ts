@@ -5,7 +5,7 @@ import type {
   PipedreamProfile,
   CreateProfileRequest,
   UpdateProfileRequest,
-} from '@/types/pipedream-profiles';
+} from '@/components/agents/pipedream/pipedream-types';
 import { toast } from 'sonner';
 
 export const usePipedreamProfiles = (params?: { app_slug?: string; is_active?: boolean }) => {
