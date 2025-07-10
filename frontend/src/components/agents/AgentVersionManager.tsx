@@ -44,7 +44,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
     );
   }
 
-  const currentVersion = versions?.find(v => v.version_id === agent.current_version_id);
+  const currentVersion = versions?.find(v => v.is_active);
   const versionHistory = versions?.sort((a, b) => b.version_number - a.version_number) || [];
 
   const handleActivateVersion = (versionId: string) => {
@@ -123,7 +123,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-3">
                 {versionHistory.map((version, index) => {
-                  const isActive = version.version_id === agent.current_version_id;
+                  const isActive = version.is_active;
                   const isSelected = version.version_id === selectedVersion;
                   
                   return (

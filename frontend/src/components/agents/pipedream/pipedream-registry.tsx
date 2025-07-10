@@ -129,8 +129,6 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
   };
 
-
-
   const getAppProfiles = (appSlug: string) => {
     return profiles?.filter(p => p.app_slug === appSlug && p.is_active) || [];
   };
