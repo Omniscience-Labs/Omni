@@ -5,10 +5,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
 
-export const STORAGE_KEY_MODEL = 'suna-preferred-model';
+export const STORAGE_KEY_MODEL = 'suna-preferred-model-v2';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
-export const DEFAULT_FREE_MODEL_ID = 'deepseek';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
+// export const DEFAULT_FREE_MODEL_ID = 'deepseek';
+export const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -31,16 +32,23 @@ export interface CustomModel {
 export const MODELS = {
   // Premium high-priority models
   'claude-sonnet-4': { 
-    tier: 'premium',
+    tier: 'free',
     priority: 100, 
     recommended: true,
     lowQuality: false,
     description: 'Claude Sonnet 4 - Anthropic\'s latest and most advanced AI assistant'
   },
-  'claude-sonnet-3.7': { 
+  'google/gemini-2.5-pro': { 
+    tier: 'premium', 
+    priority: 100,
+    recommended: false,
+    lowQuality: false,
+    description: 'Gemini Pro 2.5 - Google\'s latest advanced model'
+  },
+  'sonnet-3.7': { 
     tier: 'premium', 
     priority: 95, 
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'Claude 3.7 - Anthropic\'s most powerful AI assistant'
   },
@@ -58,20 +66,6 @@ export const MODELS = {
     lowQuality: false,
     description: 'GPT-4.1 - OpenAI\'s most advanced model with enhanced reasoning'
   },
-  'gemini-2.5-pro-preview': { 
-    tier: 'premium', 
-    priority: 95,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini Pro 2.5 - Google\'s latest powerful model with strong reasoning'
-  },
-  'gemini-2.5-pro': { 
-    tier: 'premium', 
-    priority: 95,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini Pro 2.5 - Google\'s latest advanced model'
-  },
   'claude-3.5': { 
     tier: 'premium', 
     priority: 90,
@@ -79,17 +73,10 @@ export const MODELS = {
     lowQuality: false,
     description: 'Claude 3.5 - Anthropic\'s balanced model with solid capabilities'
   },
-  'gemini-2.5': { 
+  'gemini-2.5-flash:thinking': { 
     tier: 'premium', 
     priority: 90,
-    recommended: true,
-    lowQuality: false,
-    description: 'Gemini 2.5 - Google\'s powerful versatile model'
-  },
-  'gemini-flash-2.5:thinking': { 
-    tier: 'premium', 
-    priority: 90,
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'Gemini Flash 2.5 - Google\'s fast, responsive AI model'
   },
@@ -114,10 +101,10 @@ export const MODELS = {
     lowQuality: false,
     description: 'GPT-4 - OpenAI\'s highly capable model with advanced reasoning'
   },
-  'deepseek-chat-v3-0324': { 
+  'deepseek/deepseek-chat-v3-0324': { 
     tier: 'premium', 
     priority: 75,
-    recommended: true,
+    recommended: false,
     lowQuality: false,
     description: 'DeepSeek Chat - Advanced AI assistant with strong reasoning'
   },
@@ -339,12 +326,12 @@ export const useModelSelection = () => {
     // 1. First by free/premium (free first)
     // 2. Then by priority (higher first)
     // 3. Finally by name (alphabetical)
-    return models.sort((a, b) => {
+    const sortedModels = models.sort((a, b) => {
       // First by free/premium status
       if (a.requiresSubscription !== b.requiresSubscription) {
-        return a.requiresSubscription ? 1 : -1;
+        return a.requiresSubscription ? -1 : 1;
       }
-      
+
       // Then by priority (higher first)
       if (a.priority !== b.priority) {
         return b.priority - a.priority;
@@ -353,6 +340,7 @@ export const useModelSelection = () => {
       // Finally by name
       return a.label.localeCompare(b.label);
     });
+    return sortedModels;
   }, [modelsData, isLoadingModels, customModels]);
 
   // Get filtered list of models the user can access (no additional sorting)

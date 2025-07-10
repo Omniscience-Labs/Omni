@@ -6,11 +6,12 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { ToolView } from './tool-views/wrapper';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ToolCallInput {
   assistantCall: {
@@ -45,6 +46,7 @@ interface ToolCallSidePanelProps {
     isSuccess?: boolean,
   ) => React.ReactNode;
   isLoading?: boolean;
+  agentName?: string;
   onFileClick?: (filePath: string) => void;
 }
 
@@ -54,6 +56,9 @@ interface ToolCallSnapshot {
   index: number;
   timestamp: number;
 }
+
+const FLOATING_LAYOUT_ID = 'tool-panel-float';
+const CONTENT_LAYOUT_ID = 'tool-panel-content';
 
 export function ToolCallSidePanel({
   isOpen,
@@ -66,6 +71,7 @@ export function ToolCallSidePanel({
   project,
   isLoading = false,
   externalNavigateToIndex,
+  agentName,
   onFileClick,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
@@ -73,8 +79,12 @@ export function ToolCallSidePanel({
   const [navigationMode, setNavigationMode] = React.useState<'live' | 'manual'>('live');
   const [toolCallSnapshots, setToolCallSnapshots] = React.useState<ToolCallSnapshot[]>([]);
   const [isInitialized, setIsInitialized] = React.useState(false);
-  
+
   const isMobile = useIsMobile();
+
+  const handleClose = React.useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   React.useEffect(() => {
     const newSnapshots = toolCalls.map((toolCall, index) => ({
@@ -83,23 +93,23 @@ export function ToolCallSidePanel({
       index,
       timestamp: Date.now(),
     }));
-    
+
     const hadSnapshots = toolCallSnapshots.length > 0;
     const hasNewSnapshots = newSnapshots.length > toolCallSnapshots.length;
     setToolCallSnapshots(newSnapshots);
-    
+
     if (!isInitialized && newSnapshots.length > 0) {
-      const completedCount = newSnapshots.filter(s => 
-        s.toolCall.toolResult?.content && 
+      const completedCount = newSnapshots.filter(s =>
+        s.toolCall.toolResult?.content &&
         s.toolCall.toolResult.content !== 'STREAMING'
       ).length;
-      
+
       if (completedCount > 0) {
         let lastCompletedIndex = -1;
         for (let i = newSnapshots.length - 1; i >= 0; i--) {
           const snapshot = newSnapshots[i];
-          if (snapshot.toolCall.toolResult?.content && 
-              snapshot.toolCall.toolResult.content !== 'STREAMING') {
+          if (snapshot.toolCall.toolResult?.content &&
+            snapshot.toolCall.toolResult.content !== 'STREAMING') {
             lastCompletedIndex = i;
             break;
           }
@@ -113,21 +123,21 @@ export function ToolCallSidePanel({
       const latestSnapshot = newSnapshots[newSnapshots.length - 1];
       const isLatestStreaming = latestSnapshot?.toolCall.toolResult?.content === 'STREAMING';
       if (isLatestStreaming) {
-         let lastCompletedIndex = -1;
-         for (let i = newSnapshots.length - 1; i >= 0; i--) {
-           const snapshot = newSnapshots[i];
-           if (snapshot.toolCall.toolResult?.content && 
-               snapshot.toolCall.toolResult.content !== 'STREAMING') {
-             lastCompletedIndex = i;
-             break;
-           }
-         }
-         if (lastCompletedIndex >= 0) {
-           setInternalIndex(lastCompletedIndex);
-         } else {
-           setInternalIndex(newSnapshots.length - 1);
-         }
-       } else {
+        let lastCompletedIndex = -1;
+        for (let i = newSnapshots.length - 1; i >= 0; i--) {
+          const snapshot = newSnapshots[i];
+          if (snapshot.toolCall.toolResult?.content &&
+            snapshot.toolCall.toolResult.content !== 'STREAMING') {
+            lastCompletedIndex = i;
+            break;
+          }
+        }
+        if (lastCompletedIndex >= 0) {
+          setInternalIndex(lastCompletedIndex);
+        } else {
+          setInternalIndex(newSnapshots.length - 1);
+        }
+      } else {
         setInternalIndex(newSnapshots.length - 1);
       }
     } else if (hasNewSnapshots && navigationMode === 'manual') {
@@ -144,17 +154,36 @@ export function ToolCallSidePanel({
   const currentSnapshot = toolCallSnapshots[safeInternalIndex];
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
-  
-  const completedToolCalls = toolCallSnapshots.filter(snapshot => 
-    snapshot.toolCall.toolResult?.content && 
+
+  const extractToolName = (toolCall: any) => {
+    const rawName = toolCall?.assistantCall?.name || 'Tool Call';
+    if (rawName === 'call-mcp-tool') {
+      const assistantContent = toolCall?.assistantCall?.content;
+      if (assistantContent) {
+        try {
+          const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
+          if (toolNameMatch && toolNameMatch[1]) {
+            const mcpToolName = toolNameMatch[1];
+            return getUserFriendlyToolName(mcpToolName);
+          }
+        } catch (e) {
+        }
+      }
+      return 'External Tool';
+    }
+    return getUserFriendlyToolName(rawName);
+  };
+
+  const completedToolCalls = toolCallSnapshots.filter(snapshot =>
+    snapshot.toolCall.toolResult?.content &&
     snapshot.toolCall.toolResult.content !== 'STREAMING'
   );
   const totalCompletedCalls = completedToolCalls.length;
-  
+
   let displayToolCall = currentToolCall;
   let displayIndex = safeInternalIndex;
   let displayTotalCalls = totalCalls;
-  
+
   const isCurrentToolStreaming = currentToolCall?.toolResult?.content === 'STREAMING';
   if (isCurrentToolStreaming && totalCompletedCalls > 0) {
     const lastCompletedSnapshot = completedToolCalls[completedToolCalls.length - 1];
@@ -168,29 +197,56 @@ export function ToolCallSidePanel({
       displayTotalCalls = totalCompletedCalls;
     }
   }
-  
+
   const currentToolName = displayToolCall?.assistantCall?.name || 'Tool Call';
   const CurrentToolIcon = getToolIcon(
-    currentToolName === 'Tool Call' ? 'unknown' : currentToolName,
+    currentToolCall?.assistantCall?.name || 'unknown',
   );
   const isStreaming = displayToolCall?.toolResult?.content === 'STREAMING';
-  const isSuccess = displayToolCall?.toolResult?.isSuccess ?? true;
+
+  // Extract actual success value from tool content with fallbacks
+  const getActualSuccess = (toolCall: any): boolean => {
+    const content = toolCall?.toolResult?.content;
+    if (!content) return toolCall?.toolResult?.isSuccess ?? true;
+
+    const safeParse = (data: any) => {
+      try { return typeof data === 'string' ? JSON.parse(data) : data; }
+      catch { return null; }
+    };
+
+    const parsed = safeParse(content);
+    if (!parsed) return toolCall?.toolResult?.isSuccess ?? true;
+
+    if (parsed.content) {
+      const inner = safeParse(parsed.content);
+      if (inner?.tool_execution?.result?.success !== undefined) {
+        return inner.tool_execution.result.success;
+      }
+    }
+    const success = parsed.tool_execution?.result?.success ??
+      parsed.result?.success ??
+      parsed.success;
+
+    return success !== undefined ? success : (toolCall?.toolResult?.isSuccess ?? true);
+  };
+
+  const isSuccess = isStreaming ? true : getActualSuccess(displayToolCall);
 
   const internalNavigate = React.useCallback((newIndex: number, source: string = 'internal') => {
     if (newIndex < 0 || newIndex >= totalCalls) return;
-    
+
     const isNavigatingToLatest = newIndex === totalCalls - 1;
-    
+
     console.log(`[INTERNAL_NAV] ${source}: ${internalIndex} -> ${newIndex}, mode will be: ${isNavigatingToLatest ? 'live' : 'manual'}`);
-    
+
     setInternalIndex(newIndex);
-    
+
     if (isNavigatingToLatest) {
       setNavigationMode('live');
     } else {
       setNavigationMode('manual');
     }
-    
+
     if (source === 'user_explicit') {
       onNavigate(newIndex);
     }
@@ -213,7 +269,7 @@ export function ToolCallSidePanel({
       }
     }
   }, [displayIndex, completedToolCalls, toolCallSnapshots, internalNavigate]);
-  
+
   const navigateToNext = React.useCallback(() => {
     if (displayIndex < displayTotalCalls - 1) {
       const targetCompletedIndex = displayIndex + 1;
@@ -243,6 +299,52 @@ export function ToolCallSidePanel({
     internalNavigate(totalCalls - 1, 'user_explicit');
   }, [totalCalls, internalNavigate]);
 
+  const renderStatusButton = React.useCallback(() => {
+    const baseClasses = "flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-full w-[116px]";
+    const dotClasses = "w-1.5 h-1.5 rounded-full";
+    const textClasses = "text-xs font-medium";
+
+    if (isLiveMode) {
+      if (agentStatus === 'running') {
+        return (
+          <div className={`${baseClasses} bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800`}>
+            <div className={`${dotClasses} bg-green-500 animate-pulse`} />
+            <span className={`${textClasses} text-green-700 dark:text-green-400`}>Live Updates</span>
+          </div>
+        );
+      } else {
+        return (
+          <div className={`${baseClasses} bg-neutral-50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800`}>
+            <div className={`${dotClasses} bg-neutral-500`} />
+            <span className={`${textClasses} text-neutral-700 dark:text-neutral-400`}>Latest Tool</span>
+          </div>
+        );
+      }
+    } else {
+      if (agentStatus === 'running') {
+        return (
+          <div
+            className={`${baseClasses} bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors cursor-pointer`}
+            onClick={jumpToLive}
+          >
+            <div className={`${dotClasses} bg-green-500 animate-pulse`} />
+            <span className={`${textClasses} text-green-700 dark:text-green-400`}>Jump to Live</span>
+          </div>
+        );
+      } else {
+        return (
+          <div
+            className={`${baseClasses} bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer`}
+            onClick={jumpToLatest}
+          >
+            <div className={`${dotClasses} bg-blue-500`} />
+            <span className={`${textClasses} text-blue-700 dark:text-blue-400`}>Jump to Latest</span>
+          </div>
+        );
+      }
+    }
+  }, [isLiveMode, agentStatus, jumpToLive, jumpToLatest]);
+
   const handleSliderChange = React.useCallback(([newValue]: [number]) => {
     const targetSnapshot = completedToolCalls[newValue];
     if (targetSnapshot) {
@@ -254,7 +356,7 @@ export function ToolCallSidePanel({
         } else {
           setNavigationMode('manual');
         }
-        
+
         internalNavigate(actualIndex, 'user_explicit');
       }
     }
@@ -266,19 +368,19 @@ export function ToolCallSidePanel({
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
         event.preventDefault();
-        onClose();
+        handleClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   React.useEffect(() => {
     if (!isOpen) return;
     const handleSidebarToggle = (event: CustomEvent) => {
       if (event.detail.expanded) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -291,7 +393,7 @@ export function ToolCallSidePanel({
         'sidebar-left-toggled',
         handleSidebarToggle as EventListener,
       );
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   React.useEffect(() => {
     if (externalNavigateToIndex !== undefined && externalNavigateToIndex >= 0 && externalNavigateToIndex < totalCalls) {
@@ -311,45 +413,50 @@ export function ToolCallSidePanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   if (isLoading) {
     return (
-      <div
-        className={cn(
-          'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
-          isMobile
-            ? 'w-full'
-            : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
-          !isOpen && 'translate-x-full',
-        )}
-      >
-        <div className="flex-1 flex flex-col overflow-hidden bg-background">
-          <div className="flex flex-col h-full">
-            <div className="pt-4 pl-4 pr-4">
-              <div className="flex items-center justify-between">
-                <div className="ml-2 flex items-center gap-2">
-                  <Computer className="h-4 w-4" />
-                  <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                    Suna's Computer
-                  </h2>
+      <div className="fixed inset-0 z-30 pointer-events-none">
+        <div className="p-4 h-full flex items-stretch justify-end pointer-events-auto">
+          <div
+            className={cn(
+              'border rounded-2xl flex flex-col shadow-2xl bg-background',
+              isMobile
+                ? 'w-full'
+                : 'w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
+            )}
+          >
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex flex-col h-full">
+                <div className="pt-4 pl-4 pr-4">
+                  <div className="flex items-center justify-between">
+                    <div className="ml-2 flex items-center gap-2">
+                      <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                        {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
+                      </h2>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleClose}
+                      className="h-8 w-8"
+                      title="Minimize to floating preview"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 p-4 overflow-auto">
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-32" />
-                <Skeleton className="h-20 w-full rounded-md" />
-                <Skeleton className="h-40 w-full rounded-md" />
-                <Skeleton className="h-20 w-full rounded-md" />
+                <div className="flex-1 p-4 overflow-auto">
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-32" />
+                    <Skeleton className="h-20 w-full rounded-md" />
+                    <Skeleton className="h-40 w-full rounded-md" />
+                    <Skeleton className="h-20 w-full rounded-md" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -365,15 +472,14 @@ export function ToolCallSidePanel({
           <div className="pt-4 pl-4 pr-4">
             <div className="flex items-center justify-between">
               <div className="ml-2 flex items-center gap-2">
-                <Computer className="h-4 w-4" />
-                <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                  Suna's Computer
+                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                  {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
                 </h2>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -412,9 +518,8 @@ export function ToolCallSidePanel({
             <div className="pt-4 pl-4 pr-4">
               <div className="flex items-center justify-between">
                 <div className="ml-2 flex items-center gap-2">
-                  <Computer className="h-4 w-4" />
-                  <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                    Suna's Computer
+                  <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -425,7 +530,7 @@ export function ToolCallSidePanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="h-8 w-8 ml-1"
                   >
                     <X className="h-4 w-4" />
@@ -453,21 +558,20 @@ export function ToolCallSidePanel({
           </div>
         );
       }
-      
+
       return (
         <div className="flex flex-col h-full">
           <div className="pt-4 pl-4 pr-4">
             <div className="flex items-center justify-between">
               <div className="ml-2 flex items-center gap-2">
-                <Computer className="h-4 w-4" />
-                <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                  Suna's Computer
+                <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                  {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
                 </h2>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -491,7 +595,7 @@ export function ToolCallSidePanel({
         toolContent={displayToolCall.toolResult?.content}
         assistantTimestamp={displayToolCall.assistantCall.timestamp}
         toolTimestamp={displayToolCall.toolResult?.timestamp}
-        isSuccess={isStreaming ? true : (displayToolCall.toolResult?.isSuccess ?? true)}
+        isSuccess={isSuccess}
         isStreaming={isStreaming}
         project={project}
         messages={messages}
@@ -504,45 +608,27 @@ export function ToolCallSidePanel({
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-3">
+        <motion.div
+          layoutId={CONTENT_LAYOUT_ID}
+          className="p-3"
+        >
           <div className="flex items-center justify-between">
-            <div className="ml-2 flex items-center gap-2">
-              <Computer className="h-4 w-4" />
-              <h2 className="text-md font-medium text-zinc-900 dark:text-zinc-100">
-                Suna's Computer
+            <motion.div layoutId="tool-icon" className="ml-2 flex items-center gap-2">
+              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                {agentName ? `${agentName}'s Computer` : 'Suna\'s Computer'}
               </h2>
-            </div>
+            </motion.div>
 
             {displayToolCall.toolResult?.content && !isStreaming && (
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <CurrentToolIcon className="h-3.5 w-3.5 text-zinc-800 dark:text-zinc-300" />
-                </div>
-                <span
-                  className={cn(
-                    'text-sm text-zinc-700 dark:text-zinc-300',
-                    isMobile && 'hidden sm:inline',
-                  )}
-                >
-                  {getUserFriendlyToolName(currentToolName)}
-                </span>
-                <div
-                  className={cn(
-                    'px-2.5 py-0.5 rounded-full text-xs font-medium',
-                    isSuccess
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                      : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-                  )}
-                >
-                  {isSuccess ? 'Success' : 'Failed'}
-                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="h-8 w-8 ml-1"
+                  title="Minimize to floating preview"
                 >
-                  <X className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -556,10 +642,11 @@ export function ToolCallSidePanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="h-8 w-8 ml-1"
+                  title="Minimize to floating preview"
                 >
-                  <X className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -568,14 +655,15 @@ export function ToolCallSidePanel({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onClose}
+                onClick={handleClose}
                 className="h-8 w-8"
+                title="Minimize to floating preview"
               >
-                <X className="h-4 w-4" />
+                <Minimize2 className="h-4 w-4" />
               </Button>
             )}
           </div>
-        </div>
+        </motion.div>
 
         <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           {toolView}
@@ -585,172 +673,119 @@ export function ToolCallSidePanel({
   };
 
   return (
-    <div
-      className={cn(
-        'fixed inset-y-0 right-0 border-l flex flex-col z-30 h-screen transition-all duration-200 ease-in-out',
-        isMobile
-          ? 'w-full'
-          : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px]',
-        !isOpen && 'translate-x-full',
-      )}
-    >
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        {renderContent()}
-      </div>
-
-      {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (
-        <div
+    <AnimatePresence mode="wait">
+      {isOpen && (
+        <motion.div
+          key="sidepanel"
+          layoutId={FLOATING_LAYOUT_ID}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{
+            opacity: { duration: 0.15 },
+            layout: {
+              type: "spring",
+              stiffness: 400,
+              damping: 35
+            }
+          }}
           className={cn(
-            'border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900',
-            isMobile ? 'p-3' : 'p-4 space-y-2',
+            'fixed top-2 right-2 bottom-4 border rounded-3xl flex flex-col z-30',
+            isMobile
+              ? 'left-2'
+              : 'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[645px]',
           )}
+          style={{
+            overflow: 'hidden',
+          }}
         >
-          {!isMobile && (
-            <div className="flex justify-between items-center gap-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <CurrentToolIcon className="h-3 w-3 text-zinc-800 dark:text-zinc-300" />
+          <div className="flex-1 flex flex-col overflow-hidden bg-card">
+            {renderContent()}
+          </div>
+          {(displayTotalCalls > 1 || (isCurrentToolStreaming && totalCompletedCalls > 0)) && (
+            <div
+              className={cn(
+                'border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900',
+                isMobile ? 'p-2' : 'px-4 py-2.5',
+              )}
+            >
+              {isMobile ? (
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToPrevious}
+                    disabled={displayIndex <= 0}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    <span>Prev</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums min-w-[44px]">
+                      {displayIndex + 1}/{displayTotalCalls}
+                    </span>
+                    {renderStatusButton()}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToNext}
+                    disabled={displayIndex >= displayTotalCalls - 1}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
                 </div>
-                <span
-                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate"
-                  title={currentToolName}
-                >
-                  {getUserFriendlyToolName(currentToolName)} {isStreaming && `(Running${dots})`}
-                </span>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={navigateToPrevious}
+                      disabled={displayIndex <= 0}
+                      className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium tabular-nums px-1 min-w-[44px] text-center">
+                      {displayIndex + 1}/{displayTotalCalls}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={navigateToNext}
+                      disabled={displayIndex >= displayTotalCalls - 1}
+                      className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-              <div className="flex items-center gap-2">
-                {isLiveMode && agentStatus === 'running' ? (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Live</span>
+                  <div className="flex-1 relative">
+                    <Slider
+                      min={0}
+                      max={displayTotalCalls - 1}
+                      step={1}
+                      value={[displayIndex]}
+                      onValueChange={handleSliderChange}
+                      className="w-full [&>span:first-child]:h-1.5 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1.5"
+                    />
                   </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800">
-                    <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-neutral-700 dark:text-neutral-400">Live</span>
+
+                  <div className="flex items-center gap-1.5">
+                    {renderStatusButton()}
                   </div>
-                )}
-                
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                  Step {displayIndex + 1} of {displayTotalCalls}
-                </span>
-              </div>
+                </div>
+              )}
             </div>
           )}
-
-          {isMobile ? (
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={navigateToPrevious}
-                disabled={displayIndex <= 0}
-                className="h-9 px-3"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                <span>Previous</span>
-              </Button>
-
-              <div className="flex items-center gap-2">
-                {isLiveMode && agentStatus === 'running' ? (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Live</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800">
-                    <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-neutral-700 dark:text-neutral-400">Live</span>
-                  </div>
-                )}
-                
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {displayIndex + 1} / {displayTotalCalls}
-                  {isCurrentToolStreaming && totalCompletedCalls > 0 && (
-                    <span className="text-blue-600 dark:text-blue-400"> • Running</span>
-                  )}
-                </span>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={navigateToNext}
-                disabled={displayIndex >= displayTotalCalls - 1}
-                className="h-9 px-3"
-              >
-                <span>Next</span>
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          ) : (
-            <div className="relative flex items-center gap-1.5">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={navigateToPrevious}
-                  disabled={displayIndex <= 0}
-                  className="h-6 w-6 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={navigateToNext}
-                  disabled={displayIndex >= displayTotalCalls - 1}
-                  className="h-6 w-6 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              <div className="relative w-full">
-                <Slider
-                  min={0}
-                  max={displayTotalCalls - 1}
-                  step={1}
-                  value={[displayIndex]}
-                  onValueChange={handleSliderChange}
-                  className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-zinc-200 dark:[&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-500 dark:[&>span:first-child>span]:bg-zinc-400 [&>span:first-child>span]:h-1"
-                />
-                
-                {showJumpToLive && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-12 z-50">
-                    <div className="relative">
-                      <Button
-                        onClick={jumpToLive}
-                        size="sm"
-                        className="h-8 px-3 bg-red-500 hover:bg-red-600 text-white shadow-lg dark:border-red-400 flex items-center gap-1.5"
-                      >
-                        <Radio className="h-3 w-3" />
-                        <span className="text-xs font-medium">Jump to Live</span>
-                      </Button>
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-red-500"></div>
-                    </div>
-                  </div>
-                )}
-                {showJumpToLatest && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-12 z-50">
-                    <div className="relative">
-                      <Button
-                        onClick={jumpToLatest}
-                        size="sm"
-                        className="h-8 px-3 shadow-lg flex items-center gap-1.5"
-                      >
-                        <span className="text-xs font-medium">Jump to Latest</span>
-                      </Button>
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-primary"></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }

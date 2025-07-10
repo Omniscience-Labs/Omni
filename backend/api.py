@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import sentry
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
@@ -9,19 +9,30 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from utils.config import config, EnvMode
 import asyncio
-from utils.logger import logger
-import uuid
+from utils.logger import logger, structlog
 import time
 from collections import OrderedDict
+from typing import Dict, Any
 
+from pydantic import BaseModel
+import uuid
 # Import the agent API module
 from agent import api as agent_api
+from agent import workflows as workflows_api
 from sandbox import api as sandbox_api
 from services import billing as billing_api
+from flags import api as feature_flags_api
 from services import transcription as transcription_api
+import sys
+from services import email_api
+from triggers import api as triggers_api
+from triggers import unified_oauth_api
 
-# Load environment variables (these will be available through config)
+
 load_dotenv()
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # Initialize managers
 db = DBConnection()
@@ -33,20 +44,18 @@ MAX_CONCURRENT_IPS = 25
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
-    
     try:
-        # Initialize database
         await db.initialize()
         
-        # Initialize the agent API with shared resources
         agent_api.initialize(
             db,
             instance_id
         )
         
-        # Initialize the sandbox API with shared resources
+        # Initialize workflow API
+        workflows_api.initialize(db, instance_id)
+        
         sandbox_api.initialize(db)
         
         # Initialize Redis connection
@@ -60,6 +69,13 @@ async def lifespan(app: FastAPI):
         
         # Start background tasks
         # asyncio.create_task(agent_api.restore_running_agent_runs())
+        
+        # Initialize triggers API
+        triggers_api.initialize(db)
+        unified_oauth_api.initialize(db)
+        
+        # Initialize pipedream API
+        pipedream_api.initialize(db)
         
         yield
         
@@ -86,13 +102,23 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
+    structlog.contextvars.clear_contextvars()
+
+    request_id = str(uuid.uuid4())
     start_time = time.time()
-    client_ip = request.client.host
+    client_ip = request.client.host if request.client else "unknown"
     method = request.method
-    url = str(request.url)
     path = request.url.path
     query_params = str(request.query_params)
-    
+
+    structlog.contextvars.bind_contextvars(
+        request_id=request_id,
+        client_ip=client_ip,
+        method=method,
+        path=path,
+        query_params=query_params
+    )
+
     # Log the incoming request
     logger.info(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
     
@@ -107,12 +133,17 @@ async def log_requests_middleware(request: Request, call_next):
         raise
 
 # Define allowed origins based on environment
-allowed_origins = ["https://www.suna.so", "https://suna.so", "http://localhost:3000"]
+allowed_origins = ["https://www.suna.so", "https://suna.so"]
 allow_origin_regex = None
+
+# Add staging-specific origins
+if config.ENV_MODE == EnvMode.LOCAL:
+    allowed_origins.append("http://localhost:3000")
 
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.STAGING:
     allowed_origins.append("https://staging.suna.so")
+    allowed_origins.append("http://localhost:3000")
     allow_origin_regex = r"https://suna-.*-prjcts\.vercel\.app"
 
 app.add_middleware(
@@ -121,24 +152,41 @@ app.add_middleware(
     allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Project-Id"],
 )
 
-# Include the agent router with a prefix
-app.include_router(agent_api.router, prefix="/api")
+# Create a main API router
+api_router = APIRouter()
 
-# Include the sandbox router with a prefix
-app.include_router(sandbox_api.router, prefix="/api")
+# Include all API routers without individual prefixes
+api_router.include_router(workflows_api.router)
+api_router.include_router(agent_api.router)
+api_router.include_router(sandbox_api.router)
+api_router.include_router(billing_api.router)
+api_router.include_router(feature_flags_api.router)
 
-# Include the billing router with a prefix
-app.include_router(billing_api.router, prefix="/api")
+from mcp_service import api as mcp_api
+from mcp_service import secure_api as secure_mcp_api
+from mcp_service import template_api as template_api
 
-# Include the transcription router with a prefix
-app.include_router(transcription_api.router, prefix="/api")
+api_router.include_router(mcp_api.router)
+api_router.include_router(secure_mcp_api.router, prefix="/secure-mcp")
+api_router.include_router(template_api.router, prefix="/templates")
 
-@app.get("/api/health")
+api_router.include_router(transcription_api.router)
+api_router.include_router(email_api.router)
+
+from knowledge_base import api as knowledge_base_api
+api_router.include_router(knowledge_base_api.router)
+
+api_router.include_router(triggers_api.router)
+api_router.include_router(unified_oauth_api.router)
+
+from pipedream import api as pipedream_api
+api_router.include_router(pipedream_api.router)
+
+@api_router.get("/health")
 async def health_check():
-    """Health check endpoint to verify API is working."""
     logger.info("Health check endpoint called")
     return {
         "status": "ok", 
@@ -146,10 +194,16 @@ async def health_check():
         "instance_id": instance_id
     }
 
+app.include_router(api_router, prefix="/api")
+
+
 if __name__ == "__main__":
     import uvicorn
     
-    workers = 2
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    
+    workers = 4
     
     logger.info(f"Starting server on 0.0.0.0:8000 with {workers} workers")
     uvicorn.run(
@@ -157,5 +211,5 @@ if __name__ == "__main__":
         host="0.0.0.0", 
         port=8000,
         workers=workers,
-        # reload=True
+        loop="asyncio"
     )

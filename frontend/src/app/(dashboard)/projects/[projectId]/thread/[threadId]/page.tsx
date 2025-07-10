@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useMemo,
 } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BillingError } from '@/lib/api';
@@ -26,6 +27,7 @@ import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_type
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
+import { useThreadAgent } from '@/hooks/react-query/agents/use-agents';
 
 export default function ThreadPage({
   params,
@@ -49,6 +51,7 @@ export default function ThreadPage({
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -121,13 +124,26 @@ export default function ThreadPage({
   const addUserMessageMutation = useAddUserMessageMutation();
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
+  const { data: threadAgentData } = useThreadAgent(threadId);
+  const agent = threadAgentData?.agent;
+  const workflowId = threadQuery.data?.metadata?.workflow_id;
+
+  // Set initial selected agent from thread data
+  useEffect(() => {
+    if (threadAgentData?.agent && !selectedAgentId) {
+      setSelectedAgentId(threadAgentData.agent.agent_id);
+    }
+  }, [threadAgentData, selectedAgentId]);
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
     ? 'active'
     : 'no_subscription';
 
-  useVncPreloader(project);
+  // Memoize project for VNC preloader to prevent re-preloading on every render
+  const memoizedProject = useMemo(() => project, [project?.id, project?.sandbox?.vnc_preview, project?.sandbox?.pass]);
+
+  useVncPreloader(memoizedProject);
 
 
   const handleProjectRenamed = useCallback((newName: string) => {
@@ -265,7 +281,10 @@ export default function ThreadPage({
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options
+          options: {
+            ...options,
+            agent_id: selectedAgentId
+          }
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);
@@ -550,6 +569,7 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
         <ThreadError error={error} />
       </ThreadLayout>
@@ -592,7 +612,14 @@ export default function ThreadPage({
         debugMode={debugMode}
         isMobile={isMobile}
         initialLoadCompleted={initialLoadCompleted}
+        agentName={agent && agent.name}
       >
+        {/* {workflowId && (
+          <div className="px-4 pt-4">
+            <WorkflowInfo workflowId={workflowId} />
+          </div>
+        )} */}
+        
         <ThreadContent
           messages={messages}
           streamingTextContent={streamingTextContent}
@@ -605,6 +632,8 @@ export default function ThreadPage({
           sandboxId={sandboxId}
           project={project}
           debugMode={debugMode}
+          agentName={agent && agent.name}
+          agentAvatar={agent && agent.avatar}
         />
 
         <div
@@ -616,13 +645,13 @@ export default function ThreadPage({
           )}>
           <div className={cn(
             "mx-auto",
-            isMobile ? "w-full px-4" : "max-w-3xl"
+            isMobile ? "w-full" : "max-w-3xl"
           )}>
             <ChatInput
               value={newMessage}
               onChange={setNewMessage}
               onSubmit={handleSubmitMessage}
-              placeholder="Ask Suna anything..."
+              placeholder={`Describe what you need help with...`}
               loading={isSending}
               disabled={isSending || agentStatus === 'running' || agentStatus === 'connecting'}
               isAgentRunning={agentStatus === 'running' || agentStatus === 'connecting'}
@@ -631,6 +660,16 @@ export default function ThreadPage({
               onFileBrowse={handleOpenFileViewer}
               sandboxId={sandboxId || undefined}
               messages={messages}
+              agentName={agent && agent.name}
+              selectedAgentId={selectedAgentId}
+              onAgentSelect={setSelectedAgentId}
+              toolCalls={toolCalls}
+              toolCallIndex={currentToolIndex}
+              showToolPreview={!isSidePanelOpen && toolCalls.length > 0}
+              onExpandToolPreview={() => {
+                setIsSidePanelOpen(true);
+                userClosedPanelRef.current = false;
+              }}
             />
           </div>
         </div>

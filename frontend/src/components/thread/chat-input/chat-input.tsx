@@ -14,8 +14,10 @@ import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
 import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
+import { AgentSelector } from './agent-selector';
 import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
+import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -38,7 +40,16 @@ export interface ChatInputProps {
   onFileBrowse?: () => void;
   sandboxId?: string;
   hideAttachments?: boolean;
-  messages?: any[]; // Add messages prop to check for existing file references
+  selectedAgentId?: string;
+  onAgentSelect?: (agentId: string | undefined) => void;
+  agentName?: string;
+  messages?: any[];
+  bgColor?: string;
+  toolCalls?: ToolCallInput[];
+  toolCallIndex?: number;
+  showToolPreview?: boolean;
+  onExpandToolPreview?: () => void;
+  isLoggedIn?: boolean;
 }
 
 export interface UploadedFile {
@@ -64,7 +75,16 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onFileBrowse,
       sandboxId,
       hideAttachments = false,
+      selectedAgentId,
+      onAgentSelect,
+      agentName,
       messages = [],
+      bgColor = 'bg-card',
+      toolCalls = [],
+      toolCallIndex = 0,
+      showToolPreview = false,
+      onExpandToolPreview,
+      isLoggedIn = true,
     },
     ref,
   ) => {
@@ -216,16 +236,22 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     };
 
     return (
-      <div className="mx-auto w-full max-w-4xl px-4">
+      <div className="mx-auto w-full max-w-4xl">
+        <FloatingToolPreview
+          toolCalls={toolCalls}
+          currentIndex={toolCallIndex}
+          onExpand={onExpandToolPreview || (() => { })}
+          agentName={agentName}
+          isVisible={showToolPreview}
+        />
         <Card
-          className="shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-xl overflow-hidden"
+          className="-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none rounded-3xl overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={(e) => {
             e.preventDefault();
             e.stopPropagation();
             setIsDraggingOver(false);
-
             if (fileInputRef.current && e.dataTransfer.files.length > 0) {
               const files = Array.from(e.dataTransfer.files);
               handleFiles(
@@ -241,7 +267,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           }}
         >
           <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-            <CardContent className="w-full p-1.5 pb-2 bg-[#efefef] dark:bg-sidebar rounded-2xl border">
+            <CardContent className={`w-full p-1.5 pb-2 ${bgColor} rounded-3xl border`}>
               <AttachmentGroup
                 files={uploadedFiles || []}
                 sandboxId={sandboxId}
@@ -250,7 +276,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 maxHeight="216px"
                 showPreviews={true}
               />
-
               <MessageInput
                 ref={textareaRef}
                 value={value}
@@ -280,12 +305,16 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 subscriptionStatus={subscriptionStatus}
                 canAccessModel={canAccessModel}
                 refreshCustomModels={refreshCustomModels}
+                isLoggedIn={isLoggedIn}
+
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={onAgentSelect}
               />
             </CardContent>
           </div>
         </Card>
 
-        {isAgentRunning && (
+        {/* {isAgentRunning && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -293,10 +322,11 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           >
             <div className="text-xs text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Kortix Suna is working...</span>
+              <span>{agentName ? `${agentName} is working...` : 'Suna is working...'}</span>
             </div>
           </motion.div>
-        )}
+        )} */}
+
       </div>
     );
   },

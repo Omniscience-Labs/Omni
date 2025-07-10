@@ -1,6 +1,8 @@
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
+import asyncio
+import time
 
 class SandboxExposeTool(SandboxToolsBase):
     """Tool for exposing and retrieving preview URLs for sandbox ports."""
@@ -34,28 +36,25 @@ class SandboxExposeTool(SandboxToolsBase):
         ],
         example='''
         <!-- Example 1: Expose a web server running on port 8000 -->
-        <!-- This will generate a public URL that users can access to view the web application -->
-        <expose-port>
-        8000
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">8000</parameter>
+        </invoke>
+        </function_calls>
 
         <!-- Example 2: Expose an API service running on port 3000 -->
-        <!-- This allows users to interact with the API endpoints from their browser -->
-        <expose-port>
-        3000
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">3000</parameter>
+        </invoke>
+        </function_calls>
 
         <!-- Example 3: Expose a development server running on port 5173 -->
-        <!-- This is useful for sharing a development environment with users -->
-        <expose-port>
-        5173
-        </expose-port>
-
-        <!-- Example 4: Expose a database management interface on port 8081 -->
-        <!-- This allows users to access database management tools like phpMyAdmin -->
-        <expose-port>
-        8081
-        </expose-port>
+        <function_calls>
+        <invoke name="expose_port">
+        <parameter name="port">5173</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def expose_port(self, port: int) -> ToolResult:
@@ -70,8 +69,18 @@ class SandboxExposeTool(SandboxToolsBase):
             if not 1 <= port <= 65535:
                 return self.fail_response(f"Invalid port number: {port}. Must be between 1 and 65535.")
 
+            # Check if something is actually listening on the port (for custom ports)
+            if port not in [6080, 8080, 8003]:  # Skip check for known sandbox ports
+                try:
+                    port_check = await self.sandbox.process.exec(f"netstat -tlnp | grep :{port}", timeout=5)
+                    if port_check.exit_code != 0:
+                        return self.fail_response(f"No service is currently listening on port {port}. Please start a service on this port first.")
+                except Exception:
+                    # If we can't check, proceed anyway - the user might be starting a service
+                    pass
+
             # Get the preview link for the specified port
-            preview_link = self.sandbox.get_preview_link(port)
+            preview_link = await self.sandbox.get_preview_link(port)
             
             # Extract the actual URL from the preview link object
             url = preview_link.url if hasattr(preview_link, 'url') else str(preview_link)

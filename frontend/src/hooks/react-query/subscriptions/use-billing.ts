@@ -7,7 +7,8 @@ import {
   getAvailableModels,
   CreateCheckoutSessionRequest
 } from '@/lib/api';
-import { modelKeys } from './keys';
+import { billingApi } from '@/lib/api-enhanced';
+import { modelKeys, usageKeys } from './keys';
 
 export const useAvailableModels = createQueryHook(
   modelKeys.available,
@@ -40,4 +41,15 @@ export const useCreateCheckoutSession = createMutationHook(
       resource: 'billing'
     }
   }
-); 
+);
+
+export const useUsageLogs = (page: number = 0, itemsPerPage: number = 1000) => 
+  createQueryHook(
+    usageKeys.logs(page, itemsPerPage),
+    () => billingApi.getUsageLogs(page, itemsPerPage),
+    {
+      staleTime: 30 * 1000, // 30 seconds
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+    }
+  )(); 

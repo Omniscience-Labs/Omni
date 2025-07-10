@@ -8,7 +8,8 @@ from typing import Optional, Dict
 import os
 
 from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
-from sandbox.tool_base import SandboxToolsBase, Sandbox
+from sandbox.tool_base import SandboxToolsBase
+from daytona_sdk import AsyncSandbox
 
 KEYBOARD_KEYS = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
@@ -25,15 +26,26 @@ KEYBOARD_KEYS = [
 class ComputerUseTool(SandboxToolsBase):
     """Computer automation tool for controlling the sandbox browser and GUI."""
     
-    def __init__(self, sandbox: Sandbox):
+    def __init__(self, project_id: str, thread_manager):
         """Initialize automation tool with sandbox connection."""
-        super().__init__(sandbox)
+        super().__init__(project_id, thread_manager)
         self.session = None
         self.mouse_x = 0  # Track current mouse position
         self.mouse_y = 0
-        # Get automation service URL using port 8000
-        self.api_base_url = self.sandbox.get_preview_link(8000)
-        logging.info(f"Initialized Computer Use Tool with API URL: {self.api_base_url}")
+        # API URL will be set when first needed
+        self.api_base_url = None
+        self._url_initialized = False
+        logging.info(f"Initialized Computer Use Tool")
+    
+    async def _ensure_api_url(self):
+        """Ensure API URL is initialized."""
+        if not self._url_initialized:
+            await self._ensure_sandbox()
+            # Get automation service URL using port 8000
+            preview_link = await self.sandbox.get_preview_link(8000)
+            self.api_base_url = preview_link.url if hasattr(preview_link, 'url') else str(preview_link)
+            self._url_initialized = True
+            logging.info(f"Initialized Computer Use Tool with API URL: {self.api_base_url}")
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session for API requests."""
@@ -44,6 +56,9 @@ class ComputerUseTool(SandboxToolsBase):
     async def _api_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
         """Send request to automation service API."""
         try:
+            # Ensure API URL is set
+            await self._ensure_api_url()
+            
             session = await self._get_session()
             url = f"{self.api_base_url}/api{endpoint}"
             
@@ -97,8 +112,12 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "y", "node_type": "attribute", "path": "."}
         ],
         example='''
-        <move-to x="100" y="200">
-        </move-to>
+        <function_calls>
+        <invoke name="move_to">
+        <parameter name="x">100</parameter>
+        <parameter name="y">200</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def move_to(self, x: float, y: float) -> ToolResult:
@@ -163,8 +182,14 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "num_clicks", "node_type": "attribute", "path": "num_clicks"}
         ],
         example='''
-        <click x="100" y="200" button="left" num_clicks="1">
-        </click>
+        <function_calls>
+        <invoke name="click">
+        <parameter name="x">100</parameter>
+        <parameter name="y">200</parameter>
+        <parameter name="button">left</parameter>
+        <parameter name="num_clicks">1</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def click(self, x: Optional[float] = None, y: Optional[float] = None, 
@@ -220,8 +245,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "amount", "node_type": "attribute", "path": "amount"}
         ],
         example='''
-        <scroll amount="-3">
-        </scroll>
+        <function_calls>
+        <invoke name="scroll">
+        <parameter name="amount">-3</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def scroll(self, amount: int) -> ToolResult:
@@ -272,7 +300,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "text", "node_type": "content", "path": "text"}
         ],
         example='''
-        <typing>Hello World!</typing>
+        <function_calls>
+        <invoke name="typing">
+        <parameter name="text">Hello World!</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def typing(self, text: str) -> ToolResult:
@@ -316,8 +348,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "key", "node_type": "attribute", "path": "key"}
         ],
         example='''
-        <press key="enter">
-        </press>
+        <function_calls>
+        <invoke name="press">
+        <parameter name="key">enter</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def press(self, key: str) -> ToolResult:
@@ -360,8 +395,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "duration", "node_type": "attribute", "path": "duration"}
         ],
         example='''
-        <wait duration="1.5">
-        </wait>
+        <function_calls>
+        <invoke name="wait">
+        <parameter name="duration">1.5</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def wait(self, duration: float = 0.5) -> ToolResult:
@@ -398,8 +436,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "button", "node_type": "attribute", "path": "button"}
         ],
         example='''
-        <mouse-down button="left">
-        </mouse-down>
+        <function_calls>
+        <invoke name="mouse_down">
+        <parameter name="button">left</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def mouse_down(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
@@ -450,8 +491,11 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "button", "node_type": "attribute", "path": "button"}
         ],
         example='''
-        <mouse-up button="left">
-        </mouse-up>
+        <function_calls>
+        <invoke name="mouse_up">
+        <parameter name="button">left</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def mouse_up(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
@@ -506,8 +550,12 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "y", "node_type": "attribute", "path": "y"}
         ],
         example='''
-        <drag-to x="500" y="50">
-        </drag-to>
+        <function_calls>
+        <invoke name="drag_to">
+        <parameter name="x">500</parameter>
+        <parameter name="y">50</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def drag_to(self, x: float, y: float) -> ToolResult:
@@ -598,10 +646,13 @@ class ComputerUseTool(SandboxToolsBase):
             {"param_name": "keys", "node_type": "attribute", "path": "keys"}
         ],
         example='''
-        <hotkey keys="ctrl+a">
-        </hotkey>
+        <function_calls>
+        <invoke name="hotkey">
+        <parameter name="keys">ctrl+a</parameter>
+        </invoke>
+        </function_calls>
         '''
-        )    
+    )    
     async def hotkey(self, keys: str) -> ToolResult:
         """Press a key combination."""
         try:

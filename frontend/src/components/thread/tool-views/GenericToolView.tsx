@@ -13,7 +13,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, getToolTitle } from './utils';
+import { formatTimestamp, getToolTitle, extractToolData } from './utils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,17 +30,83 @@ export function GenericToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
+  const [progress, setProgress] = useState(0);
+
   const toolTitle = getToolTitle(name);
 
   const formatContent = (content: any) => {
     if (!content) return null;
 
+    // Use the new parser for backwards compatibility
+    const { toolResult } = extractToolData(content);
+
+    if (toolResult) {
+      // Format the structured content nicely
+      const formatted: any = {
+        tool: toolResult.xmlTagName || toolResult.functionName,
+      };
+
+      if (toolResult.arguments && Object.keys(toolResult.arguments).length > 0) {
+        formatted.parameters = toolResult.arguments;
+      }
+
+      if (toolResult.toolOutput) {
+        formatted.output = toolResult.toolOutput;
+      }
+
+      if (toolResult.isSuccess !== undefined) {
+        formatted.success = toolResult.isSuccess;
+      }
+
+      return JSON.stringify(formatted, null, 2);
+    }
+
+    // Fallback to legacy format handling
     if (typeof content === 'object') {
+      // Check for direct structured format (legacy)
+      if ('tool_name' in content || 'xml_tag_name' in content) {
+        const formatted: any = {
+          tool: content.tool_name || content.xml_tag_name || 'unknown',
+        };
+
+        if (content.parameters && Object.keys(content.parameters).length > 0) {
+          formatted.parameters = content.parameters;
+        }
+
+        if (content.result) {
+          formatted.result = content.result;
+        }
+
+        return JSON.stringify(formatted, null, 2);
+      }
+
+      // Check if it has a content field that might contain the structured data (legacy)
+      if ('content' in content && typeof content.content === 'object') {
+        const innerContent = content.content;
+        if ('tool_name' in innerContent || 'xml_tag_name' in innerContent) {
+          const formatted: any = {
+            tool: innerContent.tool_name || innerContent.xml_tag_name || 'unknown',
+          };
+
+          if (innerContent.parameters && Object.keys(innerContent.parameters).length > 0) {
+            formatted.parameters = innerContent.parameters;
+          }
+
+          if (innerContent.result) {
+            formatted.result = innerContent.result;
+          }
+
+          return JSON.stringify(formatted, null, 2);
+        }
+      }
+
+      // Fall back to old format handling
       if (content.content && typeof content.content === 'string') {
         return content.content;
       }
       return JSON.stringify(content, null, 2);
     }
+
     if (typeof content === 'string') {
       try {
         const parsedJson = JSON.parse(content);
@@ -63,7 +129,7 @@ export function GenericToolView({
   );
 
   return (
-    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
+    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -76,13 +142,13 @@ export function GenericToolView({
               </CardTitle>
             </div>
           </div>
-          
+
           {!isStreaming && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={
-                isSuccess 
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300" 
+                isSuccess
+                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
                   : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
             >
@@ -99,7 +165,7 @@ export function GenericToolView({
 
       <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
         {isStreaming ? (
-          <LoadingState 
+          <LoadingState
             icon={Wrench}
             iconColor="text-orange-500 dark:text-orange-400"
             bgColor="bg-gradient-to-b from-orange-100 to-orange-50 shadow-inner dark:from-orange-800/40 dark:to-orange-900/60 dark:shadow-orange-950/20"
@@ -157,7 +223,7 @@ export function GenericToolView({
           </div>
         )}
       </CardContent>
-      
+
       <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && (formattedAssistantContent || formattedToolContent) && (
@@ -167,7 +233,7 @@ export function GenericToolView({
             </Badge>
           )}
         </div>
-        
+
         <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5" />
           {toolTimestamp && !isStreaming

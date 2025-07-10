@@ -16,6 +16,16 @@ Suna's powerful toolkit includes seamless browser automation to navigate the web
 [![GitHub Repo stars](https://img.shields.io/github/stars/kortix-ai/suna)](https://github.com/kortix-ai/suna)
 [![Issues](https://img.shields.io/github/issues/kortix-ai/suna)](https://github.com/kortix-ai/suna/labels/bug)
 
+<!-- Keep these links. Translations will automatically update with the README. -->
+[Deutsch](https://www.readme-i18n.com/kortix-ai/suna?lang=de) | 
+[Español](https://www.readme-i18n.com/kortix-ai/suna?lang=es) | 
+[français](https://www.readme-i18n.com/kortix-ai/suna?lang=fr) | 
+[日本語](https://www.readme-i18n.com/kortix-ai/suna?lang=ja) | 
+[한국어](https://www.readme-i18n.com/kortix-ai/suna?lang=ko) | 
+[Português](https://www.readme-i18n.com/kortix-ai/suna?lang=pt) | 
+[Русский](https://www.readme-i18n.com/kortix-ai/suna?lang=ru) | 
+[中文](https://www.readme-i18n.com/kortix-ai/suna?lang=zh)
+
 </div>
 
 ## Table of Contents
@@ -80,15 +90,18 @@ Handles data persistence with authentication, user management, conversation hist
 
 ## Self-Hosting
 
-Suna can be self-hosted on your own infrastructure using our setup wizard. For a comprehensive guide to self-hosting Suna, please refer to our [Self-Hosting Guide](./docs/SELF-HOSTING.md).
+Suna can be self-hosted on your own infrastructure using our comprehensive setup wizard. For a complete guide to self-hosting Suna, please refer to our [Self-Hosting Guide](./docs/SELF-HOSTING.md).
 
 The setup process includes:
 
 - Setting up a Supabase project for database and authentication
 - Configuring Redis for caching and session management
 - Setting up Daytona for secure agent execution
-- Integrating with LLM providers (Anthropic, OpenAI, Groq, etc.)
-- Configuring web search and scraping capabilities
+- Integrating with LLM providers (Anthropic, OpenAI, OpenRouter, etc.)
+- Configuring web search and scraping capabilities (Tavily, Firecrawl)
+- Setting up QStash for background job processing and workflows
+- Configuring webhook handling for automated tasks
+- Optional integrations (RapidAPI, Smithery for custom agents)
 
 ### Quick Start
 
@@ -105,6 +118,8 @@ cd suna
 python setup.py
 ```
 
+The wizard will guide you through 14 steps with progress saving, so you can resume if interrupted.
+
 3. **Start or stop the containers**:
 
 ```bash
@@ -115,7 +130,7 @@ python start.py
 
 See the [Self-Hosting Guide](./docs/SELF-HOSTING.md) for detailed manual setup instructions.
 
-The wizard will guide you through all necessary steps to get your Suna instance up and running. For detailed instructions, troubleshooting tips, and advanced configuration options, see the [Self-Hosting Guide](./SELF-HOSTING.md).
+The wizard will guide you through all necessary steps to get your Suna instance up and running. For detailed instructions, troubleshooting tips, and advanced configuration options, see the [Self-Hosting Guide](./docs/SELF-HOSTING.md).
 
 ## Contributing
 
@@ -138,7 +153,9 @@ We welcome contributions from the community! Please see our [Contributing Guide]
 - [Anthropic](https://www.anthropic.com/) - LLM provider
 - [Tavily](https://tavily.com/) - Search capabilities
 - [Firecrawl](https://firecrawl.dev/) - Web scraping capabilities
+- [QStash](https://upstash.com/qstash) - Background job processing and workflows
 - [RapidAPI](https://rapidapi.com/) - API services
+- [Smithery](https://smithery.ai/) - Custom agent development
 
 ## License
 

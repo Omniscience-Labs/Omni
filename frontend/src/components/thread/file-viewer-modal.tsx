@@ -51,6 +51,7 @@ import {
   FileCache
 } from '@/hooks/react-query/files';
 import JSZip from 'jszip';
+import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 
 // Define API_URL
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -782,7 +783,14 @@ export function FileViewerModal({
         console.log(`[FILE VIEWER] Created blob URL: ${url} for ${selectedFilePath}`);
         setBlobUrlForRenderer(url);
         setTextContentForRenderer(null);
-      } else {
+      } else if (typeof cachedFileContent === 'object') {
+        // convert to json string if file_contents is a object
+        const jsonString = JSON.stringify(cachedFileContent, null, 2);
+        console.log(`[FILE VIEWER] Setting text content for object file: ${selectedFilePath}`);
+        setTextContentForRenderer(jsonString);
+        setBlobUrlForRenderer(null);
+      }
+      else {
         // Unknown content type
         console.warn(`[FILE VIEWER] Unknown content type for: ${selectedFilePath}`, typeof cachedFileContent);
         setTextContentForRenderer(null);
@@ -1121,6 +1129,8 @@ export function FileViewerModal({
     }
   }, []);
 
+
+
   // Process uploaded file - Define after helpers
   const processUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1130,9 +1140,15 @@ export function FileViewerModal({
       setIsUploading(true);
 
       try {
+        // Normalize filename to NFC
+        const normalizedName = normalizeFilenameToNFC(file.name);
+        const uploadPath = `${currentPath}/${normalizedName}`;
+
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('path', `${currentPath}/${file.name}`);
+        // If the filename was normalized, append with the normalized name in the field name
+        // The server will use the path parameter for the actual filename
+        formData.append('file', file, normalizedName);
+        formData.append('path', uploadPath);
 
         const supabase = createClient();
         const {
@@ -1162,7 +1178,7 @@ export function FileViewerModal({
         // Reload the file list using React Query
         await refetchFiles();
 
-        toast.success(`Uploaded: ${file.name}`);
+        toast.success(`Uploaded: ${normalizedName}`);
       } catch (error) {
         console.error('Upload failed:', error);
         toast.error(
@@ -1542,7 +1558,7 @@ export function FileViewerModal({
                     {files.map((file) => (
                       <button
                         key={file.path}
-                        className={`flex flex-col items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors ${selectedFilePath === file.path
+                        className={`flex flex-col items-center p-3 rounded-2xl border hover:bg-muted/50 transition-colors ${selectedFilePath === file.path
                           ? 'bg-muted border-primary/20'
                           : ''
                           }`}

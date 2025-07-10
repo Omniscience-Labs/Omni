@@ -30,8 +30,9 @@ import { safeJsonParse } from '@/components/thread/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { threadErrorCodeMessages } from '@/lib/constants/errorCodeMessages';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
+import { extractToolName } from '@/components/thread/tool-views/xml-parser';
 
-// Extend the base Message type with the expected database fields
 interface ApiMessageType extends BaseApiMessageType {
   message_id?: string;
   thread_id?: string;
@@ -39,9 +40,14 @@ interface ApiMessageType extends BaseApiMessageType {
   metadata?: string;
   created_at?: string;
   updated_at?: string;
+  agent_id?: string;
+  agents?: {
+    name: string;
+    avatar?: string;
+    avatar_color?: string;
+  };
 }
 
-// Add a simple interface for streaming tool calls
 interface StreamingToolCall {
   id?: string;
   name?: string;
@@ -71,7 +77,6 @@ export default function ThreadPage({
   const [currentToolIndex, setCurrentToolIndex] = useState<number>(0);
   const [autoOpenedPanel, setAutoOpenedPanel] = useState(false);
 
-  // Playback control states
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [streamingText, setStreamingText] = useState('');
@@ -187,7 +192,7 @@ export default function ThreadPage({
     (toolCall: StreamingToolCall | null) => {
       if (!toolCall) return;
 
-      // Normalize the tool name by replacing underscores with hyphens
+      // Normalize the tool name like the project thread page does
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
@@ -203,6 +208,7 @@ export default function ThreadPage({
       // Format the arguments in a way that matches the expected XML format for each tool
       // This ensures the specialized tool views render correctly
       let formattedContent = toolArguments;
+      
       if (
         toolName.includes('command') &&
         !toolArguments.includes('<execute-command>')
@@ -391,6 +397,8 @@ export default function ThreadPage({
               metadata: msg.metadata || '{}',
               created_at: msg.created_at || new Date().toISOString(),
               updated_at: msg.updated_at || new Date().toISOString(),
+              agent_id: (msg as any).agent_id,
+              agents: (msg as any).agents,
             }));
 
           setMessages(unifiedMessages);
@@ -423,17 +431,10 @@ export default function ThreadPage({
                     return assistantMsg.content;
                   }
                 })();
-
-                // Try to extract tool name from content
-                const xmlMatch = assistantContent.match(
-                  /<([a-zA-Z\-_]+)(?:\s+[^>]*)?>|<([a-zA-Z\-_]+)(?:\s+[^>]*)?\/>/,
-                );
-                if (xmlMatch) {
-                  // Normalize tool name: replace underscores with hyphens and lowercase
-                  const rawToolName = xmlMatch[1] || xmlMatch[2] || 'unknown';
-                  toolName = rawToolName.replace(/_/g, '-').toLowerCase();
+                const extractedToolName = extractToolName(assistantContent);
+                if (extractedToolName) {
+                  toolName = extractedToolName;
                 } else {
-                  // Fallback to checking for tool_calls JSON structure
                   const assistantContentParsed = safeJsonParse<{
                     tool_calls?: Array<{ function?: { name?: string }; name?: string }>;
                   }>(assistantMsg.content, {});
@@ -443,7 +444,6 @@ export default function ThreadPage({
                   ) {
                     const firstToolCall = assistantContentParsed.tool_calls[0];
                     const rawName = firstToolCall.function?.name || firstToolCall.name || 'unknown';
-                    // Normalize tool name here too
                     toolName = rawName.replace(/_/g, '-').toLowerCase();
                   }
                 }
@@ -451,7 +451,6 @@ export default function ThreadPage({
 
               let isSuccess = true;
               try {
-                // Parse tool result content
                 const toolResultContent = (() => {
                   try {
                     const parsed = safeJsonParse<{ content?: string }>(resultMessage.content, {});
@@ -460,15 +459,11 @@ export default function ThreadPage({
                     return resultMessage.content;
                   }
                 })();
-
-                // Check for ToolResult pattern first
                 if (toolResultContent && typeof toolResultContent === 'string') {
-                  // Look for ToolResult(success=True/False) pattern
                   const toolResultMatch = toolResultContent.match(/ToolResult\s*\(\s*success\s*=\s*(True|False|true|false)/i);
                   if (toolResultMatch) {
                     isSuccess = toolResultMatch[1].toLowerCase() === 'true';
                   } else {
-                    // Fallback: only check for error keywords if no ToolResult pattern found
                     const toolContent = toolResultContent.toLowerCase();
                     isSuccess = !(toolContent.includes('failed') ||
                       toolContent.includes('error') ||
@@ -480,19 +475,17 @@ export default function ThreadPage({
               historicalToolPairs.push({
                 assistantCall: {
                   name: toolName,
-                  content: assistantMsg.content,  // Store original content
+                  content: assistantMsg.content,
                   timestamp: assistantMsg.created_at,
                 },
                 toolResult: {
-                  content: resultMessage.content,  // Store original content
+                  content: resultMessage.content,
                   isSuccess: isSuccess,
                   timestamp: resultMessage.created_at,
                 },
               });
             }
           });
-
-          // Sort the tool calls chronologically by timestamp
           historicalToolPairs.sort((a, b) => {
             const timeA = new Date(a.assistantCall.timestamp || '').getTime();
             const timeB = new Date(b.assistantCall.timestamp || '').getTime();
@@ -500,8 +493,6 @@ export default function ThreadPage({
           });
 
           setToolCalls(historicalToolPairs);
-
-          // When loading is complete, prepare for playback
           initialLoadCompleted.current = true;
         }
       } catch (err) {
@@ -516,28 +507,17 @@ export default function ThreadPage({
         if (isMounted) setIsLoading(false);
       }
     }
-
     loadData();
-
     return () => {
       isMounted = false;
     };
   }, [threadId]);
 
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } =
-      messagesContainerRef.current;
-    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 100;
-    setShowScrollButton(isScrolledUp);
-    setUserHasScrolled(isScrolledUp);
-  };
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  // Handle tool clicks
   const handleToolClick = useCallback(
     (clickedAssistantMessageId: string | null, clickedToolName: string) => {
       if (!clickedAssistantMessageId) {
@@ -548,7 +528,6 @@ export default function ThreadPage({
         return;
       }
 
-      // Reset user closed state when explicitly clicking a tool
       userClosedPanelRef.current = false;
 
       console.log(
@@ -558,21 +537,16 @@ export default function ThreadPage({
         clickedToolName,
       );
 
-      // Find the index of the tool call associated with the clicked assistant message
       const toolIndex = toolCalls.findIndex((tc) => {
-        // Check if the assistant message ID matches the one stored in the tool result's metadata
         if (!tc.toolResult?.content || tc.toolResult.content === 'STREAMING')
-          return false; // Skip streaming or incomplete calls
+          return false;
 
-        // Find the original assistant message based on the ID
         const assistantMessage = messages.find(
           (m) =>
             m.message_id === clickedAssistantMessageId &&
             m.type === 'assistant',
         );
         if (!assistantMessage) return false;
-
-        // Find the corresponding tool message using metadata
         const toolMessage = messages.find((m) => {
           if (m.type !== 'tool' || !m.metadata) return false;
           try {
@@ -584,9 +558,6 @@ export default function ThreadPage({
             return false;
           }
         });
-
-        // Check if the current toolCall 'tc' corresponds to this assistant/tool message pair
-        // Compare the original content directly without parsing
         return (
           tc.assistantCall?.content === assistantMessage.content &&
           tc.toolResult?.content === toolMessage?.content
@@ -599,7 +570,7 @@ export default function ThreadPage({
         );
         setExternalNavIndex(toolIndex);
         setCurrentToolIndex(toolIndex);
-        setIsSidePanelOpen(true); // Explicitly open the panel
+        setIsSidePanelOpen(true);
 
         setTimeout(() => setExternalNavIndex(undefined), 100);
       } else {
@@ -621,7 +592,6 @@ export default function ThreadPage({
     setFileViewerOpen(true);
   }, []);
 
-  // Initialize PlaybackControls
   const playbackController: PlaybackController = PlaybackControls({
     messages,
     isSidePanelOpen,
@@ -632,7 +602,6 @@ export default function ThreadPage({
     projectName: projectName || 'Shared Conversation',
   });
 
-  // Extract the playback state and functions
   const {
     playbackState,
     renderHeader,
@@ -643,21 +612,17 @@ export default function ThreadPage({
     skipToEnd,
   } = playbackController;
 
-  // Connect playbackState to component state
   useEffect(() => {
-    // Keep the isPlaying state in sync with playbackState
     setIsPlaying(playbackState.isPlaying);
     setCurrentMessageIndex(playbackState.currentMessageIndex);
   }, [playbackState.isPlaying, playbackState.currentMessageIndex]);
 
-  // Auto-scroll when new messages appear during playback
   useEffect(() => {
     if (playbackState.visibleMessages.length > 0 && !userHasScrolled) {
       scrollToBottom('smooth');
     }
   }, [playbackState.visibleMessages, userHasScrolled]);
 
-  // Scroll button visibility
   useEffect(() => {
     if (!latestMessageRef.current || playbackState.visibleMessages.length === 0)
       return;
@@ -674,7 +639,6 @@ export default function ThreadPage({
       `[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`,
     );
 
-    // If the stream hook reports completion/stopping but our UI hasn't updated
     if (
       (streamHookStatus === 'completed' ||
         streamHookStatus === 'stopped' ||
@@ -691,7 +655,6 @@ export default function ThreadPage({
     }
   }, [agentStatus, streamHookStatus, agentRunId, currentHookRunId]);
 
-  // Auto-scroll function for use throughout the component
   const autoScrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
       if (!userHasScrolled && messagesEndRef.current) {
@@ -701,31 +664,21 @@ export default function ThreadPage({
     [userHasScrolled],
   );
 
-  // Very direct approach to update the tool index during message playback
   useEffect(() => {
     if (!isPlaying || currentMessageIndex <= 0 || !messages.length) return;
-
-    // Check if current message is a tool message
-    const currentMsg = messages[currentMessageIndex - 1]; // Look at previous message that just played
-
+    const currentMsg = messages[currentMessageIndex - 1];
     if (currentMsg?.type === 'tool' && currentMsg.metadata) {
       try {
         const metadata = safeJsonParse<ParsedMetadata>(currentMsg.metadata, {});
         const assistantId = metadata.assistant_message_id;
-
         if (assistantId) {
-          // Find the tool call that matches this assistant message
           const toolIndex = toolCalls.findIndex((tc) => {
-            // Find the assistant message
             const assistantMessage = messages.find(
               (m) => m.message_id === assistantId && m.type === 'assistant'
             );
             if (!assistantMessage) return false;
-
-            // Check if this tool call matches
             return tc.assistantCall?.content === assistantMessage.content;
           });
-
           if (toolIndex !== -1) {
             console.log(
               `Direct mapping: Setting tool index to ${toolIndex} for message ${assistantId}`,
@@ -739,28 +692,19 @@ export default function ThreadPage({
     }
   }, [currentMessageIndex, isPlaying, messages, toolCalls]);
 
-  // Force an explicit update to the tool panel based on the current message index
   useEffect(() => {
-    // Skip if not playing or no messages
     if (!isPlaying || messages.length === 0 || currentMessageIndex <= 0) return;
-
-    // Get all messages up to the current index
     const currentMessages = messages.slice(0, currentMessageIndex);
-
-    // Find the most recent tool message to determine which panel to show
     for (let i = currentMessages.length - 1; i >= 0; i--) {
       const msg = currentMessages[i];
       if (msg.type === 'tool' && msg.metadata) {
         try {
           const metadata = safeJsonParse<ParsedMetadata>(msg.metadata, {});
           const assistantId = metadata.assistant_message_id;
-
           if (assistantId) {
             console.log(
               `Looking for tool panel for assistant message ${assistantId}`,
             );
-
-            // Scan for matching tool call
             for (let j = 0; j < toolCalls.length; j++) {
               const content = toolCalls[j].assistantCall?.content || '';
               if (content.includes(assistantId)) {
@@ -779,14 +723,12 @@ export default function ThreadPage({
     }
   }, [currentMessageIndex, isPlaying, messages, toolCalls]);
 
-  // Loading skeleton UI
   if (isLoading && !initialLoadCompleted.current) {
     return (
       <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} showHeader={true} />
     );
   }
 
-  // Error state UI
   if (error) {
     return (
       <div className="flex h-screen">

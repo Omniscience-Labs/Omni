@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Menu } from 'lucide-react';
+import { Bot, Menu, Store, Plus, Zap, Key } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -12,7 +12,9 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarHeader,
+  SidebarMenuButton,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
@@ -25,6 +27,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
+import { useFeatureFlags } from '@/lib/feature-flags';
 
 export function SidebarLeft({
   ...props
@@ -41,7 +47,11 @@ export function SidebarLeft({
     avatar: '',
   });
 
-  // Fetch user data
+  const pathname = usePathname();
+  const { flags, loading: flagsLoading } = useFeatureFlags(['custom_agents', 'agent_marketplace']);
+  const customAgentsEnabled = flags.custom_agents;
+  const marketplaceEnabled = flags.agent_marketplace;
+  
   useEffect(() => {
     const fetchUserData = async () => {
       const supabase = createClient();
@@ -62,16 +72,11 @@ export function SidebarLeft({
     fetchUserData();
   }, []);
 
-  // Handle keyboard shortcuts (CMD+B) for consistency
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
         event.preventDefault();
-        // We'll handle this in the parent page component
-        // to ensure proper coordination between panels
         setOpen(!state.startsWith('expanded'));
-
-        // Broadcast a custom event to notify other components
         window.dispatchEvent(
           new CustomEvent('sidebar-left-toggled', {
             detail: { expanded: !state.startsWith('expanded') },
@@ -97,7 +102,6 @@ export function SidebarLeft({
           </Link>
           {state !== 'collapsed' && (
             <div className="ml-2 transition-all duration-200 ease-in-out whitespace-nowrap">
-              {/* <span className="font-semibold"> SUNA</span> */}
             </div>
           )}
           <div className="ml-auto flex items-center gap-2">
@@ -126,6 +130,54 @@ export function SidebarLeft({
         </div>
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+        <SidebarGroup>
+          <Link href="/dashboard">
+            <SidebarMenuButton className={cn({
+              'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
+            })}>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="flex items-center justify-between w-full">
+                New Task
+              </span>
+            </SidebarMenuButton>
+          </Link>
+          {!flagsLoading && marketplaceEnabled && (
+            <Link href="/marketplace">
+              <SidebarMenuButton className={cn({
+                'bg-accent text-accent-foreground font-medium': pathname === '/marketplace',
+              })}>
+                <Store className="h-4 w-4 mr-2" />
+                <span className="flex items-center justify-between w-full">
+                  Marketplace
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          )}
+          {!flagsLoading && customAgentsEnabled && (
+            <Link href="/agents">
+              <SidebarMenuButton className={cn({
+                'bg-accent text-accent-foreground font-medium': pathname === '/agents',
+              })}>
+                <Bot className="h-4 w-4 mr-2" />
+                <span className="flex items-center justify-between w-full">
+                Agents
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          )}
+          {!flagsLoading && customAgentsEnabled && (
+            <Link href="/settings/credentials">
+              <SidebarMenuButton className={cn({
+                'bg-accent text-accent-foreground font-medium': pathname === '/settings/credentials',
+              })}>
+                <Key className="h-4 w-4 mr-2" />
+                <span className="flex items-center justify-between w-full">
+                  Credentials
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          )}
+        </SidebarGroup>
         <NavAgents />
       </SidebarContent>
       {state !== 'collapsed' && (

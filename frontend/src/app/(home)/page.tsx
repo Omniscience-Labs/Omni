@@ -9,6 +9,7 @@ import { OpenSourceSection } from '@/components/home/sections/open-source-sectio
 import { PricingSection } from '@/components/home/sections/pricing-section';
 import { UseCasesSection } from '@/components/home/sections/use-cases-section';
 import { ModalProviders } from '@/providers/modal-providers';
+import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
 
 export default function Home() {
   return (
@@ -24,7 +25,12 @@ export default function Home() {
           {/* <FeatureSection /> */}
           {/* <GrowthSection /> */}
           <OpenSourceSection />
-          <PricingSection />
+          <div className='flex flex-col items-center px-4'>
+            <PricingSection />
+          </div>
+          <div className="pb-10 mx-auto">
+            <HeroVideoSection />
+          </div>
           {/* <TestimonialSection /> */}
           {/* <FAQSection /> */}
           <CTASection />

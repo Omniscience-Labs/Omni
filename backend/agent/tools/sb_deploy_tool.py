@@ -54,10 +54,14 @@ class SandboxDeployTool(SandboxToolsBase):
         2. You have a complete, ready-to-deploy directory 
         
         NOTE: If the same name is used, it will redeploy to the same project as before
-                -->
+        -->
 
-        <deploy name="my-site" directory_path="website">
-        </deploy>
+        <function_calls>
+        <invoke name="deploy">
+        <parameter name="name">my-site</parameter>
+        <parameter name="directory_path">website</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
     async def deploy(self, name: str, directory_path: str) -> ToolResult:
@@ -83,7 +87,7 @@ class SandboxDeployTool(SandboxToolsBase):
             
             # Verify the directory exists
             try:
-                dir_info = self.sandbox.fs.get_file_info(full_path)
+                dir_info = await self.sandbox.fs.get_file_info(full_path)
                 if not dir_info.is_dir:
                     return self.fail_response(f"'{directory_path}' is not a directory")
             except Exception as e:
@@ -103,7 +107,8 @@ class SandboxDeployTool(SandboxToolsBase):
                     npx wrangler pages deploy {full_path} --project-name {project_name}))'''
 
                 # Execute the command directly using the sandbox's process.exec method
-                response = self.sandbox.process.exec(deploy_cmd, timeout=300)
+                response = await self.sandbox.process.exec(f"/bin/sh -c \"{deploy_cmd}\"",
+                                 timeout=300)
                 
                 print(f"Deployment command output: {response.result}")
                 

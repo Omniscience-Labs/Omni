@@ -16,10 +16,9 @@ This guide provides detailed instructions for setting up and hosting your own in
 Suna consists of four main components:
 
 1. **Backend API** - Python/FastAPI service for REST endpoints, thread management, and LLM integration
-2. **Backend Worker** - Python/Dramatiq worker service for handling agent tasks
-3. **Frontend** - Next.js/React application providing the user interface
-4. **Agent Docker** - Isolated execution environment for each agent
-5. **Supabase Database** - Handles data persistence and authentication
+2. **Frontend** - Next.js/React application providing the user interface
+3. **Agent Docker** - Isolated execution environment for each agent
+4. **Supabase Database** - Handles data persistence and authentication
 
 ## Prerequisites
 
@@ -55,20 +54,27 @@ Obtain the following API keys:
 - **Agent Execution**:
   - [Daytona](https://app.daytona.io/) - For secure agent execution
 
+- **Background Job Processing**:
+  - [QStash](https://console.upstash.com/qstash) - For workflows, automated tasks, and webhook handling
+
 #### Optional
 
-- **RapidAPI** - For accessing additional API services (optional)
+- **RapidAPI** - For accessing additional API services (enables LinkedIn scraping and other tools)
+- **Smithery** - For custom agents and workflows ([Get API key](https://smithery.ai/))
 
 ### 3. Required Software
 
 Ensure the following tools are installed on your system:
 
-- **[Git](https://git-scm.com/downloads)**
 - **[Docker](https://docs.docker.com/get-docker/)**
-- **[Python 3.11](https://www.python.org/downloads/)**
-- **[Poetry](https://python-poetry.org/docs/#installation)**
-- **[Node.js & npm](https://nodejs.org/en/download/)**
 - **[Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)**
+- **[Git](https://git-scm.com/downloads)**
+- **[Python 3.11](https://www.python.org/downloads/)**
+
+For manual setup, you'll also need:
+
+- **[uv](https://docs.astral.sh/uv/)**
+- **[Node.js & npm](https://nodejs.org/en/download/)**
 
 ## Installation Steps
 
@@ -96,6 +102,8 @@ The wizard will:
 - Install dependencies
 - Start Suna using your preferred method
 
+The setup wizard has 14 steps and includes progress saving, so you can resume if interrupted.
+
 ### 3. Supabase Configuration
 
 During setup, you'll need to:
@@ -114,9 +122,18 @@ As part of the setup, you'll need to:
 
 1. Create a Daytona account
 2. Generate an API key
-3. Create a Docker image:
-   - Image name: `kortix/suna:0.1.2.8`
+3. Create a Snapshot:
+   - Name: `kortix/suna:0.1.3`
+   - Image name: `kortix/suna:0.1.3`
    - Entrypoint: `/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf`
+
+### 5. QStash Configuration
+
+QStash is required for background job processing, workflows, and webhook handling:
+
+1. Create an account at [Upstash Console](https://console.upstash.com/qstash)
+2. Get your QStash token and signing keys
+3. Configure a publicly accessible webhook base URL for workflow callbacks
 
 ## Manual Configuration
 
@@ -143,14 +160,11 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_SSL=false
 
-# RABBITMQ
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-
 # LLM Providers
 ANTHROPIC_API_KEY=your-anthropic-key
 OPENAI_API_KEY=your-openai-key
-MODEL_TO_USE=anthropic/claude-3-7-sonnet-latest
+OPENROUTER_API_KEY=your-openrouter-key
+MODEL_TO_USE=anthropic/claude-sonnet-4-20250514
 
 # WEB SEARCH
 TAVILY_API_KEY=your-tavily-key
@@ -163,6 +177,20 @@ FIRECRAWL_URL=https://api.firecrawl.dev
 DAYTONA_API_KEY=your-daytona-key
 DAYTONA_SERVER_URL=https://app.daytona.io/api
 DAYTONA_TARGET=us
+
+# Background job processing (Required)
+QSTASH_URL=https://qstash.upstash.io
+QSTASH_TOKEN=your-qstash-token
+QSTASH_CURRENT_SIGNING_KEY=your-current-signing-key
+QSTASH_NEXT_SIGNING_KEY=your-next-signing-key
+WEBHOOK_BASE_URL=https://yourdomain.com
+
+# MCP Configuration
+MCP_CREDENTIAL_ENCRYPTION_KEY=your-generated-encryption-key
+
+# Optional APIs
+RAPID_API_KEY=your-rapidapi-key
+SMITHERY_API_KEY=your-smithery-key
 
 NEXT_PUBLIC_URL=http://localhost:3000
 ```
@@ -179,8 +207,9 @@ Example configuration:
 ```sh
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_BACKEND_URL=http://backend:8000/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000/api
 NEXT_PUBLIC_URL=http://localhost:3000
+NEXT_PUBLIC_ENV_MODE=LOCAL
 ```
 
 ## Post-Installation Steps
@@ -208,10 +237,12 @@ python start.py # Use the same to stop it later
 
 This method requires you to start each component separately:
 
-1. Start Redis and RabbitMQ (required for backend):
+1. Start Redis (required for backend):
 
 ```bash
-docker compose up redis rabbitmq -d
+docker compose up redis -d
+# or
+python start.py # Use the same to stop it later
 ```
 
 2. Start the frontend (in one terminal):
@@ -225,14 +256,7 @@ npm run dev
 
 ```bash
 cd backend
-poetry run python3.11 api.py
-```
-
-4. Start the worker (in one more terminal):
-
-```bash
-cd backend
-poetry run python3.11 -m dramatiq run_agent_background
+uv run api.py
 ```
 
 ## Troubleshooting
@@ -256,8 +280,20 @@ poetry run python3.11 -m dramatiq run_agent_background
    - Check for API usage limits or restrictions
 
 4. **Daytona connection issues**
+
    - Verify Daytona API key
    - Check if the container image is correctly configured
+
+5. **QStash/Webhook issues**
+
+   - Verify QStash token and signing keys
+   - Ensure webhook base URL is publicly accessible
+   - Check QStash console for delivery status
+
+6. **Setup wizard issues**
+
+   - Delete `.setup_progress` file to reset the setup wizard
+   - Check that all required tools are installed and accessible
 
 ### Logs
 
@@ -269,16 +305,22 @@ docker compose logs -f
 
 # Frontend logs (manual setup)
 cd frontend
-npm run dev
+npm run dev -- --turbopack
 
 # Backend logs (manual setup)
 cd backend
-poetry run python3.11 api.py
-
-# Worker logs (manual setup)
-cd backend
-poetry run python3.11 -m dramatiq run_agent_background
+uv run api.py
 ```
+
+### Resuming Setup
+
+If the setup wizard is interrupted, you can resume from where you left off by running:
+
+```bash
+python setup.py
+```
+
+The wizard will detect your progress and continue from the last completed step.
 
 ---
 

@@ -77,12 +77,18 @@ export function SidebarSearch() {
       const project = projectsById.get(projectId);
       if (!project) continue;
 
+      // Check if this is a workflow thread and use the workflow name if available
+      let displayName = project.name || 'Unnamed Project';
+      if (thread.metadata?.is_workflow_execution && thread.metadata?.workflow_run_name) {
+        displayName = thread.metadata.workflow_run_name;
+      }
+
       // Add to our list
       threadsWithProjects.push({
         threadId: thread.thread_id,
         projectId: projectId,
-        projectName: project.name || 'Unnamed Project',
-        url: `/agents/${thread.thread_id}`,
+        projectName: displayName,
+        url: `/projects/${projectId}/thread/${thread.thread_id}`,
         updatedAt:
           thread.updated_at || project.updated_at || new Date().toISOString(),
       });

@@ -49,6 +49,15 @@ class Configuration:
     STRIPE_TIER_125_800_ID_PROD: str = 'price_1RILb3G6l1KZGqIrbJA766tN'
     STRIPE_TIER_200_1000_ID_PROD: str = 'price_1RILb3G6l1KZGqIrmauYPOiN'
     
+    # Yearly subscription tier IDs - Production (15% discount)
+    STRIPE_TIER_2_20_YEARLY_ID_PROD: str = 'price_1ReHB5G6l1KZGqIrD70I1xqM'
+    STRIPE_TIER_6_50_YEARLY_ID_PROD: str = 'price_1ReHAsG6l1KZGqIrlAog487C'
+    STRIPE_TIER_12_100_YEARLY_ID_PROD: str = 'price_1ReHAWG6l1KZGqIrBHer2PQc'
+    STRIPE_TIER_25_200_YEARLY_ID_PROD: str = 'price_1ReH9uG6l1KZGqIrsvMLHViC'
+    STRIPE_TIER_50_400_YEARLY_ID_PROD: str = 'price_1ReH9fG6l1KZGqIrsPtu5KIA'
+    STRIPE_TIER_125_800_YEARLY_ID_PROD: str = 'price_1ReH9GG6l1KZGqIrfgqaJyat'
+    STRIPE_TIER_200_1000_YEARLY_ID_PROD: str = 'price_1ReH8qG6l1KZGqIrK1akY90q'
+    
     # Subscription tier IDs - Staging
     STRIPE_FREE_TIER_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrw14abxeL'
     STRIPE_TIER_2_20_ID_STAGING: str = 'price_1RIGvuG6l1KZGqIrCRu0E4Gi'
@@ -58,6 +67,15 @@ class Configuration:
     STRIPE_TIER_50_400_ID_STAGING: str = 'price_1RIKNgG6l1KZGqIrvsat5PW7'
     STRIPE_TIER_125_800_ID_STAGING: str = 'price_1RIKNrG6l1KZGqIrjKT0yGvI'
     STRIPE_TIER_200_1000_ID_STAGING: str = 'price_1RIKQ2G6l1KZGqIrum9n8SI7'
+    
+    # Yearly subscription tier IDs - Staging (15% discount)
+    STRIPE_TIER_2_20_YEARLY_ID_STAGING: str = 'price_1ReGogG6l1KZGqIrEyBTmtPk'
+    STRIPE_TIER_6_50_YEARLY_ID_STAGING: str = 'price_1ReGoJG6l1KZGqIr0DJWtoOc'
+    STRIPE_TIER_12_100_YEARLY_ID_STAGING: str = 'price_1ReGnZG6l1KZGqIr0ThLEl5S'
+    STRIPE_TIER_25_200_YEARLY_ID_STAGING: str = 'price_1ReGmzG6l1KZGqIre31mqoEJ'
+    STRIPE_TIER_50_400_YEARLY_ID_STAGING: str = 'price_1ReGmgG6l1KZGqIrn5nBc7e5'
+    STRIPE_TIER_125_800_YEARLY_ID_STAGING: str = 'price_1ReGmMG6l1KZGqIrvE2ycrAX'
+    STRIPE_TIER_200_1000_YEARLY_ID_STAGING: str = 'price_1ReGlXG6l1KZGqIrlgurP5GU'
     
     # Computed subscription tier IDs based on environment
     @property
@@ -108,8 +126,51 @@ class Configuration:
             return self.STRIPE_TIER_200_1000_ID_STAGING
         return self.STRIPE_TIER_200_1000_ID_PROD
     
+    # Yearly tier computed properties
+    @property
+    def STRIPE_TIER_2_20_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_2_20_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_2_20_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_6_50_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_6_50_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_6_50_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_12_100_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_12_100_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_12_100_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_25_200_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_25_200_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_25_200_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_50_400_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_50_400_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_50_400_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_125_800_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_125_800_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_125_800_YEARLY_ID_PROD
+    
+    @property
+    def STRIPE_TIER_200_1000_YEARLY_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_TIER_200_1000_YEARLY_ID_STAGING
+        return self.STRIPE_TIER_200_1000_YEARLY_ID_PROD
+    
     # LLM API keys
-    ANTHROPIC_API_KEY: str = None
+    ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
@@ -123,7 +184,7 @@ class Configuration:
     AWS_REGION_NAME: Optional[str] = None
     
     # Model configuration
-    MODEL_TO_USE: Optional[str] = "anthropic/claude-3-7-sonnet-latest"
+    MODEL_TO_USE: Optional[str] = "anthropic/claude-sonnet-4-20250514"
     
     # Supabase configuration
     SUPABASE_URL: str
@@ -133,7 +194,7 @@ class Configuration:
     # Redis configuration
     REDIS_HOST: str
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: str
+    REDIS_PASSWORD: Optional[str] = None
     REDIS_SSL: bool = True
     
     # Daytona sandbox configuration
@@ -159,7 +220,7 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.2.8"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration
@@ -167,6 +228,9 @@ class Configuration:
     LANGFUSE_SECRET_KEY: Optional[str] = None
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
 
+    # Admin API key for server-side operations
+    ADMIN_API_KEY: Optional[str] = None
+    
     @property
     def STRIPE_PRODUCT_ID(self) -> str:
         if self.ENV_MODE == EnvMode.STAGING:
