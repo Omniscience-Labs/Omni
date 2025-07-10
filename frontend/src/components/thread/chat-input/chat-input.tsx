@@ -121,13 +121,53 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 
-    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const hasLoadedFromLocalStorage = useRef(false);
 
     useImperativeHandle(ref, () => ({
       getPendingFiles: () => pendingFiles,
       clearPendingFiles: () => setPendingFiles([]),
     }));
+
+    // Load saved agent from localStorage on mount
+    useEffect(() => {
+      if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current) {
+        // Don't load from localStorage if an agent is already selected
+        // or if there are URL parameters that might be setting the agent
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasAgentIdInUrl = urlParams.has('agent_id');
+        
+        if (!selectedAgentId && !hasAgentIdInUrl) {
+          const savedAgentId = localStorage.getItem('lastSelectedAgentId');
+          if (savedAgentId) {
+            // Convert 'suna' back to undefined for the default agent
+            const agentIdToSelect = savedAgentId === 'suna' ? undefined : savedAgentId;
+            console.log('Loading saved agent from localStorage:', savedAgentId);
+            onAgentSelect(agentIdToSelect);
+          } else {
+            console.log('No saved agent found in localStorage');
+          }
+        } else {
+          console.log('Skipping localStorage load:', {
+            hasSelectedAgent: !!selectedAgentId,
+            hasAgentIdInUrl,
+            selectedAgentId
+          });
+        }
+        hasLoadedFromLocalStorage.current = true;
+      }
+    }, [onAgentSelect, selectedAgentId]); // Keep selectedAgentId to check current state
+
+    // Save selected agent to localStorage whenever it changes
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        // Use 'suna' as a special key for the default agent (undefined)
+        const keyToStore = selectedAgentId === undefined ? 'suna' : selectedAgentId;
+        console.log('Saving selected agent to localStorage:', keyToStore);
+        localStorage.setItem('lastSelectedAgentId', keyToStore);
+      }
+    }, [selectedAgentId]);
 
     useEffect(() => {
       if (autoFocus && textareaRef.current) {

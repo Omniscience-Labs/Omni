@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 
 // Import hooks and components from existing pages
-import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useCreateAgent } from '@/hooks/react-query/agents/use-agents';
+import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
 import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useCreateCredentialProfile, type CreateCredentialProfileRequest } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { useMCPServerDetails } from '@/hooks/react-query/mcp/use-mcp-servers';
@@ -108,13 +108,7 @@ interface MissingProfile {
   required_config: string[];
 }
 
-interface AgentPreviewSheetProps {
-  item: MarketplaceTemplate | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onInstall: (item: MarketplaceTemplate) => void;
-  isInstalling: boolean;
-}
+
 
 interface InstallDialogProps {
   item: MarketplaceTemplate | null;
@@ -124,158 +118,7 @@ interface InstallDialogProps {
   isInstalling: boolean;
 }
 
-const AgentPreviewSheet: React.FC<AgentPreviewSheetProps> = ({
-  item,
-  open,
-  onOpenChange,
-  onInstall,
-  isInstalling
-}) => {
-  if (!item) return null;
 
-  const { avatar, color } = item.avatar && item.avatar_color 
-    ? { avatar: item.avatar, color: item.avatar_color }
-    : getAgentAvatar(item.id);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader className="space-y-4">
-          <div className="flex items-start gap-4">
-            <div 
-              className="h-16 w-16 flex items-center justify-center rounded-xl shrink-0"
-              style={{ backgroundColor: color }}
-            >
-              <div className="text-3xl">{avatar}</div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <SheetTitle className="text-xl font-semibold line-clamp-2">
-                  {item.name}
-                </SheetTitle>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  <span>{item.creator_name}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Download className="h-4 w-4" />
-                  <span>{item.download_count} downloads</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <Button
-            onClick={() => onInstall(item)}
-            disabled={isInstalling}
-            size='sm'
-            className='w-48'
-          >
-            {isInstalling ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Installing...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4" />
-                Add to Library
-              </>
-            )}
-          </Button>
-        </SheetHeader>
-        <div className="px-4 space-y-6 py-6">
-          <div className="space-y-2">
-            <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
-              Description
-            </h3>
-            <p className="text-sm leading-relaxed">
-              {item.description || 'No description available for this agent.'}
-            </p>
-          </div>
-
-          {item.tags && item.tags.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {item.tags.map(tag => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    <Tags className="h-3 w-3 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          {item.mcp_requirements && item.mcp_requirements.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
-                Required Tools & MCPs
-              </h3>
-              <div className="space-y-2">
-                {item.mcp_requirements.map((mcp, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted-foreground/10 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                        <Wrench className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{mcp.display_name}</div>
-                        {mcp.enabled_tools && mcp.enabled_tools.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {mcp.enabled_tools.length} tool{mcp.enabled_tools.length !== 1 ? 's' : ''}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {mcp.custom_type && (
-                      <Badge variant="outline" className="text-xs">
-                        {mcp.custom_type.toUpperCase()}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {item.metadata?.source_version_name && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                Version
-              </h3>
-              <div className="flex items-center gap-2">
-                <GitBranch className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{item.metadata.source_version_name}</span>
-              </div>
-            </div>
-          )}
-          {item.marketplace_published_at && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
-                Published
-              </h3>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{formatDate(item.marketplace_published_at)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-};
 
 const InstallDialog: React.FC<InstallDialogProps> = ({ 
   item, 
@@ -939,7 +782,6 @@ export default function AgentsPage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [showPreviewSheet, setShowPreviewSheet] = useState(false);
 
   // Templates state
   const [templatesActioningId, setTemplatesActioningId] = useState<string | null>(null);
@@ -987,7 +829,7 @@ export default function AgentsPage() {
   
   const updateAgentMutation = useUpdateAgent();
   const deleteAgentMutation = useDeleteAgent();
-  const createAgentMutation = useCreateAgent();
+  const createNewAgentMutation = useCreateNewAgent();
   const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
   const installTemplateMutation = useInstallTemplate();
   const unpublishMutation = useUnpublishTemplate();
@@ -1138,44 +980,11 @@ export default function AgentsPage() {
     setEditDialogOpen(true);
   };
 
-  const handleCreateNewAgent = async () => {
-    try {
-      const { avatar, avatar_color } = generateRandomAvatar();
-      
-      const defaultAgentData = {
-        name: 'New Agent',
-        description: 'A newly created agent',
-        system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
-        avatar,
-        avatar_color,
-        configured_mcps: [],
-        agentpress_tools: Object.fromEntries(
-          Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
-            key, 
-            { enabled: value.enabled, description: value.description }
-          ])
-        ),
-        is_default: false,
-      };
-
-      const newAgent = await createAgentMutation.mutateAsync(defaultAgentData);
-      router.push(`/agents/config/${newAgent.agent_id}`);
-    } catch (error) {
-      console.error('Error creating agent:', error);
-    }
+  const handleCreateNewAgent = () => {
+    createNewAgentMutation.mutate();
   };
 
   // Marketplace handlers
-  const handleItemClick = (item: MarketplaceTemplate) => {
-    setSelectedItem(item);
-    setShowPreviewSheet(true);
-  };
-
-  const handlePreviewInstall = (item: MarketplaceTemplate) => {
-    setShowPreviewSheet(false);
-    setShowInstallDialog(true);
-  };
-
   const handleInstallClick = (item: MarketplaceTemplate, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -1288,13 +1097,6 @@ export default function AgentsPage() {
     }
   };
 
-  const handleTagFilter = (tag: string) => {
-    setMarketplaceSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
-  };
 
   const getItemStyling = (item: MarketplaceTemplate) => {
     if (item.avatar && item.avatar_color) {
@@ -1560,7 +1362,7 @@ export default function AgentsPage() {
                           <div 
                             key={item.id} 
                             className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
-                            onClick={() => handleItemClick(item)}
+                            onClick={() => handleInstallClick(item)}
                           >
                             <div className="p-4">
                               <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
@@ -1658,7 +1460,7 @@ export default function AgentsPage() {
                           <div 
                             key={item.id} 
                             className="bg-neutral-100 dark:bg-sidebar border border-border rounded-2xl overflow-hidden hover:bg-muted/50 transition-all duration-200 cursor-pointer group flex flex-col h-full"
-                            onClick={() => handleItemClick(item)}
+                            onClick={() => handleInstallClick(item)}
                           >
                             <div className="p-4">
                               <div className={`h-12 w-12 flex items-center justify-center rounded-lg`} style={{ backgroundColor: color }}>
@@ -1975,13 +1777,6 @@ export default function AgentsPage() {
         </Dialog>
 
         {/* Marketplace Dialogs */}
-        <AgentPreviewSheet
-          item={selectedItem}
-          open={showPreviewSheet}
-          onOpenChange={setShowPreviewSheet}
-          onInstall={handlePreviewInstall}
-          isInstalling={installingItemId === selectedItem?.id}
-        />
         <InstallDialog
           item={selectedItem}
           open={showInstallDialog}

@@ -93,18 +93,30 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       )}
       
       {configuredMCPs.length > 0 && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h4 className="text-sm font-medium text-foreground">
-              Configured Integrations
-            </h4>
+        <div className="space-y-4">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-muted/30">
+              <h4 className="text-sm font-medium text-foreground">
+                Configured Integrations
+              </h4>
+            </div>
+            <div className="p-2 divide-y divide-border">
+              <ConfiguredMcpList
+                configuredMCPs={configuredMCPs}
+                onEdit={handleEditMCP}
+                onRemove={handleRemoveMCP}
+              />
+            </div>
           </div>
-          <div className="p-2 divide-y divide-border">
-            <ConfiguredMcpList
-              configuredMCPs={configuredMCPs}
-              onEdit={handleEditMCP}
-              onRemove={handleRemoveMCP}
-            />
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => setShowRegistryDialog(true)} variant="default">
+              <Store className="h-4 w-4 mr-2" />
+              Browse Apps
+            </Button>
+            <Button onClick={() => setShowCustomDialog(true)} variant="outline">
+              <Server className="h-4 w-4 mr-2" />
+              Custom MCP
+            </Button>
           </div>
         </div>
       )}

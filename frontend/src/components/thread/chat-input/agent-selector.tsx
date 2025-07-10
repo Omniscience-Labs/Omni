@@ -17,8 +17,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAgents } from '@/hooks/react-query/agents/use-agents';
-import { ChatSettingsDialog } from './chat-settings-dialog';
+import { useAgents, useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
+
 import { useRouter } from 'next/navigation';
 import { cn, truncateString } from '@/lib/utils';
 
@@ -47,38 +47,26 @@ const PREDEFINED_AGENTS: PredefinedAgent[] = [
   // }
 ];
 
-interface ChatSettingsDropdownProps {
+interface AgentSelectorProps {
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
-  selectedModel: string;
-  onModelChange: (model: string) => void;
-  modelOptions: any[];
-  subscriptionStatus: any;
-  canAccessModel: (modelId: string) => boolean;
-  refreshCustomModels?: () => void;
   disabled?: boolean;
 }
 
-export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
+export const AgentSelector: React.FC<AgentSelectorProps> = ({
   selectedAgentId,
   onAgentSelect,
-  selectedModel,
-  onModelChange,
-  modelOptions,
-  subscriptionStatus,
-  canAccessModel,
-  refreshCustomModels,
   disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const { data: agentsResponse, isLoading: agentsLoading } = useAgents();
   const agents = agentsResponse?.agents || [];
+  const createNewAgentMutation = useCreateNewAgent();
 
   // Combine all agents
   const allAgents = [
@@ -120,19 +108,31 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
 
   const getAgentDisplay = () => {
     const selectedAgent = allAgents.find(agent => agent.id === selectedAgentId);
+    
     if (selectedAgent) {
+      console.log('Selected agent found:', selectedAgent.name, 'with ID:', selectedAgent.id);
       return {
         name: selectedAgent.name,
         icon: selectedAgent.icon
       };
     }
+    
+    // If selectedAgentId is not undefined but no agent is found, log a warning
+    if (selectedAgentId !== undefined) {
+      console.warn('Agent with ID', selectedAgentId, 'not found, falling back to Suna');
+    }
+    
+    // Default to Suna (the first agent which has id: undefined)
+    const defaultAgent = allAgents[0];
+    console.log('Using default agent:', defaultAgent.name);
     return {
-      name: 'Suna',
-      icon: <Image src="/kortix-symbol.svg" alt="Suna" width={16} height={16} className="h-4 w-4 dark:invert" />
+      name: defaultAgent.name,
+      icon: defaultAgent.icon
     };
   };
 
   const handleAgentSelect = (agentId: string | undefined) => {
+    console.log('Agent selected:', agentId === undefined ? 'Suna (default)' : agentId);
     onAgentSelect?.(agentId);
     setIsOpen(false);
   };
@@ -169,9 +169,9 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
     router.push('/agents');
   };
 
-  const handleMoreOptions = () => {
+  const handleCreateAgent = () => {
     setIsOpen(false);
-    setDialogOpen(true);
+    createNewAgentMutation.mutate();
   };
 
   const renderAgentItem = (agent: any, index: number) => {
@@ -325,42 +325,33 @@ export const ChatSettingsDropdown: React.FC<ChatSettingsDropdownProps> = ({
 
           {/* Footer Actions */}
           <div className="p-4 pt-3 border-t border-border/40">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-center gap-3">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleExploreAll}
-                className="text-xs flex items-center gap-1.5 rounded-lg hover:bg-accent/30 transition-colors duration-200 border-border/50"
+                className="text-xs flex items-center gap-2 rounded-xl hover:bg-accent/40 transition-all duration-200 text-muted-foreground hover:text-foreground px-4 py-2"
               >
-                <Search className="h-3 w-3" />
-                Explore All
+                <Search className="h-3.5 w-3.5" />
+                Explore All Agents
               </Button>
 
+              <div className="w-px h-4 bg-border/60" />
+
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={handleMoreOptions}
-                className="text-xs flex items-center gap-1.5 rounded-lg hover:bg-accent/30 transition-colors duration-200 border-border/50"
+                onClick={handleCreateAgent}
+                className="text-xs flex items-center gap-2 rounded-xl hover:bg-accent/40 transition-all duration-200 text-muted-foreground hover:text-foreground px-4 py-2"
               >
-                <Settings className="h-3 w-3" />
-                More Options
-                <ChevronRight className="h-2.5 w-2.5" />
+                <Plus className="h-3.5 w-3.5" />
+                Create Agent
               </Button>
             </div>
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ChatSettingsDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        selectedModel={selectedModel}
-        onModelChange={onModelChange}
-        modelOptions={modelOptions}
-        subscriptionStatus={subscriptionStatus}
-        canAccessModel={canAccessModel}
-        refreshCustomModels={refreshCustomModels}
-      />
     </>
   );
 }; 

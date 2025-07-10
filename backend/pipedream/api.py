@@ -377,7 +377,7 @@ async def get_pipedream_apps(
             
             data = response.json()
             
-            print(data)
+            # print(data)
 
             logger.info(f"Successfully fetched {len(data.get('data', []))} apps from Pipedream registry")
             return {

@@ -10,6 +10,7 @@ import { AgentTriggersConfiguration } from './triggers/agent-triggers-configurat
 import { AgentWorkflowsConfiguration } from './workflows/agent-workflows-configuration';
 import { AgentKnowledgeBaseManager } from './knowledge-base/agent-knowledge-base-manager';
 import { AgentToolsConfiguration } from './agent-tools-configuration';
+import { AgentSelector } from '../thread/chat-input/agent-selector';
 import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,9 +43,12 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
   const updateAgentMutation = useUpdateAgent();
   const router = useRouter();
 
-  const handleAgentSelect = (agentId: string | undefined) => {
-    onAgentSelect?.(agentId);
-  };
+  // Update active tab when initialTab changes or modal opens
+  React.useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
 
   // Update local state when agent data changes
   React.useEffect(() => {
@@ -108,19 +112,10 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0 pb-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <Settings2 className="h-5 w-5" />
-                Agent Configuration
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5" />
+              Agent Configuration
+            </DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-hidden flex flex-col">
@@ -128,11 +123,10 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
             <div className="flex-shrink-0 border-b pb-4 mb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {/* <AgentSelector
-                    selectedAgentId={selectedAgentId}
-                    onAgentSelect={handleAgentSelect}
-                    className="min-w-[250px]"
-                  /> */}
+                                      <AgentSelector
+                      selectedAgentId={selectedAgentId}
+                      onAgentSelect={onAgentSelect}
+                    />
                 </div>
                                  {selectedAgentId && (
                    <div className="flex items-center gap-2">

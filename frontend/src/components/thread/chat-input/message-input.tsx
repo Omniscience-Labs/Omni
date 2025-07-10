@@ -7,7 +7,7 @@ import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
 import { VoiceRecorder } from './voice-recorder';
 import { ModelSelector } from './model-selector';
-import { ChatSettingsDropdown } from './chat-settings-dropdown';
+import { AgentSelector } from './agent-selector';
 import { canAccessModel, SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
 import { useFeatureFlag } from '@/lib/feature-flags';
@@ -131,41 +131,29 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
     const renderDropdown = () => {
       if (isLoggedIn) {
-        if (hideAgentSelection) {
-          return <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-            modelOptions={modelOptions}
-            subscriptionStatus={subscriptionStatus}
-            canAccessModel={canAccessModel}
-            refreshCustomModels={refreshCustomModels}
-            billingModalOpen={billingModalOpen}
-            setBillingModalOpen={setBillingModalOpen}
-          />
-        } else if (enableAdvancedConfig || (customAgentsEnabled && !flagsLoading)) {
-          return <ChatSettingsDropdown
-            selectedAgentId={selectedAgentId}
-            onAgentSelect={onAgentSelect}
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-            modelOptions={modelOptions}
-            subscriptionStatus={subscriptionStatus}
-            canAccessModel={canAccessModel}
-            refreshCustomModels={refreshCustomModels}
-            disabled={loading || (disabled && !isAgentRunning)}
-          />
-        } else {
-          return <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-            modelOptions={modelOptions}
-            subscriptionStatus={subscriptionStatus}
-            canAccessModel={canAccessModel}
-            refreshCustomModels={refreshCustomModels}
-            billingModalOpen={billingModalOpen}
-            setBillingModalOpen={setBillingModalOpen}
-          />
-        }
+        const showAdvancedFeatures = enableAdvancedConfig || (customAgentsEnabled && !flagsLoading);
+        
+        return (
+          <div className="flex items-center gap-2">
+            {showAdvancedFeatures && !hideAgentSelection && (
+              <AgentSelector
+                selectedAgentId={selectedAgentId}
+                onAgentSelect={onAgentSelect}
+                disabled={loading || (disabled && !isAgentRunning)}
+              />
+            )}
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+              modelOptions={modelOptions}
+              subscriptionStatus={subscriptionStatus}
+              canAccessModel={canAccessModel}
+              refreshCustomModels={refreshCustomModels}
+              billingModalOpen={billingModalOpen}
+              setBillingModalOpen={setBillingModalOpen}
+            />
+          </div>
+        );
       }
       return <ChatDropdown />;
     }

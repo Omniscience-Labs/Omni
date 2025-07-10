@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useTranscription } from '@/hooks/react-query/transcription/use-transcription';
 
 interface VoiceRecorderProps {
@@ -136,11 +142,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     const getButtonClass = () => {
         switch (state) {
             case 'recording':
-                return 'text-red-500 hover:bg-red-600';
+                return 'text-red-500 hover:bg-red-50 hover:text-red-600';
             case 'processing':
-                return 'hover:bg-gray-100';
+                return '';
             default:
-                return 'hover:bg-gray-100';
+                return '';
         }
     };
 
@@ -156,17 +162,32 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     };
 
     return (
-        <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleClick}
-            onContextMenu={handleRightClick}
-            disabled={disabled || state === 'processing'}
-            className={`h-8 w-8 p-0 transition-colors ${getButtonClass()}`}
-            title={state === 'recording' ? 'Click to stop' : 'Click to start recording'}
-        >
-            {getIcon()}
-        </Button>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClick}
+                        onContextMenu={handleRightClick}
+                        disabled={disabled || state === 'processing'}
+                        className={`h-8 px-2 py-2 bg-transparent border-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-2 transition-colors ${getButtonClass()}`}
+                    >
+                        {getIcon()}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                    <p>
+                        {state === 'recording' 
+                            ? 'Click to stop recording' 
+                            : state === 'processing' 
+                                ? 'Processing...' 
+                                : 'Record voice message'
+                        }
+                    </p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     );
 }; 
