@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Textarea } from "./textarea";
 import { Input } from "./input";
 import { Button } from "../home/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, truncateString } from "@/lib/utils";
 import { Edit2 } from "lucide-react";
 
 interface EditableTextProps {
@@ -60,7 +60,7 @@ export const EditableText: React.FC<EditableTextProps> = ({
             onBlur={handleSave}
             autoFocus
             className={cn(
-              'border-none shadow-none px-0 focus-visible:ring-0 bg-transparent',
+              'text-sm border-none shadow-none px-0 focus-visible:ring-0 bg-transparent',
               multiline ? 'resize-none' : '',
               multiline && minHeight ? `min-h-[${minHeight}]` : '',
               className
@@ -88,7 +88,7 @@ export const EditableText: React.FC<EditableTextProps> = ({
           value ? '' : 'text-muted-foreground italic',
           multiline && minHeight ? `min-h-[${minHeight}]` : ''
         )} style={multiline && minHeight ? { minHeight } : {}}>
-          {value || placeholder}
+          {truncateString(value, 50) || placeholder}
         </div>
         <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-50 absolute top-1 right-1 transition-opacity" />
       </div>

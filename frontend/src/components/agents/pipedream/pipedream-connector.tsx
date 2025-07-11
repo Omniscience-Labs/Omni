@@ -39,7 +39,7 @@ interface PipedreamConnectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
-  mode?: 'full' | 'profile-only'; // Add mode prop
+  mode?: 'full' | 'profile-only';
 }
 
 interface PipedreamTool {

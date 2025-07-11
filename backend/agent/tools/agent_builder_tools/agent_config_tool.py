@@ -4,6 +4,7 @@ from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
+from agent.config_helper import build_unified_config
 
 
 class AgentConfigTool(AgentBuilderBaseTool):
@@ -107,6 +108,12 @@ class AgentConfigTool(AgentBuilderBaseTool):
         try:
             client = await self.db.client
             
+            agent_result = await client.table('agents').select('*').eq('agent_id', self.agent_id).execute()
+            if not agent_result.data:
+                return self.fail_response("Agent not found")
+            
+            current_agent = agent_result.data[0]
+            
             update_data = {}
             if name is not None:
                 update_data["name"] = name
@@ -134,6 +141,27 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 
             if not update_data:
                 return self.fail_response("No fields provided to update")
+            
+            current_system_prompt = system_prompt if system_prompt is not None else current_agent.get('system_prompt', '')
+            current_agentpress_tools = update_data.get('agentpress_tools', current_agent.get('agentpress_tools', {}))
+            current_configured_mcps = configured_mcps if configured_mcps is not None else current_agent.get('configured_mcps', [])
+            current_custom_mcps = current_agent.get('custom_mcps', [])  # Preserve custom MCPs
+            current_avatar = avatar if avatar is not None else current_agent.get('avatar')
+            current_avatar_color = avatar_color if avatar_color is not None else current_agent.get('avatar_color')
+            
+            unified_config = build_unified_config(
+                system_prompt=current_system_prompt,
+                agentpress_tools=current_agentpress_tools,
+                configured_mcps=current_configured_mcps,
+                custom_mcps=current_custom_mcps,
+                avatar=current_avatar,
+                avatar_color=current_avatar_color
+            )
+            
+            update_data["config"] = unified_config
+            
+            if "custom_mcps" not in update_data:
+                update_data["custom_mcps"] = current_custom_mcps
                 
             result = await client.table('agents').update(update_data).eq('agent_id', self.agent_id).execute()
             
