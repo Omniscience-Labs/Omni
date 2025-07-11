@@ -798,16 +798,20 @@ class ResponseProcessor:
             logger.error(f"Error processing stream: {str(e)}", exc_info=True)
             self.trace.event(name="error_processing_stream", level="ERROR", status_message=(f"Error processing stream: {str(e)}"))
             # Save and yield error status message
-            err_content = {"role": "system", "status_type": "error", "message": str(e)}
-            err_msg_obj = await self.add_message(
-                thread_id=thread_id, type="status", content=err_content, 
-                is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
-            )
-            if err_msg_obj: yield format_for_yield(err_msg_obj) # Yield the saved error message
             
-            # Re-raise the same exception (not a new one) to ensure proper error propagation
-            logger.critical(f"Re-raising error to stop further processing: {str(e)}")
-            self.trace.event(name="re_raising_error_to_stop_further_processing", level="ERROR", status_message=(f"Re-raising error to stop further processing: {str(e)}"))
+            err_content = {"role": "system", "status_type": "error", "message": str(e)}
+            if (not "AnthropicException - Overloaded" in str(e)):
+                err_msg_obj = await self.add_message(
+                    thread_id=thread_id, type="status", content=err_content, 
+                    is_llm_message=False, metadata={"thread_run_id": thread_run_id if 'thread_run_id' in locals() else None}
+                )
+                if err_msg_obj: yield format_for_yield(err_msg_obj) # Yield the saved error message
+                # Re-raise the same exception (not a new one) to ensure proper error propagation
+                logger.critical(f"Re-raising error to stop further processing: {str(e)}")
+                self.trace.event(name="re_raising_error_to_stop_further_processing", level="ERROR", status_message=(f"Re-raising error to stop further processing: {str(e)}"))
+            else:
+                logger.error(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}", exc_info=True)
+                self.trace.event(name="anthropic_exception_overloaded_detected", level="ERROR", status_message=(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}"))
             raise # Use bare 'raise' to preserve the original exception with its traceback
 
         finally:
