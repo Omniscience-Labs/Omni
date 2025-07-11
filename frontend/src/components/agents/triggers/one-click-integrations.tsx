@@ -7,7 +7,6 @@ import { TriggerConfigDialog } from './trigger-config-dialog';
 import { TriggerProvider } from './types';
 import { Dialog } from '@/components/ui/dialog';
 import { 
-  useOAuthIntegrations, 
   useInstallOAuthIntegration, 
   useUninstallOAuthIntegration,
   useOAuthCallbackHandler 
@@ -37,8 +36,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
   agentId
 }) => {
   const [configuringSchedule, setConfiguringSchedule] = useState(false);
-  
-  const { data: integrationStatus, isLoading, error } = useOAuthIntegrations(agentId);
   const { data: triggers = [] } = useAgentTriggers(agentId);
   const installMutation = useInstallOAuthIntegration();
   const uninstallMutation = useUninstallOAuthIntegration();
@@ -106,9 +103,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
     if (provider === 'schedule') {
       return triggers.find(trigger => trigger.trigger_type === 'schedule');
     }
-    return integrationStatus?.integrations.find(integration => 
-      integration.provider === provider
-    );
   };
 
   const isProviderInstalled = (provider: ProviderKey) => {
@@ -122,22 +116,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
     }
     return integration?.trigger_id;
   };
-
-  if (error) {
-    return (
-      <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg">
-        <div className="flex items-center space-x-3">
-          <AlertCircle className="h-5 w-5 text-destructive" />
-          <div>
-            <h3 className="text-lg font-semibold text-destructive">Error Loading Integrations</h3>
-            <p className="text-sm text-muted-foreground">
-              {error instanceof Error ? error.message : 'Failed to load integrations'}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const scheduleProvider: TriggerProvider = {
     provider_id: 'schedule',
@@ -153,7 +131,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
       <div className="flex flex-wrap gap-3">
         {Object.entries(OAUTH_PROVIDERS).map(([providerId, config]) => {
           const provider = providerId as ProviderKey;
-          const integration = getIntegrationForProvider(provider);
           const isInstalled = isProviderInstalled(provider);
           const isLoading = installMutation.isPending || uninstallMutation.isPending || 
                            (provider === 'schedule' && (createTriggerMutation.isPending || deleteTriggerMutation.isPending));
