@@ -203,7 +203,7 @@ def prepare_params(
 
         # Apply cache control to the first 4 text blocks across all messages
         cache_control_count = 0
-        max_cache_control_blocks = 4
+        max_cache_control_blocks = 3
 
         for message in messages:
             if cache_control_count >= max_cache_control_blocks:

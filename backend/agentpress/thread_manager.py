@@ -477,13 +477,20 @@ Here are the XML tools available with examples:
                         if not auto_continue:
                             break
                     except Exception as e:
-                        # If there's an exception, log it, yield an error status, and stop execution
-                        logger.error(f"Error in auto_continue_wrapper generator: {str(e)}", exc_info=True)
-                        yield {
-                            "type": "status",
-                            "status": "error",
-                            "message": f"Error in thread processing: {str(e)}"
-                        }
+                        if ("AnthropicException - Overloaded" in str(e)):
+                            logger.error(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}", exc_info=True)
+                            nonlocal llm_model
+                            llm_model = f"openrouter/{llm_model}"
+                            auto_continue = True
+                            continue # Continue the loop
+                        else:
+                            # If there's any other exception, log it, yield an error status, and stop execution
+                            logger.error(f"Error in auto_continue_wrapper generator: {str(e)}", exc_info=True)
+                            yield {
+                                "type": "status",
+                                "status": "error",
+                                "message": f"Error in thread processing: {str(e)}"
+                            }
                         return  # Exit the generator on any error
                 except Exception as outer_e:
                     # Catch exceptions from _run_once itself
