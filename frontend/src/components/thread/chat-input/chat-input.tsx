@@ -293,7 +293,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           agentName={agentName}
           isVisible={showToolPreview}
         />
-        
         <Card
           className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-hidden ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'}`}
           onDragOver={handleDragOver}
@@ -364,7 +363,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </CardContent>
             
             {enableAdvancedConfig && selectedAgentId && (
-              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-2.5 rounded-b-3xl border-l border-r border-b border-border">
+              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
                 <div className="flex items-center justify-center">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
@@ -375,14 +374,14 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <div className="flex items-center -space-x-0.5">
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <FaGoogle className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaGoogle className="w-3 h-3" />
                         </div>
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <FaDiscord className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaDiscord className="w-3 h-3" />
                         </div>
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <SiNotion className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <SiNotion className="w-3 h-3" />
                         </div>
                       </div>
                       <span className="text-xs font-medium">Integrations</span>
@@ -445,21 +444,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             )}
           </div>
         </Card>
-
-        {/* {isAgentRunning && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pb-4 -mt-4 w-full flex items-center justify-center"
-          >
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>{agentName ? `${agentName} is working...` : 'Suna is working...'}</span>
-            </div>
-          </motion.div>
-        )} */}
-
-        {/* Agent Configuration Modal */}
         <AgentConfigModal
           isOpen={configModalOpen}
           onOpenChange={setConfigModalOpen}
@@ -467,7 +451,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           onAgentSelect={onAgentSelect}
           initialTab={configModalTab}
         />
-
       </div>
     );
   },

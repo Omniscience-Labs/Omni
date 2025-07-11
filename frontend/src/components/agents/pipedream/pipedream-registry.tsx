@@ -3,18 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, Grid, User, CheckCircle2, Plus, X, Settings, Star, Sparkles, TrendingUp, Filter, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Search, Loader2, User, CheckCircle2, Plus, X, Settings, Star, Sparkles, TrendingUp, Filter, ChevronRight, ChevronLeft, Zap } from 'lucide-react';
 import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
-import { CredentialProfileSelector } from './credential-profile-selector';
-import { PipedreamToolSelector } from './pipedream-tool-selector';
-import { CredentialProfileManager } from './credential-profile-manager';
+import { PipedreamConnector } from './pipedream-connector';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-types';
 import { useQueryClient } from '@tanstack/react-query';
-import { pipedreamKeys } from '@/hooks/react-query/pipedream/keys';
 import type { PipedreamApp } from '@/hooks/react-query/pipedream/utils';
 
 interface PipedreamRegistryProps {
@@ -40,6 +36,8 @@ const categoryEmojis: Record<string, string> = {
   'Infrastructure & Cloud': '🌐',
   'E-commerce': '🛒',
   'Developer Tools': '🔧',
+  'Web & App Development': '🌐',
+  'Business Management': '💼',
   'Productivity': '⚡',
   'Finance': '💰',
   'Email': '📧',
@@ -75,10 +73,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [after, setAfter] = useState<string | undefined>(undefined);
   const [paginationHistory, setPaginationHistory] = useState<string[]>([]);
-  const [showToolSelector, setShowToolSelector] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<PipedreamProfile | null>(null);
-  const [showProfileManager, setShowProfileManager] = useState(false);
-  const [selectedAppForProfile, setSelectedAppForProfile] = useState<{ app_slug: string; app_name: string } | null>(null);
+  const [showStreamlinedConnector, setShowStreamlinedConnector] = useState(false);
+  const [selectedAppForConnection, setSelectedAppForConnection] = useState<PipedreamApp | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const queryClient = useQueryClient();
@@ -214,29 +210,22 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
       return;
     }
 
-    setSelectedProfile(profile);
-    setShowToolSelector(true);
+    setSelectedAppForConnection(app);
+    setShowStreamlinedConnector(true);
     onProfileSelected?.(profile);
   };
 
-  const handleToolsSelected = (selectedTools: string[]) => {
-    if (selectedProfile && onToolsSelected) {
-      onToolsSelected(selectedProfile.profile_id, selectedTools, selectedProfile.app_name, selectedProfile.app_slug);
-      setShowToolSelector(false);
-      setSelectedProfile(null);
-      toast.success(`Added ${selectedTools.length} tools from ${selectedProfile.app_name}!`);
+  const handleConnectionComplete = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
+    if (onToolsSelected) {
+      onToolsSelected(profileId, selectedTools, appName, appSlug);
+      toast.success(`Added ${selectedTools.length} tools from ${appName}!`);
     }
   };
 
-  const handleCreateProfile = (app: PipedreamApp) => {
-    setSelectedAppForProfile({ app_slug: app.name_slug, app_name: app.name });
-    setShowProfileManager(true);
-  };
-
-  const handleProfileManagerClose = () => {
-    setShowProfileManager(false);
-    setSelectedAppForProfile(null);
-    queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
+  const handleConnectApp = (app: PipedreamApp) => {
+    setSelectedAppForConnection(app);
+    setShowStreamlinedConnector(true);
+    onClose?.();
   };
 
   const getAppProfiles = (appSlug: string) => {
@@ -244,8 +233,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   };
 
   const AppCard: React.FC<{ app: PipedreamApp; compact?: boolean }> = ({ app, compact = false }) => {
-    const appProfiles = getAppProfiles(app.name_slug);
-    const connectedProfiles = appProfiles.filter(p => p.is_connected);
+    const appProfiles = useMemo(() => getAppProfiles(app.name_slug), [app.name_slug]);
+    const connectedProfiles = useMemo(() => appProfiles.filter(p => p.is_connected), [appProfiles]);
     const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
 
     return (
@@ -277,8 +266,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                 </span>
               </div>
               {connectedProfiles.length > 0 && (
-                <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 flex items-center justify-center rounded-full">
                 </div>
               )}
             </div>
@@ -335,25 +323,23 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                 ) : (
                   <>
                     {connectedProfiles.length > 0 ? (
-                      <div className="space-y-2">
-                        <CredentialProfileSelector
-                          appSlug={app.name_slug}
-                          appName={app.name}
-                          selectedProfileId={selectedProfileId}
-                          onProfileSelect={(profileId) => {
-                            setSelectedProfileId(profileId || undefined);
-                            if (profileId) {
-                              handleProfileSelect(profileId, app);
-                            }
-                          }}
-                        />
-                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConnectApp(app);
+                        }}
+                        className="bg-purple-500 hover:bg-purple-600 text-white"
+                      >
+                        <Zap className="h-3 w-3" />
+                        Add Tools
+                      </Button>
                     ) : (
                       <Button
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCreateProfile(app);
+                          handleConnectApp(app);
                         }}
                       >
                         <Plus className="h-3 w-3" />
@@ -629,43 +615,14 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           </div>
         )}
       </div>
-      <Dialog open={showToolSelector} onOpenChange={setShowToolSelector}>
-        <DialogContent className='max-w-4xl max-h-[80vh] overflow-y-auto'>
-          <DialogHeader>
-            <DialogTitle className="text-xl">Select Tools for {selectedProfile?.app_name}</DialogTitle>
-            <DialogDescription>
-              Choose which tools you'd like to add from {selectedProfile?.app_name}
-            </DialogDescription>
-          </DialogHeader>
-          <PipedreamToolSelector
-            appSlug={selectedProfile?.app_slug || ''}
-            profile={selectedProfile || undefined}
-            onToolsSelected={handleToolsSelected}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showProfileManager} onOpenChange={handleProfileManagerClose}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              Create {selectedAppForProfile?.app_name} Profile
-            </DialogTitle>
-            <DialogDescription>
-              Set up your credential profile for {selectedAppForProfile?.app_name} to access its tools and features
-            </DialogDescription>
-          </DialogHeader>
-          <CredentialProfileManager
-            appSlug={selectedAppForProfile?.app_slug}
-            appName={selectedAppForProfile?.app_name}
-            onProfileSelect={() => {
-              queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
-              handleProfileManagerClose();
-              toast.success(`Profile created for ${selectedAppForProfile?.app_name}!`);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {selectedAppForConnection && (
+        <PipedreamConnector
+          app={selectedAppForConnection}
+          open={showStreamlinedConnector}
+          onOpenChange={setShowStreamlinedConnector}
+          onComplete={handleConnectionComplete}
+        />
+      )}
     </div>
   );
 }; 

@@ -149,8 +149,8 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="flex-shrink-0 mb-4">
         <Button 
           size='sm' 
           variant='outline' 
@@ -161,163 +161,165 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
           <Plus className="h-4 w-4" />
           {createWorkflowMutation.isPending ? 'Creating...' : 'Create Workflow'}
         </Button>
-        <Dialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Execute Workflow</DialogTitle>
-              <DialogDescription>
-                Provide input data for "{workflowToExecute?.name}" workflow
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>What would you like the workflow to work on?</Label>
-                <Textarea
-                  value={executionInput}
-                  onChange={(e) => setExecutionInput(e.target.value)}
-                  placeholder="Enter your request..."
-                  rows={4}
-                  className="resize-none"
-                  required={true}
-                />
-              </div>
-
-              <div className="flex items-center justify-between pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsExecuteDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleConfirmExecution}
-                  disabled={executeWorkflowMutation.isPending}
-                >
-                  {executeWorkflowMutation.isPending ? 'Executing...' : 'Execute Workflow'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete workflow {workflowToDelete?.name}? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleConfirmDelete}
-                className="bg-red-600 hover:bg-red-700"
-                disabled={deleteWorkflowMutation.isPending}
-              >
-                {deleteWorkflowMutation.isPending ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsContent value="workflows" className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 animate-spin" />
-                <span>Loading workflows...</span>
+      <div className="flex-1 overflow-y-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsContent value="workflows" className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 animate-spin" />
+                  <span>Loading workflows...</span>
+                </div>
               </div>
-            </div>
-          ) : workflows.length === 0 ? (
-            <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-                <Workflow className="h-8 w-8 text-muted-foreground" />
+            ) : workflows.length === 0 ? (
+              <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+                <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                  <Workflow className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-sm font-semibold mb-2">No Agent Workflows</h3>
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                  Create workflows to automate tasks and streamline your agent's operations.
+                </p>
               </div>
-              <h3 className="text-sm font-semibold mb-2">No Agent Workflows</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                Create workflows to automate tasks and streamline your agent's operations.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {workflows.map((workflow) => (
-                <Card 
-                  key={workflow.id} 
-                  className="p-4 cursor-pointer hover:opacity-80 transition-colors"
-                  onClick={() => handleWorkflowClick(workflow.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-semibold">{workflow.name}</h4>
-                        {getStatusBadge(workflow.status)}
-                        {workflow.is_default && <Badge variant="outline">Default</Badge>}
+            ) : (
+              <div className="grid gap-4">
+                {workflows.map((workflow) => (
+                  <Card 
+                    key={workflow.id} 
+                    className="p-4 cursor-pointer hover:opacity-80 transition-colors"
+                    onClick={() => handleWorkflowClick(workflow.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h4 className="font-semibold">{workflow.name}</h4>
+                          {getStatusBadge(workflow.status)}
+                          {workflow.is_default && <Badge variant="outline">Default</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{workflow.description}</p>
+                        {workflow.trigger_phrase && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Trigger: "{workflow.trigger_phrase}"
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs text-muted-foreground">
+                            {workflow.steps.length} steps
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Created {new Date(workflow.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{workflow.description}</p>
-                      {workflow.trigger_phrase && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Trigger: "{workflow.trigger_phrase}"
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2">
-                        <span className="text-xs text-muted-foreground">
-                          {workflow.steps.length} steps
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Created {new Date(workflow.created_at).toLocaleDateString()}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExecuteWorkflow(workflow);
+                          }}
+                          disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
+                        >
+                          <Play className="h-4 w-4" />
+                          Execute
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateWorkflowStatus(
+                              workflow.id,
+                              workflow.status === 'active' ? 'paused' : 'active'
+                            );
+                          }}
+                          disabled={updateWorkflowMutation.isPending}
+                        >
+                          {workflow.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWorkflow(workflow);
+                          }}
+                          disabled={deleteWorkflowMutation.isPending}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleExecuteWorkflow(workflow);
-                        }}
-                        disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
-                      >
-                        <Play className="h-4 w-4" />
-                        Execute
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUpdateWorkflowStatus(
-                            workflow.id,
-                            workflow.status === 'active' ? 'paused' : 'active'
-                          );
-                        }}
-                        disabled={updateWorkflowMutation.isPending}
-                      >
-                        {workflow.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteWorkflow(workflow);
-                        }}
-                        disabled={deleteWorkflowMutation.isPending}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      <Dialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Execute Workflow</DialogTitle>
+            <DialogDescription>
+              Provide input data for "{workflowToExecute?.name}" workflow
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>What would you like the workflow to work on?</Label>
+              <Textarea
+                value={executionInput}
+                onChange={(e) => setExecutionInput(e.target.value)}
+                placeholder="Enter your request..."
+                rows={4}
+                className="resize-none"
+                required={true}
+              />
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+
+            <div className="flex items-center justify-between pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsExecuteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmExecution}
+                disabled={executeWorkflowMutation.isPending}
+              >
+                {executeWorkflowMutation.isPending ? 'Executing...' : 'Execute Workflow'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete workflow {workflowToDelete?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteWorkflowMutation.isPending}
+            >
+              {deleteWorkflowMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 
