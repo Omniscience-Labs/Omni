@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from .core import TriggerResult, TriggerEvent
 from services.supabase import DBConnection
 from utils.logger import logger
-from agent.run_agent import get_stream_context, run_agent_run_stream
 
 class TriggerExecutor:
     def __init__(self, db_connection: DBConnection):
@@ -741,16 +740,15 @@ Please respond appropriately to this trigger event."""
         agent_run = await client.table('agent_runs').insert(agent_run_data).execute()
         agent_run_id = agent_run.data[0]['id']
         
-        # Register this run in Redis with TTL using trigger executor instance ID
-        instance_id = "trigger_executor"
-        instance_key = f"active_run:{instance_id}:{agent_run_id}"
+        # Import and use the existing agent background execution
         try:
-            from services import redis
-            stream_context = await get_stream_context()
-            await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
+            from run_agent_background import run_agent_background
             
-            _ = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
-                agent_run_id=agent_run_id, thread_id=thread_id, instance_id="trigger_executor",
+            # Start agent execution in background
+            run_agent_background.send(
+                agent_run_id=agent_run_id,
+                thread_id=thread_id,
+                instance_id="trigger_executor",
                 project_id=project_id,
                 model_name=model_name,
                 enable_thinking=False,
@@ -761,14 +759,21 @@ Please respond appropriately to this trigger event."""
                 is_agent_builder=False,
                 target_agent_id=None,
                 request_id=None
-            ))
-
-            logger.info(f"Started agent trigger execution ({instance_key})")
-        except Exception as e:
-            logger.warning(f"Failed to register trigger agent run in Redis ({instance_key}): {str(e)}")
-        
-        logger.info(f"Created trigger agent run: {agent_run_id}")
-        return agent_run_id
+            )
+            
+            logger.info(f"Started background agent execution for trigger (run_id: {agent_run_id})")
+            return agent_run_id
+            
+        except ImportError:
+            # Fallback if background execution is not available
+            logger.warning("Background agent execution not available, marking as completed")
+            await client.table('agent_runs').update({
+                "status": "completed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": "Background execution not available"
+            }).eq('id', agent_run_id).execute()
+            
+            return agent_run_id
 
 class TriggerResponseHandler:
     """Handles responses back to external services when agents complete."""

@@ -1,12 +1,15 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from services import redis
 import sentry
 from contextlib import asynccontextmanager
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 from utils.config import config, EnvMode
 import asyncio
 from utils.logger import logger, structlog
@@ -27,8 +30,6 @@ import sys
 from services import email_api
 from triggers import api as triggers_api
 
-
-load_dotenv()
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -190,6 +191,27 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "instance_id": instance_id
     }
+
+@api_router.get("/health-docker")
+async def health_check():
+    logger.info("Health docker check endpoint called")
+    try:
+        client = await redis.get_client()
+        await client.ping()
+        db = DBConnection()
+        await db.initialize()
+        db_client = await db.client
+        await db_client.table("threads").select("thread_id").limit(1).execute()
+        logger.info("Health docker check complete")
+        return {
+            "status": "ok", 
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "instance_id": instance_id
+        }
+    except Exception as e:
+        logger.error(f"Failed health docker check: {e}")
+        raise HTTPException(status_code=500, detail="Health check failed")
+
 
 app.include_router(api_router, prefix="/api")
 
