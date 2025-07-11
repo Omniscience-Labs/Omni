@@ -222,14 +222,16 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
       <div>
         <h3 className="text-lg font-semibold">Connect to {app.name}</h3>
         <p className="text-sm text-muted-foreground">
-          {connectedProfiles.length > 0 
-            ? 'Select a profile or create a new one to connect different accounts'
-            : 'Create your first profile to get started'
+          {mode === 'profile-only' 
+            ? 'Create a new profile to connect your account'
+            : (connectedProfiles.length > 0 
+                ? 'Select a profile or create a new one to connect different accounts'
+                : 'Create your first profile to get started')
           }
         </p>
       </div>
 
-      {connectedProfiles.length > 0 && !isCreatingProfile && (
+      {mode !== 'profile-only' && connectedProfiles.length > 0 && !isCreatingProfile && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="profile-select">Select Profile</Label>
@@ -274,7 +276,7 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
         </div>
       )}
 
-      {(connectedProfiles.length === 0 || isCreatingProfile) && (
+      {(mode === 'profile-only' || connectedProfiles.length === 0 || isCreatingProfile) && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="profile-name">Profile Name</Label>
@@ -284,12 +286,12 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
               value={newProfileName}
               onChange={handleProfileNameChange}
               onKeyDown={handleKeyDown}
-              autoFocus={isCreatingProfile}
+              autoFocus={mode === 'profile-only' || isCreatingProfile}
             />
           </div>
 
           <div className="flex gap-3">
-            {isCreatingProfile && (
+            {mode !== 'profile-only' && isCreatingProfile && (
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -304,7 +306,7 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
             <Button 
               onClick={handleCreateProfile}
               disabled={!newProfileName.trim() || isConnecting}
-              className="flex-1"
+              className={mode === 'profile-only' ? 'w-full' : 'flex-1'}
             >
               {isConnecting ? (
                 <>
@@ -322,10 +324,10 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
         </div>
       )}
 
-      {selectedProfileId && !isCreatingProfile && (
+      {mode !== 'profile-only' && selectedProfileId && !isCreatingProfile && (
         <div className="pt-4 border-t">
           <Button 
-            onClick={mode === 'profile-only' ? handleProfileOnlyComplete : proceedToTools}
+            onClick={proceedToTools}
             disabled={!selectedProfileId || isCompletingConnection}
             className="w-full"
           >
@@ -333,11 +335,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Connecting...
-              </>
-            ) : mode === 'profile-only' ? (
-              <>
-                <Zap className="h-4 w-4" />
-                Complete Connection
               </>
             ) : (
               <>

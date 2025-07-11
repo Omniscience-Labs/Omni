@@ -17,7 +17,7 @@ interface PipedreamRegistryProps {
   onProfileSelected?: (profile: PipedreamProfile) => void;
   onToolsSelected?: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
   onAppSelected?: (app: { app_slug: string; app_name: string }) => void;
-  mode?: 'full' | 'simple';
+  mode?: 'full' | 'simple' | 'profile-only';
   onClose?: () => void;
 }
 
@@ -320,6 +320,33 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                     <Plus className="h-3 w-3" />
                     Connect
                   </Button>
+                ) : mode === 'profile-only' ? (
+                  <>
+                    {connectedProfiles.length > 0 ? (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConnectApp(app);
+                        }}
+                        variant="outline"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Profile
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConnectApp(app);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Connect
+                      </Button>
+                    )}
+                  </>
                 ) : (
                   <>
                     {connectedProfiles.length > 0 ? (
@@ -463,14 +490,19 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
             <div className="flex items-center gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Integrations</h1>
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Integrations
+                  </h1>
                   <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-400 text-xs">
                     <Sparkles className="h-3 w-3" />
                     New
                   </Badge>
                 </div>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Connect your favorite tools and automate workflows
+                  {mode === 'profile-only' 
+                    ? 'Manage your accounts and credential profiles'
+                    : 'Connect your favorite tools and automate workflows'
+                  }
                 </p>
               </div>
             </div>
@@ -495,7 +527,9 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <User className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <h2 className="text-md font-semibold text-gray-900 dark:text-white">My Connections</h2>
+                    <h2 className="text-md font-semibold text-gray-900 dark:text-white">
+                      {mode === 'profile-only' ? 'Connected Accounts' : 'My Connections'}
+                    </h2>
                     <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200 dark:border-green-900 dark:bg-green-900/20 dark:text-green-400 text-xs">
                       {connectedApps.length}
                     </Badge>
@@ -513,10 +547,12 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-3">
                     <TrendingUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                    <h2 className="text-md font-semibold text-gray-900 dark:text-white">Popular</h2>
+                    <h2 className="text-md font-semibold text-gray-900 dark:text-white">
+                      {mode === 'profile-only' ? 'Available Apps' : 'Popular'}
+                    </h2>
                     <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-200 dark:border-orange-900 dark:bg-orange-900/20 dark:text-orange-400 text-xs">
                       <Star className="h-3 w-3 mr-1" />
-                      Recommended
+                      {mode === 'profile-only' ? 'Connect' : 'Recommended'}
                     </Badge>
                   </div>
                 </div>
@@ -550,8 +586,10 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No integrations found</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-md mx-auto">
                     {selectedCategory !== 'All' 
-                      ? `No integrations found in "${selectedCategory}" category. Try a different category or search term.` 
-                      : "Try adjusting your search criteria or browse our popular integrations."
+                      ? `No ${mode === 'profile-only' ? 'apps' : 'integrations'} found in "${selectedCategory}" category. Try a different category or search term.` 
+                      : mode === 'profile-only'
+                        ? "Try adjusting your search criteria or browse available apps."
+                        : "Try adjusting your search criteria or browse our popular integrations."
                     }
                   </p>
                   <Button
@@ -621,6 +659,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           open={showStreamlinedConnector}
           onOpenChange={setShowStreamlinedConnector}
           onComplete={handleConnectionComplete}
+          mode={mode === 'profile-only' ? 'profile-only' : 'full'}
         />
       )}
     </div>
