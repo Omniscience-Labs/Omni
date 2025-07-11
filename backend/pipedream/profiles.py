@@ -409,6 +409,7 @@ class ProfileManager:
                 'success': True,
                 'link': result.get('connect_link_url'),
                 'token': result.get('token'),
+                'expires_at': result.get('expires_at'),
                 'profile_id': str(profile_id),
                 'external_user_id': profile.external_user_id,
                 'app': app or profile.app_slug

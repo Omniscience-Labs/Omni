@@ -354,39 +354,56 @@ async def get_available_pipedream_tools(
 
 @router.get("/apps", response_model=Dict[str, Any])
 async def get_pipedream_apps(
-    page: int = Query(1, ge=1),
+    after: Optional[str] = Query(None, description="Cursor for pagination"),
     q: Optional[str] = Query(None),
     category: Optional[str] = Query(None)
 ):
-    logger.info(f"Fetching Pipedream apps registry, page: {page}, search: {q}")
+    logger.info(f"Fetching Pipedream apps registry, after: {after}, search: {q}")
     
     try:
-        import httpx
+        client = get_pipedream_client()
+        access_token = await client._obtain_access_token()
+        await client._ensure_rate_limit_token()
         
-        async with httpx.AsyncClient() as client:
-            url = f"https://mcp.pipedream.com/api/apps"
-            params = {"page": page}
-            
-            if q:
-                params["q"] = q
-            if category:
-                params["category"] = category
-                
-            response = await client.get(url, params=params, timeout=30.0)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # print(data)
-
-            logger.info(f"Successfully fetched {len(data.get('data', []))} apps from Pipedream registry")
-            return {
-                "success": True,
-                "apps": data.get("data", []),
-                "page_info": data.get("page_info", {}),
-                "total_count": data.get("page_info", {}).get("total_count", 0)
-            }
-            
+        url = f"https://api.pipedream.com/v1/apps"
+        params = {}
+        
+        if after:
+            params["after"] = after
+        if q:
+            params["q"] = q
+        if category:
+            params["category"] = category
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = await client._make_request_with_retry(
+            "GET",
+            url,
+            headers=headers,
+            params=params
+        )
+        
+        data = response.json()
+        
+        page_info = data.get("page_info", {})
+        
+        # For cursor-based pagination, has_more is determined by presence of end_cursor
+        page_info["has_more"] = bool(page_info.get("end_cursor"))
+        
+        logger.info(f"Successfully fetched {len(data.get('data', []))} apps from Pipedream registry")
+        logger.info(f"Pagination: after={after}, total_count={page_info.get('total_count', 0)}, current_count={page_info.get('count', 0)}, has_more={page_info['has_more']}, end_cursor={page_info.get('end_cursor', 'None')}")
+        
+        return {
+            "success": True,
+            "apps": data.get("data", []),
+            "page_info": page_info,
+            "total_count": page_info.get("total_count", 0)
+        }
+        
     except Exception as e:
         logger.error(f"Failed to fetch Pipedream apps: {str(e)}")
         raise HTTPException(

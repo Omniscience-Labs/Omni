@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { X, Settings2, Brain, Database, Zap, Workflow, Bot } from 'lucide-react';
+import { Settings2, Brain, Database, Zap, Workflow, Bot } from 'lucide-react';
 import { AgentMCPConfiguration } from './agent-mcp-configuration';
 import { AgentTriggersConfiguration } from './triggers/agent-triggers-configuration';
 import { AgentWorkflowsConfiguration } from './workflows/agent-workflows-configuration';
@@ -31,7 +31,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
   onOpenChange,
   selectedAgentId,
   onAgentSelect,
-  initialTab = 'integrations'
+  initialTab = 'tools'
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingInstructions, setEditingInstructions] = useState(false);
@@ -108,244 +108,186 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
   const displayName = agent?.name || 'Suna';
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 pb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <Settings2 className="h-5 w-5" />
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[85vh] p-0 flex flex-col">
+        <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
               Agent Configuration
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {/* Agent Selector */}
-            <div className="flex-shrink-0 border-b pb-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                                      <AgentSelector
-                      selectedAgentId={selectedAgentId}
-                      onAgentSelect={onAgentSelect}
-                    />
-                </div>
-                                 {selectedAgentId && (
-                   <div className="flex items-center gap-2">
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={() => router.push(`/agents/config/${selectedAgentId}`)}
-                       className="flex items-center gap-2"
-                     >
-                       <Settings2 className="h-4 w-4" />
-                       Edit Agent
-                     </Button>
-                   </div>
-                 )}
-              </div>
             </div>
+            {selectedAgentId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/agents/config/${selectedAgentId}`)}
+                className="text-xs"
+              >
+                <Settings2 className="h-3 w-3 mr-1" />
+                Advanced
+              </Button>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex-shrink-0 px-6 py-3 border-b">
+          <AgentSelector
+            selectedAgentId={selectedAgentId}
+            onAgentSelect={onAgentSelect}
+          />
+        </div>
 
-            {/* Configuration Tabs */}
-            <div className="flex-1 overflow-hidden">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
-                  <TabsTrigger value="integrations" className="flex items-center gap-2">
-                    <span className="hidden sm:inline">Integrations</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="tools" className="flex items-center gap-2">
-                    <Settings2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Tools</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="instructions" className="flex items-center gap-2">
-                    <Brain className="h-4 w-4" />
-                    <span className="hidden sm:inline">Instructions</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="knowledge" className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    <span className="hidden sm:inline">Knowledge Base</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="triggers" className="flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    <span className="hidden sm:inline">Triggers</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="workflows" className="flex items-center gap-2">
-                    <Workflow className="h-4 w-4" />
-                    <span className="hidden sm:inline">Workflows</span>
-                  </TabsTrigger>
-                </TabsList>
+        <div className="flex-1 min-h-0 px-6 py-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-5 flex-shrink-0 h-9 mb-4">
+              <TabsTrigger value="tools" className="text-xs">
+                <Settings2 className="h-3 w-3 mr-1" />
+                Tools
+              </TabsTrigger>
+              <TabsTrigger value="instructions" className="text-xs">
+                <Brain className="h-3 w-3 mr-1" />
+                Instructions
+              </TabsTrigger>
+              <TabsTrigger value="knowledge" className="text-xs">
+                <Database className="h-3 w-3 mr-1" />
+                Knowledge
+              </TabsTrigger>
+              <TabsTrigger value="triggers" className="text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                Triggers
+              </TabsTrigger>
+              <TabsTrigger value="workflows" className="text-xs">
+                <Workflow className="h-3 w-3 mr-1" />
+                Workflows
+              </TabsTrigger>
+            </TabsList>
 
-                <div className="flex-1 overflow-hidden mt-4">
-                  <TabsContent value="integrations" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4">
-                      <div className="text-center py-8">
-                        <h3 className="text-lg font-semibold mb-2">MCP Integrations</h3>
-                        <p className="text-muted-foreground mb-4">
-                          Connect your agent to external services and tools
-                        </p>
-                        {selectedAgentId && (
-                          <AgentMCPConfiguration
-                            configuredMCPs={agent?.configured_mcps || []}
-                            customMCPs={agent?.custom_mcps || []}
-                            onMCPChange={handleMCPChange}
-                          />
-                        )}
+            <TabsContent value="tools" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
+              <div className="h-full">
+                {selectedAgentId ? (
+                  <AgentToolsConfiguration
+                    tools={agent?.agentpress_tools || {}}
+                    onToolsChange={handleToolsChange}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-sm text-muted-foreground">Select an agent to configure tools</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="instructions" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
+              <div className="h-full flex flex-col">
+                {selectedAgentId ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="agent-name" className="text-sm">Name</Label>
+                        <Input
+                          id="agent-name"
+                          value={agentName}
+                          onChange={(e) => setAgentName(e.target.value)}
+                          placeholder="Agent name"
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="agent-description" className="text-sm">Description</Label>
+                        <Input
+                          id="agent-description"
+                          value={agentDescription}
+                          onChange={(e) => setAgentDescription(e.target.value)}
+                          placeholder="Brief description"
+                          className="h-8"
+                        />
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="tools" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4 p-4">
-                      {selectedAgentId ? (
-                        <div className="max-w-4xl">
-                          <div className="mb-4">
-                            <h3 className="text-lg font-semibold mb-2">Standard Tools</h3>
-                            <p className="text-muted-foreground mb-4">
-                              Configure the built-in tools available to your agent
-                            </p>
-                          </div>
-                          <AgentToolsConfiguration
-                            tools={agent?.agentpress_tools || {}}
-                            onToolsChange={handleToolsChange}
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <Settings2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <h3 className="text-lg font-semibold mb-2">Standard Tools</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Select an agent to configure its tools
-                          </p>
-                        </div>
-                      )}
+                    
+                    <div className="space-y-2 flex-1 flex flex-col">
+                      <Label htmlFor="system-instructions" className="text-sm">System Instructions</Label>
+                      <Textarea
+                        id="system-instructions"
+                        value={instructionsValue}
+                        onChange={(e) => setInstructionsValue(e.target.value)}
+                        placeholder="Define the agent's role, behavior, and expertise..."
+                        className="flex-1 resize-none"
+                      />
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="instructions" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4 p-4">
-                      {selectedAgentId ? (
-                        <div className="max-w-2xl">
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="agent-name">Agent Name</Label>
-                              <Input
-                                id="agent-name"
-                                value={agentName}
-                                onChange={(e) => setAgentName(e.target.value)}
-                                placeholder="Enter agent name"
-                              />
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label htmlFor="agent-description">Description</Label>
-                              <Input
-                                id="agent-description"
-                                value={agentDescription}
-                                onChange={(e) => setAgentDescription(e.target.value)}
-                                placeholder="Brief description of the agent"
-                              />
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label htmlFor="system-instructions">System Instructions</Label>
-                              <Textarea
-                                id="system-instructions"
-                                value={instructionsValue}
-                                onChange={(e) => setInstructionsValue(e.target.value)}
-                                placeholder="Describe the agent's role, behavior, and expertise..."
-                                className="min-h-[200px]"
-                              />
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={handleSaveInstructions}
-                                disabled={updateAgentMutation.isPending}
-                              >
-                                {updateAgentMutation.isPending ? 'Saving...' : 'Save Changes'}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setAgentName(agent?.name || '');
-                                  setAgentDescription(agent?.description || '');
-                                  setInstructionsValue(agent?.system_prompt || '');
-                                }}
-                              >
-                                Reset
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <Brain className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <h3 className="text-lg font-semibold mb-2">System Instructions</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Select an agent to configure its instructions
-                          </p>
-                        </div>
-                      )}
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        onClick={handleSaveInstructions}
+                        disabled={updateAgentMutation.isPending}
+                        size="sm"
+                      >
+                        {updateAgentMutation.isPending ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAgentName(agent?.name || '');
+                          setAgentDescription(agent?.description || '');
+                          setInstructionsValue(agent?.system_prompt || '');
+                        }}
+                      >
+                        Reset
+                      </Button>
                     </div>
-                  </TabsContent>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-sm text-muted-foreground">Select an agent to configure instructions</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-                  <TabsContent value="knowledge" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4">
-                      {selectedAgentId ? (
-                        <AgentKnowledgeBaseManager
-                          agentId={selectedAgentId}
-                          agentName={agentName}
-                        />
-                      ) : (
-                        <div className="text-center py-8">
-                          <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <h3 className="text-lg font-semibold mb-2">Knowledge Base</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Select an agent to manage its knowledge base
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
+            <TabsContent value="knowledge" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
+              <div className="h-full">
+                {selectedAgentId ? (
+                  <AgentKnowledgeBaseManager
+                    agentId={selectedAgentId}
+                    agentName={agentName}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-sm text-muted-foreground">Select an agent to manage knowledge base</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-                  <TabsContent value="triggers" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4">
-                      {selectedAgentId ? (
-                        <AgentTriggersConfiguration agentId={selectedAgentId} />
-                      ) : (
-                        <div className="text-center py-8">
-                          <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <h3 className="text-lg font-semibold mb-2">Triggers</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Select an agent to configure its triggers
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
+            <TabsContent value="triggers" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
+              <div className="h-full">
+                {selectedAgentId ? (
+                  <AgentTriggersConfiguration agentId={selectedAgentId} />
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-sm text-muted-foreground">Select an agent to configure triggers</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-                  <TabsContent value="workflows" className="h-full m-0 overflow-y-auto">
-                    <div className="space-y-4">
-                      {selectedAgentId ? (
-                        <AgentWorkflowsConfiguration
-                          agentId={selectedAgentId}
-                          agentName={agentName}
-                        />
-                      ) : (
-                        <div className="text-center py-8">
-                          <Workflow className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <h3 className="text-lg font-semibold mb-2">Workflows</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Select an agent to configure its workflows
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                </div>
-              </Tabs>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+            <TabsContent value="workflows" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
+              <div className="h-full">
+                {selectedAgentId ? (
+                  <AgentWorkflowsConfiguration
+                    agentId={selectedAgentId}
+                    agentName={agentName}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-sm text-muted-foreground">Select an agent to configure workflows</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }; 

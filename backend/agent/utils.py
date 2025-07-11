@@ -2,7 +2,6 @@ import json
 from typing import Optional
 from utils.logger import logger
 from services import redis
-from agent.run_agent import update_agent_run_status
 
 
 async def _cleanup_redis_response_list(agent_run_id: str):

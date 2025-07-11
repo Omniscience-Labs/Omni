@@ -3,10 +3,10 @@ from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema, ToolSc
 from mcp_service.client import MCPManager
 from utils.logger import logger
 import inspect
-from .mcp_connection_manager import MCPConnectionManager
-from .custom_mcp_handler import CustomMCPHandler
-from .dynamic_tool_builder import DynamicToolBuilder
-from .mcp_tool_executor import MCPToolExecutor
+from agent.tools.utils.mcp_connection_manager import MCPConnectionManager
+from agent.tools.utils.custom_mcp_handler import CustomMCPHandler
+from agent.tools.utils.dynamic_tool_builder import DynamicToolBuilder
+from agent.tools.utils.mcp_tool_executor import MCPToolExecutor
 
 
 class MCPToolWrapper(Tool):

@@ -11,4 +11,5 @@ export interface MCPConfiguration {
 export interface MCPConfigurationProps {
   configuredMCPs: MCPConfiguration[];
   onConfigurationChange: (mcps: MCPConfiguration[]) => void;
+  agentId?: string;
 }

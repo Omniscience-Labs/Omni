@@ -294,9 +294,6 @@ export default function AgentConfigurationPage() {
               <TabsList className="grid h-auto w-full grid-cols-2 bg-muted-foreground/10">
                 <TabsTrigger value="agent-builder" className="w-48 flex items-center gap-1.5 px-2">
                   <span className="truncate">Prompt to configure</span>
-                  {/* <Badge variant="beta">
-                    Beta
-                  </Badge> */}
                 </TabsTrigger>
                 <TabsTrigger value="manual">Config</TabsTrigger>
               </TabsList>
@@ -384,6 +381,7 @@ export default function AgentConfigurationPage() {
                         configuredMCPs={formData.configured_mcps}
                         customMCPs={formData.custom_mcps}
                         onMCPChange={handleBatchMCPChange}
+                        agentId={agentId}
                       />
                     </AccordionContent>
                   </AccordionItem>

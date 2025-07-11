@@ -19,6 +19,8 @@ import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow, Database, Wren
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
+import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -107,6 +109,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const [configModalOpen, setConfigModalOpen] = useState(false);
     const [configModalTab, setConfigModalTab] = useState('integrations');
+    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
 
     const {
       selectedModel,
@@ -293,7 +296,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           agentName={agentName}
           isVisible={showToolPreview}
         />
-        
         <Card
           className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-hidden ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'}`}
           onDragOver={handleDragOver}
@@ -364,25 +366,22 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </CardContent>
             
             {enableAdvancedConfig && selectedAgentId && (
-              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-2.5 rounded-b-3xl border-l border-r border-b border-border">
+              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
                 <div className="flex items-center justify-center">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
-                      onClick={() => {
-                        setConfigModalTab('integrations');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => setRegistryDialogOpen(true)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <div className="flex items-center -space-x-0.5">
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <FaGoogle className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaGoogle className="w-3 h-3" />
                         </div>
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <FaDiscord className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaDiscord className="w-3 h-3" />
                         </div>
-                        <div className="w-4 h-4 bg-white border border-border rounded-full flex items-center justify-center shadow-sm">
-                          <SiNotion className="w-2 h-2" />
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <SiNotion className="w-3 h-3" />
                         </div>
                       </div>
                       <span className="text-xs font-medium">Integrations</span>
@@ -445,21 +444,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             )}
           </div>
         </Card>
-
-        {/* {isAgentRunning && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pb-4 -mt-4 w-full flex items-center justify-center"
-          >
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>{agentName ? `${agentName} is working...` : 'Suna is working...'}</span>
-            </div>
-          </motion.div>
-        )} */}
-
-        {/* Agent Configuration Modal */}
         <AgentConfigModal
           isOpen={configModalOpen}
           onOpenChange={setConfigModalOpen}
@@ -467,7 +451,21 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           onAgentSelect={onAgentSelect}
           initialTab={configModalTab}
         />
-
+        <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
+          <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Integrations</DialogTitle>
+            </DialogHeader>
+            <PipedreamRegistry
+              showAgentSelector={true}
+              selectedAgentId={selectedAgentId}
+              onAgentChange={onAgentSelect}
+              onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
+                console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     );
   },

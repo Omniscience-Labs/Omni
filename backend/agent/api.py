@@ -6,9 +6,12 @@ import traceback
 from datetime import datetime, timezone
 import uuid
 from typing import Optional, List, Dict, Any
+import jwt
 from pydantic import BaseModel
+import tempfile
 import os
 
+from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from services import redis
 from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
@@ -17,14 +20,12 @@ from services.billing import check_billing_status, can_use_model
 from utils.config import config
 from sandbox.sandbox import create_sandbox, delete_sandbox, get_or_start_sandbox
 from services.llm import make_llm_api_call
-from agent.run_agent import run_agent_run_stream, update_agent_run_status, get_stream_context
+from run_agent_background import run_agent_background, _cleanup_redis_response_list, update_agent_run_status
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
-from .utils import check_for_active_project_agent_run
 
-# Initialize shared resources
 router = APIRouter()
 db = None
 instance_id = None # Global instance ID for this backend instance
@@ -173,16 +174,61 @@ async def cleanup():
 async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None):
     """Update database and publish stop signal to Redis."""
     logger.info(f"Stopping agent run: {agent_run_id}")
-    stop_redis_key = f"stop_signal:{agent_run_id}"
-    await redis.client.set(stop_redis_key, "STOP", ex=redis.REDIS_KEY_TTL)
-    
-    final_status = "failed" if error_message else "stopped"
     client = await db.client
-    await update_agent_run_status(
-        client, agent_run_id, final_status, error=error_message
+    final_status = "failed" if error_message else "stopped"
+
+    # Attempt to fetch final responses from Redis
+    response_list_key = f"agent_run:{agent_run_id}:responses"
+    all_responses = []
+    try:
+        all_responses_json = await redis.lrange(response_list_key, 0, -1)
+        all_responses = [json.loads(r) for r in all_responses_json]
+        logger.info(f"Fetched {len(all_responses)} responses from Redis for DB update on stop/fail: {agent_run_id}")
+    except Exception as e:
+        logger.error(f"Failed to fetch responses from Redis for {agent_run_id} during stop/fail: {e}")
+        # Try fetching from DB as a fallback? Or proceed without responses? Proceeding without for now.
+
+    # Update the agent run status in the database
+    update_success = await update_agent_run_status(
+        client, agent_run_id, final_status, error=error_message, responses=all_responses
     )
-    instance_key = f"active_run:{instance_id}:{agent_run_id}"
-    await redis.client.delete(instance_key)
+
+    if not update_success:
+        logger.error(f"Failed to update database status for stopped/failed run {agent_run_id}")
+
+    # Send STOP signal to the global control channel
+    global_control_channel = f"agent_run:{agent_run_id}:control"
+    try:
+        await redis.publish(global_control_channel, "STOP")
+        logger.debug(f"Published STOP signal to global channel {global_control_channel}")
+    except Exception as e:
+        logger.error(f"Failed to publish STOP signal to global channel {global_control_channel}: {str(e)}")
+
+    # Find all instances handling this agent run and send STOP to instance-specific channels
+    try:
+        instance_keys = await redis.keys(f"active_run:*:{agent_run_id}")
+        logger.debug(f"Found {len(instance_keys)} active instance keys for agent run {agent_run_id}")
+
+        for key in instance_keys:
+            # Key format: active_run:{instance_id}:{agent_run_id}
+            parts = key.split(":")
+            if len(parts) == 3:
+                instance_id_from_key = parts[1]
+                instance_control_channel = f"agent_run:{agent_run_id}:control:{instance_id_from_key}"
+                try:
+                    await redis.publish(instance_control_channel, "STOP")
+                    logger.debug(f"Published STOP signal to instance channel {instance_control_channel}")
+                except Exception as e:
+                    logger.warning(f"Failed to publish STOP signal to instance channel {instance_control_channel}: {str(e)}")
+            else:
+                 logger.warning(f"Unexpected key format found: {key}")
+
+        # Clean up the response list immediately on stop/fail
+        await _cleanup_redis_response_list(agent_run_id)
+
+    except Exception as e:
+        logger.error(f"Failed to find or signal active instances for {agent_run_id}: {str(e)}")
+
     logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
 
 
@@ -303,13 +349,7 @@ async def start_agent(
     if not can_run:
         raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
 
-    active_run_id = await check_for_active_project_agent_run(client, project_id)
-    if active_run_id:
-        logger.info(f"Stopping existing agent run {active_run_id} for project {project_id}")
-        await stop_agent_run(active_run_id)
-
     try:
-        # Get project data to find sandbox ID
         project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
         if not project_result.data:
             raise HTTPException(status_code=404, detail="Project not found")
@@ -350,6 +390,21 @@ async def start_agent(
         await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
     except Exception as e:
         logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
+
+    request_id = structlog.contextvars.get_contextvars().get('request_id')
+
+    # Run the agent in the background
+    run_agent_background.send(
+        agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
+        project_id=project_id,
+        model_name=model_name,  # Already resolved above
+        enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
+        stream=body.stream, enable_context_manager=body.enable_context_manager,
+        agent_config=agent_config,  # Pass agent configuration
+        is_agent_builder=is_agent_builder,
+        target_agent_id=target_agent_id,
+        request_id=request_id,
+    )
 
     return {"agent_run_id": agent_run_id, "status": "running"}
 
@@ -521,7 +576,7 @@ async def stream_agent_run(
     token: Optional[str] = None,
     request: Request = None
 ):
-    """Stream the responses of an agent run using resumable streams."""
+    """Stream the responses of an agent run using Redis Lists and Pub/Sub."""
     logger.info(f"Starting stream for agent run: {agent_run_id}")
     client = await db.client
 
@@ -533,123 +588,175 @@ async def stream_agent_run(
         user_id=user_id,
     )
 
-    stream_context = await get_stream_context()
-    # Use resumable stream to get existing stream for this agent run
-    stream = await stream_context.resume_existing_stream(agent_run_id)
-    
-    # If stream doesn't exist, create it
-    if stream is None:
-        logger.info(f"No existing stream found for agent run {agent_run_id}, creating new stream")
-        
-        # Get necessary data from database
-        thread_id = agent_run_data['thread_id']
-        
-        # Get thread data including project_id and metadata
-        thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id', 'metadata').eq('thread_id', thread_id).execute()
-        if not thread_result.data:
-            logger.error(f"Thread {thread_id} not found for agent run {agent_run_id}")
-            return
-        
-        thread_data = thread_result.data[0]
-        project_id = thread_data.get('project_id')
-        account_id = thread_data.get('account_id')
-        thread_agent_id = thread_data.get('agent_id')
-        thread_metadata = thread_data.get('metadata', {})
-        
-        # Check if this is an agent builder thread
-        is_agent_builder = thread_metadata.get('is_agent_builder', False)
-        target_agent_id = thread_metadata.get('target_agent_id')
-        
-        # Get agent configuration
-        agent_config = None
-        effective_agent_id = agent_run_data.get('agent_id') or thread_agent_id
-        
-        if effective_agent_id:
-            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
-            if agent_result.data:
-                agent_data = agent_result.data[0]
-                if agent_data.get('agent_versions'):
-                    version_data = agent_data['agent_versions']
-                    agent_config = {
-                        'agent_id': agent_data['agent_id'],
-                        'name': agent_data['name'],
-                        'description': agent_data.get('description'),
-                        'system_prompt': version_data['system_prompt'],
-                        'configured_mcps': version_data.get('configured_mcps', []),
-                        'custom_mcps': version_data.get('custom_mcps', []),
-                        'agentpress_tools': version_data.get('agentpress_tools', {}),
-                        'is_default': agent_data.get('is_default', False),
-                        'current_version_id': agent_data.get('current_version_id'),
-                        'version_name': version_data.get('version_name', 'v1')
-                    }
-                else:
-                    agent_config = agent_data
-        
-        # Get streaming parameters from the agent run metadata
-        metadata = agent_run_data.get('metadata', {})
-        model_name = metadata.get('model_name') or config.MODEL_TO_USE
-        enable_thinking = metadata.get('enable_thinking', False)
-        reasoning_effort = metadata.get('reasoning_effort', 'low')
-        stream_enabled = True  # Always true for streaming endpoint
-        enable_context_manager = metadata.get('enable_context_manager', False)
-        
-        # Check if user has access to the model
-        can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
-        if not can_use:
-            logger.error(f"User {user_id} cannot use model {model_name}: {model_message}")
-            return
-        
-        # Check billing status
-        can_run, billing_message, subscription = await check_billing_status(client, account_id)
-        if not can_run:
-            logger.error(f"User {user_id} billing check failed: {billing_message}")
-            return
-        
-        # Get request_id from context
-        request_id = structlog.contextvars.get_contextvars().get('request_id')
-        
-        # Ensure sandbox is running
+    response_list_key = f"agent_run:{agent_run_id}:responses"
+    response_channel = f"agent_run:{agent_run_id}:new_response"
+    control_channel = f"agent_run:{agent_run_id}:control" # Global control channel
+
+    async def stream_generator():
+        logger.debug(f"Streaming responses for {agent_run_id} using Redis list {response_list_key} and channel {response_channel}")
+        last_processed_index = -1
+        pubsub_response = None
+        pubsub_control = None
+        listener_task = None
+        terminate_stream = False
+        initial_yield_complete = False
+
         try:
-            # Get project data to find sandbox ID
-            project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
-            if not project_result.data:
-                logger.error(f"Project {project_id} not found for agent run {agent_run_id}")
+            # 1. Fetch and yield initial responses from Redis list
+            initial_responses_json = await redis.lrange(response_list_key, 0, -1)
+            initial_responses = []
+            if initial_responses_json:
+                initial_responses = [json.loads(r) for r in initial_responses_json]
+                logger.debug(f"Sending {len(initial_responses)} initial responses for {agent_run_id}")
+                for response in initial_responses:
+                    yield f"data: {json.dumps(response)}\n\n"
+                last_processed_index = len(initial_responses) - 1
+            initial_yield_complete = True
+
+            # 2. Check run status *after* yielding initial data
+            run_status = await client.table('agent_runs').select('status', 'thread_id').eq("id", agent_run_id).maybe_single().execute()
+            current_status = run_status.data.get('status') if run_status.data else None
+
+            if current_status != 'running':
+                logger.info(f"Agent run {agent_run_id} is not running (status: {current_status}). Ending stream.")
+                yield f"data: {json.dumps({'type': 'status', 'status': 'completed'})}\n\n"
                 return
-            
-            project_data = project_result.data[0]
-            sandbox_info = project_data.get('sandbox', {})
-            if not sandbox_info.get('id'):
-                logger.error(f"No sandbox found for project {project_id} in agent run {agent_run_id}")
-                return
-                
-            sandbox_id = sandbox_info['id']
-            sandbox = await get_or_start_sandbox(sandbox_id)
-            logger.info(f"Successfully started sandbox {sandbox_id} for project {project_id}")
+          
+            structlog.contextvars.bind_contextvars(
+                thread_id=run_status.data.get('thread_id'),
+            )
+
+            # 3. Set up Pub/Sub listeners for new responses and control signals
+            pubsub_response = await redis.create_pubsub()
+            await pubsub_response.subscribe(response_channel)
+            logger.debug(f"Subscribed to response channel: {response_channel}")
+
+            pubsub_control = await redis.create_pubsub()
+            await pubsub_control.subscribe(control_channel)
+            logger.debug(f"Subscribed to control channel: {control_channel}")
+
+            # Queue to communicate between listeners and the main generator loop
+            message_queue = asyncio.Queue()
+
+            async def listen_messages():
+                response_reader = pubsub_response.listen()
+                control_reader = pubsub_control.listen()
+                tasks = [asyncio.create_task(response_reader.__anext__()), asyncio.create_task(control_reader.__anext__())]
+
+                while not terminate_stream:
+                    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                    for task in done:
+                        try:
+                            message = task.result()
+                            if message and isinstance(message, dict) and message.get("type") == "message":
+                                channel = message.get("channel")
+                                data = message.get("data")
+                                if isinstance(data, bytes): data = data.decode('utf-8')
+
+                                if channel == response_channel and data == "new":
+                                    await message_queue.put({"type": "new_response"})
+                                elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
+                                    logger.info(f"Received control signal '{data}' for {agent_run_id}")
+                                    await message_queue.put({"type": "control", "data": data})
+                                    return # Stop listening on control signal
+
+                        except StopAsyncIteration:
+                            logger.warning(f"Listener {task} stopped.")
+                            # Decide how to handle listener stopping, maybe terminate?
+                            await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
+                            return
+                        except Exception as e:
+                            logger.error(f"Error in listener for {agent_run_id}: {e}")
+                            await message_queue.put({"type": "error", "data": "Listener failed"})
+                            return
+                        finally:
+                            # Reschedule the completed listener task
+                            if task in tasks:
+                                tasks.remove(task)
+                                if message and isinstance(message, dict) and message.get("channel") == response_channel:
+                                     tasks.append(asyncio.create_task(response_reader.__anext__()))
+                                elif message and isinstance(message, dict) and message.get("channel") == control_channel:
+                                     tasks.append(asyncio.create_task(control_reader.__anext__()))
+
+                # Cancel pending listener tasks on exit
+                for p_task in pending: p_task.cancel()
+                for task in tasks: task.cancel()
+
+
+            listener_task = asyncio.create_task(listen_messages())
+
+            # 4. Main loop to process messages from the queue
+            while not terminate_stream:
+                try:
+                    queue_item = await message_queue.get()
+
+                    if queue_item["type"] == "new_response":
+                        # Fetch new responses from Redis list starting after the last processed index
+                        new_start_index = last_processed_index + 1
+                        new_responses_json = await redis.lrange(response_list_key, new_start_index, -1)
+
+                        if new_responses_json:
+                            new_responses = [json.loads(r) for r in new_responses_json]
+                            num_new = len(new_responses)
+                            # logger.debug(f"Received {num_new} new responses for {agent_run_id} (index {new_start_index} onwards)")
+                            for response in new_responses:
+                                yield f"data: {json.dumps(response)}\n\n"
+                                # Check if this response signals completion
+                                if response.get('type') == 'status' and response.get('status') in ['completed', 'failed', 'stopped']:
+                                    logger.info(f"Detected run completion via status message in stream: {response.get('status')}")
+                                    terminate_stream = True
+                                    break # Stop processing further new responses
+                            last_processed_index += num_new
+                        if terminate_stream: break
+
+                    elif queue_item["type"] == "control":
+                        control_signal = queue_item["data"]
+                        terminate_stream = True # Stop the stream on any control signal
+                        yield f"data: {json.dumps({'type': 'status', 'status': control_signal})}\n\n"
+                        break
+
+                    elif queue_item["type"] == "error":
+                        logger.error(f"Listener error for {agent_run_id}: {queue_item['data']}")
+                        terminate_stream = True
+                        yield f"data: {json.dumps({'type': 'status', 'status': 'error'})}\n\n"
+                        break
+
+                except asyncio.CancelledError:
+                     logger.info(f"Stream generator main loop cancelled for {agent_run_id}")
+                     terminate_stream = True
+                     break
+                except Exception as loop_err:
+                    logger.error(f"Error in stream generator main loop for {agent_run_id}: {loop_err}", exc_info=True)
+                    terminate_stream = True
+                    yield f"data: {json.dumps({'type': 'status', 'status': 'error', 'message': f'Stream failed: {loop_err}'})}\n\n"
+                    break
+
         except Exception as e:
-            logger.error(f"Failed to start sandbox for project {project_id}: {str(e)}")
-            return
-        
-        stream = await stream_context.resumable_stream(agent_run_id, lambda: run_agent_run_stream(
-            agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
-            project_id=project_id,
-            model_name=model_name,
-            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
-            stream=stream_enabled, enable_context_manager=enable_context_manager,
-            agent_config=agent_config,
-            is_agent_builder=is_agent_builder,
-            target_agent_id=target_agent_id,
-            request_id=request_id
-        ))
+            logger.error(f"Error setting up stream for agent run {agent_run_id}: {e}", exc_info=True)
+            # Only yield error if initial yield didn't happen
+            if not initial_yield_complete:
+                 yield f"data: {json.dumps({'type': 'status', 'status': 'error', 'message': f'Failed to start stream: {e}'})}\n\n"
+        finally:
+            terminate_stream = True
+            # Graceful shutdown order: unsubscribe → close → cancel
+            if pubsub_response: await pubsub_response.unsubscribe(response_channel)
+            if pubsub_control: await pubsub_control.unsubscribe(control_channel)
+            if pubsub_response: await pubsub_response.close()
+            if pubsub_control: await pubsub_control.close()
 
-        logger.info(f"Created new stream for agent run {agent_run_id}")
-    else:
-        logger.info(f"Resuming existing stream for agent run {agent_run_id}")
-    
-    if stream is None:
-        logger.error(f"Failed to create or resume stream for agent run {agent_run_id}")
-        raise HTTPException(status_code=500, detail=f"Failed to create or resume stream for agent run {agent_run_id}")
+            if listener_task:
+                listener_task.cancel()
+                try:
+                    await listener_task  # Reap inner tasks & swallow their errors
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"listener_task ended with: {e}")
+            # Wait briefly for tasks to cancel
+            await asyncio.sleep(0.1)
+            logger.debug(f"Streaming cleanup complete for agent run: {agent_run_id}")
 
-    return StreamingResponse(stream, media_type="text/event-stream", headers={
+    return StreamingResponse(stream_generator(), media_type="text/event-stream", headers={
         "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive",
         "X-Accel-Buffering": "no", "Content-Type": "text/event-stream",
         "Access-Control-Allow-Origin": "*"
@@ -938,6 +1045,21 @@ async def initiate_agent_with_files(
             await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
         except Exception as e:
             logger.warning(f"Failed to register agent run in Redis ({instance_key}): {str(e)}")
+
+        request_id = structlog.contextvars.get_contextvars().get('request_id')
+
+        # Run agent in background
+        run_agent_background.send(
+            agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
+            project_id=project_id,
+            model_name=model_name,  # Already resolved above
+            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
+            stream=stream, enable_context_manager=enable_context_manager,
+            agent_config=agent_config,  # Pass agent configuration
+            is_agent_builder=is_agent_builder,
+            target_agent_id=target_agent_id,
+            request_id=request_id,
+        )
 
         return {"thread_id": thread_id, "agent_run_id": agent_run_id}
 
@@ -1390,6 +1512,16 @@ async def update_agent(
                     "created_by": user_id
                 }
                 
+                initial_config = build_unified_config(
+                    system_prompt=initial_version_data["system_prompt"],
+                    agentpress_tools=initial_version_data["agentpress_tools"],
+                    configured_mcps=initial_version_data["configured_mcps"],
+                    custom_mcps=initial_version_data["custom_mcps"],
+                    avatar=None,
+                    avatar_color=None
+                )
+                initial_version_data["config"] = initial_config
+                
                 version_result = await client.table('agent_versions').insert(initial_version_data).execute()
                 
                 if version_result.data:
@@ -1517,27 +1649,27 @@ async def update_agent(
                 if versions_result.data:
                     next_version_number = versions_result.data[0]['version_number'] + 1
                 
-                # Validate version data before creating
                 new_version_data = {
                     "agent_id": agent_id,
                     "version_number": next_version_number,
                     "version_name": f"v{next_version_number}",
-                    "system_prompt": version_changes.get('system_prompt', current_version_data.get('system_prompt', '')),
-                    "configured_mcps": version_changes.get('configured_mcps', current_version_data.get('configured_mcps', [])),
-                    "custom_mcps": version_changes.get('custom_mcps', current_version_data.get('custom_mcps', [])),
-                    "agentpress_tools": version_changes.get('agentpress_tools', current_version_data.get('agentpress_tools', {})),
+                    "system_prompt": current_system_prompt, 
+                    "configured_mcps": current_configured_mcps,  
+                    "custom_mcps": current_custom_mcps,  
+                    "agentpress_tools": current_agentpress_tools,  
                     "is_active": True,
                     "created_by": user_id
                 }
                 
-                # Build unified config for the new version
+                logger.info(f"Creating version v{next_version_number} with tools - configured_mcps: {len(current_configured_mcps)}, custom_mcps: {len(current_custom_mcps)}, agentpress_tools: {len(current_agentpress_tools)}")
+
                 version_unified_config = build_unified_config(
                     system_prompt=new_version_data["system_prompt"],
                     agentpress_tools=new_version_data["agentpress_tools"],
                     configured_mcps=new_version_data["configured_mcps"],
                     custom_mcps=new_version_data["custom_mcps"],
-                    avatar=None,  # Avatar is not versioned
-                    avatar_color=None  # Avatar color is not versioned
+                    avatar=None,
+                    avatar_color=None
                 )
                 new_version_data["config"] = version_unified_config
                 
@@ -1863,3 +1995,329 @@ async def get_agent_version(
         raise HTTPException(status_code=404, detail="Version not found")
     
     return version_result.data[0]
+
+@router.get("/agents/{agent_id}/pipedream-tools/{profile_id}")
+async def get_pipedream_tools_for_agent(
+    agent_id: str,
+    profile_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Getting tools for agent {agent_id}, profile {profile_id}, user {user_id}")
+
+    try:
+        db = DBConnection()
+        client = await db.client
+
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        pipedream_mcp = None
+        for mcp in custom_mcps:
+            if mcp.get('customType') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+                pipedream_mcp = mcp
+                break
+        
+        logger.info(f"Getting tools for agent {agent_id}, profile {profile_id}, user {user_id}")
+        
+        from pipedream.profiles import get_profile_manager
+        profile_manager = get_profile_manager(db)
+        
+        logger.debug(f"Getting profile {profile_id}")
+        profile = await profile_manager.get_profile(user_id, profile_id)
+        
+        if not profile:
+            logger.error(f"Profile {profile_id} not found for user {user_id}")
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        logger.debug(f"Profile found: {profile.app_name} - {profile.profile_name}, connected: {profile.is_connected}")
+        
+        if not profile.is_connected:
+            raise HTTPException(status_code=400, detail="Profile is not connected")
+        
+        from pipedream.client import get_pipedream_client
+        pipedream_client = get_pipedream_client()
+        
+        try:
+            logger.debug(f"Attempting MCP discovery for external_user_id: {profile.external_user_id}, app_slug: {profile.app_slug}")
+            servers = await pipedream_client.discover_mcp_servers(
+                external_user_id=profile.external_user_id,
+                app_slug=profile.app_slug
+            )
+            logger.debug(f"MCP discovery successful, found {len(servers)} servers")
+            
+            server = next((s for s in servers if s.get('app_slug') == profile.app_slug), None)
+            
+            if not server:
+                return {
+                    'profile_id': profile_id,
+                    'app_name': profile.app_name,
+                    'profile_name': profile.profile_name,
+                    'tools': [],
+                    'has_mcp_config': pipedream_mcp is not None
+                }
+            
+            available_tools = server.get('available_tools', [])
+            enabled_tools = pipedream_mcp.get('enabledTools', []) if pipedream_mcp else []
+            
+            formatted_tools = []
+            for tool in available_tools:
+                if isinstance(tool, dict) and 'name' in tool:
+                    formatted_tools.append({
+                        'name': tool['name'],
+                        'description': tool.get('description', f"Tool from {profile.app_name}"),
+                        'enabled': tool['name'] in enabled_tools
+                    })
+            
+            return {
+                'profile_id': profile_id,
+                'app_name': profile.app_name,
+                'profile_name': profile.profile_name,
+                'tools': formatted_tools,
+                'has_mcp_config': pipedream_mcp is not None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error discovering tools: {e}", exc_info=True)
+            return {
+                'profile_id': profile_id,
+                'app_name': getattr(profile, 'app_name', 'Unknown'),
+                'profile_name': getattr(profile, 'profile_name', 'Unknown'),
+                'tools': [],
+                'has_mcp_config': pipedream_mcp is not None,
+                'error': str(e)
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Pipedream tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.put("/agents/{agent_id}/pipedream-tools/{profile_id}")
+async def update_pipedream_tools_for_agent(
+    agent_id: str,
+    profile_id: str,
+    request: dict,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Update enabled Pipedream tools for a specific profile and agent"""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        enabled_tools = request.get('enabled_tools', [])
+        logger.info(f"Updating tools for agent {agent_id}, profile {profile_id}: {len(enabled_tools)} tools")
+        
+        # Get the agent
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get the profile for app details
+        from pipedream.profiles import get_profile_manager
+        profile_manager = get_profile_manager(db)
+        profile = await profile_manager.get_profile(user_id, profile_id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Update or create the Pipedream MCP config
+        updated = False
+        for i, mcp in enumerate(custom_mcps):
+            if mcp.get('customType') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+                custom_mcps[i]['enabledTools'] = enabled_tools
+                updated = True
+                break
+        
+        # If no existing config found, create new one
+        if not updated:
+            new_mcp_config = {
+                "name": f"{profile.app_name} ({profile.profile_name})",
+                "customType": "pipedream", 
+                "type": "pipedream",
+                "config": {
+                    "app_slug": profile.app_slug,
+                    "profile_id": profile_id
+                },
+                "enabledTools": enabled_tools,
+                "instructions": f"Use this to interact with {profile.app_name} via the {profile.profile_name} profile."
+            }
+            custom_mcps.append(new_mcp_config)
+        
+        # Update the agent
+        update_result = await client.table('agents').update({
+            'custom_mcps': custom_mcps
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to update agent")
+        
+        logger.info(f"Successfully updated {len(enabled_tools)} tools for agent {agent_id}")
+        
+        return {
+            'success': True,
+            'enabled_tools': enabled_tools,
+            'total_tools': len(enabled_tools)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating Pipedream tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/agents/{agent_id}/custom-mcp-tools")
+async def get_custom_mcp_tools_for_agent(
+    agent_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Getting custom MCP tools for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await db.client
+        
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get MCP config from headers
+        mcp_url = request.headers.get('X-MCP-URL')
+        mcp_type = request.headers.get('X-MCP-Type', 'sse')
+        
+        if not mcp_url:
+            raise HTTPException(status_code=400, detail="X-MCP-URL header is required")
+        
+        # Build config for MCP discovery
+        mcp_config = {
+            'url': mcp_url,
+            'type': mcp_type
+        }
+        
+        # Add headers if they exist
+        if 'X-MCP-Headers' in request.headers:
+            import json
+            try:
+                mcp_config['headers'] = json.loads(request.headers['X-MCP-Headers'])
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse X-MCP-Headers as JSON")
+        
+        # Discover tools using existing MCP discovery
+        from mcp_service.mcp_custom import discover_custom_tools
+        discovery_result = await discover_custom_tools(mcp_type, mcp_config)
+        
+        # Find existing MCP config for this server
+        existing_mcp = None
+        for mcp in custom_mcps:
+            if (mcp.get('customType') == mcp_type and 
+                mcp.get('config', {}).get('url') == mcp_url):
+                existing_mcp = mcp
+                break
+        
+        # Format tools for response
+        tools = []
+        enabled_tools = existing_mcp.get('enabledTools', []) if existing_mcp else []
+        
+        for tool in discovery_result.get('tools', []):
+            tools.append({
+                'name': tool['name'],
+                'description': tool.get('description', f'Tool from {mcp_type.upper()} MCP server'),
+                'enabled': tool['name'] in enabled_tools
+            })
+        
+        return {
+            'tools': tools,
+            'has_mcp_config': existing_mcp is not None,
+            'server_type': mcp_type,
+            'server_url': mcp_url
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting custom MCP tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/agents/{agent_id}/custom-mcp-tools")
+async def update_custom_mcp_tools_for_agent(
+    agent_id: str,
+    request: dict,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Updating custom MCP tools for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await db.client
+        
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get request data
+        mcp_url = request.get('url')
+        mcp_type = request.get('type', 'sse')
+        enabled_tools = request.get('enabled_tools', [])
+        
+        if not mcp_url:
+            raise HTTPException(status_code=400, detail="MCP URL is required")
+        
+        updated = False
+        for i, mcp in enumerate(custom_mcps):
+            if (mcp.get('customType') == mcp_type and 
+                mcp.get('config', {}).get('url') == mcp_url):
+                custom_mcps[i]['enabledTools'] = enabled_tools
+                updated = True
+                break
+        
+        if not updated:
+            # Create new MCP config
+            new_mcp_config = {
+                "name": f"Custom MCP ({mcp_type.upper()})",
+                "customType": mcp_type,
+                "type": mcp_type,
+                "config": {
+                    "url": mcp_url
+                },
+                "enabledTools": enabled_tools
+            }
+            custom_mcps.append(new_mcp_config)
+        
+        # Update the agent
+        update_result = await client.table('agents').update({
+            'custom_mcps': custom_mcps
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to update agent")
+        
+        logger.info(f"Successfully updated {len(enabled_tools)} custom MCP tools for agent {agent_id}")
+        
+        return {
+            'success': True,
+            'enabled_tools': enabled_tools,
+            'total_tools': len(enabled_tools)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating custom MCP tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

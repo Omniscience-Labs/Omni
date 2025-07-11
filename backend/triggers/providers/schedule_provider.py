@@ -9,8 +9,6 @@ from ..core import TriggerProvider, TriggerType, TriggerEvent, TriggerResult, Tr
 from utils.config import config, EnvMode
 
 class ScheduleTriggerProvider(TriggerProvider):
-    """Schedule trigger provider using Upstash QStash."""
-    
     def __init__(self, provider_definition: Optional[ProviderDefinition] = None):
         super().__init__(TriggerType.SCHEDULE, provider_definition)
         
@@ -24,19 +22,16 @@ class ScheduleTriggerProvider(TriggerProvider):
             self.qstash = QStash(token=self.qstash_token)
     
     async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate schedule configuration."""
         if not self.qstash:
             raise ValueError("QSTASH_TOKEN environment variable is required for QStash scheduling")
         
         if 'cron_expression' not in config:
             raise ValueError("cron_expression is required for QStash schedule triggers")
         
-        # Validate execution type
         execution_type = config.get('execution_type', 'agent')
         if execution_type not in ['agent', 'workflow']:
             raise ValueError("execution_type must be either 'agent' or 'workflow'")
         
-        # Validate based on execution type
         if execution_type == 'agent':
             if 'agent_prompt' not in config:
                 raise ValueError("agent_prompt is required for agent execution")
@@ -55,7 +50,6 @@ class ScheduleTriggerProvider(TriggerProvider):
         return config
     
     async def setup_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Set up scheduled trigger using QStash."""
         if config.ENV_MODE == EnvMode.STAGING:
             vercel_bypass_key = os.getenv("VERCEL_PROTECTION_BYPASS_KEY", "")
         else:
@@ -103,7 +97,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     async def teardown_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Remove scheduled trigger from QStash."""
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             if not schedule_id:
@@ -121,7 +114,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     async def process_event(self, event: TriggerEvent) -> TriggerResult:
-        """Process scheduled trigger event from QStash."""
         try:
             raw_data = event.raw_data
             execution_type = raw_data.get('execution_type', 'agent')
@@ -138,7 +130,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             }
             
             if execution_type == 'workflow':
-                # Workflow execution
                 workflow_id = raw_data.get('workflow_id')
                 workflow_input = raw_data.get('workflow_input', {})
                 
@@ -150,7 +141,6 @@ class ScheduleTriggerProvider(TriggerProvider):
                     execution_variables=execution_variables
                 )
             else:
-                # Agent execution (default)
                 agent_prompt = raw_data.get('agent_prompt', 'Execute scheduled task')
                 
                 return TriggerResult(
@@ -167,7 +157,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             )
     
     async def health_check(self, trigger_config: TriggerConfig) -> bool:
-        """Check if the QStash scheduled trigger is healthy."""
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             if not schedule_id:
@@ -185,7 +174,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     async def pause_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Pause a QStash schedule."""
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             if not schedule_id:
@@ -204,7 +192,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     async def resume_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Resume a QStash schedule."""
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             if not schedule_id:
@@ -223,7 +210,6 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     async def update_trigger(self, trigger_config: TriggerConfig) -> bool:
-        """Update a QStash schedule by recreating it."""
         try:
             schedule_id = trigger_config.config.get('qstash_schedule_id')
             webhook_url = f"{self.webhook_base_url}/api/triggers/qstash/webhook"
@@ -281,12 +267,10 @@ class ScheduleTriggerProvider(TriggerProvider):
             return False
     
     def get_webhook_url(self, trigger_id: str, base_url: str) -> Optional[str]:
-        """Return webhook URL for QStash schedules."""
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:3000")
         return f"{base_url}/api/triggers/qstash/webhook"
     
     async def list_schedules(self) -> list:
-        """List all QStash schedules."""
         try:
             schedules_data = await asyncio.to_thread(
                 self.qstash.schedules.list

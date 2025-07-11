@@ -185,10 +185,8 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           <TooltipTrigger asChild>
             <DropdownMenuItem
               className={cn(
-                "flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-accent/40 transition-colors duration-200 group",
-                isHighlighted && "bg-accent/40",
-                index === 0 && "rounded-t-xl",
-                index === filteredAgents.length - 1 && "rounded-b-xl"
+                "flex items-center rounded-xl gap-3 px-4 py-2.5 cursor-pointer hover:bg-accent/40 transition-colors duration-200 group",
+                isHighlighted && "bg-accent/40"
               )}
               onClick={() => handleAgentSelect(agent.id)}
               onMouseEnter={() => setHighlightedIndex(index)}
@@ -203,7 +201,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   </span>
                 </div>
                 <span className="text-xs text-muted-foreground/80 truncate leading-relaxed">
-                  {agent.description}
+                  {truncateString(agent.description, 30)}
                 </span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -284,7 +282,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             borderRadius: '20px'
           }}
         >
-          {/* Search Header */}
           <div className="p-4 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />

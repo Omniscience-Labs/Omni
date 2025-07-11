@@ -42,15 +42,13 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConf
   };
 
   return (
-    <Card className='px-0 bg-transparent border-none shadow-none'>
-      <CardHeader className='px-0'>
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="flex-shrink-0 mb-4">
+        <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-muted-foreground">
             {getSelectedToolsCount()} selected
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4 px-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -60,8 +58,10 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConf
             className="pl-10"
           />
         </div>
+      </div>
 
-        <div className="gap-4 grid grid-cols-1 md:grid-cols-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto">
+        <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
           {getFilteredTools().map(([toolName, toolInfo]) => (
             <div 
               key={toolName} 
@@ -96,7 +96,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConf
             <p className="text-xs text-muted-foreground">Try adjusting your search criteria</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }; 

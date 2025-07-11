@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 from .core import TriggerProvider, TriggerType
-from .providers import TelegramTriggerProvider
+from .providers import ScheduleTriggerProvider
 
 class TriggerRegistry:
     """Registry for trigger providers."""
@@ -11,7 +11,7 @@ class TriggerRegistry:
     
     def _initialize_default_providers(self):
         """Initialize default trigger providers."""
-        self.register_provider(TelegramTriggerProvider())
+        self.register_provider(ScheduleTriggerProvider())
     
     def register_provider(self, provider: TriggerProvider):
         """Register a trigger provider."""

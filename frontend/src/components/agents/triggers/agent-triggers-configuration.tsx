@@ -30,16 +30,10 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   const [editingTrigger, setEditingTrigger] = useState<TriggerConfiguration | null>(null);
 
   const { data: triggers = [], isLoading, error } = useAgentTriggers(agentId);
-  const { data: providers = [] } = useTriggerProviders();
   const createTriggerMutation = useCreateTrigger();
   const updateTriggerMutation = useUpdateTrigger();
   const deleteTriggerMutation = useDeleteTrigger();
   const toggleTriggerMutation = useToggleTrigger();
-
-  const handleProviderClick = (provider: TriggerProvider) => {
-    setConfiguringProvider(provider);
-    setEditingTrigger(null);
-  };
 
   const handleEditTrigger = (trigger: TriggerConfiguration) => {
     setEditingTrigger(trigger);
@@ -105,10 +99,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
     }
   };
 
-  const availableProviders = providers.filter(provider => 
-    ['telegram', 'slack', 'webhook'].includes(provider.trigger_type)
-  );
-
   if (error) {
     return (
       <div className="rounded-xl p-6 border border-destructive/20 bg-destructive/5">
@@ -128,61 +118,44 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   }
 
   return (
-    <div className="space-y-8">
-      <OneClickIntegrations agentId={agentId} />
-      {/* <div>
-        <h4 className="text-sm font-medium text-foreground mb-3">Manual Configuration</h4>
-        <p className="text-xs text-muted-foreground mb-4">
-          Configure triggers manually with custom settings for advanced use cases.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {availableProviders.map((provider) => (
-            <Button
-              key={provider.provider_id}
-              variant="outline"
-              size="sm"
-              onClick={() => handleProviderClick(provider)}
-              disabled={isLoading}
-            >
-              {getTriggerIcon(provider.trigger_type)}
-              <span className="text-xs font-medium capitalize">{provider.trigger_type}</span>
-            </Button>
-          ))}
-        </div>
-      </div> */}
-      {triggers.length > 0 && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Configured Triggers
-            </h4>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto space-y-4">
+        <OneClickIntegrations agentId={agentId} />
+        
+        {triggers.length > 0 && (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-muted/30">
+              <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Configured Triggers
+              </h4>
+            </div>
+            <div className="p-2 divide-y divide-border">
+              <ConfiguredTriggersList
+                triggers={triggers}
+                onEdit={handleEditTrigger}
+                onRemove={handleRemoveTrigger}
+                onToggle={handleToggleTrigger}
+                isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
+              />
+            </div>
           </div>
-          <div className="p-2 divide-y divide-border">
-            <ConfiguredTriggersList
-              triggers={triggers}
-              onEdit={handleEditTrigger}
-              onRemove={handleRemoveTrigger}
-              onToggle={handleToggleTrigger}
-              isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
-            />
-          </div>
-        </div>
-      )}
+        )}
 
-      {!isLoading && triggers.length === 0 && (
-        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-            <Zap className="h-6 w-6 text-muted-foreground" />
+        {!isLoading && triggers.length === 0 && (
+          <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+              <Zap className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h4 className="text-sm font-semibold text-foreground">
+              No triggers configured
+            </h4>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+              Click on a trigger provider above to get started
+            </p>
           </div>
-          <h4 className="text-sm font-semibold text-foreground">
-            No triggers configured
-          </h4>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Click on a trigger provider above to get started
-          </p>
-        </div>
-      )}
+        )}
+      </div>
       
       {configuringProvider && (
         <Dialog open={!!configuringProvider} onOpenChange={() => setConfiguringProvider(null)}>

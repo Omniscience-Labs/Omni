@@ -7,24 +7,15 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 class TriggerType(str, Enum):
-    """Supported trigger types."""
-    TELEGRAM = "telegram"
-    SLACK = "slack"
-    WEBHOOK = "webhook"
     SCHEDULE = "schedule"
-    EMAIL = "email"
-    GITHUB = "github"
-    DISCORD = "discord"
 
 class TriggerStatus(str, Enum):
-    """Trigger status states."""
     ACTIVE = "active"
     INACTIVE = "inactive"
     ERROR = "error"
     CONFIGURING = "configuring"
 
 class TriggerEvent(BaseModel):
-    """Represents an incoming trigger event."""
     trigger_id: str
     agent_id: str
     trigger_type: TriggerType
@@ -38,7 +29,6 @@ class TriggerEvent(BaseModel):
         use_enum_values = True
 
 class TriggerResult(BaseModel):
-    """Result of trigger processing."""
     success: bool
     should_execute_agent: bool = False
     should_execute_workflow: bool = False
@@ -51,7 +41,6 @@ class TriggerResult(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class TriggerConfig(BaseModel):
-    """Base configuration for triggers."""
     trigger_id: str
     agent_id: str
     trigger_type: TriggerType
@@ -66,7 +55,6 @@ class TriggerConfig(BaseModel):
         use_enum_values = True
 
 class ProviderDefinition(BaseModel):
-    """Definition of a trigger provider for dynamic loading."""
     provider_id: str
     name: str
     description: str
@@ -81,8 +69,6 @@ class ProviderDefinition(BaseModel):
     field_mappings: Optional[Dict[str, str]] = None
 
 class TriggerProvider(abc.ABC):
-    """Abstract base class for trigger providers."""
-    
     def __init__(self, trigger_type: TriggerType, provider_definition: Optional[ProviderDefinition] = None):
         self.trigger_type = trigger_type
         self.provider_definition = provider_definition
@@ -217,84 +203,6 @@ class TriggerManager:
     
     async def _load_builtin_providers(self):
         builtin_providers = [
-            ProviderDefinition(
-                provider_id="telegram",
-                name="Telegram Bot",
-                description="Telegram bot integration for receiving messages",
-                trigger_type="telegram",
-                provider_class="triggers.providers.telegram_provider.TelegramTriggerProvider",
-                webhook_enabled=True,
-                config_schema={
-                    "type": "object",
-                    "properties": {
-                        "bot_token": {"type": "string", "description": "Telegram bot token"},
-                        "secret_token": {"type": "string", "description": "Webhook secret token"}
-                    },
-                    "required": ["bot_token"]
-                }
-            ),
-            ProviderDefinition(
-                provider_id="slack",
-                name="Slack App",
-                description="Slack app integration for receiving events",
-                trigger_type="slack",
-                provider_class="triggers.providers.slack_provider.SlackTriggerProvider",
-                webhook_enabled=True,
-                config_schema={
-                    "type": "object",
-                    "properties": {
-                        "signing_secret": {"type": "string", "description": "Slack signing secret"},
-                        "bot_token": {"type": "string", "description": "Slack bot token"}
-                    },
-                    "required": ["signing_secret"]
-                }
-            ),
-            ProviderDefinition(
-                provider_id="discord",
-                name="Discord Bot",
-                description="Discord bot integration",
-                trigger_type="discord",
-                webhook_enabled=True,
-                config_schema={
-                    "type": "object",
-                    "properties": {
-                        "webhook_url": {"type": "string", "description": "Discord webhook URL"},
-                        "bot_token": {"type": "string", "description": "Discord bot token"}
-                    },
-                    "required": ["webhook_url"]
-                },
-                field_mappings={
-                    "discord_content": "content",
-                    "discord_author": "author.username",
-                    "discord_channel": "channel_id"
-                },
-                response_template={
-                    "agent_prompt": "You received a Discord message from {discord_author}: '{discord_content}'"
-                }
-            ),
-            ProviderDefinition(
-                provider_id="github_webhook",
-                name="GitHub Webhook",
-                description="GitHub repository webhook events",
-                trigger_type="webhook",
-                webhook_enabled=True,
-                config_schema={
-                    "type": "object",
-                    "properties": {
-                        "secret": {"type": "string", "description": "GitHub webhook secret"},
-                        "events": {"type": "array", "items": {"type": "string"}, "description": "Events to listen for"}
-                    }
-                },
-                field_mappings={
-                    "github_event": "headers.x-github-event",
-                    "github_repo": "repository.full_name",
-                    "github_action": "action",
-                    "github_sender": "sender.login"
-                },
-                response_template={
-                    "agent_prompt": "GitHub {github_event} event in {github_repo} by {github_sender}"
-                }
-            ),
             ProviderDefinition(
                 provider_id="schedule",
                 name="Schedule",

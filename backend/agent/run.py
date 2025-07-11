@@ -85,18 +85,22 @@ async def run_agent(
         enabled_tools = agent_config['agentpress_tools']
         logger.info(f"Using custom tool configuration from agent")
     
-    # Register tools based on configuration
-    # If no agent config (enabled_tools is None), register ALL tools for full Suna capabilities
-    # If agent config exists, only register explicitly enabled tools
+
     if is_agent_builder:
-        logger.info("Agent builder mode - registering only update agent tool")
-        from agent.tools.update_agent_tool import UpdateAgentTool
+        from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
+        from agent.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
+        from agent.tools.agent_builder_tools.credential_profile_tool import CredentialProfileTool
+        from agent.tools.agent_builder_tools.workflow_tool import WorkflowTool
         from services.supabase import DBConnection
         db = DBConnection()
-        thread_manager.add_tool(UpdateAgentTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+         
+        thread_manager.add_tool(AgentConfigTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+        thread_manager.add_tool(MCPSearchTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+        thread_manager.add_tool(CredentialProfileTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+        thread_manager.add_tool(WorkflowTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+        
 
     if enabled_tools is None:
-        # No agent specified - register ALL tools for full Suna experience
         logger.info("No agent specified - registering all tools for full Suna capabilities")
         thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
@@ -153,10 +157,26 @@ async def run_agent(
                     if 'config' not in custom_mcp:
                         custom_mcp['config'] = {}
                     
+                    # Get external_user_id from profile if not present
                     if not custom_mcp['config'].get('external_user_id'):
-                        thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
-                        if thread_result.data:
-                            custom_mcp['config']['external_user_id'] = thread_result.data[0]['account_id']
+                        profile_id = custom_mcp['config'].get('profile_id')
+                        if profile_id:
+                            try:
+                                from pipedream.profiles import get_profile_manager
+                                from services.supabase import DBConnection
+                                profile_db = DBConnection()
+                                profile_manager = get_profile_manager(profile_db)
+                                
+                                # Get the profile to retrieve external_user_id
+                                profile = await profile_manager.get_profile(account_id, profile_id)
+                                if profile:
+                                    custom_mcp['config']['external_user_id'] = profile.external_user_id
+                                    logger.info(f"Retrieved external_user_id from profile {profile_id} for Pipedream MCP")
+                                else:
+                                    logger.error(f"Could not find profile {profile_id} for Pipedream MCP")
+                            except Exception as e:
+                                logger.error(f"Error retrieving external_user_id from profile {profile_id}: {e}")
+                    
                     if 'headers' in custom_mcp['config'] and 'x-pd-app-slug' in custom_mcp['config']['headers']:
                         custom_mcp['config']['app_slug'] = custom_mcp['config']['headers']['x-pd-app-slug']
                 

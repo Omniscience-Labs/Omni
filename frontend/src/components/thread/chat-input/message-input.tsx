@@ -212,10 +212,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
           }
 
           <div className='flex items-center gap-2'>
-            {/* Show model selector inline if custom agents are disabled, otherwise show settings dropdown */}
             {renderDropdown()}
-
-            {/* Billing Modal */}
             <BillingModal
               open={billingModalOpen}
               onOpenChange={setBillingModalOpen}
