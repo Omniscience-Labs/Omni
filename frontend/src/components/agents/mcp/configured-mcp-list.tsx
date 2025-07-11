@@ -10,6 +10,7 @@ interface ConfiguredMcpListProps {
   configuredMCPs: MCPConfiguration[];
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
+  onConfigureTools?: (index: number) => void;
 }
 
 const MCPConfigurationItem: React.FC<{
@@ -17,12 +18,14 @@ const MCPConfigurationItem: React.FC<{
   index: number;
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
-}> = ({ mcp, index, onEdit, onRemove }) => {
+  onConfigureTools?: (index: number) => void;
+}> = ({ mcp, index, onEdit, onRemove, onConfigureTools }) => {
   const { data: profiles = [] } = useCredentialProfilesForMcp(mcp.qualifiedName);
-  const selectedProfile = profiles.find(p => p.profile_id === mcp.selectedProfileId);
+  const profileId = mcp.selectedProfileId || mcp.config?.profile_id;
+  const selectedProfile = profiles.find(p => p.profile_id === profileId);
   
   const hasDirectConfig = mcp.config && Object.keys(mcp.config).length > 0;
-  const hasCredentialProfile = !!mcp.selectedProfileId && !!selectedProfile;
+  const hasCredentialProfile = !!profileId && !!selectedProfile;
   const needsConfiguration = !hasCredentialProfile && !hasDirectConfig && !mcp.isCustom;
 
   return (
@@ -62,10 +65,21 @@ const MCPConfigurationItem: React.FC<{
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {onConfigureTools && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onConfigureTools(index)}
+              title="Configure tools"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => onRemove(index)}
+            title="Remove integration"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -79,6 +93,7 @@ export const ConfiguredMcpList: React.FC<ConfiguredMcpListProps> = ({
   configuredMCPs,
   onEdit,
   onRemove,
+  onConfigureTools,
 }) => {
   if (configuredMCPs.length === 0) return null;
 
@@ -91,6 +106,7 @@ export const ConfiguredMcpList: React.FC<ConfiguredMcpListProps> = ({
           index={index}
           onEdit={onEdit}
           onRemove={onRemove}
+          onConfigureTools={onConfigureTools}
         />
       ))}
     </div>

@@ -19,6 +19,8 @@ import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow, Database, Wren
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
+import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -107,6 +109,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const [configModalOpen, setConfigModalOpen] = useState(false);
     const [configModalTab, setConfigModalTab] = useState('integrations');
+    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
 
     const {
       selectedModel,
@@ -367,10 +370,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 <div className="flex items-center justify-center">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
-                      onClick={() => {
-                        setConfigModalTab('integrations');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => setRegistryDialogOpen(true)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <div className="flex items-center -space-x-0.5">
@@ -451,6 +451,21 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           onAgentSelect={onAgentSelect}
           initialTab={configModalTab}
         />
+        <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
+          <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Integrations</DialogTitle>
+            </DialogHeader>
+            <PipedreamRegistry
+              showAgentSelector={true}
+              selectedAgentId={selectedAgentId}
+              onAgentChange={onAgentSelect}
+              onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
+                console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     );
   },

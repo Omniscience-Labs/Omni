@@ -381,6 +381,7 @@ export default function AgentConfigurationPage() {
                         configuredMCPs={formData.configured_mcps}
                         customMCPs={formData.custom_mcps}
                         onMCPChange={handleBatchMCPChange}
+                        agentId={agentId}
                       />
                     </AccordionContent>
                   </AccordionItem>

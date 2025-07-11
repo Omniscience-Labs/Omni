@@ -5,12 +5,14 @@ interface AgentMCPConfigurationProps {
   configuredMCPs: any[];
   customMCPs: any[];
   onMCPChange: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
+  agentId?: string;
 }
 
 export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
   configuredMCPs,
   customMCPs,
   onMCPChange,
+  agentId
 }) => {
   // Combine all MCPs into a single array for the new component
   const allMCPs = [
@@ -49,6 +51,7 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
     <MCPConfigurationNew
       configuredMCPs={allMCPs}
       onConfigurationChange={handleConfigurationChange}
+      agentId={agentId}
     />
   );
 }; 

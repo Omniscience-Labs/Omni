@@ -1995,3 +1995,329 @@ async def get_agent_version(
         raise HTTPException(status_code=404, detail="Version not found")
     
     return version_result.data[0]
+
+@router.get("/agents/{agent_id}/pipedream-tools/{profile_id}")
+async def get_pipedream_tools_for_agent(
+    agent_id: str,
+    profile_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Getting tools for agent {agent_id}, profile {profile_id}, user {user_id}")
+
+    try:
+        db = DBConnection()
+        client = await db.client
+
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        pipedream_mcp = None
+        for mcp in custom_mcps:
+            if mcp.get('customType') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+                pipedream_mcp = mcp
+                break
+        
+        logger.info(f"Getting tools for agent {agent_id}, profile {profile_id}, user {user_id}")
+        
+        from pipedream.profiles import get_profile_manager
+        profile_manager = get_profile_manager(db)
+        
+        logger.debug(f"Getting profile {profile_id}")
+        profile = await profile_manager.get_profile(user_id, profile_id)
+        
+        if not profile:
+            logger.error(f"Profile {profile_id} not found for user {user_id}")
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        logger.debug(f"Profile found: {profile.app_name} - {profile.profile_name}, connected: {profile.is_connected}")
+        
+        if not profile.is_connected:
+            raise HTTPException(status_code=400, detail="Profile is not connected")
+        
+        from pipedream.client import get_pipedream_client
+        pipedream_client = get_pipedream_client()
+        
+        try:
+            logger.debug(f"Attempting MCP discovery for external_user_id: {profile.external_user_id}, app_slug: {profile.app_slug}")
+            servers = await pipedream_client.discover_mcp_servers(
+                external_user_id=profile.external_user_id,
+                app_slug=profile.app_slug
+            )
+            logger.debug(f"MCP discovery successful, found {len(servers)} servers")
+            
+            server = next((s for s in servers if s.get('app_slug') == profile.app_slug), None)
+            
+            if not server:
+                return {
+                    'profile_id': profile_id,
+                    'app_name': profile.app_name,
+                    'profile_name': profile.profile_name,
+                    'tools': [],
+                    'has_mcp_config': pipedream_mcp is not None
+                }
+            
+            available_tools = server.get('available_tools', [])
+            enabled_tools = pipedream_mcp.get('enabledTools', []) if pipedream_mcp else []
+            
+            formatted_tools = []
+            for tool in available_tools:
+                if isinstance(tool, dict) and 'name' in tool:
+                    formatted_tools.append({
+                        'name': tool['name'],
+                        'description': tool.get('description', f"Tool from {profile.app_name}"),
+                        'enabled': tool['name'] in enabled_tools
+                    })
+            
+            return {
+                'profile_id': profile_id,
+                'app_name': profile.app_name,
+                'profile_name': profile.profile_name,
+                'tools': formatted_tools,
+                'has_mcp_config': pipedream_mcp is not None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error discovering tools: {e}", exc_info=True)
+            return {
+                'profile_id': profile_id,
+                'app_name': getattr(profile, 'app_name', 'Unknown'),
+                'profile_name': getattr(profile, 'profile_name', 'Unknown'),
+                'tools': [],
+                'has_mcp_config': pipedream_mcp is not None,
+                'error': str(e)
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Pipedream tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.put("/agents/{agent_id}/pipedream-tools/{profile_id}")
+async def update_pipedream_tools_for_agent(
+    agent_id: str,
+    profile_id: str,
+    request: dict,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Update enabled Pipedream tools for a specific profile and agent"""
+    try:
+        db = DBConnection()
+        client = await db.client
+        
+        enabled_tools = request.get('enabled_tools', [])
+        logger.info(f"Updating tools for agent {agent_id}, profile {profile_id}: {len(enabled_tools)} tools")
+        
+        # Get the agent
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get the profile for app details
+        from pipedream.profiles import get_profile_manager
+        profile_manager = get_profile_manager(db)
+        profile = await profile_manager.get_profile(user_id, profile_id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Update or create the Pipedream MCP config
+        updated = False
+        for i, mcp in enumerate(custom_mcps):
+            if mcp.get('customType') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+                custom_mcps[i]['enabledTools'] = enabled_tools
+                updated = True
+                break
+        
+        # If no existing config found, create new one
+        if not updated:
+            new_mcp_config = {
+                "name": f"{profile.app_name} ({profile.profile_name})",
+                "customType": "pipedream", 
+                "type": "pipedream",
+                "config": {
+                    "app_slug": profile.app_slug,
+                    "profile_id": profile_id
+                },
+                "enabledTools": enabled_tools,
+                "instructions": f"Use this to interact with {profile.app_name} via the {profile.profile_name} profile."
+            }
+            custom_mcps.append(new_mcp_config)
+        
+        # Update the agent
+        update_result = await client.table('agents').update({
+            'custom_mcps': custom_mcps
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to update agent")
+        
+        logger.info(f"Successfully updated {len(enabled_tools)} tools for agent {agent_id}")
+        
+        return {
+            'success': True,
+            'enabled_tools': enabled_tools,
+            'total_tools': len(enabled_tools)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating Pipedream tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/agents/{agent_id}/custom-mcp-tools")
+async def get_custom_mcp_tools_for_agent(
+    agent_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Getting custom MCP tools for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await db.client
+        
+        # Verify agent ownership
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get MCP config from headers
+        mcp_url = request.headers.get('X-MCP-URL')
+        mcp_type = request.headers.get('X-MCP-Type', 'sse')
+        
+        if not mcp_url:
+            raise HTTPException(status_code=400, detail="X-MCP-URL header is required")
+        
+        # Build config for MCP discovery
+        mcp_config = {
+            'url': mcp_url,
+            'type': mcp_type
+        }
+        
+        # Add headers if they exist
+        if 'X-MCP-Headers' in request.headers:
+            import json
+            try:
+                mcp_config['headers'] = json.loads(request.headers['X-MCP-Headers'])
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse X-MCP-Headers as JSON")
+        
+        # Discover tools using existing MCP discovery
+        from mcp_service.mcp_custom import discover_custom_tools
+        discovery_result = await discover_custom_tools(mcp_type, mcp_config)
+        
+        # Find existing MCP config for this server
+        existing_mcp = None
+        for mcp in custom_mcps:
+            if (mcp.get('customType') == mcp_type and 
+                mcp.get('config', {}).get('url') == mcp_url):
+                existing_mcp = mcp
+                break
+        
+        # Format tools for response
+        tools = []
+        enabled_tools = existing_mcp.get('enabledTools', []) if existing_mcp else []
+        
+        for tool in discovery_result.get('tools', []):
+            tools.append({
+                'name': tool['name'],
+                'description': tool.get('description', f'Tool from {mcp_type.upper()} MCP server'),
+                'enabled': tool['name'] in enabled_tools
+            })
+        
+        return {
+            'tools': tools,
+            'has_mcp_config': existing_mcp is not None,
+            'server_type': mcp_type,
+            'server_url': mcp_url
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting custom MCP tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/agents/{agent_id}/custom-mcp-tools")
+async def update_custom_mcp_tools_for_agent(
+    agent_id: str,
+    request: dict,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    logger.info(f"Updating custom MCP tools for agent {agent_id}, user {user_id}")
+    
+    try:
+        client = await db.client
+        
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        custom_mcps = agent.get('custom_mcps', [])
+        
+        # Get request data
+        mcp_url = request.get('url')
+        mcp_type = request.get('type', 'sse')
+        enabled_tools = request.get('enabled_tools', [])
+        
+        if not mcp_url:
+            raise HTTPException(status_code=400, detail="MCP URL is required")
+        
+        updated = False
+        for i, mcp in enumerate(custom_mcps):
+            if (mcp.get('customType') == mcp_type and 
+                mcp.get('config', {}).get('url') == mcp_url):
+                custom_mcps[i]['enabledTools'] = enabled_tools
+                updated = True
+                break
+        
+        if not updated:
+            # Create new MCP config
+            new_mcp_config = {
+                "name": f"Custom MCP ({mcp_type.upper()})",
+                "customType": mcp_type,
+                "type": mcp_type,
+                "config": {
+                    "url": mcp_url
+                },
+                "enabledTools": enabled_tools
+            }
+            custom_mcps.append(new_mcp_config)
+        
+        # Update the agent
+        update_result = await client.table('agents').update({
+            'custom_mcps': custom_mcps
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise HTTPException(status_code=500, detail="Failed to update agent")
+        
+        logger.info(f"Successfully updated {len(enabled_tools)} custom MCP tools for agent {agent_id}")
+        
+        return {
+            'success': True,
+            'enabled_tools': enabled_tools,
+            'total_tools': len(enabled_tools)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating custom MCP tools for agent {agent_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Settings2, Brain, Database, Zap, Workflow, Bot, Plug } from 'lucide-react';
+import { Settings2, Brain, Database, Zap, Workflow, Bot } from 'lucide-react';
 import { AgentMCPConfiguration } from './agent-mcp-configuration';
 import { AgentTriggersConfiguration } from './triggers/agent-triggers-configuration';
 import { AgentWorkflowsConfiguration } from './workflows/agent-workflows-configuration';
@@ -31,7 +31,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
   onOpenChange,
   selectedAgentId,
   onAgentSelect,
-  initialTab = 'integrations'
+  initialTab = 'tools'
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingInstructions, setEditingInstructions] = useState(false);
@@ -139,11 +139,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
 
         <div className="flex-1 min-h-0 px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-6 flex-shrink-0 h-9 mb-4">
-              <TabsTrigger value="integrations" className="text-xs">
-                <Plug className="h-3 w-3 mr-1" />
-                Integrations
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5 flex-shrink-0 h-9 mb-4">
               <TabsTrigger value="tools" className="text-xs">
                 <Settings2 className="h-3 w-3 mr-1" />
                 Tools
@@ -166,21 +162,6 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="integrations" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
-              <div className="h-full">
-                {selectedAgentId ? (
-                  <AgentMCPConfiguration
-                    configuredMCPs={agent?.configured_mcps || []}
-                    customMCPs={agent?.custom_mcps || []}
-                    onMCPChange={handleMCPChange}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-32">
-                    <p className="text-sm text-muted-foreground">Select an agent to configure integrations</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
             <TabsContent value="tools" className="flex-1 m-0 mt-0 overflow-y-auto overflow-hidden">
               <div className="h-full">
                 {selectedAgentId ? (
