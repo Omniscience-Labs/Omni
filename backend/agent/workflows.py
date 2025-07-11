@@ -389,8 +389,8 @@ AVAILABLE TOOLS:
 
 IMPORTANT TOOL USAGE:
 - When a step specifies a tool, that tool MUST be used
-- If the specified tool is not available, adapt using similar available tools
-- For example, if "web_search_exa" is specified but not available, use "web_search" instead
+- If the specified tool is not available, explain what you would do instead
+- Use only the tools that are listed as available
 
 Current input data: {json.dumps(input_data) if input_data else 'None provided'}
 
@@ -428,11 +428,9 @@ async def execute_agent_workflow(
     if workflow['status'] != 'active':
         raise HTTPException(status_code=400, detail="Workflow is not active")
     
-    # Get steps from the new JSON format or fallback to old format
     if workflow.get('steps'):
         steps_json = workflow['steps']
     else:
-        # Fallback to old workflow_steps table format
         workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_id).order('step_order').execute()
         steps_json = []
         for step_data in workflow_steps_result.data:
@@ -479,7 +477,6 @@ async def execute_agent_workflow(
     if agentpress_tools.get('data_providers_tool', {}).get('enabled', False):
         available_tools.extend(['get_data_provider_endpoints', 'execute_data_provider_call'])
     
-    # Check MCP tools
     all_mcps = []
     if agent_config.get('configured_mcps'):
         all_mcps.extend(agent_config['configured_mcps'])
@@ -487,17 +484,9 @@ async def execute_agent_workflow(
         all_mcps.extend(agent_config['custom_mcps'])
     
     for mcp in all_mcps:
-        qualified_name = mcp.get('qualifiedName', '')
         enabled_tools_list = mcp.get('enabledTools', [])
-        
-        if qualified_name == 'exa' and ('search' in enabled_tools_list or not enabled_tools_list):
-            available_tools.append('web_search_exa')
-        elif qualified_name.startswith('@smithery-ai/github'):
-            for tool in enabled_tools_list:
-                available_tools.append(tool.replace('-', '_'))
-        elif qualified_name.startswith('custom_'):
-            for tool in enabled_tools_list:
-                available_tools.append(f"{qualified_name}_{tool}")
+   
+        available_tools.extend(enabled_tools_list)
     
     workflow_prompt = build_workflow_system_prompt(workflow, steps_json, execution_data.input_data, available_tools)
     enhanced_system_prompt = f"""{agent_config['system_prompt']}

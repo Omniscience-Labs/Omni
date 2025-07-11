@@ -24,58 +24,42 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             agent_config = extract_agent_config(agent_data, version_data)
             
-            agentpress_tools = agent_config.get('agentpress_tools', {})
-            configured_mcps = agent_config.get('configured_mcps', [])
-            custom_mcps = agent_config.get('custom_mcps', [])
-            
             available_tools = []
             
-            if agentpress_tools.get('sb_shell_tool', {}).get('enabled', False):
-                available_tools.append('execute_command')
-            if agentpress_tools.get('sb_files_tool', {}).get('enabled', False):
-                available_tools.extend(['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'])
-            if agentpress_tools.get('sb_browser_tool', {}).get('enabled', False):
-                available_tools.extend(['browser_navigate_to', 'browser_take_screenshot'])
-            if agentpress_tools.get('sb_vision_tool', {}).get('enabled', False):
-                available_tools.append('see_image')
-            if agentpress_tools.get('sb_deploy_tool', {}).get('enabled', False):
-                available_tools.append('deploy')
-            if agentpress_tools.get('sb_expose_tool', {}).get('enabled', False):
-                available_tools.append('expose_port')
-            if agentpress_tools.get('web_search_tool', {}).get('enabled', False):
-                available_tools.append('web_search')
-            if agentpress_tools.get('data_providers_tool', {}).get('enabled', False):
-                available_tools.extend(['get_data_provider_endpoints', 'execute_data_provider_call'])
+            tool_mapping = {
+                'sb_shell_tool': ['execute_command'],
+                'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
+                'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
+                'sb_vision_tool': ['see_image'],
+                'sb_deploy_tool': ['deploy'],
+                'sb_expose_tool': ['expose_port'],
+                'web_search_tool': ['web_search'],
+                'data_providers_tool': ['get_data_provider_endpoints', 'execute_data_provider_call']
+            }
             
-            # Add MCP tools
-            all_mcps = []
-            if configured_mcps:
-                all_mcps.extend(configured_mcps)
-            if custom_mcps:
-                all_mcps.extend(custom_mcps)
+            agentpress_tools = agent_config.get('agentpress_tools', {})
+            for tool_key, tool_names in tool_mapping.items():
+                if agentpress_tools.get(tool_key, {}).get('enabled', False):
+                    available_tools.extend(tool_names)
             
-            for mcp in all_mcps:
-                qualified_name = mcp.get('qualifiedName', '')
-                enabled_tools_list = mcp.get('enabledTools', [])
-                
-                if qualified_name == 'exa' and ('search' in enabled_tools_list or not enabled_tools_list):
-                    available_tools.append('web_search_exa')
-                elif qualified_name.startswith('@smithery-ai/github'):
-                    for tool in enabled_tools_list:
-                        available_tools.append(tool.replace('-', '_'))
-                elif qualified_name.startswith('pipedream:'):
-                    # Handle Pipedream tools
-                    for tool in enabled_tools_list:
-                        available_tools.append(f"pipedream_{tool}")
-                elif qualified_name.startswith('custom_'):
-                    for tool in enabled_tools_list:
-                        available_tools.append(f"{qualified_name}_{tool}")
-                else:
-                    # Generic MCP tools
-                    for tool in enabled_tools_list:
-                        available_tools.append(f"mcp_{qualified_name.replace(':', '_').replace('@', '').replace('/', '_').replace('-', '_')}_{tool}")
+            configured_mcps = agent_config.get('configured_mcps', [])
+            for mcp in configured_mcps:
+                enabled_tools = mcp.get('enabledTools', [])
+                available_tools.extend(enabled_tools)
             
-            return available_tools
+            custom_mcps = agent_config.get('custom_mcps', [])
+            for mcp in custom_mcps:
+                enabled_tools = mcp.get('enabledTools', [])
+                available_tools.extend(enabled_tools)
+            
+            seen = set()
+            unique_tools = []
+            for tool in available_tools:
+                if tool not in seen:
+                    seen.add(tool)
+                    unique_tools.append(tool)
+            
+            return unique_tools
             
         except Exception as e:
             logger.error(f"Error getting available tools for agent {self.agent_id}: {e}")
@@ -99,113 +83,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         validate_step_list(steps)
         return errors
 
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "get_available_tools",
-            "description": "Get all tools available to the current agent. Use this to see what tools can be used in workflow steps.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "categorized": {
-                        "type": "boolean",
-                        "description": "Whether to return tools organized by category (AgentPress tools, MCP tools, etc.)",
-                        "default": False
-                    }
-                },
-                "required": []
-            }
-        }
-    })
-    @xml_schema(
-        tag_name="get-available-tools",
-        mappings=[
-            {"param_name": "categorized", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
-        <function_calls>
-        <invoke name="get_available_tools">
-        <parameter name="categorized">true</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
-    async def get_available_tools(self, categorized: bool = False) -> ToolResult:
-        try:
-            if categorized:
-                client = await self.db.client
-                agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', self.agent_id).execute()
-                if not agent_result.data:
-                    return self.fail_response("Agent not found")
-                
-                agent_data = agent_result.data[0]
-                version_data = agent_data.get('agent_versions')
-                
-                agent_config = extract_agent_config(agent_data, version_data)
-                
-                agentpress_tools = agent_config.get('agentpress_tools', {})
-                configured_mcps = agent_config.get('configured_mcps', [])
-                custom_mcps = agent_config.get('custom_mcps', [])
-                
-                categories = {
-                    "agentpress_tools": [],
-                    "mcp_tools": [],
-                    "custom_mcp_tools": []
-                }
-                
-                tool_mapping = {
-                    'sb_shell_tool': ['execute_command'],
-                    'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
-                    'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
-                    'sb_vision_tool': ['see_image'],
-                    'sb_deploy_tool': ['deploy'],
-                    'sb_expose_tool': ['expose_port'],
-                    'web_search_tool': ['web_search'],
-                    'data_providers_tool': ['get_data_provider_endpoints', 'execute_data_provider_call']
-                }
-                
-                for tool_key, tool_names in tool_mapping.items():
-                    if agentpress_tools.get(tool_key, {}).get('enabled', False):
-                        categories["agentpress_tools"].extend(tool_names)
-                
-                for mcp in configured_mcps:
-                    qualified_name = mcp.get('qualifiedName', '')
-                    enabled_tools = mcp.get('enabledTools', [])
-                    categories["mcp_tools"].append({
-                        "server": qualified_name,
-                        "tools": enabled_tools
-                    })
-                
-                for mcp in custom_mcps:
-                    qualified_name = mcp.get('qualifiedName', '')
-                    enabled_tools = mcp.get('enabledTools', [])
-                    categories["custom_mcp_tools"].append({
-                        "server": qualified_name,
-                        "tools": enabled_tools
-                    })
-                
-                debug_info = {
-                    "agent_id": self.agent_id,
-                    "has_version_data": version_data is not None,
-                    "agentpress_tools_raw": agentpress_tools,
-                    "configured_mcps_count": len(configured_mcps),
-                    "custom_mcps_count": len(custom_mcps)
-                }
-                
-                return self.success_response({
-                    "message": "Available tools by category",
-                    "categories": categories,
-                    "debug": debug_info
-                })
-            else:
-                available_tools = await self._get_available_tools_for_agent()
-                return self.success_response({
-                    "message": f"Found {len(available_tools)} available tools",
-                    "tools": available_tools
-                })
-                
-        except Exception as e:
-            return self.fail_response(f"Error getting available tools: {str(e)}")
+
 
     @openapi_schema({
         "type": "function",

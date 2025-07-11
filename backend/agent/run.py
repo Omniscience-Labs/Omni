@@ -91,6 +91,7 @@ async def run_agent(
         from agent.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
         from agent.tools.agent_builder_tools.credential_profile_tool import CredentialProfileTool
         from agent.tools.agent_builder_tools.workflow_tool import WorkflowTool
+        from agent.tools.agent_builder_tools.trigger_tool import TriggerTool
         from services.supabase import DBConnection
         db = DBConnection()
          
@@ -98,6 +99,7 @@ async def run_agent(
         thread_manager.add_tool(MCPSearchTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
         thread_manager.add_tool(CredentialProfileTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
         thread_manager.add_tool(WorkflowTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
+        thread_manager.add_tool(TriggerTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
         
 
     if enabled_tools is None:

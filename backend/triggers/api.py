@@ -405,13 +405,9 @@ async def handle_qstash_webhook(request: Request):
 @router.post("/schedule/webhook")
 async def handle_schedule_webhook(request: Request):
     try:
-        logger.info("Schedule webhook received from Pipedream")
         body = await request.body()
         headers = dict(request.headers)
-        
-        logger.debug(f"Schedule webhook body: {body[:500]}...")
-        logger.debug(f"Schedule webhook headers: {headers}")
-        
+
         try:
             if body:
                 data = await request.json()

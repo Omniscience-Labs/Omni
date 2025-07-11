@@ -16,6 +16,7 @@ import { AgentToolsConfiguration } from '../../../../../components/agents/agent-
 import { AgentPreview } from '../../../../../components/agents/agent-preview';
 import { getAgentAvatar } from '../../../../../lib/utils/get-agent-style';
 import { EditableText } from '@/components/ui/editable';
+import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
 import { StylePicker } from '../../../../../components/agents/style-picker';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -328,23 +329,22 @@ export default function AgentConfigurationPage() {
                   <EditableText
                     value={formData.description}
                     onSave={(value) => handleFieldChange('description', value)}
-                    className="text-muted-foreground text-sm md:text-base"
+                    className="text-muted-foreground text-sm"
                     placeholder="Click to add description..."
                   />
                 </div>
               </div>
-
-              <div className='flex flex-col mt-6 md:mt-8'>
-                <div className='text-sm font-semibold text-muted-foreground mb-2'>Instructions</div>
-                <EditableText
-                  value={formData.system_prompt}
-                  onSave={(value) => handleFieldChange('system_prompt', value)}
-                  className='bg-transparent hover:bg-transparent border-none focus-visible:ring-0 shadow-none text-sm md:text-base'
-                  placeholder='Click to set system instructions...'
-                  multiline={true}
-                  minHeight="150px"
-                />
-              </div>
+                  <div className='flex flex-col mt-6 md:mt-8'>
+                  <div className='flex items-center justify-between mb-2'>
+                    <div className='text-sm font-semibold text-muted-foreground'>Instructions</div>
+                  </div>
+                  <ExpandableMarkdownEditor
+                    value={formData.system_prompt}
+                    onSave={(value) => handleFieldChange('system_prompt', value)}
+                    placeholder='Click to set system instructions...'
+                    title='System Instructions'
+                  />
+                </div>
 
               <div ref={accordionRef} className="mt-6 border-t">
                 <Accordion 

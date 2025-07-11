@@ -20,6 +20,7 @@ import {
 import { TriggerConfiguration } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getTriggerIcon } from './utils';
+import { truncateString } from '@/lib/utils';
 
 interface ConfiguredTriggersListProps {
   triggers: TriggerConfiguration[];
@@ -72,7 +73,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                 
                 {trigger.description && (
                   <p className="text-xs text-muted-foreground truncate">
-                    {trigger.description}
+                    {truncateString(trigger.description, 50)}
                   </p>
                 )}
                 
