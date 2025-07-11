@@ -122,13 +122,10 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
       setNewProfileName('');
       toast.success('Profile created and connected successfully!');
       
-      // Auto-proceed based on mode
       if (mode === 'profile-only') {
-        // Complete immediately with empty tools array
         onComplete(newProfile.profile_id, [], app.name, app.name_slug);
         onOpenChange(false);
       } else {
-        // Proceed to tools step
         proceedToTools();
       }
     } catch (error) {
@@ -150,7 +147,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
       
       if (server?.available_tools) {
         setTools(server.available_tools);
-        // Auto-select all tools by default
         setSelectedTools(new Set(server.available_tools.map(tool => tool.name)));
       }
     } catch (error) {
@@ -166,7 +162,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
       toast.error('Please select at least one tool');
       return;
     }
-
     setIsCompletingConnection(true);
     try {
       onComplete(selectedProfileId, Array.from(selectedTools), app.name, app.name_slug);

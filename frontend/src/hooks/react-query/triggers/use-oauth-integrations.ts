@@ -39,22 +39,6 @@ const getAccessToken = async () => {
   return session.access_token;
 };
 
-const fetchOAuthIntegrations = async (agentId: string): Promise<OAuthIntegrationStatus> => {
-  const accessToken = await getAccessToken();
-  const response = await fetch(`${API_URL}/integrations/status/${agentId}`, {
-    headers: { 
-      'Content-Type': 'application/json', 
-      'Authorization': `Bearer ${accessToken}` 
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch OAuth integrations');
-  }
-  
-  return response.json();
-};
-
 const initiateOAuthInstall = async (request: OAuthInstallRequest): Promise<OAuthInstallResponse> => {
   const accessToken = await getAccessToken();
   const response = await fetch(`${API_URL}/integrations/install`, {
@@ -88,14 +72,6 @@ const uninstallOAuthIntegration = async (triggerId: string): Promise<void> => {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || 'Failed to uninstall integration');
   }
-};
-
-export const useOAuthIntegrations = (agentId: string) => {
-  return useQuery({
-    queryKey: ['oauth-integrations', agentId],
-    queryFn: () => fetchOAuthIntegrations(agentId),
-    enabled: !!agentId,
-  });
 };
 
 export const useInstallOAuthIntegration = () => {
