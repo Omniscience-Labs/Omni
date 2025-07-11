@@ -41,7 +41,10 @@ class TriggerResult(BaseModel):
     """Result of trigger processing."""
     success: bool
     should_execute_agent: bool = False
+    should_execute_workflow: bool = False
     agent_prompt: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_input: Optional[Dict[str, Any]] = None
     execution_variables: Dict[str, Any] = Field(default_factory=dict)
     response_data: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
@@ -295,7 +298,7 @@ class TriggerManager:
             ProviderDefinition(
                 provider_id="schedule",
                 name="Schedule",
-                description="Schedule agent execution using Cloudflare Workers and cron expressions",
+                description="Schedule agent or workflow execution using Cloudflare Workers and cron expressions",
                 trigger_type="schedule",
                 provider_class="triggers.providers.schedule_provider.ScheduleTriggerProvider",
                 webhook_enabled=True,
@@ -307,9 +310,24 @@ class TriggerManager:
                             "description": "Cron expression for scheduling",
                             "pattern": r"^(\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\*\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\*|([0-9]|1[0-9]|2[0-3])|\*\/([0-9]|1[0-9]|2[0-3])) (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\*|([1-9]|1[0-2])|\*\/([1-9]|1[0-2])) (\*|([0-6])|\*\/([0-6]))$"
                         },
+                        "execution_type": {
+                            "type": "string",
+                            "enum": ["agent", "workflow"],
+                            "description": "Type of execution: agent or workflow",
+                            "default": "agent"
+                        },
                         "agent_prompt": {
                             "type": "string", 
-                            "description": "The prompt to run the agent with when triggered"
+                            "description": "The prompt to run the agent with when triggered (required for agent execution)"
+                        },
+                        "workflow_id": {
+                            "type": "string",
+                            "description": "The workflow ID to execute (required for workflow execution)"
+                        },
+                        "workflow_input": {
+                            "type": "object",
+                            "description": "Input data to pass to the workflow",
+                            "default": {}
                         },
                         "timezone": {
                             "type": "string",
@@ -317,7 +335,17 @@ class TriggerManager:
                             "default": "UTC"
                         }
                     },
-                    "required": ["cron_expression", "agent_prompt"]
+                    "required": ["cron_expression", "execution_type"],
+                    "anyOf": [
+                        {
+                            "properties": {"execution_type": {"const": "agent"}},
+                            "required": ["agent_prompt"]
+                        },
+                        {
+                            "properties": {"execution_type": {"const": "workflow"}},
+                            "required": ["workflow_id"]
+                        }
+                    ]
                 }
             )
         ]

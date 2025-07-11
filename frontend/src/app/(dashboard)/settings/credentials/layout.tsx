@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Credentials | Kortix Suna',
-  description: 'Create and manage credentials to your services',
+  title: 'App Profiles | Kortix Suna',
+  description: 'Manage your connected app integrations',
   openGraph: {
-    title: 'Credentials | Kortix Suna',
-    description: 'Create and manage credentials to your services',
+    title: 'App Profiles | Kortix Suna',
+    description: 'Manage your connected app integrations',
     type: 'website',
   },
 };

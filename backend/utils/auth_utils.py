@@ -35,11 +35,7 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
     token = auth_header.split(' ')[1]
     
     try:
-        # For Supabase JWT, we just need to decode and extract the user ID
-        # The actual validation is handled by Supabase's RLS
         payload = jwt.decode(token, options={"verify_signature": False})
-        
-        # Supabase stores the user ID in the 'sub' claim
         user_id = payload.get('sub')
         
         if not user_id:
@@ -96,10 +92,17 @@ async def get_account_id_from_thread(client, thread_id: str) -> str:
         return account_id
     
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error retrieving thread information: {str(e)}"
-        )
+        error_msg = str(e)
+        if "cannot schedule new futures after shutdown" in error_msg or "connection is closed" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Server is shutting down"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error retrieving thread information: {str(e)}"
+            )
     
 async def get_user_id_from_stream_auth(
     request: Request,
@@ -120,40 +123,56 @@ async def get_user_id_from_stream_auth(
     Raises:
         HTTPException: If no valid token is found or if the token is invalid
     """
-    # Try to get user_id from token in query param (for EventSource which can't set headers)
-    if token:
-        try:
-            # For Supabase JWT, we just need to decode and extract the user ID
-            payload = jwt.decode(token, options={"verify_signature": False})
-            user_id = payload.get('sub')
-            if user_id:
-                sentry.sentry.set_user({ "id": user_id })
-                structlog.contextvars.bind_contextvars(
-                    user_id=user_id
-                )
-                return user_id
-        except Exception:
-            pass
-    
-    # If no valid token in query param, try to get it from the Authorization header
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        try:
-            # Extract token from header
-            header_token = auth_header.split(' ')[1]
-            payload = jwt.decode(header_token, options={"verify_signature": False})
-            user_id = payload.get('sub')
-            if user_id:
-                return user_id
-        except Exception:
-            pass
-    
-    # If we still don't have a user_id, return authentication error
-    raise HTTPException(
-        status_code=401,
-        detail="No valid authentication credentials found",
-        headers={"WWW-Authenticate": "Bearer"}
-    )
+    try:
+        # Try to get user_id from token in query param (for EventSource which can't set headers)
+        if token:
+            try:
+                # For Supabase JWT, we just need to decode and extract the user ID
+                payload = jwt.decode(token, options={"verify_signature": False})
+                user_id = payload.get('sub')
+                if user_id:
+                    sentry.sentry.set_user({ "id": user_id })
+                    structlog.contextvars.bind_contextvars(
+                        user_id=user_id
+                    )
+                    return user_id
+            except Exception:
+                pass
+        
+        # If no valid token in query param, try to get it from the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            try:
+                # Extract token from header
+                header_token = auth_header.split(' ')[1]
+                payload = jwt.decode(header_token, options={"verify_signature": False})
+                user_id = payload.get('sub')
+                if user_id:
+                    return user_id
+            except Exception:
+                pass
+        
+        # If we still don't have a user_id, return authentication error
+        raise HTTPException(
+            status_code=401,
+            detail="No valid authentication credentials found",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "cannot schedule new futures after shutdown" in error_msg or "connection is closed" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Server is shutting down"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error during authentication: {str(e)}"
+            )
 
 async def verify_thread_access(client, thread_id: str, user_id: str):
     """
@@ -170,29 +189,45 @@ async def verify_thread_access(client, thread_id: str, user_id: str):
     Raises:
         HTTPException: If the user doesn't have access to the thread
     """
-    # Query the thread to get account information
-    thread_result = await client.table('threads').select('*,project_id').eq('thread_id', thread_id).execute()
+    try:
+        # Query the thread to get account information
+        thread_result = await client.table('threads').select('*,project_id').eq('thread_id', thread_id).execute()
 
-    if not thread_result.data or len(thread_result.data) == 0:
-        raise HTTPException(status_code=404, detail="Thread not found")
-    
-    thread_data = thread_result.data[0]
-    
-    # Check if project is public
-    project_id = thread_data.get('project_id')
-    if project_id:
-        project_result = await client.table('projects').select('is_public').eq('project_id', project_id).execute()
-        if project_result.data and len(project_result.data) > 0:
-            if project_result.data[0].get('is_public'):
-                return True
+        if not thread_result.data or len(thread_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Thread not found")
         
-    account_id = thread_data.get('account_id')
-    # When using service role, we need to manually check account membership instead of using current_user_account_role
-    if account_id:
-        account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
-        if account_user_result.data and len(account_user_result.data) > 0:
-            return True
-    raise HTTPException(status_code=403, detail="Not authorized to access this thread")
+        thread_data = thread_result.data[0]
+        
+        # Check if project is public
+        project_id = thread_data.get('project_id')
+        if project_id:
+            project_result = await client.table('projects').select('is_public').eq('project_id', project_id).execute()
+            if project_result.data and len(project_result.data) > 0:
+                if project_result.data[0].get('is_public'):
+                    return True
+            
+        account_id = thread_data.get('account_id')
+        # When using service role, we need to manually check account membership instead of using current_user_account_role
+        if account_id:
+            account_user_result = await client.schema('basejump').from_('account_user').select('account_role').eq('user_id', user_id).eq('account_id', account_id).execute()
+            if account_user_result.data and len(account_user_result.data) > 0:
+                return True
+        raise HTTPException(status_code=403, detail="Not authorized to access this thread")
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "cannot schedule new futures after shutdown" in error_msg or "connection is closed" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Server is shutting down"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error verifying thread access: {str(e)}"
+            )
 
 async def get_optional_user_id(request: Request) -> Optional[str]:
     """

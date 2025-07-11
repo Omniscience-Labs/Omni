@@ -148,6 +148,4 @@ async def get_flag_details(key: str) -> Optional[Dict[str, str]]:
     return await get_flag_manager().get_flag(key)
 
 
-async def get_all_flags() -> Dict[str, Dict[str, str]]:
-    """Get all feature flags with detailed information"""
-    return await get_flag_manager().get_all_flags_details()
+

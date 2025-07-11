@@ -1,9 +1,8 @@
 import React from 'react';
-import Image from 'next/image';
 import {
-    FileText, FileImage, FileCode, FilePlus, FileSpreadsheet, FileVideo,
+    FileText, FileImage, FileCode, FileSpreadsheet, FileVideo,
     FileAudio, FileType, Database, Archive, File, ExternalLink,
-    Download, Loader2
+    Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttachmentGroup } from './attachment-group';
@@ -159,8 +158,9 @@ interface FileAttachmentProps {
 }
 
 // Cache fetched content between mounts to avoid duplicate fetches
-const contentCache = new Map<string, string>();
-const errorCache = new Set<string>();
+// Content caches for file attachment optimization
+// const contentCache = new Map<string, string>();
+// const errorCache = new Set<string>();
 
 export function FileAttachment({
     filepath,
@@ -234,7 +234,7 @@ export function FileAttachment({
     if (isImage && showPreview) {
         // Use custom height for images if provided through CSS variable
         const imageHeight = isGridLayout
-            ? customStyle['--attachment-height'] as string
+            ? (customStyle as any)['--attachment-height'] as string
             : '54px';
 
         // Show loading state for images
@@ -310,7 +310,7 @@ export function FileAttachment({
                 title={filename}
             >
                 <img
-                    src={sandboxId && session?.access_token ? imageUrl : fileUrl}
+                    src={sandboxId && session?.access_token ? imageUrl : (fileUrl || '')}
                     alt={filename}
                     className={cn(
                         "max-h-full", // Respect parent height constraint
@@ -480,7 +480,7 @@ export function FileAttachment({
     // Regular files with details
     const safeStyle = { ...customStyle };
     delete safeStyle.height;
-    delete safeStyle['--attachment-height'];
+    delete (safeStyle as any)['--attachment-height'];
 
     return (
         <button

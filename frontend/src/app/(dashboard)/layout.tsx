@@ -1,5 +1,5 @@
 import { maintenanceNoticeFlag } from '@/lib/edge-flags';
-import DashboardLayoutContent from './_components/layout-content';
+import DashboardLayoutContent from '@/components/dashboard/layout-content';
 import { cookies } from 'next/headers';
 
 interface DashboardLayoutProps {

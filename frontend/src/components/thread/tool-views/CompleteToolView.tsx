@@ -27,7 +27,7 @@ import { Markdown } from '@/components/ui/markdown';
 
 interface CompleteContent {
   summary?: string;
-  result?: string;
+  result?: string | null;
   tasksCompleted?: string[];
   finalOutput?: string;
   attachments?: string[];
@@ -54,6 +54,7 @@ export function CompleteToolView({
     if (assistantContent) {
       try {
         const contentStr = normalizeContentToString(assistantContent);
+        if (!contentStr) return;
 
         let cleanContent = contentStr
           .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')
@@ -88,6 +89,8 @@ export function CompleteToolView({
     if (toolContent && !isStreaming) {
       try {
         const contentStr = normalizeContentToString(toolContent);
+        if (!contentStr) return;
+        
         const toolResultMatch = contentStr.match(/ToolResult\([^)]*output=['"]([^'"]+)['"]/);
         if (toolResultMatch) {
           setCompleteData(prev => ({ ...prev, result: toolResultMatch[1] }));

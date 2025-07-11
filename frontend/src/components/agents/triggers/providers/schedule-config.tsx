@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,12 +15,14 @@ import { Clock, Calendar as CalendarIcon, Info, Zap, Repeat, Timer, Target } fro
 import { format, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TriggerProvider, ScheduleTriggerConfig } from '../types';
+import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 
 interface ScheduleTriggerConfigFormProps {
   provider: TriggerProvider;
   config: ScheduleTriggerConfig;
   onChange: (config: ScheduleTriggerConfig) => void;
   errors: Record<string, string>;
+  agentId: string;
 }
 
 type ScheduleType = 'quick' | 'recurring' | 'advanced' | 'one-time';
@@ -99,7 +101,9 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
   config,
   onChange,
   errors,
+  agentId,
 }) => {
+  const { data: workflows = [], isLoading: isLoadingWorkflows } = useAgentWorkflows(agentId);
   const [scheduleType, setScheduleType] = useState<ScheduleType>('quick');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   
@@ -111,6 +115,8 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
   
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [oneTimeTime, setOneTimeTime] = useState<{ hour: string; minute: string }>({ hour: '09', minute: '00' });
+
+
 
   const generateCronExpression = () => {
     if (scheduleType === 'quick' && selectedPreset) {
@@ -172,6 +178,35 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
       timezone: value,
     });
   };
+
+  const handleExecutionTypeChange = (value: 'agent' | 'workflow') => {
+    const newConfig = {
+      ...config,
+      execution_type: value,
+    };
+    if (value === 'agent') {
+      delete newConfig.workflow_id;
+      delete newConfig.workflow_input;
+    } else {
+      delete newConfig.agent_prompt;
+      if (!newConfig.workflow_input) {
+        newConfig.workflow_input = { prompt: '' };
+      }
+    }
+    onChange(newConfig);
+  };
+
+  const handleWorkflowChange = (workflowId: string) => {
+    if (workflowId.startsWith('__')) {
+      return;
+    }
+    onChange({
+      ...config,
+      workflow_id: workflowId,
+    });
+  };
+
+
 
   const handleWeekdayToggle = (weekday: string) => {
     setSelectedWeekdays(prev => 
@@ -493,28 +528,104 @@ export const ScheduleTriggerConfigForm: React.FC<ScheduleTriggerConfigFormProps>
               </SelectContent>
             </Select>
           </div>
-
           <div>
-            <Label htmlFor="agent_prompt" className="text-sm font-medium">
-              Agent Prompt *
+            <Label className="text-sm font-medium mb-3 block">
+              Execution Type *
             </Label>
-            <Textarea
-              id="agent_prompt"
-              value={config.agent_prompt || ''}
-              onChange={(e) => handleAgentPromptChange(e.target.value)}
-              placeholder="Enter the prompt that will be sent to your agent when triggered..."
-              rows={4}
-              className={errors.agent_prompt ? 'border-destructive' : ''}
-            />
-            {errors.agent_prompt && (
-              <p className="text-xs text-destructive mt-1">{errors.agent_prompt}</p>
-            )}
+            <RadioGroup value={config.execution_type || 'agent'} onValueChange={handleExecutionTypeChange}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="agent" id="execution-agent" />
+                <Label htmlFor="execution-agent">Execute Agent</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="workflow" id="execution-workflow" />
+                <Label htmlFor="execution-workflow">Execute Workflow</Label>
+              </div>
+            </RadioGroup>
             <p className="text-xs text-muted-foreground mt-1">
-              This prompt will be sent to your agent each time the schedule triggers.
+              Choose whether to execute the agent directly or run a specific workflow.
             </p>
           </div>
+          {config.execution_type === 'workflow' ? (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="workflow_id" className="text-sm font-medium">
+                  Workflow *
+                </Label>
+                <Select value={config.workflow_id || ''} onValueChange={handleWorkflowChange}>
+                  <SelectTrigger className={errors.workflow_id ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Select a workflow" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingWorkflows ? (
+                      <SelectItem value="__loading__" disabled>Loading workflows...</SelectItem>
+                    ) : workflows.length === 0 ? (
+                      <SelectItem value="__no_workflows__" disabled>No workflows available</SelectItem>
+                    ) : (
+                      workflows.filter(w => w.status === 'active').map((workflow) => (
+                        <SelectItem key={workflow.id} value={workflow.id}>
+                          {workflow.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {errors.workflow_id && (
+                  <p className="text-xs text-destructive mt-1">{errors.workflow_id}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Select the workflow to execute when triggered.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="workflow_input" className="text-sm font-medium">
+                  Instructions for Workflow
+                </Label>
+                <Textarea
+                  id="workflow_input"
+                  value={config.workflow_input?.prompt || config.workflow_input?.message || ''}
+                  onChange={(e) => {
+                    onChange({
+                      ...config,
+                      workflow_input: { prompt: e.target.value },
+                    });
+                  }}
+                  placeholder="Write what you want the workflow to do..."
+                  rows={3}
+                  className={errors.workflow_input ? 'border-destructive' : ''}
+                />
+                {errors.workflow_input && (
+                  <p className="text-xs text-destructive mt-1">{errors.workflow_input}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Simply describe what you want the workflow to accomplish. The workflow will interpret your instructions naturally.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="agent_prompt" className="text-sm font-medium">
+                Agent Prompt *
+              </Label>
+              <Textarea
+                id="agent_prompt"
+                value={config.agent_prompt || ''}
+                onChange={(e) => handleAgentPromptChange(e.target.value)}
+                placeholder="Enter the prompt that will be sent to your agent when triggered..."
+                rows={4}
+                className={errors.agent_prompt ? 'border-destructive' : ''}
+              />
+              {errors.agent_prompt && (
+                <p className="text-xs text-destructive mt-1">{errors.agent_prompt}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                This prompt will be sent to your agent each time the schedule triggers.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
-}; 
+};

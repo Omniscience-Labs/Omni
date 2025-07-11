@@ -166,17 +166,7 @@ async def lrange(key: str, start: int, end: int) -> List[str]:
     return await redis_client.lrange(key, start, end)
 
 
-async def llen(key: str) -> int:
-    """Get the length of a list."""
-    redis_client = await get_client()
-    return await redis_client.llen(key)
-
-
 # Key management
-async def expire(key: str, time: int):
-    """Set a key's time to live in seconds."""
-    redis_client = await get_client()
-    return await redis_client.expire(key, time)
 
 
 async def keys(pattern: str) -> List[str]:

@@ -21,6 +21,7 @@ from pydantic import BaseModel
 import uuid
 # Import the agent API module
 from agent import api as agent_api
+from agent import workflows as workflows_api
 from sandbox import api as sandbox_api
 from services import billing as billing_api
 from flags import api as feature_flags_api
@@ -28,6 +29,7 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
+from triggers import unified_oauth_api
 
 
 if sys.platform == "win32":
@@ -52,6 +54,9 @@ async def lifespan(app: FastAPI):
             instance_id
         )
         
+        # Initialize workflow API
+        workflows_api.initialize(db, instance_id)
+        
         sandbox_api.initialize(db)
         
         # Initialize Redis connection
@@ -69,6 +74,9 @@ async def lifespan(app: FastAPI):
         # Initialize triggers API
         triggers_api.initialize(db)
         unified_oauth_api.initialize(db)
+        
+        # Initialize pipedream API
+        pipedream_api.initialize(db)
         
         yield
         
@@ -152,6 +160,7 @@ app.add_middleware(
 api_router = APIRouter()
 
 # Include all API routers without individual prefixes
+api_router.include_router(workflows_api.router)
 api_router.include_router(agent_api.router)
 api_router.include_router(sandbox_api.router)
 api_router.include_router(billing_api.router)
@@ -171,15 +180,14 @@ api_router.include_router(email_api.router)
 from knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
-from triggers import api as triggers_api
-from triggers import unified_oauth_api
 api_router.include_router(triggers_api.router)
 api_router.include_router(unified_oauth_api.router)
 
-# Add health check to API router
+from pipedream import api as pipedream_api
+api_router.include_router(pipedream_api.router)
+
 @api_router.get("/health")
 async def health_check():
-    """Health check endpoint to check if API server is up."""
     logger.info("Health check endpoint called")
     return {
         "status": "ok", 
@@ -187,10 +195,8 @@ async def health_check():
         "instance_id": instance_id
     }
 
-# Add health check to API router
 @api_router.get("/health-docker")
 async def health_check():
-    """Health check endpoint to verify API is working."""
     logger.info("Health docker check endpoint called")
     try:
         client = await redis.get_client()
@@ -210,7 +216,6 @@ async def health_check():
         raise HTTPException(status_code=500, detail="Health check failed")
 
 
-# Include the main API router with /api prefix
 app.include_router(api_router, prefix="/api")
 
 

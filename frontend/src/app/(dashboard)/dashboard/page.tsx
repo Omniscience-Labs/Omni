@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { DashboardContent } from "./_components/dashboard-content";
+import { DashboardContent } from "../../../components/dashboard/dashboard-content";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFlagEnabled } from "@/lib/feature-flags";

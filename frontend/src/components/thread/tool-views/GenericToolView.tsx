@@ -1,23 +1,16 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
-  Settings,
   CheckCircle,
   AlertTriangle,
-  Loader2,
   Clock,
-  Code,
-  FileText,
-  ArrowRight,
   Wrench,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import { formatTimestamp, getToolTitle, extractToolData } from './utils';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingState } from './shared/LoadingState';
 
@@ -30,8 +23,6 @@ export function GenericToolView({
   isSuccess = true,
   isStreaming = false,
 }: ToolViewProps) {
-  const [progress, setProgress] = useState(0);
-
   const toolTitle = getToolTitle(name);
 
   const formatContent = (content: any) => {

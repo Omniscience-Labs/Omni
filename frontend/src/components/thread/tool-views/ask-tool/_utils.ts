@@ -47,7 +47,7 @@ const extractFromNewFormat = (content: any): {
     let attachments: string[] | null = null;
     if (args.attachments) {
       if (typeof args.attachments === 'string') {
-        attachments = args.attachments.split(',').map(a => a.trim()).filter(a => a.length > 0);
+        attachments = args.attachments.split(',').map((a: string) => a.trim()).filter((a: string) => a.length > 0);
       } else if (Array.isArray(args.attachments)) {
         attachments = args.attachments;
       }

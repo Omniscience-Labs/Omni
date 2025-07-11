@@ -1,13 +1,3 @@
-"""
-Secure MCP Credential Manager
-
-This module handles:
-1. Encrypting and storing MCP credentials securely
-2. Retrieving and decrypting credentials for runtime use
-3. Managing credential lifecycle and validation
-4. Auditing credential usage
-"""
-
 import os
 import json
 import hashlib
@@ -326,31 +316,6 @@ class CredentialManager:
             logger.error(f"Error deleting credential for {mcp_qualified_name}: {str(e)}")
             return False
       
-    async def _log_credential_usage(
-        self, 
-        credential_id: str, 
-        instance_id: Optional[str], 
-        action: str, 
-        success: bool, 
-        error_message: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ):
-        """Log credential usage for auditing"""
-        try:
-            client = await db.client
-            
-            await client.table('credential_usage_log').insert({
-                'credential_id': credential_id,
-                'instance_id': instance_id,
-                'action': action,
-                'success': success,
-                'error_message': error_message,
-                'metadata': metadata or {}
-            }).execute()
-            
-        except Exception as e:
-            logger.error(f"Failed to log credential usage: {e}")
-    
     async def get_missing_credentials_for_requirements(
         self, 
         account_id: str, 

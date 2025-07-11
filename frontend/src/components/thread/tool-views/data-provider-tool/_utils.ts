@@ -219,7 +219,7 @@ export function extractDataProviderCallData(
     serviceName = assistantNewFormat.serviceName;
     route = assistantNewFormat.route;
     payload = assistantNewFormat.payload;
-    output = assistantNewFormat.output;
+    output = assistantNewFormat.output ?? null;
     if (assistantNewFormat.success !== undefined) {
       actualIsSuccess = assistantNewFormat.success;
     }
@@ -231,7 +231,7 @@ export function extractDataProviderCallData(
     serviceName = toolNewFormat.serviceName;
     route = toolNewFormat.route;
     payload = toolNewFormat.payload;
-    output = toolNewFormat.output;
+    output = toolNewFormat.output ?? null;
     if (toolNewFormat.success !== undefined) {
       actualIsSuccess = toolNewFormat.success;
     }

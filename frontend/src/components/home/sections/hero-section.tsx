@@ -31,6 +31,7 @@ import { useAccounts } from '@/hooks/use-accounts';
 import { isLocalMode, config } from '@/lib/config';
 import { toast } from 'sonner';
 import { useModal } from '@/hooks/use-modal-store';
+import GitHubSignIn from '@/components/GithubSignIn';
 import { ChatInput, ChatInputHandles } from '@/components/thread/chat-input/chat-input';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { createQueryHook } from '@/hooks/use-query';
@@ -354,9 +355,10 @@ export function HeroSection() {
 
 
 
-          {/* Google Sign In */}
+          {/* OAuth Sign In */}
           <div className="w-full">
             <GoogleSignIn returnUrl="/dashboard" />
+            <GitHubSignIn returnUrl="/dashboard" />
           </div>
 
           {/* Divider */}

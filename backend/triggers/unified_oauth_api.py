@@ -18,7 +18,7 @@ from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 
-router = APIRouter(prefix="/api/integrations", tags=["oauth-integrations"])
+router = APIRouter(prefix="/integrations", tags=["oauth-integrations"])
 
 db = None
 
@@ -152,32 +152,36 @@ async def get_integration_status(
         
         client = await db.client
         result = await client.table('agent_triggers')\
-            .select('trigger_id, trigger_type, name, is_active, created_at')\
+            .select('trigger_id, trigger_type, name, is_active, created_at, config')\
             .eq('agent_id', agent_id)\
             .in_('trigger_type', ['slack', 'discord', 'teams'])\
             .execute()
         
         integrations = []
         for trigger in result.data:
-            oauth_result = await client.table('oauth_installations')\
-                .select('provider, provider_data, installed_at')\
-                .eq('trigger_id', trigger['trigger_id'])\
-                .execute()
+            # COMMENTED OUT: OAuth installations table deprecated
+            # oauth_result = await client.table('oauth_installations')\
+            #     .select('provider, provider_data, installed_at')\
+            #     .eq('trigger_id', trigger['trigger_id'])\
+            #     .execute()
             
-            if oauth_result.data:
-                oauth_data = oauth_result.data[0]
-                provider_data = oauth_data.get('provider_data', {})
-                
-                integrations.append({
-                    "trigger_id": trigger["trigger_id"],
-                    "provider": oauth_data["provider"],
-                    "name": trigger["name"],
-                    "is_active": trigger["is_active"],
-                    "workspace_name": provider_data.get("workspace_name"),
-                    "bot_name": provider_data.get("bot_name"),
-                    "installed_at": oauth_data["installed_at"],
-                    "created_at": trigger["created_at"]
-                })
+            # if oauth_result.data:
+            #     oauth_data = oauth_result.data[0]
+            #     provider_data = oauth_data.get('provider_data', {})
+            
+            # Get data from trigger config instead
+            config = trigger.get('config', {})
+            
+            integrations.append({
+                "trigger_id": trigger["trigger_id"],
+                "provider": trigger["trigger_type"],
+                "name": trigger["name"],
+                "is_active": trigger["is_active"],
+                "workspace_name": config.get("team_name") or config.get("guild_name") or config.get("organization"),
+                "bot_name": config.get("bot_name"),
+                "installed_at": trigger["created_at"],  # Use trigger creation time
+                "created_at": trigger["created_at"]
+            })
         
         return IntegrationStatusResponse(
             agent_id=agent_id,
@@ -214,10 +218,11 @@ async def uninstall_integration(
         success = await trigger_manager.delete_trigger(trigger_id)
         
         if success:
-            await client.table('oauth_installations')\
-                .delete()\
-                .eq('trigger_id', trigger_id)\
-                .execute()
+            # COMMENTED OUT: OAuth installations table deprecated
+            # await client.table('oauth_installations')\
+            #     .delete()\
+            #     .eq('trigger_id', trigger_id)\
+            #     .execute()
             
             return {
                 "success": True, 

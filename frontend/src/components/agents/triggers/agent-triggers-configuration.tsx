@@ -16,7 +16,6 @@ import {
   useTriggerProviders 
 } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
-import { getTriggerIcon } from './utils';
 import { OneClickIntegrations } from './one-click-integrations';
 
 interface AgentTriggersConfigurationProps {
@@ -193,6 +192,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
             onSave={handleSaveTrigger}
             onCancel={() => setConfiguringProvider(null)}
             isLoading={createTriggerMutation.isPending || updateTriggerMutation.isPending}
+            agentId={agentId}
           />
         </Dialog>
       )}

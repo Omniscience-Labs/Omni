@@ -13,8 +13,8 @@ from utils.config import config, EnvMode
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
-from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES
-from litellm import cost_per_token
+from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES, HARDCODED_MODEL_PRICES
+from litellm.cost_calculator import cost_per_token
 import time
 
 # Initialize Stripe
@@ -25,46 +25,6 @@ TOKEN_PRICE_MULTIPLIER = 1.5
 
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
-
-# Hardcoded pricing for specific models (prices per million tokens)
-HARDCODED_MODEL_PRICES = {
-    "openrouter/deepseek/deepseek-chat": {
-        "input_cost_per_million_tokens": 0.38,
-        "output_cost_per_million_tokens": 0.89
-    },
-    "deepseek/deepseek-chat": {
-        "input_cost_per_million_tokens": 0.38,
-        "output_cost_per_million_tokens": 0.89
-    },
-    "qwen/qwen3-235b-a22b": {
-        "input_cost_per_million_tokens": 0.13,
-        "output_cost_per_million_tokens": 0.60
-    },
-    "openrouter/qwen/qwen3-235b-a22b": {
-        "input_cost_per_million_tokens": 0.13,
-        "output_cost_per_million_tokens": 0.60
-    },
-    "google/gemini-2.5-flash-preview-05-20": {
-        "input_cost_per_million_tokens": 0.15,
-        "output_cost_per_million_tokens": 0.60
-    },
-    "openrouter/google/gemini-2.5-flash-preview-05-20": {
-        "input_cost_per_million_tokens": 0.15,
-        "output_cost_per_million_tokens": 0.60
-    },
-    "anthropic/claude-sonnet-4": {
-        "input_cost_per_million_tokens": 3.00,
-        "output_cost_per_million_tokens": 15.00,
-    },
-    "google/gemini-2.5-pro": {
-        "input_cost_per_million_tokens": 1.25,
-        "output_cost_per_million_tokens": 10.00,
-    },
-    "openrouter/google/gemini-2.5-pro": {
-        "input_cost_per_million_tokens": 1.25,
-        "output_cost_per_million_tokens": 10.00,
-    },
-}
 
 def get_model_pricing(model: str) -> tuple[float, float] | None:
     """
