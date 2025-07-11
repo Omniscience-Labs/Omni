@@ -94,8 +94,8 @@ MODELS = {
         "tier_availability": ["paid"]
     },
     
-    "openrouter/x-ai/grok-4": {
-        "aliases": ["grok-4"],
+    "xai/grok-4": {
+        "aliases": ["grok-4", "x-ai/grok-4"],
         "pricing": {
             "input_cost_per_million_tokens": 5.00,
             "output_cost_per_million_tokens": 15.00
