@@ -170,6 +170,10 @@ async def lrange(key: str, start: int, end: int) -> List[str]:
 
 
 async def keys(pattern: str) -> List[str]:
-    """Get keys matching a pattern."""
     redis_client = await get_client()
     return await redis_client.keys(pattern)
+
+
+async def expire(key: str, seconds: int):
+    redis_client = await get_client()
+    return await redis_client.expire(key, seconds)

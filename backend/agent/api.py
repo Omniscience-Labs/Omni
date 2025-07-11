@@ -25,9 +25,7 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
-from .utils import check_for_active_project_agent_run
 
-# Initialize shared resources
 router = APIRouter()
 db = None
 instance_id = None # Global instance ID for this backend instance
@@ -351,13 +349,7 @@ async def start_agent(
     if not can_run:
         raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
 
-    active_run_id = await check_for_active_project_agent_run(client, project_id)
-    if active_run_id:
-        logger.info(f"Stopping existing agent run {active_run_id} for project {project_id}")
-        await stop_agent_run(active_run_id)
-
     try:
-        # Get project data to find sandbox ID
         project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
         if not project_result.data:
             raise HTTPException(status_code=404, detail="Project not found")
