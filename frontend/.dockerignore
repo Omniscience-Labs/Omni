@@ -9,6 +9,5 @@ README.md
 .prettierrc
 .prettierignore
 *.env
-*.env.*
 env.*
 README.md
