@@ -183,6 +183,9 @@ api_router.include_router(triggers_api.router)
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
+from local_llm import api as local_llm_api
+api_router.include_router(local_llm_api.router)
+
 @api_router.get("/health")
 async def health_check():
     logger.info("Health check endpoint called")
