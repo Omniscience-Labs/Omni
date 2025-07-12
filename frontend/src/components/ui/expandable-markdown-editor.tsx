@@ -112,7 +112,7 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
     <>
       <div className={cn('relative', className)}>
         <div 
-          className="group relative pb-4 border rounded-lg bg-muted/30 hover:opacity-80 transition-colors cursor-pointer overflow-hidden"
+          className="group relative pb-4 border rounded-2xl bg-muted/30 hover:opacity-80 transition-colors cursor-pointer overflow-hidden"
           onClick={openDialog}
         >
           <div className="p-4 max-h-32 overflow-hidden">
