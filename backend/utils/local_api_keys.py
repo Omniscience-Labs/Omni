@@ -14,12 +14,9 @@ from utils.constants import PROVIDERS
 
 def get_local_api_keys(providers: List[str]) -> Dict[str, str]:
     """Get API keys from .env file in local mode."""
-    if config.ENV_MODE != EnvMode.LOCAL:
-        return {}
-    
     try:
         # Load current env vars
-        load_dotenv()
+        load_dotenv(override=True)
         
         return {provider: os.getenv(provider) or "" for provider in providers}
         
@@ -29,9 +26,6 @@ def get_local_api_keys(providers: List[str]) -> Dict[str, str]:
 
 def save_local_api_keys(api_keys: Dict[str, str]) -> bool:
     """Save API keys to .env file in local mode."""
-    if config.ENV_MODE != EnvMode.LOCAL:
-        return False
-    
     try:
         # Find .env file
         env_path = find_dotenv()
@@ -41,9 +35,8 @@ def save_local_api_keys(api_keys: Dict[str, str]) -> bool:
         
         # Update each API key
         for key, value in api_keys.items():
-            if value:  # Only set if value is not empty
-                set_key(env_path, key, value)
-                logger.info(f"Updated {key} in .env file")
+            set_key(env_path, key, value)
+            logger.info(f"Updated {key} in .env file")
             
         return True
         

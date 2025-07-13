@@ -15,6 +15,7 @@ export default function PersonalAccountSettingsPage({
     // { name: "Teams", href: "/settings/teams" },
     { name: 'Billing', href: '/settings/billing' },
     { name: 'Usage Logs', href: '/settings/usage-logs' },
+    { name: 'LLM API Keys', href: '/settings/llm-api-keys' },
   ];
   return (
     <>

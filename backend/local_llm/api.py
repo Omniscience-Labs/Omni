@@ -22,7 +22,6 @@ def save_local_llm_keys(request: Dict[str, str]) -> Dict[str, str]:
     if config.ENV_MODE != EnvMode.LOCAL:
         raise HTTPException(status_code=403, detail="API key management only available in local mode")
     
-    print(f"Saving local LLM keys: {request}")
     key_saved = save_local_api_keys(request)
     if key_saved:
         return {"message": "API keys saved successfully"}
