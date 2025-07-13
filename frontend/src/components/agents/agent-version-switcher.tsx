@@ -22,10 +22,10 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAgentVersions, useActivateAgentVersion, useCreateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
+import { useAgentVersions, useActivateAgentVersion, useCreateAgentVersion, useRollbackToVersion } from '@/lib/versioning';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
-import { AgentVersion } from '@/hooks/react-query/agents/utils';
+import type { AgentVersion } from '@/lib/versioning';
 
 interface AgentVersionSwitcherProps {
   agentId: string;
@@ -56,22 +56,22 @@ export function AgentVersionSwitcher({
   const [isRollingBack, setIsRollingBack] = useState(false);
 
   const viewingVersionId = versionParam || currentVersionId;
-  const viewingVersion = versions?.find(v => v.version_id === viewingVersionId) || versions?.[0];
+  const viewingVersion = versions?.find(v => v.versionId.value === viewingVersionId) || versions?.[0];
 
-  const canRollback = viewingVersion && viewingVersion.version_number > 1;
+  const canRollback = viewingVersion && viewingVersion.versionNumber.value > 1;
 
   const handleVersionSelect = async (version: AgentVersion) => {
-    if (version.version_id === viewingVersionId) return;
+    if (version.versionId.value === viewingVersionId) return;
     const params = new URLSearchParams(searchParams.toString());
-    if (version.version_id === currentVersionId) {
+    if (version.versionId.value === currentVersionId) {
       params.delete('version');
     } else {
-      params.set('version', version.version_id);
+      params.set('version', version.versionId.value);
     }
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     router.push(newUrl);
-    if (version.version_id !== currentVersionId) {
-      toast.success(`Viewing ${version.version_name} (read-only)`);
+    if (version.versionId.value !== currentVersionId) {
+      toast.success(`Viewing ${version.versionName} (read-only)`);
     }
   };
 
@@ -83,16 +83,16 @@ export function AgentVersionSwitcher({
       const newVersion = await createVersionMutation.mutateAsync({
         agentId,
         data: {
-          system_prompt: selectedVersion.system_prompt,
-          configured_mcps: selectedVersion.configured_mcps,
-          custom_mcps: selectedVersion.custom_mcps,
-          agentpress_tools: selectedVersion.agentpress_tools,
-          description: `Rolled back from ${viewingVersion.version_name} to ${selectedVersion.version_name}`
+          system_prompt: selectedVersion.systemPrompt,
+          configured_mcps: selectedVersion.configuredMcps,
+          custom_mcps: selectedVersion.customMcps,
+          agentpress_tools: selectedVersion.toolConfiguration.tools,
+          description: `Rolled back from ${viewingVersion.versionName} to ${selectedVersion.versionName}`
         }
       });
       await activateVersionMutation.mutateAsync({ 
         agentId, 
-        versionId: newVersion.version_id 
+        versionId: newVersion.versionId.value 
       });
       
       const params = new URLSearchParams(searchParams.toString());
@@ -101,7 +101,7 @@ export function AgentVersionSwitcher({
       router.push(newUrl);
 
       setShowRollbackDialog(false);
-      toast.success(`Rolled back to ${selectedVersion.version_name} configuration`);
+      toast.success(`Rolled back to ${selectedVersion.versionName} configuration`);
     } catch (error) {
       console.error('Failed to rollback:', error);
       toast.error('Failed to rollback version');
@@ -136,7 +136,7 @@ export function AgentVersionSwitcher({
             <GitBranch className="h-4 w-4" />
             {viewingVersion ? (
               <>
-                {viewingVersion.version_name}
+                {viewingVersion.versionName}
                 {viewingVersionId === currentVersionId && (
                   <div className="h-2 w-2 rounded-full bg-green-500" />
                 )}
@@ -153,11 +153,11 @@ export function AgentVersionSwitcher({
           
           <div className="max-h-96 overflow-y-auto">
             {versions.map((version) => {
-              const isViewing = version.version_id === viewingVersionId;
-              const isCurrent = version.version_id === currentVersionId;
+              const isViewing = version.versionId.value === viewingVersionId;
+              const isCurrent = version.versionId.value === currentVersionId;
               
               return (
-                <div key={version.version_id} className="relative">
+                <div key={version.versionId.value} className="relative">
                   <DropdownMenuItem
                     onClick={() => handleVersionSelect(version)}
                     className={`cursor-pointer ${isViewing ? 'bg-accent' : ''}`}
@@ -165,7 +165,7 @@ export function AgentVersionSwitcher({
                     <div className="flex items-start justify-between w-full">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{version.version_name}</span>
+                          <span className="font-medium">{version.versionName}</span>
                           {isCurrent && (
                             <Badge variant="default" className="text-xs">
                               Current
@@ -180,12 +180,12 @@ export function AgentVersionSwitcher({
                         <div className="flex items-center gap-2 mt-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(version.created_at), { addSuffix: true })}
+                            {formatDistanceToNow(version.createdAt, { addSuffix: true })}
                           </span>
                         </div>
-                        {version.change_description && (
+                        {version.changeDescription && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {version.change_description}
+                            {version.changeDescription}
                           </p>
                         )}
                       </div>
@@ -196,7 +196,7 @@ export function AgentVersionSwitcher({
                     </div>
                   </DropdownMenuItem>
                   
-                  {!isViewing && version.version_number < (viewingVersion?.version_number || 0) && canRollback && (
+                  {!isViewing && version.versionNumber.value < (viewingVersion?.versionNumber.value || 0) && canRollback && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -205,7 +205,7 @@ export function AgentVersionSwitcher({
                         openRollbackDialog(version);
                       }}
                       className="absolute right-2 top-2"
-                      title={`Rollback to ${version.version_name}`}
+                      title={`Rollback to ${version.versionName}`}
                     >
                       <RotateCcw className="h-3 w-3" />
                     </Button>
@@ -214,7 +214,6 @@ export function AgentVersionSwitcher({
               );
             })}
           </div>
-          
           {versions.length === 1 && (
             <div className="p-2">
               <Alert>
@@ -227,28 +226,24 @@ export function AgentVersionSwitcher({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Rollback Confirmation Dialog */}
       <Dialog open={showRollbackDialog} onOpenChange={setShowRollbackDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rollback to {selectedVersion?.version_name}</DialogTitle>
+            <DialogTitle>Rollback to {selectedVersion?.versionName}</DialogTitle>
             <DialogDescription>
-              This will create a new version with the configuration from {selectedVersion?.version_name}.
+              This will create a new version with the configuration from {selectedVersion?.versionName}.
               Your current changes will be preserved in the current version.
             </DialogDescription>
           </DialogHeader>
-          
           <div className="py-4">
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <strong>Note:</strong> This action will create a new version (v{(versions?.[0]?.version_number || 0) + 1}) 
+                <strong>Note:</strong> This action will create a new version (v{(versions?.[0]?.versionNumber.value || 0) + 1}) 
                 with the selected configuration. You can always switch back to any previous version.
               </AlertDescription>
             </Alert>
           </div>
-          
           <DialogFooter>
             <Button
               variant="outline"

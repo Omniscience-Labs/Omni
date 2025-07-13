@@ -16,7 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAgentVersions, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
+import { useAgentVersions, useActivateAgentVersion } from '@/lib/versioning';
 import { Agent } from '@/hooks/react-query/agents/utils';
 import { cn } from '@/lib/utils';
 
@@ -44,8 +44,8 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
     );
   }
 
-  const currentVersion = versions?.find(v => v.is_active);
-  const versionHistory = versions?.sort((a, b) => b.version_number - a.version_number) || [];
+  const currentVersion = versions?.find(v => v.isActive);
+  const versionHistory = versions?.sort((a, b) => b.versionNumber.value - a.versionNumber.value) || [];
 
   const handleActivateVersion = (versionId: string) => {
     activateVersion.mutate({ 
@@ -88,7 +88,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Badge variant="default" className="text-sm">
-                      {currentVersion.version_name}
+                      {currentVersion.versionName}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       Active version
@@ -100,15 +100,15 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
                 <div className="grid gap-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Created</span>
-                    <span>{formatDistanceToNow(new Date(currentVersion.created_at), { addSuffix: true })}</span>
+                    <span>{formatDistanceToNow(currentVersion.createdAt, { addSuffix: true })}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tools</span>
-                    <span>{Object.keys(currentVersion.agentpress_tools || {}).length} enabled</span>
+                    <span>{Object.keys(currentVersion.toolConfiguration.tools || {}).length} enabled</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">MCP Servers</span>
-                    <span>{(currentVersion.configured_mcps?.length || 0) + (currentVersion.custom_mcps?.length || 0)}</span>
+                    <span>{(currentVersion.configuredMcps?.length || 0) + (currentVersion.customMcps?.length || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -123,25 +123,25 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-3">
                 {versionHistory.map((version, index) => {
-                  const isActive = version.is_active;
-                  const isSelected = version.version_id === selectedVersion;
+                  const isActive = version.isActive;
+                  const isSelected = version.versionId.value === selectedVersion;
                   
                   return (
                     <div
-                      key={version.version_id}
+                      key={version.versionId.value}
                       className={cn(
                         "p-4 rounded-lg border cursor-pointer transition-colors",
                         isActive && "border-primary bg-primary/5",
                         !isActive && "hover:bg-muted/50",
                         isSelected && !isActive && "bg-muted"
                       )}
-                      onClick={() => setSelectedVersion(version.version_id)}
+                      onClick={() => setSelectedVersion(version.versionId.value)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <Badge variant={isActive ? "default" : "secondary"}>
-                              {version.version_name}
+                              {version.versionName}
                             </Badge>
                             {isActive && (
                               <Badge variant="outline" className="text-xs">
@@ -150,7 +150,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            Created {formatDistanceToNow(new Date(version.created_at), { addSuffix: true })}
+                            Created {formatDistanceToNow(new Date(version.createdAt), { addSuffix: true })}
                           </p>
                         </div>
                         
@@ -160,7 +160,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleActivateVersion(version.version_id);
+                              handleActivateVersion(version.versionId.value);
                             }}
                             disabled={activateVersion.isPending}
                           >
@@ -179,7 +179,7 @@ export function AgentVersionManager({ agent, onCreateVersion }: AgentVersionMana
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">MCP Servers</span>
-                              <span>{(version.configured_mcps?.length || 0) + (version.custom_mcps?.length || 0)}</span>
+                              <span>{(version.configuredMcps?.length || 0) + (version.customMcps?.length || 0)}</span>
                             </div>
                           </div>
                         </div>

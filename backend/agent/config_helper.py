@@ -8,6 +8,34 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     agent_has_config = bool(agent_data.get('config') and agent_data['config'] != {})
     version_has_config = bool(version_data and version_data.get('config') and version_data['config'] != {})
     
+    if version_data and ('configured_mcps' in version_data or 'custom_mcps' in version_data or 'system_prompt' in version_data):
+        logger.info(f"Using version data from version manager for agent {agent_id}")
+        config = {
+            'agent_id': agent_data['agent_id'],
+            'name': agent_data['name'],
+            'description': agent_data.get('description'),
+            'is_default': agent_data.get('is_default', False),
+            'account_id': agent_data.get('account_id'),
+            'current_version_id': agent_data.get('current_version_id'),
+            'version_name': version_data.get('version_name', 'v1'),
+            'system_prompt': version_data.get('system_prompt', ''),
+            'configured_mcps': version_data.get('configured_mcps', []),
+            'custom_mcps': version_data.get('custom_mcps', []),
+            'agentpress_tools': version_data.get('agentpress_tools', {}),
+            'avatar': agent_data.get('avatar'),
+            'avatar_color': agent_data.get('avatar_color'),
+            'tools': {
+                'agentpress': version_data.get('agentpress_tools', {}),
+                'mcp': version_data.get('configured_mcps', []),
+                'custom_mcp': version_data.get('custom_mcps', [])
+            },
+            'metadata': {
+                'avatar': agent_data.get('avatar'),
+                'avatar_color': agent_data.get('avatar_color')
+            }
+        }
+        return config
+    
     if version_data and version_data.get('config') and version_data['config'] != {}:
         config = version_data['config'].copy()
         config['agent_id'] = agent_data['agent_id']
@@ -149,18 +177,27 @@ def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
 def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     tools = config.get('tools', {})
     all_mcps = []
+    
+    if 'configured_mcps' in config and config['configured_mcps']:
+        for mcp in config['configured_mcps']:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
+    if 'custom_mcps' in config and config['custom_mcps']:
+        for mcp in config['custom_mcps']:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
+    
     mcp_list = tools.get('mcp', [])
     if mcp_list:
-        all_mcps.extend(mcp_list)
+        for mcp in mcp_list:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
     
     custom_mcp_list = tools.get('custom_mcp', [])
     if custom_mcp_list:
-        all_mcps.extend(custom_mcp_list)
-    
-    if 'configured_mcps' in config:
-        all_mcps.extend(config['configured_mcps'])
-    
-    if 'custom_mcps' in config:
-        all_mcps.extend(config['custom_mcps'])
+        for mcp in custom_mcp_list:
+            if mcp not in all_mcps:
+                all_mcps.append(mcp)
     
     return all_mcps 

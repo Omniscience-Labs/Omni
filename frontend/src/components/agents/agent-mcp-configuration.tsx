@@ -12,6 +12,7 @@ interface AgentMCPConfigurationProps {
     system_prompt?: string;
     agentpress_tools?: any;
   };
+  saveMode?: 'direct' | 'callback';
 }
 
 export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
@@ -19,7 +20,8 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
   customMCPs,
   onMCPChange,
   agentId,
-  versionData
+  versionData,
+  saveMode = 'direct'
 }) => {
   const allMCPs = [
     ...(configuredMCPs || []),
@@ -57,6 +59,7 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
       onConfigurationChange={handleConfigurationChange}
       agentId={agentId}
       versionData={versionData}
+      saveMode={saveMode}
     />
   );
 }; 

@@ -38,6 +38,7 @@ interface BaseToolsManagerProps {
     system_prompt?: string;
     agentpress_tools?: any;
   };
+  saveMode?: 'direct' | 'callback'; // 'direct' saves to backend, 'callback' only updates parent
 }
 
 interface PipedreamToolsManagerProps extends BaseToolsManagerProps {
@@ -56,7 +57,7 @@ interface CustomToolsManagerProps extends BaseToolsManagerProps {
 type ToolsManagerProps = PipedreamToolsManagerProps | CustomToolsManagerProps;
 
 export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
-  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData } = props;
+  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct' } = props;
 
   const pipedreamResult = usePipedreamToolsData(
     mode === 'pipedream' ? agentId : '',
@@ -165,11 +166,21 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
     
-    handleUpdateTools(enabledTools);
-    setHasChanges(false);
-    
-    if (onToolsUpdate) {
-      onToolsUpdate(enabledTools);
+    if (saveMode === 'callback') {
+      // In callback mode, just update parent and close
+      if (onToolsUpdate) {
+        onToolsUpdate(enabledTools);
+      }
+      setHasChanges(false);
+      onOpenChange(false);
+    } else {
+      // In direct mode, save to backend
+      handleUpdateTools(enabledTools);
+      setHasChanges(false);
+      
+      if (onToolsUpdate) {
+        onToolsUpdate(enabledTools);
+      }
     }
   };
 
@@ -246,8 +257,10 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                   Viewing tools configuration for a specific version. Changes will update the current version.
                 </span>
               </div>
+            ) : saveMode === 'callback' ? (
+              <span>Choose which {displayName} tools are available to your agent. Changes will be saved when you save the agent configuration.</span>
             ) : (
-              <span>Choose which {displayName} tools are available to your agent</span>
+              <span>Choose which {displayName} tools are available to your agent. Changes will be saved immediately.</span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -338,7 +351,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
         <DialogFooter>
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
-              {!data?.has_mcp_config && data?.tools?.length > 0 && (
+              {!data?.has_mcp_config && data?.tools?.length > 0 && saveMode === 'direct' && (
                 <Alert className="p-2">
                   <Info className="h-3 w-3" />
                   <AlertDescription className="text-xs">
@@ -365,6 +378,11 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Saving...
+                    </>
+                  ) : saveMode === 'callback' ? (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Apply Changes
                     </>
                   ) : (
                     <>

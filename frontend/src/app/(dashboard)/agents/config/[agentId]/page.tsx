@@ -26,7 +26,6 @@ import { AgentKnowledgeBaseManager } from '@/components/agents/knowledge-base/ag
 import { AgentWorkflowsConfiguration } from '@/components/agents/workflows/agent-workflows-configuration';
 import { AgentVersionSwitcher } from '@/components/agents/agent-version-switcher';
 import { CreateVersionButton } from '@/components/agents/create-version-button';
-import { VersionComparison } from '../../../../../components/agents/version-comparison';
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
 
@@ -49,6 +48,9 @@ export default function AgentConfigurationPageRefactored() {
 
   // Use modular hooks
   const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
+  
+  // Debug logging
+  console.log('[Agent Config] Loading state:', { isLoading, error, agentId });
   const { hasUnsavedChanges, setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
@@ -78,6 +80,9 @@ export default function AgentConfigurationPageRefactored() {
   useEffect(() => {
     if (!agent) return;
     
+    console.log('[Agent Config] Agent data:', agent);
+    console.log('[Agent Config] Version data:', versionData);
+    
     // Determine the source of configuration data
     let configSource = agent;
     
@@ -89,6 +94,8 @@ export default function AgentConfigurationPageRefactored() {
     else if (agent.current_version) {
       configSource = agent.current_version;
     }
+    
+    console.log('[Agent Config] Config source:', configSource);
     
     const initialData: FormData = {
       name: agent.name || '',
@@ -448,6 +455,7 @@ export default function AgentConfigurationPageRefactored() {
                                 system_prompt: displayData.system_prompt,
                                 agentpress_tools: displayData.agentpress_tools
                               }}
+                              saveMode="callback"
                             />
                           </AccordionContent>
                         </AccordionItem>
@@ -506,20 +514,15 @@ export default function AgentConfigurationPageRefactored() {
             </div>
           </div>
 
-          {/* Right Panel - Preview */}
           <div className="w-1/2 overflow-y-auto">
             {previewAgent && <AgentPreview agent={previewAgent} />}
           </div>
         </div>
 
-        {/* Mobile Layout */}
         <div className="md:hidden flex flex-col h-full w-full">
-          {/* Mobile content similar to desktop but with drawer for preview */}
           <div className="flex-1 overflow-y-auto p-4">
-            {/* Similar content structure as desktop */}
           </div>
-          
-          {/* Mobile Preview Drawer */}
+
           <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <DrawerTrigger asChild>
               <Button 
@@ -540,16 +543,6 @@ export default function AgentConfigurationPageRefactored() {
           </Drawer>
         </div>
       </div>
-
-      <Dialog open={isComparisonOpen} onOpenChange={setIsComparisonOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <VersionComparison
-            agentId={agentId}
-            onClose={() => setIsComparisonOpen(false)}
-            onActivateVersion={handleActivateVersion}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 } 

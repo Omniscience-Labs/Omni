@@ -12,7 +12,8 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,
   onConfigurationChange,
   agentId,
-  versionData
+  versionData,
+  saveMode = 'direct'
 }) => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [showRegistryDialog, setShowRegistryDialog] = useState(false);
@@ -202,6 +203,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           onOpenChange={setShowPipedreamToolsManager}
           onToolsUpdate={handlePipedreamToolsUpdate}
           versionData={versionData}
+          saveMode={saveMode}
         />
       )}
       {selectedMCPForTools && selectedMCPForTools.customType !== 'pipedream' && (
@@ -214,6 +216,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           onOpenChange={setShowCustomToolsManager}
           onToolsUpdate={handleCustomToolsUpdate}
           versionData={versionData}
+          saveMode={saveMode}
         />
       )}
     </div>

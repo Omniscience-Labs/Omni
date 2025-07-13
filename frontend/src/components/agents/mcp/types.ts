@@ -18,4 +18,5 @@ export interface MCPConfigurationProps {
     system_prompt?: string;
     agentpress_tools?: any;
   };
+  saveMode?: 'direct' | 'callback';
 }

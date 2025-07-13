@@ -1,8 +1,7 @@
 import { useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
-import { useAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
-import { useAgentVersionStore } from '@/lib/stores/agent-version-store';
+import { useAgentVersion, useVersionStore } from '@/lib/versioning';
 
 interface NormalizedMCP {
   name: string;
@@ -70,23 +69,43 @@ function normalizeCustomMcps(mcps: any): NormalizedMCP[] {
 function normalizeVersionData(version: any): NormalizedVersionData | null {
   if (!version) return null;
   
-  return {
-    version_id: version.version_id,
-    agent_id: version.agent_id,
-    version_number: version.version_number,
-    version_name: version.version_name,
-    system_prompt: version.system_prompt || '',
-    configured_mcps: Array.isArray(version.configured_mcps) ? version.configured_mcps : [],
-    custom_mcps: normalizeCustomMcps(version.custom_mcps),
-    agentpress_tools: version.agentpress_tools && typeof version.agentpress_tools === 'object' 
-      ? version.agentpress_tools 
-      : {},
-    is_active: version.is_active ?? true,
-    created_at: version.created_at,
-    updated_at: version.updated_at || version.created_at,
-    created_by: version.created_by,
-    change_description: version.change_description
-  };
+  const isApiFormat = 'version_id' in version;
+  
+  if (isApiFormat) {
+    return {
+      version_id: version.version_id,
+      agent_id: version.agent_id,
+      version_number: version.version_number,
+      version_name: version.version_name,
+      system_prompt: version.system_prompt || '',
+      configured_mcps: Array.isArray(version.configured_mcps) ? version.configured_mcps : [],
+      custom_mcps: normalizeCustomMcps(version.custom_mcps),
+      agentpress_tools: version.agentpress_tools && typeof version.agentpress_tools === 'object' 
+        ? version.agentpress_tools 
+        : {},
+      is_active: version.is_active ?? true,
+      created_at: version.created_at,
+      updated_at: version.updated_at || version.created_at,
+      created_by: version.created_by,
+      change_description: version.change_description
+    };
+  } else {
+    return {
+      version_id: version.versionId?.value || version.versionId,
+      agent_id: version.agentId?.value || version.agentId,
+      version_number: version.versionNumber?.value || version.versionNumber,
+      version_name: version.versionName,
+      system_prompt: version.systemPrompt || '',
+      configured_mcps: Array.isArray(version.configuredMcps) ? version.configuredMcps : [],
+      custom_mcps: normalizeCustomMcps(version.customMcps),
+      agentpress_tools: version.agentpress_tools || version.toolConfiguration?.tools || {},
+      is_active: version.isActive ?? true,
+      created_at: version.createdAt instanceof Date ? version.createdAt.toISOString() : version.createdAt,
+      updated_at: (version.updatedAt instanceof Date ? version.updatedAt.toISOString() : version.updatedAt) || version.created_at,
+      created_by: version.createdBy?.value || version.createdBy,
+      change_description: version.changeDescription
+    };
+  }
 }
 
 export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseAgentVersionDataReturn {
@@ -94,8 +113,6 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
   const versionParam = searchParams.get('version');
   
   const { data: agent, isLoading: agentLoading, error: agentError } = useAgent(agentId);
-  
-  // Load version data if we have a version param OR if we need the current version
   const shouldLoadVersion = versionParam || agent?.current_version_id;
   const versionToLoad = versionParam || agent?.current_version_id || '';
   
@@ -104,10 +121,13 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
     shouldLoadVersion ? versionToLoad : null
   );
   
-  const { setCurrentVersion, clearVersionState } = useAgentVersionStore();
+  const { setCurrentVersion, clearVersionState } = useVersionStore();
   
   const versionData = useMemo(() => {
-    return normalizeVersionData(rawVersionData);
+    console.log('[useAgentVersionData] Raw version data:', rawVersionData);
+    const normalized = normalizeVersionData(rawVersionData);
+    console.log('[useAgentVersionData] Normalized version data:', normalized);
+    return normalized;
   }, [rawVersionData]);
   
   const isViewingOldVersion = useMemo(() => {
@@ -116,7 +136,22 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
 
   useEffect(() => {
     if (versionData) {
-      setCurrentVersion(versionData);
+      setCurrentVersion({
+        versionId: { value: versionData.version_id },
+        agentId: { value: versionData.agent_id },
+        versionNumber: { value: versionData.version_number },
+        versionName: versionData.version_name,
+        systemPrompt: versionData.system_prompt,
+        configuredMcps: versionData.configured_mcps,
+        customMcps: versionData.custom_mcps,
+        toolConfiguration: { tools: versionData.agentpress_tools },
+        agentpress_tools: versionData.agentpress_tools,
+        isActive: versionData.is_active,
+        createdAt: new Date(versionData.created_at),
+        updatedAt: new Date(versionData.updated_at),
+        createdBy: { value: versionData.created_by || '' },
+        changeDescription: versionData.change_description,
+      });
     } else if (!versionParam) {
       clearVersionState();
     }

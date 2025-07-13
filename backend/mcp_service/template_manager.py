@@ -81,8 +81,8 @@ class TemplateManager:
         try:
             client = await db.client
             
-            # 🔥 FIX: Get the agent WITH current version data
-            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
+            # Get the agent
+            agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
             if not agent_result.data:
                 raise ValueError("Agent not found")
             
@@ -92,16 +92,32 @@ class TemplateManager:
             if agent['account_id'] != creator_id:
                 raise ValueError("Access denied - you can only create templates from your own agents")
             
-            # 🔥 FIX: Get configuration from current version, not legacy columns
-            version_data = agent.get('agent_versions')
-            if version_data and version_data.get('config'):
-                # Use version config (new structure)
-                version_config = version_data['config']
-                system_prompt = version_config.get('system_prompt', '')
-                agentpress_tools = version_config.get('tools', {}).get('agentpress', {})
-                configured_mcps = version_config.get('tools', {}).get('mcp', [])
-                custom_mcps = version_config.get('tools', {}).get('custom_mcp', [])
-                logger.info(f"Using VERSION config for template creation from agent {agent_id}")
+            # Use versioning system to get current version data
+            version_data = None
+            if agent.get('current_version_id'):
+                try:
+                    from agent.versioning.facade import version_manager
+                    version_dict = await version_manager.get_version(
+                        agent_id=agent_id,
+                        version_id=agent['current_version_id'],
+                        user_id=creator_id
+                    )
+                    version_data = version_dict
+                    logger.info(f"Got version data from version manager: {version_data.get('version_name')}")
+                except Exception as e:
+                    logger.warning(f"Failed to get version data: {e}")
+            
+            # Extract configuration from version data
+            if version_data:
+                # Use version data (from version manager)
+                system_prompt = version_data.get('system_prompt', '')
+                agentpress_tools = version_data.get('agentpress_tools', {})
+                configured_mcps = version_data.get('configured_mcps', [])
+                custom_mcps = version_data.get('custom_mcps', [])
+                logger.info(f"Using VERSION config for template creation from agent {agent_id} version {version_data.get('version_name')}")
+                
+                # Debug logging to see the structure of custom_mcps
+                logger.info(f"custom_mcps from version data: {json.dumps(custom_mcps, indent=2)}")
             else:
                 # Fallback to legacy columns if no version data
                 system_prompt = agent.get('system_prompt', '')
@@ -109,6 +125,9 @@ class TemplateManager:
                 configured_mcps = agent.get('configured_mcps', [])
                 custom_mcps = agent.get('custom_mcps', [])
                 logger.info(f"Using LEGACY config for template creation from agent {agent_id}")
+                
+                # Debug logging
+                logger.info(f"custom_mcps from agent data: {json.dumps(custom_mcps, indent=2)}")
             
             # Extract MCP requirements from agent configuration
             mcp_requirements = []
@@ -119,10 +138,13 @@ class TemplateManager:
                     # Extract required config keys from the config
                     config_keys = list(mcp.get('config', {}).keys())
                     
+                    # Handle both snake_case and camelCase for enabled tools
+                    enabled_tools = mcp.get('enabled_tools', mcp.get('enabledTools', []))
+                    
                     requirement = {
                         'qualified_name': mcp['qualifiedName'],
                         'display_name': mcp.get('name', mcp['qualifiedName']),
-                        'enabled_tools': mcp.get('enabledTools', []),
+                        'enabled_tools': enabled_tools,
                         'required_config': config_keys
                     }
                     mcp_requirements.append(requirement)
@@ -135,6 +157,12 @@ class TemplateManager:
                     
                     # 🔥 FIX: Handle Pipedream MCPs with correct qualified name format
                     custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'http'))
+                    
+                    # Debug logging to check what's in the custom_mcp
+                    logger.info(f"Processing custom MCP: {custom_mcp.get('name')} with type {custom_type}")
+                    logger.info(f"Custom MCP keys: {list(custom_mcp.keys())}")
+                    logger.info(f"enabledTools value: {custom_mcp.get('enabledTools', 'NOT FOUND')}")
+                    logger.info(f"enabled_tools value: {custom_mcp.get('enabled_tools', 'NOT FOUND')}")
                     
                     if custom_type == 'pipedream':
                         # For Pipedream MCPs, extract app_slug and use pipedream:{app_slug} format
@@ -153,13 +181,18 @@ class TemplateManager:
                         # For other custom MCPs, use the original logic
                         qualified_name = custom_mcp['name'].lower().replace(' ', '_')
                     
+                    # Handle both snake_case and camelCase for enabled tools
+                    enabled_tools = custom_mcp.get('enabled_tools', custom_mcp.get('enabledTools', []))
+                    
                     requirement = {
                         'qualified_name': qualified_name,
                         'display_name': custom_mcp['name'],
-                        'enabled_tools': custom_mcp.get('enabledTools', []),
+                        'enabled_tools': enabled_tools,
                         'required_config': config_keys,
                         'custom_type': custom_type
                     }
+                    
+                    logger.info(f"Creating template requirement for {custom_mcp['name']} with {len(enabled_tools)} enabled tools")
                     mcp_requirements.append(requirement)
             
             kortix_team_account_ids = [
@@ -184,7 +217,7 @@ class TemplateManager:
                 'metadata': {
                     'source_agent_id': agent_id,
                     'source_version_id': agent.get('current_version_id'),
-                    'source_version_name': version_data.get('version_name', 'v1') if version_data else 'v1'
+                    'source_version_name': version_data.get('version_name', 'v1') if version_data else 'legacy'
                 }
             }
             
@@ -197,7 +230,7 @@ class TemplateManager:
                 raise ValueError("Failed to create template")
             
             template_id = result.data[0]['template_id']
-            logger.info(f"Successfully created template {template_id} from agent {agent_id} version {version_data.get('version_name', 'v1') if version_data else 'legacy'} with is_kortix_team={is_kortix_team}")
+            logger.info(f"Successfully created template {template_id} from agent {agent_id} version {version_data.get('version_name') if version_data else 'legacy'} with is_kortix_team={is_kortix_team}")
             
             return template_id
             
@@ -447,34 +480,36 @@ class TemplateManager:
             
             instance_id = result.data[0]['agent_id']
 
+            # Create initial version using version manager
             try:
-                initial_version_data = {
-                    "agent_id": instance_id,
-                    "version_number": 1,
-                    "version_name": "v1",
-                    "config": unified_config,
-                    # Keep legacy columns for backward compatibility
-                    "system_prompt": system_prompt,
-                    "configured_mcps": configured_mcps,
-                    "custom_mcps": custom_mcps,
-                    "agentpress_tools": template.agentpress_tools,
-                    "is_active": True,
-                    "created_by": account_id
-                }
+                from agent.versioning.facade import version_manager
+                version = await version_manager.create_version(
+                    agent_id=instance_id,
+                    user_id=account_id,
+                    system_prompt=system_prompt,
+                    configured_mcps=configured_mcps,
+                    custom_mcps=custom_mcps,
+                    agentpress_tools=template.agentpress_tools,
+                    version_name="v1",
+                    change_description=f"Initial version from template {template.name}"
+                )
                 
-                version_result = await client.table('agent_versions').insert(initial_version_data).execute()
+                # Update agent with current version ID and version count
+                await client.table('agents').update({
+                    'current_version_id': version['version_id'],
+                    'version_count': 1
+                }).eq('agent_id', instance_id).execute()
                 
-                if version_result.data:
-                    version_id = version_result.data[0]['version_id']
-                    await client.table('agents').update({
-                        'current_version_id': version_id
-                    }).eq('agent_id', instance_id).execute()
-                    logger.info(f"Created initial version v1 for installed agent {instance_id}")
-                else:
-                    logger.warning(f"Failed to create initial version for agent {instance_id}")
+                logger.info(f"Created initial version v1 for installed agent {instance_id} using version manager")
                     
             except Exception as e:
-                logger.warning(f"Failed to create initial version for agent {instance_id}: {e}")
+                logger.error(f"Failed to create initial version for agent {instance_id}: {e}")
+                # Clean up the agent if version creation fails
+                try:
+                    await client.table('agents').delete().eq('agent_id', instance_id).execute()
+                except:
+                    pass
+                raise Exception(f"Failed to create initial version: {str(e)}")
             await client.table('agent_templates')\
                 .update({'download_count': template.download_count + 1})\
                 .eq('template_id', template_id).execute()
