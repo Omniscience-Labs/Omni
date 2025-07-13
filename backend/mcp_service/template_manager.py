@@ -81,8 +81,8 @@ class TemplateManager:
         try:
             client = await db.client
             
-            # Get the agent
-            agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+            # 🔥 FIX: Get the agent WITH current version data
+            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).execute()
             if not agent_result.data:
                 raise ValueError("Agent not found")
             
@@ -92,11 +92,29 @@ class TemplateManager:
             if agent['account_id'] != creator_id:
                 raise ValueError("Access denied - you can only create templates from your own agents")
             
+            # 🔥 FIX: Get configuration from current version, not legacy columns
+            version_data = agent.get('agent_versions')
+            if version_data and version_data.get('config'):
+                # Use version config (new structure)
+                version_config = version_data['config']
+                system_prompt = version_config.get('system_prompt', '')
+                agentpress_tools = version_config.get('tools', {}).get('agentpress', {})
+                configured_mcps = version_config.get('tools', {}).get('mcp', [])
+                custom_mcps = version_config.get('tools', {}).get('custom_mcp', [])
+                logger.info(f"Using VERSION config for template creation from agent {agent_id}")
+            else:
+                # Fallback to legacy columns if no version data
+                system_prompt = agent.get('system_prompt', '')
+                agentpress_tools = agent.get('agentpress_tools', {})
+                configured_mcps = agent.get('configured_mcps', [])
+                custom_mcps = agent.get('custom_mcps', [])
+                logger.info(f"Using LEGACY config for template creation from agent {agent_id}")
+            
             # Extract MCP requirements from agent configuration
             mcp_requirements = []
             
             # Process configured_mcps (regular MCP servers)
-            for mcp in agent.get('configured_mcps', []):
+            for mcp in configured_mcps:
                 if isinstance(mcp, dict) and 'qualifiedName' in mcp:
                     # Extract required config keys from the config
                     config_keys = list(mcp.get('config', {}).keys())
@@ -110,17 +128,37 @@ class TemplateManager:
                     mcp_requirements.append(requirement)
             
             # Process custom_mcps (custom MCP servers)
-            for custom_mcp in agent.get('custom_mcps', []):
+            for custom_mcp in custom_mcps:
                 if isinstance(custom_mcp, dict) and 'name' in custom_mcp:
                     # Extract required config keys from the config
                     config_keys = list(custom_mcp.get('config', {}).keys())
                     
+                    # 🔥 FIX: Handle Pipedream MCPs with correct qualified name format
+                    custom_type = custom_mcp.get('customType', custom_mcp.get('type', 'http'))
+                    
+                    if custom_type == 'pipedream':
+                        # For Pipedream MCPs, extract app_slug and use pipedream:{app_slug} format
+                        app_slug = custom_mcp.get('config', {}).get('app_slug')
+                        if not app_slug and 'headers' in custom_mcp.get('config', {}):
+                            app_slug = custom_mcp['config']['headers'].get('x-pd-app-slug')
+                        
+                        if app_slug:
+                            qualified_name = f"pipedream:{app_slug}"
+                            logger.info(f"Using Pipedream qualified name: {qualified_name} for app_slug: {app_slug}")
+                        else:
+                            # Fallback if no app_slug found
+                            qualified_name = f"pipedream:{custom_mcp['name'].lower().replace(' ', '_')}"
+                            logger.warning(f"No app_slug found for Pipedream MCP {custom_mcp['name']}, using fallback: {qualified_name}")
+                    else:
+                        # For other custom MCPs, use the original logic
+                        qualified_name = custom_mcp['name'].lower().replace(' ', '_')
+                    
                     requirement = {
-                        'qualified_name': custom_mcp['name'].lower().replace(' ', '_'),
+                        'qualified_name': qualified_name,
                         'display_name': custom_mcp['name'],
                         'enabled_tools': custom_mcp.get('enabledTools', []),
                         'required_config': config_keys,
-                        'custom_type': custom_mcp.get('type', 'http')  # Default to http
+                        'custom_type': custom_type
                     }
                     mcp_requirements.append(requirement)
             
@@ -130,14 +168,14 @@ class TemplateManager:
             
             is_kortix_team = creator_id in kortix_team_account_ids
             
-            # Create the template
+            # Create the template using version data
             template_data = {
                 'creator_id': creator_id,
                 'name': agent['name'],
                 'description': agent.get('description'),
-                'system_prompt': agent['system_prompt'],
+                'system_prompt': system_prompt,  # 🔥 From version
                 'mcp_requirements': mcp_requirements,
-                'agentpress_tools': agent.get('agentpress_tools', {}),
+                'agentpress_tools': agentpress_tools,  # 🔥 From version
                 'tags': tags or [],
                 'is_public': make_public,
                 'is_kortix_team': is_kortix_team,
@@ -146,7 +184,7 @@ class TemplateManager:
                 'metadata': {
                     'source_agent_id': agent_id,
                     'source_version_id': agent.get('current_version_id'),
-                    'source_version_name': agent.get('current_version', {}).get('version_name', 'v1.0')
+                    'source_version_name': version_data.get('version_name', 'v1') if version_data else 'v1'
                 }
             }
             
@@ -159,7 +197,7 @@ class TemplateManager:
                 raise ValueError("Failed to create template")
             
             template_id = result.data[0]['template_id']
-            logger.info(f"Successfully created template {template_id} from agent {agent_id} with is_kortix_team={is_kortix_team}")
+            logger.info(f"Successfully created template {template_id} from agent {agent_id} version {version_data.get('version_name', 'v1') if version_data else 'legacy'} with is_kortix_team={is_kortix_team}")
             
             return template_id
             
@@ -223,53 +261,33 @@ class TemplateManager:
         profile_mappings: Optional[Dict[str, str]] = None,
         custom_mcp_configs: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
-        """
-        Install a template as an agent instance for a user
-        
-        Args:
-            template_id: ID of the template to install
-            account_id: ID of the user installing the template
-            instance_name: Optional custom name for the instance
-            custom_system_prompt: Optional custom system prompt override
-            profile_mappings: Optional dict mapping qualified_name to profile_id
-            custom_mcp_configs: Optional dict mapping qualified_name to config for custom MCPs
-            
-        Returns:
-            Dictionary with installation result and any missing credentials
-        """
         logger.info(f"Installing template {template_id} for user {account_id}")
         
         try:
-            # Get the template
             template = await self.get_template(template_id)
             if not template:
                 raise ValueError("Template not found")
             
-            # Check if template is accessible
             if not template.is_public:
-                # Check if user owns the template
                 if template.creator_id != account_id:
                     raise ValueError("Access denied to private template")
             
-            # Debug: Log template requirements
-            logger.info(f"Template MCP requirements: {[(req.qualified_name, req.display_name, getattr(req, 'custom_type', None)) for req in template.mcp_requirements]}")
             
-            # Separate custom and regular MCP requirements
             custom_requirements = [req for req in template.mcp_requirements if getattr(req, 'custom_type', None)]
             regular_requirements = [req for req in template.mcp_requirements if not getattr(req, 'custom_type', None)]
-            
-            # If no profile mappings provided, try to use default profiles
             if not profile_mappings and regular_requirements:
                 profile_mappings = {}
                 for req in regular_requirements:
-                    # Get default profile for this MCP service
                     default_profile = await credential_manager.get_default_credential_profile(
                         account_id, req.qualified_name
                     )
+                    
                     if default_profile:
                         profile_mappings[req.qualified_name] = default_profile.profile_id
+                        logger.info(f"✅ Mapped {req.qualified_name} -> {default_profile.profile_id} ({default_profile.display_name})")
+                    else:
+                        logger.warning(f"❌ No profile found for {req.qualified_name} after robust lookup")
             
-            # Check for missing profile mappings for regular requirements
             missing_profile_mappings = []
             if regular_requirements:
                 provided_mappings = profile_mappings or {}
@@ -281,7 +299,6 @@ class TemplateManager:
                             'required_config': req.required_config
                         })
             
-            # Check for missing custom MCP configs
             missing_custom_configs = []
             if custom_requirements:
                 provided_custom_configs = custom_mcp_configs or {}
@@ -294,7 +311,6 @@ class TemplateManager:
                             'required_config': req.required_config
                         })
             
-            # If we have any missing profile mappings or configs, return them
             if missing_profile_mappings or missing_custom_configs:
                 return {
                     'status': 'configs_required',
@@ -307,10 +323,8 @@ class TemplateManager:
                     }
                 }
             
-            # Create regular agent with secure credentials
             client = await db.client
-            
-            # Build configured_mcps and custom_mcps with user's credential profiles
+
             configured_mcps = []
             custom_mcps = []
             
@@ -318,32 +332,55 @@ class TemplateManager:
                 logger.info(f"Processing requirement: {req.qualified_name}, custom_type: {getattr(req, 'custom_type', None)}")
                 
                 if hasattr(req, 'custom_type') and req.custom_type:
-                    # For custom MCP servers, use the provided config from installation
                     if custom_mcp_configs and req.qualified_name in custom_mcp_configs:
                         provided_config = custom_mcp_configs[req.qualified_name]
+                        if req.custom_type == 'pipedream':
+                            profile_id = provided_config.get('profile_id')
+                            if profile_id:
+                                logger.info(f"Looking up Pipedream profile {profile_id} for {req.qualified_name}")
+                                try:
+                                    from pipedream.profiles import get_profile_manager
+                                    profile_manager = get_profile_manager(db)
+                                    profile = await profile_manager.get_profile(account_id, profile_id)
+                                    
+                                    if profile:
+                                        actual_config = {
+                                            'app_slug': profile.app_slug,
+                                            'profile_id': profile_id,
+                                            'url': 'https://remote.mcp.pipedream.net',
+                                            'headers': {
+                                                'x-pd-app-slug': profile.app_slug,
+                                            }
+                                        }
+                                        logger.info(f"Found Pipedream profile: {profile.app_name} ({profile.profile_name})")
+                                        provided_config = actual_config
+                                    else:
+                                        logger.error(f"Pipedream profile {profile_id} not found for {req.qualified_name}")
+                                        raise ValueError(f"Pipedream profile not found for {req.display_name}")
+                                except Exception as e:
+                                    logger.error(f"Error looking up Pipedream profile {profile_id}: {e}")
+                                    raise ValueError(f"Failed to lookup Pipedream profile for {req.display_name}")
                         
                         custom_mcp_config = {
                             'name': req.display_name,
                             'type': req.custom_type,
+                            'customType': req.custom_type,
                             'config': provided_config,
                             'enabledTools': req.enabled_tools
                         }
                         custom_mcps.append(custom_mcp_config)
-                        logger.info(f"Added custom MCP with provided config: {custom_mcp_config}")
+                        logger.info(f"Added custom MCP with config: {custom_mcp_config}")
                     else:
                         logger.warning(f"No custom config provided for {req.qualified_name}")
                         continue
                 else:
-                    # For regular MCP servers, use the selected credential profile
                     if profile_mappings and req.qualified_name in profile_mappings:
                         profile_id = profile_mappings[req.qualified_name]
                         
-                        # Validate profile_id is not empty
                         if not profile_id or profile_id.strip() == '':
                             logger.error(f"Empty profile_id provided for {req.qualified_name}")
                             raise ValueError(f"Invalid credential profile selected for {req.display_name}")
                         
-                        # Get the credential profile
                         profile = await credential_manager.get_credential_by_profile(
                             account_id, profile_id
                         )
@@ -352,20 +389,21 @@ class TemplateManager:
                             logger.error(f"Credential profile {profile_id} not found for {req.qualified_name}")
                             raise ValueError(f"Credential profile not found for {req.display_name}. Please select a valid profile or create a new one.")
                         
-                        # Validate profile is active
                         if not profile.is_active:
                             logger.error(f"Credential profile {profile_id} is inactive for {req.qualified_name}")
                             raise ValueError(f"Selected credential profile for {req.display_name} is inactive. Please select an active profile.")
                         
+                        
                         mcp_config = {
                             'name': req.display_name,
-                            'qualifiedName': req.qualified_name,
+                            'qualifiedName': profile.mcp_qualified_name,  # Use profile's qualified name!
                             'config': profile.config,
                             'enabledTools': req.enabled_tools,
                             'selectedProfileId': profile_id
                         }
                         configured_mcps.append(mcp_config)
                         logger.info(f"Added regular MCP with profile: {mcp_config}")
+                        logger.info(f"Used qualified name from profile: {profile.mcp_qualified_name} (template had: {req.qualified_name})")
                     else:
                         logger.error(f"No profile mapping provided for {req.qualified_name}")
                         raise ValueError(f"Missing credential profile for {req.display_name}. Please select a credential profile.")
@@ -373,17 +411,33 @@ class TemplateManager:
             logger.info(f"Final configured_mcps: {configured_mcps}")
             logger.info(f"Final custom_mcps: {custom_mcps}")
             
+            # 🔥 FIX: Build unified config structure like in agent creation
+            from agent.config_helper import build_unified_config
+            
+            system_prompt = custom_system_prompt or template.system_prompt
+            unified_config = build_unified_config(
+                system_prompt=system_prompt,
+                agentpress_tools=template.agentpress_tools,
+                configured_mcps=configured_mcps,
+                custom_mcps=custom_mcps,
+                avatar=template.avatar,
+                avatar_color=template.avatar_color
+            )
+            
             agent_data = {
                 'account_id': account_id,
                 'name': instance_name or f"{template.name} (from marketplace)",
                 'description': template.description,
-                'system_prompt': custom_system_prompt or template.system_prompt,
+                'config': unified_config,
+                # Keep legacy columns for backward compatibility
+                'system_prompt': system_prompt,
                 'configured_mcps': configured_mcps,
                 'custom_mcps': custom_mcps,
                 'agentpress_tools': template.agentpress_tools,
                 'is_default': False,
                 'avatar': template.avatar,
-                'avatar_color': template.avatar_color
+                'avatar_color': template.avatar_color,
+                'version_count': 1
             }
             
             result = await client.table('agents').insert(agent_data).execute()
@@ -398,10 +452,12 @@ class TemplateManager:
                     "agent_id": instance_id,
                     "version_number": 1,
                     "version_name": "v1",
-                    "system_prompt": agent_data['system_prompt'],
-                    "configured_mcps": agent_data['configured_mcps'],
-                    "custom_mcps": agent_data['custom_mcps'],
-                    "agentpress_tools": agent_data['agentpress_tools'],
+                    "config": unified_config,
+                    # Keep legacy columns for backward compatibility
+                    "system_prompt": system_prompt,
+                    "configured_mcps": configured_mcps,
+                    "custom_mcps": custom_mcps,
+                    "agentpress_tools": template.agentpress_tools,
                     "is_active": True,
                     "created_by": account_id
                 }
@@ -411,8 +467,7 @@ class TemplateManager:
                 if version_result.data:
                     version_id = version_result.data[0]['version_id']
                     await client.table('agents').update({
-                        'current_version_id': version_id,
-                        'version_count': 1
+                        'current_version_id': version_id
                     }).eq('agent_id', instance_id).execute()
                     logger.info(f"Created initial version v1 for installed agent {instance_id}")
                 else:
@@ -527,14 +582,14 @@ class TemplateManager:
                     }
                     custom_mcps.append(custom_mcp_config)
                 else:
-                    # Build regular MCP config
                     mcp_config = {
                         'name': req.display_name,
-                        'qualifiedName': req.qualified_name,
+                        'qualifiedName': credential.mcp_qualified_name,  # Use credential's qualified name!
                         'config': credential.config,
                         'enabledTools': req.enabled_tools
                     }
                     configured_mcps.append(mcp_config)
+                    logger.info(f"Runtime config - Used qualified name from credential: {credential.mcp_qualified_name} (template had: {req.qualified_name})")
             
             # Build complete agent config
             agent_config = {

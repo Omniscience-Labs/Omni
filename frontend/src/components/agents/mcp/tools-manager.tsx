@@ -32,6 +32,12 @@ interface BaseToolsManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onToolsUpdate?: (enabledTools: string[]) => void;
+  versionData?: {
+    configured_mcps?: any[];
+    custom_mcps?: any[];
+    system_prompt?: string;
+    agentpress_tools?: any;
+  };
 }
 
 interface PipedreamToolsManagerProps extends BaseToolsManagerProps {
@@ -50,16 +56,16 @@ interface CustomToolsManagerProps extends BaseToolsManagerProps {
 type ToolsManagerProps = PipedreamToolsManagerProps | CustomToolsManagerProps;
 
 export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
-  const { agentId, open, onOpenChange, onToolsUpdate, mode } = props;
+  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData } = props;
 
   const pipedreamResult = usePipedreamToolsData(
     mode === 'pipedream' ? agentId : '',
-    mode === 'pipedream' ? props.profileId : ''
+    mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileId : ''
   );
   
   const customResult = useCustomMCPToolsData(
     mode === 'custom' ? agentId : '',
-    mode === 'custom' ? props.mcpConfig : null
+    mode === 'custom' ? (props as CustomToolsManagerProps).mcpConfig : null
   );
 
   const result = mode === 'pipedream' ? pipedreamResult : customResult;
@@ -68,16 +74,48 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
   const [localTools, setLocalTools] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Helper function to get version-specific enabled tools
+  const getVersionEnabledTools = (): string[] => {
+    if (!versionData) return [];
+    
+    if (mode === 'pipedream') {
+      const customMcps = versionData.custom_mcps || [];
+      const pipedreamMcp = customMcps.find((mcp: any) => 
+        mcp.config?.profile_id === (props as PipedreamToolsManagerProps).profileId && 
+        mcp.config?.url?.includes('pipedream')
+      );
+      return pipedreamMcp?.enabledTools || [];
+    } else {
+      const customMcps = versionData.custom_mcps || [];
+      const customMcp = customMcps.find((mcp: any) => 
+        mcp.config?.url === (props as CustomToolsManagerProps).mcpConfig?.url
+      );
+      return customMcp?.enabledTools || [];
+    }
+  };
+
   React.useEffect(() => {
     if (data?.tools) {
       const toolsMap: Record<string, boolean> = {};
-      data.tools.forEach((tool: { name: string; enabled: boolean }) => {
-        toolsMap[tool.name] = tool.enabled;
-      });
+      
+      if (versionData) {
+        // When viewing a version, use the version's enabled tools
+        const versionEnabledTools = getVersionEnabledTools();
+        data.tools.forEach((tool: { name: string; enabled: boolean }) => {
+          toolsMap[tool.name] = versionEnabledTools.includes(tool.name);
+        });
+      } else {
+        // Normal case: use current agent data
+        data.tools.forEach((tool: { name: string; enabled: boolean }) => {
+          toolsMap[tool.name] = tool.enabled;
+        });
+      }
+      
       setLocalTools(toolsMap);
       setHasChanges(false);
     }
-  }, [data]);
+  }, [data, versionData, mode, 
+      mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileId : (props as CustomToolsManagerProps).mcpConfig]);
 
   const enabledCount = useMemo(() => {
     return Object.values(localTools).filter(Boolean).length;
@@ -85,20 +123,27 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
   const totalCount = data?.tools?.length || 0;
   
-  const displayName = mode === 'pipedream' ? props.appName : props.mcpName;
-  const contextName = mode === 'pipedream' ? props.profileName || 'Profile' : 'Server';
+  const displayName = mode === 'pipedream' ? (props as PipedreamToolsManagerProps).appName : (props as CustomToolsManagerProps).mcpName;
+  const contextName = mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileName || 'Profile' : 'Server';
 
   const handleToolToggle = (toolName: string) => {
     setLocalTools(prev => {
       const newValue = !prev[toolName];
       const updated = { ...prev, [toolName]: newValue };
-      const serverTools: Record<string, boolean> = {};
-      if (data?.tools) {
-        for (const tool of data.tools) {
-          serverTools[tool.name] = tool.enabled;
-        }
+
+      const comparisonState: Record<string, boolean> = {};
+      if (versionData) {
+        const versionEnabledTools = getVersionEnabledTools();
+        data?.tools?.forEach((tool: any) => {
+          comparisonState[tool.name] = versionEnabledTools.includes(tool.name);
+        });
+      } else {
+        data?.tools?.forEach((tool: any) => {
+          comparisonState[tool.name] = tool.enabled;
+        });
       }
-      const hasChanges = Object.keys(updated).some(key => updated[key] !== serverTools[key]);
+      
+      const hasChanges = Object.keys(updated).some(key => updated[key] !== comparisonState[key]);
       setHasChanges(hasChanges);
       return updated;
     });
@@ -131,9 +176,20 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
   const handleCancel = () => {
     if (data?.tools) {
       const serverState: Record<string, boolean> = {};
-      data.tools.forEach((tool: any) => {
-        serverState[tool.name] = tool.enabled;
-      });
+      
+      if (versionData) {
+        // When viewing a version, reset to version state
+        const versionEnabledTools = getVersionEnabledTools();
+        data.tools.forEach((tool: any) => {
+          serverState[tool.name] = versionEnabledTools.includes(tool.name);
+        });
+      } else {
+        // Normal case: reset to current server state
+        data.tools.forEach((tool: any) => {
+          serverState[tool.name] = tool.enabled;
+        });
+      }
+      
       setLocalTools(serverState);
       setHasChanges(false);
     }
@@ -183,7 +239,16 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
             Configure {displayName} Tools
           </DialogTitle>
           <DialogDescription>
-            Choose which {displayName} tools are available to your agent
+            {versionData ? (
+              <div className="flex items-center gap-2 text-amber-600">
+                <Info className="h-4 w-4" />
+                <span>
+                  Viewing tools configuration for a specific version. Changes will update the current version.
+                </span>
+              </div>
+            ) : (
+              <span>Choose which {displayName} tools are available to your agent</span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -220,7 +285,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {contextName}: {mode === 'pipedream' ? props.profileName : displayName}
+                      {contextName}: {mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileName : displayName}
                     </p>
                   </div>
                 </div>

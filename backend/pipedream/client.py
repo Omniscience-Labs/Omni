@@ -65,7 +65,7 @@ class PipedreamClient:
             )
         return self.session
 
-    async def _obtain_rate_limit_token(self, window_size_seconds: int = 10, requests_per_window: int = 1000) -> str:
+    async def _obtain_rate_limit_token(self, window_size_seconds: int = 5, requests_per_window: int = 100000) -> str:
         """Obtain a rate limit token from Pipedream to bypass rate limits"""
         if self.rate_limit_token:
             logger.debug(f"Using existing rate limit token: {self.rate_limit_token[:20]}...")
@@ -196,7 +196,7 @@ class PipedreamClient:
             logger.error(f"Error obtaining access token: {str(e)}")
             raise
 
-    async def refresh_rate_limit_token(self, window_size_seconds: int = 10, requests_per_window: int = 1000) -> str:
+    async def refresh_rate_limit_token(self, window_size_seconds: int = 10, requests_per_window: int = 100000) -> str:
         """Manually refresh the rate limit token with custom parameters"""
         self.rate_limit_token = None  # Clear existing token
         return await self._obtain_rate_limit_token(window_size_seconds, requests_per_window)

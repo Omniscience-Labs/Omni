@@ -16,7 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAgentVersions, useActivateAgentVersion } from '@/hooks/react-query/agents/useAgentVersions';
+import { useAgentVersions, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
 import { Agent } from '@/hooks/react-query/agents/utils';
 import { cn } from '@/lib/utils';
 

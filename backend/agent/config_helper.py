@@ -3,6 +3,32 @@ from utils.logger import logger
 
 
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    agent_id = agent_data.get('agent_id', 'Unknown')
+    
+    agent_has_config = bool(agent_data.get('config') and agent_data['config'] != {})
+    version_has_config = bool(version_data and version_data.get('config') and version_data['config'] != {})
+    
+    if version_data and version_data.get('config') and version_data['config'] != {}:
+        config = version_data['config'].copy()
+        config['agent_id'] = agent_data['agent_id']
+        config['name'] = agent_data['name']
+        config['description'] = agent_data.get('description')
+        config['is_default'] = agent_data.get('is_default', False)
+        config['account_id'] = agent_data.get('account_id')
+        config['current_version_id'] = agent_data.get('current_version_id')
+        config['version_name'] = version_data.get('version_name', 'v1')
+        
+        metadata = config.get('metadata', {})
+        config['avatar'] = metadata.get('avatar', agent_data.get('avatar'))
+        config['avatar_color'] = metadata.get('avatar_color', agent_data.get('avatar_color'))
+        
+        config['agentpress_tools'] = extract_tools_for_agent_run(config)
+        
+        config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
+        config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
+        
+        return config
+    
     if agent_data.get('config') and agent_data['config'] != {}:
         config = agent_data['config'].copy()
         if 'tools' not in config:
@@ -32,31 +58,6 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         
         return config
     
-    if version_data and version_data.get('config') and version_data['config'] != {}:
-        config = version_data['config'].copy()
-        
-        config['agent_id'] = agent_data['agent_id']
-        config['name'] = agent_data['name']
-        config['description'] = agent_data.get('description')
-        config['is_default'] = agent_data.get('is_default', False)
-        config['account_id'] = agent_data.get('account_id')
-        config['current_version_id'] = agent_data.get('current_version_id')
-        config['version_name'] = version_data.get('version_name', 'v1')
-        
-        metadata = config.get('metadata', {})
-        config['avatar'] = metadata.get('avatar', agent_data.get('avatar'))
-        config['avatar_color'] = metadata.get('avatar_color', agent_data.get('avatar_color'))
-        
-        # Convert agentpress tools to legacy format for run_agent
-        config['agentpress_tools'] = extract_tools_for_agent_run(config)
-        
-        # Also extract MCP configs
-        config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
-        config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
-        
-        return config
-    
-    logger.info(f"Building config from legacy columns for agent {agent_data.get('agent_id')}")
     source_data = version_data if version_data else agent_data
     
     legacy_tools = source_data.get('agentpress_tools', {})

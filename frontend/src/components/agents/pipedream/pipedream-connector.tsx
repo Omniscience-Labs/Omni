@@ -40,6 +40,7 @@ interface PipedreamConnectorProps {
   onOpenChange: (open: boolean) => void;
   onComplete: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
   mode?: 'full' | 'profile-only';
+  agentId?: string; // For backend auto-versioning
 }
 
 interface PipedreamTool {
@@ -52,7 +53,8 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
   open,
   onOpenChange,
   onComplete,
-  mode = 'full'
+  mode = 'full',
+  agentId
 }) => {
   const [step, setStep] = useState<'profile' | 'tools'>('profile');
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -110,7 +112,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
 
       const newProfile = await createProfile.mutateAsync(request);
       
-      // Connect the profile
       await connectProfile.mutateAsync({
         profileId: newProfile.profile_id,
         app: app.name_slug,

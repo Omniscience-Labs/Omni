@@ -183,6 +183,13 @@ async def get_mcp_server_details(
     """
     logger.info(f"Fetching details for MCP server: {qualified_name} for user {user_id}")
     
+    # 🔥 FIX: Handle Pipedream qualified names by stripping the pipedream: prefix
+    # Pipedream MCPs use format "pipedream:{app_slug}" but Smithery API expects just "{app_slug}"
+    smithery_lookup_name = qualified_name
+    if qualified_name.startswith("pipedream:"):
+        smithery_lookup_name = qualified_name[len("pipedream:"):]
+        logger.info(f"Pipedream MCP detected - using app_slug '{smithery_lookup_name}' for Smithery lookup")
+    
     try:
         async with httpx.AsyncClient() as client:
             headers = {
@@ -194,15 +201,17 @@ async def get_mcp_server_details(
             if SMITHERY_API_KEY:
                 headers["Authorization"] = f"Bearer {SMITHERY_API_KEY}"
             
-            # URL encode the qualified name only if it contains special characters
-            if '@' in qualified_name or '/' in qualified_name:
-                encoded_name = quote(qualified_name, safe='')
+            # URL encode the lookup name only if it contains special characters
+            if '@' in smithery_lookup_name or '/' in smithery_lookup_name:
+                encoded_name = quote(smithery_lookup_name, safe='')
             else:
-                # Don't encode simple names like "exa"
-                encoded_name = qualified_name
+                # Don't encode simple names like "exa" or "gmail"
+                encoded_name = smithery_lookup_name
             
             url = f"{SMITHERY_API_BASE_URL}/servers/{encoded_name}"
             logger.debug(f"Requesting MCP server details from: {url}")
+            if qualified_name != smithery_lookup_name:
+                logger.debug(f"Original qualified name: {qualified_name}, Smithery lookup name: {smithery_lookup_name}")
             
             response = await client.get(
                 url,  # Use registry API for metadata
@@ -218,12 +227,22 @@ async def get_mcp_server_details(
             logger.info(f"Successfully fetched details for MCP server: {qualified_name}")
             logger.debug(f"Response data keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
             
+            # 🔥 FIX: For Pipedream MCPs, restore the original qualified name in the response
+            # This ensures the frontend receives the same qualified name it requested
+            if qualified_name.startswith("pipedream:") and 'qualifiedName' in data:
+                original_qualified_name = data['qualifiedName']
+                data['qualifiedName'] = qualified_name
+                logger.debug(f"Restored original qualified name: {qualified_name} (Smithery returned: {original_qualified_name})")
+            
             return MCPServerDetailResponse(**data)
             
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             logger.error(f"Server not found. Response: {e.response.text}")
-            raise HTTPException(status_code=404, detail=f"MCP server '{qualified_name}' not found")
+            if qualified_name.startswith("pipedream:"):
+                raise HTTPException(status_code=404, detail=f"MCP server '{qualified_name}' not found (searched for '{smithery_lookup_name}' in Smithery registry)")
+            else:
+                raise HTTPException(status_code=404, detail=f"MCP server '{qualified_name}' not found")
         
         logger.error(f"HTTP error fetching MCP server details: {e.response.status_code} - {e.response.text}")
         raise HTTPException(

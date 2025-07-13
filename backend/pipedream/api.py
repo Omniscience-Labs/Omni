@@ -90,9 +90,15 @@ async def create_connection_token(
 ):
     logger.info(f"Creating Pipedream connection token for user: {user_id}, app: {request.app}")
     
+    # 🔥 FIX: Strip pipedream: prefix if present
+    actual_app = request.app
+    if request.app and request.app.startswith("pipedream:"):
+        actual_app = request.app[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {request.app} -> {actual_app}")
+    
     try:
         client = get_pipedream_client()
-        result = await client.create_connection_token(user_id, request.app)
+        result = await client.create_connection_token(user_id, actual_app)
         
         logger.info(f"Successfully created connection token for user: {user_id}")
         return ConnectionTokenResponse(
@@ -100,7 +106,7 @@ async def create_connection_token(
             link=result.get("connect_link_url"),
             token=result.get("token"),
             external_user_id=user_id,
-            app=request.app,
+            app=request.app,  # Return original app name that was requested
             expires_at=result.get("expires_at")
         )
         
@@ -141,11 +147,17 @@ async def discover_mcp_servers(
 ):
     logger.info(f"Discovering MCP servers for user: {user_id}, app: {request.app_slug}")
     
+    # 🔥 FIX: Strip pipedream: prefix if present
+    actual_app_slug = request.app_slug
+    if request.app_slug and request.app_slug.startswith("pipedream:"):
+        actual_app_slug = request.app_slug[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    
     try:
         client = get_pipedream_client()
         mcp_servers = await client.discover_mcp_servers(
             external_user_id=user_id,
-            app_slug=request.app_slug,
+            app_slug=actual_app_slug,
             oauth_app_id=request.oauth_app_id
         )
         
@@ -171,11 +183,17 @@ async def discover_mcp_servers_for_profile(
     """Discover MCP servers for a specific profile's external_user_id"""
     logger.info(f"Discovering MCP servers for external_user_id: {request.external_user_id}, app: {request.app_slug}")
     
+    # 🔥 FIX: Strip pipedream: prefix if present
+    actual_app_slug = request.app_slug
+    if request.app_slug and request.app_slug.startswith("pipedream:"):
+        actual_app_slug = request.app_slug[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    
     try:
         client = get_pipedream_client()
         mcp_servers = await client.discover_mcp_servers(
             external_user_id=request.external_user_id,
-            app_slug=request.app_slug,
+            app_slug=actual_app_slug,
             oauth_app_id=request.oauth_app_id
         )
         
@@ -199,11 +217,18 @@ async def create_mcp_connection(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     logger.info(f"Creating MCP connection for user: {user_id}, app: {request.app_slug}")
+    
+    # 🔥 FIX: Strip pipedream: prefix if present
+    actual_app_slug = request.app_slug
+    if request.app_slug and request.app_slug.startswith("pipedream:"):
+        actual_app_slug = request.app_slug[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    
     try:
         client = get_pipedream_client()
         mcp_config = await client.create_mcp_connection(
             external_user_id=user_id,
-            app_slug=request.app_slug,
+            app_slug=actual_app_slug,
             oauth_app_id=request.oauth_app_id
         )
         logger.info(f"Successfully created MCP connection for user: {user_id}, app: {request.app_slug}")
@@ -439,6 +464,11 @@ async def get_credential_profiles(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     logger.info(f"Getting credential profiles for user: {user_id}, app: {app_slug}")
+
+    actual_app_slug = app_slug
+    if app_slug and app_slug.startswith("pipedream:"):
+        actual_app_slug = app_slug[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {app_slug} -> {actual_app_slug}")
     
     try:
         profile_manager = get_profile_manager(db)
@@ -537,12 +567,14 @@ async def connect_credential_profile(
     app: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Generate connection token for a specific credential profile"""
-    logger.info(f"Connecting credential profile: {profile_id} for user: {user_id}")
+    actual_app = app
+    if app and app.startswith("pipedream:"):
+        actual_app = app[len("pipedream:"):]
+        logger.info(f"Stripped pipedream prefix: {app} -> {actual_app}")
     
     try:
         profile_manager = get_profile_manager(db)
-        result = await profile_manager.connect_profile(user_id, profile_id, app)
+        result = await profile_manager.connect_profile(user_id, profile_id, actual_app)
         
         logger.info(f"Successfully generated connection token for profile: {profile_id}")
         return result
@@ -561,7 +593,6 @@ async def get_profile_connections(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get connections for a specific credential profile"""
     logger.info(f"Getting connections for profile: {profile_id}, user: {user_id}")
     
     try:
@@ -582,4 +613,86 @@ async def get_profile_connections(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get profile connections: {str(e)}"
+        )
+
+POPULAR_APP_SLUGS = [
+    "gmail",
+    'google_calendar',
+    'google_drive',
+    'google_docs',
+    'google_sheets',
+    'google_slides',
+    'google_forms',
+    'google_meet',
+    "slack", 
+    "discord",
+    "github",
+    "google_sheets",
+    "notion",
+    "airtable",
+    "telegram_bot_api",
+    "openai",
+    'linear',
+    'asana',
+    'supabase'
+]
+
+@router.get("/apps/popular", response_model=Dict[str, Any])
+async def get_popular_pipedream_apps():
+    logger.info("Fetching popular Pipedream apps")
+    
+    try:
+        client = get_pipedream_client()
+        access_token = await client._obtain_access_token()
+        await client._ensure_rate_limit_token()
+        
+        popular_apps = []
+        for app_slug in POPULAR_APP_SLUGS:
+            try:
+                url = f"https://api.pipedream.com/v1/apps"
+                params = {"q": app_slug}
+                
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = await client._make_request_with_retry(
+                    "GET",
+                    url,
+                    headers=headers,
+                    params=params
+                )
+                
+                data = response.json()
+                apps = data.get("data", [])
+                    
+                exact_match = next((app for app in apps if app.get("name_slug") == app_slug), None)
+                if exact_match:
+                    popular_apps.append(exact_match)
+                    logger.debug(f"Found popular app: {app_slug}")
+                else:
+                    logger.warning(f"Popular app not found: {app_slug}")
+                    
+            except Exception as e:
+                logger.warning(f"Error fetching popular app {app_slug}: {e}")
+                continue
+        
+        logger.info(f"Successfully fetched {len(popular_apps)} popular apps")
+        
+        return {
+            "success": True,
+            "apps": popular_apps,
+            "page_info": {
+                "total_count": len(popular_apps),
+                "count": len(popular_apps),
+                "has_more": False
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch popular Pipedream apps: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch popular Pipedream apps: {str(e)}"
         )

@@ -11,7 +11,8 @@ import { ToolsManager } from './tools-manager';
 export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,
   onConfigurationChange,
-  agentId
+  agentId,
+  versionData
 }) => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [showRegistryDialog, setShowRegistryDialog] = useState(false);
@@ -153,21 +154,12 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
         
         {configuredMCPs.length > 0 && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/30">
-                <h4 className="text-sm font-medium text-foreground">
-                  Configured Integrations
-                </h4>
-              </div>
-              <div className="p-2 divide-y divide-border">
-                <ConfiguredMcpList
-                  configuredMCPs={configuredMCPs}
-                  onEdit={handleEditMCP}
-                  onRemove={handleRemoveMCP}
-                  onConfigureTools={handleConfigureTools}
-                />
-              </div>
-            </div>
+            <ConfiguredMcpList
+              configuredMCPs={configuredMCPs}
+              onEdit={handleEditMCP}
+              onRemove={handleRemoveMCP}
+              onConfigureTools={handleConfigureTools}
+            />
           </div>
         )}
       </div>
@@ -192,7 +184,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           <DialogHeader className="sr-only">
             <DialogTitle>Select Integration</DialogTitle>
           </DialogHeader>
-          <PipedreamRegistry showAgentSelector={false} selectedAgentId={selectedAgentId} onAgentChange={handleAgentChange} onToolsSelected={handleToolsSelected} />
+          <PipedreamRegistry showAgentSelector={false} selectedAgentId={selectedAgentId} onAgentChange={handleAgentChange} onToolsSelected={handleToolsSelected} versionData={versionData} />
         </DialogContent>
       </Dialog>
       <CustomMCPDialog
@@ -209,6 +201,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           open={showPipedreamToolsManager}
           onOpenChange={setShowPipedreamToolsManager}
           onToolsUpdate={handlePipedreamToolsUpdate}
+          versionData={versionData}
         />
       )}
       {selectedMCPForTools && selectedMCPForTools.customType !== 'pipedream' && (
@@ -220,6 +213,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           open={showCustomToolsManager}
           onOpenChange={setShowCustomToolsManager}
           onToolsUpdate={handleCustomToolsUpdate}
+          versionData={versionData}
         />
       )}
     </div>

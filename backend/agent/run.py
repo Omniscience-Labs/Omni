@@ -50,11 +50,6 @@ async def run_agent(
     is_agent_builder: Optional[bool] = False,
     target_agent_id: Optional[str] = None
 ):
-    """Run the development agent with specified configuration."""
-    logger.info(f"🚀 Starting agent with model: {model_name}")
-    if agent_config:
-        logger.info(f"Using custom agent: {agent_config.get('name', 'Unknown')}")
-
     if not trace:
         trace = langfuse.trace(name="run_agent", session_id=thread_id, metadata={"project_id": project_id})
     thread_manager = ThreadManager(trace=trace, is_agent_builder=is_agent_builder or False, target_agent_id=target_agent_id, agent_config=agent_config)
@@ -83,7 +78,12 @@ async def run_agent(
     enabled_tools = None
     if agent_config and 'agentpress_tools' in agent_config:
         enabled_tools = agent_config['agentpress_tools']
-        logger.info(f"Using custom tool configuration from agent")
+        logger.info(f"[AGENT RUN] Using custom tool configuration from agent version")
+        # 🔍 DEBUG: Log which tools are enabled
+        enabled_tool_names = [name for name, config in enabled_tools.items() 
+                             if (isinstance(config, dict) and config.get('enabled', False)) or 
+                                (isinstance(config, bool) and config)]
+        logger.info(f"[AGENT RUN] Enabled tools from version: {enabled_tool_names}")
     
 
     if is_agent_builder:
@@ -103,7 +103,7 @@ async def run_agent(
         
 
     if enabled_tools is None:
-        logger.info("No agent specified - registering all tools for full Suna capabilities")
+        logger.info("[AGENT RUN] No agent specified - registering all tools for full Suna capabilities")
         thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
         thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
@@ -117,24 +117,32 @@ async def run_agent(
         if config.RAPID_API_KEY:
             thread_manager.add_tool(DataProvidersTool)
     else:
-        logger.info("Custom agent specified - registering only enabled tools")
+        logger.info("[AGENT RUN] Custom agent specified - registering only enabled tools from version")
         thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
         thread_manager.add_tool(MessageTool)
         if enabled_tools.get('sb_shell_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_shell_tool (enabled in version)")
             thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_files_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_files_tool (enabled in version)")
             thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_browser_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_browser_tool (enabled in version)")
             thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_deploy_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_deploy_tool (enabled in version)")
             thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_expose_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_expose_tool (enabled in version)")
             thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('web_search_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding web_search_tool (enabled in version)")
             thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
         if enabled_tools.get('sb_vision_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding sb_vision_tool (enabled in version)")
             thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
         if config.RAPID_API_KEY and enabled_tools.get('data_providers_tool', {}).get('enabled', False):
+            logger.info("[AGENT RUN] Adding data_providers_tool (enabled in version)")
             thread_manager.add_tool(DataProvidersTool)
 
     # Register MCP tool wrapper if agent has configured MCPs or custom MCPs
@@ -250,14 +258,15 @@ async def run_agent(
         # Completely replace the default system prompt with the custom one
         # This prevents confusion and tool hallucination
         system_content = custom_system_prompt
-        logger.info(f"Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
+        logger.info(f"[AGENT RUN] Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
+        logger.info(f"[AGENT RUN] System prompt source: version {agent_config.get('version_name', 'no version')} (length: {len(custom_system_prompt)})")
     elif is_agent_builder:
         system_content = get_agent_builder_prompt()
-        logger.info("Using agent builder system prompt")
+        logger.info("[AGENT RUN] Using agent builder system prompt")
     else:
         # Use just the default system prompt
         system_content = default_system_content
-        logger.info("Using default system prompt only")
+        logger.info("[AGENT RUN] Using default system prompt only")
     
     if await is_enabled("knowledge_base"):
         try:

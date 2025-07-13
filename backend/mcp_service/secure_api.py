@@ -255,12 +255,12 @@ async def get_credential_profiles_for_mcp(
     mcp_qualified_name: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get all credential profiles for a specific MCP server"""
     decoded_name = urllib.parse.unquote(mcp_qualified_name)
     logger.info(f"Getting credential profiles for '{decoded_name}' for user {user_id}")
     
     try:
-        profiles = await credential_manager.get_credential_profiles(user_id, decoded_name)
+        profiles = await credential_manager.find_credential_profiles_robust(user_id, decoded_name)
+        logger.info(f"Found {len(profiles)} credential profiles for '{decoded_name}'")
         
         return [
             CredentialProfileResponse(
@@ -287,9 +287,7 @@ async def get_credential_profile_by_id(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get a specific credential profile by its ID"""
     logger.info(f"Getting credential profile {profile_id} for user {user_id}")
-    
     try:
         profile = await credential_manager.get_credential_by_profile(user_id, profile_id)
         

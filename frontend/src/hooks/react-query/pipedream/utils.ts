@@ -209,6 +209,24 @@ export const pipedreamApi = {
     return data;
   },
 
+  async getPopularApps(): Promise<PipedreamAppResponse> {
+    const result = await backendApi.get<PipedreamAppResponse>(
+      '/pipedream/apps/popular',
+      {
+        errorContext: { operation: 'load popular apps', resource: 'Pipedream popular apps' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get popular apps');
+    }
+    const data = result.data!;
+    if (!data.success && data.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  },
+
   async getAvailableTools(): Promise<PipedreamToolsResponse> {
     const result = await backendApi.get<PipedreamToolsResponse>(
       '/pipedream/mcp/available-tools',

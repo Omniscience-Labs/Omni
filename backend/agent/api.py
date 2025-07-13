@@ -25,6 +25,7 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
+from .version_manager import version_manager, VersionData
 
 router = APIRouter()
 db = None
@@ -77,6 +78,8 @@ class AgentVersionCreateRequest(BaseModel):
     configured_mcps: Optional[List[Dict[str, Any]]] = []
     custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
+    version_name: Optional[str] = None  # Custom version name
+    description: Optional[str] = None  # Version description
 
 class AgentUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -306,9 +309,17 @@ async def start_agent(
     agent_config = None
     effective_agent_id = body.agent_id or thread_agent_id  # Use provided agent_id or the one stored in thread
     
+    logger.info(f"[AGENT LOAD] Agent loading flow:")
+    logger.info(f"  - body.agent_id: {body.agent_id}")
+    logger.info(f"  - thread_agent_id: {thread_agent_id}")
+    logger.info(f"  - effective_agent_id: {effective_agent_id}")
+    
     if effective_agent_id:
+        logger.info(f"[AGENT LOAD] Querying for agent: {effective_agent_id}")
         # Get agent with current version
         agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', effective_agent_id).eq('account_id', account_id).execute()
+        logger.info(f"[AGENT LOAD] Query result: found {len(agent_result.data) if agent_result.data else 0} agents")
+        
         if not agent_result.data:
             if body.agent_id:
                 raise HTTPException(status_code=404, detail="Agent not found or access denied")
@@ -318,6 +329,9 @@ async def start_agent(
         else:
             agent_data = agent_result.data[0]
             version_data = agent_data.get('agent_versions')
+            logger.info(f"[AGENT LOAD] About to call extract_agent_config with agent_data keys: {list(agent_data.keys())}")
+            logger.info(f"[AGENT LOAD] version_data type: {type(version_data)}, content: {version_data}")
+            
             agent_config = extract_agent_config(agent_data, version_data)
             
             if version_data:
@@ -325,19 +339,32 @@ async def start_agent(
             else:
                 logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
             source = "request" if body.agent_id else "thread"
+    else:
+        logger.info(f"[AGENT LOAD] No effective_agent_id, will try default agent")
     
     if not agent_config:
+        logger.info(f"[AGENT LOAD] No agent config yet, querying for default agent")
         default_agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('account_id', account_id).eq('is_default', True).execute()
+        logger.info(f"[AGENT LOAD] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
+        
         if default_agent_result.data:
             agent_data = default_agent_result.data[0]
             version_data = agent_data.get('agent_versions')
+            logger.info(f"[AGENT LOAD] About to call extract_agent_config for DEFAULT agent with version_data: {version_data}")
+            
             agent_config = extract_agent_config(agent_data, version_data)
             
             if version_data:
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
             else:
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
+        else:
+            logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}")
     
+    logger.info(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
+    if agent_config:
+        logger.info(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
+
     if body.agent_id and body.agent_id != thread_agent_id and agent_config:
         logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
@@ -843,21 +870,55 @@ async def initiate_agent_with_files(
     client = await db.client
     account_id = user_id # In Basejump, personal account_id is the same as user_id
     
-    # Load agent configuration if agent_id is provided
+    # Load agent configuration with version support (same as start_agent endpoint)
     agent_config = None
+    
+    logger.info(f"[AGENT INITIATE] Agent loading flow:")
+    logger.info(f"  - agent_id param: {agent_id}")
+    
     if agent_id:
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', account_id).execute()
+        logger.info(f"[AGENT INITIATE] Querying for specific agent: {agent_id}")
+        # Get agent with current version
+        agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', agent_id).eq('account_id', account_id).execute()
+        logger.info(f"[AGENT INITIATE] Query result: found {len(agent_result.data) if agent_result.data else 0} agents")
+        
         if not agent_result.data:
             raise HTTPException(status_code=404, detail="Agent not found or access denied")
-        agent_config = agent_result.data[0]
-        logger.info(f"Using custom agent: {agent_config['name']} ({agent_id})")
+        
+        agent_data = agent_result.data[0]
+        version_data = agent_data.get('agent_versions')
+        logger.info(f"[AGENT INITIATE] About to call extract_agent_config with version_data: {version_data}")
+        
+        agent_config = extract_agent_config(agent_data, version_data)
+        
+        if version_data:
+            logger.info(f"Using custom agent: {agent_config['name']} ({agent_id}) version {agent_config.get('version_name', 'v1')}")
+        else:
+            logger.info(f"Using custom agent: {agent_config['name']} ({agent_id}) - no version data")
     else:
-        # Try to get default agent for the account
-        default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
+        logger.info(f"[AGENT INITIATE] No agent_id provided, querying for default agent")
+        # Try to get default agent for the account with version support
+        default_agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('account_id', account_id).eq('is_default', True).execute()
+        logger.info(f"[AGENT INITIATE] Default agent query result: found {len(default_agent_result.data) if default_agent_result.data else 0} default agents")
+        
         if default_agent_result.data:
-            agent_config = default_agent_result.data[0]
-            logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']})")
+            agent_data = default_agent_result.data[0]
+            version_data = agent_data.get('agent_versions')
+            logger.info(f"[AGENT INITIATE] About to call extract_agent_config for DEFAULT agent with version_data: {version_data}")
+            
+            agent_config = extract_agent_config(agent_data, version_data)
+            
+            if version_data:
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) version {agent_config.get('version_name', 'v1')}")
+            else:
+                logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
+        else:
+            logger.warning(f"[AGENT INITIATE] No default agent found for account {account_id}")
     
+    logger.info(f"[AGENT INITIATE] Final agent_config: {agent_config is not None}")
+    if agent_config:
+        logger.info(f"[AGENT INITIATE] Agent config keys: {list(agent_config.keys())}")
+
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
         raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
@@ -1733,6 +1794,36 @@ async def update_agent(
         
         logger.info(f"Updated agent {agent_id} for user: {user_id}")
         
+        try:
+            auto_version_id = await version_manager.auto_create_version_on_config_change(
+                agent_id=agent_id,
+                user_id=user_id,
+                change_description="Auto-saved configuration changes"
+            )
+            if auto_version_id:
+                logger.info(f"Auto-created version {auto_version_id} for agent {agent_id}")
+                updated_agent = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
+                if updated_agent.data:
+                    agent = updated_agent.data
+                    if agent.get('agent_versions'):
+                        version_data = agent['agent_versions']
+                        current_version = AgentVersionResponse(
+                            version_id=version_data['version_id'],
+                            agent_id=version_data['agent_id'],
+                            version_number=version_data['version_number'],
+                            version_name=version_data['version_name'],
+                            system_prompt=version_data['system_prompt'],
+                            configured_mcps=version_data.get('configured_mcps', []),
+                            custom_mcps=version_data.get('custom_mcps', []),
+                            agentpress_tools=version_data.get('agentpress_tools', {}),
+                            is_active=version_data.get('is_active', True),
+                            created_at=version_data['created_at'],
+                            updated_at=version_data.get('updated_at', version_data['created_at']),
+                            created_by=version_data.get('created_by')
+                        )
+        except Exception as e:
+            logger.warning(f"Auto-versioning failed for agent {agent_id}: {e}")
+
         return AgentResponse(
             agent_id=agent['agent_id'],
             account_id=agent['account_id'],
@@ -1864,22 +1955,14 @@ async def get_agent_versions(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get all versions of an agent."""
-    client = await db.client
-    
-    # Check if user has access to this agent
-    agent_result = await client.table('agents').select("*").eq("agent_id", agent_id).execute()
-    if not agent_result.data:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    agent = agent_result.data[0]
-    if agent['account_id'] != user_id and not agent.get('is_public', False):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Get all versions
-    versions_result = await client.table('agent_versions').select("*").eq("agent_id", agent_id).order("version_number", desc=True).execute()
-    
-    return versions_result.data
+    try:
+        versions = await version_manager.get_all_versions(agent_id, user_id)
+        return versions
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching versions for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch versions")
 
 @router.post("/agents/{agent_id}/versions", response_model=AgentVersionResponse)
 async def create_agent_version(
@@ -1888,61 +1971,29 @@ async def create_agent_version(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Create a new version of an agent."""
-    client = await db.client
-    
-    # Check if user owns this agent
-    agent_result = await client.table('agents').select("*").eq("agent_id", agent_id).eq("account_id", user_id).execute()
-    if not agent_result.data:
-        raise HTTPException(status_code=404, detail="Agent not found or access denied")
-    
-    agent = agent_result.data[0]
-    
-    # Get next version number
-    versions_result = await client.table('agent_versions').select("version_number").eq("agent_id", agent_id).order("version_number", desc=True).limit(1).execute()
-    next_version_number = 1
-    if versions_result.data:
-        next_version_number = versions_result.data[0]['version_number'] + 1
-    
-    # Create new version
-    new_version_data = {
-        "agent_id": agent_id,
-        "version_number": next_version_number,
-        "version_name": f"v{next_version_number}",
-        "system_prompt": version_data.system_prompt,
-        "configured_mcps": version_data.configured_mcps or [],
-        "custom_mcps": version_data.custom_mcps or [],
-        "agentpress_tools": version_data.agentpress_tools or {},
-        "is_active": True,
-        "created_by": user_id
-    }
-    
-    # Build unified config for the new version
-    version_unified_config = build_unified_config(
-        system_prompt=new_version_data["system_prompt"],
-        agentpress_tools=new_version_data["agentpress_tools"],
-        configured_mcps=new_version_data["configured_mcps"],
-        custom_mcps=new_version_data["custom_mcps"],
-        avatar=None,  # Avatar is not versioned
-        avatar_color=None  # Avatar color is not versioned
-    )
-    new_version_data["config"] = version_unified_config
-    
-    new_version = await client.table('agent_versions').insert(new_version_data).execute()
-    
-    if not new_version.data:
+    try:
+        # Convert request to VersionData model
+        version_data_model = VersionData(
+            system_prompt=version_data.system_prompt,
+            configured_mcps=version_data.configured_mcps or [],
+            custom_mcps=version_data.custom_mcps or [],
+            agentpress_tools=version_data.agentpress_tools or {}
+        )
+        
+        version = await version_manager.create_version(
+            agent_id=agent_id,
+            version_data=version_data_model,
+            user_id=user_id,
+            version_name=version_data.version_name,
+            description=version_data.description
+        )
+        
+        return version
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating version for agent {agent_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to create version")
-    
-    version = new_version.data[0]
-    
-    # Update agent with new version
-    await client.table('agents').update({
-        "current_version_id": version['version_id'],
-        "version_count": next_version_number
-    }).eq("agent_id", agent_id).execute()
-    
-    logger.info(f"Created version v{next_version_number} for agent {agent_id}")
-    
-    return version
 
 @router.put("/agents/{agent_id}/versions/{version_id}/activate")
 async def activate_agent_version(
@@ -1951,24 +2002,14 @@ async def activate_agent_version(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Switch agent to use a specific version."""
-    client = await db.client
-    
-    # Check if user owns this agent
-    agent_result = await client.table('agents').select("*").eq("agent_id", agent_id).eq("account_id", user_id).execute()
-    if not agent_result.data:
-        raise HTTPException(status_code=404, detail="Agent not found or access denied")
-    
-    # Check if version exists
-    version_result = await client.table('agent_versions').select("*").eq("version_id", version_id).eq("agent_id", agent_id).execute()
-    if not version_result.data:
-        raise HTTPException(status_code=404, detail="Version not found")
-    
-    # Update agent's current version
-    await client.table('agents').update({
-        "current_version_id": version_id
-    }).eq("agent_id", agent_id).execute()
-    
-    return {"message": "Version activated successfully"}
+    try:
+        await version_manager.activate_version(agent_id, version_id, user_id)
+        return {"message": "Version activated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error activating version {version_id} for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to activate version")
 
 @router.get("/agents/{agent_id}/versions/{version_id}", response_model=AgentVersionResponse)
 async def get_agent_version(
@@ -1977,24 +2018,31 @@ async def get_agent_version(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """Get a specific version of an agent."""
-    client = await db.client
-    
-    # Check if user has access to this agent
-    agent_result = await client.table('agents').select("*").eq("agent_id", agent_id).execute()
-    if not agent_result.data:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    agent = agent_result.data[0]
-    if agent['account_id'] != user_id and not agent.get('is_public', False):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Get the specific version
-    version_result = await client.table('agent_versions').select("*").eq("version_id", version_id).eq("agent_id", agent_id).execute()
-    
-    if not version_result.data:
-        raise HTTPException(status_code=404, detail="Version not found")
-    
-    return version_result.data[0]
+    try:
+        version = await version_manager.get_version(agent_id, version_id, user_id)
+        return version
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching version {version_id} for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch version")
+
+@router.get("/agents/{agent_id}/versions/compare")
+async def compare_agent_versions(
+    agent_id: str,
+    version1_id: str = Query(..., description="First version ID to compare"),
+    version2_id: str = Query(..., description="Second version ID to compare"),
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Compare two versions of an agent."""
+    try:
+        comparison = await version_manager.compare_versions(agent_id, version1_id, version2_id, user_id)
+        return comparison
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing versions for agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to compare versions")
 
 @router.get("/agents/{agent_id}/pipedream-tools/{profile_id}")
 async def get_pipedream_tools_for_agent(
@@ -2161,6 +2209,18 @@ async def update_pipedream_tools_for_agent(
             raise HTTPException(status_code=500, detail="Failed to update agent")
         
         logger.info(f"Successfully updated {len(enabled_tools)} tools for agent {agent_id}")
+
+        # 🎯 AUTO-VERSIONING: Create version for Pipedream tools update
+        try:
+            auto_version_id = await version_manager.auto_create_version_on_config_change(
+                agent_id=agent_id,
+                user_id=user_id,
+                change_description=f"Auto-saved after updating {profile.app_name} tools"
+            )
+            if auto_version_id:
+                logger.info(f"Auto-created version {auto_version_id} for Pipedream tools update on agent {agent_id}")
+        except Exception as e:
+            logger.warning(f"Auto-versioning failed for Pipedream tools update on agent {agent_id}: {e}")
         
         return {
             'success': True,
@@ -2270,7 +2330,6 @@ async def update_custom_mcp_tools_for_agent(
         agent = agent_result.data[0]
         custom_mcps = agent.get('custom_mcps', [])
         
-        # Get request data
         mcp_url = request.get('url')
         mcp_type = request.get('type', 'sse')
         enabled_tools = request.get('enabled_tools', [])
@@ -2287,7 +2346,6 @@ async def update_custom_mcp_tools_for_agent(
                 break
         
         if not updated:
-            # Create new MCP config
             new_mcp_config = {
                 "name": f"Custom MCP ({mcp_type.upper()})",
                 "customType": mcp_type,
@@ -2299,7 +2357,6 @@ async def update_custom_mcp_tools_for_agent(
             }
             custom_mcps.append(new_mcp_config)
         
-        # Update the agent
         update_result = await client.table('agents').update({
             'custom_mcps': custom_mcps
         }).eq('agent_id', agent_id).execute()
@@ -2308,6 +2365,16 @@ async def update_custom_mcp_tools_for_agent(
             raise HTTPException(status_code=500, detail="Failed to update agent")
         
         logger.info(f"Successfully updated {len(enabled_tools)} custom MCP tools for agent {agent_id}")
+        try:
+            auto_version_id = await version_manager.auto_create_version_on_config_change(
+                agent_id=agent_id,
+                user_id=user_id,
+                change_description=f"Auto-saved after updating custom MCP tools"
+            )
+            if auto_version_id:
+                logger.info(f"Auto-created version {auto_version_id} for custom MCP tools update on agent {agent_id}")
+        except Exception as e:
+            logger.warning(f"Auto-versioning failed for custom MCP tools update on agent {agent_id}: {e}")
         
         return {
             'success': True,

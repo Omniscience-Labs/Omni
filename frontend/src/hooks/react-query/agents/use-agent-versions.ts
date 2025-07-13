@@ -7,6 +7,7 @@ import {
   AgentVersion,
   AgentVersionCreateRequest
 } from './utils';
+import { agentKeys } from './keys';
 import { toast } from 'sonner';
 
 export const useAgentVersions = (agentId: string) => {
@@ -17,10 +18,10 @@ export const useAgentVersions = (agentId: string) => {
   });
 };
 
-export const useAgentVersion = (agentId: string, versionId: string) => {
+export const useAgentVersion = (agentId: string, versionId: string | null | undefined) => {
   return useQuery({
     queryKey: ['agent-version', agentId, versionId],
-    queryFn: () => getAgentVersion(agentId, versionId),
+    queryFn: () => getAgentVersion(agentId, versionId!),
     enabled: !!agentId && !!versionId,
   });
 };
@@ -34,6 +35,7 @@ export const useCreateAgentVersion = () => {
     onSuccess: (newVersion, { agentId }) => {
       queryClient.invalidateQueries({ queryKey: ['agent-versions', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
       toast.success(`Created version ${newVersion.version_name}`);
     },
     onError: (error: Error) => {
@@ -51,6 +53,7 @@ export const useActivateAgentVersion = () => {
     onSuccess: (_, { agentId }) => {
       queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agent-versions', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
       toast.success('Version activated successfully');
     },
     onError: (error: Error) => {

@@ -14,6 +14,7 @@ interface ExpandableMarkdownEditorProps {
   className?: string;
   placeholder?: string;
   title?: string;
+  disabled?: boolean;
 }
 
 export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> = ({ 
@@ -21,7 +22,8 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
   onSave, 
   className = '', 
   placeholder = 'Click to edit...',
-  title = 'Edit Instructions'
+  title = 'Edit Instructions',
+  disabled = false
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -175,6 +177,7 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
                     onKeyDown={handleKeyDown}
                     className="w-full h-[500px] rounded-xl bg-muted/30 p-4 resize-none"
                     style={{ minHeight: '300px' }}
+                    disabled={disabled}
                   />
                 </ScrollArea>
                 <div className="text-xs text-muted-foreground/50 flex-shrink-0">

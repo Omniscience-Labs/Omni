@@ -431,18 +431,10 @@ class CredentialManager:
         account_id: str, 
         mcp_qualified_name: str
     ) -> List[MCPCredentialProfile]:
-        """
-        Get all credential profiles for a specific MCP server
-        
-        Args:
-            account_id: User's account ID
-            mcp_qualified_name: MCP server qualified name
-            
-        Returns:
-            List of MCPCredentialProfile objects
-        """
         try:
             client = await db.client
+            
+            logger.debug(f"Querying credential profiles: account_id={account_id}, mcp_qualified_name='{mcp_qualified_name}'")
             
             result = await client.table('user_mcp_credential_profiles').select('*')\
                 .eq('account_id', account_id)\
@@ -451,6 +443,8 @@ class CredentialManager:
                 .order('is_default', desc=True)\
                 .order('created_at', desc=False)\
                 .execute()
+                
+            logger.debug(f"Database query returned {len(result.data) if result.data else 0} profiles for '{mcp_qualified_name}'")
             
             profiles = []
             for profile_data in result.data:
@@ -561,7 +555,7 @@ class CredentialManager:
         mcp_qualified_name: str
     ) -> Optional[MCPCredentialProfile]:
         """
-        Get the default credential profile for an MCP server
+        Get the default credential profile for an MCP server using robust lookup
         
         Args:
             account_id: User's account ID
@@ -570,11 +564,21 @@ class CredentialManager:
         Returns:
             Default MCPCredentialProfile or first available profile
         """
-        profiles = await self.get_credential_profiles(account_id, mcp_qualified_name)
+        logger.debug(f"Looking for default profile: account_id={account_id}, mcp_qualified_name={mcp_qualified_name}")
+        
+        # Use robust profile finder
+        profiles = await self.find_credential_profiles_robust(account_id, mcp_qualified_name)
+        logger.debug(f"Found {len(profiles)} profiles for {mcp_qualified_name}")
         
         for profile in profiles:
             if profile.is_default:
+                logger.debug(f"Found default profile: {profile.profile_id} ({profile.display_name})")
                 return profile
+        
+        if profiles:
+            logger.debug(f"No default profile found, returning first profile: {profiles[0].profile_id} ({profiles[0].display_name})")
+        else:
+            logger.debug(f"No profiles found for {mcp_qualified_name}")
         
         return profiles[0] if profiles else None
 
@@ -651,8 +655,58 @@ class CredentialManager:
             logger.error(f"Error deleting credential profile {profile_id}: {str(e)}")
             return False
 
+    async def find_credential_profiles_robust(
+        self, 
+        account_id: str, 
+        mcp_qualified_name: str
+    ) -> List[MCPCredentialProfile]:
+        profiles = []
+        profiles = await self.get_credential_profiles(account_id, mcp_qualified_name)
+        if profiles:
+            logger.debug(f"Found {len(profiles)} profiles with exact match for '{mcp_qualified_name}'")
+            return profiles
+        
+        if mcp_qualified_name.startswith("pipedream:"):
+            app_slug = mcp_qualified_name[len("pipedream:"):]
+            try:
+                from pipedream.profiles import get_profile_manager
+                profile_manager = get_profile_manager(db)
+                pipedream_profiles = await profile_manager.get_profiles(account_id, app_slug=app_slug, is_active=True)
+                
+                for pd_profile in pipedream_profiles:
+                    cred_profile = await self.get_credential_by_profile(account_id, str(pd_profile.profile_id))
+                    if cred_profile:
+                        profiles.append(cred_profile)
+                
+                if profiles:
+                    logger.debug(f"Found {len(profiles)} Pipedream profiles via profile manager for '{mcp_qualified_name}'")
+                    return profiles
+            except Exception as e:
+                logger.debug(f"Error using Pipedream profile manager: {e}")
+        
+        elif not mcp_qualified_name.startswith("pipedream:"):
+            pipedream_name = f"pipedream:{mcp_qualified_name}"
+            profiles = await self.get_credential_profiles(account_id, pipedream_name)
+            if profiles:
+                logger.debug(f"Found {len(profiles)} profiles with pipedream prefix '{pipedream_name}'")
+                return profiles
+        
+        all_profiles = await self.get_all_user_credential_profiles(account_id)
+        req_name_clean = mcp_qualified_name.replace("pipedream:", "").lower()
+        
+        for profile in all_profiles:
+            profile_name_clean = profile.mcp_qualified_name.replace("pipedream:", "").lower()
+            if req_name_clean == profile_name_clean:
+                profiles.append(profile)
+        
+        if profiles:
+            logger.debug(f"Found {len(profiles)} profiles via fuzzy matching for '{mcp_qualified_name}'")
+        else:
+            logger.debug(f"No profiles found for '{mcp_qualified_name}' after all strategies")
+        
+        return profiles
+
     async def get_all_user_credential_profiles(self, account_id: str) -> List[MCPCredentialProfile]:
-        """Get all credential profiles for a user across all MCP servers"""
         try:
             client = await db.client
             

@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2, Settings2, Sparkles, Check, Clock, Eye, Menu, Zap, Brain, Workflow } from 'lucide-react';
+import { Loader2, Save, Eye, Check, Wrench, Server, BookOpen, Workflow, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAgent, useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
+import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
 import { AgentMCPConfiguration } from '../../../../../components/agents/agent-mcp-configuration';
 import { toast } from 'sonner';
 import { AgentToolsConfiguration } from '../../../../../components/agents/agent-tools-configuration';
@@ -18,27 +20,43 @@ import { getAgentAvatar } from '../../../../../lib/utils/get-agent-style';
 import { EditableText } from '@/components/ui/editable';
 import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
 import { StylePicker } from '../../../../../components/agents/style-picker';
-import { useSidebar } from '@/components/ui/sidebar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentBuilderChat } from '../../../../../components/agents/agent-builder-chat';
 import { AgentTriggersConfiguration } from '@/components/agents/triggers/agent-triggers-configuration';
 import { AgentKnowledgeBaseManager } from '@/components/agents/knowledge-base/agent-knowledge-base-manager';
 import { AgentWorkflowsConfiguration } from '@/components/agents/workflows/agent-workflows-configuration';
+import { AgentVersionSwitcher } from '@/components/agents/agent-version-switcher';
+import { CreateVersionButton } from '@/components/agents/create-version-button';
+import { VersionComparison } from '../../../../../components/agents/version-comparison';
+import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
+import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+interface FormData {
+  name: string;
+  description: string;
+  system_prompt: string;
+  agentpress_tools: any;
+  configured_mcps: any[];
+  custom_mcps: any[];
+  is_default: boolean;
+  avatar: string;
+  avatar_color: string;
+}
 
-export default function AgentConfigurationPage() {
+export default function AgentConfigurationPageRefactored() {
   const params = useParams();
   const router = useRouter();
   const agentId = params.agentId as string;
 
-  const { data: agent, isLoading, error } = useAgent(agentId);
+  // Use modular hooks
+  const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
+  const { hasUnsavedChanges, setHasUnsavedChanges } = useAgentVersionStore();
+  
   const updateAgentMutation = useUpdateAgent();
-  const { state, setOpen, setOpenMobile } = useSidebar();
+  const createVersionMutation = useCreateAgentVersion();
+  const activateVersionMutation = useActivateAgentVersion();
 
-  const initialLayoutAppliedRef = useRef(false);
-
-  const [formData, setFormData] = useState({
+  // State management
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     system_prompt: '',
@@ -50,477 +68,488 @@ export default function AgentConfigurationPage() {
     avatar_color: '',
   });
 
-  const originalDataRef = useRef<typeof formData | null>(null);
-  const currentFormDataRef = useRef(formData);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [originalData, setOriginalData] = useState<FormData>(formData);
+  const [isSaving, setIsSaving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agent-builder');
-  const accordionRef = useRef<HTMLDivElement>(null);
+
+  // Initialize form data from agent/version data
+  useEffect(() => {
+    if (!agent) return;
+    
+    // Determine the source of configuration data
+    let configSource = agent;
+    
+    // If we have explicit version data (from URL param), use it
+    if (versionData) {
+      configSource = versionData;
+    } 
+    // If no URL param but agent has current_version data, use that
+    else if (agent.current_version) {
+      configSource = agent.current_version;
+    }
+    
+    const initialData: FormData = {
+      name: agent.name || '',
+      description: agent.description || '',
+      system_prompt: configSource.system_prompt || '',
+      agentpress_tools: configSource.agentpress_tools || {},
+      configured_mcps: configSource.configured_mcps || [],
+      custom_mcps: configSource.custom_mcps || [],
+      is_default: agent.is_default || false,
+      avatar: agent.avatar || '',
+      avatar_color: agent.avatar_color || '',
+    };
+    
+    setFormData(initialData);
+    setOriginalData(initialData);
+  }, [agent, versionData]);
 
   useEffect(() => {
-    if (!initialLayoutAppliedRef.current) {
-      setOpen(false);
-      initialLayoutAppliedRef.current = true;
-    }
-  }, [setOpen]);
+    const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalData);
+    setHasUnsavedChanges(hasChanges);
+  }, [formData, originalData, setHasUnsavedChanges]);
 
-  useEffect(() => {
-    if (agent) {
-      const agentData = agent as any;
-      const initialData = {
-        name: agentData.name || '',
-        description: agentData.description || '',
-        system_prompt: agentData.system_prompt || '',
-        agentpress_tools: agentData.agentpress_tools || {},
-        configured_mcps: agentData.configured_mcps || [],
-        custom_mcps: agentData.custom_mcps || [],
-        is_default: agentData.is_default || false,
-        avatar: agentData.avatar || '',
-        avatar_color: agentData.avatar_color || '',
-      };
-      setFormData(initialData);
-      originalDataRef.current = { ...initialData };
-    }
-  }, [agent]);
-
-
-  useEffect(() => {
-    if (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('Access denied') || errorMessage.includes('403')) {
-        toast.error('You don\'t have permission to edit this agent');
-        router.push('/agents');
-        return;
-      }
-    }
-  }, [error, router]);
-
-  useEffect(() => {
-    currentFormDataRef.current = formData;
-  }, [formData]);
-
-  const hasDataChanged = useCallback((newData: typeof formData, originalData: typeof formData | null): boolean => {
-    if (!originalData) return true;
-    if (newData.name !== originalData.name ||
-        newData.description !== originalData.description ||
-        newData.system_prompt !== originalData.system_prompt ||
-        newData.is_default !== originalData.is_default ||
-        newData.avatar !== originalData.avatar ||
-        newData.avatar_color !== originalData.avatar_color) {
-      return true;
-    }
-    if (JSON.stringify(newData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools) ||
-        JSON.stringify(newData.configured_mcps) !== JSON.stringify(originalData.configured_mcps) ||
-        JSON.stringify(newData.custom_mcps) !== JSON.stringify(originalData.custom_mcps)) {
-      return true;
-    }
-    return false;
-  }, []);
-
-  const saveAgent = useCallback(async (data: typeof formData) => {
+  const handleSave = useCallback(async () => {
+    if (!agent || isViewingOldVersion) return;
+    
+    setIsSaving(true);
     try {
-      setSaveStatus('saving');
+      const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+        name: mcp.name || 'Unnamed MCP',
+        type: mcp.type || mcp.customType || 'sse',
+        config: mcp.config || {},
+        enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+      }));
+      await createVersionMutation.mutateAsync({
+        agentId,
+        data: {
+          system_prompt: formData.system_prompt,
+          configured_mcps: formData.configured_mcps,
+          custom_mcps: normalizedCustomMcps,
+          agentpress_tools: formData.agentpress_tools,
+          description: 'Manual save'
+        }
+      });
       await updateAgentMutation.mutateAsync({
         agentId,
-        ...data
+        name: formData.name,
+        description: formData.description,
+        is_default: formData.is_default,
+        avatar: formData.avatar,
+        avatar_color: formData.avatar_color
       });
-      originalDataRef.current = { ...data };
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      
+      setOriginalData(formData);
+      toast.success('Changes saved successfully');
     } catch (error) {
-      console.error('Error updating agent:', error);
-      setSaveStatus('error');
-      toast.error('Failed to update agent');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      console.error('Save error:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSaving(false);
     }
-  }, [agentId, updateAgentMutation]);
+  }, [agent, formData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation]);
 
-  const debouncedSave = useCallback((data: typeof formData) => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    if (!hasDataChanged(data, originalDataRef.current)) {
+  const handleFieldChange = useCallback((field: keyof FormData, value: any) => {
+    if (isViewingOldVersion) {
+      toast.error('Cannot edit old versions. Please activate this version first to make changes.');
       return;
     }
-    const timer = setTimeout(() => {
-      if (hasDataChanged(data, originalDataRef.current)) {
-        saveAgent(data);
-      }
-    }, 500);
-    
-    debounceTimerRef.current = timer;
-  }, [saveAgent, hasDataChanged]);
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, [isViewingOldVersion]);
 
-  const handleFieldChange = useCallback((field: string, value: any) => {
-    const newFormData = {
-      ...currentFormDataRef.current,
-      [field]: value
-    };
-    
-    setFormData(newFormData);
-    debouncedSave(newFormData);
-  }, [debouncedSave]);
-
-  const handleBatchMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
-    const newFormData = {
-      ...currentFormDataRef.current,
+  const handleMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+    if (isViewingOldVersion) {
+      toast.error('Cannot edit old versions. Please activate this version first to make changes.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
       configured_mcps: updates.configured_mcps,
       custom_mcps: updates.custom_mcps
-    };
-    
-    setFormData(newFormData);
-    debouncedSave(newFormData);
-  }, [debouncedSave]);
-
-  const scrollToAccordion = useCallback(() => {
-    if (accordionRef.current) {
-      accordionRef.current.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'end' 
-      });
-    }
-  }, []);
+    }));
+  }, [isViewingOldVersion]);
 
   const handleStyleChange = useCallback((emoji: string, color: string) => {
-    const newFormData = {
-      ...currentFormDataRef.current,
+    if (isViewingOldVersion) {
+      toast.error('Cannot edit old versions. Please activate this version first to make changes.');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
       avatar: emoji,
-      avatar_color: color,
-    };
-    setFormData(newFormData);
-    debouncedSave(newFormData);
-  }, [debouncedSave]);
+      avatar_color: color
+    }));
+  }, [isViewingOldVersion]);
 
-  const currentStyle = useMemo(() => {
-    if (formData.avatar && formData.avatar_color) {
-      return {
-        avatar: formData.avatar,
-        color: formData.avatar_color,
-      };
+  // Version activation handler
+  const handleActivateVersion = useCallback(async (versionId: string) => {
+    try {
+      await activateVersionMutation.mutateAsync({ agentId, versionId });
+      toast.success('Version activated successfully');
+      // Refresh page without version param
+      router.push(`/agents/config/${agentId}`);
+    } catch (error) {
+      toast.error('Failed to activate version');
     }
-    return getAgentAvatar(agentId);
-  }, [formData.avatar, formData.avatar_color, agentId]);
+  }, [agentId, activateVersionMutation, router]);
 
-  const memoizedAgentBuilderChat = useMemo(() => (
-    <AgentBuilderChat
-      agentId={agentId}
-      formData={formData}
-      handleFieldChange={handleFieldChange}
-      handleStyleChange={handleStyleChange}
-      currentStyle={currentStyle}
-    />
-  ), [agentId, formData, handleFieldChange, handleStyleChange, currentStyle]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const getSaveStatusBadge = () => {
-    const showSaved = saveStatus === 'idle' && !hasDataChanged(formData, originalDataRef.current);
-    switch (saveStatus) {
-      case 'saving':
-        return (
-          <Badge variant="secondary" className="flex items-center gap-1 text-amber-700 dark:text-amber-300 bg-amber-600/30 hover:bg-amber-700/40">
-            <Clock className="h-3 w-3 animate-pulse" />
-            Saving...
-          </Badge>
-        );
-      case 'saved':
-        return (
-          <Badge variant="default" className="flex items-center gap-1 text-green-700 dark:text-green-300 bg-green-600/30 hover:bg-green-700/40">
-            <Check className="h-3 w-3" />
-            Saved
-          </Badge>
-        );
-      case 'error':
-        return (
-          <Badge variant="destructive" className="flex items-center gap-1 text-red-700 dark:text-red-300 bg-red-600/30 hover:bg-red-700/40">
-            Error saving
-          </Badge>
-        );
-
-      default:
-        return showSaved ? (
-          <Badge variant="default" className="flex items-center gap-1 text-green-700 dark:text-green-300 bg-green-600/30 hover:bg-green-700/40">
-            <Check className="h-3 w-3" />
-            Saved
-          </Badge>
-        ) : (
-          <Badge variant="destructive" className="flex items-center gap-1 text-red-700 dark:text-red-300 bg-red-600/30 hover:bg-red-700/40">
-            Error saving
-          </Badge>
-        );
+  // Auto-switch to configuration tab when viewing old versions
+  useEffect(() => {
+    if (isViewingOldVersion && activeTab === 'agent-builder') {
+      setActiveTab('configuration');
     }
-  };
+  }, [isViewingOldVersion, activeTab]);
 
-  const ConfigurationContent = useMemo(() => {
+  if (error) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="md:hidden flex justify-between items-center mb-4 p-4 pb-0">
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setOpenMobile(true)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent"
-                >
-                  <Menu className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Open menu</TooltipContent>
-            </Tooltip>
-            <div className="md:hidden flex justify-center">
-              {getSaveStatusBadge()}
-            </div>
-          </div>
-          <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-            <DrawerTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Eye className="h-4 w-4" />
-                Preview
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent className="h-[90vh] bg-muted">
-              <DrawerHeader>
-                <DrawerTitle>Agent Preview</DrawerTitle>
-              </DrawerHeader>
-              <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <AgentPreview agent={{ ...agent, ...formData }} />
-              </div>
-            </DrawerContent>
-          </Drawer>
-        </div>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <div className='w-full flex items-center justify-center flex-shrink-0 px-4 md:px-12 md:mt-10'>
-            <div className='w-auto flex items-center gap-2'>
-              <TabsList className="grid h-auto w-full grid-cols-2 bg-muted-foreground/10">
-                <TabsTrigger value="agent-builder" className="w-48 flex items-center gap-1.5 px-2">
-                  <span className="truncate">Prompt to configure</span>
-                </TabsTrigger>
-                <TabsTrigger value="manual">Config</TabsTrigger>
-              </TabsList>
-            </div>
-          </div>
-          <TabsContent value="manual" className="mt-0 flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-12 pb-4 md:pb-12 scrollbar-hide">
-            <div className="max-w-full">
-              <div className="hidden md:flex justify-end mb-4 mt-4">
-                {getSaveStatusBadge()}
-              </div>
-              <div className='flex items-start md:items-center flex-col md:flex-row mt-6'>
-                <StylePicker 
-                  agentId={agentId} 
-                  currentEmoji={currentStyle.avatar}
-                  currentColor={currentStyle.color}
-                  onStyleChange={handleStyleChange}
-                >
-                  <div 
-                    className="flex-shrink-0 h-12 w-12 md:h-16 md:w-16 flex items-center justify-center rounded-2xl text-xl md:text-2xl cursor-pointer hover:opacity-80 transition-opacity mb-3 md:mb-0"
-                    style={{ backgroundColor: currentStyle.color }}
-                  >
-                    {currentStyle.avatar}
-                  </div>
-                </StylePicker>
-                <div className='flex flex-col md:ml-3 w-full min-w-0'>
-                  <EditableText
-                    value={formData.name}
-                    onSave={(value) => handleFieldChange('name', value)}
-                    className="text-lg md:text-xl font-semibold bg-transparent"
-                    placeholder="Click to add agent name..."
-                  />
-                  <EditableText
-                    value={formData.description}
-                    onSave={(value) => handleFieldChange('description', value)}
-                    className="text-muted-foreground text-sm"
-                    placeholder="Click to add description..."
-                  />
-                </div>
-              </div>
-                  <div className='flex flex-col mt-6 md:mt-8'>
-                  <div className='flex items-center justify-between mb-2'>
-                    <div className='text-sm font-semibold text-muted-foreground'>Instructions</div>
-                  </div>
-                  <ExpandableMarkdownEditor
-                    value={formData.system_prompt}
-                    onSave={(value) => handleFieldChange('system_prompt', value)}
-                    placeholder='Click to set system instructions...'
-                    title='System Instructions'
-                  />
-                </div>
-
-              <div ref={accordionRef} className="mt-6 border-t">
-                <Accordion 
-                  type="multiple" 
-                  defaultValue={[]} 
-                  className="space-y-2"
-                  onValueChange={scrollToAccordion}
-                >
-                  <AccordionItem value="tools" className="border-b">
-                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Settings2 className="h-4 w-4" />
-                        Default Tools
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 overflow-x-hidden">
-                      <AgentToolsConfiguration
-                        tools={formData.agentpress_tools}
-                        onToolsChange={(tools) => handleFieldChange('agentpress_tools', tools)}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="mcp" className="border-b">
-                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        Integrations & MCPs
-                        <Badge variant='new'>New</Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 overflow-x-hidden">
-                      <AgentMCPConfiguration
-                        configuredMCPs={formData.configured_mcps}
-                        customMCPs={formData.custom_mcps}
-                        onMCPChange={handleBatchMCPChange}
-                        agentId={agentId}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="triggers" className="border-b">
-                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4" />
-                        Triggers
-                        <Badge variant='new'>New</Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 overflow-x-hidden">
-                      <AgentTriggersConfiguration
-                        agentId={agentId}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="knowledge-base" className="border-b">
-                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Brain className="h-4 w-4" />
-                        Knowledge Base
-                        <Badge variant='new'>New</Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 overflow-x-hidden">
-                      <AgentKnowledgeBaseManager
-                        agentId={agentId}
-                        agentName={formData.name || 'Agent'}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="workflows" className="border-b">
-                    <AccordionTrigger className="hover:no-underline text-sm md:text-base">
-                      <div className="flex items-center gap-2">
-                        <Workflow className="h-4 w-4" />
-                        Workflows
-                        <Badge variant='new'>New</Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4 overflow-x-hidden">
-                      <AgentWorkflowsConfiguration
-                        agentId={agentId}
-                        agentName={formData.name || 'Agent'}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="agent-builder" className="mt-0 flex-1 flex flex-col overflow-hidden">
-            {memoizedAgentBuilderChat}
-          </TabsContent>
-        </Tabs>
+      <div className="flex items-center justify-center h-screen">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error.message || 'Failed to load agent configuration'}
+          </AlertDescription>
+        </Alert>
       </div>
     );
-  }, [
-    activeTab,
-    agentId,
-    agent,
-    formData,
-    currentStyle,
-    isPreviewOpen,
-    memoizedAgentBuilderChat,
-    handleFieldChange,
-    handleStyleChange,
-    setOpenMobile,
-    setIsPreviewOpen,
-    setActiveTab,
-    scrollToAccordion,
-    getSaveStatusBadge,
-    handleBatchMCPChange
-  ]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
+  }
 
   if (isLoading) {
     return (
-      <div className="container mx-auto max-w-7xl px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading agent...</span>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  if (error || !agent) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const isAccessDenied = errorMessage.includes('Access denied') || errorMessage.includes('403');
-    
+  if (!agent) {
     return (
-      <div className="container mx-auto max-w-7xl px-4 py-8">
-        <div className="text-center space-y-4">
-          {isAccessDenied ? (
-            <Alert variant="destructive">
-              <AlertDescription>
-                You don't have permission to edit this agent. You can only edit agents that you created.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              <h2 className="text-xl font-semibold mb-2">Agent not found</h2>
-              <p className="text-muted-foreground mb-4">The agent you're looking for doesn't exist.</p>
-            </>
-          )}
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Alert>
+          <AlertDescription>Agent not found</AlertDescription>
+        </Alert>
       </div>
     );
   }
+
+  // Use version data when viewing old version, otherwise use form data
+  const displayData = isViewingOldVersion && versionData ? {
+    name: agent?.name || '',
+    description: agent?.description || '',
+    system_prompt: versionData.system_prompt || '',
+    agentpress_tools: versionData.agentpress_tools || {},
+    configured_mcps: versionData.configured_mcps || [],
+    custom_mcps: versionData.custom_mcps || [],
+    is_default: agent?.is_default || false,
+    avatar: agent?.avatar || '',
+    avatar_color: agent?.avatar_color || '',
+  } : formData;
+
+  const currentStyle = displayData.avatar && displayData.avatar_color
+    ? { avatar: displayData.avatar, color: displayData.avatar_color }
+    : getAgentAvatar(agentId);
+
+  const previewAgent = {
+    ...agent,
+    ...displayData,
+    agent_id: agentId,
+  };
 
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:flex w-full h-full">
           <div className="w-1/2 border-r bg-background h-full flex flex-col">
-            {ConfigurationContent}
+            <div className="h-full flex flex-col">
+              <div className="flex justify-between items-center mb-4 p-4 border-b">
+                <div className="flex items-center gap-2">
+                  <AgentVersionSwitcher
+                    agentId={agentId}
+                    currentVersionId={agent?.current_version_id}
+                    currentFormData={{
+                      system_prompt: formData.system_prompt,
+                      configured_mcps: formData.configured_mcps,
+                      custom_mcps: formData.custom_mcps,
+                      agentpress_tools: formData.agentpress_tools
+                    }}
+                  />
+                  <CreateVersionButton
+                    agentId={agentId}
+                    currentFormData={{
+                      system_prompt: formData.system_prompt,
+                      configured_mcps: formData.configured_mcps,
+                      custom_mcps: formData.custom_mcps,
+                      agentpress_tools: formData.agentpress_tools
+                    }}
+                    hasChanges={hasUnsavedChanges && !isViewingOldVersion}
+                    onVersionCreated={() => {
+                      setOriginalData(formData);
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasUnsavedChanges && !isViewingOldVersion && (
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save Changes
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col overflow-hidden -mt-4">
+                <div className="flex-shrink-0 space-y-6 px-4 mt-2">
+                  {isViewingOldVersion && (
+                    <Alert className="mb-4">
+                      <Eye className="h-4 w-4" />
+                      <div className="flex items-center justify-between w-full">
+                        <AlertDescription>
+                          You are viewing a read-only version. To make changes, please activate this version or switch back to the current version.
+                        </AlertDescription>
+                        <div className="ml-4 flex items-center gap-2">
+                          {versionData && (
+                            <Badge className="text-xs">
+                              {versionData.version_name}
+                            </Badge>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => versionData && handleActivateVersion(versionData.version_id)}
+                            disabled={activateVersionMutation.isPending}
+                          >
+                            {activateVersionMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <Check className="h-3 w-3" />
+                            )}
+                            Set as Current
+                          </Button>
+                        </div>
+                      </div>
+                    </Alert>
+                  )}
+                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="flex-shrink-0 space-y-4 px-4 py-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <StylePicker
+                            currentEmoji={currentStyle.avatar}
+                            currentColor={currentStyle.color}
+                            onStyleChange={handleStyleChange}
+                            agentId={agentId}
+                          >
+                            <div className="h-10 w-10 rounded-xl flex items-center justify-center gap-2" style={{ backgroundColor: currentStyle.color }}>
+                              <div className="text-lg font-medium">{currentStyle.avatar}</div>
+                            </div>
+                          </StylePicker>
+                          <EditableText
+                            value={displayData.name}
+                            onSave={(value) => handleFieldChange('name', value)}
+                            className="text-md font-semibold bg-transparent"
+                            placeholder="Click to add agent name..."
+                            disabled={isViewingOldVersion}
+                          />
+                        </div>
+                        <TabsList className="grid grid-cols-2">
+                          <TabsTrigger 
+                            value="agent-builder" 
+                            disabled={isViewingOldVersion}
+                            className={isViewingOldVersion ? "opacity-50 cursor-not-allowed" : ""}
+                          >
+                            Agent Builder
+                          </TabsTrigger>
+                          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+                        </TabsList>
+                      </div>
+                    </div>
+
+                    <TabsContent value="agent-builder" className="flex-1 h-0 px-4">
+                      {isViewingOldVersion ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center space-y-4 max-w-md">
+                            <div className="text-6xl">🔒</div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-muted-foreground">Agent Builder Disabled</h3>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                The Agent Builder is only available for the current version. 
+                                To use the Agent Builder, please activate this version first.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <AgentBuilderChat 
+                          agentId={agentId}
+                          formData={displayData}
+                          handleFieldChange={handleFieldChange}
+                          handleStyleChange={handleStyleChange}
+                          currentStyle={currentStyle}
+                        />
+                      )}
+                    </TabsContent>
+                    {activeTab === 'configuration' && (
+                      <div className='px-4'>
+                        <ExpandableMarkdownEditor
+                          value={displayData.system_prompt}
+                          onSave={(value) => handleFieldChange('system_prompt', value)}
+                          placeholder="Click to set system instructions..."
+                          title="System Instructions"
+                          disabled={isViewingOldVersion}
+                        />
+                      </div>
+                    )}
+                    <TabsContent value="configuration" className="flex-1 h-0 overflow-y-auto px-4">
+                      <Accordion type="single" collapsible defaultValue="system" className='space-y-2'>
+                        <AccordionItem className='border rounded-xl px-4' value="tools">
+                          <AccordionTrigger>
+                            <div className='flex items-center gap-2'>
+                              <div className='bg-muted rounded-full h-8 w-8 flex items-center justify-center'>
+                                <Wrench className='h-4 w-4' />
+                              </div>
+                              Tools
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <AgentToolsConfiguration
+                              tools={displayData.agentpress_tools}
+                              onToolsChange={(tools) => handleFieldChange('agentpress_tools', tools)}
+                            />
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className='border rounded-xl px-4' value="integrations">
+                          <AccordionTrigger>
+                            <div className='flex items-center gap-2'>
+                              <div className='bg-muted rounded-full h-8 w-8 flex items-center justify-center'>
+                                <Server className='h-4 w-4' />
+                              </div>
+                              Integrations
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <AgentMCPConfiguration
+                              configuredMCPs={displayData.configured_mcps}
+                              customMCPs={displayData.custom_mcps}
+                              onMCPChange={handleMCPChange}
+                              agentId={agentId}
+                              versionData={{
+                                configured_mcps: displayData.configured_mcps,
+                                custom_mcps: displayData.custom_mcps,
+                                system_prompt: displayData.system_prompt,
+                                agentpress_tools: displayData.agentpress_tools
+                              }}
+                            />
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className='border rounded-xl px-4' value="knowledge">
+                          <AccordionTrigger>
+                            <div className='flex items-center gap-2'>
+                              <div className='bg-muted rounded-full h-8 w-8 flex items-center justify-center'>
+                                <BookOpen className='h-4 w-4' />
+                              </div>
+                              Knowledge Base
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <AgentKnowledgeBaseManager
+                              agentId={agentId}
+                              agentName={displayData.name || 'Agent'}
+                            />
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className='border rounded-xl px-4' value="workflows">
+                          <AccordionTrigger>
+                            <div className='flex items-center gap-2'>
+                              <div className='bg-muted rounded-full h-8 w-8 flex items-center justify-center'>
+                                <Workflow className='h-4 w-4' />
+                              </div>
+                              Workflows
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <AgentWorkflowsConfiguration
+                              agentId={agentId}
+                              agentName={displayData.name || 'Agent'}
+                            />
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className='border rounded-xl px-4' value="triggers">
+                          <AccordionTrigger>
+                            <div className='flex items-center gap-2'>
+                              <div className='bg-muted rounded-full h-8 w-8 flex items-center justify-center'>
+                                <Zap className='h-4 w-4' />
+                              </div>
+                              Triggers
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <AgentTriggersConfiguration agentId={agentId} />
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    </TabsContent>
+                  </Tabs>
+              </div>
+            </div>
           </div>
+
+          {/* Right Panel - Preview */}
           <div className="w-1/2 overflow-y-auto">
-            <AgentPreview agent={{ ...agent, ...formData }} />
+            {previewAgent && <AgentPreview agent={previewAgent} />}
           </div>
         </div>
-        <div className="md:hidden w-full h-full flex flex-col">
-          {ConfigurationContent}
+
+        {/* Mobile Layout */}
+        <div className="md:hidden flex flex-col h-full w-full">
+          {/* Mobile content similar to desktop but with drawer for preview */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Similar content structure as desktop */}
+          </div>
+          
+          {/* Mobile Preview Drawer */}
+          <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+            <DrawerTrigger asChild>
+              <Button 
+                className="fixed bottom-4 right-4 rounded-full shadow-lg"
+                size="icon"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Agent Preview</DrawerTitle>
+              </DrawerHeader>
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                {previewAgent && <AgentPreview agent={previewAgent} />}
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       </div>
+
+      <Dialog open={isComparisonOpen} onOpenChange={setIsComparisonOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <VersionComparison
+            agentId={agentId}
+            onClose={() => setIsComparisonOpen(false)}
+            onActivateVersion={handleActivateVersion}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+} 

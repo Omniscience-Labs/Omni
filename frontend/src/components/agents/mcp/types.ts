@@ -12,4 +12,10 @@ export interface MCPConfigurationProps {
   configuredMCPs: MCPConfiguration[];
   onConfigurationChange: (mcps: MCPConfiguration[]) => void;
   agentId?: string;
+  versionData?: {
+    configured_mcps?: any[];
+    custom_mcps?: any[];
+    system_prompt?: string;
+    agentpress_tools?: any;
+  };
 }
