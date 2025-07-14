@@ -10,6 +10,7 @@ from .support.exceptions import TriggerError, ConfigurationError, ProviderError
 from .services.trigger_service import TriggerService
 from .services.execution_service import TriggerExecutionService
 from .services.provider_service import ProviderService
+from .endpoints import workflows_router, set_workflows_db_connection
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
@@ -17,6 +18,9 @@ from flags.flags import is_enabled
 from utils.config import config, EnvMode
 
 router = APIRouter(prefix="/triggers", tags=["triggers"])
+
+workflows_api_router = APIRouter(prefix="/workflows", tags=["workflows"])
+workflows_api_router.include_router(workflows_router)
 
 trigger_service: Optional[TriggerService] = None
 execution_service: Optional[TriggerExecutionService] = None
@@ -64,6 +68,8 @@ class ProviderResponse(BaseModel):
 def initialize(database: DBConnection):
     global db, trigger_service, execution_service, provider_service
     db = database
+    # Initialize workflows API with DB connection
+    set_workflows_db_connection(database)
 
 
 async def get_services() -> tuple[TriggerService, TriggerExecutionService, ProviderService]:
@@ -423,82 +429,94 @@ async def trigger_webhook(
         )
 
 
-@router.get("/{trigger_id}/logs")
-async def get_trigger_logs(
-    trigger_id: str,
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
+@router.post("/qstash/webhook")
+async def qstash_webhook(request: Request):
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        trigger_svc, _, _ = await get_services()
+        headers = dict(request.headers)
+        logger.info(f"QStash webhook received with headers: {headers}")
         
-        trigger = await trigger_svc.get_trigger(trigger_id)
-        if not trigger:
-            raise HTTPException(status_code=404, detail="Trigger not found")
+        try:
+            raw_data = await request.json()
+        except:
+            raw_data = {}
+            
+        logger.info(f"QStash webhook payload: {raw_data}")
+        trigger_id = raw_data.get('trigger_id')
+        if not trigger_id:
+            logger.error("No trigger_id found in QStash webhook payload")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "trigger_id is required in webhook payload"}
+            )
+        
+        raw_data.update({
+            "webhook_source": "qstash",
+            "webhook_headers": headers,
+            "webhook_timestamp": datetime.now(timezone.utc).isoformat()
+        })
 
-        await verify_agent_access(trigger.agent_id, user_id)
+        trigger_svc, execution_svc, _ = await get_services()
         
-        logs = await trigger_svc.get_trigger_logs(trigger_id, limit, offset)
+        result = await trigger_svc.process_trigger_event(trigger_id, raw_data)
         
-        return {"logs": logs}
+        logger.info(f"QStash trigger result: success={result.success}, should_execute_agent={result.should_execute_agent}, should_execute_workflow={result.should_execute_workflow}")
+        
+        if not result.success:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.error_message}
+            )
+        
+        if result.should_execute_agent or result.should_execute_workflow:
+            trigger = await trigger_svc.get_trigger(trigger_id)
+            if trigger:
+                logger.info(f"Executing QStash trigger for agent {trigger.agent_id}")
+                
+                from .domain.entities import TriggerEvent
+                event = TriggerEvent(
+                    trigger_id=trigger_id,
+                    agent_id=trigger.agent_id,
+                    trigger_type=trigger.trigger_type,
+                    raw_data=raw_data
+                )
+                
+                execution_result = await execution_svc.execute_trigger_result(
+                    agent_id=trigger.agent_id,
+                    trigger_result=result,
+                    trigger_event=event
+                )
+                
+                logger.info(f"QStash execution result: {execution_result}")
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "message": "QStash trigger processed and execution started",
+                    "execution": execution_result,
+                    "trigger_id": trigger_id,
+                    "agent_id": trigger.agent_id
+                })
+            else:
+                logger.warning(f"QStash trigger {trigger_id} not found for execution")
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": f"Trigger {trigger_id} not found"}
+                )
+        
+        logger.info(f"QStash webhook processed but no execution needed")
+        return JSONResponse(content={
+            "success": True,
+            "message": "QStash trigger processed successfully (no execution needed)",
+            "trigger_id": trigger_id
+        })
         
     except Exception as e:
-        logger.error(f"Error getting trigger logs: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.get("/{trigger_id}/stats")
-async def get_trigger_stats(
-    trigger_id: str,
-    hours: int = Query(24, ge=1, le=168),
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
-    
-    try:
-        trigger_svc, _, _ = await get_services()
-        
-        trigger = await trigger_svc.get_trigger(trigger_id)
-        if not trigger:
-            raise HTTPException(status_code=404, detail="Trigger not found")
-
-        await verify_agent_access(trigger.agent_id, user_id)
-        
-        stats = await trigger_svc.get_trigger_stats(trigger_id, hours)
-        
-        return stats
-        
-    except Exception as e:
-        logger.error(f"Error getting trigger stats: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.get("/{trigger_id}/health")
-async def health_check_trigger(
-    trigger_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
-    
-    try:
-        trigger_svc, _, _ = await get_services()
-        
-        trigger = await trigger_svc.get_trigger(trigger_id)
-        if not trigger:
-            raise HTTPException(status_code=404, detail="Trigger not found")
-
-        await verify_agent_access(trigger.agent_id, user_id)
-        
-        is_healthy = await trigger_svc.health_check_trigger(trigger_id)
-        
-        return {"healthy": is_healthy}
-        
-    except Exception as e:
-        logger.error(f"Error checking trigger health: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") 
+        logger.error(f"Error processing QStash webhook: {e}")
+        import traceback
+        logger.error(f"QStash webhook error traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
