@@ -21,11 +21,14 @@ export interface UpdatePipedreamToolsRequest {
   enabled_tools: string[];
 }
 
-export const usePipedreamToolsForAgent = (agentId: string, profileId: string) => {
+export const usePipedreamToolsForAgent = (agentId: string, profileId: string, versionId?: string) => {
   return useQuery({
-    queryKey: ['pipedream-tools', agentId, profileId],
+    queryKey: ['pipedream-tools', agentId, profileId, versionId],
     queryFn: async (): Promise<PipedreamToolsResponse> => {
-      const response = await backendApi.get(`/agents/${agentId}/pipedream-tools/${profileId}`);
+      const url = versionId 
+        ? `/agents/${agentId}/pipedream-tools/${profileId}?version=${versionId}`
+        : `/agents/${agentId}/pipedream-tools/${profileId}`;
+      const response = await backendApi.get(url);
       return response.data;
     },
     enabled: !!agentId && !!profileId,
@@ -56,6 +59,7 @@ export const useUpdatePipedreamToolsForAgent = () => {
         `/agents/${agentId}/pipedream-tools/${profileId}`,
         { enabled_tools: enabledTools }
       );
+      console.log('response', JSON.stringify(response.data, null, 2));
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -77,20 +81,16 @@ export const useUpdatePipedreamToolsForAgent = () => {
 };
 
 
-export const usePipedreamToolsData = (agentId: string, profileId: string) => {
-  const { data, isLoading, error, refetch } = usePipedreamToolsForAgent(agentId, profileId);
+export const usePipedreamToolsData = (agentId: string, profileId: string, versionId?: string) => {
+  const { data, isLoading, error, refetch } = usePipedreamToolsForAgent(agentId, profileId, versionId);
   const updateMutation = useUpdatePipedreamToolsForAgent();
-
-  const handleUpdateTools = (enabledTools: string[]) => {
-    updateMutation.mutate({ agentId, profileId, enabledTools });
-  };
 
   return {
     data,
     isLoading,
     error,
     refetch,
-    handleUpdateTools,
+    updateMutation,
     isUpdating: updateMutation.isPending,
   };
 }; 

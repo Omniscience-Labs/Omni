@@ -3,16 +3,15 @@ from typing import Optional
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
-from pipedream.search_utils import PipedreamSearchAPI
-from pipedream.client import get_pipedream_client
+from pipedream.facade import PipedreamManager
+from pipedream.domain.value_objects import ExternalUserId, AppSlug
 from utils.logger import logger
 
 
 class MCPSearchTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
-        self.pipedream_search = PipedreamSearchAPI()
-        self.pipedream_client = get_pipedream_client()
+        self.pipedream_manager = PipedreamManager()
 
     @openapi_schema({
         "type": "function",
@@ -63,31 +62,41 @@ class MCPSearchTool(AgentBuilderBaseTool):
         limit: int = 10
     ) -> ToolResult:
         try:
-            search_result = await self.pipedream_search.search_apps(
+            search_result = await self.pipedream_manager.search_apps(
                 query=query,
                 category=category,
                 page=1,
                 limit=limit
             )
             
-            if not search_result["success"]:
-                return self.fail_response(f"Error searching Pipedream apps: {search_result.get('error', 'Unknown error')}")
-            
-            apps = search_result["apps"]
+            apps = search_result.get("apps", [])
             
             formatted_apps = []
             for app in apps:
-                formatted_apps.append({
-                    "name": app.get("name", "Unknown"),
-                    "app_slug": app.get("app_slug", ""),
-                    "description": app.get("description", "No description available"),
-                    "category": app.get("category", "Other"),
-                    "logo_url": app.get("logo_url", ""),
-                    "auth_type": app.get("auth_type", ""),
-                    "is_verified": app.get("is_verified", False),
-                    "url": app.get("url", ""),
-                    "tags": app.get("tags", [])
-                })
+                if hasattr(app, '__dict__'):
+                    formatted_apps.append({
+                        "name": app.name,
+                        "app_slug": app.app_slug.value if hasattr(app.app_slug, 'value') else str(app.app_slug),
+                        "description": app.description,
+                        "category": app.categories[0] if app.categories else "Other",
+                        "logo_url": getattr(app, 'logo_url', ''),
+                        "auth_type": app.auth_type.value if app.auth_type else '',
+                        "is_verified": getattr(app, 'is_verified', False),
+                        "url": getattr(app, 'url', ''),
+                        "tags": getattr(app, 'tags', [])
+                    })
+                else:
+                    formatted_apps.append({
+                        "name": app.get("name", "Unknown"),
+                        "app_slug": app.get("app_slug", ""),
+                        "description": app.get("description", "No description available"),
+                        "category": app.get("category", "Other"),
+                        "logo_url": app.get("logo_url", ""),
+                        "auth_type": app.get("auth_type", ""),
+                        "is_verified": app.get("is_verified", False),
+                        "url": app.get("url", ""),
+                        "tags": app.get("tags", [])
+                    })
             
             if not formatted_apps:
                 return ToolResult(
@@ -135,12 +144,27 @@ class MCPSearchTool(AgentBuilderBaseTool):
     )
     async def get_app_details(self, app_slug: str) -> ToolResult:
         try:
-            app_result = await self.pipedream_search.get_app_details(app_slug)
+            app_data = await self.pipedream_manager.get_app_by_slug(app_slug)
             
-            if not app_result["success"]:
-                return self.fail_response(f"Could not find app details for '{app_slug}': {app_result.get('error', 'Unknown error')}")
+            if not app_data:
+                return self.fail_response(f"Could not find app details for '{app_slug}'")
             
-            app_data = app_result["app"]
+            if hasattr(app_data, '__dict__'):
+                app_data = {
+                    "name": app_data.name,
+                    "app_slug": app_data.app_slug.value,
+                    "description": app_data.description,
+                    "category": app_data.categories[0] if app_data.categories else "Other",
+                    "logo_url": getattr(app_data, 'logo_url', ''),
+                    "auth_type": app_data.auth_type.value if app_data.auth_type else '',
+                    "is_verified": getattr(app_data, 'is_verified', False),
+                    "url": getattr(app_data, 'url', ''),
+                    "tags": getattr(app_data, 'tags', []),
+                    "pricing": getattr(app_data, 'pricing', ''),
+                    "setup_instructions": getattr(app_data, 'setup_instructions', ''),
+                    "available_actions": getattr(app_data, 'available_actions', []),
+                    "available_triggers": getattr(app_data, 'available_triggers', [])
+                }
             
             formatted_app = {
                 "name": app_data.get("name", "Unknown"),
@@ -204,27 +228,33 @@ class MCPSearchTool(AgentBuilderBaseTool):
     )
     async def discover_user_mcp_servers(self, user_id: str, app_slug: str) -> ToolResult:
         try:
-            mcp_result = await self.pipedream_search.discover_user_mcp_servers(
-                user_id=user_id,
+            servers = await self.pipedream_manager.discover_mcp_servers(
+                external_user_id=user_id,
                 app_slug=app_slug
             )
             
-            if not mcp_result["success"]:
-                return self.fail_response(f"Error discovering MCP servers: {mcp_result.get('error', 'Unknown error')}")
-            
-            servers = mcp_result["servers"]
-            
             formatted_servers = []
             for server in servers:
-                formatted_servers.append({
-                    "server_id": server.get("server_id", ""),
-                    "name": server.get("name", "Unknown"),
-                    "app_slug": server.get("app_slug", app_slug),
-                    "status": server.get("status", "unknown"),
-                    "available_tools": server.get("available_tools", []),
-                    "last_ping": server.get("last_ping", ""),
-                    "created_at": server.get("created_at", "")
-                })
+                if hasattr(server, '__dict__'):
+                    formatted_servers.append({
+                        "server_id": getattr(server, 'server_id', ''),
+                        "name": getattr(server, 'name', 'Unknown'),
+                        "app_slug": getattr(server, 'app_slug', app_slug),
+                        "status": getattr(server, 'status', 'unknown'),
+                        "available_tools": getattr(server, 'available_tools', []),
+                        "last_ping": getattr(server, 'last_ping', ''),
+                        "created_at": getattr(server, 'created_at', '')
+                    })
+                else:
+                    formatted_servers.append({
+                        "server_id": server.get("server_id", ""),
+                        "name": server.get("name", "Unknown"),
+                        "app_slug": server.get("app_slug", app_slug),
+                        "status": server.get("status", "unknown"),
+                        "available_tools": server.get("available_tools", []),
+                        "last_ping": server.get("last_ping", ""),
+                        "created_at": server.get("created_at", "")
+                    })
             
             connected_servers = [s for s in formatted_servers if s["status"] == "connected"]
             total_tools = sum(len(s["available_tools"]) for s in connected_servers)

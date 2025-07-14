@@ -164,12 +164,12 @@ api_router.include_router(sandbox_api.router)
 api_router.include_router(billing_api.router)
 api_router.include_router(feature_flags_api.router)
 
-from mcp_service import api as mcp_api
-from mcp_service import secure_api as secure_mcp_api
-from mcp_service import template_api as template_api
+from mcp_module import api as mcp_api
+from credentials import api as credentials_api
+from templates import api as template_api
 
 api_router.include_router(mcp_api.router)
-api_router.include_router(secure_mcp_api.router, prefix="/secure-mcp")
+api_router.include_router(credentials_api.router, prefix="/secure-mcp")
 api_router.include_router(template_api.router, prefix="/templates")
 
 api_router.include_router(transcription_api.router)

@@ -12,6 +12,7 @@ interface EditableTextProps {
     placeholder?: string;
     multiline?: boolean;
     minHeight?: string;
+    disabled?: boolean;
   }
   
 export const EditableText: React.FC<EditableTextProps> = ({ 
@@ -20,7 +21,8 @@ export const EditableText: React.FC<EditableTextProps> = ({
     className = '', 
     placeholder = 'Click to edit...', 
     multiline = false,
-    minHeight = 'auto'
+    minHeight = 'auto',
+    disabled = false
   }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(value);
@@ -71,6 +73,7 @@ export const EditableText: React.FC<EditableTextProps> = ({
               lineHeight: 'inherit',
               ...(multiline && minHeight ? { minHeight } : {})
             }}
+            disabled={disabled}
           />
         </div>
       );

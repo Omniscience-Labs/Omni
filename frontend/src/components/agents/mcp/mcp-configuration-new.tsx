@@ -7,11 +7,17 @@ import { ConfiguredMcpList } from './configured-mcp-list';
 import { CustomMCPDialog } from './custom-mcp-dialog';
 import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 import { ToolsManager } from './tools-manager';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { agentKeys } from '@/hooks/react-query/agents/keys';
 
 export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,
   onConfigurationChange,
-  agentId
+  agentId,
+  versionData,
+  saveMode = 'direct',
+  versionId
 }) => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [showRegistryDialog, setShowRegistryDialog] = useState(false);
@@ -74,7 +80,38 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
     onConfigurationChange([...configuredMCPs, mcpConfig]);
   };
 
-  const handleToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
+  const handleToolsSelected = async (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
+    // If we have an agent ID and we're in direct save mode, use the backend API to preserve existing tools
+    if (selectedAgentId && saveMode === 'direct') {
+      try {
+        // Use the robust backend API that preserves all existing tools
+        const response = await fetch(`/api/agents/${selectedAgentId}/pipedream-tools/${profileId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ enabled_tools: selectedTools }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update tools');
+        }
+        
+        // The backend now handles preserving all existing tools and creating a new version
+        setShowRegistryDialog(false);
+        
+        // Invalidate queries to refresh the UI
+        // Note: We'll need to import queryClient for this to work
+        toast.success(`Added ${selectedTools.length} tools from ${appName}!`);
+        return;
+      } catch (error) {
+        console.error('Error updating tools via backend:', error);
+        toast.error('Failed to add tools. Please try again.');
+        return;
+      }
+    }
+    
+    // Fallback to frontend-only mode for callback mode or when no agent is selected
     const pipedreamMCP: MCPConfigurationType = {
       name: appName,
       qualifiedName: `pipedream_${appSlug}_${profileId}`,
@@ -153,21 +190,12 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
         
         {configuredMCPs.length > 0 && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/30">
-                <h4 className="text-sm font-medium text-foreground">
-                  Configured Integrations
-                </h4>
-              </div>
-              <div className="p-2 divide-y divide-border">
-                <ConfiguredMcpList
-                  configuredMCPs={configuredMCPs}
-                  onEdit={handleEditMCP}
-                  onRemove={handleRemoveMCP}
-                  onConfigureTools={handleConfigureTools}
-                />
-              </div>
-            </div>
+            <ConfiguredMcpList
+              configuredMCPs={configuredMCPs}
+              onEdit={handleEditMCP}
+              onRemove={handleRemoveMCP}
+              onConfigureTools={handleConfigureTools}
+            />
           </div>
         )}
       </div>
@@ -192,7 +220,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           <DialogHeader className="sr-only">
             <DialogTitle>Select Integration</DialogTitle>
           </DialogHeader>
-          <PipedreamRegistry showAgentSelector={false} selectedAgentId={selectedAgentId} onAgentChange={handleAgentChange} onToolsSelected={handleToolsSelected} />
+          <PipedreamRegistry showAgentSelector={false} selectedAgentId={selectedAgentId} onAgentChange={handleAgentChange} onToolsSelected={handleToolsSelected} versionData={versionData} versionId={versionId} />
         </DialogContent>
       </Dialog>
       <CustomMCPDialog
@@ -209,17 +237,26 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
           open={showPipedreamToolsManager}
           onOpenChange={setShowPipedreamToolsManager}
           onToolsUpdate={handlePipedreamToolsUpdate}
+          versionData={versionData}
+          saveMode={saveMode}
+          versionId={versionId}
         />
       )}
       {selectedMCPForTools && selectedMCPForTools.customType !== 'pipedream' && (
         <ToolsManager
           mode="custom"
           agentId={selectedAgentId}
-          mcpConfig={selectedMCPForTools.config}
+          mcpConfig={{
+            ...selectedMCPForTools.config,
+            type: selectedMCPForTools.customType
+          }}
           mcpName={selectedMCPForTools.name}
           open={showCustomToolsManager}
           onOpenChange={setShowCustomToolsManager}
           onToolsUpdate={handleCustomToolsUpdate}
+          versionData={versionData}
+          saveMode={saveMode}
+          versionId={versionId}
         />
       )}
     </div>

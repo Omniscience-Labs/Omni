@@ -15,6 +15,13 @@ export interface PipedreamRegistryProps {
   showAgentSelector?: boolean;
   selectedAgentId?: string;
   onAgentChange?: (agentId: string | undefined) => void;
+  versionData?: {
+    configured_mcps?: any[];
+    custom_mcps?: any[];
+    system_prompt?: string;
+    agentpress_tools?: any;
+  };
+  versionId?: string;
 }
 
 export interface AppCardProps {
