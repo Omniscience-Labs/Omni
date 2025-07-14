@@ -375,10 +375,7 @@ class PipedreamManager:
             }
             updated_custom_mcps.append(new_mcp_config)
         
-        print(f"[DEBUG] Final updated_custom_mcps: {updated_custom_mcps}")
-        
-        print(f"[DEBUG] About to create version with custom_mcps: {updated_custom_mcps}")
-        
+
         new_version = await version_manager.create_version(
             agent_id=agent_id,
             user_id=user_id,
@@ -388,11 +385,6 @@ class PipedreamManager:
             agentpress_tools=agentpress_tools,
             change_description=f"Updated {profile.app_name} tools"
         )
-        
-        print(f"[DEBUG] Version created successfully: {new_version.get('version_id')}")
-        
-        print(f"[DEBUG] About to update agent table with custom_mcps: {updated_custom_mcps}")
-        
         try:
             update_result = await client.table('agents').update({
                 'custom_mcps': updated_custom_mcps,
