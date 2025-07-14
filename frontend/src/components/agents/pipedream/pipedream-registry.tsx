@@ -26,6 +26,7 @@ import {
   filterAppsByCategory
 } from './utils';
 import type { PipedreamRegistryProps, ConnectedApp } from './types';
+import { usePathname } from 'next/navigation';
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onToolsSelected,
@@ -35,7 +36,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   showAgentSelector = false,
   selectedAgentId,
   onAgentChange,
-  versionData
+  versionData,
+  versionId
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -50,6 +52,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     appName: string;
     profileName: string;
   } | null>(null);
+  const pathname = usePathname();
+  const isHomePage = pathname.includes('dashboard');
   
   const [internalSelectedAgentId, setInternalSelectedAgentId] = useState<string | undefined>(selectedAgentId);
 
@@ -85,9 +89,30 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     return allAppsData?.apps || [];
   }, [allAppsData?.apps]);
 
+  const effectiveVersionData = useMemo(() => {
+    if (versionData) return versionData;
+    if (!agent) return undefined;
+    
+    if (agent.current_version) {
+      return {
+        configured_mcps: agent.current_version.configured_mcps || [],
+        custom_mcps: agent.current_version.custom_mcps || [],
+        system_prompt: agent.current_version.system_prompt || '',
+        agentpress_tools: agent.current_version.agentpress_tools || {}
+      };
+    }
+    
+    return {
+      configured_mcps: agent.configured_mcps || [],
+      custom_mcps: agent.custom_mcps || [],
+      system_prompt: agent.system_prompt || '',
+      agentpress_tools: agent.agentpress_tools || {}
+    };
+  }, [versionData, agent]);
+
   const agentPipedreamProfiles = useMemo(() => {
-    return getAgentPipedreamProfiles(agent, profiles, currentAgentId, versionData);
-  }, [agent, profiles, currentAgentId, versionData]);
+    return getAgentPipedreamProfiles(agent, profiles, currentAgentId, effectiveVersionData);
+  }, [agent, profiles, currentAgentId, effectiveVersionData]);
 
   const categories = useMemo(() => {
     return getSimplifiedCategories();
@@ -337,6 +362,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           onComplete={handleConnectionComplete}
           mode={mode === 'profile-only' ? 'profile-only' : 'full'}
           agentId={currentAgentId}
+          saveMode={isHomePage ? 'direct' : 'callback'}
         />
       )}
       {selectedToolsProfile && currentAgentId && (
@@ -356,7 +382,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           onToolsUpdate={(enabledTools) => {
             queryClient.invalidateQueries({ queryKey: ['agent', currentAgentId] });
           }}
-          versionData={versionData}
+          versionData={effectiveVersionData}
+          versionId={versionId}
         />
       )}
     </div>

@@ -12,17 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAgentVersions, useActivateAgentVersion, useCreateAgentVersion, useRollbackToVersion } from '@/lib/versioning';
+import { useAgentVersions, useActivateAgentVersion, useCreateAgentVersion } from '@/lib/versioning';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import type { AgentVersion } from '@/lib/versioning';
@@ -195,21 +187,6 @@ export function AgentVersionSwitcher({
                       )}
                     </div>
                   </DropdownMenuItem>
-                  
-                  {!isViewing && version.versionNumber.value < (viewingVersion?.versionNumber.value || 0) && canRollback && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openRollbackDialog(version);
-                      }}
-                      className="absolute right-2 top-2"
-                      title={`Rollback to ${version.versionName}`}
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                    </Button>
-                  )}
                 </div>
               );
             })}
@@ -226,51 +203,6 @@ export function AgentVersionSwitcher({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Dialog open={showRollbackDialog} onOpenChange={setShowRollbackDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rollback to {selectedVersion?.versionName}</DialogTitle>
-            <DialogDescription>
-              This will create a new version with the configuration from {selectedVersion?.versionName}.
-              Your current changes will be preserved in the current version.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Note:</strong> This action will create a new version (v{(versions?.[0]?.versionNumber.value || 0) + 1}) 
-                with the selected configuration. You can always switch back to any previous version.
-              </AlertDescription>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowRollbackDialog(false)}
-              disabled={isRollingBack}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRollback}
-              disabled={isRollingBack}
-            >
-              {isRollingBack ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rolling back...
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Confirm Rollback
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 } 

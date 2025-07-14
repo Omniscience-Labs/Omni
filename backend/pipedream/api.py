@@ -1,38 +1,42 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
-import asyncio
-import time
+from uuid import UUID
+from datetime import datetime
 
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
-from .client import get_pipedream_client
-from .profiles import (
-    get_profile_manager, 
-    PipedreamProfile, 
-    CreateProfileRequest, 
-    UpdateProfileRequest
+from .facade import PipedreamManager
+from .domain.entities import Profile, ConnectionStatus
+from .domain.exceptions import (
+    ProfileNotFoundError, ProfileAlreadyExistsError, 
+    ConnectionNotFoundError, AppNotFoundError, MCPConnectionError,
+    ValidationException, PipedreamException
 )
 
 router = APIRouter(prefix="/pipedream", tags=["pipedream"])
-db = None
+pipedream_manager: Optional[PipedreamManager] = None
+
 
 def initialize(database):
-    """Initialize the pipedream API with database connection."""
-    global db
-    db = database
+    global pipedream_manager
+    if pipedream_manager is None:
+        pipedream_manager = PipedreamManager(db=database, logger=logger)
+
 
 class CreateConnectionTokenRequest(BaseModel):
     app: Optional[str] = None
+
 
 class ConnectionTokenResponse(BaseModel):
     success: bool
     link: Optional[str] = None
     token: Optional[str] = None
-    external_user_id: str
+    external_user_id: str = ""
     app: Optional[str] = None
     expires_at: Optional[str] = None
     error: Optional[str] = None
+
 
 class ConnectionResponse(BaseModel):
     success: bool
@@ -40,32 +44,17 @@ class ConnectionResponse(BaseModel):
     count: int
     error: Optional[str] = None
 
-class HealthCheckResponse(BaseModel):
-    status: str
-    project_id: str
-    environment: str
-    has_access_token: bool
-    error: Optional[str] = None
-
-class TriggerWorkflowRequest(BaseModel):
-    workflow_id: str
-    payload: Dict[str, Any]
-
-class TriggerWorkflowResponse(BaseModel):
-    success: bool
-    workflow_id: str
-    run_id: Optional[str] = None
-    status: Optional[str] = None
-    error: Optional[str] = None
 
 class MCPDiscoveryRequest(BaseModel):
     app_slug: Optional[str] = None
     oauth_app_id: Optional[str] = None
 
+
 class MCPProfileDiscoveryRequest(BaseModel):
     external_user_id: str
     app_slug: Optional[str] = None
     oauth_app_id: Optional[str] = None
+
 
 class MCPDiscoveryResponse(BaseModel):
     success: bool
@@ -73,14 +62,98 @@ class MCPDiscoveryResponse(BaseModel):
     count: int
     error: Optional[str] = None
 
+
 class MCPConnectionRequest(BaseModel):
     app_slug: str
     oauth_app_id: Optional[str] = None
+
 
 class MCPConnectionResponse(BaseModel):
     success: bool
     mcp_config: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+
+class ProfileRequest(BaseModel):
+    profile_name: str
+    app_slug: str
+    app_name: str
+    description: Optional[str] = None
+    is_default: bool = False
+    oauth_app_id: Optional[str] = None
+    enabled_tools: List[str] = []
+    external_user_id: Optional[str] = None
+
+
+class UpdateProfileRequest(BaseModel):
+    profile_name: Optional[str] = None
+    display_name: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_default: Optional[bool] = None
+    enabled_tools: Optional[List[str]] = None
+
+
+class ProfileResponse(BaseModel):
+    profile_id: UUID
+    account_id: UUID
+    mcp_qualified_name: str
+    profile_name: str
+    display_name: str
+    app_slug: str
+    app_name: str
+    external_user_id: str
+    enabled_tools: List[str]
+    is_active: bool
+    is_default: bool
+    is_connected: bool
+    created_at: datetime
+    updated_at: datetime
+    last_used_at: Optional[datetime] = None
+
+    @classmethod
+    def from_domain(cls, profile: Profile) -> 'ProfileResponse':
+        return cls(
+            profile_id=profile.profile_id,
+            account_id=profile.account_id,
+            mcp_qualified_name=profile.mcp_qualified_name,
+            profile_name=profile.profile_name.value,
+            display_name=profile.display_name,
+            app_slug=profile.app_slug.value,
+            app_name=profile.app_name,
+            external_user_id=profile.external_user_id.value,
+            enabled_tools=profile.enabled_tools,
+            is_active=profile.is_active,
+            is_default=profile.is_default,
+            is_connected=profile.is_connected,
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
+            last_used_at=profile.last_used_at
+        )
+
+
+def _strip_pipedream_prefix(app_slug: Optional[str]) -> Optional[str]:
+    if app_slug and app_slug.startswith("pipedream:"):
+        return app_slug[len("pipedream:"):]
+    return app_slug
+
+
+def _handle_pipedream_exception(e: Exception) -> HTTPException:
+    if isinstance(e, ProfileNotFoundError):
+        return HTTPException(status_code=404, detail=str(e))
+    elif isinstance(e, ProfileAlreadyExistsError):
+        return HTTPException(status_code=409, detail=str(e))
+    elif isinstance(e, ValidationException):
+        return HTTPException(status_code=400, detail=str(e))
+    elif isinstance(e, ConnectionNotFoundError):
+        return HTTPException(status_code=404, detail=str(e))
+    elif isinstance(e, AppNotFoundError):
+        return HTTPException(status_code=404, detail=str(e))
+    elif isinstance(e, MCPConnectionError):
+        return HTTPException(status_code=502, detail=str(e))
+    elif isinstance(e, PipedreamException):
+        return HTTPException(status_code=500, detail=str(e))
+    else:
+        return HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.post("/connection-token", response_model=ConnectionTokenResponse)
@@ -90,55 +163,59 @@ async def create_connection_token(
 ):
     logger.info(f"Creating Pipedream connection token for user: {user_id}, app: {request.app}")
     
-    # 🔥 FIX: Strip pipedream: prefix if present
-    actual_app = request.app
-    if request.app and request.app.startswith("pipedream:"):
-        actual_app = request.app[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {request.app} -> {actual_app}")
+    actual_app = _strip_pipedream_prefix(request.app)
     
     try:
-        client = get_pipedream_client()
-        result = await client.create_connection_token(user_id, actual_app)
+        result = await pipedream_manager.create_connection_token(user_id, actual_app)
         
-        logger.info(f"Successfully created connection token for user: {user_id}")
         return ConnectionTokenResponse(
             success=True,
             link=result.get("connect_link_url"),
             token=result.get("token"),
             external_user_id=user_id,
-            app=request.app,  # Return original app name that was requested
+            app=actual_app,
             expires_at=result.get("expires_at")
         )
         
     except Exception as e:
-        logger.error(f"Failed to create connection token for user {user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create connection token: {str(e)}"
-        )
+        logger.error(f"Failed to create connection token: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
 
 @router.get("/connections", response_model=ConnectionResponse)
 async def get_user_connections(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    logger.info(f"Getting Pipedream connections for user: {user_id}")
+    logger.info(f"Getting connections for user: {user_id}")
+    
     try:
-        client = get_pipedream_client()
-        connections = await client.get_connections(user_id)
+        connections = await pipedream_manager.get_connections(user_id)
         
-        logger.info(f"Successfully retrieved {len(connections)} connections for user: {user_id}")
+        connection_data = []
+        for connection in connections:
+            connection_data.append({
+                "name": connection.app.name,
+                "name_slug": connection.app.slug.value,
+                "description": connection.app.description,
+                "category": connection.app.category,
+                "img_src": connection.app.logo_url,
+                "auth_type": connection.app.auth_type.value,
+                "verified": connection.app.is_verified,
+                "url": connection.app.url,
+                "tags": connection.app.tags,
+                "is_active": connection.is_active
+            })
+        
         return ConnectionResponse(
             success=True,
-            connections=connections,
-            count=len(connections)
+            connections=connection_data,
+            count=len(connection_data)
         )
         
     except Exception as e:
-        logger.error(f"Failed to get connections for user {user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get connections: {str(e)}"
-        )
+        logger.error(f"Failed to get connections: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
 
 @router.post("/mcp/discover", response_model=MCPDiscoveryResponse)
 async def discover_mcp_servers(
@@ -147,69 +224,90 @@ async def discover_mcp_servers(
 ):
     logger.info(f"Discovering MCP servers for user: {user_id}, app: {request.app_slug}")
     
-    # 🔥 FIX: Strip pipedream: prefix if present
-    actual_app_slug = request.app_slug
-    if request.app_slug and request.app_slug.startswith("pipedream:"):
-        actual_app_slug = request.app_slug[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        client = get_pipedream_client()
-        mcp_servers = await client.discover_mcp_servers(
-            external_user_id=user_id,
-            app_slug=actual_app_slug,
-            oauth_app_id=request.oauth_app_id
-        )
+        servers = await pipedream_manager.discover_mcp_servers(user_id, actual_app_slug)
         
-        logger.info(f"Successfully discovered {len(mcp_servers)} MCP servers for user: {user_id}")
+        server_data = []
+        for server in servers:
+            tools_data = []
+            for tool in server.available_tools:
+                tools_data.append({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema
+                })
+            
+            server_data.append({
+                "app_slug": server.app_slug.value,
+                "app_name": server.app_name,
+                "server_url": server.server_url.value,
+                "project_id": server.project_id,
+                "environment": server.environment,
+                "external_user_id": server.external_user_id.value,
+                "oauth_app_id": server.oauth_app_id,
+                "status": server.status.value,
+                "available_tools": tools_data,
+                "error": server.error_message
+            })
+        
         return MCPDiscoveryResponse(
             success=True,
-            mcp_servers=mcp_servers,
-            count=len(mcp_servers)
+            mcp_servers=server_data,
+            count=len(server_data)
         )
         
     except Exception as e:
-        logger.error(f"Failed to discover MCP servers for user {user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to discover MCP servers: {str(e)}"
-        )
+        logger.error(f"Failed to discover MCP servers: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
 
 @router.post("/mcp/discover-profile", response_model=MCPDiscoveryResponse)
 async def discover_mcp_servers_for_profile(
     request: MCPProfileDiscoveryRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Discover MCP servers for a specific profile's external_user_id"""
-    logger.info(f"Discovering MCP servers for external_user_id: {request.external_user_id}, app: {request.app_slug}")
+    logger.info(f"Discovering MCP servers for profile: {request.external_user_id}")
     
-    # 🔥 FIX: Strip pipedream: prefix if present
-    actual_app_slug = request.app_slug
-    if request.app_slug and request.app_slug.startswith("pipedream:"):
-        actual_app_slug = request.app_slug[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        client = get_pipedream_client()
-        mcp_servers = await client.discover_mcp_servers(
-            external_user_id=request.external_user_id,
-            app_slug=actual_app_slug,
-            oauth_app_id=request.oauth_app_id
-        )
+        servers = await pipedream_manager.discover_mcp_servers(request.external_user_id, actual_app_slug)
         
-        logger.info(f"Successfully discovered {len(mcp_servers)} MCP servers for external_user_id: {request.external_user_id}")
+        server_data = []
+        for server in servers:
+            tools_data = []
+            for tool in server.available_tools:
+                tools_data.append({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema
+                })
+            
+            server_data.append({
+                "app_slug": server.app_slug.value,
+                "app_name": server.app_name,
+                "server_url": server.server_url.value,
+                "project_id": server.project_id,
+                "environment": server.environment,
+                "external_user_id": server.external_user_id.value,
+                "oauth_app_id": server.oauth_app_id,
+                "status": server.status.value,
+                "available_tools": tools_data,
+                "error": server.error_message
+            })
+        
         return MCPDiscoveryResponse(
             success=True,
-            mcp_servers=mcp_servers,
-            count=len(mcp_servers)
+            mcp_servers=server_data,
+            count=len(server_data)
         )
         
     except Exception as e:
-        logger.error(f"Failed to discover MCP servers for external_user_id {request.external_user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to discover MCP servers: {str(e)}"
-        )
+        logger.error(f"Failed to discover MCP servers for profile: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
 
 @router.post("/mcp/connect", response_model=MCPConnectionResponse)
 async def create_mcp_connection(
@@ -218,164 +316,44 @@ async def create_mcp_connection(
 ):
     logger.info(f"Creating MCP connection for user: {user_id}, app: {request.app_slug}")
     
-    # 🔥 FIX: Strip pipedream: prefix if present
-    actual_app_slug = request.app_slug
-    if request.app_slug and request.app_slug.startswith("pipedream:"):
-        actual_app_slug = request.app_slug[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {request.app_slug} -> {actual_app_slug}")
+    actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        client = get_pipedream_client()
-        mcp_config = await client.create_mcp_connection(
-            external_user_id=user_id,
-            app_slug=actual_app_slug,
-            oauth_app_id=request.oauth_app_id
+        server = await pipedream_manager.create_mcp_connection(
+            user_id, 
+            actual_app_slug, 
+            request.oauth_app_id
         )
-        logger.info(f"Successfully created MCP connection for user: {user_id}, app: {request.app_slug}")
+        
+        tools_data = []
+        for tool in server.available_tools:
+            tools_data.append({
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.input_schema
+            })
+        
+        mcp_config = {
+            "app_slug": server.app_slug.value,
+            "app_name": server.app_name,
+            "server_url": server.server_url.value,
+            "project_id": server.project_id,
+            "environment": server.environment,
+            "external_user_id": server.external_user_id.value,
+            "oauth_app_id": server.oauth_app_id,
+            "status": server.status.value,
+            "available_tools": tools_data
+        }
+        
         return MCPConnectionResponse(
             success=True,
             mcp_config=mcp_config
         )
+        
     except Exception as e:
-        logger.error(f"Failed to create MCP connection for user {user_id}, app {request.app_slug}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create MCP connection: {str(e)}"
-        )
+        logger.error(f"Failed to create MCP connection: {str(e)}")
+        raise _handle_pipedream_exception(e)
 
-@router.post("/mcp/discover-custom", response_model=Dict[str, Any])
-async def discover_pipedream_mcp_tools(
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    logger.info(f"Discovering all Pipedream MCP tools for user: {user_id}")
-    
-    try:
-        client = get_pipedream_client()
-        
-        mcp_servers = await client.discover_mcp_servers(
-            external_user_id=user_id
-        )
-        custom_mcps = []
-        for server in mcp_servers:
-            if server.get('status') == 'connected':
-                custom_mcp = {
-                    'name': server['app_name'],
-                    'type': 'pipedream',
-                    'config': {
-                        'app_slug': server['app_slug'],
-                        'external_user_id': user_id,
-                        'oauth_app_id': server.get('oauth_app_id')
-                    },
-                    'tools': server.get('available_tools', []),
-                    'count': len(server.get('available_tools', []))
-                }
-                custom_mcps.append(custom_mcp)
-        
-        logger.info(f"Found {len(custom_mcps)} Pipedream MCP servers for user: {user_id}")
-        
-        return {
-            "success": True,
-            "servers": custom_mcps,
-            "count": len(custom_mcps)
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to discover Pipedream MCP tools for user {user_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to discover Pipedream MCP tools: {str(e)}"
-        )
-
-@router.get("/mcp/available-tools", response_model=Dict[str, Any])
-async def get_available_pipedream_tools(
-    user_id: str = Depends(get_current_user_id_from_jwt),
-    force_refresh: bool = Query(False, description="Force refresh tools from Pipedream")
-):
-    logger.info(f"Getting available Pipedream MCP tools for user: {user_id}, force_refresh: {force_refresh}")
-    
-    try:
-        client = get_pipedream_client()
-        
-        # Add retry logic for better reliability
-        max_retries = 3
-        retry_delay = 1.0
-        
-        for attempt in range(max_retries):
-            try:
-                # Refresh rate limit token if this is a retry or forced refresh
-                if attempt > 0 or force_refresh:
-                    logger.info(f"Refreshing rate limit token (attempt {attempt + 1})")
-                    await client.refresh_rate_limit_token()
-                
-                # Discover MCP servers with timeout
-                mcp_servers = await client.discover_mcp_servers(
-                    external_user_id=user_id
-                )
-                
-                apps_with_tools = []
-                total_tools = 0
-                
-                for server in mcp_servers:
-                    if server.get('status') == 'connected':
-                        tools = server.get('available_tools', [])
-                        if tools:  # Only include apps that actually have tools
-                            app_info = {
-                                'app_name': server['app_name'],
-                                'app_slug': server['app_slug'],
-                                'tools': tools,
-                                'tool_count': len(tools)
-                            }
-                            apps_with_tools.append(app_info)
-                            total_tools += len(tools)
-                            logger.info(f"Found {len(tools)} tools for {server['app_name']}")
-                        else:
-                            logger.warning(f"App {server['app_name']} is connected but has no tools")
-                    else:
-                        logger.warning(f"App {server.get('app_name', 'unknown')} has status: {server.get('status')}")
-                
-                logger.info(f"Successfully retrieved {len(apps_with_tools)} apps with {total_tools} total tools")
-                
-                return {
-                    "success": True,
-                    "apps": apps_with_tools,
-                    "total_apps": len(apps_with_tools),
-                    "total_tools": total_tools,
-                    "user_id": user_id,
-                    "timestamp": int(time.time())
-                }
-                
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                    continue
-                else:
-                    raise e
-        
-    except Exception as e:
-        logger.error(f"Failed to get available Pipedream tools for user {user_id}: {str(e)}")
-        
-        # Return a more detailed error response
-        error_message = str(e)
-        if "MCP not available" in error_message:
-            error_message = "MCP service is not available. Please check your configuration."
-        elif "No connected apps" in error_message:
-            error_message = "No apps are connected to your Pipedream account."
-        elif "timeout" in error_message.lower():
-            error_message = "Request timed out. Please try again."
-        elif "rate limit" in error_message.lower():
-            error_message = "Rate limit exceeded. Please wait a moment and try again."
-        
-        return {
-            "success": False,
-            "error": error_message,
-            "apps": [],
-            "total_apps": 0,
-            "total_tools": 0,
-            "user_id": user_id,
-            "timestamp": int(time.time())
-        }
 
 @router.get("/apps", response_model=Dict[str, Any])
 async def get_pipedream_apps(
@@ -383,108 +361,172 @@ async def get_pipedream_apps(
     q: Optional[str] = Query(None),
     category: Optional[str] = Query(None)
 ):
-    logger.info(f"Fetching Pipedream apps registry, after: {after}, search: {q}")
+    logger.info(f"Fetching Pipedream apps: query='{q}', category='{category}'")
     
     try:
-        client = get_pipedream_client()
-        access_token = await client._obtain_access_token()
-        await client._ensure_rate_limit_token()
-        
-        url = f"https://api.pipedream.com/v1/apps"
-        params = {}
-        
-        if after:
-            params["after"] = after
-        if q:
-            params["q"] = q
-        if category:
-            params["category"] = category
-        
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
-        
-        response = await client._make_request_with_retry(
-            "GET",
-            url,
-            headers=headers,
-            params=params
+        result = await pipedream_manager.search_apps(
+            query=q,
+            category=category,
+            cursor=after
         )
         
-        data = response.json()
-        
-        page_info = data.get("page_info", {})
-        
-        # For cursor-based pagination, has_more is determined by presence of end_cursor
-        page_info["has_more"] = bool(page_info.get("end_cursor"))
-        
-        logger.info(f"Successfully fetched {len(data.get('data', []))} apps from Pipedream registry")
-        logger.info(f"Pagination: after={after}, total_count={page_info.get('total_count', 0)}, current_count={page_info.get('count', 0)}, has_more={page_info['has_more']}, end_cursor={page_info.get('end_cursor', 'None')}")
+        apps_data = []
+        for app in result.get("apps", []):
+            categories = []
+            if app.category and app.category != "Other":
+                categories.append(app.category)
+            if app.tags:
+                for tag in app.tags:
+                    if tag and tag not in categories:
+                        categories.append(tag)
+            if not categories and app.category:
+                categories.append(app.category)
+                
+            apps_data.append({
+                "name": app.name,
+                "name_slug": app.slug.value,
+                "description": app.description,
+                "category": app.category,
+                "categories": categories,
+                "img_src": app.logo_url,
+                "auth_type": app.auth_type.value,
+                "verified": app.is_verified,
+                "url": app.url,
+                "tags": app.tags,
+                "featured_weight": app.featured_weight
+            })
         
         return {
             "success": True,
-            "apps": data.get("data", []),
-            "page_info": page_info,
-            "total_count": page_info.get("total_count", 0)
+            "apps": apps_data,
+            "page_info": result.get("page_info", {}),
+            "total_count": result.get("total_count", 0)
         }
         
     except Exception as e:
         logger.error(f"Failed to fetch Pipedream apps: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch Pipedream apps: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
 
-@router.post("/profiles", response_model=PipedreamProfile)
+
+@router.get("/apps/popular", response_model=Dict[str, Any])
+async def get_popular_pipedream_apps():
+    logger.info("Fetching popular Pipedream apps")
+    
+    try:
+        apps = await pipedream_manager.get_popular_apps()
+        
+        apps_data = []
+        for app in apps:
+            categories = []
+            if app.category and app.category != "Other":
+                categories.append(app.category)
+            if app.tags:
+                for tag in app.tags:
+                    if tag and tag not in categories:
+                        categories.append(tag)
+
+            if not categories and app.category:
+                categories.append(app.category)
+                
+            apps_data.append({
+                "name": app.name,
+                "name_slug": app.slug.value,
+                "description": app.description,
+                "category": app.category,
+                "categories": categories,
+                "img_src": app.logo_url,
+                "auth_type": app.auth_type.value,
+                "verified": app.is_verified,
+                "url": app.url,
+                "tags": app.tags,
+                "featured_weight": app.featured_weight
+            })
+        
+        return {
+            "success": True,
+            "apps": apps_data,
+            "page_info": {
+                "total_count": len(apps_data),
+                "count": len(apps_data),
+                "has_more": False
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch popular Pipedream apps: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
+
+@router.get("/apps/{app_slug}/icon")
+async def get_app_icon(app_slug: str):
+    logger.info(f"Fetching icon for app: {app_slug}")
+    try:
+        icon_url = await pipedream_manager.get_app_icon(app_slug)
+        if icon_url:
+            return {
+                "success": True,
+                "app_slug": app_slug,
+                "icon_url": icon_url
+            }
+        else:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Icon not found for app: {app_slug}"
+            )
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch icon for app {app_slug}: {str(e)}")
+        raise _handle_pipedream_exception(e)
+
+
+@router.post("/profiles", response_model=ProfileResponse)
 async def create_credential_profile(
-    request: CreateProfileRequest,
+    request: ProfileRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     logger.info(f"Creating credential profile for user: {user_id}, app: {request.app_slug}")
     
     try:
-        profile_manager = get_profile_manager(db)
-        profile = await profile_manager.create_profile(user_id, request)
+        profile = await pipedream_manager.create_profile(
+            account_id=user_id,
+            profile_name=request.profile_name,
+            app_slug=request.app_slug,
+            app_name=request.app_name,
+            description=request.description,
+            is_default=request.is_default,
+            oauth_app_id=request.oauth_app_id,
+            enabled_tools=request.enabled_tools,
+            external_user_id=request.external_user_id
+        )
         
-        logger.info(f"Successfully created credential profile: {profile.profile_id}")
-        return profile
+        return ProfileResponse.from_domain(profile)
         
     except Exception as e:
         logger.error(f"Failed to create credential profile: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create credential profile: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
 
-@router.get("/profiles", response_model=List[PipedreamProfile])
+
+@router.get("/profiles", response_model=List[ProfileResponse])
 async def get_credential_profiles(
     app_slug: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     logger.info(f"Getting credential profiles for user: {user_id}, app: {app_slug}")
-
-    actual_app_slug = app_slug
-    if app_slug and app_slug.startswith("pipedream:"):
-        actual_app_slug = app_slug[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {app_slug} -> {actual_app_slug}")
+    
+    actual_app_slug = _strip_pipedream_prefix(app_slug)
     
     try:
-        profile_manager = get_profile_manager(db)
-        profiles = await profile_manager.get_profiles(user_id, app_slug, is_active)
+        profiles = await pipedream_manager.get_profiles(user_id, actual_app_slug, is_active)
         
-        logger.info(f"Successfully retrieved {len(profiles)} credential profiles")
-        return profiles
+        return [ProfileResponse.from_domain(profile) for profile in profiles]
         
     except Exception as e:
         logger.error(f"Failed to get credential profiles: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get credential profiles: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
 
-@router.get("/profiles/{profile_id}", response_model=PipedreamProfile)
+
+@router.get("/profiles/{profile_id}", response_model=ProfileResponse)
 async def get_credential_profile(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
@@ -492,25 +534,19 @@ async def get_credential_profile(
     logger.info(f"Getting credential profile: {profile_id} for user: {user_id}")
     
     try:
-        profile_manager = get_profile_manager(db)
-        profile = await profile_manager.get_profile(user_id, profile_id)
+        profile = await pipedream_manager.get_profile(user_id, profile_id)
         
         if not profile:
-            raise HTTPException(status_code=404, detail="Profile not found")
+            raise ProfileNotFoundError(profile_id)
         
-        logger.info(f"Successfully retrieved credential profile: {profile_id}")
-        return profile
+        return ProfileResponse.from_domain(profile)
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to get credential profile: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get credential profile: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
 
-@router.put("/profiles/{profile_id}", response_model=PipedreamProfile)
+
+@router.put("/profiles/{profile_id}", response_model=ProfileResponse)
 async def update_credential_profile(
     profile_id: str,
     request: UpdateProfileRequest,
@@ -519,47 +555,42 @@ async def update_credential_profile(
     logger.info(f"Updating credential profile: {profile_id} for user: {user_id}")
     
     try:
-        profile_manager = get_profile_manager(db)
-        profile = await profile_manager.update_profile(user_id, profile_id, request)
+        profile = await pipedream_manager.update_profile(
+            account_id=user_id,
+            profile_id=profile_id,
+            profile_name=request.profile_name,
+            display_name=request.display_name,
+            is_active=request.is_active,
+            is_default=request.is_default,
+            enabled_tools=request.enabled_tools
+        )
         
-        logger.info(f"Successfully updated credential profile: {profile_id}")
-        return profile
+        return ProfileResponse.from_domain(profile)
         
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to update credential profile: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update credential profile: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
+
 
 @router.delete("/profiles/{profile_id}")
 async def delete_credential_profile(
     profile_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Delete a credential profile"""
     logger.info(f"Deleting credential profile: {profile_id} for user: {user_id}")
     
     try:
-        profile_manager = get_profile_manager(db)
-        deleted = await profile_manager.delete_profile(user_id, profile_id)
+        success = await pipedream_manager.delete_profile(user_id, profile_id)
         
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Profile not found")
+        if not success:
+            raise ProfileNotFoundError(profile_id)
         
-        logger.info(f"Successfully deleted credential profile: {profile_id}")
         return {"success": True, "message": "Profile deleted successfully"}
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to delete credential profile: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete credential profile: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
+
 
 @router.post("/profiles/{profile_id}/connect")
 async def connect_credential_profile(
@@ -567,26 +598,34 @@ async def connect_credential_profile(
     app: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    actual_app = app
-    if app and app.startswith("pipedream:"):
-        actual_app = app[len("pipedream:"):]
-        logger.info(f"Stripped pipedream prefix: {app} -> {actual_app}")
+    logger.info(f"Connecting credential profile: {profile_id} for user: {user_id}")
+    
+    actual_app = _strip_pipedream_prefix(app)
     
     try:
-        profile_manager = get_profile_manager(db)
-        result = await profile_manager.connect_profile(user_id, profile_id, actual_app)
+        profile = await pipedream_manager.get_profile(user_id, profile_id)
+        if not profile:
+            raise ProfileNotFoundError(profile_id)
         
-        logger.info(f"Successfully generated connection token for profile: {profile_id}")
-        return result
+        result = await pipedream_manager.create_connection_token(
+            profile.external_user_id.value,
+            actual_app or profile.app_slug.value
+        )
         
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return {
+            "success": True,
+            "link": result.get("connect_link_url"),
+            "token": result.get("token"),
+            "expires_at": result.get("expires_at"),
+            "profile_id": profile_id,
+            "external_user_id": profile.external_user_id.value,
+            "app": actual_app or profile.app_slug.value
+        }
+        
     except Exception as e:
         logger.error(f"Failed to connect credential profile: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to connect credential profile: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)
+
 
 @router.get("/profiles/{profile_id}/connections")
 async def get_profile_connections(
@@ -596,103 +635,33 @@ async def get_profile_connections(
     logger.info(f"Getting connections for profile: {profile_id}, user: {user_id}")
     
     try:
-        profile_manager = get_profile_manager(db)
-        connections = await profile_manager.get_profile_connections(user_id, profile_id)
+        profile = await pipedream_manager.get_profile(user_id, profile_id)
+        if not profile:
+            raise ProfileNotFoundError(profile_id)
         
-        logger.info(f"Successfully retrieved {len(connections)} connections for profile: {profile_id}")
+        connections = await pipedream_manager.get_connections(profile.external_user_id.value)
+        
+        connection_data = []
+        for connection in connections:
+            connection_data.append({
+                "name": connection.app.name,
+                "name_slug": connection.app.slug.value,
+                "description": connection.app.description,
+                "category": connection.app.category,
+                "img_src": connection.app.logo_url,
+                "auth_type": connection.app.auth_type.value,
+                "verified": connection.app.is_verified,
+                "url": connection.app.url,
+                "tags": connection.app.tags,
+                "is_active": connection.is_active
+            })
+        
         return {
             "success": True,
-            "connections": connections,
-            "count": len(connections)
+            "connections": connection_data,
+            "count": len(connection_data)
         }
         
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to get profile connections: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get profile connections: {str(e)}"
-        )
-
-POPULAR_APP_SLUGS = [
-    "gmail",
-    'google_calendar',
-    'google_drive',
-    'google_docs',
-    'google_sheets',
-    'google_slides',
-    'google_forms',
-    'google_meet',
-    "slack", 
-    "discord",
-    "github",
-    "google_sheets",
-    "notion",
-    "airtable",
-    "telegram_bot_api",
-    "openai",
-    'linear',
-    'asana',
-    'supabase'
-]
-
-@router.get("/apps/popular", response_model=Dict[str, Any])
-async def get_popular_pipedream_apps():
-    logger.info("Fetching popular Pipedream apps")
-    
-    try:
-        client = get_pipedream_client()
-        access_token = await client._obtain_access_token()
-        await client._ensure_rate_limit_token()
-        
-        popular_apps = []
-        for app_slug in POPULAR_APP_SLUGS:
-            try:
-                url = f"https://api.pipedream.com/v1/apps"
-                params = {"q": app_slug}
-                
-                headers = {
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json"
-                }
-                
-                response = await client._make_request_with_retry(
-                    "GET",
-                    url,
-                    headers=headers,
-                    params=params
-                )
-                
-                data = response.json()
-                apps = data.get("data", [])
-                    
-                exact_match = next((app for app in apps if app.get("name_slug") == app_slug), None)
-                if exact_match:
-                    popular_apps.append(exact_match)
-                    logger.debug(f"Found popular app: {app_slug}")
-                else:
-                    logger.warning(f"Popular app not found: {app_slug}")
-                    
-            except Exception as e:
-                logger.warning(f"Error fetching popular app {app_slug}: {e}")
-                continue
-        
-        logger.info(f"Successfully fetched {len(popular_apps)} popular apps")
-        
-        return {
-            "success": True,
-            "apps": popular_apps,
-            "page_info": {
-                "total_count": len(popular_apps),
-                "count": len(popular_apps),
-                "has_more": False
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to fetch popular Pipedream apps: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch popular Pipedream apps: {str(e)}"
-        )
+        raise _handle_pipedream_exception(e)

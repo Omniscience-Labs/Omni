@@ -24,7 +24,7 @@ import {
   Save
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePipedreamToolsData } from '@/hooks/react-query/agents/use-pipedream-tools';
+import { usePipedreamToolsData, useUpdatePipedreamToolsForAgent } from '@/hooks/react-query/agents/use-pipedream-tools';
 import { useCustomMCPToolsData } from '@/hooks/react-query/agents/use-custom-mcp-tools';
 
 interface BaseToolsManagerProps {
@@ -38,7 +38,8 @@ interface BaseToolsManagerProps {
     system_prompt?: string;
     agentpress_tools?: any;
   };
-  saveMode?: 'direct' | 'callback'; // 'direct' saves to backend, 'callback' only updates parent
+  saveMode?: 'direct' | 'callback';
+  versionId?: string;
 }
 
 interface PipedreamToolsManagerProps extends BaseToolsManagerProps {
@@ -57,66 +58,47 @@ interface CustomToolsManagerProps extends BaseToolsManagerProps {
 type ToolsManagerProps = PipedreamToolsManagerProps | CustomToolsManagerProps;
 
 export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
-  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct' } = props;
-
+  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct', versionId } = props;
+  const updatePipedreamTools = useUpdatePipedreamToolsForAgent();
+  
   const pipedreamResult = usePipedreamToolsData(
     mode === 'pipedream' ? agentId : '',
-    mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileId : ''
+    mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileId : '',
+    versionId
   );
   
   const customResult = useCustomMCPToolsData(
     mode === 'custom' ? agentId : '',
-    mode === 'custom' ? (props as CustomToolsManagerProps).mcpConfig : null
+    mode === 'custom' ? (props as CustomToolsManagerProps).mcpConfig : undefined
   );
 
   const result = mode === 'pipedream' ? pipedreamResult : customResult;
-  const { data, isLoading, error, handleUpdateTools, isUpdating, refetch } = result;
+  const { data, isLoading, error, updateMutation, isUpdating, refetch } = result;
   
   const [localTools, setLocalTools] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Helper function to get version-specific enabled tools
-  const getVersionEnabledTools = (): string[] => {
-    if (!versionData) return [];
-    
+  const handleUpdateTools = async (enabledTools: string[]) => {
     if (mode === 'pipedream') {
-      const customMcps = versionData.custom_mcps || [];
-      const pipedreamMcp = customMcps.find((mcp: any) => 
-        mcp.config?.profile_id === (props as PipedreamToolsManagerProps).profileId && 
-        mcp.config?.url?.includes('pipedream')
-      );
-      return pipedreamMcp?.enabledTools || [];
+      const { agentId, profileId } = props as PipedreamToolsManagerProps;
+      console.log('resp', agentId, profileId, enabledTools);
+      return updatePipedreamTools.mutateAsync({ agentId, profileId, enabledTools });
     } else {
-      const customMcps = versionData.custom_mcps || [];
-      const customMcp = customMcps.find((mcp: any) => 
-        mcp.config?.url === (props as CustomToolsManagerProps).mcpConfig?.url
-      );
-      return customMcp?.enabledTools || [];
+      const customMutation = updateMutation as any;
+      return customMutation.mutateAsync(enabledTools);
     }
   };
 
   React.useEffect(() => {
     if (data?.tools) {
       const toolsMap: Record<string, boolean> = {};
-      
-      if (versionData) {
-        // When viewing a version, use the version's enabled tools
-        const versionEnabledTools = getVersionEnabledTools();
-        data.tools.forEach((tool: { name: string; enabled: boolean }) => {
-          toolsMap[tool.name] = versionEnabledTools.includes(tool.name);
-        });
-      } else {
-        // Normal case: use current agent data
-        data.tools.forEach((tool: { name: string; enabled: boolean }) => {
-          toolsMap[tool.name] = tool.enabled;
-        });
-      }
-      
+      data.tools.forEach((tool: { name: string; enabled: boolean }) => {
+        toolsMap[tool.name] = tool.enabled;
+      });
       setLocalTools(toolsMap);
       setHasChanges(false);
     }
-  }, [data, versionData, mode, 
-      mode === 'pipedream' ? (props as PipedreamToolsManagerProps).profileId : (props as CustomToolsManagerProps).mcpConfig]);
+  }, [data]);
 
   const enabledCount = useMemo(() => {
     return Object.values(localTools).filter(Boolean).length;
@@ -131,19 +113,10 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
     setLocalTools(prev => {
       const newValue = !prev[toolName];
       const updated = { ...prev, [toolName]: newValue };
-
       const comparisonState: Record<string, boolean> = {};
-      if (versionData) {
-        const versionEnabledTools = getVersionEnabledTools();
-        data?.tools?.forEach((tool: any) => {
-          comparisonState[tool.name] = versionEnabledTools.includes(tool.name);
-        });
-      } else {
-        data?.tools?.forEach((tool: any) => {
-          comparisonState[tool.name] = tool.enabled;
-        });
-      }
-      
+      data?.tools?.forEach((tool: any) => {
+        comparisonState[tool.name] = tool.enabled;
+      });
       const hasChanges = Object.keys(updated).some(key => updated[key] !== comparisonState[key]);
       setHasChanges(hasChanges);
       return updated;
@@ -161,25 +134,26 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const enabledTools = Object.entries(localTools)
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
     
     if (saveMode === 'callback') {
-      // In callback mode, just update parent and close
       if (onToolsUpdate) {
         onToolsUpdate(enabledTools);
       }
       setHasChanges(false);
       onOpenChange(false);
     } else {
-      // In direct mode, save to backend
-      handleUpdateTools(enabledTools);
-      setHasChanges(false);
-      
-      if (onToolsUpdate) {
-        onToolsUpdate(enabledTools);
+      try {
+        await handleUpdateTools(enabledTools);
+        setHasChanges(false);
+        if (onToolsUpdate) {
+          onToolsUpdate(enabledTools);
+        }
+      } catch (error) {
+        console.error('Failed to save tools:', error);
       }
     }
   };
@@ -187,19 +161,9 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
   const handleCancel = () => {
     if (data?.tools) {
       const serverState: Record<string, boolean> = {};
-      
-      if (versionData) {
-        // When viewing a version, reset to version state
-        const versionEnabledTools = getVersionEnabledTools();
-        data.tools.forEach((tool: any) => {
-          serverState[tool.name] = versionEnabledTools.includes(tool.name);
-        });
-      } else {
-        // Normal case: reset to current server state
-        data.tools.forEach((tool: any) => {
-          serverState[tool.name] = tool.enabled;
-        });
-      }
+      data.tools.forEach((tool: any) => {
+        serverState[tool.name] = tool.enabled;
+      });
       
       setLocalTools(serverState);
       setHasChanges(false);
@@ -254,7 +218,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
               <div className="flex items-center gap-2 text-amber-600">
                 <Info className="h-4 w-4" />
                 <span>
-                  Viewing tools configuration for a specific version. Changes will update the current version.
+                  Changes will make a new version of the agent.
                 </span>
               </div>
             ) : saveMode === 'callback' ? (

@@ -10,6 +10,7 @@ import {
   type ConnectionResponse,
   type PipedreamAppResponse,
   type PipedreamToolsResponse,
+  type AppIconResponse,
 } from './utils';
 import { pipedreamKeys } from './keys';
 
@@ -55,7 +56,9 @@ export const usePipedreamApps = (after?: string, search?: string) => {
   return useQuery({
     queryKey: ['pipedream', 'apps', after, search],
     queryFn: async (): Promise<PipedreamAppResponse> => {
-      return await pipedreamApi.getApps(after, search);
+      const result = await pipedreamApi.getApps(after, search);
+      console.log('🔍 Apps:', result);
+      return result;
     },
     staleTime: 5 * 60 * 1000, 
     retry: 2,
@@ -66,9 +69,25 @@ export const usePipedreamPopularApps = () => {
   return useQuery({
     queryKey: pipedreamKeys.popularApps(),
     queryFn: async (): Promise<PipedreamAppResponse> => {
-      return await pipedreamApi.getPopularApps();
+      const result = await pipedreamApi.getPopularApps();
+      console.log('🔍 Popular apps:', result);
+      return result;
     },
     staleTime: 30 * 60 * 1000,
+    retry: 2,
+  });
+};
+
+export const usePipedreamAppIcon = (appSlug: string, options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: ['pipedream', 'app-icon', appSlug],
+    queryFn: async (): Promise<AppIconResponse> => {
+      const result = await pipedreamApi.getAppIcon(appSlug);
+      console.log(`🎨 Icon for ${appSlug}:`, result);
+      return result;
+    },
+    enabled: options?.enabled !== undefined ? options.enabled : !!appSlug,
+    staleTime: 60 * 60 * 1000,
     retry: 2,
   });
 };

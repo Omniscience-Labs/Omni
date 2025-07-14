@@ -42,6 +42,7 @@ export const useCustomMCPToolsData = (agentId: string, mcpConfig: any) => {
         type: mcpConfig.type || 'sse',
         enabled_tools: enabledTools,
       });
+      console.log('response', JSON.stringify(response.data, null, 2));
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update custom MCP tools');
       }
@@ -54,15 +55,12 @@ export const useCustomMCPToolsData = (agentId: string, mcpConfig: any) => {
     },
   });
 
-  const handleUpdateTools = (enabledTools: string[]) => {
-    return updateToolsMutation.mutate(enabledTools);
-  };
   return {
     data,
     isLoading,
     error,
     refetch,
-    handleUpdateTools,
+    updateMutation: updateToolsMutation,
     isUpdating: updateToolsMutation.isPending,
   };
 }; 

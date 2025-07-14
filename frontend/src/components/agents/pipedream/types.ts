@@ -21,6 +21,7 @@ export interface PipedreamRegistryProps {
     system_prompt?: string;
     agentpress_tools?: any;
   };
+  versionId?: string;
 }
 
 export interface AppCardProps {

@@ -135,6 +135,12 @@ export interface PipedreamToolsResponse {
   error?: string;
 }
 
+export interface AppIconResponse {
+  success: boolean;
+  app_slug: string;
+  icon_url: string;
+}
+
 export const usePipedreamConnections = createQueryHook(
   pipedreamKeys.connections(),
   async (): Promise<ConnectionResponse> => {
@@ -216,7 +222,7 @@ export const pipedreamApi = {
         errorContext: { operation: 'load popular apps', resource: 'Pipedream popular apps' },
       }
     );
-
+    console.log('result', result);
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get popular apps');
     }
@@ -386,6 +392,19 @@ export const pipedreamApi = {
       throw new Error(result.error?.message || 'Failed to get profile connections');
     }
 
+    return result.data!;
+  },
+
+  async getAppIcon(appSlug: string): Promise<AppIconResponse> {
+    const result = await backendApi.get<AppIconResponse>(
+      `/pipedream/apps/${appSlug}/icon`,
+      {
+        errorContext: { operation: 'get app icon', resource: 'Pipedream app icon' },
+      }
+    );
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get app icon');
+    } 
     return result.data!;
   },
 }; 

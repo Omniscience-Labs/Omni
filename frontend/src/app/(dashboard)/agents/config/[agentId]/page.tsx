@@ -456,6 +456,7 @@ export default function AgentConfigurationPageRefactored() {
                                 agentpress_tools: displayData.agentpress_tools
                               }}
                               saveMode="callback"
+                              versionId={versionData?.version_id}
                             />
                           </AccordionContent>
                         </AccordionItem>

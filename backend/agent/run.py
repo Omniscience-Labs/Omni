@@ -172,13 +172,11 @@ async def run_agent(
                         profile_id = custom_mcp['config'].get('profile_id')
                         if profile_id:
                             try:
-                                from pipedream.profiles import get_profile_manager
-                                from services.supabase import DBConnection
-                                profile_db = DBConnection()
-                                profile_manager = get_profile_manager(profile_db)
+                                from pipedream.facade import PipedreamManager
+                                pipedream_manager = PipedreamManager()
                                 
                                 # Get the profile to retrieve external_user_id
-                                profile = await profile_manager.get_profile(account_id, profile_id)
+                                profile = await pipedream_manager.get_profile(account_id, profile_id)
                                 if profile:
                                     custom_mcp['config']['external_user_id'] = profile.external_user_id
                                     logger.info(f"Retrieved external_user_id from profile {profile_id} for Pipedream MCP")
@@ -194,7 +192,7 @@ async def run_agent(
                     'name': custom_mcp['name'],
                     'qualifiedName': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",
                     'config': custom_mcp['config'],
-                    'enabledTools': custom_mcp.get('enabledTools', []),
+                    'enabledTools': custom_mcp.get('enabledTools', custom_mcp.get('enabled_tools', [])),
                     'instructions': custom_mcp.get('instructions', ''),
                     'isCustom': True,
                     'customType': custom_type
@@ -203,6 +201,10 @@ async def run_agent(
         
         if all_mcps:
             logger.info(f"Registering MCP tool wrapper for {len(all_mcps)} MCP servers (including {len(agent_config.get('custom_mcps', []))} custom)")
+            # Debug: Log MCP configurations to help troubleshoot
+            for mcp in all_mcps:
+                enabled_count = len(mcp.get('enabledTools', []))
+                logger.info(f"MCP '{mcp.get('name', 'Unknown')}': {enabled_count} tools enabled")
             thread_manager.add_tool(MCPToolWrapper, mcp_configs=all_mcps)
             
             for tool_name, tool_info in thread_manager.tool_registry.tools.items():

@@ -78,8 +78,7 @@ export const getAgentPipedreamProfiles = (
   }
 ) => {
   if (!agent || !profiles || !currentAgentId) return [];
-  
-  // Use version data if available, otherwise use agent data
+
   const customMcps = versionData?.custom_mcps || agent.custom_mcps || [];
   const pipedreamMcps = customMcps.filter((mcp: any) => 
     mcp.config?.profile_id && mcp.config?.url?.includes('pipedream')
@@ -92,10 +91,13 @@ export const getAgentPipedreamProfiles = (
 
   return usedProfiles.map(profile => {
     const mcpConfig = pipedreamMcps.find((mcp: any) => mcp.config?.profile_id === profile.profile_id);
+    const enabledTools = mcpConfig?.enabledTools || mcpConfig?.enabled_tools || [];
+    const toolsCount = enabledTools.length;
+    
     return {
       ...profile,
-      enabledTools: mcpConfig?.enabledTools || [],
-      toolsCount: mcpConfig?.enabledTools?.length || 0
+      enabledTools,
+      toolsCount
     };
   });
 };
