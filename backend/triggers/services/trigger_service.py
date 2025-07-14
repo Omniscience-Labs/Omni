@@ -9,7 +9,6 @@ from ..repositories.interfaces import TriggerRepository, TriggerEventLogReposito
 
 
 class TriggerService:
-    
     def __init__(
         self,
         trigger_repository: TriggerRepository,
@@ -180,12 +179,7 @@ class TriggerService:
             raw_data=raw_data
         )
         
-        start_time = datetime.now()
         result = await self._domain_service.process_trigger_event(trigger, event)
-        execution_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        
-        await self._event_log_repo.log_event(event, result, execution_time)
-        
         return result
     
     async def get_trigger_logs(

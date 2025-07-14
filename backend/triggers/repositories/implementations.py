@@ -16,15 +16,17 @@ class SupabaseTriggerRepository(TriggerRepository):
     async def save(self, trigger: Trigger) -> None:
         try:
             client = await self._db.client
+            
+            config_with_provider = {**trigger.config.config, "provider_id": trigger.provider_id}
+            
             await client.table('agent_triggers').insert({
                 'trigger_id': trigger.trigger_id,
                 'agent_id': trigger.agent_id,
-                'provider_id': trigger.provider_id,
                 'trigger_type': trigger.trigger_type.value,
                 'name': trigger.config.name,
                 'description': trigger.config.description,
                 'is_active': trigger.config.is_active,
-                'config': trigger.config.config,
+                'config': config_with_provider,
                 'created_at': trigger.metadata.created_at.isoformat(),
                 'updated_at': trigger.metadata.updated_at.isoformat()
             }).execute()
@@ -64,22 +66,29 @@ class SupabaseTriggerRepository(TriggerRepository):
     async def find_by_provider_id(self, provider_id: str) -> List[Trigger]:
         try:
             client = await self._db.client
-            result = await client.table('agent_triggers').select('*').eq('provider_id', provider_id).execute()
+            result = await client.table('agent_triggers').select('*').execute()
             
-            return [self._map_to_trigger(data) for data in result.data]
+            triggers = []
+            for data in result.data:
+                if data.get('config', {}).get('provider_id') == provider_id:
+                    triggers.append(self._map_to_trigger(data))
+            
+            return triggers
         except Exception as e:
             raise RepositoryError(f"Failed to find triggers by provider ID: {str(e)}")
     
     async def update(self, trigger: Trigger) -> None:
         try:
             client = await self._db.client
+            
+            config_with_provider = {**trigger.config.config, "provider_id": trigger.provider_id}
+            
             result = await client.table('agent_triggers').update({
-                'provider_id': trigger.provider_id,
                 'trigger_type': trigger.trigger_type.value,
                 'name': trigger.config.name,
                 'description': trigger.config.description,
                 'is_active': trigger.config.is_active,
-                'config': trigger.config.config,
+                'config': config_with_provider,
                 'updated_at': trigger.metadata.updated_at.isoformat()
             }).eq('trigger_id', trigger.trigger_id).execute()
             
@@ -123,10 +132,15 @@ class SupabaseTriggerRepository(TriggerRepository):
             agent_id=data['agent_id']
         )
         
+        config_data = data.get('config', {})
+        provider_id = config_data.get('provider_id', data['trigger_type'])
+        
+        clean_config = {k: v for k, v in config_data.items() if k != 'provider_id'}
+        
         config = TriggerConfig(
             name=data['name'],
             description=data.get('description'),
-            config=data.get('config', {}),
+            config=clean_config,
             is_active=data.get('is_active', True)
         )
         
@@ -139,7 +153,7 @@ class SupabaseTriggerRepository(TriggerRepository):
         
         return Trigger(
             identity=identity,
-            provider_id=data['provider_id'],
+            provider_id=provider_id,
             trigger_type=trigger_type,
             config=config,
             metadata=metadata
@@ -165,7 +179,7 @@ class SupabaseTriggerEventLogRepository(TriggerEventLogRepository):
                 'log_id': log_id,
                 'trigger_id': event.trigger_id,
                 'agent_id': event.agent_id,
-                'trigger_type': event.trigger_type.value,
+                'trigger_type': event.trigger_type.value if hasattr(event.trigger_type, 'value') else str(event.trigger_type),
                 'event_data': event.raw_data,
                 'success': result.success,
                 'should_execute_agent': result.should_execute_agent,
@@ -173,7 +187,7 @@ class SupabaseTriggerEventLogRepository(TriggerEventLogRepository):
                 'agent_prompt': result.agent_prompt,
                 'workflow_id': result.workflow_id,
                 'workflow_input': result.workflow_input,
-                'execution_variables': result.execution_variables.variables,
+                'execution_variables': result.execution_variables.variables if result.execution_variables else {},
                 'error_message': result.error_message,
                 'metadata': result.metadata,
                 'execution_time_ms': execution_time_ms,

@@ -80,7 +80,7 @@ async def get_services() -> tuple[TriggerService, TriggerExecutionService, Provi
 
 async def verify_agent_access(agent_id: str, user_id: str):
     client = await db.client
-    result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('created_by', user_id).execute()
+    result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="Agent not found or access denied")
@@ -362,6 +362,9 @@ async def trigger_webhook(
         
         result = await trigger_svc.process_trigger_event(trigger_id, raw_data)
         
+        logger.info(f"Webhook trigger result: success={result.success}, should_execute_agent={result.should_execute_agent}, should_execute_workflow={result.should_execute_workflow}")
+        logger.info(f"Trigger result details: workflow_id={result.workflow_id}, agent_prompt={result.agent_prompt}")
+        
         if not result.success:
             return JSONResponse(
                 status_code=400,
@@ -371,6 +374,8 @@ async def trigger_webhook(
         if result.should_execute_agent or result.should_execute_workflow:
             trigger = await trigger_svc.get_trigger(trigger_id)
             if trigger:
+                logger.info(f"Executing agent {trigger.agent_id} for trigger {trigger_id}")
+                
                 from .domain.entities import TriggerEvent
                 event = TriggerEvent(
                     trigger_id=trigger_id,
@@ -385,15 +390,29 @@ async def trigger_webhook(
                     trigger_event=event
                 )
                 
+                logger.info(f"Agent execution result: {execution_result}")
+                
                 return JSONResponse(content={
                     "success": True,
-                    "message": "Trigger processed successfully",
-                    "execution": execution_result
+                    "message": "Trigger processed and agent execution started",
+                    "execution": execution_result,
+                    "trigger_result": {
+                        "should_execute_agent": result.should_execute_agent,
+                        "should_execute_workflow": result.should_execute_workflow,
+                        "agent_prompt": result.agent_prompt
+                    }
                 })
+            else:
+                logger.warning(f"Trigger {trigger_id} not found for execution")
         
+        logger.info(f"Webhook processed but no execution needed (should_execute_agent={result.should_execute_agent})")
         return JSONResponse(content={
             "success": True,
-            "message": "Trigger processed successfully"
+            "message": "Trigger processed successfully (no execution needed)",
+            "trigger_result": {
+                "should_execute_agent": result.should_execute_agent,
+                "should_execute_workflow": result.should_execute_workflow
+            }
         })
         
     except Exception as e:

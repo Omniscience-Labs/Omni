@@ -32,12 +32,20 @@ class GenericWebhookProvider(TriggerProvider):
             
             agent_prompt = self._create_agent_prompt(event.raw_data, execution_variables.variables)
             
-            return TriggerResult(
+            # Force agent execution only - never workflows for webhook triggers
+            result = TriggerResult(
                 success=True,
                 should_execute_agent=True,
+                should_execute_workflow=False,
                 agent_prompt=agent_prompt,
                 execution_variables=execution_variables
             )
+            
+            # Double-check the values are set correctly
+            assert result.should_execute_agent == True
+            assert result.should_execute_workflow == False
+            
+            return result
             
         except Exception as e:
             return TriggerResult(

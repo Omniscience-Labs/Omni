@@ -72,7 +72,7 @@ class ScheduleTriggerProvider(TriggerProvider):
             }
             
             schedule_id = await asyncio.to_thread(
-                self._qstash.schedules.create,
+                self._qstash.schedule.create,
                 destination=webhook_url,
                 cron=cron_expression,
                 body=json.dumps(payload),
@@ -94,13 +94,13 @@ class ScheduleTriggerProvider(TriggerProvider):
             return True
         
         try:
-            schedules = await asyncio.to_thread(self._qstash.schedules.list)
+            schedules = await asyncio.to_thread(self._qstash.schedule.list)
             
             webhook_url = f"{self._webhook_base_url}/api/triggers/{trigger.trigger_id}/webhook"
             
             for schedule in schedules:
                 if schedule.get('destination') == webhook_url:
-                    await asyncio.to_thread(self._qstash.schedules.delete, schedule['scheduleId'])
+                    await asyncio.to_thread(self._qstash.schedule.delete, schedule['scheduleId'])
                     logger.info(f"Deleted QStash schedule {schedule['scheduleId']} for trigger {trigger.trigger_id}")
                     break
             
@@ -160,7 +160,7 @@ class ScheduleTriggerProvider(TriggerProvider):
         
         try:
             webhook_url = f"{self._webhook_base_url}/api/triggers/{trigger.trigger_id}/webhook"
-            schedules = await asyncio.to_thread(self._qstash.schedules.list)
+            schedules = await asyncio.to_thread(self._qstash.schedule.list)
             
             for schedule in schedules:
                 if schedule.get('destination') == webhook_url:
@@ -192,7 +192,7 @@ class ScheduleTriggerProvider(TriggerProvider):
             return []
         
         try:
-            return await asyncio.to_thread(self._qstash.schedules.list)
+            return await asyncio.to_thread(self._qstash.schedule.list)
         except Exception as e:
             logger.error(f"Failed to list QStash schedules: {e}")
             return [] 
