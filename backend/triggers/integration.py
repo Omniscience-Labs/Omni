@@ -1,3 +1,10 @@
+import warnings
+warnings.warn(
+    "triggers.integration is deprecated. Use triggers.services.execution_service.TriggerExecutionService instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import asyncio
 import uuid
 from typing import Dict, Any, Optional
@@ -273,12 +280,10 @@ class WorkflowTriggerExecutor:
         workflow_input: Dict[str, Any],
         trigger_data: Dict[str, Any]
     ):
-        """Create the initial message for workflow execution."""
         client = await self.db.client
         
         import json
         
-        # Build the workflow prompt
         workflow_prompt = f"""Execute workflow: {workflow_config.get('name', 'Unknown Workflow')}
 
 Input: {json.dumps(workflow_input) if workflow_input else 'None'}

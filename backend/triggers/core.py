@@ -1,3 +1,10 @@
+import warnings
+warnings.warn(
+    "triggers.core is deprecated. Use the new architecture in triggers.domain, triggers.services, etc.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import abc
 import uuid
 import importlib
@@ -8,22 +15,14 @@ from enum import Enum
 
 class TriggerType(str, Enum):
     SCHEDULE = "schedule"
-
-class TriggerStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    ERROR = "error"
-    CONFIGURING = "configuring"
+    WEBHOOK = "webhook"
+    EVENT = "event"
 
 class TriggerEvent(BaseModel):
     trigger_id: str
     agent_id: str
     trigger_type: TriggerType
-    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     raw_data: Dict[str, Any]
-    processed_data: Optional[Dict[str, Any]] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
     
     class Config:
         use_enum_values = True
@@ -36,9 +35,8 @@ class TriggerResult(BaseModel):
     workflow_id: Optional[str] = None
     workflow_input: Optional[Dict[str, Any]] = None
     execution_variables: Dict[str, Any] = Field(default_factory=dict)
-    response_data: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    response_data: Optional[Dict[str, Any]] = None
 
 class TriggerConfig(BaseModel):
     trigger_id: str
@@ -150,25 +148,27 @@ class GenericWebhookProvider(TriggerProvider):
         return True
     
     def _extract_field(self, data: Dict[str, Any], path: str) -> Any:
-        """Extract field from nested dict using dot notation."""
         keys = path.split('.')
         current = data
+        
         for key in keys:
             if isinstance(current, dict) and key in current:
                 current = current[key]
             else:
                 return None
+        
         return current
     
-    def _create_agent_prompt(self, raw_data: Dict[str, Any], variables: Dict[str, Any]) -> str:
-        """Create agent prompt using template or default."""
+    def _create_agent_prompt(self, raw_data: Dict[str, Any], execution_variables: Dict[str, Any]) -> str:
         if self.provider_definition.response_template:
-            template = self.provider_definition.response_template.get("agent_prompt", "")
-            for key, value in variables.items():
-                template = template.replace(f"{{{key}}}", str(value))
-            return template
+            template = self.provider_definition.response_template.get('agent_prompt', '')
+            
+            try:
+                return template.format(**execution_variables, **raw_data)
+            except KeyError:
+                pass
         
-        return f"You received a webhook event from {self.provider_definition.name}: {raw_data}"
+        return f"Process webhook data: {raw_data}"
 
 class ProviderFactory:
     @staticmethod
@@ -214,43 +214,39 @@ class TriggerManager:
                     "type": "object",
                     "properties": {
                         "cron_expression": {
-                            "type": "string", 
-                            "description": "Cron expression for scheduling",
-                            "pattern": r"^(\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\*\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\*|([0-9]|1[0-9]|2[0-3])|\*\/([0-9]|1[0-9]|2[0-3])) (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\*|([1-9]|1[0-2])|\*\/([1-9]|1[0-2])) (\*|([0-6])|\*\/([0-6]))$"
+                            "type": "string",
+                            "description": "Cron expression for scheduling (e.g., '0 0 * * *' for daily at midnight)"
                         },
                         "execution_type": {
                             "type": "string",
                             "enum": ["agent", "workflow"],
-                            "description": "Type of execution: agent or workflow",
-                            "default": "agent"
+                            "description": "Type of execution to trigger"
                         },
                         "agent_prompt": {
-                            "type": "string", 
-                            "description": "The prompt to run the agent with when triggered (required for agent execution)"
+                            "type": "string",
+                            "description": "Prompt to send to the agent (required for agent execution)"
                         },
                         "workflow_id": {
                             "type": "string",
-                            "description": "The workflow ID to execute (required for workflow execution)"
+                            "description": "ID of the workflow to execute (required for workflow execution)"
                         },
                         "workflow_input": {
                             "type": "object",
-                            "description": "Input data to pass to the workflow",
-                            "default": {}
-                        },
-                        "timezone": {
-                            "type": "string",
-                            "description": "Timezone for schedule execution (default: UTC)",
-                            "default": "UTC"
+                            "description": "Input data for workflow execution"
                         }
                     },
                     "required": ["cron_expression", "execution_type"],
-                    "anyOf": [
+                    "oneOf": [
                         {
-                            "properties": {"execution_type": {"const": "agent"}},
+                            "properties": {
+                                "execution_type": {"const": "agent"}
+                            },
                             "required": ["agent_prompt"]
                         },
                         {
-                            "properties": {"execution_type": {"const": "workflow"}},
+                            "properties": {
+                                "execution_type": {"const": "workflow"}
+                            },
                             "required": ["workflow_id"]
                         }
                     ]
@@ -258,31 +254,16 @@ class TriggerManager:
             )
         ]
         
-        for definition in builtin_providers:
-            self.provider_definitions[definition.provider_id] = definition
+        for provider_def in builtin_providers:
+            self.provider_definitions[provider_def.provider_id] = provider_def
     
     async def _load_custom_providers(self):
-        try:
-            client = await self.db.client
-            result = await client.table('custom_trigger_providers').select('*').eq('is_active', True).execute()
-            
-            for row in result.data:
-                definition = ProviderDefinition(
-                    provider_id=row['provider_id'],
-                    name=row['name'],
-                    description=row['description'],
-                    trigger_type=row['trigger_type'],
-                    provider_class=row.get('provider_class'),
-                    config_schema=row.get('config_schema', {}),
-                    webhook_enabled=row.get('webhook_enabled', False),
-                    webhook_config=row.get('webhook_config'),
-                    response_template=row.get('response_template'),
-                    field_mappings=row.get('field_mappings')
-                )
-                self.provider_definitions[definition.provider_id] = definition
-                
-        except Exception as e:
-            pass
+        client = await self.db.client
+        result = await client.table('trigger_providers').select('*').execute()
+        
+        for provider_data in result.data:
+            provider_def = ProviderDefinition(**provider_data)
+            self.provider_definitions[provider_def.provider_id] = provider_def
     
     async def get_or_create_provider(self, provider_id: str) -> Optional[TriggerProvider]:
         from utils.logger import logger
@@ -329,7 +310,6 @@ class TriggerManager:
         config: Dict[str, Any],
         description: Optional[str] = None
     ) -> TriggerConfig:
-        """Create a new trigger for an agent using a specific provider."""
         provider = await self.get_or_create_provider(provider_id)
         if not provider:
             raise ValueError(f"Unsupported provider: {provider_id}")
@@ -356,7 +336,6 @@ class TriggerManager:
         return trigger_config
     
     async def get_available_providers(self) -> List[ProviderDefinition]:
-        """Get list of available trigger providers."""
         return list(self.provider_definitions.values())
     
     async def update_trigger(
@@ -371,7 +350,6 @@ class TriggerManager:
         if not trigger_config:
             raise ValueError(f"Trigger not found: {trigger_id}")
         
-        # Handle both enum and string trigger_type
         trigger_type_str = trigger_config.trigger_type.value if hasattr(trigger_config.trigger_type, 'value') else str(trigger_config.trigger_type)
         provider_id = trigger_config.config.get("provider_id", trigger_type_str)
         provider = await self.get_or_create_provider(provider_id)
@@ -402,12 +380,10 @@ class TriggerManager:
         return trigger_config
     
     async def delete_trigger(self, trigger_id: str) -> bool:
-        """Delete a trigger."""
         trigger_config = await self.get_trigger(trigger_id)
         if not trigger_config:
             return False
         
-        # Handle both enum and string trigger_type
         trigger_type_str = trigger_config.trigger_type.value if hasattr(trigger_config.trigger_type, 'value') else str(trigger_config.trigger_type)
         provider_id = trigger_config.config.get("provider_id", trigger_type_str)
         provider = await self.get_or_create_provider(provider_id)
@@ -502,7 +478,6 @@ class TriggerManager:
             return error_result
     
     async def health_check_triggers(self, agent_id: Optional[str] = None) -> Dict[str, bool]:
-        """Run health checks on triggers."""
         if agent_id:
             triggers = await self.get_agent_triggers(agent_id)
         else:
@@ -510,7 +485,6 @@ class TriggerManager:
         
         results = {}
         for trigger in triggers:
-            # Handle both enum and string trigger_type
             trigger_type_str = trigger.trigger_type.value if hasattr(trigger.trigger_type, 'value') else str(trigger.trigger_type)
             provider_id = trigger.config.get("provider_id", trigger_type_str)
             provider = await self.get_or_create_provider(provider_id)
@@ -563,18 +537,23 @@ class TriggerManager:
         return result.data
     
     async def _log_trigger_event(self, event: TriggerEvent, result: TriggerResult):
-        client = await self.db.client
-        await client.table('trigger_events').insert({
-            'event_id': event.event_id,
-            'trigger_id': event.trigger_id,
-            'agent_id': event.agent_id,
-            'trigger_type': event.trigger_type.value if hasattr(event.trigger_type, 'value') else str(event.trigger_type),
-            'timestamp': event.timestamp.isoformat(),
-            'success': result.success,
-            'should_execute_agent': result.should_execute_agent,
-            'error_message': result.error_message,
-            'metadata': {
-                'event_metadata': event.metadata,
-                'result_metadata': result.metadata
-            }
-        }).execute() 
+        try:
+            client = await self.db.client
+            await client.table('trigger_event_logs').insert({
+                'trigger_id': event.trigger_id,
+                'agent_id': event.agent_id,
+                'trigger_type': event.trigger_type.value if hasattr(event.trigger_type, 'value') else str(event.trigger_type),
+                'event_data': event.raw_data,
+                'success': result.success,
+                'should_execute_agent': result.should_execute_agent,
+                'should_execute_workflow': result.should_execute_workflow,
+                'agent_prompt': result.agent_prompt,
+                'workflow_id': result.workflow_id,
+                'workflow_input': result.workflow_input,
+                'execution_variables': result.execution_variables,
+                'error_message': result.error_message,
+                'logged_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+        except Exception as e:
+            from utils.logger import logger
+            logger.error(f"Failed to log trigger event: {e}") 

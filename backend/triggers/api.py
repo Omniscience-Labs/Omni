@@ -2,46 +2,43 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Body, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
-import uuid
 import os
 from datetime import datetime
 
-from .core import TriggerManager, TriggerConfig, ProviderDefinition, TriggerType
-from .registry import trigger_registry
+from .support.factory import TriggerModuleFactory
+from .support.exceptions import TriggerError, ConfigurationError, ProviderError
+from .services.trigger_service import TriggerService
+from .services.execution_service import TriggerExecutionService
+from .services.provider_service import ProviderService
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from flags.flags import is_enabled
-from .integration import TriggerExecutor
 from utils.config import config, EnvMode
 
 router = APIRouter(prefix="/triggers", tags=["triggers"])
 
-trigger_manager: Optional[TriggerManager] = None
+trigger_service: Optional[TriggerService] = None
+execution_service: Optional[TriggerExecutionService] = None
+provider_service: Optional[ProviderService] = None
 db = None
 
-def initialize(database: DBConnection):
-    """Initialize the triggers API with database connection."""
-    global db, trigger_manager
-    db = database
-    trigger_manager = TriggerManager(db)
 
 class TriggerCreateRequest(BaseModel):
-    """Request model for creating a trigger."""
     provider_id: str
     name: str
-    description: Optional[str] = None
     config: Dict[str, Any]
+    description: Optional[str] = None
+
 
 class TriggerUpdateRequest(BaseModel):
-    """Request model for updating a trigger."""
+    config: Optional[Dict[str, Any]] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
 
+
 class TriggerResponse(BaseModel):
-    """Response model for trigger data."""
     trigger_id: str
     agent_id: str
     trigger_type: str
@@ -49,90 +46,132 @@ class TriggerResponse(BaseModel):
     name: str
     description: Optional[str]
     is_active: bool
-    webhook_url: Optional[str] = None
+    webhook_url: Optional[str]
     created_at: str
     updated_at: str
 
+
 class ProviderResponse(BaseModel):
-    """Response model for provider information."""
     provider_id: str
     name: str
     description: str
     trigger_type: str
     webhook_enabled: bool
+    setup_required: bool
     config_schema: Dict[str, Any]
 
-async def get_trigger_manager() -> TriggerManager:
-    """Get the trigger manager instance."""
-    if not trigger_manager:
-        raise HTTPException(status_code=500, detail="Trigger system not initialized")
-    return trigger_manager
+
+def initialize(database: DBConnection):
+    global db, trigger_service, execution_service, provider_service
+    db = database
+
+
+async def get_services() -> tuple[TriggerService, TriggerExecutionService, ProviderService]:
+    global trigger_service, execution_service, provider_service
+    
+    if trigger_service is None or execution_service is None or provider_service is None:
+        if db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+        
+        trigger_service, execution_service, provider_service = await TriggerModuleFactory.create_trigger_module(db)
+    
+    return trigger_service, execution_service, provider_service
+
+
+async def verify_agent_access(agent_id: str, user_id: str):
+    client = await db.client
+    result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('created_by', user_id).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Agent not found or access denied")
+
 
 @router.get("/providers", response_model=List[ProviderResponse])
-async def get_available_providers(
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
+async def get_providers():
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    manager = await get_trigger_manager()
-    await manager.load_provider_definitions()
+    try:
+        _, _, provider_svc = await get_services()
+        providers = await provider_svc.get_available_providers()
+        
+        return [
+            ProviderResponse(
+                provider_id=provider.provider_id,
+                name=provider.name,
+                description=provider.description,
+                trigger_type=provider.trigger_type.value,
+                webhook_enabled=provider.webhook_enabled,
+                setup_required=provider.setup_required,
+                config_schema=provider.config_schema
+            )
+            for provider in providers
+        ]
+    except Exception as e:
+        logger.error(f"Error getting providers: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/providers/{provider_id}/schema")
+async def get_provider_schema(provider_id: str):
+    if not await is_enabled("agent_triggers"):
+        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    providers = await manager.get_available_providers()
-    
-    return [
-        ProviderResponse(
-            provider_id=provider.provider_id,
-            name=provider.name,
-            description=provider.description,
-            trigger_type=provider.trigger_type,
-            webhook_enabled=provider.webhook_enabled,
-            config_schema=provider.config_schema
-        )
-        for provider in providers
-    ]
+    try:
+        _, _, provider_svc = await get_services()
+        schema = await provider_svc.get_provider_config_schema(provider_id)
+        
+        if not schema:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        return {"schema": schema}
+    except Exception as e:
+        logger.error(f"Error getting provider schema: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.get("/agents/{agent_id}/triggers", response_model=List[TriggerResponse])
 async def get_agent_triggers(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get all triggers for an agent."""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     await verify_agent_access(agent_id, user_id)
     
-    manager = await get_trigger_manager()
-    triggers = await manager.get_agent_triggers(agent_id)
-    
-    base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-    
-    responses = []
-    for trigger in triggers:
-        # Ensure trigger_type is properly handled (could be enum or string)
-        trigger_type_str = trigger.trigger_type.value if hasattr(trigger.trigger_type, 'value') else str(trigger.trigger_type)
-        provider_id = trigger.config.get("provider_id", trigger_type_str)
-        provider = await manager.get_or_create_provider(provider_id)
+    try:
+        trigger_svc, _, provider_svc = await get_services()
+        triggers = await trigger_svc.get_agent_triggers(agent_id)
         
-        webhook_url = None
-        if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
-            webhook_url = provider.get_webhook_url(trigger.trigger_id, base_url)
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         
-        responses.append(TriggerResponse(
-            trigger_id=trigger.trigger_id,
-            agent_id=trigger.agent_id,
-            trigger_type=trigger_type_str,
-            provider_id=provider_id,
-            name=trigger.name,
-            description=trigger.description,
-            is_active=trigger.is_active,
-            webhook_url=webhook_url,
-            created_at=trigger.created_at.isoformat(),
-            updated_at=trigger.updated_at.isoformat()
-        ))
-    
-    return responses
+        responses = []
+        for trigger in triggers:
+            provider_def = await provider_svc.get_provider_definition(trigger.provider_id)
+            
+            webhook_url = None
+            if provider_def and provider_def.webhook_enabled:
+                webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
+            
+            responses.append(TriggerResponse(
+                trigger_id=trigger.trigger_id,
+                agent_id=trigger.agent_id,
+                trigger_type=trigger.trigger_type.value,
+                provider_id=trigger.provider_id,
+                name=trigger.config.name,
+                description=trigger.config.description,
+                is_active=trigger.is_active,
+                webhook_url=webhook_url,
+                created_at=trigger.metadata.created_at.isoformat(),
+                updated_at=trigger.metadata.updated_at.isoformat()
+            ))
+        
+        return responses
+    except Exception as e:
+        logger.error(f"Error getting agent triggers: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.post("/agents/{agent_id}/triggers", response_model=TriggerResponse)
 async def create_agent_trigger(
@@ -140,17 +179,15 @@ async def create_agent_trigger(
     request: TriggerCreateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Create a new trigger for an agent."""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
         
     await verify_agent_access(agent_id, user_id)
     
-    manager = await get_trigger_manager()
-    await manager.load_provider_definitions()
-    
     try:
-        trigger_config = await manager.create_trigger(
+        trigger_svc, _, provider_svc = await get_services()
+        
+        trigger = await trigger_svc.create_trigger(
             agent_id=agent_id,
             provider_id=request.provider_id,
             name=request.name,
@@ -158,74 +195,72 @@ async def create_agent_trigger(
             description=request.description
         )
         
-        # Get webhook URL if applicable
-        provider = await manager.get_or_create_provider(request.provider_id)
+        provider_def = await provider_svc.get_provider_definition(request.provider_id)
         webhook_url = None
-        if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
+        if provider_def and provider_def.webhook_enabled:
             base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-            webhook_url = provider.get_webhook_url(trigger_config.trigger_id, base_url)
-        
-        trigger_type_str = trigger_config.trigger_type.value if hasattr(trigger_config.trigger_type, 'value') else str(trigger_config.trigger_type)
+            webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
         
         return TriggerResponse(
-            trigger_id=trigger_config.trigger_id,
-            agent_id=trigger_config.agent_id,
-            trigger_type=trigger_type_str,
-            provider_id=request.provider_id,
-            name=trigger_config.name,
-            description=trigger_config.description,
-            is_active=trigger_config.is_active,
+            trigger_id=trigger.trigger_id,
+            agent_id=trigger.agent_id,
+            trigger_type=trigger.trigger_type.value,
+            provider_id=trigger.provider_id,
+            name=trigger.config.name,
+            description=trigger.config.description,
+            is_active=trigger.is_active,
             webhook_url=webhook_url,
-            created_at=trigger_config.created_at.isoformat(),
-            updated_at=trigger_config.updated_at.isoformat()
+            created_at=trigger.metadata.created_at.isoformat(),
+            updated_at=trigger.metadata.updated_at.isoformat()
         )
         
-    except ValueError as e:
+    except (ValueError, ConfigurationError, ProviderError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating trigger: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.get("/{trigger_id}", response_model=TriggerResponse)
 async def get_trigger(
     trigger_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get a specific trigger."""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    manager = await get_trigger_manager()
-    trigger_config = await manager.get_trigger(trigger_id)
-    
-    if not trigger_config:
-        raise HTTPException(status_code=404, detail="Trigger not found")
-    
-    # Verify agent ownership
-    await verify_agent_access(trigger_config.agent_id, user_id)
-    
-    # Ensure trigger_type is properly handled (could be enum or string)
-    trigger_type_str = trigger_config.trigger_type.value if hasattr(trigger_config.trigger_type, 'value') else str(trigger_config.trigger_type)
-    provider_id = trigger_config.config.get("provider_id", trigger_type_str)
-    provider = await manager.get_or_create_provider(provider_id)
-    
-    webhook_url = None
-    if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
-        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-        webhook_url = provider.get_webhook_url(trigger_id, base_url)
-    
-    return TriggerResponse(
-        trigger_id=trigger_config.trigger_id,
-        agent_id=trigger_config.agent_id,
-        trigger_type=trigger_type_str,
-        provider_id=provider_id,
-        name=trigger_config.name,
-        description=trigger_config.description,
-        is_active=trigger_config.is_active,
-        webhook_url=webhook_url,
-        created_at=trigger_config.created_at.isoformat(),
-        updated_at=trigger_config.updated_at.isoformat()
-    )
+    try:
+        trigger_svc, _, provider_svc = await get_services()
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+        
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        provider_def = await provider_svc.get_provider_definition(trigger.provider_id)
+        
+        webhook_url = None
+        if provider_def and provider_def.webhook_enabled:
+            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+            webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
+        
+        return TriggerResponse(
+            trigger_id=trigger.trigger_id,
+            agent_id=trigger.agent_id,
+            trigger_type=trigger.trigger_type.value,
+            provider_id=trigger.provider_id,
+            name=trigger.config.name,
+            description=trigger.config.description,
+            is_active=trigger.is_active,
+            webhook_url=webhook_url,
+            created_at=trigger.metadata.created_at.isoformat(),
+            updated_at=trigger.metadata.updated_at.isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Error getting trigger: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.put("/{trigger_id}", response_model=TriggerResponse)
 async def update_trigger(
@@ -236,388 +271,215 @@ async def update_trigger(
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    manager = await get_trigger_manager()
-    trigger_config = await manager.get_trigger(trigger_id)
-    
-    if not trigger_config:
-        raise HTTPException(status_code=404, detail="Trigger not found")
-
-    await verify_agent_access(trigger_config.agent_id, user_id)
-    
     try:
-        updated_config = await manager.update_trigger(
+        trigger_svc, _, provider_svc = await get_services()
+        
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        updated_trigger = await trigger_svc.update_trigger(
             trigger_id=trigger_id,
             config=request.config,
             name=request.name,
             description=request.description,
             is_active=request.is_active
         )
-        trigger_type_str = updated_config.trigger_type.value if hasattr(updated_config.trigger_type, 'value') else str(updated_config.trigger_type)
-        provider_id = updated_config.config.get("provider_id", trigger_type_str)
-        provider = await manager.get_or_create_provider(provider_id)
+        
+        provider_def = await provider_svc.get_provider_definition(updated_trigger.provider_id)
         
         webhook_url = None
-        if provider and provider.provider_definition and provider.provider_definition.webhook_enabled:
-            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:3000")
-            webhook_url = provider.get_webhook_url(trigger_id, base_url)
+        if provider_def and provider_def.webhook_enabled:
+            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+            webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
 
         return TriggerResponse(
-            trigger_id=updated_config.trigger_id,
-            agent_id=updated_config.agent_id,
-            trigger_type=trigger_type_str,
-            provider_id=provider_id,
-            name=updated_config.name,
-            description=updated_config.description,
-            is_active=updated_config.is_active,
+            trigger_id=updated_trigger.trigger_id,
+            agent_id=updated_trigger.agent_id,
+            trigger_type=updated_trigger.trigger_type.value,
+            provider_id=updated_trigger.provider_id,
+            name=updated_trigger.config.name,
+            description=updated_trigger.config.description,
+            is_active=updated_trigger.is_active,
             webhook_url=webhook_url,
-            created_at=updated_config.created_at.isoformat(),
-            updated_at=updated_config.updated_at.isoformat()
+            created_at=updated_trigger.metadata.created_at.isoformat(),
+            updated_at=updated_trigger.metadata.updated_at.isoformat()
         )
         
-    except ValueError as e:
+    except (ValueError, ConfigurationError, ProviderError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating trigger: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.delete("/{trigger_id}")
 async def delete_trigger(
     trigger_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Delete a trigger."""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    manager = await get_trigger_manager()
-    trigger_config = await manager.get_trigger(trigger_id)
-    
-    if not trigger_config:
-        raise HTTPException(status_code=404, detail="Trigger not found")
-    
-    # Verify agent ownership
-    await verify_agent_access(trigger_config.agent_id, user_id)
-    
-    success = await manager.delete_trigger(trigger_id)
-    
-    if success:
+    try:
+        trigger_svc, _, _ = await get_services()
+        
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        success = await trigger_svc.delete_trigger(trigger_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+        
         return {"message": "Trigger deleted successfully"}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to delete trigger")
-
-@router.post("/qstash/webhook")
-async def handle_qstash_webhook(request: Request):
-    try:
-        logger.info("QStash webhook received")
-        body = await request.body()
-        headers = dict(request.headers)
         
-        logger.debug(f"QStash webhook body: {body[:500]}...")
-        logger.debug(f"QStash webhook headers: {headers}")
-        
-        try:
-            if body:
-                data = await request.json()
-            else:
-                data = {}
-        except Exception as e:
-            logger.warning(f"Failed to parse JSON body: {e}")
-            data = {
-                "raw_body": body.decode('utf-8', errors='ignore'),
-                "content_type": headers.get('content-type', '')
-            }
-        
-        trigger_id = data.get('trigger_id')
-        
-        if not trigger_id:
-            logger.error("No trigger_id in QStash webhook payload")
-            return JSONResponse(
-                status_code=400,
-                content={"error": "trigger_id is required"}
-            )
-        
-        data["headers"] = headers
-        data["qstash_message_id"] = headers.get('upstash-message-id')
-        data["qstash_schedule_id"] = headers.get('upstash-schedule-id')
-        
-        logger.info(f"Processing QStash trigger event for {trigger_id}")
-        manager = await get_trigger_manager()
-        result = await manager.process_trigger_event(trigger_id, data)
-        
-        logger.info(f"QStash trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
-        
-        if result.success and (result.should_execute_agent or result.should_execute_workflow):
-            from .integration import TriggerExecutor
-            executor = TriggerExecutor(db)
-            trigger_config = await manager.get_trigger(trigger_id)
-            if trigger_config:
-                from .core import TriggerEvent, TriggerType
-                trigger_type = trigger_config.trigger_type
-                if isinstance(trigger_type, str):
-                    trigger_type = TriggerType(trigger_type)
-                
-                trigger_event = TriggerEvent(
-                    trigger_id=trigger_id,
-                    agent_id=trigger_config.agent_id,
-                    trigger_type=trigger_type,
-                    raw_data=data
-                )
-                
-                execution_result = await executor.execute_trigger_result(
-                    agent_id=trigger_config.agent_id,
-                    trigger_result=result,
-                    trigger_event=trigger_event
-                )
-                
-                logger.info(f"QStash execution result: {execution_result}")
-                
-                execution_type = "workflow" if result.should_execute_workflow else "agent"
-                return JSONResponse(content={
-                    "message": f"QStash webhook processed and {execution_type} execution started",
-                    "trigger_id": trigger_id,
-                    "agent_id": trigger_config.agent_id,
-                    "execution_type": execution_type,
-                    "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id"),
-                    "execution_id": execution_result.get("execution_id")
-                })
-        
-        if result.response_data:
-            return JSONResponse(content=result.response_data)
-        elif result.success:
-            return {"message": "QStash webhook processed successfully"}
-        else:
-            logger.warning(f"QStash webhook processing failed for {trigger_id}: {result.error_message}")
-            return JSONResponse(
-                status_code=400,
-                content={"error": result.error_message}
-            )
-            
     except Exception as e:
-        logger.error(f"Error processing QStash webhook: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Internal server error"}
-        )
+        logger.error(f"Error deleting trigger: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/schedule/webhook")
-async def handle_schedule_webhook(request: Request):
-    try:
-        body = await request.body()
-        headers = dict(request.headers)
-
-        try:
-            if body:
-                data = await request.json()
-            else:
-                data = {}
-        except Exception as e:
-            logger.warning(f"Failed to parse JSON body: {e}")
-            data = {
-                "raw_body": body.decode('utf-8', errors='ignore'),
-                "content_type": headers.get('content-type', '')
-            }
-        
-        trigger_id = data.get('trigger_id')
-        agent_id = data.get('agent_id')
-        
-        if not trigger_id:
-            logger.error("No trigger_id in schedule webhook payload")
-            return JSONResponse(
-                status_code=400,
-                content={"error": "trigger_id is required"}
-            )
-        
-        logger.info(f"Processing scheduled trigger event for {trigger_id}")
-        manager = await get_trigger_manager()
-
-        trigger_config = await manager.get_trigger(trigger_id)
-        if trigger_config:
-            data['trigger_config'] = trigger_config.config
-        
-        result = await manager.process_trigger_event(trigger_id, data)
-        
-        logger.info(f"Schedule trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
-        
-        if result.success and (result.should_execute_agent or result.should_execute_workflow):
-            from .integration import TriggerExecutor
-            executor = TriggerExecutor(db)
-            if trigger_config:
-                from .core import TriggerEvent, TriggerType
-                trigger_type = trigger_config.trigger_type
-                if isinstance(trigger_type, str):
-                    trigger_type = TriggerType(trigger_type)
-                
-                trigger_event = TriggerEvent(
-                    trigger_id=trigger_id,
-                    agent_id=trigger_config.agent_id,
-                    trigger_type=trigger_type,
-                    raw_data=data
-                )
-                
-                execution_result = await executor.execute_trigger_result(
-                    agent_id=trigger_config.agent_id,
-                    trigger_result=result,
-                    trigger_event=trigger_event
-                )
-                
-                logger.info(f"Scheduled execution result: {execution_result}")
-                
-                execution_type = "workflow" if result.should_execute_workflow else "agent"
-                return JSONResponse(content={
-                    "message": f"Schedule webhook processed and {execution_type} execution started",
-                    "trigger_id": trigger_id,
-                    "agent_id": trigger_config.agent_id,
-                    "execution_type": execution_type,
-                    "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id"),
-                    "execution_id": execution_result.get("execution_id")
-                })
-        
-        if result.response_data:
-            return JSONResponse(content=result.response_data)
-        elif result.success:
-            return {"message": "Schedule webhook processed successfully"}
-        else:
-            logger.warning(f"Schedule webhook processing failed for {trigger_id}: {result.error_message}")
-            return JSONResponse(
-                status_code=400,
-                content={"error": result.error_message}
-            )
-            
-    except Exception as e:
-        logger.error(f"Error processing schedule webhook: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Internal server error"}
-        )
 
 @router.post("/{trigger_id}/webhook")
-async def handle_webhook(
+async def trigger_webhook(
     trigger_id: str,
     request: Request
 ):
-    try:
-        logger.info(f"Webhook received for trigger {trigger_id}")
-        body = await request.body()
-        headers = dict(request.headers)
-        
-        logger.debug(f"Webhook body: {body[:500]}...")
-        logger.debug(f"Webhook headers: {headers}")
-        
-        try:
-            if body:
-                data = await request.json()
-            else:
-                data = {}
-        except Exception as e:
-            logger.warning(f"Failed to parse JSON body: {e}")
-            data = {
-                "raw_body": body.decode('utf-8', errors='ignore'),
-                "content_type": headers.get('content-type', '')
-            }
-        data["headers"] = headers
-        
-        logger.info(f"Processing trigger event for {trigger_id}")
-        manager = await get_trigger_manager()
-        result = await manager.process_trigger_event(trigger_id, data)
-        
-        logger.info(f"Trigger processing result: success={result.success}, should_execute={result.should_execute_agent}, error={result.error_message}")
-        
-        if result.success and (result.should_execute_agent or result.should_execute_workflow):
-            from .integration import TriggerExecutor
-            executor = TriggerExecutor(db)
-            trigger_config = await manager.get_trigger(trigger_id)
-            if trigger_config:
-                from .core import TriggerEvent, TriggerType
-                trigger_type = trigger_config.trigger_type
-                if isinstance(trigger_type, str):
-                    trigger_type = TriggerType(trigger_type)
-                
-                trigger_event = TriggerEvent(
-                    trigger_id=trigger_id,
-                    agent_id=trigger_config.agent_id,
-                    trigger_type=trigger_type,
-                    raw_data=data
-                )
-                
-                execution_result = await executor.execute_trigger_result(
-                    agent_id=trigger_config.agent_id,
-                    trigger_result=result,
-                    trigger_event=trigger_event
-                )
-                
-                logger.info(f"Execution result: {execution_result}")
-                
-                execution_type = "workflow" if result.should_execute_workflow else "agent"
-                return JSONResponse(content={
-                    "message": f"Webhook processed and {execution_type} execution started",
-                    "trigger_id": trigger_id,
-                    "agent_id": trigger_config.agent_id,
-                    "execution_type": execution_type,
-                    "thread_id": execution_result.get("thread_id"),
-                    "agent_run_id": execution_result.get("agent_run_id"),
-                    "execution_id": execution_result.get("execution_id")
-                })
-        
-        if result.response_data:
-            return JSONResponse(content=result.response_data)
-        elif result.success:
-            return {"message": "Webhook processed successfully"}
-        else:
-            logger.warning(f"Webhook processing failed for {trigger_id}: {result.error_message}")
-            return JSONResponse(
-                status_code=400,
-                content={"error": result.error_message}
-            )
-            
-    except Exception as e:
-        logger.error(f"Error handling webhook for trigger {trigger_id}: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Internal server error"}
-        )
-
-@router.get("/triggers/{trigger_id}/health")
-async def check_trigger_health(
-    trigger_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    """Check the health of a trigger."""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    manager = await get_trigger_manager()
-    trigger_config = await manager.get_trigger(trigger_id)
-    
-    if not trigger_config:
-        raise HTTPException(status_code=404, detail="Trigger not found")
-    
-    await verify_agent_access(trigger_config.agent_id, user_id)
-    
-    health_results = await manager.health_check_triggers()
-    is_healthy = health_results.get(trigger_id, False)
-    
-    return {
-        "trigger_id": trigger_id,
-        "healthy": is_healthy,
-        "checked_at": datetime.utcnow().isoformat()
-    }
+    try:
+        trigger_svc, execution_svc, _ = await get_services()
+        
+        try:
+            raw_data = await request.json()
+        except:
+            raw_data = {}
+        
+        result = await trigger_svc.process_trigger_event(trigger_id, raw_data)
+        
+        if not result.success:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.error_message}
+            )
+        
+        if result.should_execute_agent or result.should_execute_workflow:
+            trigger = await trigger_svc.get_trigger(trigger_id)
+            if trigger:
+                from .domain.entities import TriggerEvent
+                event = TriggerEvent(
+                    trigger_id=trigger_id,
+                    agent_id=trigger.agent_id,
+                    trigger_type=trigger.trigger_type,
+                    raw_data=raw_data
+                )
+                
+                execution_result = await execution_svc.execute_trigger_result(
+                    agent_id=trigger.agent_id,
+                    trigger_result=result,
+                    trigger_event=event
+                )
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "message": "Trigger processed successfully",
+                    "execution": execution_result
+                })
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Trigger processed successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing webhook trigger: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Internal server error"}
+        )
 
-async def verify_agent_access(agent_id: str, user_id: str):
-    """Verify that the user has access to the agent."""
-    client = await db.client
-    result = await client.table('agents').select('account_id').eq('agent_id', agent_id).execute()
+
+@router.get("/{trigger_id}/logs")
+async def get_trigger_logs(
+    trigger_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("agent_triggers"):
+        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Agent not found")
+    try:
+        trigger_svc, _, _ = await get_services()
+        
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        logs = await trigger_svc.get_trigger_logs(trigger_id, limit, offset)
+        
+        return {"logs": logs}
+        
+    except Exception as e:
+        logger.error(f"Error getting trigger logs: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{trigger_id}/stats")
+async def get_trigger_stats(
+    trigger_id: str,
+    hours: int = Query(24, ge=1, le=168),
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("agent_triggers"):
+        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
-    agent = result.data[0]
-    if agent['account_id'] != user_id:
-        raise HTTPException(status_code=403, detail="Access denied") 
+    try:
+        trigger_svc, _, _ = await get_services()
+        
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        stats = await trigger_svc.get_trigger_stats(trigger_id, hours)
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Error getting trigger stats: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{trigger_id}/health")
+async def health_check_trigger(
+    trigger_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("agent_triggers"):
+        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
+    
+    try:
+        trigger_svc, _, _ = await get_services()
+        
+        trigger = await trigger_svc.get_trigger(trigger_id)
+        if not trigger:
+            raise HTTPException(status_code=404, detail="Trigger not found")
+
+        await verify_agent_access(trigger.agent_id, user_id)
+        
+        is_healthy = await trigger_svc.health_check_trigger(trigger_id)
+        
+        return {"healthy": is_healthy}
+        
+    except Exception as e:
+        logger.error(f"Error checking trigger health: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") 

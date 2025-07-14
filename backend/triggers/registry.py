@@ -1,3 +1,10 @@
+import warnings
+warnings.warn(
+    "triggers.registry is deprecated. Use triggers.domain.services.ProviderRegistryService instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 from typing import Dict, List, Optional
 from .core import TriggerProvider, TriggerType
 from .providers import ScheduleTriggerProvider
