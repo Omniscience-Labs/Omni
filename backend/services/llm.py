@@ -232,6 +232,12 @@ def prepare_params(
     use_thinking = enable_thinking if enable_thinking is not None else False
     is_anthropic = "anthropic" in effective_model_name.lower() or "claude" in effective_model_name.lower()
     is_xai = "xai" in effective_model_name.lower() or model_name.startswith("xai/")
+    is_kimi_k2 = "kimi-k2" in effective_model_name.lower() or model_name.startswith("moonshotai/kimi-k2")
+
+    if is_kimi_k2:
+        params["provider"] = {
+            "order": ["groq", "together/fp8"]
+        }
 
     if is_anthropic and use_thinking:
         effort_level = reasoning_effort if reasoning_effort else 'low'
