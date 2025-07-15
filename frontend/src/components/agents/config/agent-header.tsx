@@ -58,6 +58,7 @@ export function AgentHeader({
           />
         </div>
       </div>
+      
       <Tabs value={activeTab} onValueChange={onTabChange}>
         <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
           <TabsTrigger 

@@ -19,6 +19,7 @@ import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-st
 import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
+import { UpcomingRunsDropdown } from '@/components/agents/upcoming-runs-dropdown';
 
 interface FormData {
   name: string;
@@ -268,6 +269,7 @@ export default function AgentConfigurationPageRefactored() {
                           setOriginalData(formData);
                         }}
                       />
+                      <UpcomingRunsDropdown agentId={agentId} />
                     </div>
                     <div className="flex items-center gap-2">
                       {hasUnsavedChanges && !isViewingOldVersion && (
@@ -341,7 +343,101 @@ export default function AgentConfigurationPageRefactored() {
         </div>
 
         <div className="md:hidden flex flex-col h-full w-full">
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <AgentVersionSwitcher
+                      agentId={agentId}
+                      currentVersionId={agent?.current_version_id}
+                      currentFormData={{
+                        system_prompt: formData.system_prompt,
+                        configured_mcps: formData.configured_mcps,
+                        custom_mcps: formData.custom_mcps,
+                        agentpress_tools: formData.agentpress_tools
+                      }}
+                    />
+                    <CreateVersionButton
+                      agentId={agentId}
+                      currentFormData={{
+                        system_prompt: formData.system_prompt,
+                        configured_mcps: formData.configured_mcps,
+                        custom_mcps: formData.custom_mcps,
+                        agentpress_tools: formData.agentpress_tools
+                      }}
+                      hasChanges={hasUnsavedChanges && !isViewingOldVersion}
+                      onVersionCreated={() => {
+                        setOriginalData(formData);
+                      }}
+                    />
+                    <UpcomingRunsDropdown agentId={agentId} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasUnsavedChanges && !isViewingOldVersion && (
+                      <Button
+                        size="sm"
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      >
+                        {isSaving ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Save className="h-3 w-3" />
+                        )}
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {isViewingOldVersion && (
+                  <VersionAlert
+                    versionData={versionData}
+                    isActivating={activateVersionMutation.isPending}
+                    onActivateVersion={handleActivateVersion}
+                  />
+                )}
+
+                <AgentHeader
+                  agentId={agentId}
+                  displayData={displayData}
+                  currentStyle={currentStyle}
+                  activeTab={activeTab}
+                  isViewingOldVersion={isViewingOldVersion}
+                  onFieldChange={handleFieldChange}
+                  onStyleChange={handleStyleChange}
+                  onTabChange={setActiveTab}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+                <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
+                  <AgentBuilderTab
+                    agentId={agentId}
+                    displayData={displayData}
+                    currentStyle={currentStyle}
+                    isViewingOldVersion={isViewingOldVersion}
+                    onFieldChange={handleFieldChange}
+                    onStyleChange={handleStyleChange}
+                  />
+                </TabsContent>
+
+                <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
+                  <ConfigurationTab
+                    agentId={agentId}
+                    displayData={displayData}
+                    versionData={versionData}
+                    isViewingOldVersion={isViewingOldVersion}
+                    onFieldChange={handleFieldChange}
+                    onMCPChange={handleMCPChange}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
 
           <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

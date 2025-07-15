@@ -81,13 +81,13 @@ const updateTrigger = async (data: {
   return response.json();
 };
 
-const deleteTrigger = async (triggerId: string): Promise<void> => {
+const deleteTrigger = async (data: { triggerId: string; agentId: string }): Promise<void> => {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     throw new Error('You must be logged in to create a trigger');
   }
-  const response = await fetch(`${API_URL}/triggers/${triggerId}`, {
+  const response = await fetch(`${API_URL}/triggers/${data.triggerId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
   });
@@ -113,6 +113,7 @@ export const useCreateTrigger = () => {
   return useMutation({
     mutationFn: createTrigger,
     onSuccess: (newTrigger) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', newTrigger.agent_id] });
       queryClient.setQueryData(
         ['agent-triggers', newTrigger.agent_id],
         (old: TriggerConfiguration[] | undefined) => {
@@ -129,6 +130,7 @@ export const useUpdateTrigger = () => {
   return useMutation({
     mutationFn: updateTrigger,
     onSuccess: (updatedTrigger) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', updatedTrigger.agent_id] });
       queryClient.setQueryData(
         ['agent-triggers', updatedTrigger.agent_id],
         (old: TriggerConfiguration[] | undefined) => {
@@ -147,7 +149,8 @@ export const useDeleteTrigger = () => {
   
   return useMutation({
     mutationFn: deleteTrigger,
-    onSuccess: (_, triggerId) => {
+    onSuccess: (_, { triggerId, agentId }) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agent-triggers'] });
     },
   });
@@ -164,6 +167,7 @@ export const useToggleTrigger = () => {
       });
     },
     onSuccess: (updatedTrigger) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-upcoming-runs', updatedTrigger.agent_id] });
       queryClient.setQueryData(
         ['agent-triggers', updatedTrigger.agent_id],
         (old: TriggerConfiguration[] | undefined) => {

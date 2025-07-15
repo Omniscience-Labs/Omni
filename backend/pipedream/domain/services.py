@@ -12,7 +12,7 @@ class ExternalUserIdGeneratorService(ABC):
 
 
 class MCPQualifiedNameService(ABC):
-    
+
     @abstractmethod
     def generate(self, app_slug: AppSlug) -> str:
         pass

@@ -208,7 +208,7 @@ class TriggerManager:
                 name="Schedule",
                 description="Schedule agent or workflow execution using Cloudflare Workers and cron expressions",
                 trigger_type="schedule",
-                provider_class="triggers.providers.schedule_provider.ScheduleTriggerProvider",
+                provider_class="triggers.infrastructure.providers.schedule_provider.ScheduleTriggerProvider",
                 webhook_enabled=True,
                 config_schema={
                     "type": "object",
