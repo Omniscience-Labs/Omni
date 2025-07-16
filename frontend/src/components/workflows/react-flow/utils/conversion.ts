@@ -10,27 +10,17 @@ interface ConversionResult {
 export function convertWorkflowToReactFlow(steps: ConditionalStep[]): ConversionResult {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-  
-  console.log('=== convertWorkflowToReactFlow ===');
-  console.log('Input steps:', steps);
-  console.log('Steps count:', steps.length);
-  
+
   if (steps.length === 0) {
     return { nodes, edges };
   }
   
-  // Helper function to process steps recursively
   const processSteps = (
     stepList: ConditionalStep[], 
     parentId: string | null = null,
     yOffset: number = 0,
     xOffset: number = 0
   ): { nodes: Node[]; edges: Edge[]; lastNodes: string[]; maxY: number } => {
-    console.log(`Processing ${stepList.length} steps at Y:${yOffset}, parent: ${parentId}`);
-    stepList.forEach((step, index) => {
-      console.log(`  Step ${index}: ${step.name} (${step.type}) - ${step.children?.length || 0} children`);
-    });
-    
     let previousNodeId = parentId;
     let currentY = yOffset;
     let lastNodes: string[] = [];
@@ -39,10 +29,7 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
     
     for (let i = 0; i < stepList.length; i++) {
       const step = stepList[i];
-      
-      // Check if this is the start of a condition group
       if (step.type === 'condition') {
-        // Collect all consecutive conditions (if/elseif/else group)
         const conditionGroup: ConditionalStep[] = [];
         let j = i;
         
@@ -51,7 +38,6 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
           j++;
         }
         
-        // Process the condition group as branches
         const branchResult = processConditionBranches(
           conditionGroup,
           previousNodeId,
@@ -64,14 +50,10 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
         nodes.push(...branchResult.nodes);
         edges.push(...branchResult.edges);
         
-        // Update tracking
         currentY = branchResult.maxY;
         lastNodes = branchResult.lastNodes;
-        
-        // Skip the conditions we just processed
         i = j - 1;
       } else {
-        // Regular step node
         const nodeId = step.id || uuid();
         
         const node: Node = {
@@ -88,32 +70,28 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
         
         localNodes.push(node);
         nodes.push(node);
-        
-        // Connect to previous node
         if (previousNodeId) {
-          const edge = {
-            id: `${previousNodeId}->${nodeId}`,
-            source: previousNodeId,
-            target: nodeId,
-            type: 'workflow',
-          };
-          localEdges.push(edge);
-          edges.push(edge);
+          const edgeId = `${previousNodeId}->${nodeId}`;
+          if (!edges.find(e => e.id === edgeId)) {
+            const edge = {
+              id: edgeId,
+              source: previousNodeId,
+              target: nodeId,
+              type: 'workflow',
+            };
+            localEdges.push(edge);
+            edges.push(edge);
+          }
         }
         
-        // Check if this step has nested condition children
         if (step.children && step.children.length > 0) {
           const conditionChildren = step.children.filter(child => child.type === 'condition');
           const regularChildren = step.children.filter(child => child.type !== 'condition');
-          
           if (conditionChildren.length > 0) {
-            console.log(`Step ${step.name} has ${conditionChildren.length} condition children`);
-            
-            // Process nested conditions as branches - tighter spacing
             const branchResult = processConditionBranches(
               conditionChildren,
               nodeId,
-              currentY + 120, // Reduced from 150 to 120 for tighter spacing
+              currentY + 120,
               xOffset
             );
             
@@ -122,15 +100,13 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
             nodes.push(...branchResult.nodes);
             edges.push(...branchResult.edges);
             
-            // Update tracking
             currentY = branchResult.maxY;
             lastNodes = branchResult.lastNodes;
           } else if (regularChildren.length > 0) {
-            // Process regular children recursively
             const childResult = processSteps(
               regularChildren,
               nodeId,
-              currentY + 150, // Reduced from 150 to 120 for consistency
+              currentY + 150,
               xOffset
             );
             
@@ -144,12 +120,12 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
           } else {
             previousNodeId = nodeId;
             lastNodes = [nodeId];
-            currentY += 120; // Reduced from 150 to 120 for consistency
+            currentY += 120;
           }
         } else {
           previousNodeId = nodeId;
           lastNodes = [nodeId];
-          currentY += 120; // Reduced from 150 to 120 for consistency
+          currentY += 120;
         }
       }
     }
@@ -157,7 +133,6 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
     return { nodes: localNodes, edges: localEdges, lastNodes, maxY: currentY };
   };
   
-  // Helper function to process condition branches
   const processConditionBranches = (
     conditions: ConditionalStep[],
     parentId: string | null,
@@ -169,17 +144,14 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
     const branchLastNodes: string[] = [];
     let maxY = yOffset;
     
-    // Calculate x positions for branches - natural spacing
     const branchCount = conditions.length;
-    const xSpacing = 200; // Clean spacing for React Flow
+    const xSpacing = 200;
     const startX = xOffset - ((branchCount - 1) * xSpacing / 2);
     
-    // Process each condition as a branch
     conditions.forEach((condition, index) => {
       const conditionNodeId = condition.id || uuid();
       const branchXPos = startX + index * xSpacing;
       
-      // Create condition label node with natural positioning
       const conditionNode: Node = {
         id: conditionNodeId,
         type: 'condition',
@@ -190,41 +162,39 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
         },
       };
       
-
-      
       branchNodes.push(conditionNode);
       
-      // Connect parent to condition
       if (parentId) {
-        branchEdges.push({
-          id: `${parentId}->${conditionNodeId}`,
-          source: parentId,
-          target: conditionNodeId,
-          type: 'workflow',
-          label: condition.conditions?.type === 'if' ? 'if' :
-                 condition.conditions?.type === 'elseif' ? 'else if' : 'else',
-          labelStyle: { fill: '#666', fontSize: 12 },
-          labelBgStyle: { fill: '#fff' },
-        });
+        const edgeId = `${parentId}->${conditionNodeId}`;
+        if (!edges.find(e => e.id === edgeId)) {
+          const edge = {
+            id: edgeId,
+            source: parentId,
+            target: conditionNodeId,
+            type: 'workflow',
+            label: condition.conditions?.type === 'if' ? 'if' :
+                   condition.conditions?.type === 'elseif' ? 'else if' : 'else',
+            labelStyle: { fill: '#666', fontSize: 12 },
+            labelBgStyle: { fill: '#fff' },
+          };
+          branchEdges.push(edge);
+          edges.push(edge);
+        }
       }
       
-      // Process children of this condition
       if (condition.children && condition.children.length > 0) {
         const childResult = processSteps(
           condition.children,
           conditionNodeId,
-          yOffset + 180, // Natural spacing for React Flow
+          yOffset + 180,
           branchXPos
         );
         
         branchNodes.push(...childResult.nodes);
         branchEdges.push(...childResult.edges);
-        
-        // Track the last nodes in this branch
         branchLastNodes.push(...childResult.lastNodes);
         maxY = Math.max(maxY, childResult.maxY);
       } else {
-        // Empty branch - condition is the end
         branchLastNodes.push(conditionNodeId);
         maxY = Math.max(maxY, yOffset + 180);
       }
@@ -238,32 +208,20 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
     };
   };
   
-  // Process all top-level steps
   const result = processSteps(steps, null, 0, 0);
-  
-  console.log('=== Final React Flow result ===');
-  console.log('Nodes:', nodes.length);
-  console.log('Edges:', edges.length);
-  console.log('Node names:', nodes.map(n => `${n.id}:${n.data.name}(${n.type})`));
-  
-  return { nodes, edges };
+  const uniqueEdges = edges.filter((edge, index, self) => 
+    index === self.findIndex(e => e.id === edge.id)
+  );
+  return { nodes, edges: uniqueEdges };
 }
 
-// Simple, clean conversion approach
 export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): ConditionalStep[] {
-  console.log('=== CLEAN convertReactFlowToWorkflow ===');
-  console.log('Input nodes:', nodes.map(n => `${n.id}:${n.data?.name || 'unnamed'}(${n.type})`));
-  console.log('Input edges:', edges.map(e => `${e.source}->${e.target}(${e.label || 'no-label'})`));
-  
   if (nodes.length === 0) {
     return [];
   }
-  
-  // Build adjacency map
   const childrenMap = new Map<string, Node[]>();
   const parentMap = new Map<string, string>();
   const edgeLabels = new Map<string, string>();
-  
   nodes.forEach(node => {
     childrenMap.set(node.id, []);
   });
@@ -280,23 +238,14 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
     }
   });
   
-  // Find root
   const rootNode = nodes.find(node => !parentMap.has(node.id));
   if (!rootNode) {
-    console.log('No root node found');
     return [];
   }
   
-  console.log('Root node:', rootNode.id, rootNode.data?.name);
-  
-  // Track visited nodes to prevent duplicates
   const visited = new Set<string>();
-  
-  // Convert node to step
   const convertNode = (node: Node): ConditionalStep => {
-    // Mark as visited
     visited.add(node.id);
-    
     const nodeData = node.data as any;
     const children = childrenMap.get(node.id) || [];
     
@@ -313,13 +262,9 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
         children: []
       };
       
-      // Separate condition children from regular children
       const conditionChildren = children.filter(child => child.type === 'condition');
       const regularChildren = children.filter(child => child.type !== 'condition');
       
-      console.log(`Step ${step.name}: ${conditionChildren.length} conditions, ${regularChildren.length} regular children`);
-      
-      // Process condition children as nested conditions
       conditionChildren.forEach(conditionChild => {
         if (!visited.has(conditionChild.id)) {
           const conditionStep = convertNode(conditionChild);
@@ -327,11 +272,9 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
         }
       });
       
-      // Return step with regular children to be processed as siblings
       return step;
     } else if (node.type === 'condition') {
       const edgeLabel = edgeLabels.get(node.id) || 'Condition';
-      
       const step: ConditionalStep = {
         id: node.id,
         name: edgeLabel,
@@ -348,27 +291,37 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
         children: []
       };
       
-      // Process all children of this condition
       children.forEach(child => {
         if (!visited.has(child.id)) {
-          const childStep = convertNode(child);
-          step.children!.push(childStep);
-          
-          // Process any regular children as siblings
-          const childRegularChildren = (childrenMap.get(child.id) || []).filter(c => c.type !== 'condition');
-          childRegularChildren.forEach(grandchild => {
-            if (!visited.has(grandchild.id)) {
-              const grandchildStep = convertNode(grandchild);
-              step.children!.push(grandchildStep);
+          const processSequentialChain = (startNode: Node): ConditionalStep[] => {
+            const chainSteps: ConditionalStep[] = [];
+            let currentNode = startNode;
+            
+            while (currentNode && !visited.has(currentNode.id)) {
+              const chainStep = convertNode(currentNode);
+              chainSteps.push(chainStep);
+              
+              const nodeChildren = childrenMap.get(currentNode.id) || [];
+              const nextStepNode = nodeChildren.find(c => c.type !== 'condition' && !visited.has(c.id));
+              
+              if (nextStepNode) {
+                currentNode = nextStepNode;
+              } else {
+                break;
+              }
             }
-          });
+            
+            return chainSteps;
+          };
+          
+          const chainSteps = processSequentialChain(child);
+          step.children!.push(...chainSteps);
         }
       });
       
       return step;
     }
     
-    // Fallback
     return {
       id: node.id,
       name: 'Unknown',
@@ -382,30 +335,30 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
     };
   };
   
-  // Process from root
   const result: ConditionalStep[] = [];
-  const rootStep = convertNode(rootNode);
-  result.push(rootStep);
-  
-  // Process any unvisited regular children of root as siblings
-  const rootRegularChildren = (childrenMap.get(rootNode.id) || []).filter(child => 
-    child.type !== 'condition' && !visited.has(child.id)
-  );
-  
-  rootRegularChildren.forEach(child => {
-    const childStep = convertNode(child);
-    result.push(childStep);
+  const processSequentialSteps = (startNode: Node) => {
+    let currentNode = startNode;
+    
+    while (currentNode && !visited.has(currentNode.id)) {
+      const step = convertNode(currentNode);
+      result.push(step);
+      
+      const children = childrenMap.get(currentNode.id) || [];
+      const nextStepNode = children.find(child => child.type !== 'condition' && !visited.has(child.id));
+      
+      if (nextStepNode) {
+        currentNode = nextStepNode;
+      } else {
+        break;
+      }
+    }
+  };
+  processSequentialSteps(rootNode);
+  nodes.forEach(node => {
+    if (!visited.has(node.id)) {
+      const step = convertNode(node);
+      result.push(step);
+    }
   });
-  
-  console.log('=== Final clean workflow result ===');
-  console.log('Steps:', result.length);
-  console.log('Visited nodes:', visited.size, 'of', nodes.length);
-  console.log('Step details:', result.map(s => ({
-    name: s.name,
-    type: s.type,
-    childrenCount: s.children?.length || 0,
-    conditions: s.conditions?.type || 'none'
-  })));
-  
   return result;
 } 

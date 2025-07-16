@@ -752,7 +752,7 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
           </DialogHeader>
           <PipedreamRegistry
             mode='profile-only'
-            showAgentSelector={true}
+            showAgentSelector={false}
             onAppSelected={handleAppSelect}
           />
         </DialogContent>

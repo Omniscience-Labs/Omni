@@ -7,6 +7,7 @@ from services.supabase import DBConnection
 from services import redis
 from utils.logger import logger, structlog
 from run_agent_background import run_agent_background
+from .workflow_parser import WorkflowParser, format_workflow_for_llm
 
 
 class TriggerExecutionService:
@@ -677,75 +678,11 @@ class WorkflowPromptBuilder:
         input_data: dict = None,
         available_tools: list = None
     ) -> str:
-        import json
-        
-        llm_workflow = {
-            "workflow": workflow['name'],
-            "steps": self._convert_steps_to_llm_format(steps_json)
-        }
-        
-        if workflow.get('description'):
-            llm_workflow["description"] = workflow['description']
-        
-        workflow_json = json.dumps(llm_workflow, indent=2)
-        tools_list = ', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'
-        input_json = json.dumps(input_data) if input_data else 'None provided'
-        
-        return f"""You are executing a structured workflow. Follow the steps exactly as specified in the JSON below.
-
-WORKFLOW STRUCTURE:
-{workflow_json}
-
-EXECUTION INSTRUCTIONS:
-1. Execute each step in the order presented
-2. For steps with a "tool" field, you MUST use that specific tool
-3. For conditional steps (with "condition" field):
-   - Evaluate the condition based on the current context
-   - If the condition is true (or if it's an "else" condition), execute the steps in the "then" array
-   - State clearly which branch you're taking and why
-4. Provide clear progress updates as you complete each step
-5. If a tool is not available, explain what you would do instead
-
-AVAILABLE TOOLS:
-{tools_list}
-
-IMPORTANT TOOL USAGE:
-- When a step specifies a tool, that tool MUST be used
-- If the specified tool is not available, explain what you would do instead
-- Use only the tools that are listed as available
-
-Current input data: {input_json}
-
-Begin executing the workflow now, starting with the first step."""
+        return format_workflow_for_llm(
+            workflow_config=workflow,
+            steps=steps_json,
+            input_data=input_data,
+            available_tools=available_tools
+        )
     
-    def _convert_steps_to_llm_format(self, steps: list) -> list:
-        result = []
-        for step in steps:
-            llm_step = {"step": step['name']}
-            
-            if step.get('description'):
-                llm_step["description"] = step['description']
-            
-            if step.get('config', {}).get('tool_name'):
-                tool_name = step['config']['tool_name']
-                if ':' in tool_name:
-                    _, clean_tool_name = tool_name.split(':', 1)
-                    llm_step["tool"] = clean_tool_name
-                else:
-                    llm_step["tool"] = tool_name
-            
-            if step['type'] == 'condition' and step.get('conditions'):
-                condition_type = step['conditions'].get('type')
-                if condition_type == 'if' and step['conditions'].get('expression'):
-                    llm_step["condition"] = step['conditions']['expression']
-                elif condition_type == 'elseif' and step['conditions'].get('expression'):
-                    llm_step["condition"] = f"else if {step['conditions']['expression']}"
-                elif condition_type == 'else':
-                    llm_step["condition"] = "else"
-                
-                if step.get('children'):
-                    llm_step["then"] = self._convert_steps_to_llm_format(step['children'])
-            
-            result.append(llm_step)
-        
-        return result 
+ 

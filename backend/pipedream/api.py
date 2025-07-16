@@ -413,7 +413,7 @@ async def get_popular_pipedream_apps():
     logger.info("Fetching popular Pipedream apps")
     
     try:
-        apps = await pipedream_manager.get_popular_apps()
+        apps = await pipedream_manager.get_popular_apps(limit=100)
         
         apps_data = []
         for app in apps:

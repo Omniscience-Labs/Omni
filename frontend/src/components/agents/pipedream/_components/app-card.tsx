@@ -51,7 +51,7 @@ export const AppCard: React.FC<AppCardProps> = ({
 
   const handleConnectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (mode === 'simple') {
+    if (mode === 'simple' || mode === 'profile-only') {
       onAppSelected?.({ app_slug: app.name_slug, app_name: app.name });
     } else {
       onConnectApp?.(app);

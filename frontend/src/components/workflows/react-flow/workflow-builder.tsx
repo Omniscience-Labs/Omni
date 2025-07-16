@@ -20,9 +20,9 @@ import {
 import '@xyflow/react/dist/style.css';
 import './index.css';
 
-import useLayout from './hooks/useLayout';
-import nodeTypes from './NodeTypes';
-import edgeTypes from './EdgeTypes';
+import useLayout from './hooks/use-layout';
+import nodeTypes from './node-types';
+import edgeTypes from './edge-types';
 import { ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 import { uuid } from './utils';
 import { convertWorkflowToReactFlow, convertReactFlowToWorkflow } from './utils/conversion';
@@ -38,7 +38,7 @@ import { toast } from 'sonner';
 
 const proOptions: ProOptions = { account: 'paid-pro', hideAttribution: true };
 
-interface ReactFlowWorkflowBuilderProps {
+interface WorkflowBuilderProps {
   steps: ConditionalStep[];
   onStepsChange: (steps: ConditionalStep[]) => void;
   agentTools?: {
@@ -48,93 +48,43 @@ interface ReactFlowWorkflowBuilderProps {
   isLoadingTools?: boolean;
 }
 
-function ReactFlowWorkflowBuilderInner({ 
+function WorkflowBuilderInner({ 
   steps, 
   onStepsChange, 
   agentTools,
   isLoadingTools 
-}: ReactFlowWorkflowBuilderProps) {
-  // This hook call ensures that the layout is re-calculated every time the graph changes
+}: WorkflowBuilderProps) {
   useLayout();
-  
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
-  // Debug wrapper for node changes
   const onNodesChangeDebug = useCallback((changes: any) => {
-    console.log('=== NODES CHANGED ===');
-    console.log('Node changes:', changes);
     onNodesChange(changes);
   }, [onNodesChange]);
   
-  // Debug wrapper for edge changes
   const onEdgesChangeDebug = useCallback((changes: any) => {
-    console.log('=== EDGES CHANGED ===');
-    console.log('Edge changes:', changes);
     onEdgesChange(changes);
   }, [onEdgesChange]);
+
   const [isInternalUpdate, setIsInternalUpdate] = useState(false);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const lastConvertedSteps = useRef<string>('');
   
-  // Debug: Monitor nodes/edges state changes
   useEffect(() => {
-    console.log('=== NODES STATE CHANGED ===');
-    console.log('Current nodes count:', nodes.length);
-    console.log('Current nodes:', nodes.map(n => ({ id: n.id, name: n.data.name })));
-  }, [nodes]);
-  
-  useEffect(() => {
-    console.log('=== EDGES STATE CHANGED ===');
-    console.log('Current edges count:', edges.length);
-    console.log('Current edges:', edges.map(e => ({ id: e.id, source: e.source, target: e.target })));
-  }, [edges]);
-
-  // Sync React Flow state back to parent
-  useEffect(() => {
-    console.log('=== SYNC USEEFFECT TRIGGERED ===');
-    console.log('isInternalUpdate:', isInternalUpdate);
-    console.log('nodes.length:', nodes.length);
-    
     if (!isInternalUpdate && nodes.length > 0) {
-      console.log('=== SYNC: Converting React Flow to workflow ===');
       const convertedSteps = convertReactFlowToWorkflow(nodes, edges);
       const convertedStepsStr = JSON.stringify(convertedSteps);
-      
-      console.log('Converted steps:', convertedSteps);
-      console.log('Previous steps hash:', lastConvertedSteps.current);
-      console.log('Current steps hash:', convertedStepsStr);
-      
       if (convertedStepsStr !== lastConvertedSteps.current) {
-        console.log('Steps changed, updating parent');
-        console.log('Calling onStepsChange with:', convertedSteps);
         lastConvertedSteps.current = convertedStepsStr;
         onStepsChange(convertedSteps);
-      } else {
-        console.log('Steps unchanged, skipping update');
       }
-    } else {
-      console.log('Skipping sync - isInternalUpdate:', isInternalUpdate, 'nodes.length:', nodes.length);
     }
   }, [nodes, edges, isInternalUpdate, onStepsChange]);
 
-  // Initialize from steps or with default
   useEffect(() => {
-    console.log('=== INITIALIZATION ===');
-    console.log('Steps from parent:', steps);
-    console.log('Steps count:', steps.length);
-    
     setIsInternalUpdate(true);
-    
     if (steps.length > 0) {
-      console.log('Converting existing steps to React Flow format');
-      // Convert existing steps to React Flow format
       const { nodes: convertedNodes, edges: convertedEdges } = convertWorkflowToReactFlow(steps);
-      
-      console.log('Converted nodes:', convertedNodes);
-      console.log('Converted edges:', convertedEdges);
-      
-      // Add agentTools and handlers to each node
       const nodesWithTools = convertedNodes.map(node => ({
         ...node,
         data: {
@@ -148,8 +98,6 @@ function ReactFlowWorkflowBuilderInner({
       setNodes(nodesWithTools);
       setEdges(convertedEdges);
     } else if (nodes.length === 0) {
-      console.log('No steps from parent, creating default node');
-      // Initialize with default node
       const defaultNodes: Node[] = [
         {
           id: '1',
@@ -168,12 +116,10 @@ function ReactFlowWorkflowBuilderInner({
       setNodes(defaultNodes);
     }
     
-    // Reset flag after state updates
     setTimeout(() => {
-      console.log('Resetting isInternalUpdate flag');
       setIsInternalUpdate(false);
     }, 100);
-  }, []); // Only run on mount
+  }, []);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -198,19 +144,16 @@ function ReactFlowWorkflowBuilderInner({
     
     const newNodeId = uuid();
     
-    // Calculate position based on existing nodes
     const existingNodes = nodes;
     let position = { x: 0, y: 0 };
     let sourceNode = null;
     
     if (selectedNode) {
-      // Add after selected node
       sourceNode = nodes.find(n => n.id === selectedNode);
       if (sourceNode) {
         position = { x: sourceNode.position.x, y: sourceNode.position.y + 150 };
       }
     } else if (existingNodes.length > 0) {
-      // Find the bottommost node
       const bottomNode = existingNodes.reduce((prev, current) => 
         prev.position.y > current.position.y ? prev : current
       );
@@ -232,18 +175,11 @@ function ReactFlowWorkflowBuilderInner({
       },
     };
 
-    console.log('Adding new node:', newNode);
-    console.log('Current nodes count:', nodes.length);
-    console.log('Source node:', sourceNode);
-
     setNodes((nds) => {
-      console.log('Setting nodes - before:', nds.length);
       const newNodes = [...nds, newNode];
-      console.log('Setting nodes - after:', newNodes.length);
       return newNodes;
     });
 
-    // Connect to source node if exists
     if (sourceNode) {
       const newEdge = {
         id: `${sourceNode.id}->${newNodeId}`,
@@ -252,12 +188,12 @@ function ReactFlowWorkflowBuilderInner({
         type: 'workflow',
       };
       
-      console.log('Adding new edge:', newEdge);
-      
       setEdges((eds) => {
-        console.log('Setting edges - before:', eds.length);
+        const existingEdge = eds.find(e => e.id === newEdge.id);
+        if (existingEdge) {
+          return eds;
+        }
         const newEdges = [...eds, newEdge];
-        console.log('Setting edges - after:', newEdges.length);
         return newEdges;
       });
     }
@@ -274,7 +210,6 @@ function ReactFlowWorkflowBuilderInner({
 
     const conditions: Array<{ type: 'if' | 'elseif' | 'else'; id: string }> = [];
     
-    // Create condition nodes based on type
     if (type === 'if') {
       conditions.push({ type: 'if', id: uuid() });
     } else if (type === 'if-else') {
@@ -291,7 +226,6 @@ function ReactFlowWorkflowBuilderInner({
     const xSpacing = 300;
     const startX = sourceNode.position.x - ((conditions.length - 1) * xSpacing / 2);
 
-    // Create condition nodes
     conditions.forEach((condition, index) => {
       const conditionNode: Node = {
         id: condition.id,
@@ -309,8 +243,7 @@ function ReactFlowWorkflowBuilderInner({
       
       newNodes.push(conditionNode);
       
-      // Connect source to condition
-      newEdges.push({
+      const conditionEdge = {
         id: `${sourceNode.id}->${condition.id}`,
         source: sourceNode.id,
         target: condition.id,
@@ -319,12 +252,21 @@ function ReactFlowWorkflowBuilderInner({
                condition.type === 'elseif' ? 'else if' : 'else',
         labelStyle: { fill: '#666', fontSize: 12 },
         labelBgStyle: { fill: '#fff' },
-      });
+      };
+      
+      if (!newEdges.find(e => e.id === conditionEdge.id)) {
+        newEdges.push(conditionEdge);
+      }
     });
 
-    // Add all new nodes and edges
     setNodes((nds) => [...nds, ...newNodes]);
-    setEdges((eds) => [...eds, ...newEdges]);
+    setEdges((eds) => {
+      const combinedEdges = [...eds, ...newEdges];
+      const uniqueEdges = combinedEdges.filter((edge, index, self) => 
+        index === self.findIndex(e => e.id === edge.id)
+      );
+      return uniqueEdges;
+    });
   }, [selectedNode, nodes, handleNodeDelete, setNodes, setEdges]);
 
   return (
@@ -351,7 +293,6 @@ function ReactFlowWorkflowBuilderInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls />
-        
         <Panel position="top-left" className="react-flow__panel">
           <div className="workflow-panel-actions">
             <Button 
@@ -362,7 +303,6 @@ function ReactFlowWorkflowBuilderInner({
               <Plus className="h-4 w-4" />
               Add Step
             </Button>
-            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -398,10 +338,10 @@ function ReactFlowWorkflowBuilderInner({
   );
 }
 
-export function ReactFlowWorkflowBuilder(props: ReactFlowWorkflowBuilderProps) {
+export function WorkflowBuilder(props: WorkflowBuilderProps) {
   return (
     <ReactFlowProvider>
-      <ReactFlowWorkflowBuilderInner {...props} />
+      <WorkflowBuilderInner {...props} />
     </ReactFlowProvider>
   );
 } 

@@ -1,4 +1,4 @@
-import WorkflowEdge from './WorkflowEdge';
+import WorkflowEdge from './workflow-edge';
 
 const edgeTypes = {
   workflow: WorkflowEdge,

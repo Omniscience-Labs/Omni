@@ -46,7 +46,7 @@ export const AgentPipedreamToolsManager: React.FC<AgentPipedreamToolsManagerProp
   onOpenChange,
   onToolsUpdate
 }) => {
-  const { data, isLoading, error, handleUpdateTools, isUpdating, refetch } = usePipedreamToolsData(agentId, profileId);
+  const { data, isLoading, error, isUpdating, refetch } = usePipedreamToolsData(agentId, profileId);
   const [localTools, setLocalTools] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -104,7 +104,7 @@ export const AgentPipedreamToolsManager: React.FC<AgentPipedreamToolsManagerProp
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
     
-    handleUpdateTools(enabledTools);
+
     setHasChanges(false);
     
     // Notify parent component of the update

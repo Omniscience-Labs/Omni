@@ -4,7 +4,7 @@ import {
   EdgeProps,
   getSmoothStepPath,
 } from '@xyflow/react';
-import useEdgeClick from '../hooks/useEdgeClick';
+import useEdgeClick from '../hooks/use-edge-click';
 
 export default function WorkflowEdge({
   id,
@@ -29,7 +29,7 @@ export default function WorkflowEdge({
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 8, // Add some rounding to the perpendicular bends
+    borderRadius: 8,
   });
 
   return (

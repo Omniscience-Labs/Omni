@@ -20,7 +20,7 @@ import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } fro
 import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-query/agents/workflow-utils';
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
-import { ReactFlowWorkflowBuilder } from '@/components/workflows/react-flow/ReactFlowWorkflowBuilder';
+import { WorkflowBuilder } from '@/components/workflows/react-flow/workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
   let globalOrder = 1;
@@ -223,7 +223,6 @@ export default function WorkflowPage() {
   }, []);
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
-  const [useReactFlow, setUseReactFlow] = useState(true);
 
   useEffect(() => {
     if (isEditing && workflows.length > 0) {
@@ -387,29 +386,7 @@ export default function WorkflowPage() {
             </Popover>
           </div>
         </div>
-                <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setUseReactFlow(!useReactFlow)}
-            className="h-8"
-          >
-            {useReactFlow ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-            {useReactFlow ? 'Visual Builder' : 'List Builder'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              console.log('=== DEBUG LOG ===');
-              console.log('Current workflow steps:', steps);
-              console.log('Steps count:', steps.length);
-              console.log('Nested JSON:', convertToNestedJSON(steps));
-            }}
-            className="h-8"
-          >
-            Debug Log
-          </Button>
+        <div className="flex items-center gap-2">
         <Button 
           onClick={handleSave} 
           disabled={createWorkflowMutation.isPending || updateWorkflowMutation.isPending} 
@@ -424,25 +401,15 @@ export default function WorkflowPage() {
         </Button>
         </div>
       </div>
-      
       <div className="flex-1 overflow-auto">
-        <div className={useReactFlow ? "h-full" : "max-w-4xl mx-auto"}>
-          <div className={useReactFlow ? "h-full" : "p-6"}>
-                        {useReactFlow ? (
-              <ReactFlowWorkflowBuilder 
-                steps={steps}
-                onStepsChange={setStepsWithDebug}
-                agentTools={agentTools}
-                isLoadingTools={isLoadingTools}
-              />
-            ) : (
-            <ConditionalWorkflowBuilder 
+        <div className="h-full">
+          <div className="h-full">
+            <WorkflowBuilder 
               steps={steps}
               onStepsChange={setStepsWithDebug}
               agentTools={agentTools}
               isLoadingTools={isLoadingTools}
             />
-            )}
           </div>
         </div>
       </div>

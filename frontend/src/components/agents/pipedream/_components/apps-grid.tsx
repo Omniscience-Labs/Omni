@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TrendingUp, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, TrendingUp, Star, ArrowRight, ArrowLeft } from 'lucide-react';
 import { AppCard } from './app-card';
 import { getCategoryEmoji } from '../utils';
 import type { AppsGridProps } from '../types';
@@ -16,7 +17,9 @@ export const AppsGrid: React.FC<AppsGridProps> = ({
   onAppSelected,
   onConnectApp,
   onConfigureTools,
-  onCategorySelect
+  onCategorySelect,
+  onBrowseMore,
+  onBackToPopular
 }) => {
   const getSectionTitle = () => {
     if (selectedCategory === 'All') {
@@ -58,12 +61,39 @@ export const AppsGrid: React.FC<AppsGridProps> = ({
   return (
     <>
       <div className="mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          {getSectionIcon()}
-          <h2 className="text-md font-medium text-gray-900 dark:text-white">
-            {getSectionTitle()}
-          </h2>
-          {getSectionBadge()}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            {getSectionIcon()}
+            <h2 className="text-md font-medium text-gray-900 dark:text-white">
+              {getSectionTitle()}
+            </h2>
+            {getSectionBadge()}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {onBackToPopular && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBackToPopular}
+                className="text-xs"
+              >
+                <ArrowLeft className="h-3 w-3 mr-1" />
+                Back to Popular
+              </Button>
+            )}
+            {onBrowseMore && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBrowseMore}
+                className="text-xs"
+              >
+                Browse More
+                <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       

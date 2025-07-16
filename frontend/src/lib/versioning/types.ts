@@ -64,6 +64,11 @@ export interface CreateVersionRequest {
   description?: string;
 }
 
+export interface UpdateVersionDetailsRequest {
+  version_name?: string;
+  change_description?: string;
+}
+
 export interface VersionResponse {
   version_id: string;
   agent_id: string;
