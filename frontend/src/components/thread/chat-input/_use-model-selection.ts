@@ -52,9 +52,9 @@ export const MODELS = {
   },
 
   // Premium/Paid tier models (require subscription)
-  'sonnet-3.7': { 
+  'moonshotai/kimi-k2': { 
     tier: 'premium', 
-    priority: 99, 
+    priority: 99,
     recommended: false,
     lowQuality: false
   },
@@ -64,13 +64,13 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
-  'google/gemini-2.5-pro': { 
+  'sonnet-3.7': { 
     tier: 'premium', 
-    priority: 97,
+    priority: 97, 
     recommended: false,
     lowQuality: false
   },
-  'moonshotai/kimi-k2': { 
+  'google/gemini-2.5-pro': { 
     tier: 'premium', 
     priority: 96,
     recommended: false,
