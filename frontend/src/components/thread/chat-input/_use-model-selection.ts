@@ -51,7 +51,7 @@ export const MODELS = {
     lowQuality: false
   },
 
-  // All models now available in free tier
+  // Premium/Paid tier models (require subscription) - except specific free models
   'moonshotai/kimi-k2': { 
     tier: 'free', 
     priority: 99,
@@ -65,37 +65,37 @@ export const MODELS = {
     lowQuality: false
   },
   'sonnet-3.7': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 97, 
     recommended: false,
     lowQuality: false
   },
   'google/gemini-2.5-pro': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 96,
     recommended: false,
     lowQuality: false
   },
   'gpt-4.1': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 96,
     recommended: false,
     lowQuality: false
   },
   'sonnet-3.5': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 90,
     recommended: false,
     lowQuality: false
   },
   'gpt-4o': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 88,
     recommended: false,
     lowQuality: false
   },
   'gemini-2.5-flash:thinking': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 84,
     recommended: false,
     lowQuality: false
