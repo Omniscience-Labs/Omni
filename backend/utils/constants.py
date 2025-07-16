@@ -36,15 +36,33 @@ MODELS = {
         "tier_availability": ["free", "paid"]
     },
     
-    # Paid tier only models
+    # Additional free tier models
     "openrouter/deepseek/deepseek-chat-v3-0324": {
         "aliases": ["deepseek/deepseek-chat-v3-0324"],
         "pricing": {
             "input_cost_per_million_tokens": 0.38,
             "output_cost_per_million_tokens": 0.89
         },
-        "tier_availability": ["paid"]
+        "tier_availability": ["free", "paid"]
     },
+    "openrouter/moonshotai/kimi-k2": {
+        "aliases": ["moonshotai/kimi-k2"],
+        "pricing": {
+            "input_cost_per_million_tokens": 1.00,
+            "output_cost_per_million_tokens": 3.00
+        },
+        "tier_availability": ["free", "paid"]
+    },
+    "xai/grok-4": {
+        "aliases": ["grok-4"],
+        "pricing": {
+            "input_cost_per_million_tokens": 5.00,
+            "output_cost_per_million_tokens": 15.00
+        },
+        "tier_availability": ["free", "paid"]
+    },
+    
+    # Paid tier only models
     "openrouter/google/gemini-2.5-pro": {
         "aliases": ["google/gemini-2.5-pro"],
         "pricing": {

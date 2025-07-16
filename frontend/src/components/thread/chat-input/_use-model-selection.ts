@@ -51,26 +51,26 @@ export const MODELS = {
     lowQuality: false
   },
 
-  // Premium/Paid tier models (require subscription)
-  'sonnet-3.7': { 
-    tier: 'premium', 
-    priority: 99, 
+  // Premium/Paid tier models (require subscription) - except specific free models
+  'moonshotai/kimi-k2': { 
+    tier: 'free', 
+    priority: 99,
     recommended: false,
     lowQuality: false
   },
   'grok-4': { 
-    tier: 'premium', 
+    tier: 'free', 
     priority: 98,
     recommended: false,
     lowQuality: false
   },
-  'google/gemini-2.5-pro': { 
+  'sonnet-3.7': { 
     tier: 'premium', 
-    priority: 97,
+    priority: 97, 
     recommended: false,
     lowQuality: false
   },
-  'moonshotai/kimi-k2': { 
+  'google/gemini-2.5-pro': { 
     tier: 'premium', 
     priority: 96,
     recommended: false,
@@ -101,7 +101,7 @@ export const MODELS = {
     lowQuality: false
   },
   'deepseek/deepseek-chat-v3-0324': { 
-    tier: 'premium', 
+    tier: 'free', 
     priority: 75,
     recommended: false,
     lowQuality: false
