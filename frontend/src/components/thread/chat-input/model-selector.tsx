@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, Search, AlertTriangle, Crown, ArrowUpRight, Brain, Plus, Edit, Trash, Cpu, Key } from 'lucide-react';
+import { Check, ChevronDown, Search, AlertTriangle, Crown, ArrowUpRight, Brain, Plus, Edit, Trash, Cpu, Key, KeyRound } from 'lucide-react';
 import {
   ModelOption,
   SubscriptionStatus,
@@ -680,14 +680,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Link
-                              href="/settings/llm-api-keys"
+                              href="/settings/env-manager"
                               className="h-6 w-6 p-0 flex items-center justify-center"
                             >
-                              <Key className="h-3.5 w-3.5" />
+                              <KeyRound className="h-3.5 w-3.5" />
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
-                            Manage API Keys
+                          Local .Env Manager
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

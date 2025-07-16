@@ -17,7 +17,7 @@ import {
   AudioWaveform,
   Sun,
   Moon,
-  Key,
+  KeyRound,
 } from 'lucide-react';
 import { useAccounts } from '@/hooks/use-accounts';
 import NewTeamForm from '@/components/basejump/new-team-form';
@@ -289,9 +289,9 @@ export function NavUserWithTeams({
                   </Link>
                 </DropdownMenuItem>
                 {isLocalMode() && <DropdownMenuItem asChild>
-                  <Link href="/settings/llm-api-keys">
-                    <Key className="h-4 w-4" />
-                    LLM API Keys
+                  <Link href="/settings/env-manager">
+                    <KeyRound className="h-4 w-4" />
+                    Local .Env Manager
                   </Link>
                 </DropdownMenuItem>}
                 {/* <DropdownMenuItem asChild>

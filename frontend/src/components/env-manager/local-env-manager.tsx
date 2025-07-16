@@ -16,15 +16,16 @@ interface APIKeyForm {
     [key: string]: string;
 }
 
-export function LLMApiKeys() {
+export function LocalEnvManager() {
   const queryClient = useQueryClient();
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const {data: apiKeys, isLoading} = useQuery({
     queryKey: ['api-keys'],
     queryFn: async() => {
-      const response = await backendApi.get('/local-llm-keys');
+      const response = await backendApi.get('/env-vars');
       return response.data;
     },
+    enabled: isLocalMode()
   });
 
   const { register, handleSubmit, formState: { errors, isDirty }, reset } = useForm<APIKeyForm>({
@@ -36,7 +37,7 @@ export function LLMApiKeys() {
   }
   const updateApiKeys = useMutation({
     mutationFn: async (data: APIKeyForm) => {
-      const response = await backendApi.post('/local-llm-keys', data);
+      const response = await backendApi.post('/env-vars', data);
       await queryClient.invalidateQueries({ queryKey: ['api-keys'] });
       return response.data;
     },
@@ -50,7 +51,7 @@ export function LLMApiKeys() {
 
   const keysArray = apiKeys ? Object.entries(apiKeys).map(([key, value]) => ({
     id: key,
-    name: key.replace(/_/g, " ").replace("KEY", "Key"),
+    name: key,
     value: value
   })) : [];
 
@@ -70,7 +71,7 @@ export function LLMApiKeys() {
   if (isLoading) {
     return <Card>
       <CardHeader>
-        <CardTitle>API Keys</CardTitle>
+        <CardTitle>Local .Env Manager</CardTitle>
         <CardDescription>Loading...</CardDescription>
       </CardHeader>
     </Card>;
@@ -78,15 +79,15 @@ export function LLMApiKeys() {
 
   return <Card>
     <CardHeader>
-      <CardTitle>API Keys</CardTitle>
+      <CardTitle>Local .Env Manager</CardTitle>
       <CardDescription>
         {isLocalMode() ? (
           <>
-            Manage your API keys for various Language Model providers.
+            Manage your local environment variables
           </>
         ) : (
           <>
-            API key management is only available in local mode.
+            Local .Env Manager is only available in local mode.
           </>
         )}
       </CardDescription>
@@ -95,7 +96,7 @@ export function LLMApiKeys() {
     {isLocalMode() && (
         <CardContent>
             <form onSubmit={handleSubmit(handleSave)} className="space-y-4">
-                {keysArray && keysArray?.map((key: any) => (
+                {keysArray && keysArray?.map(key => (
                   
                     <div key={key.id} className="space-y-2">
                         <Label htmlFor={key.id}>{key.name}</Label>
