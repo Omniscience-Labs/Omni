@@ -35,8 +35,6 @@ MODELS = {
         },
         "tier_availability": ["free", "paid"]
     },
-    
-    # Additional free tier models
     "openrouter/deepseek/deepseek-chat-v3-0324": {
         "aliases": ["deepseek/deepseek-chat-v3-0324"],
         "pricing": {
@@ -68,14 +66,6 @@ MODELS = {
         "pricing": {
             "input_cost_per_million_tokens": 1.25,
             "output_cost_per_million_tokens": 10.00
-        },
-        "tier_availability": ["paid"]
-    },
-    "openrouter/moonshotai/kimi-k2": {
-        "aliases": ["moonshotai/kimi-k2", "kimi-k2"],
-        "pricing": {
-            "input_cost_per_million_tokens": 1.00,
-            "output_cost_per_million_tokens": 3.00
         },
         "tier_availability": ["paid"]
     },
@@ -118,17 +108,7 @@ MODELS = {
             "output_cost_per_million_tokens": 15.00
         },
         "tier_availability": ["paid"]
-    },
-    
-    "xai/grok-4": {
-        "aliases": ["grok-4", "x-ai/grok-4"],
-        "pricing": {
-            "input_cost_per_million_tokens": 5.00,
-            "output_cost_per_million_tokens": 15.00
-        },
-        "tier_availability": ["paid"]
-    },
-    
+    },   
 }
 
 # Derived structures (auto-generated from MODELS)
