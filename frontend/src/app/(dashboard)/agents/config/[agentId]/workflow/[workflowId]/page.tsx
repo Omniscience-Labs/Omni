@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Save,
-  Edit2,
   Settings,
   GitBranch,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } fro
 import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-query/agents/workflow-utils';
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
+import { ReactFlowWorkflowBuilder } from '@/components/workflows/react-flow/ReactFlowWorkflowBuilder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
   let globalOrder = 1;
@@ -42,7 +44,6 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
       return jsonStep;
     });
   };
-  
   return convertStepsWithNesting(steps);
 };
 
@@ -51,6 +52,11 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
   
   const convertStepsFromNested = (stepList: any[]): ConditionalStep[] => {
     return stepList.map((step) => {
+      console.log('Converting nested step:', step.name, step.type);
+      if (step.children && step.children.length > 0) {
+        console.log(`  Step ${step.name} has ${step.children.length} children:`, step.children.map((c: any) => c.name));
+      }
+      
       const conditionalStep: ConditionalStep = {
         id: step.id || Math.random().toString(36).substr(2, 9),
         name: step.name,
@@ -59,17 +65,23 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
         config: step.config || {},
         order: step.order || step.step_order || 0,
         enabled: step.enabled !== false,
-        hasIssues: step.hasIssues || false
+        hasIssues: step.hasIssues || false,
+        children: [] // Initialize children array
       };
       
+      // Handle condition metadata
       if (step.type === 'condition' && step.conditions) {
+        console.log(`  Adding conditions to ${step.name}:`, step.conditions);
         conditionalStep.conditions = step.conditions;
       }
+      
+      // Handle children - this is crucial for nested conditions
       if (step.children && Array.isArray(step.children) && step.children.length > 0) {
+        console.log(`  Converting ${step.children.length} children for ${step.name}`);
         conditionalStep.children = convertStepsFromNested(step.children);
-      } else {
-        conditionalStep.children = [];
       }
+      
+      console.log(`  Converted step ${step.name}:`, conditionalStep);
       return conditionalStep;
     });
   };
@@ -201,8 +213,17 @@ export default function WorkflowPage() {
   const [triggerPhrase, setTriggerPhrase] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [steps, setSteps] = useState<ConditionalStep[]>([]);
+  
+  // Debug wrapper for setSteps
+  const setStepsWithDebug = useCallback((newSteps: ConditionalStep[]) => {
+    console.log('=== PARENT: setSteps called ===');
+    console.log('New steps:', newSteps);
+    console.log('New steps count:', newSteps.length);
+    setSteps(newSteps);
+  }, []);
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
+  const [useReactFlow, setUseReactFlow] = useState(true);
 
   useEffect(() => {
     if (isEditing && workflows.length > 0) {
@@ -215,15 +236,38 @@ export default function WorkflowPage() {
         let treeSteps: ConditionalStep[];
         try {
           // Check if workflow has proper nested structure
-          if (workflow.steps.some((step: any) => step.children && Array.isArray(step.children))) {
+          const hasNestedStructure = workflow.steps.some((step: any) => step.children && Array.isArray(step.children) && step.children.length > 0);
+          console.log('Has nested structure:', hasNestedStructure);
+          console.log('First few steps to check:', workflow.steps.slice(0, 3));
+          
+          if (hasNestedStructure) {
+            console.log('Using reconstructFromNestedJSON');
             treeSteps = reconstructFromNestedJSON(workflow.steps);
           } else {
+            console.log('Using reconstructFromFlatJSON');
             treeSteps = reconstructFromFlatJSON(workflow.steps);
           }
         } catch (error) {
           console.warn('Error reconstructing workflow steps, using fallback:', error);
           treeSteps = reconstructFromFlatJSON(workflow.steps);
         }
+        
+        console.log('=== LOADING EXISTING WORKFLOW ===');
+        console.log('Raw workflow from API:', workflow);
+        console.log('Raw workflow steps:', workflow.steps);
+        console.log('Loaded workflow steps:', treeSteps);
+        console.log('Loaded steps count:', treeSteps.length);
+        
+        // Debug: Check if steps have children
+        treeSteps.forEach((step, index) => {
+          console.log(`Step ${index}: ${step.name} (${step.type})`);
+          if (step.children && step.children.length > 0) {
+            console.log(`  Has ${step.children.length} children:`, step.children.map(c => `${c.name} (${c.type})`));
+          } else {
+            console.log('  No children');
+          }
+        });
+        
         setSteps(treeSteps);
         setIsLoading(false);
       } else if (!isLoadingWorkflows) {
@@ -239,7 +283,14 @@ export default function WorkflowPage() {
       toast.error('Please enter a workflow name');
       return;
     }
+    
+    console.log('=== SAVING WORKFLOW ===');
+    console.log('Steps before conversion:', steps);
+    console.log('Steps count:', steps.length);
+    
     const nestedSteps = convertToNestedJSON(steps);
+    console.log('Nested steps after conversion:', nestedSteps);
+    
     try {
       if (isEditing) {
         const updateRequest: UpdateWorkflowRequest = {
@@ -336,6 +387,29 @@ export default function WorkflowPage() {
             </Popover>
           </div>
         </div>
+                <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUseReactFlow(!useReactFlow)}
+            className="h-8"
+          >
+            {useReactFlow ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
+            {useReactFlow ? 'Visual Builder' : 'List Builder'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              console.log('=== DEBUG LOG ===');
+              console.log('Current workflow steps:', steps);
+              console.log('Steps count:', steps.length);
+              console.log('Nested JSON:', convertToNestedJSON(steps));
+            }}
+            className="h-8"
+          >
+            Debug Log
+          </Button>
         <Button 
           onClick={handleSave} 
           disabled={createWorkflowMutation.isPending || updateWorkflowMutation.isPending} 
@@ -348,17 +422,27 @@ export default function WorkflowPage() {
             : 'Save Workflow'
           }
         </Button>
+        </div>
       </div>
       
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto">
-          <div className="p-6">
+        <div className={useReactFlow ? "h-full" : "max-w-4xl mx-auto"}>
+          <div className={useReactFlow ? "h-full" : "p-6"}>
+                        {useReactFlow ? (
+              <ReactFlowWorkflowBuilder 
+                steps={steps}
+                onStepsChange={setStepsWithDebug}
+                agentTools={agentTools}
+                isLoadingTools={isLoadingTools}
+              />
+            ) : (
             <ConditionalWorkflowBuilder 
               steps={steps}
-              onStepsChange={setSteps}
+              onStepsChange={setStepsWithDebug}
               agentTools={agentTools}
               isLoadingTools={isLoadingTools}
             />
+            )}
           </div>
         </div>
       </div>
