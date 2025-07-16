@@ -70,6 +70,12 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
+  'moonshotai/kimi-k2': { 
+    tier: 'premium', 
+    priority: 96,
+    recommended: false,
+    lowQuality: false
+  },
   'gpt-4.1': { 
     tier: 'premium', 
     priority: 96,

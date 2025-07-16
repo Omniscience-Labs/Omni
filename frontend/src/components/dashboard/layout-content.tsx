@@ -9,7 +9,7 @@ import { useAccounts } from '@/hooks/use-accounts';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { checkApiHealth } from '@/lib/api';
+import { useApiHealth } from '@/hooks/react-query';
 import { MaintenancePage } from '@/components/maintenance/maintenance-page';
 import { DeleteOperationProvider } from '@/contexts/DeleteOperationContext';
 import { StatusOverlay } from '@/components/ui/status-overlay';
@@ -28,37 +28,19 @@ export default function DashboardLayoutContent({
 }: DashboardLayoutContentProps) {
   // const [showPricingAlert, setShowPricingAlert] = useState(false)
   const [showMaintenanceAlert, setShowMaintenanceAlert] = useState(false);
-  const [isApiHealthy, setIsApiHealthy] = useState(true);
-  const [isCheckingHealth, setIsCheckingHealth] = useState(true);
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const { data: healthData, isLoading: isCheckingHealth, error: healthError } = useApiHealth();
 
   useEffect(() => {
     // setShowPricingAlert(false)
     setShowMaintenanceAlert(false);
   }, []);
 
-  // Check API health
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const health = await checkApiHealth();
-        setIsApiHealthy(health.status === 'ok');
-      } catch (error) {
-        console.error('API health check failed:', error);
-        setIsApiHealthy(false);
-      } finally {
-        setIsCheckingHealth(false);
-      }
-    };
-
-    checkHealth();
-    // Check health every 30 seconds
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // API health is now managed by useApiHealth hook
+  const isApiHealthy = healthData?.status === 'ok' && !healthError;
 
   // Check authentication status
   useEffect(() => {
@@ -107,8 +89,8 @@ export default function DashboardLayoutContent({
     return null;
   }
 
-  // Show maintenance page if API is not healthy
-  if (!isApiHealthy) {
+  // Show maintenance page if API is not healthy (but not during initial loading)
+  if (!isCheckingHealth && !isApiHealthy) {
     return <MaintenancePage />;
   }
 
