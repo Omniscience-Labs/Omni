@@ -38,6 +38,26 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
+const getCronDescription = (cron: string): string => {
+  const cronDescriptions: Record<string, string> = {
+    '0 9 * * *': 'Daily at 9:00 AM',
+    '0 18 * * *': 'Daily at 6:00 PM',
+    '0 9 * * 1-5': 'Weekdays at 9:00 AM',
+    '0 10 * * 1-5': 'Weekdays at 10:00 AM',
+    '0 9 * * 1': 'Every Monday at 9:00 AM',
+    '0 9 1 * *': 'Monthly on the 1st at 9:00 AM',
+    '0 9 1 1 *': 'Yearly on Jan 1st at 9:00 AM',
+    '0 */2 * * *': 'Every 2 hours',
+    '*/30 * * * *': 'Every 30 minutes',
+    '0 0 * * *': 'Daily at midnight',
+    '0 12 * * *': 'Daily at noon',
+    '0 9 * * 0': 'Every Sunday at 9:00 AM',
+    '0 9 * * 6': 'Every Saturday at 9:00 AM',
+  };
+
+  return cronDescriptions[cron] || cron;
+};
+
 export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
   triggers,
   onEdit,
@@ -76,7 +96,16 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     {truncateString(trigger.description, 50)}
                   </p>
                 )}
-                
+                {trigger.trigger_type === 'schedule' && trigger.config && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {trigger.config.execution_type === 'agent' && trigger.config.agent_prompt && (
+                      <p>Prompt: {truncateString(trigger.config.agent_prompt, 40)}</p>
+                    )}
+                    {trigger.config.execution_type === 'workflow' && trigger.config.workflow_id && (
+                      <p>Workflow: {trigger.config.workflow_id}</p>
+                    )}
+                  </div>
+                )}
                 {trigger.webhook_url && (
                   <div className="flex items-center space-x-2 mt-2">
                     <code className="text-xs bg-muted px-2 py-1 rounded font-mono max-w-xs truncate">
@@ -118,7 +147,6 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                 )}
               </div>
             </div>
-            
             <div className="flex items-center space-x-2">
               <Tooltip>
                 <TooltipTrigger asChild>

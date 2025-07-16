@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Bot } from 'lucide-react';
-import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
+import { usePipedreamApps, usePipedreamPopularApps } from '@/hooks/react-query/pipedream/use-pipedream';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { PipedreamConnector } from './pipedream-connector';
@@ -20,12 +20,13 @@ import {
 } from './_components';
 import { PAGINATION_CONSTANTS } from './constants';
 import {
-  getCategoriesFromApps,
+  getSimplifiedCategories,
   createConnectedAppsFromProfiles,
   getAgentPipedreamProfiles,
   filterAppsByCategory
 } from './utils';
 import type { PipedreamRegistryProps, ConnectedApp } from './types';
+import { usePathname } from 'next/navigation';
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onToolsSelected,
@@ -34,7 +35,9 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onClose,
   showAgentSelector = false,
   selectedAgentId,
-  onAgentChange
+  onAgentChange,
+  versionData,
+  versionId
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -49,11 +52,14 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     appName: string;
     profileName: string;
   } | null>(null);
+  const pathname = usePathname();
+  const isHomePage = pathname.includes('dashboard');
   
   const [internalSelectedAgentId, setInternalSelectedAgentId] = useState<string | undefined>(selectedAgentId);
 
   const queryClient = useQueryClient();
   const { data: appsData, isLoading, error, refetch } = usePipedreamApps(after, search);
+  const { data: popularAppsData, isLoading: isLoadingPopular } = usePipedreamPopularApps();
   const { data: profiles } = usePipedreamProfiles();
   
   const currentAgentId = selectedAgentId ?? internalSelectedAgentId;
@@ -83,19 +89,47 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     return allAppsData?.apps || [];
   }, [allAppsData?.apps]);
 
+  const effectiveVersionData = useMemo(() => {
+    if (versionData) return versionData;
+    if (!agent) return undefined;
+    
+    if (agent.current_version) {
+      return {
+        configured_mcps: agent.current_version.configured_mcps || [],
+        custom_mcps: agent.current_version.custom_mcps || [],
+        system_prompt: agent.current_version.system_prompt || '',
+        agentpress_tools: agent.current_version.agentpress_tools || {}
+      };
+    }
+    
+    return {
+      configured_mcps: agent.configured_mcps || [],
+      custom_mcps: agent.custom_mcps || [],
+      system_prompt: agent.system_prompt || '',
+      agentpress_tools: agent.agentpress_tools || {}
+    };
+  }, [versionData, agent]);
+
   const agentPipedreamProfiles = useMemo(() => {
-    return getAgentPipedreamProfiles(agent, profiles, currentAgentId);
-  }, [agent, profiles, currentAgentId]);
+    return getAgentPipedreamProfiles(agent, profiles, currentAgentId, effectiveVersionData);
+  }, [agent, profiles, currentAgentId, effectiveVersionData]);
 
   const categories = useMemo(() => {
-    return getCategoriesFromApps(allApps);
-  }, [allApps]);
+    return getSimplifiedCategories();
+  }, []);
 
   const connectedProfiles = useMemo(() => {
     return profiles?.filter(p => p.is_connected) || [];
   }, [profiles]);
 
   const filteredAppsData = useMemo(() => {
+    if (selectedCategory === 'Popular') {
+      return popularAppsData ? {
+        ...popularAppsData,
+        apps: popularAppsData.apps || []
+      } : undefined;
+    }
+    
     if (!appsData) return appsData;
     
     if (selectedCategory === 'All') {
@@ -112,7 +146,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
         count: filteredApps.length
       }
     };
-  }, [appsData, selectedCategory]);
+  }, [appsData, popularAppsData, selectedCategory]);
 
   const connectedApps: ConnectedApp[] = useMemo(() => {
     return createConnectedAppsFromProfiles(connectedProfiles, allApps);
@@ -128,6 +162,9 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     setSelectedCategory(category);
     setAfter(undefined);
     setPaginationHistory([]);
+    if (category === 'Popular' && search) {
+      setSearch('');
+    }
   };
 
   const handleNextPage = () => {
@@ -271,7 +308,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                       apps={filteredAppsData.apps}
                       selectedCategory={selectedCategory}
                       mode={mode}
-                      isLoading={isLoading}
+                      isLoading={selectedCategory === 'Popular' ? isLoadingPopular : isLoading}
                       currentAgentId={currentAgentId}
                       agent={agent}
                       agentPipedreamProfiles={agentPipedreamProfiles}
@@ -280,7 +317,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                       onConfigureTools={handleConfigureTools}
                       onCategorySelect={handleCategorySelect}
                     />
-                  ) : !isLoading ? (
+                  ) : !(selectedCategory === 'Popular' ? isLoadingPopular : isLoading) ? (
                     <EmptyState
                       selectedCategory={selectedCategory}
                       mode={mode}
@@ -291,7 +328,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                       apps={[]}
                       selectedCategory={selectedCategory}
                       mode={mode}
-                      isLoading={isLoading}
+                      isLoading={selectedCategory === 'Popular' ? isLoadingPopular : isLoading}
                       currentAgentId={currentAgentId}
                       agent={agent}
                       agentPipedreamProfiles={agentPipedreamProfiles}
@@ -324,6 +361,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           onOpenChange={setShowStreamlinedConnector}
           onComplete={handleConnectionComplete}
           mode={mode === 'profile-only' ? 'profile-only' : 'full'}
+          agentId={currentAgentId}
+          saveMode={isHomePage ? 'direct' : 'callback'}
         />
       )}
       {selectedToolsProfile && currentAgentId && (
@@ -343,6 +382,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           onToolsUpdate={(enabledTools) => {
             queryClient.invalidateQueries({ queryKey: ['agent', currentAgentId] });
           }}
+          versionData={effectiveVersionData}
+          versionId={versionId}
         />
       )}
     </div>

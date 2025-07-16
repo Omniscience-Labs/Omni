@@ -1,29 +1,36 @@
-from .client import (
-    PipedreamClient,
-    PipedreamConfig,
-    get_pipedream_client,
-    initialize_pipedream_client
+from utils.logger import logger
+from services.supabase import DBConnection
+
+from .facade import PipedreamManager
+from .domain.entities import (
+    Profile,
+    Connection,
+    App,
+    MCPServer,
+    MCPTool,
+    ConnectionStatus,
+    AuthType
 )
 
-from .profiles import (
-    ProfileManager,
-    get_profile_manager,
-    PipedreamProfile,
-    CreateProfileRequest,
-    UpdateProfileRequest
+db = DBConnection()
+
+pipedream_manager = PipedreamManager(
+    db=db,
+    logger=logger
 )
 
 from . import api
+api.pipedream_manager = pipedream_manager
 
 __all__ = [
-    "PipedreamClient",
-    "PipedreamConfig", 
-    "get_pipedream_client",
-    "initialize_pipedream_client",
-    "ProfileManager",
-    "get_profile_manager",
-    "PipedreamProfile",
-    "CreateProfileRequest",
-    "UpdateProfileRequest",
-    "api"
+    'PipedreamManager',
+    'Profile',
+    'Connection', 
+    'App',
+    'MCPServer',
+    'MCPTool',
+    'ConnectionStatus',
+    'AuthType',
+    'pipedream_manager',
+    'api'
 ]

@@ -40,14 +40,16 @@ export const ProfileConnector: React.FC<ProfileConnectorProps> = ({
 
   const createProfileMutation = useCreateCredentialProfile();
   const { data: serverDetails } = useMCPServerDetails(step.qualified_name);
-  const { data: pipedreamProfiles } = usePipedreamProfiles();
-
+  
   const isPipedreamStep = step.type === 'pipedream_profile';
+  
+  const { data: pipedreamProfiles } = usePipedreamProfiles(
+    isPipedreamStep ? { app_slug: step.app_slug, is_active: true } : undefined
+  );
   const configProperties = serverDetails?.connections?.[0]?.configSchema?.properties || {};
   const requiredFields = serverDetails?.connections?.[0]?.configSchema?.required || [];
-  const hasConnectedPipedreamProfile = pipedreamProfiles?.some(p => 
-    p.app_slug === step.app_slug && p.is_connected
-  );
+  
+  const hasConnectedPipedreamProfile = pipedreamProfiles?.some(p => p.is_connected) || false;
 
   useEffect(() => {
     setProfileStep('select');

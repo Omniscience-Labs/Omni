@@ -27,7 +27,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { usePipedreamProfiles, useCreatePipedreamProfile, useUpdatePipedreamProfile, useDeletePipedreamProfile, useConnectPipedreamProfile } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
-import { usePipedreamApps } from '@/hooks/react-query/pipedream/use-pipedream';
+import { usePipedreamApps, usePipedreamAppIcon } from '@/hooks/react-query/pipedream/use-pipedream';
 import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 import { PipedreamConnector } from '@/components/agents/pipedream/pipedream-connector';
 import { useQueryClient } from '@tanstack/react-query';
@@ -100,6 +100,10 @@ const AppTable: React.FC<AppTableProps> = ({
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  const { data: iconData } = usePipedreamAppIcon(appSlug, {
+    enabled: !appImage
+  });
 
   const createProfile = useCreatePipedreamProfile();
   const connectProfile = useConnectPipedreamProfile();
@@ -341,12 +345,12 @@ const AppTable: React.FC<AppTableProps> = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center overflow-hidden border">
-            {appImage ? (
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center overflow-hidden">
+            {(appImage || iconData?.icon_url) ? (
               <img
-                src={appImage}
+                src={appImage || iconData?.icon_url || ''}
                 alt={appName}
-                className="h-5 w-5 object-cover"
+                className="h-full w-full object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -356,7 +360,7 @@ const AppTable: React.FC<AppTableProps> = ({
             ) : null}
             <span className={cn(
               "text-sm font-semibold text-muted-foreground",
-              appImage ? "hidden" : "block"
+              (appImage || iconData?.icon_url) ? "hidden" : "block"
             )}>
               {appName.charAt(0).toUpperCase()}
             </span>
@@ -548,7 +552,6 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
     return acc;
   }, {} as Record<string, PipedreamProfile[]>) || {};
 
-  // Filter profiles based on search query
   const filteredProfilesByApp = useMemo(() => {
     if (!searchQuery.trim()) {
       return profilesByApp;
@@ -564,7 +567,6 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
         profile.app_name.toLowerCase().includes(query)
       );
 
-      // Include the app if the app name matches or if any profiles match
       if (appName.includes(query) || matchingProfiles.length > 0) {
         filtered[appSlug] = appName.includes(query) ? appProfiles : matchingProfiles;
       }
@@ -662,7 +664,6 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
         </Button>
       </div>
 
-      {/* Search Bar */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -751,6 +752,7 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
           </DialogHeader>
           <PipedreamRegistry
             mode='profile-only'
+            showAgentSelector={true}
             onAppSelected={handleAppSelect}
           />
         </DialogContent>

@@ -8,6 +8,7 @@ export const pipedreamKeys = {
   workflowRuns: (workflowId: string) => [...pipedreamKeys.all, 'workflow-runs', workflowId] as const,
   apps: (page: number, search?: string, category?: string) => [...pipedreamKeys.all, 'apps', page, search || '', category || ''] as const,
   appsSearch: (query: string, page: number, category?: string) => [...pipedreamKeys.all, 'apps', 'search', query, page, category || ''] as const,
+  popularApps: () => [...pipedreamKeys.all, 'apps', 'popular'] as const,
   availableTools: () => [...pipedreamKeys.all, 'available-tools'] as const,
   mcpDiscovery: (options?: { app_slug?: string; oauth_app_id?: string; custom?: boolean }) => 
     [...pipedreamKeys.all, 'mcp-discovery', options?.app_slug, options?.oauth_app_id, options?.custom] as const,

@@ -1,0 +1,136 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { container } from '../infrastructure/container';
+import { useVersionStore } from '../stores/version-store';
+import { CreateVersionRequest } from '../types';
+
+const versionService = container.getVersionService();
+
+const versionKeys = {
+  all: ['versions'] as const,
+  lists: () => [...versionKeys.all, 'list'] as const,
+  list: (agentId: string) => [...versionKeys.lists(), agentId] as const,
+  details: () => [...versionKeys.all, 'detail'] as const,
+  detail: (agentId: string, versionId: string) => [...versionKeys.details(), agentId, versionId] as const,
+  comparison: (agentId: string, v1: string, v2: string) => [...versionKeys.all, 'comparison', agentId, v1, v2] as const,
+};
+
+export const useAgentVersions = (agentId: string) => {
+  const { setVersions, setIsLoading, setError } = useVersionStore();
+  return useQuery({
+    queryKey: versionKeys.list(agentId),
+    queryFn: async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const versions = await versionService.getAllVersions(agentId);
+        setVersions(versions);
+        return versions;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to fetch versions';
+        setError(message);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+};
+
+export const useAgentVersion = (agentId: string, versionId: string | null | undefined) => {
+  const { setCurrentVersion } = useVersionStore();
+  console.log('versionId', versionId);
+  return useQuery({
+    queryKey: versionKeys.detail(agentId, versionId!),
+    queryFn: async () => {
+      const version = await versionService.getVersion(agentId, versionId!);
+      console.log('version', version);
+      setCurrentVersion(version);
+      return version;
+    },
+    enabled: !!agentId && !!versionId,
+    staleTime: 30000,
+  });
+};
+
+export const useCreateAgentVersion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ agentId, data }: { agentId: string; data: CreateVersionRequest }) => {
+      return versionService.createVersion(agentId, data);
+    },
+    onSuccess: (newVersion, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
+      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+      toast.success(`Created version ${newVersion.versionName}`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create version');
+    },
+  });
+};
+
+export const useActivateAgentVersion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ agentId, versionId }: { agentId: string; versionId: string }) => {
+      return versionService.activateVersion(agentId, versionId);
+    },
+    onSuccess: (_, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
+      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+      toast.success('Version activated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to activate version');
+    },
+  });
+};
+
+export const useCompareVersions = (
+  agentId: string,
+  version1Id?: string,
+  version2Id?: string
+) => {
+  const { setVersionComparison } = useVersionStore();
+
+  return useQuery({
+    queryKey: versionKeys.comparison(agentId, version1Id!, version2Id!),
+    queryFn: async () => {
+      const comparison = await versionService.compareVersions(
+        agentId,
+        version1Id!,
+        version2Id!
+      );
+      setVersionComparison(comparison);
+      return comparison;
+    },
+    enabled: !!agentId && !!version1Id && !!version2Id,
+    staleTime: 60000,
+  });
+};
+
+export const useRollbackToVersion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ agentId, versionId }: { agentId: string; versionId: string }) => {
+      return versionService.rollbackToVersion(agentId, versionId);
+    },
+    onSuccess: (newVersion, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
+      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+      toast.success(`Rolled back to version ${newVersion.versionName}`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to rollback version');
+    },
+  });
+}; 

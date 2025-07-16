@@ -389,8 +389,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           <div ref={messagesEndRef} />
         </div>
       </div>
-
-      <div className="flex-shrink-0 md:pb-4 md:px-12 px-4">
+      <div className="flex-shrink-0 md:pb-4 md:px-6 px-4">
         <ChatInput
           ref={chatInputRef}
           onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
@@ -410,7 +409,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison function to prevent unnecessary re-renders
+
   return (
     prevProps.agentId === nextProps.agentId &&
     JSON.stringify(prevProps.formData) === JSON.stringify(nextProps.formData) &&

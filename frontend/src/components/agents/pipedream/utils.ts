@@ -3,13 +3,8 @@ import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-t
 import { categoryEmojis, PAGINATION_CONSTANTS } from './constants';
 import type { ConnectedApp } from './types';
 
-export const getCategoriesFromApps = (apps: PipedreamApp[]) => {
-  const categorySet = new Set<string>();
-  apps.forEach((app) => {
-    app.categories.forEach(cat => categorySet.add(cat));
-  });
-  const sortedCategories = Array.from(categorySet).sort();
-  return ['All', ...sortedCategories];
+export const getSimplifiedCategories = () => {
+  return ['All', 'Popular'];
 };
 
 export const getPopularApps = (apps: PipedreamApp[]) => {
@@ -74,11 +69,17 @@ export const createConnectedAppsFromProfiles = (
 export const getAgentPipedreamProfiles = (
   agent: any,
   profiles: PipedreamProfile[],
-  currentAgentId?: string
+  currentAgentId?: string,
+  versionData?: {
+    configured_mcps?: any[];
+    custom_mcps?: any[];
+    system_prompt?: string;
+    agentpress_tools?: any;
+  }
 ) => {
   if (!agent || !profiles || !currentAgentId) return [];
-  
-  const customMcps = agent.custom_mcps || [];
+
+  const customMcps = versionData?.custom_mcps || agent.custom_mcps || [];
   const pipedreamMcps = customMcps.filter((mcp: any) => 
     mcp.config?.profile_id && mcp.config?.url?.includes('pipedream')
   );
@@ -90,10 +91,13 @@ export const getAgentPipedreamProfiles = (
 
   return usedProfiles.map(profile => {
     const mcpConfig = pipedreamMcps.find((mcp: any) => mcp.config?.profile_id === profile.profile_id);
+    const enabledTools = mcpConfig?.enabledTools || mcpConfig?.enabled_tools || [];
+    const toolsCount = enabledTools.length;
+    
     return {
       ...profile,
-      enabledTools: mcpConfig?.enabledTools || [],
-      toolsCount: mcpConfig?.enabledTools?.length || 0
+      enabledTools,
+      toolsCount
     };
   });
 };

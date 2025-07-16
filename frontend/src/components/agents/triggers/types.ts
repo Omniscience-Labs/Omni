@@ -1,7 +1,7 @@
 export interface TriggerProvider {
   provider_id: string;
   name: string;
-  description: string;
+  description?: string;
   trigger_type: string;
   webhook_enabled: boolean;
   config_schema: Record<string, any>;
