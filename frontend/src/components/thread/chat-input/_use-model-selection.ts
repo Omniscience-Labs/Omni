@@ -38,18 +38,18 @@ export const MODELS = {
     lowQuality: false
   },
 
-  'gemini-flash-2.5': { 
-    tier: 'free', 
-    priority: 70,
-    recommended: false,
-    lowQuality: false
-  },
-  'qwen3': { 
-    tier: 'free', 
-    priority: 60,
-    recommended: false,
-    lowQuality: false
-  },
+  // 'gemini-flash-2.5': { 
+  //   tier: 'free', 
+  //   priority: 70,
+  //   recommended: false,
+  //   lowQuality: false
+  // },
+  // 'qwen3': { 
+  //   tier: 'free', 
+  //   priority: 60,
+  //   recommended: false,
+  //   lowQuality: false
+  // },
 
   // Premium/Paid tier models (require subscription) - except specific free models
   'moonshotai/kimi-k2': { 
@@ -100,12 +100,12 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
-  'deepseek/deepseek-chat-v3-0324': { 
-    tier: 'free', 
-    priority: 75,
-    recommended: false,
-    lowQuality: false
-  },
+  // 'deepseek/deepseek-chat-v3-0324': { 
+  //   tier: 'free', 
+  //   priority: 75,
+  //   recommended: false,
+  //   lowQuality: false
+  // },
 };
 
 // Helper to check if a user can access a model based on subscription status

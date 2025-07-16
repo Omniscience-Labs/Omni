@@ -10,39 +10,38 @@ MODELS = {
         },
         "tier_availability": ["free", "paid"]
     },
-        
-    "openrouter/deepseek/deepseek-chat": {
-        "aliases": ["deepseek"],
-        "pricing": {
-            "input_cost_per_million_tokens": 0.38,
-            "output_cost_per_million_tokens": 0.89
-        },
-        "tier_availability": ["free", "paid"]
-    },
-    "openrouter/qwen/qwen3-235b-a22b": {
-        "aliases": ["qwen3"],
-        "pricing": {
-            "input_cost_per_million_tokens": 0.13,
-            "output_cost_per_million_tokens": 0.60
-        },
-        "tier_availability": ["free", "paid"]
-    },
-    "openrouter/google/gemini-2.5-flash-preview-05-20": {
-        "aliases": ["gemini-flash-2.5"],
-        "pricing": {
-            "input_cost_per_million_tokens": 0.15,
-            "output_cost_per_million_tokens": 0.60
-        },
-        "tier_availability": ["free", "paid"]
-    },
-    "openrouter/deepseek/deepseek-chat-v3-0324": {
-        "aliases": ["deepseek/deepseek-chat-v3-0324"],
-        "pricing": {
-            "input_cost_per_million_tokens": 0.38,
-            "output_cost_per_million_tokens": 0.89
-        },
-        "tier_availability": ["free", "paid"]
-    },
+    # "openrouter/deepseek/deepseek-chat": {
+    #     "aliases": ["deepseek"],
+    #     "pricing": {
+    #         "input_cost_per_million_tokens": 0.38,
+    #         "output_cost_per_million_tokens": 0.89
+    #     },
+    #     "tier_availability": ["free", "paid"]
+    # },
+    # "openrouter/qwen/qwen3-235b-a22b": {
+    #     "aliases": ["qwen3"],
+    #     "pricing": {
+    #         "input_cost_per_million_tokens": 0.13,
+    #         "output_cost_per_million_tokens": 0.60
+    #     },
+    #     "tier_availability": ["free", "paid"]
+    # },
+    # "openrouter/google/gemini-2.5-flash-preview-05-20": {
+    #     "aliases": ["gemini-flash-2.5"],
+    #     "pricing": {
+    #         "input_cost_per_million_tokens": 0.15,
+    #         "output_cost_per_million_tokens": 0.60
+    #     },
+    #     "tier_availability": ["free", "paid"]
+    # },
+    # "openrouter/deepseek/deepseek-chat-v3-0324": {
+    #     "aliases": ["deepseek/deepseek-chat-v3-0324"],
+    #     "pricing": {
+    #         "input_cost_per_million_tokens": 0.38,
+    #         "output_cost_per_million_tokens": 0.89
+    #     },
+    #     "tier_availability": ["free", "paid"]
+    # },
     "openrouter/moonshotai/kimi-k2": {
         "aliases": ["moonshotai/kimi-k2"],
         "pricing": {
