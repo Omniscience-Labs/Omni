@@ -492,6 +492,9 @@ async def run_agent(
         elif "gemini-2.5-pro" in model_name.lower():
             # Gemini 2.5 Pro has 64k max output tokens
             max_tokens = 64000
+        elif "kimi-k2" in model_name.lower():
+            # Kimi-K2 has 120K context, set reasonable max output tokens
+            max_tokens = 8192
             
         generation = trace.generation(name="thread_manager.run_thread") if trace else None
         try:

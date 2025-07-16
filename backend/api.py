@@ -19,9 +19,9 @@ from typing import Dict, Any
 
 from pydantic import BaseModel
 import uuid
-# Import the agent API module
+
 from agent import api as agent_api
-from agent import workflows as workflows_api
+
 from sandbox import api as sandbox_api
 from services import billing as billing_api
 from flags import api as feature_flags_api
@@ -29,6 +29,7 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
+from triggers.endpoints.workflows import router as workflows_router
 
 
 if sys.platform == "win32":
@@ -53,8 +54,7 @@ async def lifespan(app: FastAPI):
             instance_id
         )
         
-        # Initialize workflow API
-        workflows_api.initialize(db, instance_id)
+        # Workflows are now initialized via triggers module
         
         sandbox_api.initialize(db)
         
@@ -72,6 +72,10 @@ async def lifespan(app: FastAPI):
         
         # Initialize triggers API
         triggers_api.initialize(db)
+        
+        # Initialize workflows API (part of triggers module)
+        from triggers.endpoints.workflows import set_db_connection
+        set_db_connection(db)
 
         # Initialize pipedream API
         pipedream_api.initialize(db)
@@ -158,18 +162,17 @@ app.add_middleware(
 api_router = APIRouter()
 
 # Include all API routers without individual prefixes
-api_router.include_router(workflows_api.router)
 api_router.include_router(agent_api.router)
 api_router.include_router(sandbox_api.router)
 api_router.include_router(billing_api.router)
 api_router.include_router(feature_flags_api.router)
 
-from mcp_service import api as mcp_api
-from mcp_service import secure_api as secure_mcp_api
-from mcp_service import template_api as template_api
+from mcp_module import api as mcp_api
+from credentials import api as credentials_api
+from templates import api as template_api
 
 api_router.include_router(mcp_api.router)
-api_router.include_router(secure_mcp_api.router, prefix="/secure-mcp")
+api_router.include_router(credentials_api.router, prefix="/secure-mcp")
 api_router.include_router(template_api.router, prefix="/templates")
 
 api_router.include_router(transcription_api.router)
@@ -179,6 +182,7 @@ from knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
+api_router.include_router(workflows_router, prefix="/workflows")
 
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)

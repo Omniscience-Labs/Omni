@@ -133,18 +133,14 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       clearPendingFiles: () => setPendingFiles([]),
     }));
 
-    // Load saved agent from localStorage on mount
     useEffect(() => {
       if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current) {
-        // Don't load from localStorage if an agent is already selected
-        // or if there are URL parameters that might be setting the agent
         const urlParams = new URLSearchParams(window.location.search);
         const hasAgentIdInUrl = urlParams.has('agent_id');
         
         if (!selectedAgentId && !hasAgentIdInUrl) {
           const savedAgentId = localStorage.getItem('lastSelectedAgentId');
           if (savedAgentId) {
-            // Convert 'suna' back to undefined for the default agent
             const agentIdToSelect = savedAgentId === 'suna' ? undefined : savedAgentId;
             console.log('Loading saved agent from localStorage:', savedAgentId);
             onAgentSelect(agentIdToSelect);
@@ -367,7 +363,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             
             {enableAdvancedConfig && selectedAgentId && (
               <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
                       onClick={() => setRegistryDialogOpen(true)}

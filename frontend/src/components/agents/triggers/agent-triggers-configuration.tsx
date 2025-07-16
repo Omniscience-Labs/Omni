@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Zap, MessageSquare, Webhook, Plus, Settings } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { ConfiguredTriggersList } from './configured-triggers-list';
 import { TriggerConfigDialog } from './trigger-config-dialog';
@@ -30,6 +29,7 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   const [editingTrigger, setEditingTrigger] = useState<TriggerConfiguration | null>(null);
 
   const { data: triggers = [], isLoading, error } = useAgentTriggers(agentId);
+  const { data: providers = [] } = useTriggerProviders();
   const createTriggerMutation = useCreateTrigger();
   const updateTriggerMutation = useUpdateTrigger();
   const deleteTriggerMutation = useDeleteTrigger();
@@ -37,19 +37,28 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
 
   const handleEditTrigger = (trigger: TriggerConfiguration) => {
     setEditingTrigger(trigger);
-    setConfiguringProvider({
-      provider_id: trigger.provider_id,
-      name: trigger.trigger_type,
-      description: '',
-      trigger_type: trigger.trigger_type,
-      webhook_enabled: !!trigger.webhook_url,
-      config_schema: {}
-    });
+    
+    const provider = providers.find(p => p.provider_id === trigger.provider_id);
+    if (provider) {
+      setConfiguringProvider(provider);
+    } else {
+      setConfiguringProvider({
+        provider_id: trigger.provider_id,
+        name: trigger.trigger_type,
+        description: '',
+        trigger_type: trigger.trigger_type,
+        webhook_enabled: !!trigger.webhook_url,
+        config_schema: {}
+      });
+    }
   };
 
   const handleRemoveTrigger = async (trigger: TriggerConfiguration) => {
     try {
-      await deleteTriggerMutation.mutateAsync(trigger.trigger_id);
+      await deleteTriggerMutation.mutateAsync({
+        triggerId: trigger.trigger_id,
+        agentId: trigger.agent_id
+      });
       toast.success('Trigger deleted successfully');
     } catch (error) {
       toast.error('Failed to delete trigger');
@@ -123,23 +132,13 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
         <OneClickIntegrations agentId={agentId} />
         
         {triggers.length > 0 && (
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
-            <div className="px-6 py-4 border-b border-border bg-muted/30">
-              <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Configured Triggers
-              </h4>
-            </div>
-            <div className="p-2 divide-y divide-border">
-              <ConfiguredTriggersList
-                triggers={triggers}
-                onEdit={handleEditTrigger}
-                onRemove={handleRemoveTrigger}
-                onToggle={handleToggleTrigger}
-                isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
-              />
-            </div>
-          </div>
+          <ConfiguredTriggersList
+            triggers={triggers}
+            onEdit={handleEditTrigger}
+            onRemove={handleRemoveTrigger}
+            onToggle={handleToggleTrigger}
+            isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
+          />
         )}
 
         {!isLoading && triggers.length === 0 && (

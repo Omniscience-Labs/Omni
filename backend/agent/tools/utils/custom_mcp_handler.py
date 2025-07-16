@@ -60,24 +60,29 @@ class CustomMCPHandler:
         logger.info(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id}, oauth_app_id: {oauth_app_id})")
         
         try:
-            from pipedream.client import get_pipedream_client
+            import os
+            from pipedream.facade import PipedreamManager
             from mcp import ClientSession
             from mcp.client.streamable_http import streamablehttp_client
             
-            client = get_pipedream_client()
-            access_token = await client._obtain_access_token()
-            await client._ensure_rate_limit_token()
+            pipedream_manager = PipedreamManager()
+            http_client = pipedream_manager._http_client
+            
+            access_token = await http_client._ensure_access_token()
+            
+            project_id = os.getenv("PIPEDREAM_PROJECT_ID")
+            environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
             
             headers = {
                 "Authorization": f"Bearer {access_token}",
-                "x-pd-project-id": client.config.project_id,
-                "x-pd-environment": client.config.environment,
+                "x-pd-project-id": project_id,
+                "x-pd-environment": environment,
                 "x-pd-external-user-id": external_user_id,
                 "x-pd-app-slug": app_slug,
             }
             
-            if client.rate_limit_token:
-                headers["x-pd-rate-limit"] = client.rate_limit_token
+            if http_client.rate_limit_token:
+                headers["x-pd-rate-limit"] = http_client.rate_limit_token
             
             if oauth_app_id:
                 headers["x-pd-oauth-app-id"] = oauth_app_id

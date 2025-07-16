@@ -66,7 +66,10 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
   const handleUninstall = async (provider: ProviderKey, triggerId?: string) => {
     if (provider === 'schedule' && triggerId) {
       try {
-        await deleteTriggerMutation.mutateAsync(triggerId);
+        await deleteTriggerMutation.mutateAsync({
+          triggerId,
+          agentId
+        });
         toast.success('Schedule trigger removed successfully');
       } catch (error) {
         toast.error('Failed to remove schedule trigger');
@@ -120,7 +123,6 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
   const scheduleProvider: TriggerProvider = {
     provider_id: 'schedule',
     name: 'Schedule',
-    description: 'Schedule agent execution using cron expressions',
     trigger_type: 'schedule',
     webhook_enabled: true,
     config_schema: {}

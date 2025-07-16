@@ -3,15 +3,16 @@ from typing import Optional, List
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
-from pipedream.search_utils import PipedreamSearchAPI
-from pipedream.profiles import get_profile_manager
+from pipedream.facade import PipedreamManager
+from .mcp_search_tool import MCPSearchTool
 from utils.logger import logger
 
 
 class CredentialProfileTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
-        self.pipedream_search = PipedreamSearchAPI()
+        self.pipedream_manager = PipedreamManager()
+        self.pipedream_search = MCPSearchTool(thread_manager, db_connection, agent_id)
 
     @openapi_schema({
         "type": "function",
@@ -135,16 +136,15 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             app_data = app_result["app"]
             
-            from pipedream.profiles import CreateProfileRequest
-            create_request = CreateProfileRequest(
+            account_id = await self._get_current_account_id()
+            profile = await self.pipedream_manager.create_profile(
+                account_id=account_id,
+                profile_name=profile_name,
                 app_slug=app_slug,
                 app_name=app_data.get("name", app_slug),
-                profile_name=profile_name,
-                display_name=display_name or profile_name,
+                description=display_name or profile_name,
                 enabled_tools=[]
             )
-            
-            profile = await profile_manager.create_profile(account_id, create_request)
             
             return self.success_response({
                 "message": f"Successfully created credential profile '{profile_name}' for {app_data.get('name', app_slug)}",

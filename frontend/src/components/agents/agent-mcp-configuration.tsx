@@ -6,15 +6,25 @@ interface AgentMCPConfigurationProps {
   customMCPs: any[];
   onMCPChange: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
   agentId?: string;
+  versionData?: {
+    configured_mcps?: any[];
+    custom_mcps?: any[];
+    system_prompt?: string;
+    agentpress_tools?: any;
+  };
+  saveMode?: 'direct' | 'callback';
+  versionId?: string;
 }
 
 export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
   configuredMCPs,
   customMCPs,
   onMCPChange,
-  agentId
+  agentId,
+  versionData,
+  saveMode = 'direct',
+  versionId
 }) => {
-  // Combine all MCPs into a single array for the new component
   const allMCPs = [
     ...(configuredMCPs || []),
     ...(customMCPs || []).map(customMcp => ({
@@ -28,7 +38,6 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
   ];
 
   const handleConfigurationChange = (mcps: any[]) => {
-    // Separate back into configured and custom MCPs
     const configured = mcps.filter(mcp => !mcp.isCustom);
     const custom = mcps
       .filter(mcp => mcp.isCustom)
@@ -40,7 +49,6 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
         enabledTools: mcp.enabledTools
       }));
 
-    // Call the parent handler with the proper structure
     onMCPChange({
       configured_mcps: configured,
       custom_mcps: custom
@@ -52,6 +60,9 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
       configuredMCPs={allMCPs}
       onConfigurationChange={handleConfigurationChange}
       agentId={agentId}
+      versionData={versionData}
+      saveMode={saveMode}
+      versionId={versionId}
     />
   );
 }; 

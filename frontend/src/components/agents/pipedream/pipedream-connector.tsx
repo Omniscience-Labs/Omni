@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { usePipedreamProfiles, useCreatePipedreamProfile, useConnectPipedreamProfile } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
+import { useUpdatePipedreamToolsForAgent } from '@/hooks/react-query/agents/use-pipedream-tools';
 import { pipedreamApi } from '@/hooks/react-query/pipedream/utils';
 import type { CreateProfileRequest } from '@/components/agents/pipedream/pipedream-types';
 import type { PipedreamApp } from '@/hooks/react-query/pipedream/utils';
@@ -40,6 +41,8 @@ interface PipedreamConnectorProps {
   onOpenChange: (open: boolean) => void;
   onComplete: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
   mode?: 'full' | 'profile-only';
+  saveMode?: 'direct' | 'callback';
+  agentId?: string;
 }
 
 interface PipedreamTool {
@@ -52,7 +55,9 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
   open,
   onOpenChange,
   onComplete,
-  mode = 'full'
+  mode = 'full',
+  saveMode = 'callback',
+  agentId
 }) => {
   const [step, setStep] = useState<'profile' | 'tools'>('profile');
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -63,6 +68,8 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
   const [isLoadingTools, setIsLoadingTools] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isCompletingConnection, setIsCompletingConnection] = useState(false);
+
+  const updatePipedreamTools = useUpdatePipedreamToolsForAgent();
 
   const { data: profiles, refetch: refetchProfiles } = usePipedreamProfiles({ app_slug: app.name_slug });
   const createProfile = useCreatePipedreamProfile();
@@ -110,7 +117,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
 
       const newProfile = await createProfile.mutateAsync(request);
       
-      // Connect the profile
       await connectProfile.mutateAsync({
         profileId: newProfile.profile_id,
         app: app.name_slug,
@@ -162,16 +168,30 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
       toast.error('Please select at least one tool');
       return;
     }
+    
     setIsCompletingConnection(true);
     try {
-      onComplete(selectedProfileId, Array.from(selectedTools), app.name, app.name_slug);
-      onOpenChange(false);
+      if (saveMode === 'direct' && agentId) {
+        await updatePipedreamTools.mutateAsync({
+          agentId,
+          profileId: selectedProfileId,
+          enabledTools: Array.from(selectedTools)
+        });
+        toast.success(`Added ${selectedTools.size} tools from ${app.name}!`);
+        onOpenChange(false);
+      } else {
+        onComplete(selectedProfileId, Array.from(selectedTools), app.name, app.name_slug);
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error('Error completing connection:', error);
+      if (saveMode === 'direct') {
+        toast.error('Failed to add tools. Please try again.');
+      }
     } finally {
       setIsCompletingConnection(false);
     }
-  }, [selectedProfileId, selectedTools, onComplete, app.name, app.name_slug, onOpenChange]);
+  }, [selectedProfileId, selectedTools, saveMode, agentId, updatePipedreamTools, onComplete, app.name, app.name_slug, onOpenChange]);
 
   const handleProfileOnlyComplete = useCallback(async () => {
     if (!selectedProfileId) {
@@ -459,12 +479,15 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
               {isCompletingConnection ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Connecting...
+                  {saveMode === 'direct' ? 'Adding Tools...' : 'Connecting...'}
                 </>
               ) : (
                 <>
                   <Zap className="h-4 w-4" />
-                  Connect with {selectedTools.size} Tool{selectedTools.size !== 1 ? 's' : ''}
+                  {saveMode === 'direct' 
+                    ? `Add ${selectedTools.size} Tool${selectedTools.size !== 1 ? 's' : ''} to Agent`
+                    : `Connect with ${selectedTools.size} Tool${selectedTools.size !== 1 ? 's' : ''}`
+                  }
                 </>
               )}
             </Button>

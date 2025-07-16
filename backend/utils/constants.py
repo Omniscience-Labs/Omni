@@ -53,6 +53,14 @@ MODELS = {
         },
         "tier_availability": ["paid"]
     },
+    "openrouter/moonshotai/kimi-k2": {
+        "aliases": ["moonshotai/kimi-k2", "kimi-k2"],
+        "pricing": {
+            "input_cost_per_million_tokens": 1.00,
+            "output_cost_per_million_tokens": 3.00
+        },
+        "tier_availability": ["paid"]
+    },
     "openai/gpt-4o": {
         "aliases": ["gpt-4o"],
         "pricing": {

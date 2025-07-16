@@ -105,6 +105,12 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
             onChange={setConfig}
             errors={errors}
             agentId={agentId}
+            name={name}
+            description={description}
+            onNameChange={setName}
+            onDescriptionChange={setDescription}
+            isActive={isActive}
+            onActiveChange={setIsActive}
           />
         );
       default:
@@ -118,7 +124,7 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
   };
 
   return (
-    <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+    <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
       <DialogHeader>
         <DialogTitle className="flex items-center space-x-3">
           <div className="p-2 rounded-lg bg-muted border">
@@ -133,49 +139,55 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
         </DialogDescription>
       </DialogHeader>
       <div className="flex-1 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="trigger-name">Name *</Label>
-            <Input
-              id="trigger-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter a name for this trigger"
-              className={errors.name ? 'border-destructive' : ''}
-            />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="trigger-description">Description</Label>
-            <Textarea
-              id="trigger-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description for this trigger"
-              rows={2}
-            />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="trigger-active"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
-            <Label htmlFor="trigger-active">
-              Enable trigger immediately
-            </Label>
-          </div>
-        </div>
-        <div className="border-t pt-6">
-          <h3 className="text-sm font-medium mb-4">
-            {provider.name} Configuration
-          </h3>
-          {renderProviderSpecificConfig()}
-        </div>
+        {provider.provider_id === 'schedule' ? (
+          renderProviderSpecificConfig()
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="trigger-name">Name *</Label>
+                <Input
+                  id="trigger-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter a name for this trigger"
+                  className={errors.name ? 'border-destructive' : ''}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="trigger-description">Description</Label>
+                <Textarea
+                  id="trigger-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional description for this trigger"
+                  rows={2}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="trigger-active"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <Label htmlFor="trigger-active">
+                  Enable trigger immediately
+                </Label>
+              </div>
+            </div>
+            <div className="border-t pt-6">
+              <h3 className="text-sm font-medium mb-4">
+                {provider.name} Configuration
+              </h3>
+              {renderProviderSpecificConfig()}
+            </div>
+          </>
+        )}
         {provider.webhook_enabled && existingConfig?.webhook_url && (
           <div className="border-t pt-6">
             <h3 className="text-sm font-medium mb-4">Webhook Information</h3>

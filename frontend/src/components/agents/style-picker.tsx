@@ -1563,7 +1563,7 @@ export const StylePicker = ({
   currentColor, 
   onStyleChange 
 }: { 
-  children: React.ReactNode;
+  children?: React.ReactNode;
   agentId: string;
   currentEmoji?: string;
   currentColor?: string;
@@ -1639,30 +1639,9 @@ export const StylePicker = ({
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={selectedColor}
-                    onChange={(e) => setSelectedColor(e.target.value)}
-                    className="w-8 h-8 rounded border cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={selectedColor}
-                    onChange={(e) => setSelectedColor(e.target.value)}
-                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="#000000"
-                  />
-                </div>
               </div>
-
               <Separator />
-
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{selectedEmoji}</span>
-                  <span className="font-medium">Emoji</span>
-                </div>
                 {!searchTerm && (
                   <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
                     <TabsList className="grid w-full grid-cols-4 h-auto p-1">
@@ -1700,20 +1679,18 @@ export const StylePicker = ({
                     ))}
                   </div>
                 </ScrollArea>
-
                 {searchTerm && filteredEmojis.length === 0 && (
                   <div className="text-center text-muted-foreground py-4">No emojis found for "{searchTerm}"</div>
                 )}
               </div>
-              <Separator />
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleReset}>
-                  Reset
-                </Button>
-                <Button onClick={handleSubmit}>
-                  Save
-                </Button>
+              <Button variant="outline" onClick={handleReset}>
+                Reset
+              </Button>
+              <Button onClick={handleSubmit}>
+                Save
+              </Button>
             </CardFooter>
           </Card>
         </PopoverContent>
