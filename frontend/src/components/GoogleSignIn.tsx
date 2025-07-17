@@ -144,9 +144,9 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
     return (
       <button
         disabled
-        className="w-full h-12 flex items-center justify-center gap-2 text-sm font-medium tracking-wide rounded-full bg-background border border-border opacity-60 cursor-not-allowed"
+        className="w-full h-12 flex items-center justify-center text-sm font-medium tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans opacity-60 cursor-not-allowed"
       >
-        <FcGoogle className="w-5 h-5" />
+        <FcGoogle className="w-5 h-5 mr-2" />
         Google Sign-In Not Configured
       </button>
     );
@@ -169,7 +169,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
         <button
           onClick={handleManualGoogleSignIn}
           disabled={isLoading || !isGoogleLoaded}
-          className="w-full h-12 flex items-center justify-center gap-3 text-sm font-medium tracking-wide rounded-full bg-background border border-border hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-12 flex items-center justify-center text-sm font-medium tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans"
         >
           {isLoading ? (
             <>
@@ -178,7 +178,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
             </>
           ) : (
             <>
-              <FcGoogle className="w-5 h-5" />
+              <FcGoogle className="w-5 h-5 mr-2" />
               Continue with Google
             </>
           )}
