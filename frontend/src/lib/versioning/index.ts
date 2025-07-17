@@ -7,9 +7,7 @@ export {
   useAgentVersions,
   useAgentVersion,
   useCreateAgentVersion,
-  useActivateAgentVersion,
-  useCompareVersions,
-  useRollbackToVersion
+  useActivateAgentVersion
 } from './hooks/use-versions';
 
 export { useVersionStore } from './stores/version-store'; 
