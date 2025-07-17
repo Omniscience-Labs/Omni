@@ -20,7 +20,7 @@ import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } fro
 import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-query/agents/workflow-utils';
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
-import { WorkflowBuilder } from '@/components/workflows/react-flow/workflow-builder';
+import { WorkflowBuilder } from '@/components/workflows/ui/workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
   let globalOrder = 1;
