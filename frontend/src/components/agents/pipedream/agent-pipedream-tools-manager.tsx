@@ -103,11 +103,8 @@ export const AgentPipedreamToolsManager: React.FC<AgentPipedreamToolsManagerProp
     const enabledTools = Object.entries(localTools)
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
-    
-
     setHasChanges(false);
-    
-    // Notify parent component of the update
+
     if (onToolsUpdate) {
       onToolsUpdate(enabledTools);
     }
