@@ -41,6 +41,8 @@ interface AgentsGridProps {
   onDeleteAgent: (agentId: string) => void;
   onToggleDefault: (agentId: string, currentDefault: boolean) => void;
   deleteAgentMutation: { isPending: boolean };
+  onPublish?: (agent: Agent) => void;
+  publishingId?: string | null;
 }
 
 interface AgentModalProps {
@@ -79,7 +81,6 @@ const AgentModal: React.FC<AgentModalProps> = ({
   };
 
   const { avatar, color } = getAgentStyling(agent);
-  
   const truncateDescription = (text?: string, maxLength = 120) => {
     if (!text || text.length <= maxLength) return text || 'Try out this agent';
     return text.substring(0, maxLength) + '...';
@@ -204,15 +205,15 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
   onEditAgent, 
   onDeleteAgent, 
   onToggleDefault,
-  deleteAgentMutation 
+  deleteAgentMutation,
+  onPublish,
+  publishingId: externalPublishingId
 }) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const router = useRouter();
   
   const unpublishAgentMutation = useUnpublishTemplate();
-  const createTemplateMutation = useCreateTemplate();
 
   const handleAgentClick = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -228,20 +229,11 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
     setSelectedAgent(null);
   };
 
-  const handlePublish = async (agentId: string) => {
-    try {
-      setPublishingId(agentId);
-      const result = await createTemplateMutation.mutateAsync({ 
-        agent_id: agentId, 
-        make_public: true,
-        tags: [] 
-      });
-      toast.success('Agent published!');
+  const handlePublish = (agentId: string) => {
+    const agent = agents.find(a => a.agent_id === agentId);
+    if (agent && onPublish) {
+      onPublish(agent);
       setSelectedAgent(null);
-    } catch (error: any) {
-      toast.error('Failed to create secure template');
-    } finally {
-      setPublishingId(null);
     }
   };
 
@@ -278,7 +270,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
           };
           
           return (
-            <div key={agent.agent_id} className="relative group">
+            <div key={agent.agent_id} className="relative group flex flex-col h-full">
               <AgentCard
                 mode="agent"
                 data={agentData}
@@ -346,7 +338,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
         onChat={handleChat}
         onPublish={handlePublish}
         onUnpublish={handleUnpublish}
-        isPublishing={publishingId === selectedAgent?.agent_id}
+        isPublishing={externalPublishingId === selectedAgent?.agent_id}
         isUnpublishing={unpublishingId === selectedAgent?.agent_id}
       />
     </>

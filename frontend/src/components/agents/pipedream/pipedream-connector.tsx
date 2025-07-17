@@ -325,7 +325,7 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
             >
               {isConnecting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Creating...
                 </>
               ) : (
@@ -348,7 +348,7 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
           >
             {isCompletingConnection ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Connecting...
               </>
             ) : (

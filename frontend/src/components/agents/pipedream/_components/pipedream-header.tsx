@@ -10,22 +10,28 @@ export const PipedreamHeader: React.FC<PipedreamHeaderProps> = ({
   onSearchChange,
   showAgentSelector,
   currentAgentId,
-  onAgentChange
+  onAgentChange,
+  agentName
 }) => {
   return (
-    <div className="absolute top-0 left-0 right-0 z-10 border-b px-4 py-3">
+    <div className="flex-shrink-0 border-b bg-background px-4 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Integrations
+                {agentName ? `Integrations for ${agentName}` : 'Integrations'}
               </h1>
               <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-400 text-xs">
                 <Sparkles className="h-3 w-3" />
                 New
               </Badge>
             </div>
+            {agentName && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure integrations for your agent
+              </p>
+            )}
           </div>
         </div>
       </div>

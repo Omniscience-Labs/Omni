@@ -206,7 +206,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
       onOpenChange(open);
       if (!open) handleReset();
     }}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -248,8 +248,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
             </div>
           </div>
         </DialogHeader>
-
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto max-h-[60vh] flex flex-col">
           {step === 'setup' ? (
             <div className="space-y-6 p-1 flex-1">
               <div className="space-y-4">
@@ -258,7 +257,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                   <RadioGroup 
                     value={serverType} 
                     onValueChange={(value: 'http' | 'sse') => setServerType(value)}
-                    className="grid grid-cols-1 gap-3"
+                    className="grid grid-cols-2 gap-3"
                   >
                     <div className={cn(
                       "flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-all hover:bg-muted/50",
@@ -272,9 +271,6 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                             Streamable HTTP
                           </Label>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Standard streamable HTTP connection
-                        </p>
                       </div>
                     </div>
                     <div className={cn(
@@ -289,15 +285,11 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                             SSE (Server-Sent Events)
                           </Label>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Real-time connection using Server-Sent Events for streaming updates
-                        </p>
                       </div>
                     </div>
                   </RadioGroup>
                 </div>
               </div>
-
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="serverName" className="text-base font-medium">

@@ -18,6 +18,7 @@ import { useAgentVersions, useActivateAgentVersion, useCreateAgentVersion } from
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import type { AgentVersion } from '@/lib/versioning';
+import { VersionInlineEditor } from './version-inline-editor';
 
 interface AgentVersionSwitcherProps {
   agentId: string;
@@ -149,15 +150,23 @@ export function AgentVersionSwitcher({
               const isCurrent = version.versionId.value === currentVersionId;
               
               return (
-                <div key={version.versionId.value} className="relative">
-                  <DropdownMenuItem
-                    onClick={() => handleVersionSelect(version)}
-                    className={`cursor-pointer ${isViewing ? 'bg-accent' : ''}`}
-                  >
+                <div key={version.versionId.value} className="relative mb-1">
+                  <div className={`p-2 hover:bg-accent rounded-sm ${isViewing ? 'bg-accent' : ''}`}>
                     <div className="flex items-start justify-between w-full">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{version.versionName}</span>
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => handleVersionSelect(version)}
+                          >
+                            <VersionInlineEditor
+                              agentId={agentId}
+                              versionId={version.versionId.value}
+                              versionName={version.versionName}
+                              changeDescription={version.changeDescription}
+                              isActive={isCurrent}
+                            />
+                          </div>
                           {isCurrent && (
                             <Badge variant="default" className="text-xs">
                               Current
@@ -169,24 +178,22 @@ export function AgentVersionSwitcher({
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div 
+                          className="flex items-center gap-2 mt-1 cursor-pointer"
+                          onClick={() => handleVersionSelect(version)}
+                        >
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">
                             {formatDistanceToNow(version.createdAt, { addSuffix: true })}
                           </span>
                         </div>
-                        {version.changeDescription && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {version.changeDescription}
-                          </p>
-                        )}
                       </div>
                       
                       {isViewing && (
                         <Check className="h-4 w-4 text-primary ml-2" />
                       )}
                     </div>
-                  </DropdownMenuItem>
+                  </div>
                 </div>
               );
             })}

@@ -40,7 +40,6 @@ export const useCreateAgent = () => {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
         queryClient.setQueryData(agentKeys.detail(data.agent_id), data);
-        
         toast.success('Agent created successfully');
       },
     }

@@ -171,7 +171,6 @@ export function ConfigurationTab({
             />
           </AccordionContent>
         </AccordionItem>
-
         <AccordionItem 
           value="triggers" 
           className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"

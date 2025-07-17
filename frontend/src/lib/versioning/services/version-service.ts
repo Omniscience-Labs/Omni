@@ -2,6 +2,7 @@ import { IVersionRepository } from '../repositories/interfaces';
 import {
   AgentVersion,
   CreateVersionRequest,
+  UpdateVersionDetailsRequest,
   VersionComparison,
   VersionDifference
 } from '../types';
@@ -11,8 +12,7 @@ export interface IVersionService {
   getVersion(agentId: string, versionId: string): Promise<AgentVersion>;
   createVersion(agentId: string, request: CreateVersionRequest): Promise<AgentVersion>;
   activateVersion(agentId: string, versionId: string): Promise<void>;
-  compareVersions(agentId: string, version1Id: string, version2Id: string): Promise<VersionComparison>;
-  rollbackToVersion(agentId: string, versionId: string): Promise<AgentVersion>;
+  updateVersionDetails(agentId: string, versionId: string, request: UpdateVersionDetailsRequest): Promise<AgentVersion>;
   getActiveVersion(agentId: string): Promise<AgentVersion | null>;
   getVersionByNumber(agentId: string, versionNumber: number): Promise<AgentVersion | null>;
 }
@@ -62,6 +62,16 @@ export class VersionService implements IVersionService {
     const newVersion = await this.repository.rollbackToVersion(agentId, versionId);
     console.log(`Rolled back to version ${versionId} for agent ${agentId}`);
     return newVersion;
+  }
+
+  async updateVersionDetails(
+    agentId: string,
+    versionId: string,
+    request: UpdateVersionDetailsRequest
+  ): Promise<AgentVersion> {
+    const updatedVersion = await this.repository.updateVersionDetails(agentId, versionId, request);
+    console.log(`Updated version details for ${versionId} in agent ${agentId}`);
+    return updatedVersion;
   }
 
   async getActiveVersion(agentId: string): Promise<AgentVersion | null> {

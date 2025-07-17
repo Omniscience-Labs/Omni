@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
-import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate, useCreateTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useFeatureFlag } from '@/lib/feature-flags';
 
 import { StreamlinedInstallDialog } from '@/components/agents/installation/streamlined-install-dialog';
@@ -18,7 +18,6 @@ import { AgentsPageHeader } from '@/components/agents/custom-agents-page/header'
 import { TabsNavigation } from '@/components/agents/custom-agents-page/tabs-navigation';
 import { MyAgentsTab } from '@/components/agents/custom-agents-page/my-agents-tab';
 import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketplace-tab';
-import { MyTemplatesTab } from '@/components/agents/custom-agents-page/my-templates-tab';
 import { PublishDialog } from '@/components/agents/custom-agents-page/publish-dialog';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 
@@ -53,10 +52,11 @@ export default function AgentsPage() {
     }
   }, [flagLoading, customAgentsEnabled, router]);
 
-  const [activeTab, setActiveTab] = useState("my-agents");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   
   const [agentsPage, setAgentsPage] = useState(1);
   const [agentsSearchQuery, setAgentsSearchQuery] = useState('');
@@ -80,7 +80,13 @@ export default function AgentsPage() {
 
   const [templatesActioningId, setTemplatesActioningId] = useState<string | null>(null);
   const [publishDialog, setPublishDialog] = useState<PublishDialogData | null>(null);
-  const [publishTags, setPublishTags] = useState('');
+  const [publishTags, setPublishTags] = useState<string[]>([]);
+  const [publishingAgentId, setPublishingAgentId] = useState<string | null>(null);
+  const [isCreatingNewAgent, setIsCreatingNewAgent] = useState(false);
+
+  const activeTab = useMemo(() => {
+    return searchParams.get('tab') || 'my-agents';
+  }, [searchParams]);
 
   const agentsQueryParams: AgentsParams = useMemo(() => {
     const params: AgentsParams = {
@@ -125,6 +131,7 @@ export default function AgentsPage() {
   const installTemplateMutation = useInstallTemplate();
   const unpublishMutation = useUnpublishTemplate();
   const publishMutation = usePublishTemplate();
+  const createTemplateMutation = useCreateTemplate();
 
   const agents = agentsResponse?.agents || [];
   const agentsPagination = agentsResponse?.pagination;
@@ -193,8 +200,11 @@ export default function AgentsPage() {
   }, [kortixTeamItems, communityItems, marketplaceFilter]);
 
   const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', newTab);
+    router.replace(`${pathname}?${params.toString()}`);
   };
+
 
   const clearAgentsFilters = () => {
     setAgentsSearchQuery('');
@@ -241,9 +251,20 @@ export default function AgentsPage() {
     setEditDialogOpen(true);
   };
 
-  const handleCreateNewAgent = () => {
-    createNewAgentMutation.mutate();
-  };
+  const handleCreateNewAgent = useCallback(() => {
+    if (isCreatingNewAgent || createNewAgentMutation.isPending) {
+      return; // Prevent multiple clicks
+    }
+    
+    setIsCreatingNewAgent(true);
+    
+    createNewAgentMutation.mutate(undefined, {
+      onSettled: () => {
+        // Reset the debounce state after mutation completes (success or error)
+        setTimeout(() => setIsCreatingNewAgent(false), 1000);
+      }
+    });
+  }, [isCreatingNewAgent, createNewAgentMutation]);
 
   const handleInstallClick = (item: MarketplaceTemplate, e?: React.MouseEvent) => {
     if (e) {
@@ -379,32 +400,57 @@ export default function AgentsPage() {
       templateName: template.name,
       currentTags: template.tags || []
     });
-    setPublishTags((template.tags || []).join(', '));
+    setPublishTags(template.tags || []);
+  };
+
+  const handleAgentPublish = (agent: any) => {
+    setPublishDialog({
+      templateId: agent.agent_id,
+      templateName: agent.name,
+      currentTags: agent.tags || []
+    });
+    setPublishTags(agent.tags || []);
   };
 
   const handlePublish = async () => {
     if (!publishDialog) return;
 
     try {
-      setTemplatesActioningId(publishDialog.templateId);
-      
-      const tags = publishTags
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
+      const tags = publishTags.filter(tag => tag.trim().length > 0);
 
-      await publishMutation.mutateAsync({
-        template_id: publishDialog.templateId,
-        tags: tags.length > 0 ? tags : undefined
-      });
+      // Check if we're dealing with an agent (has agent_id format) or template (has template_id format)
+      const isAgent = publishDialog.templateId.length > 20; // agent_id is typically longer than template_id
       
-      toast.success(`${publishDialog.templateName} has been published to the marketplace`);
+      if (isAgent) {
+        // Publishing an agent as a template
+        setPublishingAgentId(publishDialog.templateId);
+        
+        const result = await createTemplateMutation.mutateAsync({
+          agent_id: publishDialog.templateId,
+          make_public: true,
+          tags: tags.length > 0 ? tags : undefined
+        });
+        
+        toast.success(`${publishDialog.templateName} has been published to the marketplace`);
+      } else {
+        // Publishing an existing template
+        setTemplatesActioningId(publishDialog.templateId);
+        
+        await publishMutation.mutateAsync({
+          template_id: publishDialog.templateId,
+          tags: tags.length > 0 ? tags : undefined
+        });
+        
+        toast.success(`${publishDialog.templateName} has been published to the marketplace`);
+      }
+      
       setPublishDialog(null);
-      setPublishTags('');
+      setPublishTags([]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to publish template');
     } finally {
       setTemplatesActioningId(null);
+      setPublishingAgentId(null);
     }
   };
 
@@ -459,7 +505,8 @@ export default function AgentsPage() {
         </div>
       </div>
       <div className="container mx-auto max-w-7xl px-4 py-2">
-        <div className="w-full">
+        {/* Fixed height container to prevent layout shifts on tab change */}
+        <div className="w-full min-h-[calc(100vh-300px)]">
           {activeTab === "my-agents" && (
             <MyAgentsTab
               agentsSearchQuery={agentsSearchQuery}
@@ -475,6 +522,15 @@ export default function AgentsPage() {
               onClearFilters={clearAgentsFilters}
               deleteAgentMutation={deleteAgentMutation}
               setAgentsPage={setAgentsPage}
+              myTemplates={myTemplates}
+              templatesLoading={templatesLoading}
+              templatesError={templatesError}
+              templatesActioningId={templatesActioningId}
+              onPublish={openPublishDialog}
+              onUnpublish={handleUnpublish}
+              getTemplateStyling={getTemplateStyling}
+              onPublishAgent={handleAgentPublish}
+              publishingAgentId={publishingAgentId}
             />
           )}
 
@@ -491,20 +547,6 @@ export default function AgentsPage() {
               installingItemId={installingItemId}
               onInstallClick={handleInstallClick}
               getItemStyling={getItemStyling}
-            />
-          )}
-
-          {activeTab === "my-templates" && (
-            <MyTemplatesTab
-              templatesError={templatesError}
-              templatesLoading={templatesLoading}
-              myTemplates={myTemplates}
-              templatesActioningId={templatesActioningId}
-              onPublish={openPublishDialog}
-              onUnpublish={handleUnpublish}
-              onViewInMarketplace={() => handleTabChange('marketplace')}
-              onSwitchToMyAgents={() => handleTabChange('my-agents')}
-              getTemplateStyling={getTemplateStyling}
             />
           )}
         </div>

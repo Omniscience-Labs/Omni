@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { Icons } from './home/icons';
+import { FaGithub } from "react-icons/fa";
+import { useAuthMethodTracking } from '@/lib/stores/auth-tracking';
+import { Loader2 } from 'lucide-react';
 
 interface GitHubSignInProps {
   returnUrl?: string;
@@ -18,27 +21,27 @@ interface AuthMessage {
 export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { resolvedTheme } = useTheme();
+  
+  const { wasLastMethod, markAsUsed } = useAuthMethodTracking('github');
 
-  // Cleanup function to handle auth state
   const cleanupAuthState = useCallback(() => {
     sessionStorage.removeItem('isGitHubAuthInProgress');
     setIsLoading(false);
   }, []);
 
-  // Handle success message
   const handleSuccess = useCallback(
     (data: AuthMessage) => {
       cleanupAuthState();
 
-      // Add a small delay to ensure state is properly cleared
+      markAsUsed();
+
       setTimeout(() => {
         window.location.href = data.returnUrl || returnUrl || '/dashboard';
       }, 100);
     },
-    [cleanupAuthState, returnUrl],
+    [cleanupAuthState, returnUrl, markAsUsed],
   );
 
-  // Handle error message
   const handleError = useCallback(
     (data: AuthMessage) => {
       cleanupAuthState();
@@ -47,10 +50,8 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
     [cleanupAuthState],
   );
 
-  // Message event handler
   useEffect(() => {
     const handleMessage = (event: MessageEvent<AuthMessage>) => {
-      // Security: Only accept messages from same origin
       if (event.origin !== window.location.origin) {
         console.warn(
           'Rejected message from unauthorized origin:',
@@ -59,7 +60,6 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
         return;
       }
 
-      // Validate message structure
       if (!event.data?.type || typeof event.data.type !== 'string') {
         return;
       }
@@ -72,7 +72,6 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
           handleError(event.data);
           break;
         default:
-          // Ignore unknown message types
           break;
       }
     };
@@ -84,7 +83,6 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
     };
   }, [handleSuccess, handleError]);
 
-  // Cleanup on component unmount
   useEffect(() => {
     return () => {
       cleanupAuthState();
@@ -99,12 +97,10 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
     try {
       setIsLoading(true);
 
-      // Store return URL for the popup
       if (returnUrl) {
         sessionStorage.setItem('github-returnUrl', returnUrl || '/dashboard');
       }
 
-      // Open popup with proper dimensions and features
       const popup = window.open(
         `${window.location.origin}/auth/github-popup`,
         'GitHubOAuth',
@@ -117,10 +113,8 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
         );
       }
 
-      // Set loading state and track popup
       sessionStorage.setItem('isGitHubAuthInProgress', '1');
 
-      // Monitor popup closure
       popupInterval = setInterval(() => {
         if (popup.closed) {
           if (popupInterval) {
@@ -128,7 +122,6 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
             popupInterval = null;
           }
 
-          // Small delay to allow postMessage to complete
           setTimeout(() => {
             if (sessionStorage.getItem('isGitHubAuthInProgress')) {
               cleanupAuthState();
@@ -152,29 +145,31 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
   };
 
   return (
-    // Matched the button with the GoogleSignIn component
-    <button
-      onClick={handleGitHubSignIn}
-      disabled={isLoading}
-      className="relative w-full h-12 flex items-center justify-center text-sm font-normal tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans"
-      aria-label={
-        isLoading ? 'Signing in with GitHub...' : 'Sign in with GitHub'
-      }
-      type="button"
-    >
-      <div className="absolute left-0 inset-y-0 flex items-center pl-1 w-10">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-foreground dark:bg-foreground dark:text-background">
-          {isLoading ? (
-            <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Icons.github className="w-5 h-5" />
-          )}
+    <div className="relative">
+      <button
+        onClick={handleGitHubSignIn}
+        disabled={isLoading}
+        className="w-full h-12 flex items-center justify-center text-sm font-medium tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans"
+        aria-label={
+          isLoading ? 'Signing in with GitHub...' : 'Sign in with GitHub'
+        }
+        type="button"
+      >
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <FaGithub className="w-4 h-4 mr-2" />
+        )}
+        <span className="font-medium">
+          {isLoading ? 'Signing in...' : 'Continue with GitHub'}
+        </span>
+      </button>
+      
+      {wasLastMethod && (
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background shadow-sm">
+          <div className="w-full h-full bg-green-500 rounded-full animate-pulse" />
         </div>
-      </div>
-
-      <span className="ml-9 font-light">
-        {isLoading ? 'Signing in...' : 'Continue with GitHub'}
-      </span>
-    </button>
+      )}
+    </div>
   );
 }
