@@ -36,7 +36,7 @@ const TabButton = ({ value, isActive, onClick, children }: TabButtonProps) => {
       className={cn(
         "relative flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-300 ease-out",
         // Only apply hover background when not active - subtle and elegant
-        !isActive && (isDark ? "hover:bg-white/8 hover:scale-[1.02]" : "hover:bg-muted/60 hover:scale-[1.02]"),
+        !isActive && (isDark ? "hover:bg-white/8" : "hover:bg-muted/60"),
         isActive 
           ? isDark ? "text-white" : "text-foreground bg-background border border-border/50"
           : isDark ? "text-white/60 hover:text-white/85" : "text-muted-foreground hover:text-foreground"
