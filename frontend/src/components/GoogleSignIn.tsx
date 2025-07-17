@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
 import { useAuthMethodTracking } from '@/lib/stores/auth-tracking';
 import { FcGoogle } from "react-icons/fc";
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 declare global {
   interface Window {
@@ -101,22 +103,47 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
       } catch (error) {
         console.error('Error signing in with Google:', error);
         setIsLoading(false);
+        toast.error('Google sign-in failed. Please try again.');
       }
     },
     [returnUrl, markAsUsed],
   );
 
   const handleManualGoogleSignIn = useCallback(() => {
-    if (window.google && googleClientId && isGoogleLoaded) {
+    if (isLoading) return;
+
+    if (!window.google || !googleClientId || !isGoogleLoaded) {
+      console.error('Google sign-in not properly initialized');
+      return;
+    }
+
+    try {
       setIsLoading(true);
+      const timeoutId = setTimeout(() => {
+        console.log('Google sign-in timeout - resetting loading state');
+        setIsLoading(false);
+        toast.error('Google sign-in failed. Please try again.');
+      }, 5000);
+
       window.google.accounts.id.prompt((notification) => {
+        clearTimeout(timeoutId);
+        
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          console.log('Google sign-in was not displayed or skipped');
+          console.log('Google sign-in was not displayed or skipped:', 
+            notification.isNotDisplayed() ? notification.getNotDisplayedReason() : notification.getSkippedReason()
+          );
+          setIsLoading(false);
+        } else if (notification.isDismissedMoment()) {
+          console.log('Google sign-in was dismissed:', notification.getDismissedReason());
           setIsLoading(false);
         }
       });
-    }
-  }, [googleClientId, isGoogleLoaded]);
+          } catch (error) {
+        console.error('Error showing Google sign-in prompt:', error);
+        setIsLoading(false);
+        toast.error('Failed to start Google sign-in. Please try again.');
+      }
+  }, [googleClientId, isGoogleLoaded, isLoading]);
 
   useEffect(() => {
     window.handleGoogleSignIn = handleGoogleSignIn;
@@ -134,9 +161,6 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
 
     return () => {
       delete window.handleGoogleSignIn;
-      if (window.google) {
-        window.google.accounts.id.cancel();
-      }
     };
   }, [googleClientId, handleGoogleSignIn]);
 
@@ -173,7 +197,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
         >
           {isLoading ? (
             <>
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Signing in...
             </>
           ) : (
@@ -194,7 +218,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onLoad={() => {
-          if (window.google && googleClientId) {
+          if (window.google && googleClientId && !isGoogleLoaded) {
             window.google.accounts.id.initialize({
               client_id: googleClientId,
               callback: handleGoogleSignIn,

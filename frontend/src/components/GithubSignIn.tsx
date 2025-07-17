@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Icons } from './home/icons';
 import { FaGithub } from "react-icons/fa";
 import { useAuthMethodTracking } from '@/lib/stores/auth-tracking';
+import { Loader2 } from 'lucide-react';
 
 interface GitHubSignInProps {
   returnUrl?: string;
@@ -155,9 +156,9 @@ export default function GitHubSignIn({ returnUrl }: GitHubSignInProps) {
         type="button"
       >
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
         ) : (
-          <FaGithub className="w-5 h-5 mr-2" />
+          <FaGithub className="w-4 h-4 mr-2" />
         )}
         <span className="font-medium">
           {isLoading ? 'Signing in...' : 'Continue with GitHub'}
