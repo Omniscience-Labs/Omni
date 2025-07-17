@@ -53,6 +53,7 @@ export interface PipedreamHeaderProps {
   showAgentSelector: boolean;
   currentAgentId?: string;
   onAgentChange?: (agentId: string | undefined) => void;
+  agentName?: string;
 }
 
 export interface ConnectedAppsSectionProps {
@@ -80,6 +81,8 @@ export interface AppsGridProps {
   onConnectApp?: (app: PipedreamApp) => void;
   onConfigureTools?: (profile: any) => void;
   onCategorySelect?: (category: string) => void;
+  onBrowseMore?: () => void;
+  onBackToPopular?: () => void;
 }
 
 export interface EmptyStateProps {

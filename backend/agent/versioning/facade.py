@@ -115,6 +115,30 @@ class VersionManagerFacade:
             logger.error(f"Error comparing versions: {str(e)}")
             raise
     
+    async def update_version_details(
+        self,
+        agent_id: str,
+        version_id: str,
+        user_id: str,
+        version_name: Optional[str] = None,
+        change_description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        service = await self._get_service()
+        try:
+            updated_version = await service.update_version_details(
+                agent_id=AgentId.from_string(agent_id),
+                version_id=VersionId.from_string(version_id),
+                user_id=UserId.from_string(user_id),
+                version_name=version_name,
+                change_description=change_description
+            )
+            
+            logger.info(f"Updated version details for version {version_id} of agent {agent_id}")
+            return updated_version.to_dict()
+        except Exception as e:
+            logger.error(f"Error updating version details: {str(e)}")
+            raise
+    
     async def auto_create_version_on_config_change(
         self,
         agent_id: str,

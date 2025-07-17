@@ -41,6 +41,11 @@ class CreateVersionRequest(BaseModel):
     description: Optional[str] = None
 
 
+class UpdateVersionDetailsRequest(BaseModel):
+    version_name: Optional[str] = None
+    change_description: Optional[str] = None
+
+
 class CompareVersionsResponse(BaseModel):
     version1: VersionResponse
     version2: VersionResponse
@@ -209,4 +214,38 @@ async def rollback_to_version(
     except VersionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to rollback version") 
+        raise HTTPException(status_code=500, detail="Failed to rollback version")
+
+
+@router.put("/{version_id}/details", response_model=VersionResponse)
+async def update_version_details(
+    agent_id: str,
+    version_id: str,
+    request: UpdateVersionDetailsRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    version_service: VersionService = Depends(get_version_service)
+):
+    try:
+        agent_id_obj = AgentId.from_string(agent_id)
+        version_id_obj = VersionId.from_string(version_id)
+        user_id_obj = UserId.from_string(user_id)
+        
+        updated_version = await version_service.update_version_details(
+            agent_id=agent_id_obj,
+            version_id=version_id_obj,
+            user_id=user_id_obj,
+            version_name=request.version_name,
+            change_description=request.change_description
+        )
+        
+        return VersionResponse(**updated_version.to_dict())
+    except UnauthorizedError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except VersionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        from utils.logger import logger
+        logger.error(f"Failed to update version details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update version details") 

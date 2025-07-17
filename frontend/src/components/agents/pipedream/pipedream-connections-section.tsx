@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -329,9 +329,9 @@ const AppTable: React.FC<AppTableProps> = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => setShowDeleteDialog(profile)}
-                className="text-destructive"
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -453,7 +453,7 @@ const AppTable: React.FC<AppTableProps> = ({
                   setShowDeleteDialog(null);
                 }
               }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
@@ -470,6 +470,11 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
   const [showAppBrowser, setShowAppBrowser] = useState(false);
   const [showConnector, setShowConnector] = useState(false);
   const [selectedApp, setSelectedApp] = useState<PipedreamApp | null>(null);
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('State changed: selectedApp:', selectedApp, 'showConnector:', showConnector);
+  }, [selectedApp, showConnector]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -490,8 +495,10 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
   };
 
   const handleConnect = (app: PipedreamApp) => {
+    console.log('handleConnect called with app:', app);
     setSelectedApp(app);
     setShowConnector(true);
+    console.log('Set showConnector to true');
   };
 
   const handleConnectionComplete = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
@@ -619,28 +626,44 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
 
   if (totalProfiles === 0) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="p-8 text-center">
-          <div className="space-y-4">
-            <div className="p-3 rounded-full bg-primary/10 w-fit mx-auto">
-              <User className="h-6 w-6 text-primary" />
+      <>
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center">
+            <div className="space-y-4">
+              <div className="p-3 rounded-full bg-primary/10 w-fit mx-auto">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground">No credential profiles yet</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Connect your favorite apps to create credential profiles for your agents
+                </p>
+              </div>
+              <Button 
+                onClick={() => setShowAppBrowser(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Connect App
+              </Button>
             </div>
-            <div className="space-y-1">
-              <h3 className="font-semibold text-foreground">No credential profiles yet</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Connect your favorite apps to create credential profiles for your agents
-              </p>
-            </div>
-            <Button 
-              onClick={() => setShowAppBrowser(true)}
-              className="h-9"
-            >
-              <Plus className="h-4 w-4" />
-              Connect New App
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <Dialog open={showAppBrowser} onOpenChange={setShowAppBrowser}>
+          <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Browse Apps</DialogTitle>
+              <DialogDescription>
+                Select an app to create a credential profile
+              </DialogDescription>
+            </DialogHeader>
+            <PipedreamRegistry
+              mode='profile-only'
+              showAgentSelector={false}
+              onAppSelected={handleAppSelect}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -752,7 +775,7 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
           </DialogHeader>
           <PipedreamRegistry
             mode='profile-only'
-            showAgentSelector={true}
+            showAgentSelector={false}
             onAppSelected={handleAppSelect}
           />
         </DialogContent>

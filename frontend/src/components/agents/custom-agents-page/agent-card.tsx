@@ -35,6 +35,8 @@ interface AgentData extends BaseAgentData {
   agent_id: string;
   is_default?: boolean;
   is_public?: boolean;
+  marketplace_published_at?: string;
+  download_count?: number;
   current_version?: {
     version_id: string;
     version_name: string;
@@ -62,14 +64,14 @@ const MarketplaceBadge: React.FC<{ isKortixTeam?: boolean }> = ({ isKortixTeam }
   if (isKortixTeam) {
     return (
       <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-0 dark:bg-blue-950 dark:text-blue-300">
-        <CheckCircle className="h-3 w-3 mr-1" />
+        <CheckCircle className="h-3 w-3" />
         Kortix
       </Badge>
     );
   }
   return (
     <Badge variant="secondary" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300">
-      <User className="h-3 w-3 mr-1" />
+      <User className="h-3 w-3" />
       Community
     </Badge>
   );
@@ -79,14 +81,14 @@ const TemplateBadge: React.FC<{ isPublic?: boolean }> = ({ isPublic }) => {
   if (isPublic) {
     return (
       <Badge variant="default" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300">
-        <Globe className="h-3 w-3 mr-1" />
+        <Globe className="h-3 w-3" />
         Public
       </Badge>
     );
   }
   return (
     <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-0 dark:bg-gray-800 dark:text-gray-300">
-      <GlobeLock className="h-3 w-3 mr-1" />
+      <GlobeLock className="h-3 w-3" />
       Private
     </Badge>
   );
@@ -101,8 +103,8 @@ const AgentBadges: React.FC<{ agent: AgentData }> = ({ agent }) => (
       </Badge>
     )}
     {agent.is_public && (
-      <Badge variant="outline" className="text-xs">
-        <Shield className="h-3 w-3 mr-1" />
+      <Badge variant="default" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300 text-xs">
+        <Globe className="h-3 w-3 mr-1" />
         Published
       </Badge>
     )}
@@ -138,18 +140,24 @@ const TemplateMetadata: React.FC<{ data: TemplateData }> = ({ data }) => (
       <Calendar className="h-3 w-3" />
       <span>Created {new Date(data.created_at).toLocaleDateString()}</span>
     </div>
-    {data.is_public && (
-      <div className="flex items-center gap-1">
-        <Download className="h-3 w-3" />
-        <span>{data.download_count} downloads</span>
-      </div>
-    )}
   </div>
 );
 
-const AgentMetadata: React.FC = () => (
-  <div className="flex items-center justify-between">
-    <span className="text-muted-foreground text-xs">By me</span>
+const AgentMetadata: React.FC<{ data: AgentData }> = ({ data }) => (
+  <div className="space-y-1 text-xs text-muted-foreground">
+    <div className="flex items-center justify-between">
+      <span>By me</span>
+      <div className="flex items-center gap-1">
+        <Calendar className="h-3 w-3" />
+        <span>{new Date(data.created_at).toLocaleDateString()}</span>
+      </div>
+    </div>
+    {data.is_public && data.marketplace_published_at && (
+      <div className="flex items-center gap-1">
+        <Download className="h-3 w-3" />
+        <span>{data.download_count || 0} downloads</span>
+      </div>
+    )}
   </div>
 );
 
@@ -207,15 +215,6 @@ const TemplateActions: React.FC<{
             </>
           )}
         </Button>
-        <Button
-          onClick={(e) => onSecondaryAction?.(data, e)}
-          variant="ghost"
-          size="sm"
-          className="w-full"
-        >
-          <Eye className="h-3 w-3 " />
-          View in Marketplace
-        </Button>
       </>
     ) : (
       <Button
@@ -257,19 +256,21 @@ const CardAvatar: React.FC<{ avatar: string; color: string }> = ({ avatar, color
 );
 
 const TagList: React.FC<{ tags?: string[] }> = ({ tags }) => {
-  if (!tags || tags.length === 0) return null;
-  
   return (
-    <div className="flex flex-wrap gap-1">
-      {tags.slice(0, 2).map(tag => (
-        <Badge key={tag} variant="outline" className="text-xs border-border/50">
-          {tag}
-        </Badge>
-      ))}
-      {tags.length > 2 && (
-        <Badge variant="outline" className="text-xs border-border/50">
-          +{tags.length - 2}
-        </Badge>
+    <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+      {tags && tags.length > 0 && (
+        <>
+          {tags.slice(0, 2).map(tag => (
+            <Badge key={tag} variant="outline" className="text-xs border-border/50">
+              {tag}
+            </Badge>
+          ))}
+          {tags.length > 2 && (
+            <Badge variant="outline" className="text-xs border-border/50">
+              +{tags.length - 2}
+            </Badge>
+          )}
+        </>
       )}
     </div>
   );
@@ -286,7 +287,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 }) => {
   const { avatar, color } = styling;
   
-  const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer";
+  const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer flex flex-col h-full";
   
   const renderBadge = () => {
     switch (mode) {
@@ -308,7 +309,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       case 'template':
         return <TemplateMetadata data={data as TemplateData} />;
       case 'agent':
-        return <AgentMetadata />;
+        return <AgentMetadata data={data as AgentData} />;
       default:
         return null;
     }
@@ -335,10 +336,18 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   return (
     <div className={cardClassName} onClick={() => onClick?.(data)}>
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="relative p-6">
+      <div className="relative p-6 flex flex-col h-full">
         <div className="flex items-start justify-between mb-4">
           <CardAvatar avatar={avatar} color={color} />
-          {renderBadge()}
+          <div className="flex items-center gap-2">
+            {renderBadge()}
+            {mode === 'template' && (data as TemplateData).is_public && (data as TemplateData).download_count !== undefined && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Download className="h-3 w-3" />
+                <span>{(data as TemplateData).download_count} downloads</span>
+              </div>
+            )}
+          </div>
         </div>
         
         <h3 className="text-lg font-semibold text-foreground mb-2 line-clamp-1">
@@ -347,11 +356,19 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
           {data.description || 'No description available'}
         </p>
-        <TagList tags={data.tags} />
-        <div className="mt-4 mb-4">
-          {renderMetadata()}
+        
+        <div className="flex-1 flex flex-col">
+          <div className="min-h-[1.25rem] mb-3">
+            <TagList tags={data.tags} />
+          </div>
+          
+          <div className="mt-auto">
+            <div className="mb-3">
+              {renderMetadata()}
+            </div>
+            {renderActions()}
+          </div>
         </div>
-        {renderActions()}
       </div>
     </div>
   );

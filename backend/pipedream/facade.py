@@ -208,7 +208,7 @@ class PipedreamManager:
         app_slug_vo = AppSlug(app_slug)
         return await self._app_repo.get_icon_url(app_slug_vo)
 
-    async def get_popular_apps(self, category: Optional[str] = None, limit: int = 10) -> List[App]:
+    async def get_popular_apps(self, category: Optional[str] = None, limit: int = 100) -> List[App]:
         from .domain.value_objects import Category
         category_vo = Category(category) if category else None
         return await self._app_repo.get_popular(category_vo, limit)

@@ -119,6 +119,8 @@ class SupabaseVersionRepository(IVersionRepository):
     
     async def update(self, version: AgentVersion) -> AgentVersion:
         data = {
+            'version_name': version.version_name,
+            'change_description': version.change_description,
             'is_active': version.is_active,
             'updated_at': version.updated_at.isoformat(),
             'config': {

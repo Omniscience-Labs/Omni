@@ -5,7 +5,7 @@ import { Globe, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { TagInput } from '@/components/ui/tag-input';
 
 interface PublishDialogData {
   templateId: string;
@@ -15,10 +15,10 @@ interface PublishDialogData {
 
 interface PublishDialogProps {
   publishDialog: PublishDialogData | null;
-  publishTags: string;
+  publishTags: string[];
   templatesActioningId: string | null;
   onClose: () => void;
-  onPublishTagsChange: (tags: string) => void;
+  onPublishTagsChange: (tags: string[]) => void;
   onPublish: () => void;
 }
 
@@ -42,15 +42,15 @@ export const PublishDialog = ({
         <div className="space-y-4">
           <div>
             <Label htmlFor="tags">Tags (optional)</Label>
-            <Input
-              id="tags"
+            <TagInput
+              tags={publishTags}
+              onTagsChange={onPublishTagsChange}
               placeholder="automation, productivity, data-analysis"
-              value={publishTags}
-              onChange={(e) => onPublishTagsChange(e.target.value)}
               className="mt-1"
+              maxTags={8}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Separate tags with commas to help users discover your template
+              Type and press Enter or comma to add tags. Click tags to remove them.
             </p>
           </div>
         </div>
@@ -68,12 +68,12 @@ export const PublishDialog = ({
           >
             {templatesActioningId ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Publishing...
               </>
             ) : (
               <>
-                <Globe className="h-4 w-4 mr-2" />
+                <Globe className="h-4 w-4" />
                 Publish Template
               </>
             )}

@@ -21,12 +21,6 @@ const agentTabs: TabConfig[] = [
     label: 'Marketplace',
     shortLabel: 'Market',
   },
-  {
-    value: 'my-templates',
-    icon: FileText,
-    label: 'My Templates',
-    shortLabel: 'Templates',
-  },
 ];
 
 export const TabsNavigation = ({ activeTab, onTabChange }: TabsNavigationProps) => {
