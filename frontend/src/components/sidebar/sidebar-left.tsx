@@ -192,21 +192,19 @@ export function SidebarLeft({
                     <SidebarMenuSub>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton className={cn({
-                          'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
+                          'bg-accent text-accent-foreground font-medium': pathname === '/agents' && searchParams.get('tab') === 'marketplace',
                         })} asChild>
-                          <Link href="/agents?tab=my-agents">
-                            <Bot className="h-4 w-4" />
-                            <span>My Agents</span>
+                          <Link href="/agents?tab=marketplace">
+                            <span>Explore</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton className={cn({
-                          'bg-accent text-accent-foreground font-medium': pathname === '/agents' && searchParams.get('tab') === 'marketplace',
+                          'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
                         })} asChild>
-                          <Link href="/agents?tab=marketplace">
-                            <Store className="h-4 w-4" />
-                            <span>Marketplace</span>
+                          <Link href="/agents?tab=my-agents">
+                            <span>My Agents</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
@@ -215,7 +213,6 @@ export function SidebarLeft({
                           onClick={() => setShowNewAgentDialog(true)}
                           className="cursor-pointer"
                         >
-                          <Plus className="h-4 w-4" />
                           <span>New Agent</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
