@@ -155,7 +155,7 @@ export const MyAgentsTab = ({
   };
 
   return (
-    <div className="space-y-6 mt-8">
+    <div className="space-y-6 mt-8 flex flex-col min-h-full">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
         <SearchBar
           placeholder="Search your agents..."
@@ -203,40 +203,42 @@ export const MyAgentsTab = ({
         </div>
       </div>
 
-      {agentFilter === 'templates' ? (
-        renderTemplates()
-      ) : (
-        <>
-          {agentsLoading ? (
-            <LoadingState viewMode={viewMode} />
-          ) : filteredAgents.length === 0 ? (
-            <EmptyState
-              hasAgents={(agentsPagination?.total || 0) > 0}
-              onCreateAgent={onCreateAgent}
-              onClearFilters={handleClearFilters}
-            />
-          ) : (
-            <AgentsGrid
-              agents={filteredAgents}
-              onEditAgent={onEditAgent}
-              onDeleteAgent={onDeleteAgent}
-              onToggleDefault={onToggleDefault}
-              deleteAgentMutation={deleteAgentMutation}
-              onPublish={onPublishAgent}
-              publishingId={publishingAgentId}
-            />
-          )}
+      <div className="flex-1">
+        {agentFilter === 'templates' ? (
+          renderTemplates()
+        ) : (
+          <>
+            {agentsLoading ? (
+              <LoadingState viewMode={viewMode} />
+            ) : filteredAgents.length === 0 ? (
+              <EmptyState
+                hasAgents={(agentsPagination?.total || 0) > 0}
+                onCreateAgent={onCreateAgent}
+                onClearFilters={handleClearFilters}
+              />
+            ) : (
+              <AgentsGrid
+                agents={filteredAgents}
+                onEditAgent={onEditAgent}
+                onDeleteAgent={onDeleteAgent}
+                onToggleDefault={onToggleDefault}
+                deleteAgentMutation={deleteAgentMutation}
+                onPublish={onPublishAgent}
+                publishingId={publishingAgentId}
+              />
+            )}
 
-          {agentsPagination && agentsPagination.pages > 1 && (
-            <Pagination
-              currentPage={agentsPagination.page}
-              totalPages={agentsPagination.pages}
-              onPageChange={setAgentsPage}
-              isLoading={agentsLoading}
-            />
-          )}
-        </>
-      )}
+            {agentsPagination && agentsPagination.pages > 1 && (
+              <Pagination
+                currentPage={agentsPagination.page}
+                totalPages={agentsPagination.pages}
+                onPageChange={setAgentsPage}
+                isLoading={agentsLoading}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }; 

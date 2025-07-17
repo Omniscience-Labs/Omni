@@ -34,11 +34,12 @@ const TabButton = ({ value, isActive, onClick, children }: TabButtonProps) => {
     <button
       onClick={onClick}
       className={cn(
-        "relative flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-300",
-        isDark ? "hover:bg-white/5" : "hover:bg-muted/80",
+        "relative flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-300 ease-out",
+        // Only apply hover background when not active - subtle and elegant
+        !isActive && (isDark ? "hover:bg-white/8" : "hover:bg-muted/60"),
         isActive 
           ? isDark ? "text-white" : "text-foreground bg-background border border-border/50"
-          : isDark ? "text-white/50 hover:text-white/70" : "text-muted-foreground hover:text-foreground"
+          : isDark ? "text-white/60 hover:text-white/85" : "text-muted-foreground hover:text-foreground"
       )}
       style={isActive && isDark ? {
         background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08))',
