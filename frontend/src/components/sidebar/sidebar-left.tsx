@@ -183,7 +183,7 @@ export function SidebarLeft({
                     <SidebarMenuButton
                       tooltip="Agents"
                     >
-                      <Bot className="h-4 w-4" />
+                      <Bot className="h-4 w-4 mr-1" />
                       <span>Agents</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
@@ -191,7 +191,7 @@ export function SidebarLeft({
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className={cn({
+                        <SidebarMenuSubButton className={cn('pl-3', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && searchParams.get('tab') === 'marketplace',
                         })} asChild>
                           <Link href="/agents?tab=marketplace">
@@ -200,7 +200,7 @@ export function SidebarLeft({
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className={cn({
+                        <SidebarMenuSubButton className={cn('pl-3', {
                           'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
                         })} asChild>
                           <Link href="/agents?tab=my-agents">
@@ -211,7 +211,7 @@ export function SidebarLeft({
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton 
                           onClick={() => setShowNewAgentDialog(true)}
-                          className="cursor-pointer"
+                          className="cursor-pointer pl-3"
                         >
                           <span>New Agent</span>
                         </SidebarMenuSubButton>
