@@ -248,8 +248,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
             </div>
           </div>
         </DialogHeader>
-
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto max-h-[60vh] flex flex-col">
           {step === 'setup' ? (
             <div className="space-y-6 p-1 flex-1">
               <div className="space-y-4">
