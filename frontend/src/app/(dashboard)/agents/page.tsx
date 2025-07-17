@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
@@ -82,6 +82,7 @@ export default function AgentsPage() {
   const [publishDialog, setPublishDialog] = useState<PublishDialogData | null>(null);
   const [publishTags, setPublishTags] = useState<string[]>([]);
   const [publishingAgentId, setPublishingAgentId] = useState<string | null>(null);
+  const [isCreatingNewAgent, setIsCreatingNewAgent] = useState(false);
 
   const activeTab = useMemo(() => {
     return searchParams.get('tab') || 'my-agents';
@@ -250,9 +251,20 @@ export default function AgentsPage() {
     setEditDialogOpen(true);
   };
 
-  const handleCreateNewAgent = () => {
-    createNewAgentMutation.mutate();
-  };
+  const handleCreateNewAgent = useCallback(() => {
+    if (isCreatingNewAgent || createNewAgentMutation.isPending) {
+      return; // Prevent multiple clicks
+    }
+    
+    setIsCreatingNewAgent(true);
+    
+    createNewAgentMutation.mutate(undefined, {
+      onSettled: () => {
+        // Reset the debounce state after mutation completes (success or error)
+        setTimeout(() => setIsCreatingNewAgent(false), 1000);
+      }
+    });
+  }, [isCreatingNewAgent, createNewAgentMutation]);
 
   const handleInstallClick = (item: MarketplaceTemplate, e?: React.MouseEvent) => {
     if (e) {
