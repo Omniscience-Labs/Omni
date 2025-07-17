@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
-import { useTheme } from 'next-themes';
 import { useAuthMethodTracking } from '@/lib/stores/auth-tracking';
 import { FcGoogle } from "react-icons/fc";
 import { Loader2 } from 'lucide-react';
@@ -16,10 +15,6 @@ declare global {
       accounts: {
         id: {
           initialize: (config: GoogleInitializeConfig) => void;
-          renderButton: (
-            element: HTMLElement,
-            options: GoogleButtonOptions,
-          ) => void;
           prompt: (
             callback?: (notification: GoogleNotification) => void,
           ) => void;
@@ -45,16 +40,6 @@ interface GoogleInitializeConfig {
   itp_support?: boolean;
 }
 
-interface GoogleButtonOptions {
-  type?: string;
-  theme?: string;
-  size?: string;
-  text?: string;
-  shape?: string;
-  logoAlignment?: string;
-  width?: number;
-}
-
 interface GoogleNotification {
   isNotDisplayed: () => boolean;
   getNotDisplayedReason: () => string;
@@ -72,7 +57,6 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-  const { resolvedTheme } = useTheme();
 
   const { wasLastMethod, markAsUsed } = useAuthMethodTracking('google');
 
@@ -96,6 +80,7 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
           'Google sign in successful, preparing redirect to:',
           returnUrl || '/dashboard',
         );
+
         setTimeout(() => {
           console.log('Executing redirect now to:', returnUrl || '/dashboard');
           window.location.href = returnUrl || '/dashboard';
@@ -109,20 +94,22 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
     [returnUrl, markAsUsed],
   );
 
-  const handleManualGoogleSignIn = useCallback(() => {
+  const handleCustomGoogleSignIn = useCallback(() => {
     if (isLoading) return;
 
     if (!window.google || !googleClientId || !isGoogleLoaded) {
       console.error('Google sign-in not properly initialized');
+      toast.error('Google sign-in not ready. Please try again.');
       return;
     }
 
     try {
       setIsLoading(true);
+      
       const timeoutId = setTimeout(() => {
         console.log('Google sign-in timeout - resetting loading state');
         setIsLoading(false);
-        toast.error('Google sign-in failed. Please try again.');
+        toast.error('Google sign-in popup failed to load. Please try again.');
       }, 5000);
 
       window.google.accounts.id.prompt((notification) => {
@@ -138,17 +125,17 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
           setIsLoading(false);
         }
       });
-          } catch (error) {
-        console.error('Error showing Google sign-in prompt:', error);
-        setIsLoading(false);
-        toast.error('Failed to start Google sign-in. Please try again.');
-      }
+    } catch (error) {
+      console.error('Error showing Google sign-in prompt:', error);
+      setIsLoading(false);
+      toast.error('Failed to start Google sign-in. Please try again.');
+    }
   }, [googleClientId, isGoogleLoaded, isLoading]);
 
   useEffect(() => {
     window.handleGoogleSignIn = handleGoogleSignIn;
 
-    if (window.google && googleClientId) {
+    if (window.google && googleClientId && !isGoogleLoaded) {
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: handleGoogleSignIn,
@@ -162,15 +149,15 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
     return () => {
       delete window.handleGoogleSignIn;
     };
-  }, [googleClientId, handleGoogleSignIn]);
+  }, [googleClientId, handleGoogleSignIn, isGoogleLoaded]);
 
   if (!googleClientId) {
     return (
       <button
         disabled
-        className="w-full h-12 flex items-center justify-center text-sm font-medium tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans opacity-60 cursor-not-allowed"
+        className="w-full h-12 flex items-center justify-center gap-2 text-sm font-medium tracking-wide rounded-full bg-background border border-border opacity-60 cursor-not-allowed"
       >
-        <FcGoogle className="w-5 h-5 mr-2" />
+        <FcGoogle className="w-4 h-4 mr-2" />
         Google Sign-In Not Configured
       </button>
     );
@@ -188,25 +175,26 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
         data-callback="handleGoogleSignIn"
         style={{ display: 'none' }}
       />
-
       <div className="relative">
         <button
-          onClick={handleManualGoogleSignIn}
+          onClick={handleCustomGoogleSignIn}
           disabled={isLoading || !isGoogleLoaded}
           className="w-full h-12 flex items-center justify-center text-sm font-medium tracking-wide rounded-full bg-background text-foreground border border-border hover:bg-accent/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed font-sans"
+          aria-label={
+            isLoading ? 'Signing in with Google...' : 'Sign in with Google'
+          }
+          type="button"
         >
           {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Signing in...
-            </>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
-            <>
-              <FcGoogle className="w-5 h-5 mr-2" />
-              Continue with Google
-            </>
+            <FcGoogle className="w-4 h-4 mr-2" />
           )}
+          <span className="font-medium">
+            {isLoading ? 'Signing in...' : 'Continue with Google'}
+          </span>
         </button>
+        
         {wasLastMethod && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background shadow-sm">
             <div className="w-full h-full bg-green-500 rounded-full animate-pulse" />
