@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Bot } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { X, Bot, Search, Sparkles, TrendingUp, Star, Filter, ArrowRight } from 'lucide-react';
 import { usePipedreamApps, usePipedreamPopularApps } from '@/hooks/react-query/pipedream/use-pipedream';
 import { usePipedreamProfiles } from '@/hooks/react-query/pipedream/use-pipedream-profiles';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
@@ -8,22 +11,46 @@ import { PipedreamConnector } from './pipedream-connector';
 import { ToolsManager } from '../mcp/tools-manager';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { AgentSelector } from '../../thread/chat-input/agent-selector';
 import type { PipedreamApp } from '@/hooks/react-query/pipedream/utils';
-import {
-  PipedreamHeader,
-  ConnectedAppsSection,
-  AppsGrid,
-  EmptyState,
-  PaginationControls
-} from './_components';
-import { PAGINATION_CONSTANTS } from './constants';
+import { pipedreamApi } from '@/hooks/react-query/pipedream/utils';
+import { AppCard } from './_components/app-card';
 import {
   createConnectedAppsFromProfiles,
   getAgentPipedreamProfiles,
 } from './utils';
 import type { PipedreamRegistryProps, ConnectedApp } from './types';
 import { usePathname } from 'next/navigation';
+
+const AppCardSkeleton = () => (
+  <div className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-all">
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-4">
+        <Skeleton className="h-12 w-12 rounded-xl" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+      <div className="space-y-2 mb-4">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-9 w-full rounded-xl" />
+      </div>
+    </div>
+  </div>
+);
+
+const AppsGridSkeleton = ({ count = 8 }: { count?: number }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {Array.from({ length: count }).map((_, index) => (
+      <AppCardSkeleton key={index} />
+    ))}
+  </div>
+);
 
 export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   onToolsSelected,
@@ -37,9 +64,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   versionId
 }) => {
   const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState<'popular' | 'browse'>('popular');
-  const [after, setAfter] = useState<string | undefined>(undefined);
-  const [paginationHistory, setPaginationHistory] = useState<string[]>([]);
+  const [showAllApps, setShowAllApps] = useState(false);
   const [showStreamlinedConnector, setShowStreamlinedConnector] = useState(false);
   const [selectedAppForConnection, setSelectedAppForConnection] = useState<PipedreamApp | null>(null);
   const [showToolsManager, setShowToolsManager] = useState(false);
@@ -55,19 +80,24 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
 
   const queryClient = useQueryClient();
   
-  // Only fetch popular apps by default, or when searching
   const { data: popularAppsData, isLoading: isLoadingPopular } = usePipedreamPopularApps();
   
-  // Only fetch regular apps when on browse page (page 2+) or searching
-  const shouldFetchRegularApps = currentPage === 'browse' || search.trim() !== '';
-  const { data: appsData, isLoading, error, refetch } = usePipedreamApps(after, search);
+  const shouldFetchAllApps = showAllApps || search.trim() !== '';
+  const { data: allAppsData, isLoading: isLoadingAll, error, refetch } = useQuery({
+    queryKey: ['pipedream', 'apps', undefined, search],
+    queryFn: async () => {
+      const result = await pipedreamApi.getApps(undefined, search);
+      return result;
+    },
+    enabled: shouldFetchAllApps,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
   
   const { data: profiles } = usePipedreamProfiles();
   
   const currentAgentId = selectedAgentId ?? internalSelectedAgentId;
   const { data: agent } = useAgent(currentAgentId || '');
-  
-  const { data: allAppsData } = usePipedreamApps(undefined, ''); // Keep for connected apps
 
   React.useEffect(() => {
     setInternalSelectedAgentId(selectedAgentId);
@@ -117,63 +147,14 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
   }, [profiles]);
 
   const connectedApps: ConnectedApp[] = useMemo(() => {
-    return createConnectedAppsFromProfiles(connectedProfiles, allAppsData?.apps || []);
-  }, [connectedProfiles, allAppsData?.apps]);
+    return createConnectedAppsFromProfiles(connectedProfiles, popularAppsData?.apps || []);
+  }, [connectedProfiles, popularAppsData?.apps]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
-    setAfter(undefined);
-    setPaginationHistory([]);
-    
-    // If searching, switch to browse mode to use regular API
-    if (value.trim() !== '') {
-      setCurrentPage('browse');
-    } else {
-      setCurrentPage('popular');
+    if (value.trim() === '') {
+      setShowAllApps(false);
     }
-  };
-
-  const handleBrowseMore = () => {
-    setCurrentPage('browse');
-    setAfter(undefined);
-    setPaginationHistory([]);
-  };
-
-  const handleBackToPopular = () => {
-    setCurrentPage('popular');
-    setSearch('');
-    setAfter(undefined);
-    setPaginationHistory([]);
-  };
-
-  const handleNextPage = () => {
-    if (appsData?.page_info?.end_cursor) {
-      if (after) {
-        setPaginationHistory(prev => [...prev, after]);
-      } else {
-        setPaginationHistory(prev => [...prev, PAGINATION_CONSTANTS.FIRST_PAGE]);
-      }
-      setAfter(appsData.page_info.end_cursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (paginationHistory.length > 0) {
-      const newHistory = [...paginationHistory];
-      const previousCursor = newHistory.pop();
-      setPaginationHistory(newHistory);
-      
-      if (previousCursor === PAGINATION_CONSTANTS.FIRST_PAGE) {
-        setAfter(undefined);
-      } else {
-        setAfter(previousCursor);
-      }
-    }
-  };
-
-  const resetPagination = () => {
-    setAfter(undefined);
-    setPaginationHistory([]);
   };
 
   const handleConnectionComplete = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
@@ -202,21 +183,23 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
     setShowToolsManager(true);
   };
 
-  const handleClearFilters = () => {
+  const handleClearSearch = () => {
     setSearch('');
-    setCurrentPage('popular');
-    resetPagination();
+    setShowAllApps(false);
   };
 
   // Determine which apps to show
   const displayApps = useMemo(() => {
-    if (currentPage === 'popular' && !search.trim()) {
-      return popularAppsData?.apps || [];
+    if (search.trim()) {
+      return allAppsData?.apps || [];
     }
-    return appsData?.apps || [];
-  }, [currentPage, search, popularAppsData?.apps, appsData?.apps]);
+    if (showAllApps) {
+      return allAppsData?.apps || [];
+    }
+    return popularAppsData?.apps || [];
+  }, [search, showAllApps, popularAppsData?.apps, allAppsData?.apps]);
 
-  const isCurrentlyLoading = currentPage === 'popular' ? isLoadingPopular : isLoading;
+  const isLoading = search.trim() || showAllApps ? isLoadingAll : isLoadingPopular;
 
   if (error) {
     return (
@@ -236,107 +219,165 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <PipedreamHeader 
-        search={search}
-        onSearchChange={handleSearch}
-        showAgentSelector={showAgentSelector}
-        currentAgentId={currentAgentId}
-        onAgentChange={handleAgentSelect}
-        agentName={agent?.name}
-      />
+      <div className="sticky flex items-center justify-between top-0 z-10 flex-shrink-0 border-b bg-background px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-muted-foreground/20 flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-semibold text-foreground">
+                  {agent?.name ? `${agent.name} Integrations` : 'Integrations'}
+                </h1>
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-400">
+                  2700+ Apps
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                {agent?.name ? 'Connect apps to enhance your agent\'s capabilities' : 'Connect your favorite apps and services'}
+              </p>
+            </div>
+          </div>
+          {showAgentSelector && (
+            <AgentSelector
+              selectedAgentId={currentAgentId}
+              onAgentSelect={handleAgentSelect}
+            />
+          )}
+        </div>
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search apps..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="pl-10 h-11 w-full bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20 rounded-xl transition-all"
+          />
+          {search && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSearch}
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
       
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4">
-          <div className="max-w-6xl mx-auto">
+        <div className="p-6">
+          <div className="max-w-7xl mx-auto space-y-8">
             {showAgentSelector && !currentAgentId && (
-              <div className="mb-6 text-center py-8 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-                <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <Bot className="h-6 w-6 text-muted-foreground" />
+              <div className="text-center py-12 px-6 bg-gradient-to-br from-muted/30 to-muted/10 rounded-2xl border border-dashed border-border">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mb-4">
+                  <Bot className="h-8 w-8 text-primary" />
                 </div>
-                <h4 className="text-sm font-medium text-foreground mb-2">
-                  Select an agent to get started
-                </h4>
-                <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Select an Agent
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                   Choose an agent from the dropdown above to view and manage its integrations
                 </p>
               </div>
             )}
-            
             {connectedApps.length > 0 && (!showAgentSelector || currentAgentId) && (
-              <ConnectedAppsSection
-                connectedApps={connectedApps}
-                showAgentSelector={showAgentSelector}
-                currentAgentId={currentAgentId}
-                agent={agent}
-                agentPipedreamProfiles={agentPipedreamProfiles}
-                mode={mode}
-                onAppSelected={onAppSelected}
-                onConnectApp={handleConnectApp}
-                onConfigureTools={handleConfigureTools}
-                onCategorySelect={() => {}} // No longer needed
-              />
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="border border-green-200 dark:border-green-900 h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+                    <Star className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-md font-semibold text-foreground">
+                      {showAgentSelector && currentAgentId ? 'Connected to Agent' : 'Connected Apps'}
+                    </h2>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {connectedApps.map((app) => (
+                    <AppCard 
+                      key={`${app.name_slug}-${currentAgentId || 'default'}`} 
+                      app={app}
+                      mode={mode}
+                      currentAgentId={currentAgentId}
+                      agentName={agent?.name}
+                      agentPipedreamProfiles={agentPipedreamProfiles}
+                      onAppSelected={onAppSelected}
+                      onConnectApp={handleConnectApp}
+                      onConfigureTools={handleConfigureTools}
+                      handleCategorySelect={() => {}}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
-            
             {(!showAgentSelector || currentAgentId) && (
-              <>
-                {displayApps.length > 0 ? (
-                  <AppsGrid
-                    apps={displayApps}
-                    selectedCategory={currentPage === 'popular' ? 'Popular' : 'All'}
-                    mode={mode}
-                    isLoading={isCurrentlyLoading}
-                    currentAgentId={currentAgentId}
-                    agent={agent}
-                    agentPipedreamProfiles={agentPipedreamProfiles}
-                    onAppSelected={onAppSelected}
-                    onConnectApp={handleConnectApp}
-                    onConfigureTools={handleConfigureTools}
-                    onCategorySelect={() => {}} // No longer needed
-                    onBrowseMore={currentPage === 'popular' ? handleBrowseMore : undefined}
-                    onBackToPopular={currentPage === 'browse' ? handleBackToPopular : undefined}
-                  />
-                ) : !isCurrentlyLoading ? (
-                  <EmptyState
-                    selectedCategory={currentPage === 'popular' ? 'Popular' : 'All'}
-                    mode={mode}
-                    onClearFilters={handleClearFilters}
-                  />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 border border-orange-200 dark:border-orange-900 rounded-lg bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-md font-semibold text-foreground">
+                        {search.trim() ? 'Search Results' : showAllApps ? 'All Apps' : 'Popular Apps'}
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+                {isLoading ? (
+                  <AppsGridSkeleton count={8} />
+                ) : displayApps.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {displayApps.map((app) => (
+                      <AppCard 
+                        key={`${app.name_slug}-${currentAgentId || 'default'}`} 
+                        app={app}
+                        mode={mode}
+                        currentAgentId={currentAgentId}
+                        agentName={agent?.name}
+                        agentPipedreamProfiles={agentPipedreamProfiles}
+                        onAppSelected={onAppSelected}
+                        onConnectApp={handleConnectApp}
+                        onConfigureTools={handleConfigureTools}
+                        handleCategorySelect={() => {}}
+                      />
+                    ))}
+                  </div>
                 ) : (
-                  <AppsGrid
-                    apps={[]}
-                    selectedCategory={currentPage === 'popular' ? 'Popular' : 'All'}
-                    mode={mode}
-                    isLoading={isCurrentlyLoading}
-                    currentAgentId={currentAgentId}
-                    agent={agent}
-                    agentPipedreamProfiles={agentPipedreamProfiles}
-                    onAppSelected={onAppSelected}
-                    onConnectApp={handleConnectApp}
-                    onConfigureTools={handleConfigureTools}
-                    onCategorySelect={() => {}} // No longer needed
-                  />
+                  <div className="text-center flex flex-col items-center justify-center py-12">
+                    <div className="text-6xl mb-4">🔍</div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      No apps found
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                      {search.trim() 
+                        ? `No apps match "${search}". Try a different search term.`
+                        : 'No apps available at the moment.'
+                      }
+                    </p>
+                    {search.trim() && (
+                      <Button
+                        onClick={handleClearSearch}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                      >
+                        <Filter className="h-4 w-4" />
+                        Clear Search
+                      </Button>
+                    )}
+                  </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
       </div>
       
-      {/* Only show pagination for browse mode */}
-      {currentPage === 'browse' && displayApps.length > 0 && (paginationHistory.length > 0 || appsData?.page_info?.has_more) && (!showAgentSelector || currentAgentId) && (
-        <div className="border-t p-4">
-          <div className="max-w-6xl mx-auto">
-            <PaginationControls
-              isLoading={isLoading}
-              paginationHistory={paginationHistory}
-              hasMore={appsData?.page_info?.has_more || false}
-              onPrevPage={handlePrevPage}
-              onNextPage={handleNextPage}
-            />
-          </div>
-        </div>
-      )}
-      
+      {/* Modals */}
       {selectedAppForConnection && (
         <PipedreamConnector
           app={selectedAppForConnection}
@@ -348,6 +389,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           saveMode={isHomePage ? 'direct' : 'callback'}
         />
       )}
+      
       {selectedToolsProfile && currentAgentId && (
         <ToolsManager
           mode="pipedream"
