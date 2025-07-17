@@ -44,6 +44,7 @@ First, I'll create a todo list to organize our work and make sure we cover all a
 - [ ] Proofread and finalize all documents
 </parameter>
 </invoke>
+</function_calls>
 
 Now I'll start researching flight options and the best regions to visit based on your interests. Let's begin by searching for flight information and gathering essential data about traveling to Japan from Seattle.
 
@@ -52,6 +53,7 @@ Now I'll start researching flight options and the best regions to visit based on
 <parameter name="query">flights from Seattle to Japan April 2025 costs</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Let me also search for information about the best places to visit in Japan, especially focusing on historical sites and cultural experiences:
 
@@ -60,6 +62,7 @@ Let me also search for information about the best places to visit in Japan, espe
 <parameter name="query">best historical sites in Japan for first-time visitors</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Now let's look for information about Nara deer park and other cultural experiences you mentioned:
 
@@ -68,24 +71,28 @@ Now let's look for information about Nara deer park and other cultural experienc
 <parameter name="query">Nara deer park Japan visiting guide</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="web_search">
 <parameter name="query">authentic tea ceremony experience Japan for tourists</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="web_search">
 <parameter name="query">zen meditation experiences for tourists in Japan</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="web_search">
 <parameter name="query">kendo observation or experience for tourists in Japan</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Let's also research hidden gems and romantic spots in Japan for your proposal:
 
@@ -94,12 +101,14 @@ Let's also research hidden gems and romantic spots in Japan for your proposal:
 <parameter name="query">romantic proposal locations in Japan scenic views</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="web_search">
 <parameter name="query">hidden gems in Japan off the beaten path</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Now let's look at transportation options within Japan:
 
@@ -108,6 +117,7 @@ Now let's look at transportation options within Japan:
 <parameter name="query">Japan Rail Pass cost and coverage 2025</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Based on the searches, I'm going to compile information to create your itinerary. First, let me mark some research tasks as complete and update our todo list:
 
@@ -127,6 +137,7 @@ Based on the searches, I'm going to compile information to create your itinerary
 - [ ] Research accommodation options within budget
 - [x] Research proposal location options</parameter>
 </invoke>
+</function_calls>
 
 ## Creating Your Itinerary
 
@@ -137,6 +148,7 @@ Now I'll start crafting your detailed 7-day itinerary based on the research. Fir
 <parameter name="query">budget to mid-range accommodations in Tokyo Kyoto 2025</parameter>
 <parameter name="num_results">20</parameter>
 </invoke>
+</function_calls>
 
 Based on all the research, I'm now going to create a detailed itinerary file:
 
@@ -595,6 +607,7 @@ tr:nth-child(even) {
 }
 </parameter>
 </invoke>
+</function_calls>
 
 Now, let's create the HTML structure for the travel handbook:
 
@@ -945,6 +958,7 @@ Now, let's create the HTML structure for the travel handbook:
 </html>
 </parameter>
 </invoke>
+</function_calls>
 
 Let me now create a directory for the travel handbook and make sure all the files are properly organized:
 
@@ -953,6 +967,7 @@ Let me now create a directory for the travel handbook and make sure all the file
 <parameter name="command">mkdir -p travel_handbook</parameter>
 <parameter name="blocking">true</parameter>
 </invoke>
+</function_calls>
 
 Now let's check that our files are in place and update our todo list:
 
@@ -961,6 +976,7 @@ Now let's check that our files are in place and update our todo list:
 <parameter name="command">ls -la travel_handbook/</parameter>
 <parameter name="blocking">true</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="full_file_rewrite">
@@ -1001,6 +1017,7 @@ Now let's check that our files are in place and update our todo list:
 - [ ] Proofread and finalize all documents
 </parameter>
 </invoke>
+</function_calls>
 
 Now let's generate a preview of the HTML travel handbook:
 
@@ -1009,6 +1026,7 @@ Now let's generate a preview of the HTML travel handbook:
 <parameter name="command">cd travel_handbook && python -m http.server 3000</parameter>
 <parameter name="blocking">false</parameter>
 </invoke>
+</function_calls>
 
 Let's expose the port so you can access the travel handbook:
 
@@ -1016,6 +1034,7 @@ Let's expose the port so you can access the travel handbook:
 <invoke name="expose_port">
 <parameter name="port">3000</parameter>
 </invoke>
+</function_calls>
 
 Let's combine all our work into a comprehensive package for you to download. First, let's create a zip file with everything:
 
@@ -1024,6 +1043,7 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 <parameter name="command">zip -r japan_trip_package.zip Japan_Itinerary.md travel_handbook/</parameter>
 <parameter name="blocking">true</parameter>
 </invoke>
+</function_calls>
 
 <function_calls>
 <invoke name="ask">
@@ -1051,3 +1071,4 @@ You can preview the HTML travel handbook through the link provided by the expose
 
 Is there anything specific you'd like me to adjust or explain in more detail about the itinerary or travel handbook?</parameter>
 </invoke>
+</function_calls>
