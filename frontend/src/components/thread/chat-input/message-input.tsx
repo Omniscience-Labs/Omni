@@ -156,7 +156,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
     const renderDropdown = () => {
       if (isLoggedIn) {
         const showAdvancedFeatures = enableAdvancedConfig || (customAgentsEnabled && !flagsLoading);
-        
+
         return (
           <div className="flex items-center gap-2">
             {showAdvancedFeatures && !hideAgentSelection && (
@@ -223,7 +223,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
 
           </div>
 
-          {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
+          {/* {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
@@ -234,7 +234,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          }
+          } */}
 
           <div className='flex items-center gap-2'>
             {renderDropdown()}

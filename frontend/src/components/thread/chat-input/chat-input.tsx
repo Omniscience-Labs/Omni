@@ -142,7 +142,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     // Auto-show usage preview when we have subscription data
     useEffect(() => {
-      if (shouldShowUsage && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
+      if (shouldShowUsage && defaultShowSnackbar !== false && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
         setShowSnackbar('upgrade');
       }
     }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage]);
