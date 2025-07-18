@@ -644,7 +644,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     } else if (group.type === 'assistant_group') {
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
-                                                <div className="flex flex-col gap-2 group bg-card border px-4 py-3 rounded-3xl rounded-bl-lg relative">
+                                                <div className="flex flex-col gap-2 group bg-card border p-5 rounded-3xl rounded-bl-lg relative">
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center">
                                                             {(() => {
@@ -964,7 +964,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                         // Get the processed content that was stored during rendering
                                                         const processedContent = group.processedContent;
                                                         return (
-                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-card border absolute -bottom-4 right-4 rounded-full p-2">
+                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-card border absolute -bottom-5 right-4 rounded-full p-2">
                                                                 <MessageActions 
                                                                     messageId={messageId} 
                                                                     initialFeedback={firstAssistant?.user_feedback ?? null}
