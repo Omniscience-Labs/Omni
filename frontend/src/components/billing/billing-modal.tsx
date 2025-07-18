@@ -25,7 +25,7 @@ interface BillingModalProps {
     returnUrl?: string;
 }
 
-export function BillingModal({ open, onOpenChange, returnUrl = window?.location?.href || '/' }: BillingModalProps) {
+export function BillingModal({ open, onOpenChange, returnUrl = typeof window !== 'undefined' ? window?.location?.href || '/' : '/' }: BillingModalProps) {
     const { session, isLoading: authLoading } = useAuth();
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
