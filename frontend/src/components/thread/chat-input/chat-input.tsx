@@ -163,6 +163,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     useEffect(() => {
       if (shouldShowUsage && defaultShowSnackbar !== false && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
         setShowSnackbar('upgrade');
+      } else if (!shouldShowUsage && showSnackbar !== false) {
+        setShowSnackbar(false);
       }
     }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers]);
 
