@@ -29,7 +29,6 @@ interface ApiMessageType {
     avatar?: string;
     avatar_color?: string;
   };
-  user_feedback?: boolean | null;
 }
 
 // Define the structure returned by the hook
@@ -69,7 +68,6 @@ const mapApiMessagesToUnified = (
       metadata: msg.metadata || '{}',
       created_at: msg.created_at || new Date().toISOString(),
       updated_at: msg.updated_at || new Date().toISOString(),
-      user_feedback: msg.user_feedback ?? null,
       agent_id: (msg as any).agent_id,
       agents: (msg as any).agents,
     }));
