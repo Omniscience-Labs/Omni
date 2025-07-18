@@ -277,13 +277,13 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
             </Button>
           </div>
         </div>
-        {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
+        {/* {subscriptionStatus === 'no_subscription' && !isLocalMode() &&
           <div className='sm:hidden absolute -bottom-8 left-0 right-0 flex justify-center'>
             <p className='text-xs text-amber-500 px-2 py-1'>
               Upgrade for better performance
             </p>
           </div>
-        }
+        } */}
       </div>
     );
   },

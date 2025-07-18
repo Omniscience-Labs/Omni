@@ -24,10 +24,11 @@ import { SiNotion } from 'react-icons/si';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
 import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { isLocalMode } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { AnimatePresence } from 'framer-motion';
+import { BillingModal } from '@/components/billing/billing-modal';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -64,6 +65,7 @@ export interface ChatInputProps {
   onConfigureAgent?: (agentId: string) => void;
   hideAgentSelection?: boolean;
   defaultShowSnackbar?: 'tokens' | 'upgrade' | false;
+  showToLowCreditUsers?: boolean;
 }
 
 export interface UploadedFile {
@@ -105,6 +107,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       onConfigureAgent,
       hideAgentSelection = false,
       defaultShowSnackbar = false,
+      showToLowCreditUsers = true,
     },
     ref,
   ) => {
@@ -122,6 +125,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [configModalTab, setConfigModalTab] = useState('integrations');
     const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
     const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
+    const [billingModalOpen, setBillingModalOpen] = useState(false);
 
     const {
       selectedModel,
@@ -133,19 +137,34 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       refreshCustomModels,
     } = useModelSelection();
 
-    const { data: subscriptionData } = useSubscription();
+    const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 
-    // Simple logic: show usage preview if we have subscription data and not in local mode
-    const shouldShowUsage = !isLocalMode() && subscriptionData;
+    // Show usage preview logic:
+    // - Always show to free users when showToLowCreditUsers is true
+    // - For paid users, only show when they're at 70% or more of their cost limit (30% or below remaining)
+    const shouldShowUsage = !isLocalMode() && subscriptionData && showToLowCreditUsers && (() => {
+      // Free users: always show
+      if (subscriptionStatus === 'no_subscription') {
+        return true;
+      }
+
+      // Paid users: only show when at 70% or more of cost limit
+      const currentUsage = subscriptionData.current_usage || 0;
+      const costLimit = subscriptionData.cost_limit || 0;
+
+      if (costLimit === 0) return false; // No limit set
+
+      return currentUsage >= (costLimit * 0.7); // 70% or more used (30% or less remaining)
+    })();
 
     // Auto-show usage preview when we have subscription data
     useEffect(() => {
       if (shouldShowUsage && defaultShowSnackbar !== false && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
         setShowSnackbar('upgrade');
       }
-    }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage]);
+    }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers]);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -320,6 +339,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             showUsagePreview={showSnackbar}
             subscriptionData={subscriptionData}
             onCloseUsage={() => setShowSnackbar(false)}
+            onOpenUpgrade={() => setBillingModalOpen(true)}
             isVisible={showToolPreview || !!showSnackbar}
           />
           <Card
@@ -494,6 +514,10 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               />
             </DialogContent>
           </Dialog>
+          <BillingModal
+            open={billingModalOpen}
+            onOpenChange={setBillingModalOpen}
+          />
         </div>
       </div>
     );

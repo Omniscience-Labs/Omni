@@ -9,6 +9,7 @@ export interface UsagePreviewProps {
     type: 'tokens' | 'upgrade';
     subscriptionData?: any;
     onClose?: () => void;
+    onOpenUpgrade?: () => void;
     hasMultiple?: boolean;
     showIndicators?: boolean;
     currentIndex?: number;
@@ -20,6 +21,7 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
     type,
     subscriptionData,
     onClose,
+    onOpenUpgrade,
     hasMultiple = false,
     showIndicators = false,
     currentIndex = 0,
@@ -100,6 +102,7 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
             {/* Apple-style notification indicators - only for multiple notification types */}
             {showIndicators && totalCount === 2 && (
                 <button
+                    data-indicator-click
                     onClick={(e) => {
                         e.stopPropagation();
                         const nextIndex = currentIndex === 0 ? 1 : 0;
@@ -121,7 +124,7 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
                 </button>
             )}
 
-            <Button value='ghost' className="bg-transparent hover:bg-transparent flex-shrink-0" onClick={onClose}>
+            <Button value='ghost' data-close-click className="bg-transparent hover:bg-transparent flex-shrink-0" onClick={onClose}>
                 <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             </Button>
         </div>
