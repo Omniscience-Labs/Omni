@@ -619,7 +619,7 @@ export default function ThreadPage({
             <WorkflowInfo workflowId={workflowId} />
           </div>
         )} */}
-        
+
         <ThreadContent
           messages={messages}
           streamingTextContent={streamingTextContent}
@@ -670,6 +670,7 @@ export default function ThreadPage({
                 setIsSidePanelOpen(true);
                 userClosedPanelRef.current = false;
               }}
+              defaultShowSnackbar="tokens"
             />
           </div>
         </div>
