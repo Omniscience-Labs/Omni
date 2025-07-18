@@ -112,7 +112,7 @@ async def create_sandbox(password: str, project_id: str = None) -> AsyncSandbox:
             disk=5,
         ),
         auto_stop_interval=15,
-        auto_archive_interval=24 * 60,
+        auto_archive_interval=2 * 60,
     )
     
     # Create the sandbox
