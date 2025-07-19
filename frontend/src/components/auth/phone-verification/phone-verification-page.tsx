@@ -1,163 +1,335 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { PhoneInput } from "./phone-input";
-import { OtpVerification } from "./otp-verification";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { PhoneInput } from './phone-input';
+import { OtpVerification } from './otp-verification';
+import {
+  useEnrollPhoneNumber,
+  useCreateChallenge,
+  useVerifyChallenge,
+  useListFactors,
+  useGetAAL,
+  useUnenrollFactor,
+} from '@/hooks/react-query/phone-verification';
 
 interface PhoneVerificationPageProps {
   onSuccess?: () => void;
 }
 
-export function PhoneVerificationPage({ onSuccess }: PhoneVerificationPageProps) {
-  const [step, setStep] = useState<"phone" | "otp">("phone");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [factorId, setFactorId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function PhoneVerificationPage({
+  onSuccess,
+}: PhoneVerificationPageProps) {
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [challengeId, setChallengeId] = useState('');
   const [success, setSuccess] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [isSubmittingPhone, setIsSubmittingPhone] = useState(false);
+  const [hasExistingFactor, setHasExistingFactor] = useState(false);
   const router = useRouter();
 
-  const handlePhoneSubmit = async (phone: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch("/api/phone/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone_number: phone }),
+  console.log({ step, challengeId, hasExistingFactor });
+
+  // Use React Query hooks
+  const enrollMutation = useEnrollPhoneNumber();
+  const challengeMutation = useCreateChallenge();
+  const verifyMutation = useVerifyChallenge();
+  const unenrollMutation = useUnenrollFactor();
+
+  // Add debugging hooks
+  const { data: factors } = useListFactors();
+  const { data: aalData } = useGetAAL();
+
+  // Check for existing verified factors on component mount
+  useEffect(() => {
+    // Don't interfere while we're submitting a phone number
+    if (isSubmittingPhone) {
+      return;
+    }
+
+    if (factors?.factors) {
+      const phoneFactors = factors.factors.filter(
+        (f) => f.factor_type === 'phone',
+      );
+      const verifiedPhoneFactor = phoneFactors.find(
+        (f) => f.status === 'verified',
+      );
+
+      console.log('📱 Checking existing factors:', {
+        allFactors: factors.factors,
+        phoneFactors,
+        verifiedPhoneFactor,
+        aalData,
+        isSubmittingPhone,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to send verification code");
+      if (verifiedPhoneFactor) {
+        // User already has a verified factor - show options
+        console.log(
+          '✅ Found existing verified phone factor:',
+          verifiedPhoneFactor,
+        );
+        setStep('otp');
+        setFactorId(verifiedPhoneFactor.id);
+        setPhoneNumber(verifiedPhoneFactor.phone || '');
+        setHasExistingFactor(true);
+        // Don't set challengeId yet - let user choose to send code
+      } else {
+        // No verified factor found - check for unverified factors
+        const unverifiedPhoneFactor = phoneFactors.find(
+          (f) => f.status !== 'verified',
+        );
+        if (unverifiedPhoneFactor) {
+          console.log(
+            '⚠️ Found unverified phone factor:',
+            unverifiedPhoneFactor,
+          );
+          setFactorId(unverifiedPhoneFactor.id);
+          setPhoneNumber(unverifiedPhoneFactor.phone || '');
+          setStep('otp');
+          setHasExistingFactor(true);
+          // Don't set challengeId yet - let user choose to send code
+        }
       }
+    }
+  }, [factors, aalData, isSubmittingPhone]);
+
+  const handleCreateChallengeForExistingFactor = async () => {
+    try {
+      console.log(
+        '🔵 Creating challenge for existing factor:',
+        factorId,
+      );
+
+      const challengeResponse = await challengeMutation.mutateAsync({
+        factor_id: factorId,
+      });
+
+      console.log(
+        '✅ Challenge created for existing factor:',
+        challengeResponse,
+      );
+
+      setChallengeId(challengeResponse.id);
+      setSuccess('Verification code sent to your phone');
+    } catch (err) {
+      console.error('❌ Failed to create challenge for existing factor:', err);
+    }
+  };
+
+  const handleUnenrollFactor = async () => {
+    try {
+      console.log('🔵 Unenrolling factor:', factorId);
+
+      await unenrollMutation.mutateAsync(factorId);
+
+      console.log('✅ Factor unenrolled successfully');
+
+      // Reset state and go back to phone input
+      setStep('phone');
+      setFactorId('');
+      setPhoneNumber('');
+      setChallengeId('');
+      setHasExistingFactor(false);
+      setSuccess('Phone number removed. You can now add a new one.');
+    } catch (err) {
+      console.error('❌ Failed to unenroll factor:', err);
+    }
+  };
+
+  const handlePhoneSubmit = async (phone: string) => {
+    try {
+      setIsSubmittingPhone(true);
+      console.log('🔵 Starting phone enrollment for:', phone);
+
+      // Step 1: Enroll the phone number
+      const enrollResponse = await enrollMutation.mutateAsync({
+        friendly_name: 'Primary Phone',
+        phone_number: phone,
+      });
+
+      console.log('✅ Enrollment response:', enrollResponse);
+
+      // Step 2: Create a challenge (sends SMS)
+      const challengeResponse = await challengeMutation.mutateAsync({
+        factor_id: enrollResponse.id,
+      });
+
+      console.log('✅ Challenge response:', challengeResponse);
 
       setPhoneNumber(phone);
-      setFactorId(data.factor_id);
-      setStep("otp");
-      setSuccess("Verification code sent to your phone");
+      setFactorId(enrollResponse.id);
+      setChallengeId(challengeResponse.id);
+      setStep('otp');
+      setHasExistingFactor(false);
+      setSuccess('Verification code sent to your phone');
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send verification code");
+      console.error('❌ Phone submission failed:', err);
+
+      // If enrollment fails because factor already exists, try to handle existing factor
+      if (err instanceof Error && err.message.includes('already exists')) {
+        console.log(
+          '🔄 Factor already exists, checking for existing factors...',
+        );
+        // Force refetch of factors
+        window.location.reload();
+      }
     } finally {
-      setIsLoading(false);
+      setIsSubmittingPhone(false);
     }
   };
 
   const handleOtpVerify = async (otp: string) => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const response = await fetch("/api/phone/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          phone_number: phoneNumber,
-          otp_code: otp,
-          factor_id: factorId
-        }),
+      console.log('🔵 Starting OTP verification with:', {
+        factor_id: factorId,
+        challenge_id: challengeId,
+        code: otp,
       });
 
-      const data = await response.json();
+      // Check status BEFORE verification
+      console.log('📊 Status BEFORE verification:', {
+        factors: factors,
+        aalData: aalData,
+      });
 
-      if (!response.ok) {
-        throw new Error(data.error || "Invalid verification code");
-      }
+      // Verify the challenge with the OTP code - this will automatically invalidate caches
+      const verifyResponse = await verifyMutation.mutateAsync({
+        factor_id: factorId,
+        challenge_id: challengeId,
+        code: otp,
+      });
 
-      setSuccess("Phone number verified successfully!");
-      
-      // Redirect to dashboard after 1 second
+      console.log('✅ Verification response:', verifyResponse);
+
+      // Store debug info to display
+      setDebugInfo({
+        verifyResponse,
+        beforeFactors: factors,
+        beforeAAL: aalData,
+        timestamp: new Date().toISOString(),
+      });
+
+      setSuccess('Phone number verified successfully!');
+
+      // Wait a bit for cache invalidation, then redirect
       setTimeout(() => {
+        console.log('🔄 Redirecting after successful verification...');
         if (onSuccess) {
           onSuccess();
         } else {
-          router.push("/dashboard");
+          router.push('/dashboard');
         }
-      }, 1000);
-      
+      }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid verification code");
-    } finally {
-      setIsLoading(false);
+      console.error('❌ OTP verification failed:', err);
     }
   };
 
   const handleResendCode = async () => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const response = await fetch("/api/phone/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone_number: phoneNumber }),
+      console.log('🔵 Resending code for factor:', factorId);
+
+      // Create a new challenge for the enrolled factor
+      const challengeResponse = await challengeMutation.mutateAsync({
+        factor_id: factorId,
       });
 
-      const data = await response.json();
+      console.log('✅ Resend challenge response:', challengeResponse);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to resend verification code");
-      }
-
-      setSuccess("New verification code sent");
+      setChallengeId(challengeResponse.id);
+      setSuccess('New verification code sent');
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resend verification code");
-    } finally {
-      setIsLoading(false);
+      console.error('❌ Resend failed:', err);
     }
   };
 
+  const isLoading =
+    enrollMutation.isPending ||
+    challengeMutation.isPending ||
+    verifyMutation.isPending ||
+    unenrollMutation.isPending;
+  const error =
+    enrollMutation.error?.message ||
+    challengeMutation.error?.message ||
+    verifyMutation.error?.message ||
+    unenrollMutation.error?.message ||
+    null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">
             Phone Verification
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {step === "phone" 
-              ? "Enter your phone number to receive a verification code"
-              : "Enter the 6-digit code sent to your phone"
-            }
+          </h1>
+          <p className="text-muted-foreground">
+            {step === 'otp' && hasExistingFactor
+              ? 'We need to verify your existing phone number'
+              : 'We need to verify your phone number'}
           </p>
         </div>
 
+        {/* Debug Information */}
+        {false && (factors || aalData || debugInfo) && (
+          <div className="p-4 rounded-lg text-xs space-y-2">
+            <h3 className="font-semibold">Debug Info:</h3>
+            {aalData && (
+              <div>
+                <strong>AAL:</strong> {aalData.current_level} →{' '}
+                {aalData.next_level}
+                (action: {aalData.action_required})
+              </div>
+            )}
+            {factors && (
+              <div>
+                <strong>Factors:</strong>{' '}
+                {factors.factors
+                  ?.map((f) => `${f.factor_type}:${f.status}:${f.id}`)
+                  .join(', ') || 'none'}
+              </div>
+            )}
+            {debugInfo && (
+              <div>
+                <strong>Last Verification:</strong> {debugInfo.timestamp}
+                <br />
+                <strong>Response:</strong>{' '}
+                {JSON.stringify(debugInfo.verifyResponse)}
+              </div>
+            )}
+          </div>
+        )}
+
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
         )}
 
         {success && (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-800">{success}</p>
+          </div>
         )}
 
-        {step === "phone" ? (
+        {step === 'phone' ? (
           <PhoneInput
             onSubmit={handlePhoneSubmit}
             isLoading={isLoading}
-            error={error}
+            error={null}
           />
         ) : (
           <OtpVerification
-            phoneNumber={phoneNumber}
             onVerify={handleOtpVerify}
             onResend={handleResendCode}
+            onSendCode={handleCreateChallengeForExistingFactor}
+            onRemovePhone={handleUnenrollFactor}
             isLoading={isLoading}
-            error={error}
+            error={null}
+            showExistingOptions={hasExistingFactor}
+            challengeId={challengeId}
           />
         )}
       </div>

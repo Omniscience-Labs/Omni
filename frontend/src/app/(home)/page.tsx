@@ -10,33 +10,36 @@ import { PricingSection } from '@/components/home/sections/pricing-section';
 import { UseCasesSection } from '@/components/home/sections/use-cases-section';
 import { ModalProviders } from '@/providers/modal-providers';
 import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
+import { BackgroundAALChecker } from '@/components/auth/background-aal-checker';
 
 export default function Home() {
   return (
     <>
       <ModalProviders />
-      <main className="flex flex-col items-center justify-center min-h-screen w-full">
-        <div className="w-full divide-y divide-border">
-          <HeroSection />
-          <UseCasesSection />
-          {/* <CompanyShowcase /> */}
-          {/* <BentoSection /> */}
-          {/* <QuoteSection /> */}
-          {/* <FeatureSection /> */}
-          {/* <GrowthSection /> */}
-          <OpenSourceSection />
-          <div className='flex flex-col items-center px-4'>
-            <PricingSection />
+      <BackgroundAALChecker>
+        <main className="flex flex-col items-center justify-center min-h-screen w-full">
+          <div className="w-full divide-y divide-border">
+            <HeroSection />
+            <UseCasesSection />
+            {/* <CompanyShowcase /> */}
+            {/* <BentoSection /> */}
+            {/* <QuoteSection /> */}
+            {/* <FeatureSection /> */}
+            {/* <GrowthSection /> */}
+            <OpenSourceSection />
+            <div className='flex flex-col items-center px-4'>
+              <PricingSection />
+            </div>
+            <div className="pb-10 mx-auto">
+              <HeroVideoSection />
+            </div>
+            {/* <TestimonialSection /> */}
+            {/* <FAQSection /> */}
+            <CTASection />
+            <FooterSection />
           </div>
-          <div className="pb-10 mx-auto">
-            <HeroVideoSection />
-          </div>
-          {/* <TestimonialSection /> */}
-          {/* <FAQSection /> */}
-          <CTASection />
-          <FooterSection />
-        </div>
-      </main>
+        </main>
+      </BackgroundAALChecker>
     </>
   );
 }

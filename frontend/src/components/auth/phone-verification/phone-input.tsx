@@ -43,7 +43,7 @@ export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneI
       <CardHeader>
         <CardTitle>Phone Verification</CardTitle>
         <CardDescription>
-          Enter your phone number to receive a verification code via SMS
+          Enter your phone number to get OTP via SMS
         </CardDescription>
       </CardHeader>
       <CardContent>
