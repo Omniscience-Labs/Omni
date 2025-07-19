@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from '@/components/ui/progress';
 import { Markdown } from '@/components/ui/markdown';
-import { FileAttachment } from '../../file-attachment';
+import { FileAttachment } from '../file-attachment';
 
 interface CompleteContent {
   summary?: string;
