@@ -32,7 +32,7 @@ export interface CustomModel {
 export const MODELS = {
   // Free tier models (available to all users)
   'claude-sonnet-4': { 
-    tier: 'free',
+    tier: 'premium',
     priority: 100, 
     recommended: true,
     lowQuality: false
@@ -59,7 +59,7 @@ export const MODELS = {
     lowQuality: false
   },
   'grok-4': { 
-    tier: 'free', 
+    tier: 'premium', 
     priority: 98,
     recommended: false,
     lowQuality: false
