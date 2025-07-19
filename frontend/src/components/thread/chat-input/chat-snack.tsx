@@ -56,6 +56,8 @@ export const ChatSnack: React.FC<ChatSnackProps> = ({
         notifications.push('usage');
     }
 
+
+
     const totalNotifications = notifications.length;
     const hasMultiple = totalNotifications > 1;
 
@@ -136,13 +138,15 @@ export const ChatSnack: React.FC<ChatSnackProps> = ({
                             type={showUsagePreview}
                             subscriptionData={subscriptionData}
                             onClose={() => {
+                                // First close the usage notification
                                 if (onCloseUsage) onCloseUsage();
-                                // If there are other notifications, switch to them
-                                if (totalNotifications > 1) {
-                                    const remainingNotifications = notifications.filter(n => n !== 'usage');
-                                    if (remainingNotifications.length > 0) {
-                                        setCurrentView(0); // Switch to first remaining notification
-                                    }
+
+                                // Check what notifications will remain after closing usage
+                                const willHaveToolNotification = showToolPreview && toolCalls.length > 0;
+
+                                // If there will be other notifications, switch to them
+                                if (willHaveToolNotification) {
+                                    setCurrentView(0); // Switch to tool notification
                                 }
                             }}
                             hasMultiple={hasMultiple}

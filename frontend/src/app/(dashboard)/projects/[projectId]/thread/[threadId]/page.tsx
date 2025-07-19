@@ -509,8 +509,11 @@ export default function ThreadPage({
     setDebugMode(debugParam === 'true');
   }, [searchParams]);
 
+  const hasCheckedUpgradeDialog = useRef(false);
+
   useEffect(() => {
-    if (initialLoadCompleted && subscriptionData) {
+    if (initialLoadCompleted && subscriptionData && !hasCheckedUpgradeDialog.current) {
+      hasCheckedUpgradeDialog.current = true;
       const hasSeenUpgradeDialog = localStorage.getItem('suna_upgrade_dialog_displayed');
       const isFreeTier = subscriptionStatus === 'no_subscription';
       if (!hasSeenUpgradeDialog && isFreeTier && !isLocalMode()) {

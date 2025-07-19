@@ -125,6 +125,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [configModalTab, setConfigModalTab] = useState('integrations');
     const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
     const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
+    const [userDismissedUsage, setUserDismissedUsage] = useState(false);
     const [billingModalOpen, setBillingModalOpen] = useState(false);
 
     const {
@@ -161,12 +162,12 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     // Auto-show usage preview when we have subscription data
     useEffect(() => {
-      if (shouldShowUsage && defaultShowSnackbar !== false && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
+      if (shouldShowUsage && defaultShowSnackbar !== false && !userDismissedUsage && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
         setShowSnackbar('upgrade');
       } else if (!shouldShowUsage && showSnackbar !== false) {
         setShowSnackbar(false);
       }
-    }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers]);
+    }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers, userDismissedUsage]);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -340,7 +341,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             showToolPreview={showToolPreview}
             showUsagePreview={showSnackbar}
             subscriptionData={subscriptionData}
-            onCloseUsage={() => setShowSnackbar(false)}
+            onCloseUsage={() => { setShowSnackbar(false); setUserDismissedUsage(true); }}
             onOpenUpgrade={() => setBillingModalOpen(true)}
             isVisible={showToolPreview || !!showSnackbar}
           />
