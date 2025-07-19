@@ -84,7 +84,7 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
             <div className="flex-1 min-w-0">
                 <motion.div className="flex items-center gap-2 mb-1">
                     <h4 className="text-sm font-medium text-foreground truncate">
-                        Upgrade for more usage
+                        Upgrade for more usage & better AI Models
                     </h4>
                 </motion.div>
 
@@ -124,8 +124,8 @@ export const UsagePreview: React.FC<UsagePreviewProps> = ({
                 </button>
             )}
 
-            <Button value='ghost' data-close-click className="bg-transparent hover:bg-transparent flex-shrink-0" onClick={onClose}>
-                <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 hover:bg-muted/50" onClick={(e) => { e.stopPropagation(); onClose?.(); }}>
+                <X className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
             </Button>
         </div>
     );
