@@ -2,19 +2,19 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, Phone } from "lucide-react";
+import { PhoneInput as PhoneInputComponent } from "@/components/ui/phone-input";
 
-interface PhoneInputProps {
+interface PhoneInputFormProps {
   onSubmit: (phoneNumber: string) => Promise<void>;
   isLoading?: boolean;
   error?: string | null;
 }
 
-export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneInputProps) {
+export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneInputFormProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -43,37 +43,37 @@ export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneI
       <CardHeader>
         <CardTitle>Phone Verification</CardTitle>
         <CardDescription>
-          Enter your phone number to get OTP via SMS
+          Enter your phone number to receive a verification code via SMS
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+1234567890"
+            <PhoneInputComponent
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={(value) => setPhoneNumber(value || "")}
+              defaultCountry="US"
+              placeholder="Enter your phone number"
               disabled={isLoading}
-              className="text-lg"
             />
             <p className="text-sm text-muted-foreground">
-              Include country code (e.g., +1 for US)
+              We'll send you a verification code to confirm your number
             </p>
           </div>
 
           {(error || localError) && (
             <Alert variant="destructive">
-              <AlertDescription>{error || localError}</AlertDescription>
+              <AlertDescription>
+                {error || localError}
+              </AlertDescription>
             </Alert>
           )}
 
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading}
+            disabled={isLoading || !phoneNumber.trim()}
           >
             {isLoading ? (
               <>
@@ -81,7 +81,10 @@ export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneI
                 Sending code...
               </>
             ) : (
-              "Send Verification Code"
+              <>
+                <Phone className="mr-2 h-4 w-4" />
+                Send Verification Code
+              </>
             )}
           </Button>
         </form>

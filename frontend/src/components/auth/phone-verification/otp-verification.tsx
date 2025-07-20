@@ -12,7 +12,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import {
+  Loader2,
+  Shield,
+  RotateCcw,
+  Trash2,
+  MessageSquare,
+} from 'lucide-react';
 
 interface OtpVerificationProps {
   phoneNumber?: string;
@@ -154,12 +160,16 @@ export function OtpVerification({
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Enter Verification Code</CardTitle>
+        <CardTitle>
+          {showExistingOptions
+            ? 'Verify Phone Number'
+            : 'Enter Verification Code'}
+        </CardTitle>
         <CardDescription>
           {challengeId
             ? "We've sent a 6-digit code to your phone"
             : showExistingOptions
-              ? 'Send a code to verify your phone number.'
+              ? 'Phone already registered. Verify it by OTP.'
               : 'Enter the 6-digit code sent to your phone'}
         </CardDescription>
       </CardHeader>
@@ -209,7 +219,10 @@ export function OtpVerification({
                     Verifying...
                   </>
                 ) : (
-                  'Verify Code'
+                  <>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Verify Code
+                  </>
                 )}
               </Button>
 
@@ -221,6 +234,7 @@ export function OtpVerification({
                   disabled={!canResend || isLoading}
                   className="text-sm"
                 >
+                  <RotateCcw className="mr-2 h-4 w-4" />
                   {canResend ? 'Resend code' : `Resend in ${countdown}s`}
                 </Button>
               </div>
@@ -241,7 +255,10 @@ export function OtpVerification({
                       Sending...
                     </>
                   ) : (
-                    'Send Verification Code'
+                    <>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Send Verification Code
+                    </>
                   )}
                 </Button>
               )}
@@ -255,6 +272,7 @@ export function OtpVerification({
                   size="sm"
                   className="w-full"
                 >
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Remove Phone Number
                 </Button>
               )}

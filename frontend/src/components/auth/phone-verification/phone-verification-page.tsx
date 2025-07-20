@@ -12,6 +12,11 @@ import {
   useGetAAL,
   useUnenrollFactor,
 } from '@/hooks/react-query/phone-verification';
+import { signOut } from '@/app/auth/actions';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LogOut, Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 
 interface PhoneVerificationPageProps {
   onSuccess?: () => void;
@@ -98,10 +103,7 @@ export function PhoneVerificationPage({
 
   const handleCreateChallengeForExistingFactor = async () => {
     try {
-      console.log(
-        '🔵 Creating challenge for existing factor:',
-        factorId,
-      );
+      console.log('🔵 Creating challenge for existing factor:', factorId);
 
       const challengeResponse = await challengeMutation.mutateAsync({
         factor_id: factorId,
@@ -246,6 +248,17 @@ export function PhoneVerificationPage({
     }
   };
 
+  const signOutMutation = useMutation({
+    mutationFn: async () => {
+      await signOut().catch(() => void 0);
+      window.location.href = '/';
+    },
+  });
+
+  const handleSignOut = () => {
+    signOutMutation.mutate();
+  };
+
   const isLoading =
     enrollMutation.isPending ||
     challengeMutation.isPending ||
@@ -259,19 +272,28 @@ export function PhoneVerificationPage({
     null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Phone Verification
-          </h1>
-          <p className="text-muted-foreground">
-            {step === 'otp' && hasExistingFactor
-              ? 'We need to verify your existing phone number'
-              : 'We need to verify your phone number'}
-          </p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      {/* Logout Button */}
+      <div className="absolute top-4 right-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSignOut}
+          disabled={signOutMutation.isPending}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          {signOutMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
+          </span>
+        </Button>
+      </div>
 
+      <div className="w-full max-w-md space-y-6">
         {/* Debug Information */}
         {false && (factors || aalData || debugInfo) && (
           <div className="p-4 rounded-lg text-xs space-y-2">
@@ -303,15 +325,19 @@ export function PhoneVerificationPage({
         )}
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
 
         {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-800">{success}</p>
-          </div>
+          <Alert>
+            <AlertDescription>
+              {success}
+            </AlertDescription>
+          </Alert>
         )}
 
         {step === 'phone' ? (
@@ -322,6 +348,7 @@ export function PhoneVerificationPage({
           />
         ) : (
           <OtpVerification
+            phoneNumber={phoneNumber}
             onVerify={handleOtpVerify}
             onResend={handleResendCode}
             onSendCode={handleCreateChallengeForExistingFactor}
