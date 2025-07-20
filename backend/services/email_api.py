@@ -21,10 +21,6 @@ async def send_welcome_email(
     request: SendWelcomeEmailRequest,
     _: bool = Depends(verify_admin_api_key)
 ):
-    raise HTTPException(
-        status_code=403,
-        detail="Forbidden"
-    )
     try:
         
         def send_email():
