@@ -35,7 +35,7 @@ supabase_anon_key = config.SUPABASE_ANON_KEY
 # Cutoff date for new user phone verification requirement
 # Users created after this date will be required to have phone verification
 # Users created before this date are grandfathered in and not required to verify
-PHONE_VERIFICATION_CUTOFF_DATE = datetime(2025, 7, 20, 0, 0, 0, tzinfo=timezone.utc)
+PHONE_VERIFICATION_CUTOFF_DATE = datetime(2025, 7, 21, 0, 0, 0, tzinfo=timezone.utc)
 
 def is_phone_verification_mandatory() -> bool:
     """Check if phone verification is mandatory based on environment variable."""
