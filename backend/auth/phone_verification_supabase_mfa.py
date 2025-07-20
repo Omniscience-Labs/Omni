@@ -15,6 +15,7 @@ This API provides endpoints to:
 """
 
 import json
+import os
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -35,6 +36,13 @@ supabase_anon_key = config.SUPABASE_ANON_KEY
 # Users created after this date will be required to have phone verification
 # Users created before this date are grandfathered in and not required to verify
 PHONE_VERIFICATION_CUTOFF_DATE = datetime(2025, 7, 20, 0, 0, 0, tzinfo=timezone.utc)
+
+def is_phone_verification_mandatory() -> bool:
+    """Check if phone verification is mandatory based on environment variable."""
+    env_val = os.getenv("PHONE_NUMBER_MANDATORY")
+    if env_val is None:
+        return False
+    return env_val.lower() in ('true', 't', 'yes', 'y', '1')
 
 logger = logging.getLogger(__name__)
 
@@ -515,21 +523,24 @@ async def get_authenticator_assurance_level(
             # Existing users (grandfathered) - only require verification if AAL demands it
             verification_required = action_required == 'verify_mfa'
         
+        phone_verification_required = is_new_user and is_phone_verification_mandatory()
+        verification_required = verification_required and is_phone_verification_mandatory()
+        
         logger.info(f"AAL check for user {user_id}: "
                    f"current_level={current}, "
                    f"next_level={next_level}, "
                    f"action_required={action_required}, "
-                   f"phone_verification_required={is_new_user}, "
+                   f"phone_verification_required={phone_verification_required}, "
                    f"verification_required={verification_required}, "
                    f"is_verified={has_verified_phone}")
-        
+
         return AALResponse(
             current_level=current,
             next_level=next_level,
             current_authentication_methods=[x.method for x in response.current_authentication_methods],
             action_required=action_required,
             message=message,
-            phone_verification_required=is_new_user,
+            phone_verification_required=phone_verification_required,
             user_created_at=user_created_at.isoformat() if user_created_at else None,
             cutoff_date=PHONE_VERIFICATION_CUTOFF_DATE.isoformat(),
             verification_required=verification_required,
