@@ -141,6 +141,12 @@ export interface AppIconResponse {
   icon_url: string;
 }
 
+export interface PipedreamTool {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
+
 export const usePipedreamConnections = createQueryHook(
   pipedreamKeys.connections(),
   async (): Promise<ConnectionResponse> => {
@@ -407,4 +413,6 @@ export const pipedreamApi = {
     } 
     return result.data!;
   },
+
+
 }; 

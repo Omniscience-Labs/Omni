@@ -91,9 +91,9 @@ export const useConnectPipedreamProfile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ profileId, app }: { profileId: string; app?: string }) =>
+    mutationFn: ({ profileId, app, profileName }: { profileId: string; app?: string; profileName?: string }) =>
       pipedreamApi.connectProfile(profileId, app),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
       queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.detail(data.profile_id) });
       queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.connections(data.profile_id) });
@@ -106,7 +106,18 @@ export const useConnectPipedreamProfile = () => {
               queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.all() });
               queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.detail(data.profile_id) });
               queryClient.invalidateQueries({ queryKey: pipedreamKeys.profiles.connections(data.profile_id) });
-              toast.success('Connection process completed');
+              
+              // Enhanced success message with profile name and icon
+              const profileName = variables.profileName || 'Profile';
+              toast.success(`${profileName} successfully connected!`, {
+                icon: '✅',
+                duration: 4000,
+              });
+              
+              // Trigger a custom event for components to listen to
+              window.dispatchEvent(new CustomEvent('pipedream-connection-success', {
+                detail: { profileId: data.profile_id, profileName }
+              }));
             }
           }, 1000);
           setTimeout(() => {

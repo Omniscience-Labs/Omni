@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Play, Pause, AlertCircle, Workflow, Trash2 } from 'lucide-react';
+import { Plus, AlertCircle, Workflow, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,11 +57,24 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
         agentId, 
         workflow: defaultWorkflow 
       });
+      
+      // Auto-activate the workflow after creation
+      try {
+        await updateWorkflowMutation.mutateAsync({
+          agentId,
+          workflowId: newWorkflow.id,
+          workflow: { status: 'active' }
+        });
+      } catch (activationError) {
+        console.warn('Failed to auto-activate workflow:', activationError);
+        // Continue anyway, the workflow was created successfully
+      }
+      
       router.push(`/agents/config/${agentId}/workflow/${newWorkflow.id}`);
     } catch (error) {
       toast.error('Failed to create workflow');
     }
-  }, [agentId, router, createWorkflowMutation]);
+  }, [agentId, router, createWorkflowMutation, updateWorkflowMutation]);
 
   const handleUpdateWorkflowStatus = useCallback(async (workflowId: string, status: AgentWorkflow['status']) => {
     await updateWorkflowMutation.mutateAsync({ 
@@ -204,7 +217,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
                           }}
                           disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
                         >
-                          <Play className="h-4 w-4" />
+                          <Workflow className="h-4 w-4" />
                           Execute
                         </Button>
                         <Button
@@ -218,8 +231,9 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
                             );
                           }}
                           disabled={updateWorkflowMutation.isPending}
+                          className="text-xs"
                         >
-                          {workflow.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          {workflow.status === 'active' ? 'Deactivate' : 'Activate'}
                         </Button>
                         <Button
                           variant="ghost"

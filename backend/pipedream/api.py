@@ -479,6 +479,7 @@ async def get_app_icon(app_slug: str):
         raise _handle_pipedream_exception(e)
 
 
+
 @router.post("/profiles", response_model=ProfileResponse)
 async def create_credential_profile(
     request: ProfileRequest,

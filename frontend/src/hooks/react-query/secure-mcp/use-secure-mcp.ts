@@ -419,6 +419,8 @@ export function useInstallTemplate() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
   });
 } 

@@ -46,17 +46,30 @@ interface WorkflowBuilderProps {
     mcp_tools: Array<{ name: string; description: string; icon?: string; server?: string }>;
   };
   isLoadingTools?: boolean;
+  agentId?: string;
+  versionData?: {
+    version_id: string;
+    configured_mcps: any[];
+    custom_mcps: any[];
+    system_prompt: string;
+    agentpress_tools: any;
+  };
+  onToolsUpdate?: () => void;
 }
 
 function WorkflowBuilderInner({ 
   steps, 
   onStepsChange, 
   agentTools,
-  isLoadingTools 
+  isLoadingTools,
+  agentId,
+  versionData,
+  onToolsUpdate
 }: WorkflowBuilderProps) {
   useLayout();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [showToolsManager, setShowToolsManager] = useState(false);
   
   const onNodesChangeDebug = useCallback((changes: any) => {
     onNodesChange(changes);
@@ -92,6 +105,9 @@ function WorkflowBuilderInner({
           onDelete: handleNodeDelete,
           agentTools,
           isLoadingTools,
+          agentId,
+          versionData,
+          onToolsUpdate,
         }
       }));
       
@@ -107,6 +123,9 @@ function WorkflowBuilderInner({
             onDelete: handleNodeDelete,
             agentTools,
             isLoadingTools,
+            agentId,
+            versionData,
+            onToolsUpdate,
           },
           position: { x: 0, y: 0 },
           type: 'step',
@@ -119,7 +138,7 @@ function WorkflowBuilderInner({
     setTimeout(() => {
       setIsInternalUpdate(false);
     }, 100);
-  }, []);
+  }, [agentTools, isLoadingTools, versionData, onToolsUpdate]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -172,6 +191,9 @@ function WorkflowBuilderInner({
         onDelete: handleNodeDelete,
         agentTools,
         isLoadingTools,
+        agentId,
+        versionData,
+        onToolsUpdate,
       },
     };
 
@@ -197,7 +219,7 @@ function WorkflowBuilderInner({
         return newEdges;
       });
     }
-  }, [nodes, selectedNode, handleNodeDelete, setNodes, setEdges, agentTools, isLoadingTools]);
+  }, [nodes, selectedNode, handleNodeDelete, setNodes, setEdges, agentTools, isLoadingTools, versionData, onToolsUpdate]);
 
   const addConditionBranch = useCallback((type: 'if' | 'if-else' | 'if-elseif-else') => {
     if (!selectedNode) {
@@ -238,6 +260,11 @@ function WorkflowBuilderInner({
           conditionType: condition.type,
           expression: condition.type !== 'else' ? '' : undefined,
           onDelete: handleNodeDelete,
+          agentTools,
+          isLoadingTools,
+          agentId,
+          versionData,
+          onToolsUpdate,
         },
       };
       
@@ -267,7 +294,7 @@ function WorkflowBuilderInner({
       );
       return uniqueEdges;
     });
-  }, [selectedNode, nodes, handleNodeDelete, setNodes, setEdges]);
+  }, [selectedNode, nodes, handleNodeDelete, setNodes, setEdges, agentTools, isLoadingTools, versionData, onToolsUpdate]);
 
   return (
     <div className="h-full w-full border rounded-none border-none bg-muted/10 react-flow-container">
@@ -325,6 +352,7 @@ function WorkflowBuilderInner({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
           </div>
           
           {selectedNode && (
@@ -334,6 +362,8 @@ function WorkflowBuilderInner({
           )}
         </Panel>
       </ReactFlow>
+
+
     </div>
   );
 }

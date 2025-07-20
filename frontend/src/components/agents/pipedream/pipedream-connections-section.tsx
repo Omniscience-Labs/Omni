@@ -153,6 +153,7 @@ const AppTable: React.FC<AppTableProps> = ({
       await connectProfile.mutateAsync({
         profileId: newProfile.profile_id,
         app: appSlug,
+        profileName: newProfile.profile_name,
       });
 
       setNewProfileName('');
@@ -541,6 +542,7 @@ export const PipedreamConnectionsSection: React.FC<PipedreamConnectionsSectionPr
       await connectProfile.mutateAsync({
         profileId: profile.profile_id,
         app: profile.app_slug,
+        profileName: profile.profile_name,
       });
       toast.success('Profile connected successfully');
     } catch (error) {

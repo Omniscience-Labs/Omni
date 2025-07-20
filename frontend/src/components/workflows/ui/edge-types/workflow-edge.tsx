@@ -5,6 +5,18 @@ import {
   getSmoothStepPath,
 } from '@xyflow/react';
 import useEdgeClick from '../hooks/use-edge-click';
+import { useState } from 'react';
+import { Plus, GitBranch } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 export default function WorkflowEdge({
   id,
@@ -20,7 +32,8 @@ export default function WorkflowEdge({
   labelStyle,
   labelBgStyle,
 }: EdgeProps) {
-  const onClick = useEdgeClick(id);
+  const { addStepOnEdge, addConditionOnEdge } = useEdgeClick(id);
+  const [isOpen, setIsOpen] = useState(false);
 
   const [edgePath, edgeCenterX, edgeCenterY] = getSmoothStepPath({
     sourceX,
@@ -31,6 +44,16 @@ export default function WorkflowEdge({
     targetPosition,
     borderRadius: 8,
   });
+
+  const handleAddStep = () => {
+    addStepOnEdge();
+    setIsOpen(false);
+  };
+
+  const handleAddCondition = (type: 'if' | 'if-else' | 'if-elseif-else', connectBranches: string[] = []) => {
+    addConditionOnEdge(type, connectBranches);
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -54,15 +77,87 @@ export default function WorkflowEdge({
             {label}
           </div>
         )}
-        <button
+        <div
           style={{
+            position: 'absolute',
             transform: `translate(${edgeCenterX}px, ${edgeCenterY}px) translate(-50%, -50%)`,
           }}
-          onClick={onClick}
-          className="edge-button nodrag nopan"
         >
-          +
-        </button>
+          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+            <DropdownMenuTrigger asChild>
+              <button className="edge-button nodrag nopan">
+                <Plus className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48">
+              <DropdownMenuItem onClick={handleAddStep}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Step
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  <span className="text-xs font-mono mr-2">if</span>
+                  Single condition
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if', ['if'])}>
+                    Connect "if" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if', [])}>
+                    Leave unconnected
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  <span className="text-xs font-mono mr-2">if-else</span>
+                  Two branches
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-else', ['if'])}>
+                    Connect "if" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-else', ['else'])}>
+                    Connect "else" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-else', ['if', 'else'])}>
+                    Connect both to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-else', [])}>
+                    Leave unconnected
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  <span className="text-xs font-mono mr-2">if-elif-else</span>
+                  Three branches
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-elseif-else', ['if'])}>
+                    Connect "if" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-elseif-else', ['elseif'])}>
+                    Connect "else if" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-elseif-else', ['else'])}>
+                    Connect "else" to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-elseif-else', ['if', 'elseif', 'else'])}>
+                    Connect all to next step
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddCondition('if-elseif-else', [])}>
+                    Leave unconnected
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </EdgeLabelRenderer>
     </>
   );

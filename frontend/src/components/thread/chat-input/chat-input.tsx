@@ -18,9 +18,7 @@ import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
 import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow, Database, Wrench } from 'lucide-react';
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
-import { AgentConfigModal } from '@/components/agents/agent-config-modal';
-import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useRouter } from 'next/navigation';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -107,9 +105,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const [configModalOpen, setConfigModalOpen] = useState(false);
-    const [configModalTab, setConfigModalTab] = useState('integrations');
-    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
+    const router = useRouter();
 
     const {
       selectedModel,
@@ -366,7 +362,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
-                      onClick={() => setRegistryDialogOpen(true)}
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=integrations`)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <div className="flex items-center -space-x-0.5">
@@ -386,10 +382,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <div className="w-px h-4 bg-border/60" />
                     
                     <button
-                      onClick={() => {
-                        setConfigModalTab('instructions');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <Brain className="h-3.5 w-3.5 flex-shrink-0" />
@@ -399,10 +392,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <div className="w-px h-4 bg-border/60" />
                     
                     <button
-                      onClick={() => {
-                        setConfigModalTab('knowledge');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <Database className="h-3.5 w-3.5 flex-shrink-0" />
@@ -412,10 +402,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <div className="w-px h-4 bg-border/60" />
                     
                     <button
-                      onClick={() => {
-                        setConfigModalTab('triggers');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <Zap className="h-3.5 w-3.5 flex-shrink-0" />
@@ -425,10 +412,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <div className="w-px h-4 bg-border/60" />
                     
                     <button
-                      onClick={() => {
-                        setConfigModalTab('workflows');
-                        setConfigModalOpen(true);
-                      }}
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
@@ -440,28 +424,6 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             )}
           </div>
         </Card>
-        <AgentConfigModal
-          isOpen={configModalOpen}
-          onOpenChange={setConfigModalOpen}
-          selectedAgentId={selectedAgentId}
-          onAgentSelect={onAgentSelect}
-          initialTab={configModalTab}
-        />
-        <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
-          <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Integrations</DialogTitle>
-            </DialogHeader>
-            <PipedreamRegistry
-              showAgentSelector={true}
-              selectedAgentId={selectedAgentId}
-              onAgentChange={onAgentSelect}
-              onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
-                console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
       </div>
     );
   },
