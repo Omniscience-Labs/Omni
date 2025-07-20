@@ -145,7 +145,20 @@ class AgentConfigTool(AgentBuilderBaseTool):
             current_system_prompt = system_prompt if system_prompt is not None else current_agent.get('system_prompt', '')
             current_agentpress_tools = update_data.get('agentpress_tools', current_agent.get('agentpress_tools', {}))
             current_configured_mcps = configured_mcps if configured_mcps is not None else current_agent.get('configured_mcps', [])
-            current_custom_mcps = current_agent.get('custom_mcps', [])  # Preserve custom MCPs
+
+            raw_custom_mcps = current_agent.get('custom_mcps', [])
+            import re
+            sanitized_custom_mcps = []
+            for mcp in raw_custom_mcps:
+                headers = mcp.get('config', {}).get('headers', {})
+                slug_val = headers.get('x-pd-app-slug')
+                if isinstance(slug_val, str):
+                    match = re.match(r"AppSlug\(value='(.+)'\)", slug_val)
+                    if match:
+                        headers['x-pd-app-slug'] = match.group(1)
+                sanitized_custom_mcps.append(mcp)
+            current_custom_mcps = sanitized_custom_mcps
+            
             current_avatar = avatar if avatar is not None else current_agent.get('avatar')
             current_avatar_color = avatar_color if avatar_color is not None else current_agent.get('avatar_color')
             

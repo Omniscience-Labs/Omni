@@ -338,6 +338,9 @@ class PipedreamManager:
         import copy
         
         db = DBConnection()
+
+        from agent.versioning.infrastructure.dependencies import set_db_connection
+        set_db_connection(db)
         client = await db.client
         
         agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
@@ -391,13 +394,14 @@ class PipedreamManager:
                 "config": {
                     "url": "https://remote.mcp.pipedream.net",
                     "headers": {
-                        "x-pd-app-slug": str(profile.app_slug)
+                        "x-pd-app-slug": profile.app_slug.value
                     },
                     "profile_id": profile_id
                 },
                 "enabledTools": enabled_tools
             }
             updated_custom_mcps.append(new_mcp_config)
+        
         
 
         new_version = await version_manager.create_version(
