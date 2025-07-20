@@ -21,10 +21,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import jwt
 from datetime import datetime, timezone
-import logging
 from supabase import create_client, Client
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.config import config
+from utils.logger import logger, structlog
 
 router = APIRouter(prefix="/mfa", tags=["MFA"])
 
@@ -43,8 +43,6 @@ def is_phone_verification_mandatory() -> bool:
     if env_val is None:
         return False
     return env_val.lower() in ('true', 't', 'yes', 'y', '1')
-
-logger = logging.getLogger(__name__)
 
 
 def get_authenticated_client(request: Request) -> Client:
@@ -167,6 +165,13 @@ async def enroll_factor(
     Currently only supports 'phone' factor type.
     Phone number must be in E.164 format (e.g., +1234567890).
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_enroll",
+        phone_number=request_data.phone_number,
+        friendly_name=request_data.friendly_name
+    )
+    
     try:
         response = client.auth.mfa.enroll(
             {
@@ -208,6 +213,12 @@ async def create_challenge(
     This will send an SMS code to the registered phone number.
     The challenge must be verified within the time limit.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_challenge",
+        factor_id=request_data.factor_id
+    )
+    
     try:
         response = client.auth.mfa.challenge(
             {
@@ -240,6 +251,13 @@ async def verify_challenge(
 
     The challenge must be active and the SMS code must be valid.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_verify",
+        factor_id=request_data.factor_id,
+        challenge_id=request_data.challenge_id
+    )
+    
     try:
         logger.info(f"🔵 Starting MFA verification for user {user_id}: "
                    f"factor_id={request_data.factor_id}, "
@@ -316,6 +334,12 @@ async def challenge_and_verify(
     This will send an SMS code and verify it immediately when provided.
     This is a convenience method that combines challenge creation and verification.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_challenge_and_verify",
+        factor_id=request_data.factor_id
+    )
+    
     try:
         response = client.auth.mfa.challenge_and_verify(
             {"factor_id": request_data.factor_id, "code": request_data.code}
@@ -340,6 +364,11 @@ async def list_factors(
     """
     List all enrolled factors for the authenticated user.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_list_factors"
+    )
+    
     try:
         # Get user info which includes factors
         user_response = client.auth.get_user()
@@ -386,6 +415,12 @@ async def unenroll_factor(
 
     This will remove the phone number and invalidate any active sessions if the factor was verified.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_unenroll",
+        factor_id=request_data.factor_id
+    )
+    
     try:
         response = client.auth.mfa.unenroll({"factor_id": request_data.factor_id})
 
@@ -412,6 +447,11 @@ async def get_authenticator_assurance_level(
     
     Also includes phone verification requirement based on account creation date.
     """
+    structlog.contextvars.bind_contextvars(
+        user_id=user_id,
+        action="mfa_get_aal"
+    )
+    
     try:
         # Get the current AAL from Supabase
         response = client.auth.mfa.get_authenticator_assurance_level()
