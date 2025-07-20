@@ -104,11 +104,11 @@ export default function DashboardLayoutContent({
         </SidebarInset>
 
         {/* <PricingAlert 
-          open={showPricingAlert} 
-          onOpenChange={setShowPricingAlert}
-          closeable={false}
-          accountId={personalAccount?.account_id}
-          /> */}
+        open={showPricingAlert} 
+        onOpenChange={setShowPricingAlert}
+        closeable={false}
+        accountId={personalAccount?.account_id}
+        /> */}
 
         <MaintenanceAlert
           open={showMaintenanceAlert}
