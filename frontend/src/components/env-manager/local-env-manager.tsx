@@ -42,7 +42,7 @@ export function LocalEnvManager() {
     }
     const submitData = {
       ...data,
-      ...Object.fromEntries(newApiKeys.map(entry => [entry.key, entry.value]))
+      ...Object.fromEntries(newApiKeys.map(entry => [entry.key.trim(), entry.value.trim()]))
     }
     
     updateApiKeys.mutate(submitData);
