@@ -405,14 +405,26 @@ export const pipedreamApi = {
     const result = await backendApi.get<AppIconResponse>(
       `/pipedream/apps/${appSlug}/icon`,
       {
-        errorContext: { operation: 'get app icon', resource: 'Pipedream app icon' },
+        errorContext: { operation: 'load app icon', resource: 'Pipedream app icon' },
       }
     );
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get app icon');
-    } 
+    }
+
     return result.data!;
   },
 
-
+  async getAppTools(appSlug: string): Promise<{ success: boolean; tools: PipedreamTool[] }> {
+    const result = await backendApi.get<{ success: boolean; tools: PipedreamTool[] }>(
+      `/pipedream/apps/${appSlug}/tools`,
+      {
+        errorContext: { operation: 'load app tools', resource: 'Pipedream app tools' },
+      }
+    );
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get app tools');
+    }
+    return result.data!;
+  },
 }; 
