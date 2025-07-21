@@ -37,7 +37,7 @@ export const TabsNavigation = ({ activeTab, onTabChange, onCreateAgent }: TabsNa
 
   const handleTabSelection = (value: string) => {
     if (value === 'create-agent') {
-      onCreateAgent && onCreateAgent();
+      onCreateAgent?.();
     } else {
       onTabChange(value);
     }
