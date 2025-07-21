@@ -59,12 +59,12 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
 
   const { wasLastMethod, markAsUsed } = useAuthMethodTracking('google');
+  const supabase = createClient();
 
   const handleGoogleSignIn = useCallback(
     async (response: GoogleSignInResponse) => {
       try {
         setIsLoading(true);
-        const supabase = createClient();
 
         console.log('Starting Google sign in process');
         markAsUsed();
@@ -111,14 +111,22 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
         setIsLoading(false);
         toast.error('Google sign-in popup failed to load. Please try again.');
       }, 5000);
-
-      window.google.accounts.id.prompt((notification) => {
+      window.google.accounts.id.prompt(async (notification) => {
         clearTimeout(timeoutId);
         
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
           console.log('Google sign-in was not displayed or skipped:', 
             notification.isNotDisplayed() ? notification.getNotDisplayedReason() : notification.getSkippedReason()
           );
+          await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              queryParams: {
+                prompt: 'select_account',
+              },
+              redirectTo: `${window.location.origin}/dashboard`,
+            },
+          });
           setIsLoading(false);
         } else if (notification.isDismissedMoment()) {
           console.log('Google sign-in was dismissed:', notification.getDismissedReason());
