@@ -13,6 +13,9 @@ from .domain.exceptions import (
     ConnectionNotFoundError, AppNotFoundError, MCPConnectionError,
     ValidationException, PipedreamException
 )
+# Add HTTPX and JSON for tools listing endpoint
+import httpx
+import json
 
 router = APIRouter(prefix="/pipedream", tags=["pipedream"])
 pipedream_manager: Optional[PipedreamManager] = None
@@ -478,6 +481,40 @@ async def get_app_icon(app_slug: str):
         logger.error(f"Failed to fetch icon for app {app_slug}: {str(e)}")
         raise _handle_pipedream_exception(e)
 
+@router.get("/apps/{app_slug}/tools")
+async def get_app_tools(app_slug: str):
+    logger.info(f"Getting tools for app: {app_slug}")
+    url = f"https://remote.mcp.pipedream.net/?app={app_slug}&externalUserId=tools_preview"
+    payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+    headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                resp.raise_for_status()
+                tools = []
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data_str = line[len("data:"):].strip()
+                    try:
+                        data_obj = json.loads(data_str)
+                        tools = data_obj.get("result", {}).get("tools", [])
+                        for tool in tools:
+                            desc = tool.get("description", "") or ""
+                            idx = desc.find("[")
+                            if idx != -1:
+                                tool["description"] = desc[:idx].strip()
+                        break
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON data: {data_str}")
+                        continue
+        return {"success": True, "tools": tools}
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error when fetching tools for app {app_slug}: {e}")
+        raise HTTPException(status_code=502, detail="Bad Gateway")
+    except Exception as e:
+        logger.error(f"Unexpected error when fetching tools for app {app_slug}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profiles", response_model=ProfileResponse)
