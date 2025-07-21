@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertCircle, Workflow, Trash2 } from 'lucide-react';
+import { Plus, AlertCircle, Workflow, Trash2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -137,10 +137,10 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
 
   const getStatusBadge = (status: AgentWorkflow['status']) => {
     const colors = {
-      draft: 'text-gray-700 bg-gray-100',
-      active: 'text-green-700 bg-green-100',
-      paused: 'text-yellow-700 bg-yellow-100',
-      archived: 'text-red-700 bg-red-100'
+      draft: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-800',
+      active: 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900',
+      paused: 'text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
+      archived: 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900'
     };
     
     return (
@@ -188,69 +188,54 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
             ) : (
               <div className="grid gap-4">
                 {workflows.map((workflow) => (
-                  <Card 
-                    key={workflow.id} 
-                    className="p-4 cursor-pointer hover:opacity-80 transition-colors"
-                    onClick={() => handleWorkflowClick(workflow.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-semibold">{workflow.name}</h4>
-                          {getStatusBadge(workflow.status)}
-                          {workflow.is_default && <Badge variant="outline">Default</Badge>}
+                  <div key={workflow.id} className="group">
+                    <Card
+                      className="p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleWorkflowClick(workflow.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="text-lg font-semibold">{workflow.name}</h4>
+                          <div className="flex items-center space-x-2 mt-2">
+                            {getStatusBadge(workflow.status)}
+                            {workflow.is_default && <Badge variant="outline">Default</Badge>}
+                          </div>
+                          <p className="mt-3 text-sm text-muted-foreground">{workflow.description}</p>
+                          <div className="flex items-center text-xs mt-4">
+                            <Calendar className="h-4 w-4 mr-1" />
+                            <span>Created {new Date(workflow.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{workflow.description}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-xs text-muted-foreground">
-                            Created {new Date(workflow.created_at).toLocaleDateString()}
-                          </span>
+                        <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExecuteWorkflow(workflow);
+                            }}
+                            disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
+                          >
+                            <Workflow className="h-4 w-4" />
+                            Execute
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteWorkflow(workflow);
+                            }}
+                            disabled={deleteWorkflowMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExecuteWorkflow(workflow);
-                          }}
-                          disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
-                        >
-                          <Workflow className="h-4 w-4" />
-                          Execute
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateWorkflowStatus(
-                              workflow.id,
-                              workflow.status === 'active' ? 'paused' : 'active'
-                            );
-                          }}
-                          disabled={updateWorkflowMutation.isPending}
-                          className="text-xs"
-                        >
-                          {workflow.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteWorkflow(workflow);
-                          }}
-                          disabled={deleteWorkflowMutation.isPending}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                  ))}
+                    </Card>
+                  </div>
+                ))}
                 </div>
               )}
             </TabsContent>
