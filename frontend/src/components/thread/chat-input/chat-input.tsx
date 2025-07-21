@@ -8,7 +8,6 @@ import React, {
   useImperativeHandle,
 } from 'react';
 
-import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
@@ -18,7 +17,7 @@ import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
 import { ToolCallInput } from './floating-tool-preview';
 import { ChatSnack } from './chat-snack';
-import { Brain, ChevronRight, Zap, Workflow, Database, Wrench, X } from 'lucide-react';
+import { Brain, Zap, Workflow, Database } from 'lucide-react';
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
@@ -26,9 +25,8 @@ import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-regis
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { isLocalMode } from '@/lib/config';
-import { Button } from '@/components/ui/button';
-import { AnimatePresence } from 'framer-motion';
 import { BillingModal } from '@/components/billing/billing-modal';
+import { useRouter } from 'next/navigation';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -113,6 +111,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
   ) => {
     const isControlled =
       controlledValue !== undefined && controlledOnChange !== undefined;
+    const router = useRouter();
 
     const [uncontrolledValue, setUncontrolledValue] = useState('');
     const value = isControlled ? controlledValue : uncontrolledValue;
@@ -417,82 +416,70 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               </CardContent>
 
               {enableAdvancedConfig && selectedAgentId && (
-                <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
-                      <button
-                        onClick={() => setRegistryDialogOpen(true)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <div className="flex items-center -space-x-0.5">
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaGoogle className="w-3 h-3" />
-                          </div>
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaDiscord className="w-3 h-3" />
-                          </div>
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <SiNotion className="w-3 h-3" />
-                          </div>
+              <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
+                    <button
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=integrations`)}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <div className="flex items-center -space-x-0.5">
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaGoogle className="w-3 h-3" />
                         </div>
-                        <span className="text-xs font-medium">Integrations</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => {
-                          setConfigModalTab('instructions');
-                          setConfigModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Brain className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Instructions</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => {
-                          setConfigModalTab('knowledge');
-                          setConfigModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Database className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Knowledge</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => {
-                          setConfigModalTab('triggers');
-                          setConfigModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Zap className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Triggers</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => {
-                          setConfigModalTab('workflows');
-                          setConfigModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Workflows</span>
-                      </button>
-                    </div>
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <FaDiscord className="w-3 h-3" />
+                        </div>
+                        <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                          <SiNotion className="w-3 h-3" />
+                        </div>
+                      </div>
+                      <span className="text-xs font-medium">Integrations</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Brain className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Instructions</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Database className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Knowledge</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Triggers</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-border/60" />
+                    
+                    <button
+                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    >
+                      <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Workflows</span>
+                    </button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
             </div>
           </Card>
           <AgentConfigModal

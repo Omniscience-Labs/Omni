@@ -166,7 +166,7 @@ export const CredentialProfileSelector: React.FC<CredentialProfileSelectorProps>
             value={selectedProfileId || ''}
             onValueChange={(value) => onProfileSelect(value || null)}
           >
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 w-full">
               <SelectValue placeholder="Select a profile">
                 {selectedProfile && (
                   <div className="flex items-center gap-2">

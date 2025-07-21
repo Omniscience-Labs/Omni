@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Plus, Settings, Zap, Bot, ChevronDown, Star, CheckCircle } from 'lucide-react';
+import { Plus, Settings, Zap, Bot, ChevronDown, Star, CheckCircle, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCategoryEmoji } from '../utils';
 import type { AppCardProps } from '../types';
@@ -81,13 +81,13 @@ export const AppCard: React.FC<AppCardProps> = ({
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-shrink-0 relative">
             <div className={cn(
-              "h-8 w-8 rounded-xl flex items-center justify-center text-primary font-semibold overflow-hidden transition-all duration-300"
+              "h-8 w-8 rounded-lg border bg-muted flex items-center justify-center text-primary font-semibold overflow-hidden transition-all duration-300"
             )}>
               {(app.img_src || iconData?.icon_url) ? (
                 <img
                   src={app.img_src || iconData?.icon_url || ''}
                   alt={app.name}
-                  className="w-full h-full object-cover rounded-xl"
+                  className="w-5 h-5 object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
@@ -110,9 +110,11 @@ export const AppCard: React.FC<AppCardProps> = ({
           </div>
           
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base text-foreground mb-1 truncate group-hover:text-primary transition-colors">
-              {app.name}
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h3 className="font-semibold text-base text-foreground truncate group-hover:text-primary transition-colors">
+                {app.name}
+              </h3>
+            </div>
             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
               {app.description}
             </p>
@@ -166,12 +168,8 @@ export const AppCard: React.FC<AppCardProps> = ({
           <Button
             size="sm"
             onClick={handleConnectClick}
-            className={cn(
-              "w-full font-medium transition-all duration-200",
-              isConnected && !hasAgentTools
-                ? "bg-purple-600"
-                : "bg-primary",
-            )}
+            variant={isConnected && !hasAgentTools ? "outline" : "default"}
+            className={cn("w-full font-medium transition-all duration-200")}
           >
             {mode === 'simple' ? (
               <>

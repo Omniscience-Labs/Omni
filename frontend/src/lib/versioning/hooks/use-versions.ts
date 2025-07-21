@@ -63,10 +63,11 @@ export const useCreateAgentVersion = () => {
       return versionService.createVersion(agentId, data);
     },
     onSuccess: (newVersion, { agentId }) => {
+      // More targeted invalidation to prevent page reload appearance
       queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
-      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agents'] });
-      toast.success(`Created version ${newVersion.versionName}`);
+      // Don't invalidate the main agent query to avoid page re-render
+      // The component will handle its own state updates
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create version');

@@ -59,20 +59,39 @@ class SupabaseProfileRepository:
         try:
             client = await self._db.client
             
+            self._logger.debug(f"Querying profile: account_id={account_id}, profile_id={profile_id}")
+            
             result = await client.table('user_mcp_credential_profiles').select('*').eq(
                 'account_id', str(account_id)
             ).eq('profile_id', str(profile_id)).single().execute()
             
             if result.data:
                 profile_data = result.data
+                self._logger.debug(f"Found profile: {profile_data.get('profile_name', 'unknown')}")
                 decrypted_config = self._encryption_service.decrypt(profile_data['encrypted_config'])
                 config = json.loads(decrypted_config)
                 return self._map_to_domain(profile_data, config)
             
+            self._logger.warning(f"Profile {profile_id} not found for user {account_id}")
+            
+            try:
+                all_profiles_result = await client.table('user_mcp_credential_profiles').select('account_id, profile_name').eq(
+                    'profile_id', str(profile_id)
+                ).execute()
+                
+                if all_profiles_result.data:
+                    other_user_id = all_profiles_result.data[0]['account_id']
+                    profile_name = all_profiles_result.data[0]['profile_name']
+                    self._logger.warning(f"Profile {profile_id} exists but belongs to user {other_user_id} (profile_name: {profile_name})")
+                else:
+                    self._logger.warning(f"Profile {profile_id} does not exist in the database")
+            except Exception as debug_e:
+                self._logger.warning(f"Could not check profile existence: {str(debug_e)}")
+            
             return None
             
         except Exception as e:
-            self._logger.error(f"Error getting profile by ID: {str(e)}")
+            self._logger.error(f"Error getting profile by ID {profile_id} for user {account_id}: {str(e)}")
             return None
 
     async def get_by_app_slug(self, account_id: UUID, app_slug: AppSlug, profile_name: Optional[ProfileName] = None) -> Optional[Profile]:

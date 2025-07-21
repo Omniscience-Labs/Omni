@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-query/agents/workflow-utils';
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 import { WorkflowBuilder } from '@/components/workflows/ui/workflow-builder';
 
@@ -205,6 +206,7 @@ export default function WorkflowPage() {
   const createWorkflowMutation = useCreateAgentWorkflow();
   const updateWorkflowMutation = useUpdateAgentWorkflow();
   const { data: agentTools, isLoading: isLoadingTools } = useAgentTools(agentId);
+  const { data: agent, refetch: refetchAgent } = useAgent(agentId);
   
   const isEditing = !!workflowId;
 
@@ -223,6 +225,19 @@ export default function WorkflowPage() {
   }, []);
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
+
+  // Create version data for tools manager
+  const versionData = agent ? {
+    version_id: (agent as any).version_id || 'current',
+    configured_mcps: agent.configured_mcps || [],
+    custom_mcps: agent.custom_mcps || [],
+    system_prompt: agent.system_prompt || '',
+    agentpress_tools: agent.agentpress_tools || {}
+  } : undefined;
+
+  const handleToolsUpdate = useCallback(async () => {
+    await refetchAgent();
+  }, [refetchAgent]);
 
   useEffect(() => {
     if (isEditing && workflows.length > 0) {
@@ -309,8 +324,18 @@ export default function WorkflowPage() {
           is_default: isDefault,
           steps: nestedSteps
         };
-        await createWorkflowMutation.mutateAsync({ agentId, workflow: createRequest });
-        toast.success('Workflow created successfully');
+        const newWorkflow = await createWorkflowMutation.mutateAsync({ agentId, workflow: createRequest });
+        try {
+          await updateWorkflowMutation.mutateAsync({
+            agentId,
+            workflowId: newWorkflow.id,
+            workflow: { status: 'active' }
+          });
+        } catch (activationError) {
+          console.warn('Failed to auto-activate workflow:', activationError);
+        }
+        
+        toast.success('Workflow created and activated successfully');
       }
     } catch (error) {
       toast.error(`Failed to ${isEditing ? 'update' : 'create'} workflow`);
@@ -409,6 +434,9 @@ export default function WorkflowPage() {
               onStepsChange={setStepsWithDebug}
               agentTools={agentTools}
               isLoadingTools={isLoadingTools}
+              agentId={agentId}
+              versionData={versionData}
+              onToolsUpdate={handleToolsUpdate}
             />
           </div>
         </div>

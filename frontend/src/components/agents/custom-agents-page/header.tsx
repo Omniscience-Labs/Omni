@@ -9,7 +9,7 @@ export const AgentsPageHeader = () => {
     <PageHeader icon={Bot}>
       <div className="space-y-4">
         <div className="text-4xl font-semibold tracking-tight">
-          <span className="text-primary">AI Agents</span> = <span className="text-primary">AI Employee´s</span>
+          <span className="text-primary">AI Agents</span> = <span className="text-primary">AI Employees</span>
         </div>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
           Explore and create your own custom agents that combine{' '}
