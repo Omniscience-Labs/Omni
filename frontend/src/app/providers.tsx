@@ -31,7 +31,7 @@ export const ToolCallsContext = createContext<{
   setToolCalls: React.Dispatch<React.SetStateAction<ParsedTag[]>>;
 }>({
   toolCalls: [],
-  setToolCalls: () => { },
+  setToolCalls: () => {},
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {

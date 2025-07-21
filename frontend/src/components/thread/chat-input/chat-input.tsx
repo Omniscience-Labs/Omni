@@ -7,6 +7,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
 import { MessageInput } from './message-input';
@@ -14,10 +15,17 @@ import { AttachmentGroup } from '../attachment-group';
 import { useModelSelection } from './_use-model-selection';
 import { useFileDelete } from '@/hooks/react-query/files';
 import { useQueryClient } from '@tanstack/react-query';
-import { FloatingToolPreview, ToolCallInput } from './floating-tool-preview';
-import { Settings2, Sparkles, Brain, ChevronRight, Zap, Workflow, Database, Wrench } from 'lucide-react';
+import { ToolCallInput } from './floating-tool-preview';
+import { ChatSnack } from './chat-snack';
+import { Brain, Zap, Workflow, Database } from 'lucide-react';
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
+import { AgentConfigModal } from '@/components/agents/agent-config-modal';
+import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { isLocalMode } from '@/lib/config';
+import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
 
 export interface ChatInputHandles {
@@ -54,6 +62,8 @@ export interface ChatInputProps {
   enableAdvancedConfig?: boolean;
   onConfigureAgent?: (agentId: string) => void;
   hideAgentSelection?: boolean;
+  defaultShowSnackbar?: 'tokens' | 'upgrade' | false;
+  showToLowCreditUsers?: boolean;
 }
 
 export interface UploadedFile {
@@ -63,6 +73,8 @@ export interface UploadedFile {
   type: string;
   localUrl?: string;
 }
+
+
 
 export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
   (
@@ -92,11 +104,14 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       enableAdvancedConfig = false,
       onConfigureAgent,
       hideAgentSelection = false,
+      defaultShowSnackbar = false,
+      showToLowCreditUsers = true,
     },
     ref,
   ) => {
     const isControlled =
       controlledValue !== undefined && controlledOnChange !== undefined;
+    const router = useRouter();
 
     const [uncontrolledValue, setUncontrolledValue] = useState('');
     const value = isControlled ? controlledValue : uncontrolledValue;
@@ -105,7 +120,12 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const router = useRouter();
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalTab, setConfigModalTab] = useState('integrations');
+    const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
+    const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
+    const [userDismissedUsage, setUserDismissedUsage] = useState(false);
+    const [billingModalOpen, setBillingModalOpen] = useState(false);
 
     const {
       selectedModel,
@@ -117,8 +137,36 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       refreshCustomModels,
     } = useModelSelection();
 
+    const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
+
+    // Show usage preview logic:
+    // - Always show to free users when showToLowCreditUsers is true
+    // - For paid users, only show when they're at 70% or more of their cost limit (30% or below remaining)
+    const shouldShowUsage = !isLocalMode() && subscriptionData && showToLowCreditUsers && (() => {
+      // Free users: always show
+      if (subscriptionStatus === 'no_subscription') {
+        return true;
+      }
+
+      // Paid users: only show when at 70% or more of cost limit
+      const currentUsage = subscriptionData.current_usage || 0;
+      const costLimit = subscriptionData.cost_limit || 0;
+
+      if (costLimit === 0) return false; // No limit set
+
+      return currentUsage >= (costLimit * 0.7); // 70% or more used (30% or less remaining)
+    })();
+
+    // Auto-show usage preview when we have subscription data
+    useEffect(() => {
+      if (shouldShowUsage && defaultShowSnackbar !== false && !userDismissedUsage && (showSnackbar === false || showSnackbar === defaultShowSnackbar)) {
+        setShowSnackbar('upgrade');
+      } else if (!shouldShowUsage && showSnackbar !== false) {
+        setShowSnackbar(false);
+      }
+    }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers, userDismissedUsage]);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,7 +181,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current) {
         const urlParams = new URLSearchParams(window.location.search);
         const hasAgentIdInUrl = urlParams.has('agent_id');
-        
+
         if (!selectedAgentId && !hasAgentIdInUrl) {
           const savedAgentId = localStorage.getItem('lastSelectedAgentId');
           if (savedAgentId) {
@@ -279,85 +327,95 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       setIsDraggingOver(false);
     };
 
+
+
     return (
-      <div className="mx-auto w-full max-w-4xl">
-        <FloatingToolPreview
-          toolCalls={toolCalls}
-          currentIndex={toolCallIndex}
-          onExpand={onExpandToolPreview || (() => { })}
-          agentName={agentName}
-          isVisible={showToolPreview}
-        />
-        <Card
-          className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-hidden ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsDraggingOver(false);
-            if (fileInputRef.current && e.dataTransfer.files.length > 0) {
-              const files = Array.from(e.dataTransfer.files);
-              handleFiles(
-                files,
-                sandboxId,
-                setPendingFiles,
-                setUploadedFiles,
-                setIsUploading,
-                messages,
-                queryClient,
-              );
-            }
-          }}
-        >
-          <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-            <CardContent className={`w-full p-1.5 ${enableAdvancedConfig && selectedAgentId ? 'pb-1' : 'pb-2'} ${bgColor} border ${enableAdvancedConfig && selectedAgentId ? 'rounded-t-3xl' : 'rounded-3xl'}`}>
-              <AttachmentGroup
-                files={uploadedFiles || []}
-                sandboxId={sandboxId}
-                onRemove={removeUploadedFile}
-                layout="inline"
-                maxHeight="216px"
-                showPreviews={true}
-              />
-              <MessageInput
-                ref={textareaRef}
-                value={value}
-                onChange={handleChange}
-                onSubmit={handleSubmit}
-                onTranscription={handleTranscription}
-                placeholder={placeholder}
-                loading={loading}
-                disabled={disabled}
-                isAgentRunning={isAgentRunning}
-                onStopAgent={onStopAgent}
-                isDraggingOver={isDraggingOver}
-                uploadedFiles={uploadedFiles}
+      <div className="mx-auto w-full max-w-4xl relative">
+        <div className="relative">
+          <ChatSnack
+            toolCalls={toolCalls}
+            toolCallIndex={toolCallIndex}
+            onExpandToolPreview={onExpandToolPreview}
+            agentName={agentName}
+            showToolPreview={showToolPreview}
+            showUsagePreview={showSnackbar}
+            subscriptionData={subscriptionData}
+            onCloseUsage={() => { setShowSnackbar(false); setUserDismissedUsage(true); }}
+            onOpenUpgrade={() => setBillingModalOpen(true)}
+            isVisible={showToolPreview || !!showSnackbar}
+          />
+          <Card
+            className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-visible ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'} relative`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDraggingOver(false);
+              if (fileInputRef.current && e.dataTransfer.files.length > 0) {
+                const files = Array.from(e.dataTransfer.files);
+                handleFiles(
+                  files,
+                  sandboxId,
+                  setPendingFiles,
+                  setUploadedFiles,
+                  setIsUploading,
+                  messages,
+                  queryClient,
+                );
+              }
+            }}
+          >
 
-                fileInputRef={fileInputRef}
-                isUploading={isUploading}
-                sandboxId={sandboxId}
-                setPendingFiles={setPendingFiles}
-                setUploadedFiles={setUploadedFiles}
-                setIsUploading={setIsUploading}
-                hideAttachments={hideAttachments}
-                messages={messages}
 
-                selectedModel={selectedModel}
-                onModelChange={handleModelChange}
-                modelOptions={modelOptions}
-                subscriptionStatus={subscriptionStatus}
-                canAccessModel={canAccessModel}
-                refreshCustomModels={refreshCustomModels}
-                isLoggedIn={isLoggedIn}
+            <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
+              <CardContent className={`w-full p-1.5 ${enableAdvancedConfig && selectedAgentId ? 'pb-1' : 'pb-2'} ${bgColor} border ${enableAdvancedConfig && selectedAgentId ? 'rounded-t-3xl' : 'rounded-3xl'}`}>
+                <AttachmentGroup
+                  files={uploadedFiles || []}
+                  sandboxId={sandboxId}
+                  onRemove={removeUploadedFile}
+                  layout="inline"
+                  maxHeight="216px"
+                  showPreviews={true}
+                />
+                <MessageInput
+                  ref={textareaRef}
+                  value={value}
+                  onChange={handleChange}
+                  onSubmit={handleSubmit}
+                  onTranscription={handleTranscription}
+                  placeholder={placeholder}
+                  loading={loading}
+                  disabled={disabled}
+                  isAgentRunning={isAgentRunning}
+                  onStopAgent={onStopAgent}
+                  isDraggingOver={isDraggingOver}
+                  uploadedFiles={uploadedFiles}
 
-                selectedAgentId={selectedAgentId}
-                onAgentSelect={onAgentSelect}
-                hideAgentSelection={hideAgentSelection}
-              />
-            </CardContent>
-            
-            {enableAdvancedConfig && selectedAgentId && (
+                  fileInputRef={fileInputRef}
+                  isUploading={isUploading}
+                  sandboxId={sandboxId}
+                  setPendingFiles={setPendingFiles}
+                  setUploadedFiles={setUploadedFiles}
+                  setIsUploading={setIsUploading}
+                  hideAttachments={hideAttachments}
+                  messages={messages}
+
+                  selectedModel={selectedModel}
+                  onModelChange={handleModelChange}
+                  modelOptions={modelOptions}
+                  subscriptionStatus={subscriptionStatus}
+                  canAccessModel={canAccessModel}
+                  refreshCustomModels={refreshCustomModels}
+                  isLoggedIn={isLoggedIn}
+
+                  selectedAgentId={selectedAgentId}
+                  onAgentSelect={onAgentSelect}
+                  hideAgentSelection={hideAgentSelection}
+                />
+              </CardContent>
+
+              {enableAdvancedConfig && selectedAgentId && (
               <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
@@ -422,8 +480,35 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 </div>
               </div>
             )}
-          </div>
-        </Card>
+            </div>
+          </Card>
+          <AgentConfigModal
+            isOpen={configModalOpen}
+            onOpenChange={setConfigModalOpen}
+            selectedAgentId={selectedAgentId}
+            onAgentSelect={onAgentSelect}
+            initialTab={configModalTab}
+          />
+          <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
+            <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Integrations</DialogTitle>
+              </DialogHeader>
+              <PipedreamRegistry
+                showAgentSelector={true}
+                selectedAgentId={selectedAgentId}
+                onAgentChange={onAgentSelect}
+                onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
+                  console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+          <BillingModal
+            open={billingModalOpen}
+            onOpenChange={setBillingModalOpen}
+          />
+        </div>
       </div>
     );
   },

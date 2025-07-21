@@ -8,7 +8,7 @@ MODELS = {
             "input_cost_per_million_tokens": 3.00,
             "output_cost_per_million_tokens": 15.00
         },
-        "tier_availability": ["free", "paid"]
+        "tier_availability": ["paid"]
     },
     # "openrouter/deepseek/deepseek-chat": {
     #     "aliases": ["deepseek"],
@@ -56,7 +56,7 @@ MODELS = {
             "input_cost_per_million_tokens": 5.00,
             "output_cost_per_million_tokens": 15.00
         },
-        "tier_availability": ["free", "paid"]
+        "tier_availability": ["paid"]
     },
     
     # Paid tier only models

@@ -150,6 +150,22 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
+                } else if (toolName === 'complete') {
+                    // Handle complete tool specially - extract text and attachments
+                    const completeText = toolCall.parameters.text || '';
+                    const attachments = toolCall.parameters.attachments || '';
+
+                    // Convert single attachment to array for consistent handling
+                    const attachmentArray = Array.isArray(attachments) ? attachments :
+                        (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
+
+                    // Render complete tool content with attachment UI
+                    contentParts.push(
+                        <div key={`complete-${match.index}-${index}`} className="space-y-3">
+                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeText}</Markdown>
+                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                        </div>
+                    );
                 } else {
                     const IconComponent = getToolIcon(toolName);
 
@@ -239,6 +255,24 @@ export function renderMarkdownContent(
             contentParts.push(
                 <div key={`ask-${match.index}`} className="space-y-3">
                     <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askContent}</Markdown>
+                    {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
+                </div>
+            );
+        } else if (toolName === 'complete') {
+            // Extract attachments from the XML attributes
+            const attachmentsMatch = rawXml.match(/attachments=["']([^"']*)["']/i);
+            const attachments = attachmentsMatch
+                ? attachmentsMatch[1].split(',').map(a => a.trim())
+                : [];
+
+            // Extract content from the complete tag
+            const contentMatch = rawXml.match(/<complete[^>]*>([\s\S]*?)<\/complete>/i);
+            const completeContent = contentMatch ? contentMatch[1] : '';
+
+            // Render <complete> tag content with attachment UI (using the helper)
+            contentParts.push(
+                <div key={`complete-${match.index}`} className="space-y-3">
+                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeContent}</Markdown>
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );

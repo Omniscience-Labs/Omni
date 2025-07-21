@@ -25,6 +25,11 @@ interface FloatingToolPreviewProps {
   onExpand: () => void;
   agentName?: string;
   isVisible: boolean;
+  // Indicators for multiple notification types (not tool calls)
+  showIndicators?: boolean;
+  indicatorIndex?: number;
+  indicatorTotal?: number;
+  onIndicatorClick?: (index: number) => void;
 }
 
 const FLOATING_LAYOUT_ID = 'tool-panel-float';
@@ -61,6 +66,10 @@ export const FloatingToolPreview: React.FC<FloatingToolPreviewProps> = ({
   onExpand,
   agentName,
   isVisible,
+  showIndicators = false,
+  indicatorIndex = 0,
+  indicatorTotal = 1,
+  onIndicatorClick,
 }) => {
   const [isExpanding, setIsExpanding] = React.useState(false);
   const currentToolCall = toolCalls[currentIndex];
@@ -137,11 +146,6 @@ export const FloatingToolPreview: React.FC<FloatingToolPreviewProps> = ({
                   <h4 className="text-sm font-medium text-foreground truncate">
                     {getUserFriendlyToolName(toolName)}
                   </h4>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">
-                      {currentIndex + 1}/{totalCalls}
-                    </span>
-                  </div>
                 </motion.div>
 
                 <motion.div layoutId="tool-status" className="flex items-center gap-2">
@@ -163,6 +167,32 @@ export const FloatingToolPreview: React.FC<FloatingToolPreviewProps> = ({
                   </span>
                 </motion.div>
               </div>
+
+              {/* Apple-style notification indicators - only for multiple notification types */}
+              {showIndicators && indicatorTotal === 2 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent tool expansion
+                    // Toggle between the two notifications (binary switch)
+                    const nextIndex = indicatorIndex === 0 ? 1 : 0;
+                    onIndicatorClick?.(nextIndex);
+                  }}
+                  className="flex items-center gap-1.5 mr-3 px-2 py-1.5 rounded-lg hover:bg-muted/30 transition-colors"
+                  style={{ opacity: isExpanding ? 0 : 1 }}
+                >
+                  {Array.from({ length: indicatorTotal }).map((_, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "transition-all duration-300 ease-out rounded-full",
+                        index === indicatorIndex
+                          ? "w-6 h-2 bg-foreground"
+                          : "w-3 h-2 bg-muted-foreground/40"
+                      )}
+                    />
+                  ))}
+                </button>
+              )}
 
               <Button value='ghost' className="bg-transparent hover:bg-transparent flex-shrink-0" style={{ opacity: isExpanding ? 0 : 1 }}>
                 <Maximize2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
