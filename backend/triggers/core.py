@@ -259,7 +259,7 @@ class TriggerManager:
     
     async def _load_custom_providers(self):
         client = await self.db.client
-        result = await client.table('trigger_providers').select('*').execute()
+        result = await client.table('custom_trigger_providers').select('*').execute()
         
         for provider_data in result.data:
             provider_def = ProviderDefinition(**provider_data)

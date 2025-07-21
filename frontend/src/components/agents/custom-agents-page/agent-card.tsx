@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Download, User, Calendar, CheckCircle, Loader2, Globe, GlobeLock, Eye, Shield, GitBranch } from 'lucide-react';
+import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
@@ -59,7 +59,6 @@ interface AgentCardProps {
   onClick?: (data: any) => void;
 }
 
-// Badge components for each mode
 const MarketplaceBadge: React.FC<{ isKortixTeam?: boolean }> = ({ isKortixTeam }) => {
   if (isKortixTeam) {
     return (
@@ -69,12 +68,7 @@ const MarketplaceBadge: React.FC<{ isKortixTeam?: boolean }> = ({ isKortixTeam }
       </Badge>
     );
   }
-  return (
-    <Badge variant="secondary" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300">
-      <User className="h-3 w-3" />
-      Community
-    </Badge>
-  );
+  return null;
 };
 
 const TemplateBadge: React.FC<{ isPublic?: boolean }> = ({ isPublic }) => {
@@ -111,57 +105,37 @@ const AgentBadges: React.FC<{ agent: AgentData }> = ({ agent }) => (
   </div>
 );
 
-// Metadata components for each mode
 const MarketplaceMetadata: React.FC<{ data: MarketplaceData }> = ({ data }) => (
-  <div className="flex items-center justify-between text-xs text-muted-foreground">
+  <div className="flex items-center text-xs text-muted-foreground">
     <div className="flex items-center gap-1">
-      {data.is_kortix_team ? (
-        <>
-          <Download className="h-3 w-3" />
-          <span>{data.download_count} installs</span>
-        </>
-      ) : (
-        <>
-          <User className="h-3 w-3" />
-          <span>by {data.creator_name}</span>
-        </>
-      )}
-    </div>
-    <div className="flex items-center gap-1">
-      <Calendar className="h-3 w-3" />
-      <span>{new Date(data.marketplace_published_at || data.created_at).toLocaleDateString()}</span>
+      <Download className="h-3 w-3" />
+      <span>{data.download_count} installs</span>
     </div>
   </div>
 );
 
 const TemplateMetadata: React.FC<{ data: TemplateData }> = ({ data }) => (
   <div className="space-y-1 text-xs text-muted-foreground">
-    <div className="flex items-center gap-1">
-      <Calendar className="h-3 w-3" />
-      <span>Created {new Date(data.created_at).toLocaleDateString()}</span>
-    </div>
-  </div>
-);
-
-const AgentMetadata: React.FC<{ data: AgentData }> = ({ data }) => (
-  <div className="space-y-1 text-xs text-muted-foreground">
-    <div className="flex items-center justify-between">
-      <span>By me</span>
-      <div className="flex items-center gap-1">
-        <Calendar className="h-3 w-3" />
-        <span>{new Date(data.created_at).toLocaleDateString()}</span>
-      </div>
-    </div>
-    {data.is_public && data.marketplace_published_at && (
+    {data.is_public && data.download_count !== undefined && data.download_count > 0 && (
       <div className="flex items-center gap-1">
         <Download className="h-3 w-3" />
-        <span>{data.download_count || 0} downloads</span>
+        <span>{data.download_count} downloads</span>
       </div>
     )}
   </div>
 );
 
-// Action components for each mode
+const AgentMetadata: React.FC<{ data: AgentData }> = ({ data }) => (
+  <div className="space-y-1 text-xs text-muted-foreground">
+    {data.is_public && data.marketplace_published_at && data.download_count && data.download_count > 0 && (
+      <div className="flex items-center gap-1">
+        <Download className="h-3 w-3" />
+        <span>{data.download_count} downloads</span>
+      </div>
+    )}
+  </div>
+);
+
 const MarketplaceActions: React.FC<{ 
   onAction?: (data: any, e?: React.MouseEvent) => void;
   isActioning?: boolean;
@@ -287,7 +261,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 }) => {
   const { avatar, color } = styling;
   
-  const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer flex flex-col h-full";
+  const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer flex flex-col min-h-[280px] max-h-[320px]";
   
   const renderBadge = () => {
     switch (mode) {
@@ -336,17 +310,11 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   return (
     <div className={cardClassName} onClick={() => onClick?.(data)}>
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="relative p-6 flex flex-col h-full">
+      <div className="relative p-6 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-4">
           <CardAvatar avatar={avatar} color={color} />
           <div className="flex items-center gap-2">
             {renderBadge()}
-            {mode === 'template' && (data as TemplateData).is_public && (data as TemplateData).download_count !== undefined && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Download className="h-3 w-3" />
-                <span>{(data as TemplateData).download_count} downloads</span>
-              </div>
-            )}
           </div>
         </div>
         

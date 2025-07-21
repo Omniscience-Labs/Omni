@@ -6,7 +6,7 @@ from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
 from datetime import datetime
 from services.supabase import DBConnection
-from triggers.core import TriggerManager
+from triggers.support.factory import TriggerModuleFactory
 
 
 class TriggerTool(AgentBuilderBaseTool):
@@ -125,11 +125,10 @@ class TriggerTool(AgentBuilderBaseTool):
                 trigger_config["agent_prompt"] = agent_prompt
             
             trigger_db = DBConnection()
-            trigger_manager = TriggerManager(trigger_db)
-            await trigger_manager.load_provider_definitions()
+            trigger_svc, _, _ = await TriggerModuleFactory.create_trigger_module(trigger_db)
             
             try:
-                trigger_config_obj = await trigger_manager.create_trigger(
+                trigger = await trigger_svc.create_trigger(
                     agent_id=self.agent_id,
                     provider_id="schedule",
                     name=name,
@@ -153,13 +152,13 @@ class TriggerTool(AgentBuilderBaseTool):
                 return self.success_response({
                     "message": result_message,
                     "trigger": {
-                        "id": trigger_config_obj.trigger_id,
-                        "name": trigger_config_obj.name,
-                        "description": trigger_config_obj.description,
+                        "id": trigger.trigger_id,
+                        "name": trigger.config.name,
+                        "description": trigger.config.description,
                         "cron_expression": cron_expression,
                         "execution_type": execution_type,
-                        "is_active": trigger_config_obj.is_active,
-                        "created_at": trigger_config_obj.created_at.isoformat()
+                        "is_active": trigger.config.is_active,
+                        "created_at": trigger.metadata.created_at.isoformat()
                     }
                 })
             except ValueError as ve:

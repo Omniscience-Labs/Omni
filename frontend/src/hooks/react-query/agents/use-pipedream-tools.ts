@@ -84,7 +84,6 @@ export const useUpdatePipedreamToolsForAgent = () => {
 export const usePipedreamToolsData = (agentId: string, profileId: string, versionId?: string) => {
   const { data, isLoading, error, refetch } = usePipedreamToolsForAgent(agentId, profileId, versionId);
   const updateMutation = useUpdatePipedreamToolsForAgent();
-
   return {
     data,
     isLoading,

@@ -473,7 +473,7 @@ export default function AgentsPage() {
         
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm">
           <div className="container max-w-7xl mx-auto px-4 py-4">
-            <TabsNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+            <TabsNavigation activeTab={activeTab} onTabChange={handleTabChange} onCreateAgent={handleCreateNewAgent} />
           </div>
         </div>
 
@@ -500,7 +500,7 @@ export default function AgentsPage() {
         }}></div>
         <div className="relative bg-gradient-to-b from-background/95 via-background/70 to-transparent">
           <div className="container mx-auto max-w-7xl px-4 py-4">
-            <TabsNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+            <TabsNavigation activeTab={activeTab} onTabChange={handleTabChange} onCreateAgent={handleCreateNewAgent} />
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ class MessageTool(Tool):
         "type": "function",
         "function": {
             "name": "ask",
-            "description": "Ask user a question and wait for response. Use for: 1) Requesting clarification on ambiguous requirements, 2) Seeking confirmation before proceeding with high-impact changes, 3) Gathering additional information needed to complete a task, 4) Offering options and requesting user preference, 5) Validating assumptions when critical to task success, 6) Call this tool when you finish your task, before calling the complete tool. IMPORTANT: Use this tool only when user input is essential to proceed. Always provide clear context and options when applicable. Include relevant attachments when the question relates to specific files or resources.",
+            "description": "Ask user a question and wait for response. Use for: 1) Requesting clarification on ambiguous requirements, 2) Seeking confirmation before proceeding with high-impact changes, 3) Gathering additional information needed to complete a task, 4) Offering options and requesting user preference, 5) Validating assumptions when critical to task success. IMPORTANT: Use this tool only when user input is essential to proceed. Always provide clear context and options when applicable. Include relevant attachments when the question relates to specific files or resources.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -217,31 +217,62 @@ If you encounter any issues or need to take additional steps, please let me know
         "type": "function",
         "function": {
             "name": "complete",
-            "description": "A special tool to indicate you have completed all tasks and are about to enter complete state. Use ONLY when: 1) All tasks in todo.md are marked complete [x], 2) The user's original request has been fully addressed, 3) There are no pending actions or follow-ups required, 4) You've delivered all final outputs and results to the user, 5) Use the ask tool to preview the results once before calling complete tool. IMPORTANT: This is the ONLY way to properly terminate execution. Never use this tool unless ALL tasks are complete and verified. Always ensure you've provided all necessary outputs and references before using this tool.",
+            "description": "A special tool to indicate you have completed all tasks and are about to enter complete state. Use ONLY when: 1) All tasks in todo.md are marked complete [x], 2) The user's original request has been fully addressed, 3) There are no pending actions or follow-ups required, 4) You've delivered all final outputs and results to the user. IMPORTANT: This is the ONLY way to properly terminate execution. Never use this tool unless ALL tasks are complete and verified. Always ensure you've provided all necessary outputs and references before using this tool. Include relevant attachments when the completion relates to specific files or resources.",
             "parameters": {
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Completion message or summary to present to user - should provide clear indication of what was accomplished. Include: 1) Summary of completed tasks, 2) Key deliverables or outputs, 3) Any important notes or next steps, 4) Impact or benefits achieved."
+                    },
+                    "attachments": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {"items": {"type": "string"}, "type": "array"}
+                        ],
+                        "description": "(Optional) List of files or URLs to attach to the completion message. Include when: 1) Completion relates to specific files or configurations, 2) User needs to review final outputs, 3) Deliverables are documented in files, 4) Supporting evidence or context is needed. Always use relative paths to /workspace directory."
+                    }
+                },
                 "required": []
             }
         }
     })
     @xml_schema(
         tag_name="complete",
-        mappings=[],
+        mappings=[
+            {"param_name": "text", "node_type": "content", "path": ".", "required": False},
+            {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
+        ],
         example='''
         <function_calls>
         <invoke name="complete">
+        <parameter name="text">I have successfully completed all tasks for your project. Here's what was accomplished:
+1. Created the web application with modern UI components
+2. Implemented user authentication and database integration
+3. Deployed the application to production
+4. Created comprehensive documentation
+
+All deliverables are attached for your review.</parameter>
+        <parameter name="attachments">app/src/main.js,docs/README.md,deployment-config.yaml</parameter>
         </invoke>
         </function_calls>
         '''
     )
-    async def complete(self) -> ToolResult:
+    async def complete(self, text: Optional[str] = None, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
         """Indicate that the agent has completed all tasks and is entering complete state.
+
+        Args:
+            text: Optional completion message or summary to present to the user
+            attachments: Optional file paths or URLs to attach to the completion message
 
         Returns:
             ToolResult indicating successful transition to complete state
         """
         try:
+            # Convert single attachment to list for consistent handling
+            if attachments and isinstance(attachments, str):
+                attachments = [attachments]
+                
             return self.success_response({"status": "complete"})
         except Exception as e:
             return self.fail_response(f"Error entering complete state: {str(e)}")

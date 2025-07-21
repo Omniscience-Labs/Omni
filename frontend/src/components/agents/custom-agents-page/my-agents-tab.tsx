@@ -164,43 +164,38 @@ export const MyAgentsTab = ({
         />
         
         <div className="flex items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-xl">
-                <CurrentFilterIcon className="h-4 w-4 mr-2" />
-                {currentFilter?.label}
-                <Badge variant="outline">
-                  {getCountForFilter(agentFilter)}
-                </Badge>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              {filterOptions.map((filter) => {
-                const Icon = filter.icon;
-                const count = getCountForFilter(filter.value);
-                return (
-                  <DropdownMenuItem
-                    key={filter.value}
-                    onClick={() => setAgentFilter(filter.value as AgentFilter)}
-                    className="cursor-pointer"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {filter.label}
-                    <Badge variant="outline" className="ml-auto">
-                      {count}
-                    </Badge>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <Button onClick={onCreateAgent} className='rounded-xl'>
-            <Plus className="h-4 w-4" />
-            Create Agent
-          </Button>
-        </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="rounded-xl">
+                  <CurrentFilterIcon className="h-4 w-4 mr-2" />
+                  {currentFilter?.label}
+                  <Badge variant="outline">
+                    {getCountForFilter(agentFilter)}
+                  </Badge>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {filterOptions.map((filter) => {
+                  const Icon = filter.icon;
+                  const count = getCountForFilter(filter.value);
+                  return (
+                    <DropdownMenuItem
+                      key={filter.value}
+                      onClick={() => setAgentFilter(filter.value as AgentFilter)}
+                      className="cursor-pointer"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {filter.label}
+                      <Badge variant="outline" className="ml-auto">
+                        {count}
+                      </Badge>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
       </div>
 
       <div className="flex-1">

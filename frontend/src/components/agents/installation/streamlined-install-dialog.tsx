@@ -333,22 +333,6 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
               </DialogDescription>
             </div>
           </div>
-
-          {setupSteps.length > 0 && (
-            <div className="flex items-center gap-2">
-              {setupSteps.map((_, index) => (
-                <div key={index} className={cn(
-                  "h-2 w-2 rounded-full",
-                  index <= currentStep ? 'bg-primary' : 'bg-muted'
-                )} />
-              ))}
-              <div className="h-px bg-muted flex-1" />
-              <div className={cn(
-                "h-2 w-2 rounded-full",
-                isOnFinalStep ? 'bg-primary' : 'bg-muted'
-              )} />
-            </div>
-          )}
         </DialogHeader>
 
         <div className="mt-6">

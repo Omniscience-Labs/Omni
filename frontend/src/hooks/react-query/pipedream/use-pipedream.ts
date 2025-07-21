@@ -11,6 +11,7 @@ import {
   type PipedreamAppResponse,
   type PipedreamToolsResponse,
   type AppIconResponse,
+  type PipedreamTool,
 } from './utils';
 import { pipedreamKeys } from './keys';
 
@@ -129,3 +130,15 @@ export const usePipedreamAvailableTools = createQueryHook(
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   }
 ); 
+
+export const usePipedreamAppTools = (appSlug: string, options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: ['pipedream', 'app-tools', appSlug],
+    queryFn: async (): Promise<{ success: boolean; tools: PipedreamTool[] }> => {
+      return await pipedreamApi.getAppTools(appSlug);
+    },
+    enabled: options?.enabled ?? !!appSlug,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+}; 
