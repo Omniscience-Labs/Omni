@@ -23,12 +23,10 @@ const agentTabs: TabConfig[] = [
   },
 ];
 
-export const TabsNavigation = ({ activeTab, onTabChange }: TabsNavigationProps) => {
-  return (
+export const TabsNavigation = ({ activeTab, onTabChange }: TabsNavigationProps) => (
     <FancyTabs
       tabs={agentTabs}
       activeTab={activeTab}
       onTabChange={onTabChange}
     />
-  );
-}; 
+);
