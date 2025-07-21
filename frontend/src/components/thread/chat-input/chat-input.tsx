@@ -420,7 +420,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                     <button
-                      onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=integrations`)}
+                      onClick={() => setRegistryDialogOpen(true)}
                       className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
                     >
                       <div className="flex items-center -space-x-0.5">
