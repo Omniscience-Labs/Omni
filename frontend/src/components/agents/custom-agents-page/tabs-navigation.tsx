@@ -49,5 +49,5 @@ export const TabsNavigation = ({ activeTab, onTabChange, onCreateAgent }: TabsNa
       activeTab={activeTab}
       onTabChange={handleTabSelection}
     />
-  );
-}; 
+);
+}
