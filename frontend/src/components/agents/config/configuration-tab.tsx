@@ -31,6 +31,7 @@ interface ConfigurationTabProps {
   isViewingOldVersion: boolean;
   onFieldChange: (field: string, value: any) => void;
   onMCPChange: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
+  initialAccordion?: string;
 }
 
 export function ConfigurationTab({
@@ -40,10 +41,25 @@ export function ConfigurationTab({
   isViewingOldVersion,
   onFieldChange,
   onMCPChange,
+  initialAccordion,
 }: ConfigurationTabProps) {
+  const mapAccordion = (val?: string) => {
+    if (val === 'instructions') return 'system';
+    if (['system', 'tools', 'integrations', 'knowledge', 'workflows', 'triggers'].includes(val || '')) {
+      return val!;
+    }
+    return 'system';
+  };
+  const [openAccordion, setOpenAccordion] = React.useState<string>(mapAccordion(initialAccordion));
+  React.useEffect(() => {
+    if (initialAccordion) {
+      setOpenAccordion(mapAccordion(initialAccordion));
+    }
+  }, [initialAccordion]);
+
   return (
     <div className="p-4">
-      <Accordion type="single" collapsible defaultValue="system" className="space-y-2">
+      <Accordion type="single" collapsible value={openAccordion} onValueChange={setOpenAccordion} className="space-y-2">
         <AccordionItem 
           value="system" 
           className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"

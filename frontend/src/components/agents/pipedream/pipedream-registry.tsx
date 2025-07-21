@@ -387,6 +387,11 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
           mode={mode === 'profile-only' ? 'profile-only' : 'full'}
           agentId={currentAgentId}
           saveMode={isHomePage ? 'direct' : 'callback'}
+          existingProfileIds={
+            agentPipedreamProfiles
+              .filter(profile => profile.app_slug === selectedAppForConnection.name_slug)
+              .map(profile => profile.profile_id)
+          }
         />
       )}
       
