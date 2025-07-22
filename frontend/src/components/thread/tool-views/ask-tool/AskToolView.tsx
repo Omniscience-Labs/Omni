@@ -163,15 +163,15 @@ export function AskToolView({
                             sandboxId={project?.sandbox?.id}
                             showPreview={true}
                             className={cn(
-                              "w-full",
-                              isImage ? "h-auto min-h-[54px]" :
-                                isPreviewable ? "min-h-[240px] max-h-[400px] overflow-auto" : "h-[54px]"
+                              isImage ? "aspect-square w-full" : "w-full",
+                              isImage ? "" :
+                                isPreviewable ? "min-h-full max-h-[400px] overflow-auto" : "h-[54px]"
                             )}
                             customStyle={
                               isImage ? {
                                 width: '100%',
-                                height: 'auto',
-                                '--attachment-height': shouldSpanFull ? '240px' : '180px'
+                                height: '100%',
+                                '--attachment-height': '100%'
                               } as React.CSSProperties :
                                 isPreviewable ? {
                                   gridColumn: '1 / -1'

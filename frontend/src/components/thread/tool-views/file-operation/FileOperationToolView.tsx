@@ -292,13 +292,19 @@ export function FileOperationToolView({
                   </a>
                 </Button>
               )}
-              <TabsList className="-mr-2 h-7 bg-zinc-100/70 dark:bg-zinc-800/70 rounded-lg">
-                <TabsTrigger value="code" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-primary">
-                  <Code className="h-4 w-4" />
+              <TabsList className="h-8 bg-muted/50 border border-border/50 p-0.5 gap-1">
+                <TabsTrigger
+                  value="code"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all [&[data-state=active]]:bg-primary/10 [&[data-state=active]]:text-foreground hover:bg-background/50 text-muted-foreground"
+                >
+                  <Code className="h-3.5 w-3.5" />
                   Source
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-primary">
-                  <Eye className="h-4 w-4" />
+                <TabsTrigger
+                  value="preview"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all [&[data-state=active]]:bg-primary/10 [&[data-state=active]]:text-foreground hover:bg-background/50 text-muted-foreground"
+                >
+                  <Eye className="h-3.5 w-3.5" />
                   Preview
                 </TabsTrigger>
               </TabsList>
