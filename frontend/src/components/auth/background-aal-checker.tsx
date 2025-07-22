@@ -76,7 +76,8 @@ export function BackgroundAALChecker({
         case 'verify_mfa':
           // User has MFA enrolled but needs to verify it
           console.log('Background: Redirecting to MFA verification');
-          router.push(redirectTo);
+          // Temporarily disabled
+          // router.push(redirectTo);
           break;
         
         case 'reauthenticate':
