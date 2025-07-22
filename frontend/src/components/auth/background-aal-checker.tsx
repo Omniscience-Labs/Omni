@@ -64,7 +64,8 @@ export function BackgroundAALChecker({
         if (current_level === "aal1" && next_level === "aal1") {
           // New user has no MFA enrolled - redirect to enrollment
           console.log('Background: New user without MFA enrolled, redirecting to phone verification');
-          router.push(redirectTo);
+          // Temporarily disabled
+          // router.push(redirectTo);
           return;
         }
         // If new user has MFA enrolled, follow standard AAL flow below
