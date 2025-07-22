@@ -212,22 +212,11 @@ class SunaSyncService:
             ).eq('agent_id', agent.agent_id).execute()
             
             current_agent_data = current_agent_result.data[0] if current_agent_result.data else {}
-            print(f"[DEBUG] Current agent has {len(current_agent_data.get('custom_mcps', []))} custom MCPs in DB")
-            
             current_user_mcps = await self.version_service._get_current_user_mcps(agent.agent_id, agent.account_id)
             
-            # Debug: Log exactly what we got from version service
-            print(f"[DEBUG] Retrieved MCPs from version service for agent {agent.agent_id}:")
-            print(f"[DEBUG] Raw current_user_mcps: {current_user_mcps}")
-            for i, mcp in enumerate(current_user_mcps.get('custom_mcps', [])):
-                # Handle both camelCase and snake_case
-                enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
-                print(f"[DEBUG]   - MCP {i+1}: {mcp.get('name', 'Unknown')} with {len(enabled_tools)} tools: {enabled_tools[:3]}{'...' if len(enabled_tools) > 3 else ''}")
-                print(f"[DEBUG]     Full MCP data: {mcp}")
-            
-            # IMPORTANT: If version returned empty MCPs but agent has MCPs, use agent's MCPs
+            # If version returned empty MCPs but agent has MCPs, use agent's MCPs
             if not current_user_mcps.get('custom_mcps') and current_agent_data.get('custom_mcps'):
-                print(f"[DEBUG] Version had no MCPs, using agent's current MCPs instead")
+                logger.info(f"Version had no MCPs for agent {agent.agent_id}, using agent's current MCPs")
                 current_user_mcps['custom_mcps'] = current_agent_data.get('custom_mcps', [])
             
             current_config = extract_agent_config(current_agent_data) if current_agent_data else {}
@@ -236,11 +225,9 @@ class SunaSyncService:
             
             logger.info(f"🔍 Preserved {len(current_config.get('configured_mcps', []))} configured MCPs and {len(current_config.get('custom_mcps', []))} custom MCPs for agent {agent.agent_id}")
             
+            # For Suna agents, we only need to sync metadata and preserve user MCPs
+            # System prompt & tools are now read dynamically from SunaConfig
             minimal_config_data = {
-                "system_prompt": config.system_prompt,
-                "agentpress_tools": config.agentpress_tools,
-                "avatar": config.avatar,
-                "avatar_color": config.avatar_color,
                 "configured_mcps": current_config.get('configured_mcps', []),
                 "custom_mcps": current_config.get('custom_mcps', []),
                 "metadata": {
@@ -251,7 +238,6 @@ class SunaSyncService:
                     }
             }
             
-            print(f"[DEBUG] Sync - minimal_config_data custom_mcps: {minimal_config_data.get('custom_mcps', [])}")
             logger.info(f"🔧 Preserving {len(minimal_config_data.get('configured_mcps', []))} configured MCPs and {len(minimal_config_data.get('custom_mcps', []))} custom MCPs for agent {agent.agent_id}")
             
             agent_updated = await self.repository.update_agent_record(

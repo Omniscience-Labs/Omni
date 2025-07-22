@@ -70,31 +70,18 @@ class SunaAgentRepository:
             current_agent = current_agent_result.data[0]
             current_metadata = current_agent.get('metadata', {})
             
-            print(f"[DEBUG] Repository - config_data keys: {config_data.keys()}")
-            print(f"[DEBUG] Repository - config_data custom_mcps: {config_data.get('custom_mcps', 'NOT PROVIDED')}")
-            
             # Get MCPs - use what sync provides, only fallback if not provided
-            if 'configured_mcps' in config_data:
-                preserved_configured_mcps = config_data['configured_mcps']
-            else:
-                preserved_configured_mcps = current_agent.get('configured_mcps', [])
-                print(f"[DEBUG] Repository - configured_mcps not in config_data, using current agent data")
-                
-            if 'custom_mcps' in config_data:
-                preserved_custom_mcps = config_data['custom_mcps']
-            else:
-                preserved_custom_mcps = current_agent.get('custom_mcps', [])
-                print(f"[DEBUG] Repository - custom_mcps not in config_data, using current agent data")
+            preserved_configured_mcps = config_data.get('configured_mcps', current_agent.get('configured_mcps', []))
+            preserved_custom_mcps = config_data.get('custom_mcps', current_agent.get('custom_mcps', []))
 
             for i, mcp in enumerate(preserved_custom_mcps):
                 # Handle both camelCase and snake_case
                 tools_count = len(mcp.get('enabledTools', mcp.get('enabled_tools', [])))
                 logger.info(f"Agent {agent_id} - Preserving custom MCP {i+1} ({mcp.get('name', 'Unknown')}) with {tools_count} enabled tools")
-                print(f"[DEBUG] Repository - MCP {i+1} full data: {mcp}")
             
+            # For Suna agents, only update metadata and MCPs
+            # System prompt & tools are read dynamically from SunaConfig
             update_data = {
-                "system_prompt": config_data["system_prompt"],
-                "agentpress_tools": config_data["agentpress_tools"],
                 "configured_mcps": preserved_configured_mcps,
                 "custom_mcps": preserved_custom_mcps,
                 "metadata": {
@@ -103,23 +90,20 @@ class SunaAgentRepository:
                 }
             }
             
+            # For Suna agents, build unified config with current system prompt & tools from code
+            from agent.suna.config import SunaConfig
             preserved_unified_config = self._build_preserved_unified_config(
-                system_prompt=config_data["system_prompt"],
-                agentpress_tools=config_data["agentpress_tools"],
+                system_prompt=SunaConfig.get_system_prompt(),
+                agentpress_tools=SunaConfig.DEFAULT_TOOLS,
                 configured_mcps=preserved_configured_mcps,
                 custom_mcps=preserved_custom_mcps,
-                avatar=config_data["avatar"],
-                avatar_color=config_data["avatar_color"]
+                avatar=SunaConfig.AVATAR,
+                avatar_color=SunaConfig.AVATAR_COLOR
             )
             
             update_data["config"] = preserved_unified_config
             
-            print(f"[DEBUG] Repository - preserved_unified_config tools.custom_mcp: {preserved_unified_config.get('tools', {}).get('custom_mcp', [])}")
-            print(f"[DEBUG] Repository - update_data custom_mcps being sent to DB: {update_data.get('custom_mcps', [])}")
-            
             result = await client.table('agents').update(update_data).eq('agent_id', agent_id).execute()
-            
-            print(f"[DEBUG] Repository - Update result: {bool(result.data)}")
             
             logger.info(f"Surgically updated agent {agent_id} - preserved MCPs and customizations")
             return bool(result.data)

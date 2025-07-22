@@ -15,6 +15,16 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     
     if version_data and ('configured_mcps' in version_data or 'custom_mcps' in version_data or 'system_prompt' in version_data):
         logger.info(f"Using version data from version manager for agent {agent_id}")
+        
+        # For Suna default agents, always use current system prompt & tools from code
+        if is_suna_default:
+            from agent.suna.config import SunaConfig
+            system_prompt = SunaConfig.get_system_prompt()
+            agentpress_tools = SunaConfig.DEFAULT_TOOLS
+        else:
+            system_prompt = version_data.get('system_prompt', '')
+            agentpress_tools = version_data.get('agentpress_tools', {})
+        
         config = {
             'agent_id': agent_data['agent_id'],
             'name': agent_data['name'],
@@ -23,14 +33,14 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'account_id': agent_data.get('account_id'),
             'current_version_id': agent_data.get('current_version_id'),
             'version_name': version_data.get('version_name', 'v1'),
-            'system_prompt': version_data.get('system_prompt', ''),
+            'system_prompt': system_prompt,
             'configured_mcps': version_data.get('configured_mcps', []),
             'custom_mcps': version_data.get('custom_mcps', []),
-            'agentpress_tools': version_data.get('agentpress_tools', {}),
+            'agentpress_tools': agentpress_tools,
             'avatar': agent_data.get('avatar'),
             'avatar_color': agent_data.get('avatar_color'),
             'tools': {
-                'agentpress': version_data.get('agentpress_tools', {}),
+                'agentpress': agentpress_tools,
                 'mcp': version_data.get('configured_mcps', []),
                 'custom_mcp': version_data.get('custom_mcps', [])
             },
@@ -54,6 +64,12 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         config['account_id'] = agent_data.get('account_id')
         config['current_version_id'] = agent_data.get('current_version_id')
         config['version_name'] = version_data.get('version_name', 'v1')
+        
+        # For Suna default agents, override with current system prompt & tools from code
+        if is_suna_default:
+            from agent.suna.config import SunaConfig
+            config['system_prompt'] = SunaConfig.get_system_prompt()
+            config['tools']['agentpress'] = SunaConfig.DEFAULT_TOOLS
         
         metadata = config.get('metadata', {})
         config['avatar'] = metadata.get('avatar', agent_data.get('avatar'))
@@ -107,9 +123,16 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     
     source_data = version_data if version_data else agent_data
     
-    legacy_tools = source_data.get('agentpress_tools', {})
-    simplified_tools = {}
+    # For Suna default agents, always use current system prompt & tools from code
+    if is_suna_default:
+        from agent.suna.config import SunaConfig
+        system_prompt = SunaConfig.get_system_prompt()
+        legacy_tools = SunaConfig.DEFAULT_TOOLS
+    else:
+        system_prompt = source_data.get('system_prompt', '')
+        legacy_tools = source_data.get('agentpress_tools', {})
     
+    simplified_tools = {}
     for tool_name, tool_config in legacy_tools.items():
         if isinstance(tool_config, dict):
             simplified_tools[tool_name] = tool_config.get('enabled', False)
@@ -120,7 +143,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         'agent_id': agent_data['agent_id'],
         'name': agent_data['name'],
         'description': agent_data.get('description'),
-        'system_prompt': source_data.get('system_prompt', ''),
+        'system_prompt': system_prompt,
         'tools': {
             'agentpress': simplified_tools,
             'mcp': source_data.get('configured_mcps', []),
