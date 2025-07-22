@@ -19,7 +19,6 @@ import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
 import { ShowToolStream } from './ShowToolStream';
-import { motion } from 'framer-motion';
 
 // Define the set of  tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -168,13 +167,9 @@ export function renderMarkdownContent(
                     }
 
                     contentParts.push(
-                        <motion.div
+                        <div
                             key={`tool-${match.index}-${index}`}
                             className="my-1"
-                            layoutId={`tool-stream-${toolName}`}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
                         >
                             <button
                                 onClick={() => handleToolClick(messageId, toolName)}
@@ -186,7 +181,7 @@ export function renderMarkdownContent(
                                 <span className="font-mono text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
                                 {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                             </button>
-                        </motion.div>
+                        </div>
                     );
                 }
             });
@@ -257,13 +252,9 @@ export function renderMarkdownContent(
 
             // Render tool button as a clickable element
             contentParts.push(
-                <motion.div
+                <div
                     key={toolCallKey}
                     className="my-1"
-                    layoutId={`tool-stream-${toolName}`}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
                 >
                     <button
                         onClick={() => handleToolClick(messageId, toolName)}
@@ -275,7 +266,7 @@ export function renderMarkdownContent(
                         <span className="font-mono text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
                         {paramDisplay && <span className="ml-1 text-muted-foreground truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
                     </button>
-                </motion.div>
+                </div>
             );
         }
         lastIndex = xmlRegex.lastIndex;
@@ -781,28 +772,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 )}
 
                                                                                 {detectedTag && (
-                                                                                    <ShowToolStream content={textToRender.substring(tagStartIndex)} />
+                                                                                    <ShowToolStream
+                                                                                        content={textToRender.substring(tagStartIndex)}
+                                                                                        messageId={visibleMessages && visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].message_id : "playback-streaming"}
+                                                                                        onToolClick={handleToolClick}
+                                                                                        showExpanded={true}
+                                                                                        startTime={Date.now()}
+                                                                                    />
                                                                                 )}
 
-                                                                                {streamingToolCall && !detectedTag && (
-                                                                                    <div className="mt-2 mb-1">
-                                                                                        {(() => {
-                                                                                            const toolName = streamingToolCall.name || streamingToolCall.xml_tag_name || 'Tool';
-                                                                                            const paramDisplay = extractPrimaryParam(toolName, streamingToolCall.arguments || '');
-                                                                                            return (
-                                                                                                <button
-                                                                                                    className="animate-shimmer inline-flex items-center gap-1.5 py-1 px-1 pr-1.5 text-xs font-medium text-primary bg-muted hover:bg-muted/80 rounded-md transition-colors cursor-pointer border border-primary/20"
-                                                                                                >
-                                                                                                    <div className='border-2 bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 flex items-center justify-center p-0.5 rounded-sm border-neutral-400/20 dark:border-neutral-600'>
-                                                                                                        <CircleDashed className="h-3.5 w-3.5 text-primary flex-shrink-0 animate-spin animation-duration-2000" />
-                                                                                                    </div>
-                                                                                                    <span className="font-mono text-xs text-primary">{toolName}</span>
-                                                                                                    {paramDisplay && <span className="ml-1 text-primary/70 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
-                                                                                                </button>
-                                                                                            );
-                                                                                        })()}
-                                                                                    </div>
-                                                                                )}
+
                                                                             </>
                                                                         );
                                                                     })()}
@@ -856,7 +835,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                         )}
 
                                                                                         {detectedTag && (
-                                                                                            <ShowToolStream content={textToRender.substring(tagStartIndex)} />
+                                                                                            <ShowToolStream
+                                                                                                content={textToRender.substring(tagStartIndex)}
+                                                                                                messageId="streamingTextContent"
+                                                                                                onToolClick={handleToolClick}
+                                                                                                showExpanded={true}
+                                                                                                startTime={Date.now()} // Tool just started now
+                                                                                            />
                                                                                         )}
                                                                                     </>
                                                                                 )}
