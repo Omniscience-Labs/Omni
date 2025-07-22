@@ -599,8 +599,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 {/* Premium Models Section */}
                 <div className="mt-4 border-t border-border pt-2">
                   <div className="px-3 py-1.5 text-xs font-medium text-blue-500 flex items-center">
-                    <Crown className="h-3.5 w-3.5 mr-1.5" />
-                    Premium Models
+                    {/* <Crown className="h-3.5 w-3.5 mr-1.5" /> */}
+                    Additional Models
                   </div>
 
                   {/* Premium models container with paywall overlay */}
