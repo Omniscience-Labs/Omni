@@ -15,6 +15,7 @@ import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messa
 import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { BillingError } from '@/lib/api';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { KortixLogo } from '../sidebar/kortix-logo';
 
 interface Agent {
   agent_id: string;
@@ -30,9 +31,12 @@ interface Agent {
 
 interface AgentPreviewProps {
   agent: Agent;
+  agentMetadata?: {
+    is_suna_default?: boolean;
+  };
 }
 
-export const AgentPreview = ({ agent }: AgentPreviewProps) => {
+export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -40,6 +44,8 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'connecting' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
+
+  const isSunaAgent = agentMetadata?.is_suna_default || false;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandles>(null);
@@ -330,12 +336,18 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
   return (
     <div className="h-full flex flex-col bg-muted dark:bg-muted/30">
       <div className="flex-shrink-0 flex items-center gap-3 p-8">
-        <div
-          className="h-10 w-10 flex items-center justify-center rounded-lg text-lg"
-          style={{ backgroundColor: color }}
-        >
-          {avatar}
-        </div>
+        {isSunaAgent ? (
+          <div className="h-10 w-10 bg-background rounded-lg bg-muted border border flex items-center justify-center">
+            <KortixLogo size={16} />
+          </div>
+        ) : (
+          <div
+            className="h-10 w-10 flex items-center justify-center rounded-lg text-lg"
+            style={{ backgroundColor: color }}
+          >
+            {avatar}
+          </div>
+        )}
         <div className="flex-1">
           <h3 className="font-semibold">{agent.name || 'Unnamed Agent'}</h3>
         </div>
@@ -357,7 +369,11 @@ export const AgentPreview = ({ agent }: AgentPreviewProps) => {
             emptyStateComponent={
               <div className="flex flex-col items-center text-center text-muted-foreground/80">
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
-                  <div className="text-4xl">{avatar}</div>
+                  {isSunaAgent ? (
+                    <KortixLogo size={36} />
+                  ) : (
+                    <div className="text-4xl">{avatar}</div>
+                  )}
                 </div>
                 <p className='w-[60%] text-2xl mb-3'>Start conversation with <span className='text-primary/80 font-semibold'>{agent.name}</span></p>
                 <p className='w-[70%] text-sm text-muted-foreground/60'>Test your agent's configuration and chat back and forth to see how it performs with your current settings, tools, and knowledge base.</p>

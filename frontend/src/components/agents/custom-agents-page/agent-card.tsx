@@ -5,6 +5,7 @@ import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch } from 'luc
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
 export type AgentCardMode = 'marketplace' | 'template' | 'agent';
 
@@ -41,6 +42,17 @@ interface AgentData extends BaseAgentData {
     version_id: string;
     version_name: string;
     version_number: number;
+  };
+  metadata?: {
+    is_suna_default?: boolean;
+    centrally_managed?: boolean;
+    restrictions?: {
+      system_prompt_editable?: boolean;
+      tools_editable?: boolean;
+      name_editable?: boolean;
+      description_editable?: boolean;
+      mcps_editable?: boolean;
+    };
   };
 }
 
@@ -88,15 +100,15 @@ const TemplateBadge: React.FC<{ isPublic?: boolean }> = ({ isPublic }) => {
   );
 };
 
-const AgentBadges: React.FC<{ agent: AgentData }> = ({ agent }) => (
+const AgentBadges: React.FC<{ agent: AgentData, isSunaAgent: boolean }> = ({ agent, isSunaAgent }) => (
   <div className="flex gap-1">
-    {agent.current_version && (
+    {!isSunaAgent && agent.current_version && (
       <Badge variant="outline" className="text-xs">
         <GitBranch className="h-3 w-3 mr-1" />
         {agent.current_version.version_name}
       </Badge>
     )}
-    {agent.is_public && (
+    {!isSunaAgent && agent.is_public && (
       <Badge variant="default" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300 text-xs">
         <Globe className="h-3 w-3 mr-1" />
         Published
@@ -214,20 +226,34 @@ const TemplateActions: React.FC<{
   </div>
 );
 
-const CardAvatar: React.FC<{ avatar: string; color: string }> = ({ avatar, color }) => (
-  <div 
-    className="relative h-14 w-14 flex items-center justify-center rounded-2xl" 
-    style={{ backgroundColor: color }}
-  >
-    <div className="text-2xl">{avatar}</div>
+const CardAvatar: React.FC<{ avatar: string; color: string; isSunaAgent?: boolean }> = ({ avatar, color, isSunaAgent = false }) => {
+  if (isSunaAgent) {
+    return (
+      <div className="h-14 w-14 bg-muted border flex items-center justify-center rounded-2xl">
+        <KortixLogo size={28} />
+      </div>
+    )
+  }
+  return (
     <div 
-      className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
-      style={{
-        boxShadow: `0 16px 48px -8px ${color}70, 0 8px 24px -4px ${color}50`
-      }}
-    />
-  </div>
-);
+      className="relative h-14 w-14 flex items-center justify-center rounded-2xl" 
+      style={{ backgroundColor: color }}
+    >
+      <div className="text-2xl">{avatar}</div>
+      {isSunaAgent && (
+        <div className="absolute -top-1 -right-1 h-5 w-5 bg-background rounded-full border border-border flex items-center justify-center">
+          <KortixLogo size={12} />
+        </div>
+      )}
+      <div
+        className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
+        style={{
+          boxShadow: `0 16px 48px -8px ${color}70, 0 8px 24px -4px ${color}50`
+        }}
+      />
+    </div>
+  )
+};
 
 const TagList: React.FC<{ tags?: string[] }> = ({ tags }) => {
   return (
@@ -261,6 +287,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 }) => {
   const { avatar, color } = styling;
   
+  const isSunaAgent = mode === 'agent' && (data as AgentData).metadata?.is_suna_default === true;
+  
   const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer flex flex-col min-h-[280px] max-h-[320px]";
   
   const renderBadge = () => {
@@ -270,7 +298,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       case 'template':
         return <TemplateBadge isPublic={(data as TemplateData).is_public} />;
       case 'agent':
-        return <AgentBadges agent={data as AgentData} />;
+        return <AgentBadges agent={data as AgentData} isSunaAgent={isSunaAgent} />;
       default:
         return null;
     }
@@ -312,7 +340,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="relative p-6 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-4">
-          <CardAvatar avatar={avatar} color={color} />
+          <CardAvatar avatar={avatar} color={color} isSunaAgent={isSunaAgent} />
           <div className="flex items-center gap-2">
             {renderBadge()}
           </div>

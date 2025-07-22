@@ -104,7 +104,7 @@ export async function signUp(prevState: any, formData: FormData) {
     password,
   });
 
-  if (signInData) {
+  if (signInData && signInData.user) {
     sendWelcomeEmail(email, userName);
   }
 

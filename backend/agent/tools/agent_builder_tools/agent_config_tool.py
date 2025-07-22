@@ -113,6 +113,27 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 return self.fail_response("Agent not found")
             
             current_agent = agent_result.data[0]
+
+            metadata = current_agent.get('metadata', {})
+            is_suna_default = metadata.get('is_suna_default', False)
+            
+            if is_suna_default:
+                restricted_fields = []
+                if name is not None:
+                    restricted_fields.append("name")
+                if description is not None:
+                    restricted_fields.append("description") 
+                if system_prompt is not None:
+                    restricted_fields.append("system prompt")
+                if agentpress_tools is not None:
+                    restricted_fields.append("default tools")
+                
+                if restricted_fields:
+                    return self.fail_response(
+                        f"Cannot modify {', '.join(restricted_fields)} for the default Suna agent. "
+                        f"Suna's core identity is managed centrally. However, you can still add MCP integrations, "
+                        f"create workflows, set up triggers, and customize other aspects of Suna."
+                    )
             
             update_data = {}
             if name is not None:

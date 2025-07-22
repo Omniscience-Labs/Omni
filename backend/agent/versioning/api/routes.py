@@ -84,6 +84,18 @@ async def create_version(
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
+        from services.supabase import DBConnection
+        from utils.logger import logger
+        from agent.config_helper import extract_agent_config
+        
+        db = DBConnection()
+        client = await db.client
+        
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).maybe_single().execute()
+        
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
         agent_id_obj = AgentId.from_string(agent_id)
         user_id_obj = UserId.from_string(user_id)
         
@@ -146,6 +158,38 @@ async def activate_version(
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
+        # SECURITY CHECK: Validate Suna default agent restrictions before activating version
+        from services.supabase import DBConnection
+        from utils.logger import logger
+        
+        db = DBConnection()
+        client = await db.client
+        
+        # Get the agent to check if it's a Suna default agent
+        agent_result = await client.table('agents').select('metadata').eq('agent_id', agent_id).eq('account_id', user_id).maybe_single().execute()
+        
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent_metadata = agent_result.data.get('metadata', {})
+        is_suna_agent = agent_metadata.get('is_suna_default', False)
+        restrictions = agent_metadata.get('restrictions', {})
+        
+        if is_suna_agent:
+            logger.warning(f"Version activation attempt on Suna default agent {agent_id} by user {user_id} for version {version_id}")
+            
+            # For Suna agents, we typically don't want users activating arbitrary old versions
+            # as this could bypass current restrictions or revert to unmanaged configurations
+            # We'll allow it for now but log it as a security event
+            logger.info(f"Allowing version activation for Suna agent {agent_id} - monitoring for security compliance")
+            
+            # Optionally, you could add more strict controls here like:
+            # - Only allow activation of versions created after a certain date
+            # - Only allow activation if the version respects current restrictions
+            # - Require admin approval for version switches on Suna agents
+            
+            # For now, we'll allow it but with enhanced logging
+        
         agent_id_obj = AgentId.from_string(agent_id)
         version_id_obj = VersionId.from_string(version_id)
         user_id_obj = UserId.from_string(user_id)
@@ -153,6 +197,9 @@ async def activate_version(
         await version_service.activate_version(
             agent_id_obj, version_id_obj, user_id_obj
         )
+        
+        if is_suna_agent:
+            logger.info(f"Successfully activated version {version_id} for Suna agent {agent_id} by user {user_id}")
         
         return {"message": "Version activated successfully"}
     except UnauthorizedError as e:

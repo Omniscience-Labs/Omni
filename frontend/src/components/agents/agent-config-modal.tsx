@@ -24,6 +24,7 @@ interface AgentConfigModalProps {
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
   initialTab?: string;
+  isSunaAgent?: boolean;
 }
 
 export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
@@ -31,7 +32,8 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
   onOpenChange,
   selectedAgentId,
   onAgentSelect,
-  initialTab = 'tools'
+  initialTab = 'tools',
+  isSunaAgent
 }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingInstructions, setEditingInstructions] = useState(false);
@@ -134,6 +136,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
           <AgentSelector
             selectedAgentId={selectedAgentId}
             onAgentSelect={onAgentSelect}
+            isSunaAgent={isSunaAgent}
           />
         </div>
 

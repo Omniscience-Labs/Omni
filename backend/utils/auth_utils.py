@@ -267,18 +267,6 @@ async def get_optional_user_id(request: Request) -> Optional[str]:
         return None
 
 async def verify_admin_api_key(x_admin_api_key: Optional[str] = Header(None)):
-    """
-    Verify admin API key for server-side operations.
-    
-    Args:
-        x_admin_api_key: Admin API key from X-Admin-Api-Key header
-        
-    Returns:
-        bool: True if the API key is valid
-        
-    Raises:
-        HTTPException: If the API key is missing, invalid, or not configured
-    """
     if not config.ADMIN_API_KEY:
         raise HTTPException(
             status_code=500,

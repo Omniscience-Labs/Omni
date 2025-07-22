@@ -51,6 +51,7 @@ interface MessageInputProps {
   onAgentSelect?: (agentId: string | undefined) => void;
   enableAdvancedConfig?: boolean;
   hideAgentSelection?: boolean;
+  isSunaAgent?: boolean;
 }
 
 export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
@@ -89,6 +90,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       onAgentSelect,
       enableAdvancedConfig = false,
       hideAgentSelection = false,
+      isSunaAgent,
     },
     ref,
   ) => {
@@ -164,6 +166,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={onAgentSelect}
                 disabled={loading || (disabled && !isAgentRunning)}
+                isSunaAgent={isSunaAgent}
               />
             )}
             <ModelSelector

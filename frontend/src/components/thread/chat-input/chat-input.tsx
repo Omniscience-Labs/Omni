@@ -7,6 +7,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
@@ -64,6 +65,9 @@ export interface ChatInputProps {
   hideAgentSelection?: boolean;
   defaultShowSnackbar?: 'tokens' | 'upgrade' | false;
   showToLowCreditUsers?: boolean;
+  agentMetadata?: {
+    is_suna_default?: boolean;
+  };
 }
 
 export interface UploadedFile {
@@ -106,6 +110,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       hideAgentSelection = false,
       defaultShowSnackbar = false,
       showToLowCreditUsers = true,
+      agentMetadata,
     },
     ref,
   ) => {
@@ -115,6 +120,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     const [uncontrolledValue, setUncontrolledValue] = useState('');
     const value = isControlled ? controlledValue : uncontrolledValue;
+
+    const isSunaAgent = agentMetadata?.is_suna_default || false;
 
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -171,6 +178,9 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedFromLocalStorage = useRef(false);
+    
+    const { data: agentsResponse } = useAgents();
+    const agents = agentsResponse?.agents || [];
 
     useImperativeHandle(ref, () => ({
       getPendingFiles: () => pendingFiles,
@@ -189,7 +199,19 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             console.log('Loading saved agent from localStorage:', savedAgentId);
             onAgentSelect(agentIdToSelect);
           } else {
-            console.log('No saved agent found in localStorage');
+            console.log('No saved agent found in localStorage, selecting default Suna agent');
+            // Find the default Suna agent
+            const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
+            if (defaultSunaAgent) {
+              console.log('Auto-selecting default Suna agent:', defaultSunaAgent.agent_id);
+              onAgentSelect(defaultSunaAgent.agent_id);
+            } else if (agents.length > 0) {
+              console.log('No default Suna agent found, selecting first available agent:', agents[0].agent_id);
+              onAgentSelect(agents[0].agent_id);
+            } else {
+              console.log('No agents available, keeping undefined');
+              onAgentSelect(undefined);
+            }
           }
         } else {
           console.log('Skipping localStorage load:', {
@@ -200,7 +222,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         }
         hasLoadedFromLocalStorage.current = true;
       }
-    }, [onAgentSelect, selectedAgentId]); // Keep selectedAgentId to check current state
+    }, [onAgentSelect, selectedAgentId, agents]); // Add agents to dependencies
 
     // Save selected agent to localStorage whenever it changes
     useEffect(() => {

@@ -4,16 +4,27 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from './tools';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, { enabled: boolean; description: string }>;
   onToolsChange: (tools: Record<string, { enabled: boolean; description: string }>) => void;
+  disabled?: boolean;
+  isSunaAgent?: boolean;
 }
 
-export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConfigurationProps) => {
+export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const handleToolToggle = (toolName: string, enabled: boolean) => {
+    if (disabled && isSunaAgent) {
+      toast.error("Tools cannot be modified", {
+        description: "Suna's default tools are managed centrally and cannot be changed.",
+      });
+      return;
+    }
+    
     const updatedTools = {
       ...tools,
       [toolName]: {
@@ -69,6 +80,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange }: AgentToolsConf
                     checked={tools[toolName]?.enabled || false}
                     onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
                     className="flex-shrink-0"
+                    disabled={disabled}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">

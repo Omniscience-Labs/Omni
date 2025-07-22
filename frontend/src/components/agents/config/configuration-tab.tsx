@@ -7,6 +7,8 @@ import { AgentMCPConfiguration } from '../agent-mcp-configuration';
 import { AgentKnowledgeBaseManager } from '../knowledge-base/agent-knowledge-base-manager';
 import { AgentWorkflowsConfiguration } from '../workflows/agent-workflows-configuration';
 import { AgentTriggersConfiguration } from '../triggers/agent-triggers-configuration';
+import { toast } from 'sonner';
+import { KortixLogo } from '../../sidebar/kortix-logo';
 
 interface ConfigurationTabProps {
   agentId: string;
@@ -32,6 +34,17 @@ interface ConfigurationTabProps {
   onFieldChange: (field: string, value: any) => void;
   onMCPChange: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
   initialAccordion?: string;
+  agentMetadata?: {
+    is_suna_default?: boolean;
+    centrally_managed?: boolean;
+    restrictions?: {
+      system_prompt_editable?: boolean;
+      tools_editable?: boolean;
+      name_editable?: boolean;
+      description_editable?: boolean;
+      mcps_editable?: boolean;
+    };
+  };
 }
 
 export function ConfigurationTab({
@@ -42,6 +55,7 @@ export function ConfigurationTab({
   onFieldChange,
   onMCPChange,
   initialAccordion,
+  agentMetadata,
 }: ConfigurationTabProps) {
   const mapAccordion = (val?: string) => {
     if (val === 'instructions') return 'system';
@@ -56,6 +70,26 @@ export function ConfigurationTab({
       setOpenAccordion(mapAccordion(initialAccordion));
     }
   }, [initialAccordion]);
+
+  // Check if this is a Suna default agent and get restrictions
+  const isSunaAgent = agentMetadata?.is_suna_default || false;
+  const restrictions = agentMetadata?.restrictions || {};
+  
+  // Determine what's editable based on restrictions and view state
+  const isSystemPromptEditable = !isViewingOldVersion && (restrictions.system_prompt_editable !== false);
+  const areToolsEditable = !isViewingOldVersion && (restrictions.tools_editable !== false);
+  const areMCPsEditable = !isViewingOldVersion && (restrictions.mcps_editable !== false);
+  
+  // Protected handlers that show toast errors for restricted actions
+  const handleSystemPromptChange = (value: string) => {
+    if (!isSystemPromptEditable && isSunaAgent) {
+      toast.error("System prompt cannot be edited", {
+        description: "Suna's system prompt is managed centrally and cannot be changed.",
+      });
+      return;
+    }
+    onFieldChange('system_prompt', value);
+  };
 
   return (
     <div className="p-4">
@@ -76,12 +110,25 @@ export function ConfigurationTab({
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
+            {isSunaAgent && !isSystemPromptEditable && (
+              <div className="mb-3 p-3 bg-primary/10 border border-primary-200 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-primary-800">
+                  <div className="text-primary-600">
+                    <KortixLogo size={16} />
+                  </div>
+                  <span className="font-medium">Suna Default Agent</span>
+                </div>
+                <p className="text-xs text-primary-700 mt-1">
+                  The system prompt for Suna is managed centrally and cannot be edited. You can still add integrations and customize other settings.
+                </p>
+              </div>
+            )}
             <ExpandableMarkdownEditor
               value={displayData.system_prompt}
-              onSave={(value) => onFieldChange('system_prompt', value)}
+              onSave={handleSystemPromptChange}
               placeholder="Click to set system instructions..."
               title="System Instructions"
-              disabled={isViewingOldVersion}
+              disabled={!isSystemPromptEditable}
             />
           </AccordionContent>
         </AccordionItem>
@@ -102,9 +149,24 @@ export function ConfigurationTab({
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
+            {isSunaAgent && !areToolsEditable && (
+              <div className="mb-3 p-3 bg-primary/10 border border-primary-200 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-primary-800">
+                  <div className="text-primary-600">
+                    <KortixLogo size={16} />
+                  </div>
+                  <span className="font-medium">Suna Default Tools</span>
+                </div>
+                <p className="text-xs text-primary-700 mt-1">
+                  The default tools for Suna are managed centrally and cannot be modified. These tools are optimized for Suna's capabilities.
+                </p>
+              </div>
+            )}
             <AgentToolsConfiguration
               tools={displayData.agentpress_tools}
-              onToolsChange={(tools) => onFieldChange('agentpress_tools', tools)}
+              onToolsChange={areToolsEditable ? (tools) => onFieldChange('agentpress_tools', tools) : () => {}}
+              disabled={!areToolsEditable}
+              isSunaAgent={isSunaAgent}
             />
           </AccordionContent>
         </AccordionItem>

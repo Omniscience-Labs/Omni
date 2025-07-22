@@ -1,12 +1,17 @@
 from typing import Dict, Any, Optional, List
 from utils.logger import logger
 
-
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     agent_id = agent_data.get('agent_id', 'Unknown')
     
     agent_has_config = bool(agent_data.get('config') and agent_data['config'] != {})
     version_has_config = bool(version_data and version_data.get('config') and version_data['config'] != {})
+    
+    # Check if this is a Suna default agent
+    metadata = agent_data.get('metadata', {})
+    is_suna_default = metadata.get('is_suna_default', False)
+    centrally_managed = metadata.get('centrally_managed', False)
+    restrictions = metadata.get('restrictions', {})
     
     if version_data and ('configured_mcps' in version_data or 'custom_mcps' in version_data or 'system_prompt' in version_data):
         logger.info(f"Using version data from version manager for agent {agent_id}")
@@ -32,7 +37,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'metadata': {
                 'avatar': agent_data.get('avatar'),
                 'avatar_color': agent_data.get('avatar_color')
-            }
+            },
+            # Add Suna default agent metadata
+            'is_suna_default': is_suna_default,
+            'centrally_managed': centrally_managed,
+            'restrictions': restrictions
         }
         return config
     
@@ -54,6 +63,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         
         config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
         config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
+        
+        # Add Suna default agent metadata
+        config['is_suna_default'] = is_suna_default
+        config['centrally_managed'] = centrally_managed
+        config['restrictions'] = restrictions
         
         return config
     
@@ -83,6 +97,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         
         config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
         config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
+        
+        # Add Suna default agent metadata
+        config['is_suna_default'] = is_suna_default
+        config['centrally_managed'] = centrally_managed
+        config['restrictions'] = restrictions
         
         return config
     
@@ -115,7 +134,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         'account_id': agent_data.get('account_id'),
         'current_version_id': agent_data.get('current_version_id'),
         'avatar': agent_data.get('avatar'),
-        'avatar_color': agent_data.get('avatar_color')
+        'avatar_color': agent_data.get('avatar_color'),
+        # Add Suna default agent metadata
+        'is_suna_default': is_suna_default,
+        'centrally_managed': centrally_managed,
+        'restrictions': restrictions
     }
     
     if version_data:
@@ -134,7 +157,8 @@ def build_unified_config(
     configured_mcps: List[Dict[str, Any]],
     custom_mcps: Optional[List[Dict[str, Any]]] = None,
     avatar: Optional[str] = None,
-    avatar_color: Optional[str] = None
+    avatar_color: Optional[str] = None,
+    suna_metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     simplified_tools = {}
     for tool_name, tool_config in agentpress_tools.items():
@@ -142,7 +166,8 @@ def build_unified_config(
             simplified_tools[tool_name] = tool_config.get('enabled', False)
         elif isinstance(tool_config, bool):
             simplified_tools[tool_name] = tool_config
-    return {
+    
+    config = {
         'system_prompt': system_prompt,
         'tools': {
             'agentpress': simplified_tools,
@@ -154,6 +179,12 @@ def build_unified_config(
             'avatar_color': avatar_color
         }
     }
+    
+    # Add Suna default agent metadata if provided
+    if suna_metadata:
+        config['suna_metadata'] = suna_metadata
+    
+    return config
 
 
 def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -200,4 +231,56 @@ def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
             if mcp not in all_mcps:
                 all_mcps.append(mcp)
     
-    return all_mcps 
+    return all_mcps
+
+
+def is_suna_default_agent(config: Dict[str, Any]) -> bool:
+    """
+    Check if agent configuration represents a Suna default agent
+    
+    Args:
+        config: Agent configuration dictionary
+        
+    Returns:
+        True if this is a Suna default agent, False otherwise
+    """
+    return config.get('is_suna_default', False)
+
+
+def get_agent_restrictions(config: Dict[str, Any]) -> Dict[str, bool]:
+    """
+    Get editing restrictions for an agent
+    
+    Args:
+        config: Agent configuration dictionary
+        
+    Returns:
+        Dictionary of field restrictions (field_name -> can_edit)
+    """
+    return config.get('restrictions', {})
+
+
+def can_edit_field(config: Dict[str, Any], field_name: str) -> bool:
+    """
+    Check if a specific field can be edited based on agent restrictions
+    
+    Args:
+        config: Agent configuration dictionary
+        field_name: Name of the field to check
+        
+    Returns:
+        True if field can be edited, False if restricted
+    """
+    if not is_suna_default_agent(config):
+        return True  # Regular agents have no restrictions
+    
+    restrictions = get_agent_restrictions(config)
+    
+    # Default to allowing edits if restriction not specified
+    # Restrictions are stored as field_name -> can_edit (True/False)
+    return restrictions.get(field_name, True)
+
+
+def get_default_system_prompt_for_suna_agent() -> str:
+    from agent.suna.config import SunaConfig
+    return SunaConfig.get_system_prompt()

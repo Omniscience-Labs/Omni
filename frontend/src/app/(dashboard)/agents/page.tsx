@@ -417,12 +417,9 @@ export default function AgentsPage() {
 
     try {
       const tags = publishTags.filter(tag => tag.trim().length > 0);
-
-      // Check if we're dealing with an agent (has agent_id format) or template (has template_id format)
-      const isAgent = publishDialog.templateId.length > 20; // agent_id is typically longer than template_id
+      const isAgent = publishDialog.templateId.length > 20;
       
       if (isAgent) {
-        // Publishing an agent as a template
         setPublishingAgentId(publishDialog.templateId);
         
         const result = await createTemplateMutation.mutateAsync({
