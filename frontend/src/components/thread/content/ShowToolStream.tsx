@@ -56,10 +56,10 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
         }
 
         const elapsed = Date.now() - effectiveStartTime;
-        if (elapsed >= 1500) {
+        if (elapsed >= 2000) {
             setShouldShowContent(true);
         } else {
-            const delay = 1500 - elapsed;
+            const delay = 2000 - elapsed;
             const timer = setTimeout(() => {
                 setShouldShowContent(true);
             }, delay);
