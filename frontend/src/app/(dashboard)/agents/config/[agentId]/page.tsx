@@ -463,7 +463,6 @@ export default function AgentConfigurationPage() {
                     onStyleChange={handleStyleChange}
                   />
                 </TabsContent>
-
                 <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
                   <ConfigurationTab
                     agentId={agentId}
@@ -473,6 +472,7 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
                     initialAccordion={initialAccordion}
+                    agentMetadata={agent?.metadata}
                   />
                 </TabsContent>
               </Tabs>

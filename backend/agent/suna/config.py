@@ -87,6 +87,7 @@ class SunaConfig:
             }
         }
 
+
 def add_tool(tool_name: str, description: str, enabled: bool = True):
     SunaConfig.DEFAULT_TOOLS[tool_name] = {
         "enabled": enabled,

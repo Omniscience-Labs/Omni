@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from services.supabase import DBConnection
 from utils.logger import logger
 
@@ -112,24 +113,6 @@ class SunaAgentRepository:
             logger.error(f"Failed to surgically update agent {agent_id}: {e}")
             raise
     
-    def _build_preserved_unified_config(
-        self,
-        system_prompt: str,
-        agentpress_tools: Dict[str, Any], 
-        configured_mcps: List[Any],
-        custom_mcps: List[Any],
-        avatar: str,
-        avatar_color: str
-    ) -> Dict[str, Any]:
-        from agent.config_helper import build_unified_config
-        return build_unified_config(
-            system_prompt=system_prompt,
-            agentpress_tools=agentpress_tools,
-            configured_mcps=configured_mcps,
-            custom_mcps=custom_mcps,
-            avatar=avatar,
-            avatar_color=avatar_color
-        )
     
     async def update_agent_version_pointer(self, agent_id: str, version_id: str) -> bool:
         try:
@@ -170,30 +153,82 @@ class SunaAgentRepository:
             logger.error(f"Failed to get agent stats: {e}")
             return {"error": str(e)}
     
-    async def create_suna_agent(
+    async def create_suna_agent_simple(
         self, 
-        account_id: str, 
-        config_data: Dict[str, Any],
-        unified_config: Dict[str, Any]
-    ) -> Optional[str]:
+        account_id: str,
+        version_tag: str
+    ) -> str:
         try:
+            from agent.suna.config import SunaConfig
+            
             client = await self.db.client
             
             agent_data = {
                 "account_id": account_id,
-                **config_data,
-                "config": unified_config,
+                "name": SunaConfig.NAME,
+                "description": SunaConfig.DESCRIPTION,
+                "is_default": True,
+                "system_prompt": "[SUNA_MANAGED]",
+                "agentpress_tools": {},
+                "configured_mcps": SunaConfig.DEFAULT_MCPS,
+                "custom_mcps": SunaConfig.DEFAULT_CUSTOM_MCPS,
+                "config": {
+                    'tools': {
+                        'mcp': SunaConfig.DEFAULT_MCPS,
+                        'custom_mcp': SunaConfig.DEFAULT_CUSTOM_MCPS,
+                        'agentpress': {}
+                    },
+                    'metadata': {
+                        'is_suna_default': True,
+                        'centrally_managed': True
+                    }
+                },
+                "metadata": {
+                    "is_suna_default": True,
+                    "centrally_managed": True,
+                    "config_version": version_tag,
+                    "installation_date": datetime.now(timezone.utc).isoformat()
+                },
                 "version_count": 1
             }
             
             result = await client.table('agents').insert(agent_data).execute()
             
             if result.data:
-                return result.data[0]['agent_id']
-            return None
+                agent_id = result.data[0]['agent_id']
+                logger.info(f"Created minimal Suna agent {agent_id} for {account_id}")
+                return agent_id
+            
+            raise Exception("No data returned from insert")
             
         except Exception as e:
             logger.error(f"Failed to create Suna agent for {account_id}: {e}")
+            raise
+    
+    async def update_agent_metadata(
+        self,
+        agent_id: str,
+        version_tag: str
+    ) -> bool:
+        """Update only metadata for a Suna agent (system prompt/tools read from SunaConfig)"""
+        try:
+            client = await self.db.client
+            
+            update_data = {
+                "metadata": {
+                    "is_suna_default": True,
+                    "centrally_managed": True,
+                    "config_version": version_tag,
+                    "last_central_update": datetime.now(timezone.utc).isoformat()
+                }
+            }
+            
+            result = await client.table('agents').update(update_data).eq('agent_id', agent_id).execute()
+            
+            return bool(result.data)
+            
+        except Exception as e:
+            logger.error(f"Failed to update metadata for agent {agent_id}: {e}")
             raise
     
     async def delete_agent(self, agent_id: str) -> bool:

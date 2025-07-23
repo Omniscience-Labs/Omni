@@ -2522,50 +2522,12 @@ async def get_agent_tools(
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
-# =====================================================
-# SUNA DEFAULT AGENT MANAGEMENT ENDPOINTS (ADMIN ONLY)
-# =====================================================
-
-# @router.post("/admin/suna-agents/install-all")
-# async def admin_install_suna_for_all_users(
-#     _: bool = Depends(verify_admin_api_key)
-# ):
-#     """Admin endpoint: Install Suna default agent for all users who don't have it"""
-#     logger.info("Admin installing Suna agents for all users")
-    
-#     service = SunaDefaultAgentService()
-#     result = await service.install_for_all_users()
-    
-#     return {
-#         "success": True,
-#         "message": f"Installation completed: {result['installed_count']} installed, {result['failed_count']} failed",
-#         "data": result
-#     }
-
-# @router.post("/admin/suna-agents/update-all") 
-# async def admin_update_all_suna_agents(
-#     target_version: Optional[str] = None,
-#     _: bool = Depends(verify_admin_api_key)
-# ):
-#     """Admin endpoint: Update all Suna default agents to latest or specific version"""
-#     logger.info(f"Admin updating all Suna agents to version: {target_version or 'latest'}")
-    
-#     service = SunaDefaultAgentService()
-#     result = await service.update_all_suna_agents(target_version)
-    
-#     return {
-#         "success": True,
-#         "message": f"Update completed: {result['updated_count']} updated, {result['failed_count']} failed",
-#         "data": result
-#     }
-
 @router.post("/admin/suna-agents/install-user/{account_id}")
 async def admin_install_suna_for_user(
     account_id: str,
     replace_existing: bool = False,
     _: bool = Depends(verify_admin_api_key)
 ):
-    """Admin endpoint: Install Suna default agent for specific user"""
     logger.info(f"Admin installing Suna agent for user: {account_id}")
     
     service = SunaDefaultAgentService()
@@ -2582,38 +2544,4 @@ async def admin_install_suna_for_user(
             status_code=500, 
             detail=f"Failed to install Suna agent for user {account_id}"
         )
-
-# @router.get("/admin/suna-agents/stats")
-# async def admin_get_suna_agent_stats(
-#     _: bool = Depends(verify_admin_api_key)
-# ):
-#     """Admin endpoint: Get statistics about Suna default agents"""
-#     logger.info("Admin requesting Suna agent statistics")
-    
-#     service = SunaDefaultAgentService()
-#     stats = await service.get_suna_agent_stats()
-    
-#     if 'error' in stats:
-#         raise HTTPException(status_code=500, detail=stats['error'])
-    
-#     return {
-#         "success": True,
-#         "data": stats
-#     }
-
-# @router.post("/admin/suna-agents/auto-install-new-users")
-# async def admin_auto_install_for_new_users(
-#     _: bool = Depends(verify_admin_api_key)
-# ):
-#     """Admin endpoint: Check for new users and install Suna agent for them"""
-#     logger.info("Admin triggering auto-install for new users")
-    
-#     service = SunaDefaultAgentService()
-#     result = await service.install_for_all_users()  # This already checks for users without Suna
-    
-#     return {
-#         "success": True,
-#         "message": f"Auto-install completed: {result['installed_count']} new installations",
-#         "data": result
-#     }
 
