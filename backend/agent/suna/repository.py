@@ -78,17 +78,18 @@ class SunaAgentRepository:
                 tools_count = len(mcp.get('enabledTools', mcp.get('enabled_tools', [])))
                 logger.info(f"Agent {agent_id} - Preserving custom MCP {i+1} ({mcp.get('name', 'Unknown')}) with {tools_count} enabled tools")
             
+            # Update the config with preserved MCPs and new metadata
+            updated_config = unified_config.copy()
+            updated_config['tools']['mcp'] = preserved_configured_mcps
+            updated_config['tools']['custom_mcp'] = preserved_custom_mcps
+            
             update_data = {
-                "configured_mcps": preserved_configured_mcps,
-                "custom_mcps": preserved_custom_mcps,
+                "config": updated_config,
                 "metadata": {
                     **current_metadata,
                     **config_data["metadata"]
                 }
             }
-            
-            update_data["system_prompt"] = "[SUNA_MANAGED]"
-            update_data["agentpress_tools"] = {}
             
             preserved_unified_config = {
                 'tools': {
