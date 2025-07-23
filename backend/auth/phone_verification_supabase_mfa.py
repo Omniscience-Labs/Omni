@@ -563,8 +563,8 @@ async def get_authenticator_assurance_level(
             # Existing users (grandfathered) - only require verification if AAL demands it
             verification_required = action_required == 'verify_mfa'
         
-        phone_verification_required = is_new_user and is_phone_verification_mandatory()
-        verification_required = is_new_user and verification_required and is_phone_verification_mandatory()
+        phone_verification_required = False and is_new_user and is_phone_verification_mandatory()
+        verification_required = False and is_new_user and verification_required and is_phone_verification_mandatory()
         
         logger.info(f"AAL check for user {user_id}: "
                    f"current_level={current}, "

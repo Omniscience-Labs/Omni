@@ -8,8 +8,8 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 export const STORAGE_KEY_MODEL = 'suna-preferred-model-v3';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
-export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
-// export const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
+// export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
+export const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -32,7 +32,7 @@ export interface CustomModel {
 export const MODELS = {
   // Free tier models (available to all users)
   'claude-sonnet-4': { 
-    tier: 'premium',
+    tier: 'free',
     priority: 100, 
     recommended: true,
     lowQuality: false
