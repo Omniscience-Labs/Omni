@@ -188,29 +188,23 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     }));
 
     useEffect(() => {
-      if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current) {
+      if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current && agents.length > 0) {
         const urlParams = new URLSearchParams(window.location.search);
         const hasAgentIdInUrl = urlParams.has('agent_id');
-
         if (!selectedAgentId && !hasAgentIdInUrl) {
           const savedAgentId = localStorage.getItem('lastSelectedAgentId');
           if (savedAgentId) {
             if (savedAgentId === 'suna') {
               const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
               if (defaultSunaAgent) {
-                console.log('Loading saved Suna agent from localStorage, using actual ID:', defaultSunaAgent.agent_id);
                 onAgentSelect(defaultSunaAgent.agent_id);
               } else {
-                console.log('Saved Suna agent not found, keeping undefined');
                 onAgentSelect(undefined);
               }
             } else {
-              console.log('Loading saved agent from localStorage:', savedAgentId);
               onAgentSelect(savedAgentId);
             }
           } else {
-            console.log('No saved agent found in localStorage, selecting default Suna agent');
-            // Find the default Suna agent
             const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
             if (defaultSunaAgent) {
               console.log('Auto-selecting default Suna agent:', defaultSunaAgent.agent_id);

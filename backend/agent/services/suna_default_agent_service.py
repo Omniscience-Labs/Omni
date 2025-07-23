@@ -39,7 +39,7 @@ class SunaDefaultAgentService:
         }
     
     async def install_suna_agent_for_user(self, account_id: str, replace_existing: bool = False) -> Optional[str]:
-        logger.info(f"🔄 Delegating single user installation to modular service: {account_id}")
+        logger.info(f"🔄 Installing Suna agent for user: {account_id}")
         
         try:
             if replace_existing:
@@ -54,16 +54,15 @@ class SunaDefaultAgentService:
                 if existing:
                     logger.info(f"User {account_id} already has Suna agent: {existing.agent_id}")
                     return existing.agent_id
-            
+
             current_config = self._sync_service.config_manager.get_current_config()
-            result = await self._sync_service._install_for_user(account_id, current_config)
+            agent_id = await self._sync_service.repository.create_suna_agent_simple(
+                account_id,
+                current_config.version_tag
+            )
             
-            if result.success:
-                logger.info(f"Successfully installed Suna agent {result.agent_id} for user {account_id}")
-                return result.agent_id
-            else:
-                logger.error(f"Failed to install Suna for user {account_id}: {result.error_message}")
-                return None
+            logger.info(f"Successfully installed Suna agent {agent_id} for user {account_id}")
+            return agent_id
                 
         except Exception as e:
             logger.error(f"Error in install_suna_agent_for_user: {e}")
