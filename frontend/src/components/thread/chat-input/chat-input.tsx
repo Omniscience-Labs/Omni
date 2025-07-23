@@ -195,9 +195,19 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         if (!selectedAgentId && !hasAgentIdInUrl) {
           const savedAgentId = localStorage.getItem('lastSelectedAgentId');
           if (savedAgentId) {
-            const agentIdToSelect = savedAgentId === 'suna' ? undefined : savedAgentId;
-            console.log('Loading saved agent from localStorage:', savedAgentId);
-            onAgentSelect(agentIdToSelect);
+            if (savedAgentId === 'suna') {
+              const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
+              if (defaultSunaAgent) {
+                console.log('Loading saved Suna agent from localStorage, using actual ID:', defaultSunaAgent.agent_id);
+                onAgentSelect(defaultSunaAgent.agent_id);
+              } else {
+                console.log('Saved Suna agent not found, keeping undefined');
+                onAgentSelect(undefined);
+              }
+            } else {
+              console.log('Loading saved agent from localStorage:', savedAgentId);
+              onAgentSelect(savedAgentId);
+            }
           } else {
             console.log('No saved agent found in localStorage, selecting default Suna agent');
             // Find the default Suna agent
@@ -226,13 +236,17 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     // Save selected agent to localStorage whenever it changes
     useEffect(() => {
-      if (typeof window !== 'undefined') {
-        // Use 'suna' as a special key for the default agent (undefined)
-        const keyToStore = selectedAgentId === undefined ? 'suna' : selectedAgentId;
-        console.log('Saving selected agent to localStorage:', keyToStore);
+      if (typeof window !== 'undefined' && agents.length > 0) {
+        // Check if the selected agent is the Suna default agent
+        const selectedAgent = agents.find(agent => agent.agent_id === selectedAgentId);
+        const isSunaAgent = selectedAgent?.metadata?.is_suna_default || selectedAgentId === undefined;
+        
+        // Use 'suna' as a special key for the Suna default agent
+        const keyToStore = isSunaAgent ? 'suna' : selectedAgentId;
+        console.log('Saving selected agent to localStorage:', keyToStore, 'for selectedAgentId:', selectedAgentId);
         localStorage.setItem('lastSelectedAgentId', keyToStore);
       }
-    }, [selectedAgentId]);
+    }, [selectedAgentId, agents]);
 
     useEffect(() => {
       if (autoFocus && textareaRef.current) {

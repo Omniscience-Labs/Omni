@@ -48,11 +48,9 @@ class SunaConfig:
         }
     }
     
-    # 🔧 MCP INTEGRATIONS (Add your defaults here)
-    DEFAULT_MCPS = []  # Add any default MCP configurations
-    DEFAULT_CUSTOM_MCPS = []  # Add any default custom MCPs
+    DEFAULT_MCPS = []
+    DEFAULT_CUSTOM_MCPS = []
     
-    # 🔒 RESTRICTIONS (What users can/cannot modify)
     USER_RESTRICTIONS = {
         "system_prompt_editable": False,
         "tools_editable": False, 
@@ -63,7 +61,6 @@ class SunaConfig:
     
     @classmethod
     def get_system_prompt(cls) -> str:
-        """Get the formatted system prompt with current date/time"""
         return cls.SYSTEM_PROMPT.format(
             current_date=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
             current_time=datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')
@@ -71,7 +68,6 @@ class SunaConfig:
     
     @classmethod
     def get_full_config(cls) -> Dict[str, Any]:
-        """Get complete Suna configuration"""
         return {
             "name": cls.NAME,
             "description": cls.DESCRIPTION,
@@ -91,32 +87,20 @@ class SunaConfig:
             }
         }
 
-# 🎯 EASY CONFIGURATION HELPERS
-
 def add_tool(tool_name: str, description: str, enabled: bool = True):
-    """
-    Easy way to add a new tool to all Suna agents
-    
-    Usage:
-        add_tool("new_awesome_tool", "Does awesome things")
-        # Then run: python manage_suna_agents.py sync-config
-    """
     SunaConfig.DEFAULT_TOOLS[tool_name] = {
         "enabled": enabled,
         "description": description
     }
 
 def remove_tool(tool_name: str):
-    """Remove a tool from all Suna agents"""
     if tool_name in SunaConfig.DEFAULT_TOOLS:
         del SunaConfig.DEFAULT_TOOLS[tool_name]
 
 def enable_tool(tool_name: str):
-    """Enable a tool for all Suna agents"""
     if tool_name in SunaConfig.DEFAULT_TOOLS:
         SunaConfig.DEFAULT_TOOLS[tool_name]["enabled"] = True
 
 def disable_tool(tool_name: str):  
-    """Disable a tool for all Suna agents"""
     if tool_name in SunaConfig.DEFAULT_TOOLS:
         SunaConfig.DEFAULT_TOOLS[tool_name]["enabled"] = False 

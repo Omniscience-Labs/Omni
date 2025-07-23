@@ -30,19 +30,16 @@ class SunaVersionService:
             from agent.versioning.infrastructure.dependencies import set_db_connection
             
             set_db_connection(self.db)
-            
-            # For Suna agents, use current system prompt & tools from code
-            from agent.suna.config import SunaConfig
-            
+
             version = await version_manager.create_version(
                 agent_id=agent_id,
                 user_id=account_id,
-                system_prompt=SunaConfig.get_system_prompt(),
+                system_prompt="[SUNA_MANAGED]",
                 configured_mcps=current_mcps["configured_mcps"],
                 custom_mcps=current_mcps["custom_mcps"],
-                agentpress_tools=SunaConfig.DEFAULT_TOOLS,
+                agentpress_tools={},
                 version_name=f"sync-{version_tag}",
-                change_description=f"Auto-sync to latest SunaConfig (preserved user MCPs)"
+                change_description=f"Auto-sync metadata (system prompt & tools from SunaConfig)"
             )
             
             logger.info(f"Created sync version {version['version_id']} for agent {agent_id} (preserved user MCPs)")
@@ -73,18 +70,18 @@ class SunaVersionService:
             
             set_db_connection(self.db)
             
-            # For Suna agents, use current system prompt & tools from code
-            from agent.suna.config import SunaConfig
-            
+
+            # For Suna agents, use placeholder system_prompt to satisfy version manager validation
+            # extract_agent_config will override this with SunaConfig values at runtime
             version = await version_manager.create_version(
                 agent_id=agent_id,
                 user_id=account_id,
-                system_prompt=SunaConfig.get_system_prompt(),
+                system_prompt="[SUNA_MANAGED]",  # Placeholder - overridden by extract_agent_config
                 configured_mcps=config_data.get("configured_mcps", []),
                 custom_mcps=config_data.get("custom_mcps", []),
-                agentpress_tools=SunaConfig.DEFAULT_TOOLS,
+                agentpress_tools={},  # Empty - read from SunaConfig
                 version_name="v1",
-                change_description="Initial Suna default agent version"
+                change_description="Initial Suna default agent (system prompt & tools from SunaConfig)"
             )
             
             logger.info(f"Created initial version {version['version_id']} for agent {agent_id}")

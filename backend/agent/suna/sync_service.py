@@ -225,8 +225,6 @@ class SunaSyncService:
             
             logger.info(f"🔍 Preserved {len(current_config.get('configured_mcps', []))} configured MCPs and {len(current_config.get('custom_mcps', []))} custom MCPs for agent {agent.agent_id}")
             
-            # For Suna agents, we only need to sync metadata and preserve user MCPs
-            # System prompt & tools are now read dynamically from SunaConfig
             minimal_config_data = {
                 "configured_mcps": current_config.get('configured_mcps', []),
                 "custom_mcps": current_config.get('custom_mcps', []),
@@ -238,7 +236,7 @@ class SunaSyncService:
                     }
             }
             
-            logger.info(f"🔧 Preserving {len(minimal_config_data.get('configured_mcps', []))} configured MCPs and {len(minimal_config_data.get('custom_mcps', []))} custom MCPs for agent {agent.agent_id}")
+            logger.info(f"🔧 Syncing metadata and preserving {len(minimal_config_data.get('configured_mcps', []))} configured MCPs and {len(minimal_config_data.get('custom_mcps', []))} custom MCPs for agent {agent.agent_id}")
             
             agent_updated = await self.repository.update_agent_record(
                 agent.agent_id, 
@@ -296,19 +294,35 @@ class SunaSyncService:
         account_id: str, 
         config: SunaConfiguration
     ) -> AgentSyncResult:
-        """Install Suna agent for a specific user"""
         try:
-            config_data = config.to_dict()
-            unified_config = build_unified_config(
-                system_prompt=config.system_prompt,
-                agentpress_tools=config.agentpress_tools,
-                configured_mcps=config.configured_mcps,
-                custom_mcps=config.custom_mcps,
-                avatar=config.avatar,
-                avatar_color=config.avatar_color
-            )
+            config_data = {
+                "name": config.name,
+                "description": config.description,
+                "is_default": True,
+                "system_prompt": "[SUNA_MANAGED]",
+                "agentpress_tools": {},
+                "configured_mcps": config.configured_mcps,
+                "custom_mcps": config.custom_mcps,
+                "metadata": {
+                    "is_suna_default": True,
+                    "centrally_managed": True,
+                    "config_version": config.version_tag,
+                    "installation_date": datetime.now(timezone.utc).isoformat()
+                }
+            }
             
-            # Create agent
+            unified_config = {
+                'tools': {
+                    'mcp': config.configured_mcps,
+                    'custom_mcp': config.custom_mcps,
+                    'agentpress': {}
+                },
+                'metadata': {
+                    'is_suna_default': True,
+                    'centrally_managed': True
+                }
+            }
+            
             agent_id = await self.repository.create_suna_agent(
                 account_id,
                 config_data,

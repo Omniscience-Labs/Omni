@@ -69,18 +69,14 @@ class SunaAgentRepository:
             
             current_agent = current_agent_result.data[0]
             current_metadata = current_agent.get('metadata', {})
-            
-            # Get MCPs - use what sync provides, only fallback if not provided
+
             preserved_configured_mcps = config_data.get('configured_mcps', current_agent.get('configured_mcps', []))
             preserved_custom_mcps = config_data.get('custom_mcps', current_agent.get('custom_mcps', []))
 
             for i, mcp in enumerate(preserved_custom_mcps):
-                # Handle both camelCase and snake_case
                 tools_count = len(mcp.get('enabledTools', mcp.get('enabled_tools', [])))
                 logger.info(f"Agent {agent_id} - Preserving custom MCP {i+1} ({mcp.get('name', 'Unknown')}) with {tools_count} enabled tools")
             
-            # For Suna agents, only update metadata and MCPs
-            # System prompt & tools are read dynamically from SunaConfig
             update_data = {
                 "configured_mcps": preserved_configured_mcps,
                 "custom_mcps": preserved_custom_mcps,
@@ -90,16 +86,20 @@ class SunaAgentRepository:
                 }
             }
             
-            # For Suna agents, build unified config with current system prompt & tools from code
-            from agent.suna.config import SunaConfig
-            preserved_unified_config = self._build_preserved_unified_config(
-                system_prompt=SunaConfig.get_system_prompt(),
-                agentpress_tools=SunaConfig.DEFAULT_TOOLS,
-                configured_mcps=preserved_configured_mcps,
-                custom_mcps=preserved_custom_mcps,
-                avatar=SunaConfig.AVATAR,
-                avatar_color=SunaConfig.AVATAR_COLOR
-            )
+            update_data["system_prompt"] = "[SUNA_MANAGED]"
+            update_data["agentpress_tools"] = {}
+            
+            preserved_unified_config = {
+                'tools': {
+                    'mcp': preserved_configured_mcps,
+                    'custom_mcp': preserved_custom_mcps,
+                    'agentpress': {}
+                },
+                'metadata': {
+                    'is_suna_default': True,
+                    'centrally_managed': True
+                }
+            }
             
             update_data["config"] = preserved_unified_config
             
@@ -121,7 +121,6 @@ class SunaAgentRepository:
         avatar: str,
         avatar_color: str
     ) -> Dict[str, Any]:
-        """Build unified config preserving user MCPs"""
         from agent.config_helper import build_unified_config
         return build_unified_config(
             system_prompt=system_prompt,
@@ -133,7 +132,6 @@ class SunaAgentRepository:
         )
     
     async def update_agent_version_pointer(self, agent_id: str, version_id: str) -> bool:
-        """Update agent to point to new version"""
         try:
             client = await self.db.client
             result = await client.table('agents').update({
@@ -147,18 +145,15 @@ class SunaAgentRepository:
             raise
     
     async def get_agent_stats(self) -> Dict[str, Any]:
-        """Get statistics about Suna agents"""
         try:
             client = await self.db.client
             
-            # Get total count
             total_result = await client.table('agents').select(
                 'agent_id', count='exact'
             ).eq('metadata->>is_suna_default', 'true').execute()
             
             total_count = total_result.count or 0
             
-            # Get version distribution
             agents = await self.find_all_suna_agents()
             version_dist = {}
             for agent in agents:
@@ -181,7 +176,6 @@ class SunaAgentRepository:
         config_data: Dict[str, Any],
         unified_config: Dict[str, Any]
     ) -> Optional[str]:
-        """Create a new Suna agent"""
         try:
             client = await self.db.client
             

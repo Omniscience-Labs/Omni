@@ -158,14 +158,12 @@ async def activate_version(
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
-        # SECURITY CHECK: Validate Suna default agent restrictions before activating version
         from services.supabase import DBConnection
         from utils.logger import logger
         
         db = DBConnection()
         client = await db.client
         
-        # Get the agent to check if it's a Suna default agent
         agent_result = await client.table('agents').select('metadata').eq('agent_id', agent_id).eq('account_id', user_id).maybe_single().execute()
         
         if not agent_result.data:
@@ -177,18 +175,8 @@ async def activate_version(
         
         if is_suna_agent:
             logger.warning(f"Version activation attempt on Suna default agent {agent_id} by user {user_id} for version {version_id}")
-            
-            # For Suna agents, we typically don't want users activating arbitrary old versions
-            # as this could bypass current restrictions or revert to unmanaged configurations
-            # We'll allow it for now but log it as a security event
             logger.info(f"Allowing version activation for Suna agent {agent_id} - monitoring for security compliance")
             
-            # Optionally, you could add more strict controls here like:
-            # - Only allow activation of versions created after a certain date
-            # - Only allow activation if the version respects current restrictions
-            # - Require admin approval for version switches on Suna agents
-            
-            # For now, we'll allow it but with enhanced logging
         
         agent_id_obj = AgentId.from_string(agent_id)
         version_id_obj = VersionId.from_string(version_id)
