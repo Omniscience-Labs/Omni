@@ -31,6 +31,7 @@ import { useModal } from '@/hooks/use-modal-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { KortixLogo } from '../sidebar/kortix-logo';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -65,6 +66,7 @@ export function DashboardContent() {
     : null;
   const displayName = selectedAgent?.name || 'Suna';
   const agentAvatar = selectedAgent?.avatar;
+  const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
@@ -209,9 +211,13 @@ export function DashboardContent() {
               <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
                 Hey, I am
               </h1>
-              <h1 className="ml-1 tracking-tight text-4xl font-semibold leading-tight text-primary">
+              <h1 className="ml-1 tracking-tight text-4xl font-semibold leading-tight text-primary flex items-center gap-3">
                 {displayName}
-                {agentAvatar && (
+                {isSunaAgent ? (
+                  <span className="ml-2 flex items-center">
+                    <KortixLogo size={24} />
+                  </span>
+                ) : agentAvatar && (
                   <span className="text-muted-foreground ml-2">
                     {agentAvatar}
                   </span>

@@ -19,8 +19,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAgentVersions, useActivateAgentVersion } from '@/lib/versioning';
 import { Agent } from '@/hooks/react-query/agents/utils';
 import { cn } from '@/lib/utils';
-
-
+import { VersionInlineEditor } from './version-inline-editor';
 
 interface AgentVersionManagerProps {
   agent: Agent;

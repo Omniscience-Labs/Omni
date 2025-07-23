@@ -9,12 +9,14 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getAgentAvatar } from '../../../../../lib/utils/get-agent-style';
 import { AgentPreview } from '../../../../../components/agents/agent-preview';
 import { AgentVersionSwitcher } from '@/components/agents/agent-version-switcher';
 import { CreateVersionButton } from '@/components/agents/create-version-button';
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
+import { useSearchParams } from 'next/navigation';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
 import { cn } from '@/lib/utils';
 
@@ -33,12 +35,15 @@ interface FormData {
   avatar_color: string;
 }
 
-export default function AgentConfigurationPageRefactored() {
+export default function AgentConfigurationPage() {
   const params = useParams();
-  const router = useRouter();
   const agentId = params.agentId as string;
+  const queryClient = useQueryClient();
 
   const { agent, versionData, isViewingOldVersion, isLoading, error } = useAgentVersionData({ agentId });
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialAccordion = searchParams.get('accordion');
   const { hasUnsavedChanges, setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
@@ -60,7 +65,9 @@ export default function AgentConfigurationPageRefactored() {
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('agent-builder');
+  // Initialize active tab from URL param, default to 'agent-builder'
+  const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     if (!agent) return;
@@ -96,6 +103,30 @@ export default function AgentConfigurationPageRefactored() {
   const handleSave = useCallback(async () => {
     if (!agent || isViewingOldVersion) return;
     
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const restrictions = agent?.metadata?.restrictions || {};
+    
+    if (isSunaAgent) {
+      if (restrictions.name_editable === false && formData.name !== originalData.name) {
+        toast.error("Cannot save changes", {
+          description: "Suna's name cannot be modified.",
+        });
+        return;
+      }
+      if (restrictions.system_prompt_editable === false && formData.system_prompt !== originalData.system_prompt) {
+        toast.error("Cannot save changes", {
+          description: "Suna's system prompt cannot be modified.",
+        });
+        return;
+      }
+      if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
+        toast.error("Cannot save changes", {
+          description: "Suna's default tools cannot be modified.",
+        });
+        return;
+      }
+    }
+    
     setIsSaving(true);
     try {
       const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
@@ -104,7 +135,7 @@ export default function AgentConfigurationPageRefactored() {
         config: mcp.config || {},
         enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
       }));
-      await createVersionMutation.mutateAsync({
+      const newVersion = await createVersionMutation.mutateAsync({
         agentId,
         data: {
           system_prompt: formData.system_prompt,
@@ -114,13 +145,18 @@ export default function AgentConfigurationPageRefactored() {
           description: 'Manual save'
         }
       });
-      await updateAgentMutation.mutateAsync({
+      const updatedAgent = await updateAgentMutation.mutateAsync({
         agentId,
         name: formData.name,
         description: formData.description,
         is_default: formData.is_default,
         avatar: formData.avatar,
         avatar_color: formData.avatar_color
+      });
+      queryClient.setQueryData(['agent', agentId], {
+        ...updatedAgent,
+        current_version: newVersion,
+        current_version_id: newVersion.versionId
       });
       
       setOriginalData(formData);
@@ -131,7 +167,7 @@ export default function AgentConfigurationPageRefactored() {
     } finally {
       setIsSaving(false);
     }
-  }, [agent, formData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation]);
+  }, [agent, formData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation, queryClient]);
 
   const handleFieldChange = useCallback((field: keyof FormData, value: any) => {
     if (isViewingOldVersion) {
@@ -168,12 +204,10 @@ export default function AgentConfigurationPageRefactored() {
   const handleActivateVersion = useCallback(async (versionId: string) => {
     try {
       await activateVersionMutation.mutateAsync({ agentId, versionId });
-      toast.success('Version activated successfully');
-      router.push(`/agents/config/${agentId}`);
     } catch (error) {
       toast.error('Failed to activate version');
     }
-  }, [agentId, activateVersionMutation, router]);
+  }, [agentId, activateVersionMutation]);
 
   useEffect(() => {
     if (isViewingOldVersion && activeTab === 'agent-builder') {
@@ -239,23 +273,25 @@ export default function AgentConfigurationPageRefactored() {
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex-1 flex overflow-hidden">
-        <div className="hidden md:flex w-full h-full">
+        <div className="hidden lg:flex w-full h-full">
           <div className="w-1/2 border-r border-border/40 bg-background h-full flex flex-col">
             <div className="h-full flex flex-col">
               <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <AgentVersionSwitcher
-                        agentId={agentId}
-                        currentVersionId={agent?.current_version_id}
-                        currentFormData={{
-                          system_prompt: formData.system_prompt,
-                          configured_mcps: formData.configured_mcps,
-                          custom_mcps: formData.custom_mcps,
-                          agentpress_tools: formData.agentpress_tools
-                        }}
-                      />
+                      {!agent?.metadata?.is_suna_default && (
+                        <AgentVersionSwitcher
+                          agentId={agentId}
+                          currentVersionId={agent?.current_version_id}
+                          currentFormData={{
+                            system_prompt: formData.system_prompt,
+                            configured_mcps: formData.configured_mcps,
+                            custom_mcps: formData.custom_mcps,
+                            agentpress_tools: formData.agentpress_tools
+                          }}
+                        />
+                      )}
                       <CreateVersionButton
                         agentId={agentId}
                         currentFormData={{
@@ -305,6 +341,7 @@ export default function AgentConfigurationPageRefactored() {
                     onFieldChange={handleFieldChange}
                     onStyleChange={handleStyleChange}
                     onTabChange={setActiveTab}
+                    agentMetadata={agent?.metadata}
                   />
                 </div>
               </div>
@@ -328,21 +365,21 @@ export default function AgentConfigurationPageRefactored() {
                       isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
+                      initialAccordion={initialAccordion}
+                      agentMetadata={agent?.metadata}
                     />
                   </TabsContent>
                 </Tabs>
               </div>
             </div>
           </div>
-
           <div className="w-1/2 bg-muted/30 overflow-y-auto">
             <div className="h-full">
-              {previewAgent && <AgentPreview agent={previewAgent} />}
+              {previewAgent && <AgentPreview agent={previewAgent} agentMetadata={agent?.metadata} />}
             </div>
           </div>
         </div>
-
-        <div className="md:hidden flex flex-col h-full w-full">
+        <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="p-4">
@@ -409,6 +446,7 @@ export default function AgentConfigurationPageRefactored() {
                   onFieldChange={handleFieldChange}
                   onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
+                  agentMetadata={agent?.metadata}
                 />
               </div>
             </div>
@@ -425,7 +463,6 @@ export default function AgentConfigurationPageRefactored() {
                     onStyleChange={handleStyleChange}
                   />
                 </TabsContent>
-
                 <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
                   <ConfigurationTab
                     agentId={agentId}
@@ -434,6 +471,8 @@ export default function AgentConfigurationPageRefactored() {
                     isViewingOldVersion={isViewingOldVersion}
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
+                    initialAccordion={initialAccordion}
+                    agentMetadata={agent?.metadata}
                   />
                 </TabsContent>
               </Tabs>
@@ -454,7 +493,7 @@ export default function AgentConfigurationPageRefactored() {
                 <DrawerTitle>Agent Preview</DrawerTitle>
               </DrawerHeader>
               <div className="flex-1 overflow-y-auto p-4">
-                {previewAgent && <AgentPreview agent={previewAgent} />}
+                {previewAgent && <AgentPreview agent={previewAgent} agentMetadata={agent?.metadata} />}
               </div>
             </DrawerContent>
           </Drawer>

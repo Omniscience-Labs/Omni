@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Save,
-  Edit2,
   Settings,
   GitBranch,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,9 @@ import { toast } from 'sonner';
 import { useCreateAgentWorkflow, useUpdateAgentWorkflow, useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { CreateWorkflowRequest, UpdateWorkflowRequest } from '@/hooks/react-query/agents/workflow-utils';
 import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
+import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { ConditionalWorkflowBuilder, ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
+import { WorkflowBuilder } from '@/components/workflows/ui/workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
   let globalOrder = 1;
@@ -42,7 +45,6 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
       return jsonStep;
     });
   };
-  
   return convertStepsWithNesting(steps);
 };
 
@@ -51,6 +53,11 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
   
   const convertStepsFromNested = (stepList: any[]): ConditionalStep[] => {
     return stepList.map((step) => {
+      console.log('Converting nested step:', step.name, step.type);
+      if (step.children && step.children.length > 0) {
+        console.log(`  Step ${step.name} has ${step.children.length} children:`, step.children.map((c: any) => c.name));
+      }
+      
       const conditionalStep: ConditionalStep = {
         id: step.id || Math.random().toString(36).substr(2, 9),
         name: step.name,
@@ -59,17 +66,23 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
         config: step.config || {},
         order: step.order || step.step_order || 0,
         enabled: step.enabled !== false,
-        hasIssues: step.hasIssues || false
+        hasIssues: step.hasIssues || false,
+        children: [] // Initialize children array
       };
       
+      // Handle condition metadata
       if (step.type === 'condition' && step.conditions) {
+        console.log(`  Adding conditions to ${step.name}:`, step.conditions);
         conditionalStep.conditions = step.conditions;
       }
+      
+      // Handle children - this is crucial for nested conditions
       if (step.children && Array.isArray(step.children) && step.children.length > 0) {
+        console.log(`  Converting ${step.children.length} children for ${step.name}`);
         conditionalStep.children = convertStepsFromNested(step.children);
-      } else {
-        conditionalStep.children = [];
       }
+      
+      console.log(`  Converted step ${step.name}:`, conditionalStep);
       return conditionalStep;
     });
   };
@@ -193,6 +206,7 @@ export default function WorkflowPage() {
   const createWorkflowMutation = useCreateAgentWorkflow();
   const updateWorkflowMutation = useUpdateAgentWorkflow();
   const { data: agentTools, isLoading: isLoadingTools } = useAgentTools(agentId);
+  const { data: agent, refetch: refetchAgent } = useAgent(agentId);
   
   const isEditing = !!workflowId;
 
@@ -201,8 +215,29 @@ export default function WorkflowPage() {
   const [triggerPhrase, setTriggerPhrase] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [steps, setSteps] = useState<ConditionalStep[]>([]);
+  
+  // Debug wrapper for setSteps
+  const setStepsWithDebug = useCallback((newSteps: ConditionalStep[]) => {
+    console.log('=== PARENT: setSteps called ===');
+    console.log('New steps:', newSteps);
+    console.log('New steps count:', newSteps.length);
+    setSteps(newSteps);
+  }, []);
   const [isSettingsPopoverOpen, setIsSettingsPopoverOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
+
+  // Create version data for tools manager
+  const versionData = agent ? {
+    version_id: (agent as any).version_id || 'current',
+    configured_mcps: agent.configured_mcps || [],
+    custom_mcps: agent.custom_mcps || [],
+    system_prompt: agent.system_prompt || '',
+    agentpress_tools: agent.agentpress_tools || {}
+  } : undefined;
+
+  const handleToolsUpdate = useCallback(async () => {
+    await refetchAgent();
+  }, [refetchAgent]);
 
   useEffect(() => {
     if (isEditing && workflows.length > 0) {
@@ -215,15 +250,38 @@ export default function WorkflowPage() {
         let treeSteps: ConditionalStep[];
         try {
           // Check if workflow has proper nested structure
-          if (workflow.steps.some((step: any) => step.children && Array.isArray(step.children))) {
+          const hasNestedStructure = workflow.steps.some((step: any) => step.children && Array.isArray(step.children) && step.children.length > 0);
+          console.log('Has nested structure:', hasNestedStructure);
+          console.log('First few steps to check:', workflow.steps.slice(0, 3));
+          
+          if (hasNestedStructure) {
+            console.log('Using reconstructFromNestedJSON');
             treeSteps = reconstructFromNestedJSON(workflow.steps);
           } else {
+            console.log('Using reconstructFromFlatJSON');
             treeSteps = reconstructFromFlatJSON(workflow.steps);
           }
         } catch (error) {
           console.warn('Error reconstructing workflow steps, using fallback:', error);
           treeSteps = reconstructFromFlatJSON(workflow.steps);
         }
+        
+        console.log('=== LOADING EXISTING WORKFLOW ===');
+        console.log('Raw workflow from API:', workflow);
+        console.log('Raw workflow steps:', workflow.steps);
+        console.log('Loaded workflow steps:', treeSteps);
+        console.log('Loaded steps count:', treeSteps.length);
+        
+        // Debug: Check if steps have children
+        treeSteps.forEach((step, index) => {
+          console.log(`Step ${index}: ${step.name} (${step.type})`);
+          if (step.children && step.children.length > 0) {
+            console.log(`  Has ${step.children.length} children:`, step.children.map(c => `${c.name} (${c.type})`));
+          } else {
+            console.log('  No children');
+          }
+        });
+        
         setSteps(treeSteps);
         setIsLoading(false);
       } else if (!isLoadingWorkflows) {
@@ -239,7 +297,14 @@ export default function WorkflowPage() {
       toast.error('Please enter a workflow name');
       return;
     }
+    
+    console.log('=== SAVING WORKFLOW ===');
+    console.log('Steps before conversion:', steps);
+    console.log('Steps count:', steps.length);
+    
     const nestedSteps = convertToNestedJSON(steps);
+    console.log('Nested steps after conversion:', nestedSteps);
+    
     try {
       if (isEditing) {
         const updateRequest: UpdateWorkflowRequest = {
@@ -259,8 +324,18 @@ export default function WorkflowPage() {
           is_default: isDefault,
           steps: nestedSteps
         };
-        await createWorkflowMutation.mutateAsync({ agentId, workflow: createRequest });
-        toast.success('Workflow created successfully');
+        const newWorkflow = await createWorkflowMutation.mutateAsync({ agentId, workflow: createRequest });
+        try {
+          await updateWorkflowMutation.mutateAsync({
+            agentId,
+            workflowId: newWorkflow.id,
+            workflow: { status: 'active' }
+          });
+        } catch (activationError) {
+          console.warn('Failed to auto-activate workflow:', activationError);
+        }
+        
+        toast.success('Workflow created and activated successfully');
       }
     } catch (error) {
       toast.error(`Failed to ${isEditing ? 'update' : 'create'} workflow`);
@@ -336,6 +411,7 @@ export default function WorkflowPage() {
             </Popover>
           </div>
         </div>
+        <div className="flex items-center gap-2">
         <Button 
           onClick={handleSave} 
           disabled={createWorkflowMutation.isPending || updateWorkflowMutation.isPending} 
@@ -348,16 +424,19 @@ export default function WorkflowPage() {
             : 'Save Workflow'
           }
         </Button>
+        </div>
       </div>
-      
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto">
-          <div className="p-6">
-            <ConditionalWorkflowBuilder 
+        <div className="h-full">
+          <div className="h-full">
+            <WorkflowBuilder 
               steps={steps}
-              onStepsChange={setSteps}
+              onStepsChange={setStepsWithDebug}
               agentTools={agentTools}
               isLoadingTools={isLoadingTools}
+              agentId={agentId}
+              versionData={versionData}
+              onToolsUpdate={handleToolsUpdate}
             />
           </div>
         </div>

@@ -248,4 +248,30 @@ class VersionService:
             change_description=f"Rolled back to version {version_to_restore.version_name}"
         )
         
-        return new_version 
+        return new_version
+    
+    async def update_version_details(
+        self,
+        agent_id: AgentId,
+        version_id: VersionId,
+        user_id: UserId,
+        version_name: Optional[str] = None,
+        change_description: Optional[str] = None
+    ) -> AgentVersion:
+        if not await self.agent_repo.verify_ownership(agent_id, user_id):
+            raise UnauthorizedError("You don't have permission to update this version")
+        
+        version = await self.version_repo.find_by_id(version_id)
+        if not version or version.agent_id != agent_id:
+            raise VersionNotFoundError(f"Version {version_id} not found")
+        
+        if version_name is not None:
+            version.version_name = version_name
+        if change_description is not None:
+            version.change_description = change_description
+        
+        version.updated_at = datetime.utcnow()
+        
+        updated_version = await self.version_repo.update(version)
+        
+        return updated_version 

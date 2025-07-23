@@ -3,6 +3,7 @@ import {
   AgentVersion,
   VersionResponse,
   CreateVersionRequest,
+  UpdateVersionDetailsRequest,
   VersionComparison,
 } from '../types';
 
@@ -92,6 +93,18 @@ export class ApiVersionRepository implements IVersionRepository {
   ): Promise<AgentVersion> {
     const version = await this.apiClient.post<VersionResponse>(
       `/agents/${agentId}/versions/${versionId}/rollback`
+    );
+    return this.toAgentVersion(version);
+  }
+
+  async updateVersionDetails(
+    agentId: string,
+    versionId: string,
+    request: UpdateVersionDetailsRequest
+  ): Promise<AgentVersion> {
+    const version = await this.apiClient.put<VersionResponse>(
+      `/agents/${agentId}/versions/${versionId}/details`,
+      request
     );
     return this.toAgentVersion(version);
   }

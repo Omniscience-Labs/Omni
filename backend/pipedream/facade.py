@@ -83,6 +83,14 @@ class PipedreamManager:
     async def get_profile(self, account_id: str, profile_id: str) -> Optional[Profile]:
         return await self._profile_service.get_profile(UUID(account_id), UUID(profile_id))
 
+    async def validate_profile_access(self, account_id: str, profile_id: str) -> bool:
+        try:
+            profile = await self.get_profile(account_id, profile_id)
+            return profile is not None
+        except Exception as e:
+            self._logger.warning(f"Error validating profile access: {str(e)}")
+            return False
+
     async def get_profiles(
         self,
         account_id: str,
@@ -208,7 +216,7 @@ class PipedreamManager:
         app_slug_vo = AppSlug(app_slug)
         return await self._app_repo.get_icon_url(app_slug_vo)
 
-    async def get_popular_apps(self, category: Optional[str] = None, limit: int = 10) -> List[App]:
+    async def get_popular_apps(self, category: Optional[str] = None, limit: int = 100) -> List[App]:
         from .domain.value_objects import Category
         category_vo = Category(category) if category else None
         return await self._app_repo.get_popular(category_vo, limit)
@@ -243,25 +251,36 @@ class PipedreamManager:
                     user_id=user_id
                 )
                 version_custom_mcps = version_dict.get('custom_mcps', [])
-            except Exception:
+            except Exception as e:
                 pass
+        
+        all_mcps = version_custom_mcps + agent_custom_mcps
         
         pipedream_mcp = None
         for mcp in version_custom_mcps:
-            if mcp.get('type') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+            mcp_type = mcp.get('type')
+            mcp_config = mcp.get('config', {})
+            mcp_profile_id = mcp_config.get('profile_id')
+            
+            if mcp_type == 'pipedream' and mcp_profile_id == profile_id:
                 pipedream_mcp = mcp
                 break
 
         if not pipedream_mcp:
             for mcp in agent_custom_mcps:
-                if mcp.get('type') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+                mcp_type = mcp.get('type')
+                mcp_config = mcp.get('config', {})
+                mcp_profile_id = mcp_config.get('profile_id')
+                
+                if mcp_type == 'pipedream' and mcp_profile_id == profile_id:
                     pipedream_mcp = mcp
                     break
 
         if not pipedream_mcp:
             return []
         
-        return pipedream_mcp.get('enabledTools', [])
+        enabled_tools = pipedream_mcp.get('enabledTools', []) or pipedream_mcp.get('enabled_tools', [])
+        return enabled_tools
 
     async def get_enabled_tools_for_agent_profile_version(
         self,
@@ -288,19 +307,24 @@ class PipedreamManager:
                 user_id=user_id
             )
             version_custom_mcps = version_dict.get('custom_mcps', [])
-        except Exception:
+        except Exception as e:
             return []
         
         pipedream_mcp = None
         for mcp in version_custom_mcps:
-            if mcp.get('type') == 'pipedream' and mcp.get('config', {}).get('profile_id') == profile_id:
+            mcp_type = mcp.get('type')
+            mcp_config = mcp.get('config', {})
+            mcp_profile_id = mcp_config.get('profile_id')
+            
+            if mcp_type == 'pipedream' and mcp_profile_id == profile_id:
                 pipedream_mcp = mcp
                 break
 
         if not pipedream_mcp:
             return []
         
-        return pipedream_mcp.get('enabledTools', [])
+        enabled_tools = pipedream_mcp.get('enabledTools', []) or pipedream_mcp.get('enabled_tools', [])
+        return enabled_tools
 
     async def update_agent_profile_tools(
         self,
@@ -314,6 +338,9 @@ class PipedreamManager:
         import copy
         
         db = DBConnection()
+
+        from agent.versioning.infrastructure.dependencies import set_db_connection
+        set_db_connection(db)
         client = await db.client
         
         agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
@@ -367,13 +394,14 @@ class PipedreamManager:
                 "config": {
                     "url": "https://remote.mcp.pipedream.net",
                     "headers": {
-                        "x-pd-app-slug": str(profile.app_slug)
+                        "x-pd-app-slug": profile.app_slug.value
                     },
                     "profile_id": profile_id
                 },
                 "enabledTools": enabled_tools
             }
             updated_custom_mcps.append(new_mcp_config)
+        
         
 
         new_version = await version_manager.create_version(

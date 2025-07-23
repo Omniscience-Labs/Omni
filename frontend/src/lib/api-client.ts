@@ -43,6 +43,10 @@ export const apiClient = {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
+      if (session?.refresh_token) {
+        headers['X-Refresh-Token'] = session.refresh_token;
+      }
+
       const response = await fetch(url, {
         ...fetchOptions,
         headers,

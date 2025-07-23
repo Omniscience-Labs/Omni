@@ -32,6 +32,20 @@ export type Agent = {
   current_version_id?: string | null;
   version_count?: number;
   current_version?: AgentVersion | null;
+  metadata?: {
+    is_suna_default?: boolean;
+    centrally_managed?: boolean;
+    management_version?: string;
+    restrictions?: {
+      system_prompt_editable?: boolean;
+      tools_editable?: boolean;
+      name_editable?: boolean;
+      description_editable?: boolean;
+      mcps_editable?: boolean;
+    };
+    installation_date?: string;
+    last_central_update?: string;
+  };
 };
 
 export type PaginationInfo = {

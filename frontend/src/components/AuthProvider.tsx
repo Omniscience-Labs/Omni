@@ -10,6 +10,7 @@ import React, {
 import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { checkAndInstallSunaAgent } from '@/lib/utils/install-suna-agent';
 
 type AuthContextType = {
   supabase: SupabaseClient;
@@ -40,12 +41,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     getInitialSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      async (event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        // No need to set loading state here as initial load is done
-        // and subsequent changes shouldn't show a loading state for the whole app
         if (isLoading) setIsLoading(false);
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
+        }
       },
     );
 

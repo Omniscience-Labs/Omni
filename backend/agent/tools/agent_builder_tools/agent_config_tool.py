@@ -113,6 +113,27 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 return self.fail_response("Agent not found")
             
             current_agent = agent_result.data[0]
+
+            metadata = current_agent.get('metadata', {})
+            is_suna_default = metadata.get('is_suna_default', False)
+            
+            if is_suna_default:
+                restricted_fields = []
+                if name is not None:
+                    restricted_fields.append("name")
+                if description is not None:
+                    restricted_fields.append("description") 
+                if system_prompt is not None:
+                    restricted_fields.append("system prompt")
+                if agentpress_tools is not None:
+                    restricted_fields.append("default tools")
+                
+                if restricted_fields:
+                    return self.fail_response(
+                        f"Cannot modify {', '.join(restricted_fields)} for the default Suna agent. "
+                        f"Suna's core identity is managed centrally. However, you can still add MCP integrations, "
+                        f"create workflows, set up triggers, and customize other aspects of Suna."
+                    )
             
             update_data = {}
             if name is not None:
@@ -145,7 +166,20 @@ class AgentConfigTool(AgentBuilderBaseTool):
             current_system_prompt = system_prompt if system_prompt is not None else current_agent.get('system_prompt', '')
             current_agentpress_tools = update_data.get('agentpress_tools', current_agent.get('agentpress_tools', {}))
             current_configured_mcps = configured_mcps if configured_mcps is not None else current_agent.get('configured_mcps', [])
-            current_custom_mcps = current_agent.get('custom_mcps', [])  # Preserve custom MCPs
+
+            raw_custom_mcps = current_agent.get('custom_mcps', [])
+            import re
+            sanitized_custom_mcps = []
+            for mcp in raw_custom_mcps:
+                headers = mcp.get('config', {}).get('headers', {})
+                slug_val = headers.get('x-pd-app-slug')
+                if isinstance(slug_val, str):
+                    match = re.match(r"AppSlug\(value='(.+)'\)", slug_val)
+                    if match:
+                        headers['x-pd-app-slug'] = match.group(1)
+                sanitized_custom_mcps.append(mcp)
+            current_custom_mcps = sanitized_custom_mcps
+            
             current_avatar = avatar if avatar is not None else current_agent.get('avatar')
             current_avatar_color = avatar_color if avatar_color is not None else current_agent.get('avatar_color')
             

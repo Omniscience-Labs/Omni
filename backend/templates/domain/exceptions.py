@@ -15,4 +15,8 @@ class TemplateInstallationError(TemplateException):
 
 
 class InvalidCredentialError(TemplateException):
+    pass
+
+
+class SunaDefaultAgentTemplateError(TemplateException):
     pass 

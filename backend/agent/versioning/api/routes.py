@@ -41,6 +41,11 @@ class CreateVersionRequest(BaseModel):
     description: Optional[str] = None
 
 
+class UpdateVersionDetailsRequest(BaseModel):
+    version_name: Optional[str] = None
+    change_description: Optional[str] = None
+
+
 class CompareVersionsResponse(BaseModel):
     version1: VersionResponse
     version2: VersionResponse
@@ -79,6 +84,18 @@ async def create_version(
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
+        from services.supabase import DBConnection
+        from utils.logger import logger
+        from agent.config_helper import extract_agent_config
+        
+        db = DBConnection()
+        client = await db.client
+        
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).maybe_single().execute()
+        
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
         agent_id_obj = AgentId.from_string(agent_id)
         user_id_obj = UserId.from_string(user_id)
         
@@ -141,6 +158,26 @@ async def activate_version(
     version_service: VersionService = Depends(get_version_service)
 ):
     try:
+        from services.supabase import DBConnection
+        from utils.logger import logger
+        
+        db = DBConnection()
+        client = await db.client
+        
+        agent_result = await client.table('agents').select('metadata').eq('agent_id', agent_id).eq('account_id', user_id).maybe_single().execute()
+        
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent_metadata = agent_result.data.get('metadata', {})
+        is_suna_agent = agent_metadata.get('is_suna_default', False)
+        restrictions = agent_metadata.get('restrictions', {})
+        
+        if is_suna_agent:
+            logger.warning(f"Version activation attempt on Suna default agent {agent_id} by user {user_id} for version {version_id}")
+            logger.info(f"Allowing version activation for Suna agent {agent_id} - monitoring for security compliance")
+            
+        
         agent_id_obj = AgentId.from_string(agent_id)
         version_id_obj = VersionId.from_string(version_id)
         user_id_obj = UserId.from_string(user_id)
@@ -148,6 +185,9 @@ async def activate_version(
         await version_service.activate_version(
             agent_id_obj, version_id_obj, user_id_obj
         )
+        
+        if is_suna_agent:
+            logger.info(f"Successfully activated version {version_id} for Suna agent {agent_id} by user {user_id}")
         
         return {"message": "Version activated successfully"}
     except UnauthorizedError as e:
@@ -209,4 +249,38 @@ async def rollback_to_version(
     except VersionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to rollback version") 
+        raise HTTPException(status_code=500, detail="Failed to rollback version")
+
+
+@router.put("/{version_id}/details", response_model=VersionResponse)
+async def update_version_details(
+    agent_id: str,
+    version_id: str,
+    request: UpdateVersionDetailsRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    version_service: VersionService = Depends(get_version_service)
+):
+    try:
+        agent_id_obj = AgentId.from_string(agent_id)
+        version_id_obj = VersionId.from_string(version_id)
+        user_id_obj = UserId.from_string(user_id)
+        
+        updated_version = await version_service.update_version_details(
+            agent_id=agent_id_obj,
+            version_id=version_id_obj,
+            user_id=user_id_obj,
+            version_name=request.version_name,
+            change_description=request.change_description
+        )
+        
+        return VersionResponse(**updated_version.to_dict())
+    except UnauthorizedError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except VersionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        from utils.logger import logger
+        logger.error(f"Failed to update version details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update version details") 

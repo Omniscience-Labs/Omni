@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
 interface Agent {
   agent_id: string;
@@ -14,6 +15,17 @@ interface Agent {
   updated_at?: string;
   configured_mcps?: Array<{ name: string }>;
   agentpress_tools?: Record<string, any>;
+  metadata?: {
+    is_suna_default?: boolean;
+    centrally_managed?: boolean;
+    restrictions?: {
+      system_prompt_editable?: boolean;
+      tools_editable?: boolean;
+      name_editable?: boolean;
+      description_editable?: boolean;
+      mcps_editable?: boolean;
+    };
+  };
 }
 
 interface AgentsListProps {
@@ -42,7 +54,14 @@ export const AgentsList = ({
             <div className="space-y-3 flex flex-col justify-between h-full">
               <div className="flex items-start justify-between gap-3">
                 <CardTitle className="text-xl font-semibold text-foreground leading-tight flex items-center gap-2 group-hover:text-primary transition-colors">
-                  <span className="line-clamp-2">{agent.name}</span>
+                  <div className="flex items-center gap-2 relative">
+                    <span className="line-clamp-2">{agent.name}</span>
+                    {agent.metadata?.is_suna_default && (
+                      <div className="h-4 w-4 flex items-center justify-center">
+                        <KortixLogo size={12} />
+                      </div>
+                    )}
+                  </div>
                   {agent.is_default && (
                     <Badge variant="secondary" className="text-xs font-medium shrink-0">
                       <Star className="h-3 w-3 mr-1 fill-current" />

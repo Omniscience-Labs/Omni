@@ -19,8 +19,8 @@ import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
 import { ShowToolStream } from './ShowToolStream';
+import { PipedreamConnectButton } from './pipedream-connect-button';
 
-// Define the set of  tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-command',
     'create-file',
@@ -151,6 +151,22 @@ export function renderMarkdownContent(
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
+                } else if (toolName === 'complete') {
+                    // Handle complete tool specially - extract text and attachments
+                    const completeText = toolCall.parameters.text || '';
+                    const attachments = toolCall.parameters.attachments || '';
+
+                    // Convert single attachment to array for consistent handling
+                    const attachmentArray = Array.isArray(attachments) ? attachments :
+                        (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
+
+                    // Render complete tool content with attachment UI
+                    contentParts.push(
+                        <div key={`complete-${match.index}-${index}`} className="space-y-3">
+                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeText}</Markdown>
+                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                        </div>
+                    );
                 } else {
                     const IconComponent = getToolIcon(toolName);
 
@@ -243,6 +259,24 @@ export function renderMarkdownContent(
             contentParts.push(
                 <div key={`ask-${match.index}`} className="space-y-3">
                     <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askContent}</Markdown>
+                    {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
+                </div>
+            );
+        } else if (toolName === 'complete') {
+            // Extract attachments from the XML attributes
+            const attachmentsMatch = rawXml.match(/attachments=["']([^"']*)["']/i);
+            const attachments = attachmentsMatch
+                ? attachmentsMatch[1].split(',').map(a => a.trim())
+                : [];
+
+            // Extract content from the complete tag
+            const contentMatch = rawXml.match(/<complete[^>]*>([\s\S]*?)<\/complete>/i);
+            const completeContent = contentMatch ? contentMatch[1] : '';
+
+            // Render <complete> tag content with attachment UI (using the helper)
+            contentParts.push(
+                <div key={`complete-${match.index}`} className="space-y-3">
+                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeContent}</Markdown>
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
@@ -614,19 +648,30 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center">
-                                                        <div className="rounded-md flex items-center justify-center">
+                                                        <div className="rounded-md flex items-center justify-center relative">
                                                             {(() => {
                                                                 const firstAssistantWithAgent = group.messages.find(msg =>
                                                                     msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color)
                                                                 );
+
+                                                                const isSunaAgent = firstAssistantWithAgent?.agents?.name === 'Suna';
+
                                                                 if (firstAssistantWithAgent?.agents?.avatar) {
                                                                     const avatar = firstAssistantWithAgent.agents.avatar;
                                                                     return (
-                                                                        <div
-                                                                            className="h-4 w-5 flex items-center justify-center rounded text-xs"
-                                                                        >
-                                                                            <span className="text-lg">{avatar}</span>
-                                                                        </div>
+                                                                        <>
+                                                                            {isSunaAgent ? (
+                                                                                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                                                                                    <KortixLogo size={16} />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div
+                                                                                    className="h-5 w-5 flex items-center justify-center rounded text-xs"
+                                                                                >
+                                                                                    <span className="text-lg">{avatar}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </>
                                                                     );
                                                                 }
                                                                 return <KortixLogo size={16} />;

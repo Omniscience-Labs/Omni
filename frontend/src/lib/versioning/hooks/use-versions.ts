@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { container } from '../infrastructure/container';
 import { useVersionStore } from '../stores/version-store';
-import { CreateVersionRequest } from '../types';
+import { CreateVersionRequest, UpdateVersionDetailsRequest } from '../types';
 
 const versionService = container.getVersionService();
 
@@ -63,10 +63,11 @@ export const useCreateAgentVersion = () => {
       return versionService.createVersion(agentId, data);
     },
     onSuccess: (newVersion, { agentId }) => {
+      // More targeted invalidation to prevent page reload appearance
       queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
-      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agents'] });
-      toast.success(`Created version ${newVersion.versionName}`);
+      // Don't invalidate the main agent query to avoid page re-render
+      // The component will handle its own state updates
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create version');
@@ -93,44 +94,30 @@ export const useActivateAgentVersion = () => {
   });
 };
 
-export const useCompareVersions = (
-  agentId: string,
-  version1Id?: string,
-  version2Id?: string
-) => {
-  const { setVersionComparison } = useVersionStore();
-
-  return useQuery({
-    queryKey: versionKeys.comparison(agentId, version1Id!, version2Id!),
-    queryFn: async () => {
-      const comparison = await versionService.compareVersions(
-        agentId,
-        version1Id!,
-        version2Id!
-      );
-      setVersionComparison(comparison);
-      return comparison;
-    },
-    enabled: !!agentId && !!version1Id && !!version2Id,
-    staleTime: 60000,
-  });
-};
-
-export const useRollbackToVersion = () => {
+export const useUpdateVersionDetails = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ agentId, versionId }: { agentId: string; versionId: string }) => {
-      return versionService.rollbackToVersion(agentId, versionId);
+    mutationFn: async ({ 
+      agentId, 
+      versionId, 
+      data 
+    }: { 
+      agentId: string; 
+      versionId: string; 
+      data: UpdateVersionDetailsRequest 
+    }) => {
+      return versionService.updateVersionDetails(agentId, versionId, data);
     },
-    onSuccess: (newVersion, { agentId }) => {
+    onSuccess: (updatedVersion, { agentId, versionId }) => {
       queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
+      queryClient.invalidateQueries({ queryKey: versionKeys.detail(agentId, versionId) });
       queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agents'] });
-      toast.success(`Rolled back to version ${newVersion.versionName}`);
+      toast.success('Version details updated successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to rollback version');
+      toast.error(error.message || 'Failed to update version details');
     },
   });
 }; 

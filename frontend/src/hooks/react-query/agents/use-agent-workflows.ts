@@ -73,7 +73,6 @@ export const useDeleteAgentWorkflow = () => {
 
 export const useExecuteWorkflow = () => {
   const queryClient = useQueryClient();
-  
   return createMutationHook(
     ({ agentId, workflowId, execution }: { agentId: string; workflowId: string; execution: ExecuteWorkflowRequest }) => 
       executeWorkflow(agentId, workflowId, execution),

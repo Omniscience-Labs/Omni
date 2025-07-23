@@ -2,7 +2,5 @@ export {
   useAgentVersions,
   useAgentVersion,
   useCreateAgentVersion,
-  useActivateAgentVersion,
-  useCompareVersions,
-  useRollbackToVersion
+  useActivateAgentVersion
 } from '@/lib/versioning'; 

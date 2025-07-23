@@ -4,10 +4,8 @@ import Link from 'next/link';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Input } from '@/components/ui/input';
 import GoogleSignIn from '@/components/GoogleSignIn';
-import { FlickeringGrid } from '@/components/home/ui/flickering-grid';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useState, useEffect, useRef, Suspense } from 'react';
-import { useScroll } from 'motion/react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn, signUp, forgotPassword } from './actions';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -19,6 +17,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { useAuthMethodTracking } from '@/lib/stores/auth-tracking';
+import { toast } from 'sonner';
+import { useFeatureFlag } from '@/lib/feature-flags';
 
 import {
   Dialog,
@@ -29,6 +30,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import GitHubSignIn from '@/components/GithubSignIn';
+import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { Ripple } from '@/components/ui/ripple';
+import { ReleaseBadge } from '@/components/auth/release-badge';
 
 function LoginContent() {
   const router = useRouter();
@@ -37,22 +41,20 @@ function LoginContent() {
   const mode = searchParams.get('mode');
   const returnUrl = searchParams.get('returnUrl');
   const message = searchParams.get('message');
+  const { enabled: customAgentsEnabled } = useFeatureFlag("custom_agents");
 
   const isSignUp = mode === 'signup';
-  const tablet = useMediaQuery('(max-width: 1024px)');
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const [mounted, setMounted] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-  const { scrollY } = useScroll();
 
-  // Redirect if user is already logged in, checking isLoading state
+  const { wasLastMethod: wasEmailLastMethod, markAsUsed: markEmailAsUsed } = useAuthMethodTracking('email');
+
   useEffect(() => {
     if (!isLoading && user) {
       router.push(returnUrl || '/dashboard');
     }
   }, [user, isLoading, router, returnUrl]);
 
-  // Determine if message is a success message
   const isSuccessMessage =
     message &&
     (message.includes('Check your email') ||
@@ -64,7 +66,6 @@ function LoginContent() {
     useState(!!isSuccessMessage);
   const [registrationEmail, setRegistrationEmail] = useState('');
 
-  // Forgot password state
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState<{
@@ -76,38 +77,15 @@ function LoginContent() {
     setMounted(true);
   }, []);
 
-  // Set registration success state from URL params
   useEffect(() => {
     if (isSuccessMessage) {
       setRegistrationSuccess(true);
     }
   }, [isSuccessMessage]);
 
-  // Detect when scrolling is active to reduce animation complexity
-  useEffect(() => {
-    const unsubscribe = scrollY.on('change', () => {
-      setIsScrolling(true);
-
-      // Clear any existing timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-
-      // Set a new timeout
-      scrollTimeout.current = setTimeout(() => {
-        setIsScrolling(false);
-      }, 300); // Wait 300ms after scroll stops
-    });
-
-    return () => {
-      unsubscribe();
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-    };
-  }, [scrollY]);
-
   const handleSignIn = async (prevState: any, formData: FormData) => {
+    markEmailAsUsed();
+
     if (returnUrl) {
       formData.append('returnUrl', returnUrl);
     } else {
@@ -115,24 +93,31 @@ function LoginContent() {
     }
     const result = await signIn(prevState, formData);
 
-    // Check for success and redirectTo properties
     if (
       result &&
       typeof result === 'object' &&
       'success' in result &&
       result.success &&
       'redirectTo' in result
-    ) {
-      // Use window.location for hard navigation to avoid stale state
+      ) {
       window.location.href = result.redirectTo as string;
-      return null; // Return null to prevent normal form action completion
+      return null;
+    }
+
+    if (result && typeof result === 'object' && 'message' in result) {
+      toast.error('Login failed', {
+        description: result.message as string,
+        duration: 5000,
+      });
+      return {};
     }
 
     return result;
   };
 
   const handleSignUp = async (prevState: any, formData: FormData) => {
-    // Store email for success state
+    markEmailAsUsed();
+
     const email = formData.get('email') as string;
     setRegistrationEmail(email);
 
@@ -175,6 +160,12 @@ function LoginContent() {
         window.history.pushState({ path: newUrl }, '', newUrl);
 
         return result;
+      } else {
+        toast.error('Sign up failed', {
+          description: resultMessage,
+          duration: 5000,
+        });
+        return {};
       }
     }
 
@@ -222,368 +213,233 @@ function LoginContent() {
   // Show loading spinner while checking auth state
   if (isLoading) {
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen w-full">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </main>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   // Registration success view
   if (registrationSuccess) {
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen w-full">
-        <div className="w-full divide-y divide-border">
-          <section className="w-full relative overflow-hidden">
-            <div className="relative flex flex-col items-center w-full px-6">
-              {/* Background elements from the original view */}
-              <div className="absolute left-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
-                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-                <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-              </div>
-
-              <div className="absolute right-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
-                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-                <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-              </div>
-
-              <div className="absolute inset-x-1/4 top-0 h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
-
-              {/* Success content */}
-              <div className="relative z-10 pt-24 pb-8 max-w-xl mx-auto h-full w-full flex flex-col gap-2 items-center justify-center">
-                <div className="flex flex-col items-center text-center">
-                  <div className="bg-green-50 dark:bg-green-950/20 rounded-full p-4 mb-6">
-                    <MailCheck className="h-12 w-12 text-green-500 dark:text-green-400" />
-                  </div>
-
-                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-medium tracking-tighter text-center text-balance text-primary mb-4">
-                    Check your email
-                  </h1>
-
-                  <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-md mb-2">
-                    We've sent a confirmation link to:
-                  </p>
-
-                  <p className="text-lg font-medium mb-6">
-                    {registrationEmail || 'your email address'}
-                  </p>
-
-                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/50 rounded-lg p-6 mb-8 max-w-md w-full">
-                    <p className="text-sm text-green-800 dark:text-green-400 leading-relaxed">
-                      Click the link in the email to activate your account. If
-                      you don't see the email, check your spam folder.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
-                    <Link
-                      href="/"
-                      className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
-                    >
-                      Return to home
-                    </Link>
-                    <button
-                      onClick={resetRegistrationSuccess}
-                      className="flex h-12 items-center justify-center w-full text-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
-                    >
-                      Back to sign in
-                    </button>
-                  </div>
-                </div>
-              </div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md mx-auto">
+          <div className="text-center">
+            <div className="bg-green-50 dark:bg-green-950/20 rounded-full p-4 mb-6 inline-flex">
+              <MailCheck className="h-12 w-12 text-green-500 dark:text-green-400" />
             </div>
-          </section>
+
+            <h1 className="text-3xl font-semibold text-foreground mb-4">
+              Check your email
+            </h1>
+
+            <p className="text-muted-foreground mb-2">
+              We've sent a confirmation link to:
+            </p>
+
+            <p className="text-lg font-medium mb-6">
+              {registrationEmail || 'your email address'}
+            </p>
+
+            <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/50 rounded-lg p-4 mb-8">
+              <p className="text-sm text-green-800 dark:text-green-400">
+                Click the link in the email to activate your account. If you don't see the email, check your spam folder.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              <Link
+                href="/"
+                className="flex h-11 items-center justify-center px-6 text-center rounded-lg border border-border bg-background hover:bg-accent transition-colors"
+              >
+                Return to home
+              </Link>
+              <button
+                onClick={resetRegistrationSuccess}
+                className="flex h-11 items-center justify-center px-6 text-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen w-full">
-      <div className="w-full divide-y divide-border">
-        {/* Hero-like header with flickering grid */}
-        <section className="w-full relative overflow-hidden">
-          <div className="relative flex flex-col items-center w-full px-6">
-            {/* Left side flickering grid with gradient fades */}
-            <div className="absolute left-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
-              {/* Horizontal fade from left to right */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
-
-              {/* Vertical fade from top */}
-              <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-
-              {/* Vertical fade to bottom */}
-              <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-
-              <div className="h-full w-full">
-                <FlickeringGrid
-                  className="h-full w-full"
-                  squareSize={mounted && tablet ? 2 : 2.5}
-                  gridGap={mounted && tablet ? 2 : 2.5}
-                  color="var(--secondary)"
-                  maxOpacity={0.4}
-                  flickerChance={isScrolling ? 0.01 : 0.03}
-                />
-              </div>
-            </div>
-
-            {/* Right side flickering grid with gradient fades */}
-            <div className="absolute right-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
-              {/* Horizontal fade from right to left */}
-              <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
-
-              {/* Vertical fade from top */}
-              <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/90 to-transparent z-10" />
-
-              {/* Vertical fade to bottom */}
-              <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
-
-              <div className="h-full w-full">
-                <FlickeringGrid
-                  className="h-full w-full"
-                  squareSize={mounted && tablet ? 2 : 2.5}
-                  gridGap={mounted && tablet ? 2 : 2.5}
-                  color="var(--secondary)"
-                  maxOpacity={0.4}
-                  flickerChance={isScrolling ? 0.01 : 0.03}
-                />
-              </div>
-            </div>
-
-            {/* Center content background with rounded bottom */}
-            <div className="absolute inset-x-1/4 top-0 h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
-
-            {/* Header content */}
-            <div className="relative z-10 pt-24 pb-8 max-w-md mx-auto h-full w-full flex flex-col gap-2 items-center justify-center">
+      <div className="min-h-screen bg-background relative">
+        <div className="absolute top-6 left-6 z-10">
+          <Link href="/" className="flex items-center">
+            <KortixLogo size={28} />
+          </Link>
+        </div>
+        <div className="flex min-h-screen">
+          <div className="relative flex-1 flex items-center justify-center p-4 lg:p-8">
+            <div className="absolute top-6 right-10 z-10">
               <Link
                 href="/"
-                className="group border border-border/50 bg-background hover:bg-accent/20 rounded-full text-sm h-8 px-3 flex items-center gap-2 transition-all duration-200 shadow-sm mb-6"
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
               >
-                <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-muted-foreground text-xs tracking-wide">
-                  Back to home
-                </span>
+                <ArrowLeft className="h-4 w-4" />
+                Back to home
               </Link>
-
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-medium tracking-tighter text-center text-balance text-primary">
-                {isSignUp ? 'Join Suna' : 'Welcome back'}
-              </h1>
-              <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight mt-2 mb-6">
-                {isSignUp
-                  ? 'Create your account and start building with AI'
-                  : 'Sign in to your account to continue'}
-              </p>
             </div>
-          </div>
-
-          {/* Auth form card */}
-          <div className="relative z-10 flex justify-center px-6 pb-24">
-            <div className="w-full max-w-md rounded-xl bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] border border-border p-8">
-              {/* Non-registration related messages */}
-              {message && !isSuccessMessage && (
-                <div className="mb-6 p-4 rounded-lg flex items-center gap-3 bg-secondary/10 border border-secondary/20 text-secondary">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-secondary" />
-                  <span className="text-sm font-medium">{message}</span>
-                </div>
+            <div className="w-full max-w-sm">
+              <div className="mb-4 flex items-center flex-col gap-4 justify-center">
+                {customAgentsEnabled && <ReleaseBadge className='mb-4' text="Custom Agents, Workflows, and more!" link="/changelog" />}
+                <h1 className="text-2xl font-semibold text-foreground">
+                  {isSignUp ? 'Create your account' : 'Log into your account'}
+                </h1>
+              </div>
+            <div className="space-y-3 mb-4">
+              <GoogleSignIn returnUrl={returnUrl || undefined} />
+              <GitHubSignIn returnUrl={returnUrl || undefined} />
+            </div>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-background text-muted-foreground">
+                  or email
+                </span>
+              </div>
+            </div>
+            <form className="space-y-3">
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Email address"
+                className="h-10 rounded-lg"
+                required
+              />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Password"
+                className="h-10 rounded-lg"
+                required
+              />
+              {isSignUp && (
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Confirm password"
+                  className="h-10 rounded-lg"
+                  required
+                />
               )}
-
-              {/* OAuth Sign In */}
-              <div className="w-full flex flex-col gap-3 mb-6">
-                <div className="w-full">
-                  <GoogleSignIn returnUrl={returnUrl || undefined} />
-                </div>
-                <div className="w-full">
-                  <GitHubSignIn returnUrl={returnUrl || undefined} />
-                </div>
-              </div>
-
-
-              {/* Divider */}
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-[#F3F4F6] dark:bg-[#F9FAFB]/[0.02] text-muted-foreground">
-                    or continue with email
-                  </span>
-                </div>
-              </div>
-
-              {/* Form */}
-              <form className="space-y-4">
-                <div>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Email address"
-                    className="h-12 rounded-full bg-background border-border"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    className="h-12 rounded-full bg-background border-border"
-                    required
-                  />
-                </div>
-
-                {isSignUp && (
-                  <div>
-                    <Input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      placeholder="Confirm password"
-                      className="h-12 rounded-full bg-background border-border"
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-4 pt-4">
-                  {!isSignUp ? (
-                    <>
-                      <SubmitButton
-                        formAction={handleSignIn}
-                        className="w-full h-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
-                        pendingText="Signing in..."
-                      >
-                        Sign in
-                      </SubmitButton>
-
-                      <Link
-                        href={`/auth?mode=signup${returnUrl ? `&returnUrl=${returnUrl}` : ''}`}
-                        className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
-                      >
-                        Create new account
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <SubmitButton
-                        formAction={handleSignUp}
-                        className="w-full h-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
-                        pendingText="Creating account..."
-                      >
-                        Sign up
-                      </SubmitButton>
-
-                      <Link
-                        href={`/auth${returnUrl ? `?returnUrl=${returnUrl}` : ''}`}
-                        className="flex h-12 items-center justify-center w-full text-center rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
-                      >
-                        Back to sign in
-                      </Link>
-                    </>
+              <div className="pt-2">
+                <div className="relative">
+                  <SubmitButton
+                    formAction={isSignUp ? handleSignUp : handleSignIn}
+                    className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors rounded-lg"
+                    pendingText={isSignUp ? "Creating account..." : "Signing in..."}
+                  >
+                    {isSignUp ? 'Create account' : 'Sign in'}
+                  </SubmitButton>
+                  {wasEmailLastMethod && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background shadow-sm">
+                      <div className="w-full h-full bg-green-500 rounded-full animate-pulse" />
+                    </div>
                   )}
                 </div>
-
-                {!isSignUp && (
-                  <div className="text-center pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setForgotPasswordOpen(true)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
-              </form>
-
-              <div className="mt-8 text-center text-xs text-muted-foreground">
-                By continuing, you agree to our{' '}
-                <Link href="/terms" className="text-primary hover:underline">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="text-primary hover:underline">
-                  Privacy Policy
+              </div>
+            </form>
+            
+            <div className="mt-4 space-y-3 text-center text-sm">
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => setForgotPasswordOpen(true)}
+                  className="text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
+              
+              <div>
+                <Link
+                  href={isSignUp 
+                    ? `/auth${returnUrl ? `?returnUrl=${returnUrl}` : ''}`
+                    : `/auth?mode=signup${returnUrl ? `&returnUrl=${returnUrl}` : ''}`
+                  }
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isSignUp 
+                    ? 'Already have an account? Sign in' 
+                    : "Don't have an account? Sign up"
+                  }
                 </Link>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+        <div className="hidden lg:flex flex-1 items-center justify-center bg-sidebar relative overflow-hidden">
+          <div className="absolute inset-0">
+            <Ripple />
+          </div>
+        </div>
       </div>
-
-      {/* Forgot Password Dialog */}
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="sm:max-w-md rounded-xl bg-[#F3F4F6] dark:bg-[#17171A] border border-border [&>button]:hidden">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-medium">
-                Reset Password
-              </DialogTitle>
-              <button
-                onClick={() => setForgotPasswordOpen(false)}
-                className="rounded-full p-1 hover:bg-muted transition-colors"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
+              <DialogTitle>Reset Password</DialogTitle>
             </div>
-            <DialogDescription className="text-muted-foreground">
-              Enter your email address and we'll send you a link to reset your
-              password.
+            <DialogDescription>
+              Enter your email address and we'll send you a link to reset your password.
             </DialogDescription>
           </DialogHeader>
-
-          <form onSubmit={handleForgotPassword} className="space-y-4 py-4">
+          <form onSubmit={handleForgotPassword} className="space-y-4">
             <Input
               id="forgot-password-email"
               type="email"
               placeholder="Email address"
               value={forgotPasswordEmail}
               onChange={(e) => setForgotPasswordEmail(e.target.value)}
-              className="h-12 rounded-full bg-background border-border"
+              className="h-11 rounded-xl"
               required
             />
-
             {forgotPasswordStatus.message && (
               <div
-                className={`p-4 rounded-lg flex items-center gap-3 ${
+                className={`p-3 rounded-md flex items-center gap-3 ${
                   forgotPasswordStatus.success
                     ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 text-green-800 dark:text-green-400'
-                    : 'bg-secondary/10 border border-secondary/20 text-secondary'
+                    : 'bg-destructive/10 border border-destructive/20 text-destructive'
                 }`}
               >
                 {forgotPasswordStatus.success ? (
-                  <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-500 dark:text-green-400" />
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-secondary" />
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 )}
-                <span className="text-sm font-medium">
-                  {forgotPasswordStatus.message}
-                </span>
+                <span className="text-sm">{forgotPasswordStatus.message}</span>
               </div>
             )}
-
-            <DialogFooter className="flex sm:justify-start gap-3 pt-2">
-              <button
-                type="submit"
-                className="h-12 px-6 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
-              >
-                Send Reset Link
-              </button>
+            <DialogFooter className="gap-2">
               <button
                 type="button"
                 onClick={() => setForgotPasswordOpen(false)}
-                className="h-12 px-6 rounded-full border border-border bg-background hover:bg-accent/20 transition-all"
+                className="h-10 px-4 border border-border bg-background hover:bg-accent transition-colors rounded-md"
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                className="h-10 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors rounded-md"
+              >
+                Send Reset Link
               </button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }
 
@@ -591,9 +447,9 @@ export default function Login() {
   return (
     <Suspense
       fallback={
-        <main className="flex flex-col items-center justify-center min-h-screen w-full">
-          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-        </main>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
       }
     >
       <LoginContent />

@@ -45,22 +45,19 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         '''
     )
     async def get_credential_profiles(self, app_slug: Optional[str] = None) -> ToolResult:
-        """Get all existing credential profiles for the current user."""
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
-            
-            profiles = await profile_manager.get_profiles(account_id, app_slug)
+            profiles = await self.pipedream_manager.get_profiles(account_id, app_slug)
             
             formatted_profiles = []
             for profile in profiles:
                 formatted_profiles.append({
                     "profile_id": str(profile.profile_id),
-                    "profile_name": profile.profile_name,
+                    "profile_name": profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name),
                     "display_name": profile.display_name,
-                    "app_slug": profile.app_slug,
+                    "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
                     "app_name": profile.app_name,
-                    "external_user_id": profile.external_user_id,
+                    "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                     "is_connected": profile.is_connected,
                     "is_active": profile.is_active,
                     "is_default": profile.is_default,
@@ -121,40 +118,36 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         '''
     )
     async def create_credential_profile(
-        self, 
-        app_slug: str, 
-        profile_name: str, 
+        self,
+        app_slug: str,
+        profile_name: str,
         display_name: Optional[str] = None
     ) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
-            
-            app_result = await self.pipedream_search.get_app_details(app_slug)
-            if not app_result["success"]:
-                return self.fail_response(f"Could not find app details for '{app_slug}': {app_result.get('error', 'Unknown error')}")
-            
-            app_data = app_result["app"]
-            
-            account_id = await self._get_current_account_id()
+            # fetch app domain object directly
+            app_obj = await self.pipedream_manager.get_app_by_slug(app_slug)
+            if not app_obj:
+                return self.fail_response(f"Could not find app for slug '{app_slug}'")
+            # create credential profile using the app name
             profile = await self.pipedream_manager.create_profile(
                 account_id=account_id,
                 profile_name=profile_name,
                 app_slug=app_slug,
-                app_name=app_data.get("name", app_slug),
+                app_name=app_obj.name,
                 description=display_name or profile_name,
                 enabled_tools=[]
             )
             
             return self.success_response({
-                "message": f"Successfully created credential profile '{profile_name}' for {app_data.get('name', app_slug)}",
+                "message": f"Successfully created credential profile '{profile_name}' for {app_obj.name}",
                 "profile": {
                     "profile_id": str(profile.profile_id),
-                    "profile_name": profile.profile_name,
+                    "profile_name": profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name),
                     "display_name": profile.display_name,
-                    "app_slug": profile.app_slug,
+                    "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
                     "app_name": profile.app_name,
-                    "external_user_id": profile.external_user_id,
+                    "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                     "is_connected": profile.is_connected,
                     "created_at": profile.created_at.isoformat()
                 }
@@ -196,20 +189,23 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     async def connect_credential_profile(self, profile_id: str) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
             
-            profile = await profile_manager.get_profile(account_id, profile_id)
+            profile = await self.pipedream_manager.get_profile(account_id, profile_id)
             if not profile:
                 return self.fail_response("Credential profile not found")
             
-            connection_result = await profile_manager.connect_profile(account_id, profile_id, profile.app_slug)
+            # generate connection token using primitive values
+            connection_result = await self.pipedream_manager.create_connection_token(
+                profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
+                profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
+            )
             
             return self.success_response({
                 "message": f"Generated connection link for '{profile.display_name}'",
                 "profile_name": profile.display_name,
                 "app_name": profile.app_name,
-                "connection_link": connection_result.get("link"),
-                "external_user_id": profile.external_user_id,
+                "connection_link": connection_result.get("connect_link_url"),
+                "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                 "expires_at": connection_result.get("expires_at"),
                 "instructions": f"Please visit the connection link to connect your {profile.app_name} account to this profile. After connecting, you'll be able to use {profile.app_name} tools in your agent."
             })
@@ -250,19 +246,31 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     async def check_profile_connection(self, profile_id: str) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
             
-            profile = await profile_manager.get_profile(account_id, profile_id)
+            profile = await self.pipedream_manager.get_profile(account_id, profile_id)
             if not profile:
                 return self.fail_response("Credential profile not found")
             
-            connections = await profile_manager.get_profile_connections(account_id, profile_id)
+            # fetch and serialize connection objects
+            raw_connections = await self.pipedream_manager.get_connections(
+                profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id)
+            )
+            connections = []
+            for conn in raw_connections:
+                connections.append({
+                    "external_user_id": conn.external_user_id.value if hasattr(conn.external_user_id, 'value') else str(conn.external_user_id),
+                    "app_slug": conn.app.slug.value if hasattr(conn.app.slug, 'value') else str(conn.app.slug),
+                    "app_name": conn.app.name,
+                    "created_at": conn.created_at.isoformat() if conn.created_at else None,
+                    "updated_at": conn.updated_at.isoformat() if conn.updated_at else None,
+                    "is_active": conn.is_active
+                })
             
             response_data = {
                 "profile_name": profile.display_name,
                 "app_name": profile.app_name,
-                "app_slug": profile.app_slug,
-                "external_user_id": profile.external_user_id,
+                "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
+                "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                 "is_connected": profile.is_connected,
                 "connections": connections,
                 "connection_count": len(connections)
@@ -270,23 +278,21 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             if profile.is_connected and connections:
                 try:
-                    mcp_result = await self.pipedream_search.discover_user_mcp_servers(
-                        user_id=profile.external_user_id,
-                        app_slug=profile.app_slug
+                    # directly discover MCP servers via the facade
+                    from pipedream.domain.entities import ConnectionStatus
+                    servers = await self.pipedream_manager.discover_mcp_servers(
+                        external_user_id=profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
+                        app_slug=profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
                     )
-                    
-                    if mcp_result["success"]:
-                        connected_servers = [s for s in mcp_result["servers"] if s["status"] == "connected"]
-                        if connected_servers:
-                            tools = connected_servers[0].get("available_tools", [])
-                            response_data["available_tools"] = tools
-                            response_data["tool_count"] = len(tools)
-                            response_data["message"] = f"Profile '{profile.display_name}' is connected with {len(tools)} available tools"
-                        else:
-                            response_data["message"] = f"Profile '{profile.display_name}' is connected but no MCP tools are available yet"
+                    # filter connected servers
+                    connected_servers = [s for s in servers if s.status == ConnectionStatus.CONNECTED]
+                    if connected_servers:
+                        tools = [t.name for t in connected_servers[0].available_tools]
+                        response_data["available_tools"] = tools
+                        response_data["tool_count"] = len(tools)
+                        response_data["message"] = f"Profile '{profile.display_name}' is connected with {len(tools)} available tools"
                     else:
-                        response_data["message"] = f"Profile '{profile.display_name}' is connected but could not retrieve MCP tools"
-                        
+                        response_data["message"] = f"Profile '{profile.display_name}' is connected but no MCP tools are available yet"
                 except Exception as mcp_error:
                     logger.error(f"Error getting MCP tools for profile: {mcp_error}")
                     response_data["message"] = f"Profile '{profile.display_name}' is connected but could not retrieve MCP tools"
@@ -349,61 +355,29 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     ) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
-            client = await self.db.client
-            
-            profile = await profile_manager.get_profile(account_id, profile_id)
+
+            profile = await self.pipedream_manager.get_profile(account_id, profile_id)
             if not profile:
                 return self.fail_response("Credential profile not found")
-            
             if not profile.is_connected:
                 return self.fail_response("Profile is not connected yet. Please connect the profile first.")
-            
-            agent_result = await client.table('agents').select('custom_mcps').eq('agent_id', self.agent_id).execute()
-            if not agent_result.data:
-                return self.fail_response("Agent not found")
-            
-            current_custom_mcps = agent_result.data[0].get('custom_mcps', [])
-            
-            custom_mcp_config = {
-                "name": display_name or f"{profile.app_name} ({profile.profile_name})",
-                "customType": "pipedream",
-                "type": "pipedream",
-                "config": {
-                    "app_slug": profile.app_slug,
-                    "profile_id": str(profile.profile_id)
-                },
-                "enabledTools": enabled_tools,
-                "instructions": f"Use this to interact with {profile.app_name} via the {profile.profile_name} profile."
-            }
-            
-            existing_index = None
-            for i, mcp in enumerate(current_custom_mcps):
-                if mcp.get('config', {}).get('profile_id') == str(profile.profile_id):
-                    existing_index = i
-                    break
-            
-            if existing_index is not None:
-                current_custom_mcps[existing_index] = custom_mcp_config
-                action = "updated"
-            else:
-                current_custom_mcps.append(custom_mcp_config)
-                action = "added"
-            
-            update_result = await client.table('agents').update({
-                'custom_mcps': current_custom_mcps
-            }).eq('agent_id', self.agent_id).execute()
-            
-            if not update_result.data:
-                return self.fail_response("Failed to save agent configuration")
-            
+
+            result = await self.pipedream_manager.update_agent_profile_tools(
+                self.agent_id,
+                profile_id,
+                account_id,
+                enabled_tools
+            )
+            if not result.get("success", False):
+                return self.fail_response("Failed to update agent profile tools")
+
+            version_msg = f"Profile '{profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name)}' updated with {len(enabled_tools)} tools"
             return self.success_response({
-                "message": f"Successfully {action} {profile.app_name} profile '{profile.profile_name}' with {len(enabled_tools)} tools",
-                "profile_name": profile.profile_name,
-                "app_name": profile.app_name,
-                "enabled_tools": enabled_tools,
-                "total_custom_mcps": len(current_custom_mcps),
-                "action": action
+                "message": version_msg,
+                "enabled_tools": result.get("enabled_tools", []),
+                "total_tools": result.get("total_tools", 0),
+                "version_id": result.get("version_id"),
+                "version_name": result.get("version_name")
             })
             
         except Exception as e:
@@ -442,10 +416,9 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     async def delete_credential_profile(self, profile_id: str) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
-            profile_manager = get_profile_manager(self.db)
             client = await self.db.client
             
-            profile = await profile_manager.get_profile(account_id, profile_id)
+            profile = await self.pipedream_manager.get_profile(account_id, profile_id)
             if not profile:
                 return self.fail_response("Credential profile not found")
             
@@ -459,7 +432,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                         'custom_mcps': updated_mcps
                     }).eq('agent_id', self.agent_id).execute()
             
-            await profile_manager.delete_profile(account_id, profile_id)
+            await self.pipedream_manager.delete_profile(account_id, profile_id)
             
             return self.success_response({
                 "message": f"Successfully deleted credential profile '{profile.display_name}' for {profile.app_name}",

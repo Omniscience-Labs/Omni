@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [formData, setFormData] = useState<AgentCreateRequest>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createAgentMutation = useCreateAgent();
   useEffect(() => {
@@ -109,10 +110,12 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
     return tools;
   };
 
-  const handleSubmit = async () => {
-    if (!formData.name.trim()) {
+  const handleSubmit = useCallback(async () => {
+    if (!formData.name.trim() || isSubmitting || createAgentMutation.isPending) {
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       await createAgentMutation.mutateAsync(formData);
@@ -120,8 +123,11 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
       onAgentCreated?.();
     } catch (error) {
       console.error('Error creating agent:', error);
+    } finally {
+      // Reset the debounce state after a delay
+      setTimeout(() => setIsSubmitting(false), 1000);
     }
-  };
+  }, [formData, isSubmitting, createAgentMutation, onOpenChange, onAgentCreated]);
 
   const handleCancel = () => {
     onOpenChange(false);
@@ -306,16 +312,16 @@ export const CreateAgentDialog = ({ isOpen, onOpenChange, onAgentCreated }: Crea
             <Button 
               variant="outline"
               onClick={handleCancel}
-              disabled={createAgentMutation.isPending}
+              disabled={createAgentMutation.isPending || isSubmitting}
               className="px-6"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={createAgentMutation.isPending || !formData.name.trim()}
+              disabled={createAgentMutation.isPending || isSubmitting || !formData.name.trim()}
             >
-              {createAgentMutation.isPending ? (
+              {createAgentMutation.isPending || isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Creating Agent

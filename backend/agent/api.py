@@ -14,7 +14,7 @@ import os
 from agentpress.thread_manager import ThreadManager
 from services.supabase import DBConnection
 from services import redis
-from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access
+from utils.auth_utils import get_current_user_id_from_jwt, get_user_id_from_stream_auth, verify_thread_access, verify_admin_api_key
 from utils.logger import logger, structlog
 from services.billing import check_billing_status, can_use_model
 from utils.config import config
@@ -28,6 +28,7 @@ from .config_helper import extract_agent_config, build_unified_config, extract_t
 from .versioning.facade import version_manager
 from .versioning.api.routes import router as version_router
 from .versioning.infrastructure.dependencies import set_db_connection
+from agent.services.suna_default_agent_service import SunaDefaultAgentService
 
 router = APIRouter()
 router.include_router(version_router)
@@ -117,6 +118,7 @@ class AgentResponse(BaseModel):
     current_version_id: Optional[str] = None
     version_count: Optional[int] = 1
     current_version: Optional[AgentVersionResponse] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class PaginationInfo(BaseModel):
     page: int
@@ -647,7 +649,8 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 updated_at=agent_data['updated_at'],
                 current_version_id=agent_data.get('current_version_id'),
                 version_count=agent_data.get('version_count', 1),
-                current_version=current_version
+                current_version=current_version,
+                metadata=agent_data.get('metadata')
             ),
             "source": agent_source,
             "message": f"Using {agent_source} agent: {agent_data['name']}. Threads are agent-agnostic - you can change agents anytime."
@@ -1452,7 +1455,8 @@ async def get_agents(
                 updated_at=agent['updated_at'],
                 current_version_id=agent.get('current_version_id'),
                 version_count=agent.get('version_count', 1),
-                current_version=current_version
+                current_version=current_version,
+                metadata=agent.get('metadata')
             ))
         
         total_pages = (total_count + limit - 1) // limit
@@ -1523,14 +1527,12 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             except Exception as e:
                 logger.warning(f"Failed to get version data for agent {agent_id}: {e}")
         
-        # Use version data for configuration if available
         if current_version:
             system_prompt = current_version.system_prompt
             configured_mcps = current_version.configured_mcps
             custom_mcps = current_version.custom_mcps
             agentpress_tools = current_version.agentpress_tools
         else:
-            # Fallback to agent data if no version
             system_prompt = agent_data['system_prompt']
             configured_mcps = agent_data.get('configured_mcps', [])
             custom_mcps = agent_data.get('custom_mcps', [])
@@ -1556,7 +1558,8 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             updated_at=agent_data.get('updated_at', agent_data['created_at']),
             current_version_id=agent_data.get('current_version_id'),
             version_count=agent_data.get('version_count', 1),
-            current_version=current_version
+            current_version=current_version,
+            metadata=agent_data.get('metadata')
         )
         
     except HTTPException:
@@ -1678,7 +1681,8 @@ async def create_agent(
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),
             version_count=agent.get('version_count', 1),
-            current_version=current_version
+            current_version=current_version,
+            metadata=agent.get('metadata')
         )
         
     except HTTPException:
@@ -1730,6 +1734,57 @@ async def update_agent(
             raise HTTPException(status_code=404, detail="Agent not found")
         
         existing_data = existing_agent.data
+
+        agent_metadata = existing_data.get('metadata', {})
+        is_suna_agent = agent_metadata.get('is_suna_default', False)
+        restrictions = agent_metadata.get('restrictions', {})
+        
+        if is_suna_agent:
+            logger.warning(f"Update attempt on Suna default agent {agent_id} by user {user_id}")
+            
+            if (agent_data.name is not None and 
+                agent_data.name != existing_data.get('name') and 
+                restrictions.get('name_editable') == False):
+                logger.error(f"User {user_id} attempted to modify restricted name of Suna agent {agent_id}")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Suna's name cannot be modified. This restriction is managed centrally."
+                )
+            
+            if (agent_data.description is not None and
+                agent_data.description != existing_data.get('description') and 
+                restrictions.get('description_editable') == False):
+                logger.error(f"User {user_id} attempted to modify restricted description of Suna agent {agent_id}")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Suna's description cannot be modified."
+                )
+            
+            if (agent_data.system_prompt is not None and 
+                restrictions.get('system_prompt_editable') == False):
+                logger.error(f"User {user_id} attempted to modify restricted system prompt of Suna agent {agent_id}")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Suna's system prompt cannot be modified. This is managed centrally to ensure optimal performance."
+                )
+            
+            if (agent_data.agentpress_tools is not None and 
+                restrictions.get('tools_editable') == False):
+                logger.error(f"User {user_id} attempted to modify restricted tools of Suna agent {agent_id}")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Suna's default tools cannot be modified. These tools are optimized for Suna's capabilities."
+                )
+            
+            if ((agent_data.configured_mcps is not None or agent_data.custom_mcps is not None) and 
+                restrictions.get('mcps_editable') == False):
+                logger.error(f"User {user_id} attempted to modify restricted MCPs of Suna agent {agent_id}")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Suna's integrations cannot be modified."
+                )
+            
+            logger.info(f"Suna agent update validation passed for agent {agent_id} by user {user_id}")
 
         current_version_data = None
         if existing_data.get('current_version_id'):
@@ -2026,7 +2081,8 @@ async def update_agent(
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),
             version_count=agent.get('version_count', 1),
-            current_version=current_version
+            current_version=current_version,
+            metadata=agent.get('metadata')
         )
         
     except HTTPException:
@@ -2143,7 +2199,14 @@ async def get_pipedream_tools_for_agent(
         
         if not profile:
             logger.error(f"Profile {profile_id} not found for user {user_id}")
-            raise HTTPException(status_code=404, detail="Profile not found")
+            try:
+                all_profiles = await pipedream_manager.get_profiles(user_id)
+                pipedream_profiles = [p for p in all_profiles if 'pipedream' in p.mcp_qualified_name]
+                logger.info(f"User {user_id} has {len(pipedream_profiles)} pipedream profiles: {[p.profile_id for p in pipedream_profiles]}")
+            except Exception as debug_e:
+                logger.warning(f"Could not check user's profiles: {str(debug_e)}")
+            
+            raise HTTPException(status_code=404, detail=f"Profile {profile_id} not found or access denied")
         
         if not profile.is_connected:
             raise HTTPException(status_code=400, detail="Profile is not connected")
@@ -2155,12 +2218,14 @@ async def get_pipedream_tools_for_agent(
                 user_id=user_id,
                 version_id=version
             )
+            logger.info(f"Retrieved {len(enabled_tools)} enabled tools for version {version}: {enabled_tools}")
         else:
             enabled_tools = await pipedream_manager.get_enabled_tools_for_agent_profile(
                 agent_id=agent_id,
                 profile_id=profile_id,
                 user_id=user_id
             )
+            logger.info(f"Retrieved {len(enabled_tools)} enabled tools for current version: {enabled_tools}")
         
         try:
             servers = await pipedream_manager.discover_mcp_servers(
@@ -2222,6 +2287,22 @@ async def update_pipedream_tools_for_agent(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     try:
+        client = await db.client
+        
+        agent_row = await client.table('agents')\
+            .select('custom_mcps')\
+            .eq('agent_id', agent_id)\
+            .eq('account_id', user_id)\
+            .maybe_single()\
+            .execute()
+        if not agent_row.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+
+        custom_mcps = agent_row.data.get('custom_mcps', []) or []
+
+        if any(mcp.get('config', {}).get('profile_id') == profile_id for mcp in custom_mcps):
+            raise HTTPException(status_code=400, detail="This profile is already added to this agent")
+
         enabled_tools = request.get('enabled_tools', [])
         
         from pipedream.facade import PipedreamManager
@@ -2390,4 +2471,77 @@ async def update_custom_mcp_tools_for_agent(
     except Exception as e:
         logger.error(f"Error updating custom MCP tools for agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/agents/{agent_id}/tools")
+async def get_agent_tools(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(status_code=403, detail="Custom agents currently disabled")
+        
+    logger.info(f"Fetching enabled tools for agent: {agent_id} by user: {user_id}")
+    client = await db.client
+
+    agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).execute()
+    if not agent_result.data:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent = agent_result.data[0]
+    if agent['account_id'] != user_id and not agent.get('is_public', False):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+
+    agentpress_tools_config = agent.get('agentpress_tools', {})
+    configured_mcps = agent.get('configured_mcps', [])
+    custom_mcps = agent.get('custom_mcps', [])
+
+    if agent.get('current_version_id'):
+        try:
+            version_dict = await version_manager.get_version(
+                agent_id=agent_id,
+                version_id=agent['current_version_id'],
+                user_id=user_id
+            )
+            agentpress_tools_config = version_dict.get('agentpress_tools', agentpress_tools_config)
+            configured_mcps = version_dict.get('configured_mcps', configured_mcps)
+            custom_mcps = version_dict.get('custom_mcps', custom_mcps)
+        except Exception as e:
+            logger.warning(f"Failed to fetch version data for tools endpoint: {e}")
+
+    agentpress_tools = []
+    for name, enabled in agentpress_tools_config.items():
+        is_enabled_tool = bool(enabled.get('enabled', False)) if isinstance(enabled, dict) else bool(enabled)
+        agentpress_tools.append({"name": name, "enabled": is_enabled_tool})
+
+
+    mcp_tools = []
+    for mcp in configured_mcps + custom_mcps:
+        server = mcp.get('name')
+        enabled_tools = mcp.get('enabledTools') or mcp.get('enabled_tools') or []
+        for tool_name in enabled_tools:
+            mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
+    return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
+
+@router.post("/admin/suna-agents/install-user/{account_id}")
+async def admin_install_suna_for_user(
+    account_id: str,
+    replace_existing: bool = False,
+    _: bool = Depends(verify_admin_api_key)
+):
+    logger.info(f"Admin installing Suna agent for user: {account_id}")
+    
+    service = SunaDefaultAgentService()
+    agent_id = await service.install_suna_agent_for_user(account_id, replace_existing)
+    
+    if agent_id:
+        return {
+            "success": True,
+            "message": f"Successfully installed Suna agent for user {account_id}",
+            "agent_id": agent_id
+        }
+    else:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to install Suna agent for user {account_id}"
+        )
 
