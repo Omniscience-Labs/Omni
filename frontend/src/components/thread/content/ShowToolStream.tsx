@@ -28,6 +28,7 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [shouldShowContent, setShouldShowContent] = useState(false);
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
     // Use ref to store stable start time - only set once!
     const stableStartTimeRef = useRef<number | null>(null);
 
@@ -38,19 +39,12 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
 
     const toolName = extractToolNameFromStream(content);
 
-    if (!toolName) {
-        return null;
-    }
-
-    // Check if this is a file operation tool
-    const isFileOperationTool = FILE_OPERATION_TOOLS.has(toolName);
-
     // Time-based logic - show streaming content after 1500ms
     useEffect(() => {
         const effectiveStartTime = stableStartTimeRef.current;
 
         // Only show expanded content for file operation tools
-        if (!effectiveStartTime || !showExpanded || !isFileOperationTool) {
+        if (!effectiveStartTime || !showExpanded || !FILE_OPERATION_TOOLS.has(toolName || '')) {
             setShouldShowContent(false);
             return;
         }
@@ -68,13 +62,35 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
                 clearTimeout(timer);
             };
         }
-    }, [showExpanded, isFileOperationTool]);
+    }, [showExpanded, toolName]);
 
     useEffect(() => {
-        if (containerRef.current && shouldShowContent) {
+        if (containerRef.current && shouldShowContent && shouldAutoScroll) {
             containerRef.current.scrollTop = containerRef.current.scrollHeight;
         }
-    }, [content, shouldShowContent]);
+    }, [content, shouldShowContent, shouldAutoScroll]);
+
+    // Handle scroll events to disable auto-scroll when user scrolls up
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = container;
+            const isAtBottom = scrollTop + clientHeight >= scrollHeight - 5;
+            setShouldAutoScroll(isAtBottom);
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [shouldShowContent]);
+
+    if (!toolName) {
+        return null;
+    }
+
+    // Check if this is a file operation tool
+    const isFileOperationTool = FILE_OPERATION_TOOLS.has(toolName);
 
     const IconComponent = getToolIcon(toolName);
     const displayName = getUserFriendlyToolName(toolName);
