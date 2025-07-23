@@ -14,5 +14,11 @@ export const createClient = () => {
   // console.log('Supabase URL:', supabaseUrl);
   // console.log('Supabase Anon Key:', supabaseAnonKey);
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  });
 };
