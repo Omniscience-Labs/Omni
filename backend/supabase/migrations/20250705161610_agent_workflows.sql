@@ -99,13 +99,22 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_execut
 CREATE INDEX IF NOT EXISTS idx_workflow_step_executions_execution_id ON workflow_step_executions(execution_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_step_executions_step_id ON workflow_step_executions(step_id);
 
--- Row Level Security (RLS) Policies
 ALTER TABLE agent_workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_step_executions ENABLE ROW LEVEL SECURITY;
 
--- Agent workflows policies
+DROP POLICY IF EXISTS "Users can view workflows for their agents" ON agent_workflows;
+DROP POLICY IF EXISTS "Users can create workflows for their agents" ON agent_workflows;
+DROP POLICY IF EXISTS "Users can update workflows for their agents" ON agent_workflows;
+DROP POLICY IF EXISTS "Users can delete workflows for their agents" ON agent_workflows;
+DROP POLICY IF EXISTS "Users can manage steps for their workflows" ON workflow_steps;
+DROP POLICY IF EXISTS "Users can view steps for their workflows" ON workflow_steps;
+DROP POLICY IF EXISTS "Users can view executions for their workflows" ON workflow_executions;
+DROP POLICY IF EXISTS "Service role can manage executions" ON workflow_executions;
+DROP POLICY IF EXISTS "Users can view step executions for their workflows" ON workflow_step_executions;
+DROP POLICY IF EXISTS "Service role can manage step executions" ON workflow_step_executions;
+
 CREATE POLICY "Users can view workflows for their agents" ON agent_workflows
     FOR SELECT USING (
         agent_id IN (
@@ -203,7 +212,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create triggers for updated_at
+-- Create triggers for updated_at (drop existing first to avoid conflicts)
+DROP TRIGGER IF EXISTS update_agent_workflows_updated_at ON agent_workflows;
+DROP TRIGGER IF EXISTS update_workflow_steps_updated_at ON workflow_steps;
+
 CREATE TRIGGER update_agent_workflows_updated_at 
     BEFORE UPDATE ON agent_workflows
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
