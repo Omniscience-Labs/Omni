@@ -18,6 +18,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         if is_suna_default:
             from agent.suna.config import SunaConfig
             system_prompt = SunaConfig.get_system_prompt()
+            # For Suna agents, always use DEFAULT_TOOLS which is in the correct format for run.py
             agentpress_tools = SunaConfig.DEFAULT_TOOLS
         else:
             system_prompt = version_data.get('system_prompt', '')
@@ -66,12 +67,14 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             from agent.suna.config import SunaConfig
             config['system_prompt'] = SunaConfig.get_system_prompt()
             config['tools']['agentpress'] = SunaConfig.DEFAULT_TOOLS
+            # For Suna agents, use DEFAULT_TOOLS directly as it's already in the correct format
+            config['agentpress_tools'] = SunaConfig.DEFAULT_TOOLS
+        else:
+            config['agentpress_tools'] = extract_tools_for_agent_run(config)
         
         metadata = config.get('metadata', {})
         config['avatar'] = metadata.get('avatar', agent_data.get('avatar'))
         config['avatar_color'] = metadata.get('avatar_color', agent_data.get('avatar_color'))
-        
-        config['agentpress_tools'] = extract_tools_for_agent_run(config)
         
         config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
         config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
@@ -104,7 +107,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         config['avatar'] = metadata.get('avatar')
         config['avatar_color'] = metadata.get('avatar_color')
         
-        config['agentpress_tools'] = extract_tools_for_agent_run(config)
+        if is_suna_default:
+            from agent.suna.config import SunaConfig
+            config['agentpress_tools'] = SunaConfig.DEFAULT_TOOLS
+        else:
+            config['agentpress_tools'] = extract_tools_for_agent_run(config)
         
         config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
         config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
