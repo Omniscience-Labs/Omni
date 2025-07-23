@@ -513,7 +513,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
               })}
             </div>
           </div>
-
           <div className="pt-4 border-t">
             <Button 
               onClick={handleComplete}
@@ -522,7 +521,7 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
             >
               {isCompletingConnection ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   {saveMode === 'direct' ? 'Adding Tools...' : 'Connecting...'}
                 </>
               ) : (

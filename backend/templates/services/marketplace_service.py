@@ -2,8 +2,9 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
 from ..domain.entities import AgentTemplate
-from ..domain.exceptions import TemplateNotFoundError
+from ..domain.exceptions import TemplateNotFoundError, SunaDefaultAgentTemplateError
 from ..repositories.template_repository import TemplateRepository
+from ..repositories.agent_repository import AgentRepository
 from ..support.validator import TemplateValidator
 from ..protocols import Logger
 
@@ -12,12 +13,26 @@ class MarketplaceService:
     def __init__(
         self,
         template_repo: TemplateRepository,
+        agent_repo: AgentRepository,
         validator: TemplateValidator,
         logger: Logger
     ):
         self._template_repo = template_repo
+        self._agent_repo = agent_repo
         self._validator = validator
         self._logger = logger
+    
+    async def _is_template_from_suna_default_agent(self, template: AgentTemplate) -> bool:
+        source_agent_id = template.metadata.get('source_agent_id')
+        if not source_agent_id:
+            return False
+        
+        agent = await self._agent_repo.find_by_id(source_agent_id)
+        if agent:
+            metadata = agent.get('metadata', {})
+            return metadata.get('is_suna_default', False)
+        
+        return False
     
     async def publish(
         self,
@@ -30,6 +45,9 @@ class MarketplaceService:
             raise TemplateNotFoundError("Template not found")
         
         self._validator.validate_ownership(template, creator_id)
+        
+        if await self._is_template_from_suna_default_agent(template):
+            raise SunaDefaultAgentTemplateError("Cannot publish templates created from the default Suna agent")
         
         updated_template = template.with_public_status(
             is_public=True,

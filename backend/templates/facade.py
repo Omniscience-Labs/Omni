@@ -49,8 +49,8 @@ class TemplateManager:
         self._installation_service = TemplateInstallationService(
             self._template_repo,
             self._agent_repo,
-            version_manager or self._create_mock_version_manager(),
-            credential_manager or self._create_mock_credential_manager(),
+            version_manager,
+            credential_manager,
             profile_manager,
             self._validator,
             self._config_builder,
@@ -59,6 +59,7 @@ class TemplateManager:
         
         self._marketplace_service = MarketplaceService(
             self._template_repo,
+            self._agent_repo,
             self._validator,
             self._logger
         )

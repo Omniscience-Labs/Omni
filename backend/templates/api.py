@@ -9,7 +9,8 @@ from .domain.exceptions import (
     TemplateNotFoundError,
     TemplateAccessDeniedError,
     TemplateInstallationError,
-    InvalidCredentialError
+    InvalidCredentialError,
+    SunaDefaultAgentTemplateError
 )
 
 template_manager = None
@@ -83,6 +84,10 @@ async def create_agent_template(
         raise HTTPException(status_code=404, detail=str(e))
     except TemplateAccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except InvalidCredentialError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SunaDefaultAgentTemplateError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating template: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create template: {str(e)}")
@@ -108,6 +113,10 @@ async def publish_template(
         raise HTTPException(status_code=404, detail=str(e))
     except TemplateAccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except InvalidCredentialError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SunaDefaultAgentTemplateError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error publishing template: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to publish template: {str(e)}")
@@ -131,6 +140,8 @@ async def unpublish_template(
         raise HTTPException(status_code=404, detail=str(e))
     except TemplateAccessDeniedError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except SunaDefaultAgentTemplateError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error unpublishing template: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to unpublish template: {str(e)}")

@@ -18,8 +18,8 @@ import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
 import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
+import { PipedreamConnectButton } from './pipedream-connect-button';
 
-// Define the set of  tags whose raw XML should be hidden during streaming
 const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-command',
     'create-file',
@@ -641,19 +641,30 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center">
-                                                        <div className="rounded-md flex items-center justify-center">
+                                                        <div className="rounded-md flex items-center justify-center relative">
                                                             {(() => {
                                                                 const firstAssistantWithAgent = group.messages.find(msg =>
                                                                     msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color)
                                                                 );
+                                                                
+                                                                const isSunaAgent = firstAssistantWithAgent?.agents?.name === 'Suna';
+                                                                
                                                                 if (firstAssistantWithAgent?.agents?.avatar) {
                                                                     const avatar = firstAssistantWithAgent.agents.avatar;
                                                                     return (
-                                                                        <div
-                                                                            className="h-4 w-5 flex items-center justify-center rounded text-xs"
-                                                                        >
-                                                                            <span className="text-lg">{avatar}</span>
-                                                                        </div>
+                                                                        <>
+                                                                        {isSunaAgent ? (
+                                                                            <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                                                                                <KortixLogo size={16} />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div
+                                                                                className="h-5 w-5 flex items-center justify-center rounded text-xs"
+                                                                            >
+                                                                                <span className="text-lg">{avatar}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        </>
                                                                     );
                                                                 }
                                                                 return <KortixLogo size={16} />;

@@ -9,6 +9,7 @@ import { getAgentAvatar } from '../../lib/utils/get-agent-style';
 import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
+import { KortixLogo } from '../sidebar/kortix-logo';
 
 interface Agent {
   agent_id: string;
@@ -32,6 +33,17 @@ interface Agent {
     version_id: string;
     version_name: string;
     version_number: number;
+  };
+  metadata?: {
+    is_suna_default?: boolean;
+    centrally_managed?: boolean;
+    restrictions?: {
+      system_prompt_editable?: boolean;
+      tools_editable?: boolean;
+      name_editable?: boolean;
+      description_editable?: boolean;
+      mcps_editable?: boolean;
+    };
   };
 }
 
@@ -81,6 +93,8 @@ const AgentModal: React.FC<AgentModalProps> = ({
   };
 
   const { avatar, color } = getAgentStyling(agent);
+  const isSunaAgent = agent.metadata?.is_suna_default || false;
+  
   const truncateDescription = (text?: string, maxLength = 120) => {
     if (!text || text.length <= maxLength) return text || 'Try out this agent';
     return text.substring(0, maxLength) + '...';
@@ -91,15 +105,16 @@ const AgentModal: React.FC<AgentModalProps> = ({
       <DialogContent className="max-w-md p-0 overflow-hidden border-none">
         <DialogTitle className="sr-only">Agent actions</DialogTitle>
         <div className="relative">
-          <div className={`h-32 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100`} style={{ backgroundColor: color }}>
-            <div className="text-6xl drop-shadow-sm">
-              {avatar}
-            </div>
-            <div className="absolute top-4 right-4 flex gap-2">
-              {agent.is_default && (
-                <Star className="h-5 w-5 text-white fill-white drop-shadow-sm" />
-              )}
-            </div>
+          <div className={`h-32 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100`} style={{ backgroundColor: isSunaAgent ? '' : color }}>
+            {isSunaAgent ? (
+              <div className="p-6">
+                <KortixLogo size={48} />
+              </div>
+            ) : (
+              <div className="text-6xl drop-shadow-sm">
+                {avatar}
+              </div>
+            )}
           </div>
 
           <div className="p-4 space-y-4">
@@ -108,9 +123,9 @@ const AgentModal: React.FC<AgentModalProps> = ({
                 <h2 className="text-xl font-semibold text-foreground">
                   {agent.name}
                 </h2>
-                {agent.current_version && (
+                {!isSunaAgent && agent.current_version && (
                   <Badge variant="outline" className="text-xs">
-                    <GitBranch className="h-3 w-3 mr-1" />
+                    <GitBranch className="h-3 w-3" />
                     {agent.current_version.version_name}
                   </Badge>
                 )}
@@ -143,56 +158,58 @@ const AgentModal: React.FC<AgentModalProps> = ({
                 Chat
               </Button>
             </div>
-            <div className="pt-2">
-              {agent.is_public ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Published as secure template</span>
-                    <div className="flex items-center gap-1">
-                      <Download className="h-3 w-3" />
-                      {agent.download_count || 0} downloads
+            {!isSunaAgent && (
+              <div className="pt-2">
+                {agent.is_public ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Published as secure template</span>
+                      <div className="flex items-center gap-1">
+                        <Download className="h-3 w-3" />
+                        {agent.download_count || 0} downloads
+                      </div>
                     </div>
+                    <Button
+                      onClick={() => onUnpublish(agent.agent_id)}
+                      disabled={isUnpublishing}
+                      variant="outline"
+                      className="w-full gap-2"
+                    >
+                      {isUnpublishing ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          Making Private...
+                        </>
+                      ) : (
+                        <>
+                          <GlobeLock className="h-4 w-4" />
+                          Make Private
+                        </>
+                      )}
+                    </Button>
                   </div>
+                ) : (
                   <Button
-                    onClick={() => onUnpublish(agent.agent_id)}
-                    disabled={isUnpublishing}
+                    onClick={() => onPublish(agent.agent_id)}
+                    disabled={isPublishing}
                     variant="outline"
                     className="w-full gap-2"
                   >
-                    {isUnpublishing ? (
+                    {isPublishing ? (
                       <>
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        Making Private...
+                        Publishing...
                       </>
                     ) : (
                       <>
-                        <GlobeLock className="h-4 w-4" />
-                        Make Private
+                        <Shield className="h-4 w-4" />
+                        Publish as Template
                       </>
                     )}
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => onPublish(agent.agent_id)}
-                  disabled={isPublishing}
-                  variant="outline"
-                  className="w-full gap-2"
-                >
-                  {isPublishing ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="h-4 w-4" />
-                      Publish as Template
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

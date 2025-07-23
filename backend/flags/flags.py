@@ -148,4 +148,34 @@ async def get_flag_details(key: str) -> Optional[Dict[str, str]]:
     return await get_flag_manager().get_flag(key)
 
 
+# Feature Flags
+
+# Custom agents feature flag
+custom_agents = True
+
+# MCP module feature flag  
+mcp_module = True
+
+# Templates API feature flag
+templates_api = True
+
+# Triggers API feature flag
+triggers_api = True
+
+# Workflows API feature flag
+workflows_api = True
+
+# Knowledge base feature flag
+knowledge_base = True
+
+# Pipedream integration feature flag
+pipedream = True
+
+# Credentials API feature flag
+credentials_api = True
+
+# Suna default agent feature flag
+suna_default_agent = True
+
+
 

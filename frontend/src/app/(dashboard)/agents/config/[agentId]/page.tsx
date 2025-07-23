@@ -103,6 +103,30 @@ export default function AgentConfigurationPage() {
   const handleSave = useCallback(async () => {
     if (!agent || isViewingOldVersion) return;
     
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const restrictions = agent?.metadata?.restrictions || {};
+    
+    if (isSunaAgent) {
+      if (restrictions.name_editable === false && formData.name !== originalData.name) {
+        toast.error("Cannot save changes", {
+          description: "Suna's name cannot be modified.",
+        });
+        return;
+      }
+      if (restrictions.system_prompt_editable === false && formData.system_prompt !== originalData.system_prompt) {
+        toast.error("Cannot save changes", {
+          description: "Suna's system prompt cannot be modified.",
+        });
+        return;
+      }
+      if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
+        toast.error("Cannot save changes", {
+          description: "Suna's default tools cannot be modified.",
+        });
+        return;
+      }
+    }
+    
     setIsSaving(true);
     try {
       const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
@@ -256,16 +280,18 @@ export default function AgentConfigurationPage() {
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <AgentVersionSwitcher
-                        agentId={agentId}
-                        currentVersionId={agent?.current_version_id}
-                        currentFormData={{
-                          system_prompt: formData.system_prompt,
-                          configured_mcps: formData.configured_mcps,
-                          custom_mcps: formData.custom_mcps,
-                          agentpress_tools: formData.agentpress_tools
-                        }}
-                      />
+                      {!agent?.metadata?.is_suna_default && (
+                        <AgentVersionSwitcher
+                          agentId={agentId}
+                          currentVersionId={agent?.current_version_id}
+                          currentFormData={{
+                            system_prompt: formData.system_prompt,
+                            configured_mcps: formData.configured_mcps,
+                            custom_mcps: formData.custom_mcps,
+                            agentpress_tools: formData.agentpress_tools
+                          }}
+                        />
+                      )}
                       <CreateVersionButton
                         agentId={agentId}
                         currentFormData={{
@@ -315,6 +341,7 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onStyleChange={handleStyleChange}
                     onTabChange={setActiveTab}
+                    agentMetadata={agent?.metadata}
                   />
                 </div>
               </div>
@@ -339,20 +366,19 @@ export default function AgentConfigurationPage() {
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
                       initialAccordion={initialAccordion}
+                      agentMetadata={agent?.metadata}
                     />
                   </TabsContent>
                 </Tabs>
               </div>
             </div>
           </div>
-
           <div className="w-1/2 bg-muted/30 overflow-y-auto">
             <div className="h-full">
-              {previewAgent && <AgentPreview agent={previewAgent} />}
+              {previewAgent && <AgentPreview agent={previewAgent} agentMetadata={agent?.metadata} />}
             </div>
           </div>
         </div>
-
         <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -420,6 +446,7 @@ export default function AgentConfigurationPage() {
                   onFieldChange={handleFieldChange}
                   onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
+                  agentMetadata={agent?.metadata}
                 />
               </div>
             </div>
@@ -436,7 +463,6 @@ export default function AgentConfigurationPage() {
                     onStyleChange={handleStyleChange}
                   />
                 </TabsContent>
-
                 <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
                   <ConfigurationTab
                     agentId={agentId}
@@ -446,6 +472,7 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
                     initialAccordion={initialAccordion}
+                    agentMetadata={agent?.metadata}
                   />
                 </TabsContent>
               </Tabs>
@@ -466,7 +493,7 @@ export default function AgentConfigurationPage() {
                 <DrawerTitle>Agent Preview</DrawerTitle>
               </DrawerHeader>
               <div className="flex-1 overflow-y-auto p-4">
-                {previewAgent && <AgentPreview agent={previewAgent} />}
+                {previewAgent && <AgentPreview agent={previewAgent} agentMetadata={agent?.metadata} />}
               </div>
             </DrawerContent>
           </Drawer>

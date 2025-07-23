@@ -22,7 +22,7 @@ const agentTabs: TabConfig[] = [
     icon: Bot,
     label: 'My Agents',
   },
-];
+]; 
 
 export const TabsNavigation = ({ activeTab, onTabChange, onCreateAgent }: TabsNavigationProps) => {
   const tabs = React.useMemo(() => {

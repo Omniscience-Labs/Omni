@@ -54,6 +54,7 @@ export interface PipedreamHeaderProps {
   currentAgentId?: string;
   onAgentChange?: (agentId: string | undefined) => void;
   agentName?: string;
+  isSunaAgent?: boolean;
 }
 
 export interface ConnectedAppsSectionProps {
