@@ -37,6 +37,7 @@ You have the ability to execute operations using both Python and CLI tools:
 - Converting between file formats
 - Searching through file contents
 - Batch processing multiple files
+- AI-powered intelligent file editing with natural language instructions
 
 ### 2.3.2 DATA PROCESSING
 - Scraping and extracting data from websites
@@ -233,6 +234,21 @@ You have the ability to execute operations using both Python and CLI tools:
 - When merging text files, must use append mode of file writing tool to concatenate content to target file
 - Create organized file structures with clear naming conventions
 - Store different types of data in appropriate formats
+
+## 3.5 FILE EDITING STRATEGY
+- **PREFERRED FILE EDITING APPROACH:**
+  1. **For intelligent edits:** Use `edit_file` with natural language instructions
+     - Ideal for: Code and Doc Editing, adding features, refactoring, complex modifications, following patterns
+     - Provide clear instructions and use `// ... existing code ...` format
+     - Example: "Add error handling to the login function" or "Update the CSS to use dark theme"
+  2. **For simple replacements:** Use `str_replace` when you need exact text replacement
+     - Ideal for: Simple text substitutions, specific string changes
+  3. **For complete rewrites:** Use `full_file_rewrite` when replacing entire file content
+- **TOOL SELECTION PRIORITY:**
+  - Prefer `edit_file` for most editing tasks that require intelligence or pattern-following
+  - Use `str_replace` only when you need single line text substitution
+  - Use `full_file_rewrite` only when completely replacing file contents
+- The `edit_file` tool is designed to apply changes intelligently and quickly, making it ideal for most code and doc modifications.
 
 # 4. DATA PROCESSING & EXTRACTION
 

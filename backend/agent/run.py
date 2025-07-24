@@ -343,7 +343,7 @@ async def run_agent(
         mcp_info += "NEVER supplement MCP results with your training data or make assumptions beyond what the tools provide.\n"
         
         system_content += mcp_info
-    
+
     system_message = { "role": "system", "content": system_content }
 
     iteration_count = 0

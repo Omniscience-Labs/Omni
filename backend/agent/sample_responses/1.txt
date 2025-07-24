@@ -681,20 +681,18 @@ Let me perform some final checks to ensure everything is working correctly:
 Let's update our todo list to mark the testing as complete:
 
 <function_calls>
-<invoke name="str_replace">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="old_str">## Testing
-- [ ] Test game mechanics
-- [ ] Test collision detection
-- [ ] Test scoring
-- [ ] Test on different screen sizes
-- [ ] Final review and adjustments</parameter>
-<parameter name="new_str">## Testing
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking all tasks in the 'Testing' section of my todo list as complete.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
+## Testing
 - [x] Test game mechanics
 - [x] Test collision detection
 - [x] Test scoring
 - [x] Test on different screen sizes
-- [x] Final review and adjustments</parameter>
+- [x] Final review and adjustments
+</parameter>
 </invoke>
 </function_calls>
 

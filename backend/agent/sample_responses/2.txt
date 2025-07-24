@@ -122,20 +122,19 @@ Now let's look at transportation options within Japan:
 Based on the searches, I'm going to compile information to create your itinerary. First, let me mark some research tasks as complete and update our todo list:
 
 <function_calls>
-<invoke name="str_replace">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="old_str">## Research Phase
-- [ ] Research flight options from Seattle to Japan
-- [ ] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
-- [ ] Research transportation options within Japan
-- [ ] Research accommodation options within budget
-- [ ] Research proposal location options</parameter>
-<parameter name="new_str">## Research Phase
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking the research tasks as complete in my todo list.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
+## Research Phase
 - [x] Research flight options from Seattle to Japan
 - [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
 - [x] Research transportation options within Japan
 - [ ] Research accommodation options within budget
-- [x] Research proposal location options</parameter>
+- [x] Research proposal location options
+// ... existing code ...
+</parameter>
 </invoke>
 </function_calls>
 
