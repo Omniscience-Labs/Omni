@@ -190,6 +190,9 @@ api_router.include_router(pipedream_api.router)
 from auth import phone_verification_supabase_mfa
 api_router.include_router(phone_verification_supabase_mfa.router)
 
+from local_env_manager import api as local_env_manager_api
+api_router.include_router(local_env_manager_api.router)
+
 @api_router.get("/health")
 async def health_check():
     logger.info("Health check endpoint called")
