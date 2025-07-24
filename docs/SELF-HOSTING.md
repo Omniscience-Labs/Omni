@@ -47,6 +47,9 @@ Obtain the following API keys:
   - [OpenRouter](https://openrouter.ai/)
   - [AWS Bedrock](https://aws.amazon.com/bedrock/)
 
+- **AI-Powered Code Editing (Optional but Recommended)**:
+  - [Morph](https://morphllm.com/api-keys) - For intelligent code editing capabilities
+
 - **Search and Web Scraping**:
 
   - [Tavily](https://tavily.com/) - For enhanced search capabilities
@@ -169,6 +172,7 @@ RABBITMQ_PORT=5672
 ANTHROPIC_API_KEY=your-anthropic-key
 OPENAI_API_KEY=your-openai-key
 OPENROUTER_API_KEY=your-openrouter-key
+MORPH_API_KEY=
 MODEL_TO_USE=anthropic/claude-sonnet-4-20250514
 
 # WEB SEARCH
