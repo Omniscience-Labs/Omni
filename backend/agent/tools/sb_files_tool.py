@@ -378,7 +378,7 @@ class SandboxFilesTool(SandboxToolsBase):
             
             if morph_api_key:
                 api_key = morph_api_key
-                base_url = "https://api.morph.so/v1"
+                base_url = "https://api.morphllm.com/v1"
                 logger.debug("Using Morph API for file editing.")
             elif openrouter_key:
                 api_key = openrouter_key
