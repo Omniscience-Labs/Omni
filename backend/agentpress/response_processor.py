@@ -176,6 +176,7 @@ class ResponseProcessor:
         tool_index = 0
         xml_tool_call_count = 0
         finish_reason = None
+        should_auto_continue = False
         last_assistant_message_object = None # Store the final saved assistant message object
         tool_result_message_objects = {} # tool_index -> full saved message object
         has_printed_thinking_prefix = False # Flag for printing thinking prefix only once
@@ -503,9 +504,11 @@ class ResponseProcessor:
                 logger.info(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
                 self.trace.event(name="stream_finished_with_reason_xml_tool_limit_reached_after_xml_tool_calls", level="DEFAULT", status_message=(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls"))
 
+            # Calculate if auto-continue is needed if the finish reason is length
+            should_auto_continue = (can_auto_continue and finish_reason == 'length')
+
             # --- SAVE and YIELD Final Assistant Message ---
             # Only save assistant message if NOT auto-continuing due to length to avoid duplicate messages
-            should_auto_continue = (can_auto_continue and finish_reason == 'length')
             if accumulated_content and not should_auto_continue:
                 # ... (Truncate accumulated_content logic) ...
                 if config.max_xml_tool_calls > 0 and xml_tool_call_count >= config.max_xml_tool_calls and xml_chunks_buffer:
@@ -760,7 +763,6 @@ class ResponseProcessor:
 
             # --- Save and Yield assistant_response_end ---
             # Only save assistant_response_end if not auto-continuing (response is actually complete)
-            should_auto_continue = (can_auto_continue and finish_reason == 'length')
             if not should_auto_continue:
                 if last_assistant_message_object: # Only save if assistant message was saved
                     try:
@@ -832,7 +834,6 @@ class ResponseProcessor:
 
         finally:
             # Update continuous state for potential auto-continue
-            should_auto_continue = (can_auto_continue and finish_reason == 'length')
             if should_auto_continue:
                 continuous_state['accumulated_content'] = accumulated_content
                 continuous_state['sequence'] = __sequence
