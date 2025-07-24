@@ -43,7 +43,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+
+        // Only update user state on actual auth events, not token refresh
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          setUser(newSession?.user ?? null);
+        }
+        // For TOKEN_REFRESHED events, keep the existing user state
+
         if (isLoading) setIsLoading(false);
         if (event === 'SIGNED_IN' && newSession?.user) {
           await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
