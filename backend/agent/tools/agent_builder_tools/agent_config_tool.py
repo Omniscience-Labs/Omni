@@ -235,31 +235,51 @@ class AgentConfigTool(AgentBuilderBaseTool):
     )
     async def get_current_agent_config(self) -> ToolResult:
         try:
-            agent = await self._get_agent_data()
+            agent_data = await self._get_agent_data()
             
-            if not agent:
+            if not agent_data:
                 return self.fail_response("Agent not found")
             
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    from agent.versioning.facade import version_manager
+                    account_id = await self._get_current_account_id()
+                    version_dict = await version_manager.get_version(
+                        agent_id=self.agent_id,
+                        version_id=agent_data['current_version_id'],
+                        user_id=account_id
+                    )
+                    version_data = version_dict
+                except Exception as e:
+                    logger.warning(f"Failed to get version data for agent config tool: {e}")
+
+            from agent.config_helper import extract_agent_config
+            agent_config = extract_agent_config(agent_data, version_data)
+            
             config_summary = {
-                "agent_id": agent["agent_id"],
-                "name": agent.get("name", "Untitled Agent"),
-                "description": agent.get("description", "No description set"),
-                "system_prompt": agent.get("system_prompt", "No system prompt set"),
-                "avatar": agent.get("avatar", "🤖"),
-                "avatar_color": agent.get("avatar_color", "#6B7280"),
-                "agentpress_tools": agent.get("agentpress_tools", {}),
-                "configured_mcps": agent.get("configured_mcps", []),
-                "custom_mcps": agent.get("custom_mcps", []),
-                "created_at": agent.get("created_at"),
-                "updated_at": agent.get("updated_at")
+                "agent_id": agent_config["agent_id"],
+                "name": agent_config.get("name", "Untitled Agent"),
+                "description": agent_config.get("description", "No description set"),
+                "system_prompt": agent_config.get("system_prompt", "No system prompt set"),
+                "avatar": agent_config.get("avatar", "🤖"),
+                "avatar_color": agent_config.get("avatar_color", "#6B7280"),
+                "agentpress_tools": agent_config.get("agentpress_tools", {}),
+                "configured_mcps": agent_config.get("configured_mcps", []),
+                "custom_mcps": agent_config.get("custom_mcps", []),
+                "created_at": agent_data.get("created_at"),
+                "updated_at": agent_data.get("updated_at"),
+                "current_version": agent_config.get("version_name", "v1") if version_data else "No version data"
             }
             
             tools_count = len([t for t, cfg in config_summary["agentpress_tools"].items() if cfg.get("enabled")])
             mcps_count = len(config_summary["configured_mcps"])
             custom_mcps_count = len(config_summary["custom_mcps"])
             
+            summary_text = f"Agent '{config_summary['name']}' (version: {config_summary['current_version']}) has {tools_count} tools enabled, {mcps_count} MCP servers configured, and {custom_mcps_count} custom MCP integrations."
+            
             return self.success_response({
-                "summary": f"Agent '{config_summary['name']}' has {tools_count} tools enabled, {mcps_count} MCP servers configured, and {custom_mcps_count} custom MCP integrations.",
+                "summary": summary_text,
                 "configuration": config_summary
             })
             
