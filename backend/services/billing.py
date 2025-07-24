@@ -497,6 +497,7 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     # Calculate current month's usage
     current_usage = await calculate_monthly_usage(client, user_id)
     
+    # TODO: also do user's AAL check
     # Check if within limits
     if current_usage >= tier_info['cost']:
         return False, f"Monthly limit of {tier_info['cost']} dollars reached. Please upgrade your plan or wait until next month.", subscription

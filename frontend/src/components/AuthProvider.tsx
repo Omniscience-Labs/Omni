@@ -42,11 +42,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log('🔵 Auth state change:', { event, session: !!newSession, user: !!newSession?.user });
+        
         setSession(newSession);
         setUser(newSession?.user ?? null);
         if (isLoading) setIsLoading(false);
+        
         if (event === 'SIGNED_IN' && newSession?.user) {
           await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
+        } else if (event === 'MFA_CHALLENGE_VERIFIED') {
+          console.log('✅ MFA challenge verified, session updated');
+          // Session is automatically updated by Supabase, just log for debugging
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed, session updated');
         }
       },
     );
