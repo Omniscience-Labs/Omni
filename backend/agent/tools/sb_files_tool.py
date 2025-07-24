@@ -373,9 +373,17 @@ class SandboxFilesTool(SandboxToolsBase):
             morph_api_key = getattr(config, 'MORPH_API_KEY', None) or os.getenv('MORPH_API_KEY')
             openrouter_key = getattr(config, 'OPENROUTER_API_KEY', None) or os.getenv('OPENROUTER_API_KEY')
             
-            # Use OpenRouter/Morph for users, direct Morph API for internal use
-            api_key = openrouter_key if openrouter_key else morph_api_key
-            base_url = "https://openrouter.ai/api/v1" if openrouter_key else "https://api.morph.so/v1"
+            api_key = None
+            base_url = None
+            
+            if morph_api_key:
+                api_key = morph_api_key
+                base_url = "https://api.morph.so/v1"
+                logger.debug("Using Morph API for file editing.")
+            elif openrouter_key:
+                api_key = openrouter_key
+                base_url = "https://openrouter.ai/api/v1"
+                logger.debug("Morph API key not set, falling back to OpenRouter for file editing.")
             
             if not api_key:
                 logger.warning("No Morph or OpenRouter API key found, falling back to traditional editing")
