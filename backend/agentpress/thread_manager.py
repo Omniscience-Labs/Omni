@@ -509,7 +509,9 @@ Here are the XML tools available with examples:
                         if ("AnthropicException - Overloaded" in str(e)):
                             logger.error(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}", exc_info=True)
                             nonlocal llm_model
-                            llm_model = f"openrouter/{llm_model}"
+                            # Remove "-20250514" from the model name if present
+                            model_name_cleaned = llm_model.replace("-20250514", "")
+                            llm_model = f"openrouter/{model_name_cleaned}"
                             auto_continue = True
                             continue # Continue the loop
                         else:
