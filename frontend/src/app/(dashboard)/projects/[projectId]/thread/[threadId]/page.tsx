@@ -535,15 +535,9 @@ export default function ThreadPage({
   }, [streamingToolCall, handleStreamingToolCall]);
 
   useEffect(() => {
-    if (isSidePanelOpen) {
-      setIsSidePanelAnimating(true);
-      const timer = setTimeout(() => setIsSidePanelAnimating(false), 200); // Match transition duration
-      return () => clearTimeout(timer);
-    } else {
-      setIsSidePanelAnimating(true);
-      const timer = setTimeout(() => setIsSidePanelAnimating(false), 200); // Match transition duration
-      return () => clearTimeout(timer);
-    }
+    setIsSidePanelAnimating(true);
+    const timer = setTimeout(() => setIsSidePanelAnimating(false), 200); // Match transition duration
+    return () => clearTimeout(timer);
   }, [isSidePanelOpen]);
 
   if (!initialLoadCompleted || isLoading) {
