@@ -210,24 +210,17 @@ section {
 </function_calls>
 
 <function_calls>
-<invoke name="full_file_rewrite">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents"># Weather Dashboard Todo
-
-## Planning
-- [x] Define app requirements
-- [x] Research weather API options
-
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking HTML and CSS setup as complete in my todo list.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
 ## Development
 - [x] Set up HTML structure
 - [x] Create CSS styling
 - [ ] Implement JavaScript for API calls
 - [ ] Add search functionality
-
-## Testing
-- [ ] Test API integration
-- [ ] Test responsiveness
-- [ ] Final review
+// ... existing code ...
 </parameter>
 </invoke>
 </function_calls>
@@ -356,24 +349,17 @@ console.log('Weather Dashboard is ready to use!');
 </function_calls>
 
 <function_calls>
-<invoke name="full_file_rewrite">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents"># Weather Dashboard Todo
-
-## Planning
-- [x] Define app requirements
-- [x] Research weather API options
-
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking JavaScript implementation and search functionality as complete in my todo list.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
 ## Development
 - [x] Set up HTML structure
 - [x] Create CSS styling
 - [x] Implement JavaScript for API calls
 - [x] Add search functionality
-
-## Testing
-- [ ] Test API integration
-- [ ] Test responsiveness
-- [ ] Final review
+// ... existing code ...
 </parameter>
 </invoke>
 </function_calls>
@@ -396,20 +382,11 @@ Let's start a server to preview our weather dashboard:
 I've tested the API integration and responsiveness and everything works correctly.
 
 <function_calls>
-<invoke name="full_file_rewrite">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents"># Weather Dashboard Todo
-
-## Planning
-- [x] Define app requirements
-- [x] Research weather API options
-
-## Development
-- [x] Set up HTML structure
-- [x] Create CSS styling
-- [x] Implement JavaScript for API calls
-- [x] Add search functionality
-
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking testing as complete in my todo list.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
 ## Testing
 - [x] Test API integration
 - [x] Test responsiveness

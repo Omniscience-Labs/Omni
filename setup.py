@@ -129,6 +129,7 @@ def load_existing_env_vars():
             "OPENAI_API_KEY": backend_env.get("OPENAI_API_KEY", ""),
             "ANTHROPIC_API_KEY": backend_env.get("ANTHROPIC_API_KEY", ""),
             "OPENROUTER_API_KEY": backend_env.get("OPENROUTER_API_KEY", ""),
+            "MORPH_API_KEY": backend_env.get("MORPH_API_KEY", ""),
             "MODEL_TO_USE": backend_env.get("MODEL_TO_USE", ""),
         },
         "search": {
@@ -275,7 +276,7 @@ class SetupWizard:
             else:
                 self.env_vars[key] = value
 
-        self.total_steps = 17
+        self.total_steps = 18
 
     def show_current_config(self):
         """Shows the current configuration status."""
@@ -297,7 +298,7 @@ class SetupWizard:
         llm_keys = [
             k
             for k in self.env_vars["llm"]
-            if k != "MODEL_TO_USE" and self.env_vars["llm"][k]
+            if k != "MODEL_TO_USE" and self.env_vars["llm"][k] and k != "MORPH_API_KEY"
         ]
         if llm_keys:
             providers = [k.split("_")[0].capitalize() for k in llm_keys]
@@ -359,6 +360,14 @@ class SetupWizard:
         else:
             config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Webhook")
 
+        # Check Morph (optional but recommended)
+        if self.env_vars["llm"].get("MORPH_API_KEY"):
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Morph (Code Editing)")
+        elif self.env_vars["llm"].get("OPENROUTER_API_KEY"):
+            config_items.append(f"{Colors.CYAN}○{Colors.ENDC} Morph (fallback to OpenRouter)")
+        else:
+            config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Morph (recommended)")
+
         if any("✓" in item for item in config_items):
             print_info("Current configuration status:")
             for item in config_items:
@@ -381,18 +390,19 @@ class SetupWizard:
             self.run_step(3, self.collect_supabase_info)
             self.run_step(4, self.collect_daytona_info)
             self.run_step(5, self.collect_llm_api_keys)
-            self.run_step(6, self.collect_search_api_keys)
-            self.run_step(7, self.collect_rapidapi_keys)
-            self.run_step(8, self.collect_smithery_keys)
-            self.run_step(9, self.collect_qstash_keys)
-            self.run_step(10, self.collect_mcp_keys)
-            self.run_step(11, self.collect_pipedream_keys)
-            self.run_step(12, self.collect_slack_keys)
-            self.run_step(13, self.collect_webhook_keys)
-            self.run_step(14, self.configure_env_files)
-            self.run_step(15, self.setup_supabase_database)
-            self.run_step(16, self.install_dependencies)
-            self.run_step(17, self.start_suna)
+            self.run_step(6, self.collect_morph_api_key)
+            self.run_step(7, self.collect_search_api_keys)
+            self.run_step(8, self.collect_rapidapi_keys)
+            self.run_step(9, self.collect_smithery_keys)
+            self.run_step(10, self.collect_qstash_keys)
+            self.run_step(11, self.collect_mcp_keys)
+            self.run_step(12, self.collect_pipedream_keys)
+            self.run_step(13, self.collect_slack_keys)
+            self.run_step(14, self.collect_webhook_keys)
+            self.run_step(15, self.configure_env_files)
+            self.run_step(16, self.setup_supabase_database)
+            self.run_step(17, self.install_dependencies)
+            self.run_step(18, self.start_suna)
 
             self.final_instructions()
 
@@ -747,9 +757,58 @@ class SetupWizard:
             f"LLM keys saved. Default model: {self.env_vars['llm'].get('MODEL_TO_USE', 'Not set')}"
         )
 
+    def collect_morph_api_key(self):
+        """Collects the optional MorphLLM API key for code editing."""
+        print_step(6, self.total_steps, "Configure AI-Powered Code Editing (Optional)")
+
+        existing_key = self.env_vars["llm"].get("MORPH_API_KEY", "")
+        openrouter_key = self.env_vars["llm"].get("OPENROUTER_API_KEY", "")
+
+        if existing_key:
+            print_info(f"Found existing Morph API key: {mask_sensitive_value(existing_key)}")
+            print_info("AI-powered code editing is enabled using Morph.")
+            return
+
+        print_info("Suna uses Morph for fast, intelligent code editing.")
+        print_info("This is optional but highly recommended for the best experience.")
+
+        if openrouter_key:
+            print_info(
+                f"An OpenRouter API key is already configured. It can be used as a fallback for code editing if you don't provide a Morph key."
+            )
+        
+        while True:
+            choice = input("Do you want to add a Morph API key now? (y/n): ").lower().strip()
+            if choice in ['y', 'n', '']:
+                break
+            print_error("Invalid input. Please enter 'y' or 'n'.")
+        
+        if choice == 'y':
+            print_info("Great! Please get your API key from: https://morphllm.com/api-keys")
+            morph_api_key = self._get_input(
+                "Enter your Morph API key (or press Enter to skip): ",
+                validate_api_key,
+                "The key seems invalid, but continuing. You can edit it later in backend/.env",
+                allow_empty=True,
+                default_value="",
+            )
+            if morph_api_key:
+                self.env_vars["llm"]["MORPH_API_KEY"] = morph_api_key
+                print_success("Morph API key saved. AI-powered code editing is enabled.")
+            else:
+                if openrouter_key:
+                    print_info("Skipping Morph key. OpenRouter will be used for code editing.")
+                else:
+                    print_warning("Skipping Morph key. Code editing will use a less capable model.")
+        else:
+            if openrouter_key:
+                print_info("Okay, OpenRouter will be used as a fallback for code editing.")
+            else:
+                print_warning("Okay, code editing will use a less capable model without a Morph or OpenRouter key.")
+
     def collect_search_api_keys(self):
         """Collects API keys for search and web scraping tools."""
-        print_step(6, self.total_steps, "Collecting Search and Scraping API Keys")
+        print_step(7, self.total_steps, "Collecting Search and Scraping API Keys")
 
         # Check if we already have values configured
         has_existing = any(self.env_vars["search"].values())
@@ -811,7 +870,7 @@ class SetupWizard:
 
     def collect_rapidapi_keys(self):
         """Collects the optional RapidAPI key."""
-        print_step(7, self.total_steps, "Collecting RapidAPI Key (Optional)")
+        print_step(8, self.total_steps, "Collecting RapidAPI Key (Optional)")
 
         # Check if we already have a value configured
         existing_key = self.env_vars["rapidapi"]["RAPID_API_KEY"]
@@ -841,7 +900,7 @@ class SetupWizard:
 
     def collect_smithery_keys(self):
         """Collects the optional Smithery API key."""
-        print_step(8, self.total_steps, "Collecting Smithery API Key (Optional)")
+        print_step(9, self.total_steps, "Collecting Smithery API Key (Optional)")
 
         # Check if we already have a value configured
         existing_key = self.env_vars["smithery"]["SMITHERY_API_KEY"]
@@ -874,7 +933,7 @@ class SetupWizard:
     def collect_qstash_keys(self):
         """Collects the required QStash configuration."""
         print_step(
-            9,
+            10,
             self.total_steps,
             "Collecting QStash Configuration",
         )
@@ -929,7 +988,7 @@ class SetupWizard:
 
     def collect_mcp_keys(self):
         """Collects the MCP configuration."""
-        print_step(10, self.total_steps, "Collecting MCP Configuration")
+        print_step(11, self.total_steps, "Collecting MCP Configuration")
 
         # Check if we already have an encryption key configured
         existing_key = self.env_vars["mcp"]["MCP_CREDENTIAL_ENCRYPTION_KEY"]
@@ -949,7 +1008,7 @@ class SetupWizard:
 
     def collect_pipedream_keys(self):
         """Collects the optional Pipedream configuration."""
-        print_step(11, self.total_steps, "Collecting Pipedream Configuration (Optional)")
+        print_step(12, self.total_steps, "Collecting Pipedream Configuration (Optional)")
 
         # Check if we already have values configured
         has_existing = any(self.env_vars["pipedream"].values())
@@ -1009,7 +1068,7 @@ class SetupWizard:
 
     def collect_slack_keys(self):
         """Collects the optional Slack configuration."""
-        print_step(12, self.total_steps, "Collecting Slack Configuration (Optional)")
+        print_step(13, self.total_steps, "Collecting Slack Configuration (Optional)")
 
         # Check if we already have values configured
         has_existing = any(self.env_vars["slack"].values())
@@ -1062,7 +1121,7 @@ class SetupWizard:
 
     def collect_webhook_keys(self):
         """Collects the webhook configuration."""
-        print_step(13, self.total_steps, "Collecting Webhook Configuration")
+        print_step(14, self.total_steps, "Collecting Webhook Configuration")
 
         # Check if we already have values configured
         has_existing = bool(self.env_vars["webhook"]["WEBHOOK_BASE_URL"])
@@ -1087,7 +1146,7 @@ class SetupWizard:
 
     def configure_env_files(self):
         """Configures and writes the .env files for frontend and backend."""
-        print_step(14, self.total_steps, "Configuring Environment Files")
+        print_step(15, self.total_steps, "Configuring Environment Files")
 
         # --- Backend .env ---
         is_docker = self.env_vars["setup_method"] == "docker"
@@ -1143,7 +1202,7 @@ class SetupWizard:
 
     def setup_supabase_database(self):
         """Links the project to Supabase and pushes database migrations."""
-        print_step(15, self.total_steps, "Setting up Supabase Database")
+        print_step(16, self.total_steps, "Setting up Supabase Database")
 
         print_info(
             "This step will link your project to Supabase and push database migrations."
@@ -1242,7 +1301,7 @@ class SetupWizard:
 
     def install_dependencies(self):
         """Installs frontend and backend dependencies for manual setup."""
-        print_step(16, self.total_steps, "Installing Dependencies")
+        print_step(17, self.total_steps, "Installing Dependencies")
         if self.env_vars["setup_method"] == "docker":
             print_info(
                 "Skipping dependency installation for Docker setup (will be handled by Docker Compose)."
@@ -1284,7 +1343,7 @@ class SetupWizard:
 
     def start_suna(self):
         """Starts Suna using Docker Compose or shows instructions for manual startup."""
-        print_step(17, self.total_steps, "Starting Suna")
+        print_step(18, self.total_steps, "Starting Suna")
         if self.env_vars["setup_method"] == "docker":
             print_info("Starting Suna with Docker Compose...")
             try:
