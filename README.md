@@ -151,6 +151,7 @@ We welcome contributions from the community! Please see our [Contributing Guide]
 - [Playwright](https://playwright.dev/) - Browser automation
 - [OpenAI](https://openai.com/) - LLM provider
 - [Anthropic](https://www.anthropic.com/) - LLM provider
+- [Morph](https://morphllm.com/) - For AI-powered code editing
 - [Tavily](https://tavily.com/) - Search capabilities
 - [Firecrawl](https://firecrawl.dev/) - Web scraping capabilities
 - [QStash](https://upstash.com/qstash) - Background job processing and workflows

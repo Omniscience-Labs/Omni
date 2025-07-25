@@ -30,37 +30,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setIsLoading(false);
+      try {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+        console.log('🔵 Initial session check:', { hasSession: !!currentSession, user: !!currentSession?.user });
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      } catch (error) {
+        console.error('❌ Error getting initial session:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     getInitialSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔵 Auth state change:', { event, session: !!newSession, user: !!newSession?.user });
+        console.log('🔵 Auth state change:', { 
+          event, 
+          hasSession: !!newSession, 
+          hasUser: !!newSession?.user,
+          expiresAt: newSession?.expires_at 
+        });
         
         setSession(newSession);
-
-        // Only update user state on actual auth events, not token refresh
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-          setUser(newSession?.user ?? null);
-        }
-        // For TOKEN_REFRESHED events, keep the existing user state
+        setUser(newSession?.user ?? null);
 
         if (isLoading) setIsLoading(false);
         
-        if (event === 'SIGNED_IN' && newSession?.user) {
-          await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
-        } else if (event === 'MFA_CHALLENGE_VERIFIED') {
-          console.log('✅ MFA challenge verified, session updated');
-          // Session is automatically updated by Supabase, just log for debugging
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 Token refreshed, session updated');
+        // Handle specific auth events
+        switch (event) {
+          case 'SIGNED_IN':
+            if (newSession?.user) {
+              console.log('✅ User signed in');
+              await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
+            }
+            break;
+          case 'SIGNED_OUT':
+            console.log('✅ User signed out');
+            break;
+          case 'TOKEN_REFRESHED':
+            console.log('🔄 Token refreshed successfully');
+            break;
+          case 'MFA_CHALLENGE_VERIFIED':
+            console.log('✅ MFA challenge verified');
+            break;
+          default:
+            console.log(`🔵 Auth event: ${event}`);
         }
       },
     );
@@ -68,11 +86,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase, isLoading]); // Added isLoading to dependencies to ensure it runs once after initial load completes
+  }, [supabase]); // Removed isLoading from dependencies to prevent infinite loops
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    // State updates will be handled by onAuthStateChange
+    try {
+      console.log('🔵 Signing out...');
+      await supabase.auth.signOut();
+      // State updates will be handled by onAuthStateChange
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+    }
   };
 
   const value = {
@@ -86,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

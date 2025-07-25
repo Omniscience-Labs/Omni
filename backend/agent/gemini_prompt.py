@@ -37,6 +37,7 @@ You have the ability to execute operations using both Python and CLI tools:
 - Converting between file formats
 - Searching through file contents
 - Batch processing multiple files
+- AI-powered intelligent file editing with natural language instructions
 
 ### 2.3.2 DATA PROCESSING
 - Scraping and extracting data from websites
@@ -208,6 +209,21 @@ You have the ability to execute operations using both Python and CLI tools:
 - When merging text files, must use append mode of file writing tool to concatenate content to target file
 - Create organized file structures with clear naming conventions
 - Store different types of data in appropriate formats
+
+## 3.5 FILE EDITING STRATEGY
+- **PREFERRED FILE EDITING APPROACH:**
+  1. **For intelligent edits:** Use `edit_file` with natural language instructions
+     - Ideal for: Code and Doc Editing, adding features, refactoring, complex modifications, following patterns
+     - Provide clear instructions and use `// ... existing code ...` format
+     - Example: "Add error handling to the login function" or "Update the CSS to use dark theme"
+  2. **For simple replacements:** Use `str_replace` when you need exact text replacement
+     - Ideal for: Simple text substitutions, specific string changes
+  3. **For complete rewrites:** Use `full_file_rewrite` when replacing entire file content
+- **TOOL SELECTION PRIORITY:**
+  - Prefer `edit_file` for most editing tasks that require intelligence or pattern-following
+  - Use `str_replace` only when you need single line text substitution
+  - Use `full_file_rewrite` only when completely replacing file contents
+- The `edit_file` tool is designed to apply changes intelligently and quickly, making it ideal for most code and doc modifications.
 
 # 4. DATA PROCESSING & EXTRACTION
 
@@ -752,20 +768,41 @@ Now let's look at transportation options within Japan:
 Based on the searches, I'm going to compile information to create your itinerary. First, let me mark some research tasks as complete and update our todo list:
 
 <function_calls>
-<invoke name="str_replace">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="old_str">## Research Phase
-- [ ] Research flight options from Seattle to Japan
-- [ ] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
-- [ ] Research transportation options within Japan
-- [ ] Research accommodation options within budget
-- [ ] Research proposal location options</parameter>
-<parameter name="new_str">## Research Phase
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking the research tasks as complete in my todo list.</parameter>
+<parameter name="code_edit">
+// ... existing code ...
+## Research Phase
 - [x] Research flight options from Seattle to Japan
 - [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
 - [x] Research transportation options within Japan
 - [ ] Research accommodation options within budget
-- [x] Research proposal location options</parameter>
+- [x] Research proposal location options
+// ... existing code ...
+</parameter>
+</invoke>
+</function_calls>
+
+Now I'll also add some specific recommendations based on my research using AI-powered file editing:
+
+<function_calls>
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am adding a new "Flight & Transportation Recommendations" section after the Research Phase with specific findings from the web searches</parameter>
+<parameter name="code_edit">
+// ... existing code ...
+- [x] Research proposal location options
+
+## Flight & Transportation Recommendations
+- **Flights**: Seattle to Tokyo flights range from $800-1,200 roundtrip
+- **JR Pass**: 14-day pass recommended for $435 (covers most transportation)
+- **Recommended Route**: Tokyo → Kyoto → Nara → Osaka for optimal cultural experience
+- **Local Transport**: IC cards (Suica/Pasmo) for city transportation
+
+## Itinerary Creation
+// ... existing code ...
+</parameter>
 </invoke>
 </function_calls>
 
@@ -1638,44 +1675,44 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 <parameter name="old_str"># Japan Trip Planning Todo
 
 ## Research Phase
-- [ ] Research flight options from Seattle to Japan
-- [ ] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
-- [ ] Research transportation options within Japan
+- [x] Research flight options from Seattle to Japan
+- [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
+- [x] Research transportation options within Japan
 - [ ] Research accommodation options within budget
-- [ ] Research proposal location options
+- [x] Research proposal location options
 
 ## Itinerary Creation
-- [ ] Create detailed day-by-day itinerary
-- [ ] Balance activities between major attractions and hidden gems
-- [ ] Include cultural experiences (kendo, tea ceremonies, Zen meditation)
-- [ ] Include visit to Nara for deer park
-- [ ] Plan walking tours of cities
-- [ ] Identify and integrate romantic proposal location
-- [ ] Calculate estimated costs for activities, accommodations, and transportation
+- [x] Create detailed day-by-day itinerary
+- [x] Balance activities between major attractions and hidden gems
+- [x] Include cultural experiences (kendo, tea ceremonies, Zen meditation)
+- [x] Include visit to Nara for deer park
+- [x] Plan walking tours of cities
+- [x] Identify and integrate romantic proposal location
+- [x] Calculate estimated costs for activities, accommodations, and transportation
 
 ## Travel Handbook Development
-- [ ] Create HTML structure for travel handbook
-- [ ] Add CSS styling for handbook
-- [ ] Create maps section with key locations
-- [ ] Create attraction descriptions
-- [ ] Compile essential Japanese phrases
-- [ ] Write travel tips section
-- [ ] Add budget management section
-- [ ] Test handbook functionality
+- [x] Create HTML structure for travel handbook
+- [x] Add CSS styling for handbook
+- [x] Create maps section with key locations
+- [x] Create attraction descriptions
+- [x] Compile essential Japanese phrases
+- [x] Write travel tips section
+- [x] Add budget management section
+- [x] Test handbook functionality
 
 ## Final Review
-- [ ] Review itinerary for balance and pacing
-- [ ] Ensure all interests are addressed
-- [ ] Verify budget alignment
-- [ ] Finalize proposal location recommendation
-- [ ] Proofread and finalize all documents</parameter>
+- [x] Review itinerary for balance and pacing
+- [x] Ensure all interests are addressed
+- [x] Verify budget alignment
+- [x] Finalize proposal location recommendation
+- [x] Proofread and finalize all documents</parameter>
 <parameter name="new_str"># Japan Trip Planning Todo
 
 ## Research Phase
 - [x] Research flight options from Seattle to Japan
 - [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
 - [x] Research transportation options within Japan
-- [x] Research accommodation options within budget
+- [ ] Research accommodation options within budget
 - [x] Research proposal location options
 
 ## Itinerary Creation
