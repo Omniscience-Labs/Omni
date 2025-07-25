@@ -297,6 +297,12 @@ Here are the XML tools available with examples:
         # Control whether we need to auto-continue due to tool_calls finish reason
         auto_continue = True
         auto_continue_count = 0
+        
+        # Shared state for continuous streaming across auto-continues
+        continuous_state = {
+            'accumulated_content': '',
+            'thread_run_id': None
+        }
 
         # Define inner function to handle a single run
         async def _run_once(temp_msg=None):
@@ -341,6 +347,18 @@ Here are the XML tools available with examples:
                     if temp_msg:
                         prepared_messages.append(temp_msg)
                         logger.debug("Added temporary message to the end of prepared messages")
+
+                # Add partial assistant content for auto-continue context (without saving to DB)
+                if auto_continue_count > 0 and continuous_state.get('accumulated_content'):
+                    partial_content = continuous_state.get('accumulated_content', '')
+                    
+                    # Create temporary assistant message with just the text content
+                    temporary_assistant_message = {
+                        "role": "assistant",
+                        "content": partial_content
+                    }
+                    prepared_messages.append(temporary_assistant_message)
+                    logger.info(f"Added temporary assistant message with {len(partial_content)} chars for auto-continue context")
 
                 # 4. Prepare tools for LLM call
                 openapi_tool_schemas = None
@@ -395,6 +413,9 @@ Here are the XML tools available with examples:
                             config=config,
                             prompt_messages=prepared_messages,
                             llm_model=llm_model,
+                            can_auto_continue=(native_max_auto_continues > 0),
+                            auto_continue_count=auto_continue_count,
+                            continuous_state=continuous_state
                         )
                     else:
                         # Fallback to non-streaming if response is not iterable
@@ -467,6 +488,14 @@ Here are the XML tools available with examples:
                                         auto_continue = False
                                         # Still yield the chunk to inform the client
 
+                                elif chunk.get('type') == 'status':
+                                    # if the finish reason is length, auto-continue
+                                    content = json.loads(chunk.get('content'))
+                                    if content.get('finish_reason') == 'length':
+                                        logger.info(f"Detected finish_reason='length', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
+                                        auto_continue = True
+                                        auto_continue_count += 1
+                                        continue
                                 # Otherwise just yield the chunk normally
                                 yield chunk
                         else:
@@ -480,7 +509,9 @@ Here are the XML tools available with examples:
                         if ("AnthropicException - Overloaded" in str(e)):
                             logger.error(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}", exc_info=True)
                             nonlocal llm_model
-                            llm_model = f"openrouter/{llm_model}"
+                            # Remove "-20250514" from the model name if present
+                            model_name_cleaned = llm_model.replace("-20250514", "")
+                            llm_model = f"openrouter/{model_name_cleaned}"
                             auto_continue = True
                             continue # Continue the loop
                         else:

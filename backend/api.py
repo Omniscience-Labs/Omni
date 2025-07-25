@@ -187,8 +187,10 @@ api_router.include_router(workflows_router, prefix="/workflows")
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
-from auth import phone_verification_supabase_mfa
-api_router.include_router(phone_verification_supabase_mfa.router)
+# MFA functionality moved to frontend
+
+from local_env_manager import api as local_env_manager_api
+api_router.include_router(local_env_manager_api.router)
 
 @api_router.get("/health")
 async def health_check():
