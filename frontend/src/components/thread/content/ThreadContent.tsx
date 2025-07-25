@@ -20,6 +20,7 @@ import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/
 import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
 import { ShowToolStream } from './ShowToolStream';
 import { PipedreamConnectButton } from './pipedream-connect-button';
+import { PipedreamUrlDetector } from './pipedream-url-detector';
 
 const HIDE_STREAMING_XML_TAGS = new Set([
     'execute-command',
@@ -122,9 +123,7 @@ export function renderMarkdownContent(
                 const textBeforeBlock = content.substring(lastIndex, match.index);
                 if (textBeforeBlock.trim()) {
                     contentParts.push(
-                        <Markdown key={`md-${lastIndex}`} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">
-                            {textBeforeBlock}
-                        </Markdown>
+                        <PipedreamUrlDetector key={`md-${lastIndex}`} content={textBeforeBlock} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
                     );
                 }
             }
@@ -147,7 +146,7 @@ export function renderMarkdownContent(
                     // Render ask tool content with attachment UI
                     contentParts.push(
                         <div key={`ask-${match.index}-${index}`} className="space-y-3">
-                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askText}</Markdown>
+                            <PipedreamUrlDetector content={askText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
@@ -163,7 +162,7 @@ export function renderMarkdownContent(
                     // Render complete tool content with attachment UI
                     contentParts.push(
                         <div key={`complete-${match.index}-${index}`} className="space-y-3">
-                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeText}</Markdown>
+                            <PipedreamUrlDetector content={completeText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
                             {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                         </div>
                     );
@@ -210,14 +209,12 @@ export function renderMarkdownContent(
             const remainingText = content.substring(lastIndex);
             if (remainingText.trim()) {
                 contentParts.push(
-                    <Markdown key={`md-${lastIndex}`} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">
-                        {remainingText}
-                    </Markdown>
+                    <PipedreamUrlDetector key={`md-${lastIndex}`} content={remainingText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
                 );
             }
         }
 
-        return contentParts.length > 0 ? contentParts : <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">{content}</Markdown>;
+        return contentParts.length > 0 ? contentParts : <PipedreamUrlDetector content={content} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />;
     }
 
     // Fall back to old XML format handling
@@ -228,7 +225,7 @@ export function renderMarkdownContent(
 
     // If no XML tags found, just return the full content as markdown
     if (!content.match(xmlRegex)) {
-        return <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">{content}</Markdown>;
+        return <PipedreamUrlDetector content={content} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />;
     }
 
     while ((match = xmlRegex.exec(content)) !== null) {
@@ -236,7 +233,7 @@ export function renderMarkdownContent(
         if (match.index > lastIndex) {
             const textBeforeTag = content.substring(lastIndex, match.index);
             contentParts.push(
-                <Markdown key={`md-${lastIndex}`} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none inline-block mr-1 break-words">{textBeforeTag}</Markdown>
+                <PipedreamUrlDetector key={`md-${lastIndex}`} content={textBeforeTag} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none inline-block mr-1 break-words" />
             );
         }
 
@@ -258,7 +255,7 @@ export function renderMarkdownContent(
             // Render <ask> tag content with attachment UI (using the helper)
             contentParts.push(
                 <div key={`ask-${match.index}`} className="space-y-3">
-                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{askContent}</Markdown>
+                    <PipedreamUrlDetector content={askContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
@@ -276,7 +273,7 @@ export function renderMarkdownContent(
             // Render <complete> tag content with attachment UI (using the helper)
             contentParts.push(
                 <div key={`complete-${match.index}`} className="space-y-3">
-                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3">{completeContent}</Markdown>
+                    <PipedreamUrlDetector content={completeContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
                     {renderAttachments(attachments, fileViewerHandler, sandboxId, project)}
                 </div>
             );
@@ -309,7 +306,7 @@ export function renderMarkdownContent(
     // Add text after the last tag
     if (lastIndex < content.length) {
         contentParts.push(
-            <Markdown key={`md-${lastIndex}`} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words">{content.substring(lastIndex)}</Markdown>
+            <PipedreamUrlDetector key={`md-${lastIndex}`} content={content.substring(lastIndex)} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
         );
     }
 
@@ -633,9 +630,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} className="flex justify-end">
                                                 <div className="flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
                                                     <div className="space-y-3 min-w-0 flex-1">
-                                                        {cleanContent && (
-                                                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{cleanContent}</Markdown>
-                                                        )}
+                                                                                                {cleanContent && (
+                                            <PipedreamUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
+                                        )}
 
                                                         {/* Use the helper function to render user attachments */}
                                                         {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
@@ -810,7 +807,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         return (
                                                                             <>
                                                                                 {textBeforeTag && (
-                                                                                    <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
+                                                                                    <PipedreamUrlDetector content={textBeforeTag} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
                                                                                 )}
                                                                                 {showCursor && (
                                                                                     <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />
@@ -873,7 +870,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                 ) : (
                                                                                     <>
                                                                                         {textBeforeTag && (
-                                                                                            <Markdown className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere">{textBeforeTag}</Markdown>
+                                                                                            <PipedreamUrlDetector content={textBeforeTag} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
                                                                                         )}
                                                                                         {showCursor && (
                                                                                             <span className="inline-block h-4 w-0.5 bg-primary ml-0.5 -mb-1 animate-pulse" />

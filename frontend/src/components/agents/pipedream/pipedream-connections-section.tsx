@@ -346,12 +346,12 @@ const AppTable: React.FC<AppTableProps> = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center overflow-hidden">
+          <div className="h-8 w-8 rounded-lg bg-muted border flex items-center justify-center overflow-hidden">
             {(appImage || iconData?.icon_url) ? (
               <img
                 src={appImage || iconData?.icon_url || ''}
                 alt={appName}
-                className="h-full w-full object-cover"
+                className="h-5 w-5 object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';

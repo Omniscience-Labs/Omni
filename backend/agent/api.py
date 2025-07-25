@@ -2215,14 +2215,14 @@ async def get_pipedream_tools_for_agent(
                 user_id=user_id,
                 version_id=version
             )
-            logger.info(f"Retrieved {len(enabled_tools)} enabled tools for version {version}: {enabled_tools}")
+            logger.info(f"[VERSION {version}] Retrieved {len(enabled_tools)} enabled tools: {enabled_tools}")
         else:
             enabled_tools = await pipedream_manager.get_enabled_tools_for_agent_profile(
                 agent_id=agent_id,
                 profile_id=profile_id,
                 user_id=user_id
             )
-            logger.info(f"Retrieved {len(enabled_tools)} enabled tools for current version: {enabled_tools}")
+            logger.info(f"[CURRENT VERSION] Retrieved {len(enabled_tools)} enabled tools: {enabled_tools}")
         
         try:
             servers = await pipedream_manager.discover_mcp_servers(

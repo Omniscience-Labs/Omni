@@ -53,6 +53,14 @@ export function getToolTitle(toolName: string): string {
     'complete': 'Task Complete',
     'execute-data-provider-call': 'Data Provider Call',
     'get-data-provider-endpoints': 'Data Endpoints',
+    'search-mcp-servers': 'Search MCP Servers',
+    'get-app-details': 'Get App Details',
+    'create-credential-profile': 'Create Credential Profile',
+    'connect-credential-profile': 'Connect Credential Profile',
+    'check-profile-connection': 'Check Profile Connection',
+    'configure-profile-for-agent': 'Configure Profile For Agent',
+    'get-credential-profiles': 'Get Credential Profiles',
+    'get-current-agent-config': 'Get Current Agent Config',
     'deploy': 'Deploy',
 
     'generic-tool': 'Tool',
@@ -1244,6 +1252,23 @@ export function getToolComponent(toolName: string): string {
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
 
+    // MCP operations
+    case 'search-mcp-servers':
+      return 'SearchMcpServersToolView';
+    case 'get-app-details':
+      return 'GetAppDetailsToolView';
+    case 'create-credential-profile':
+      return 'CreateCredentialProfileToolView';
+    case 'connect-credential-profile':
+      return 'ConnectCredentialProfileToolView';
+    case 'check-profile-connection':
+      return 'CheckProfileConnectionToolView';
+    case 'configure-profile-for-agent':
+      return 'ConfigureProfileForAgentToolView';
+    case 'get-credential-profiles':
+      return 'GetCredentialProfilesToolView';
+    case 'get-current-agent-config':
+      return 'GetCurrentAgentConfigToolView';
 
     //Deploy
     case 'deploy':

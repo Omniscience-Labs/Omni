@@ -2,6 +2,7 @@ import React from 'react';
 import { ExternalLink, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { usePipedreamAppIcon } from '@/hooks/react-query/pipedream/use-pipedream';
 
 interface PipedreamConnectButtonProps {
   url: string;
@@ -88,38 +89,52 @@ export const PipedreamConnectButton: React.FC<PipedreamConnectButtonProps> = ({
 }) => {
   const appSlug = providedAppSlug || extractAppSlug(url);
   const appName = appSlug ? formatAppName(appSlug) : 'Service';
+  
+  const { data: iconData } = usePipedreamAppIcon(appSlug || '', {
+    enabled: !!appSlug
+  });
 
   const handleConnect = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <Card className="my-3 border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
-      <CardContent className="p-4">
+    <Card className="my-3 bg-muted/80 border p-0 shadow-none">
+      <CardContent className='p-4'>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-              <Link2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="flex-shrink-0 w-10 h-10 bg-muted border rounded-lg flex items-center justify-center overflow-hidden">
+              {iconData?.icon_url ? (
+                <img
+                  src={iconData.icon_url}
+                  alt={`${appName} logo`}
+                  className="w-6 h-6 object-cover rounded"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'block';
+                  }}
+                />
+              ) : null}
+              <Link2 
+                className={`h-5 w-5 text-blue-600 dark:text-blue-400 ${iconData?.icon_url ? 'hidden' : 'block'}`} 
+              />
             </div>
             <div>
-              <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                🔗 Connect: Credential Profile
-              </h4>
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                Connect your {appName} account to enable integrations
+              <p className="text-sm font-semibold">
+                Connect Your {appName} Account
               </p>
             </div>
           </div>
           <Button 
             onClick={handleConnect}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            size="sm"
+            className='bg-blue-600 hover:bg-blue-700 text-white gap-2 flex-shrink-0'
           >
             Connect to {appName}
             <ExternalLink className="h-4 w-4" />
           </Button>
-        </div>
-        <div className="mt-3 text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-100 dark:bg-blue-900/30 p-2 rounded border">
-          Click the button above to securely connect your account
         </div>
       </CardContent>
     </Card>

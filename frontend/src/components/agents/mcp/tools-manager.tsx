@@ -216,7 +216,6 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
           <DialogDescription>
             {versionData ? (
               <div className="flex items-center gap-2 text-amber-600">
-                <Info className="h-4 w-4" />
                 <span>
                   Changes will make a new version of the agent.
                 </span>

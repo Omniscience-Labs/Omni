@@ -56,12 +56,12 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             configured_mcps = agent_config.get('configured_mcps', [])
             for mcp in configured_mcps:
-                enabled_tools = mcp.get('enabledTools', [])
+                enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 available_tools.extend(enabled_tools)
             
             custom_mcps = agent_config.get('custom_mcps', [])
             for mcp in custom_mcps:
-                enabled_tools = mcp.get('enabledTools', [])
+                enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 available_tools.extend(enabled_tools)
             
             seen = set()

@@ -58,6 +58,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                             }
                         }
                     },
+
                     "avatar": {
                         "type": "string",
                         "description": "Emoji to use as the agent's avatar."
@@ -135,27 +136,22 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         f"create workflows, set up triggers, and customize other aspects of Suna."
                     )
             
-            # Prepare fields for unified config
             update_fields = {}
             if name is not None:
                 update_fields["name"] = name
             if description is not None:
                 update_fields["description"] = description
                 
-            # Check if any configuration fields need to be updated
             config_changed = (system_prompt is not None or agentpress_tools is not None or 
                             configured_mcps is not None or avatar is not None or avatar_color is not None)
             
             if not update_fields and not config_changed:
                 return self.fail_response("No fields provided to update")
             
-            # Get current config
             current_config = current_agent.get('config', {})
             
-            # Extract current values from config
             current_system_prompt = system_prompt if system_prompt is not None else current_config.get('system_prompt', '')
             
-            # Handle agentpress tools
             if agentpress_tools is not None:
                 formatted_tools = {}
                 for tool_name, tool_config in agentpress_tools.items():
@@ -167,23 +163,28 @@ class AgentConfigTool(AgentBuilderBaseTool):
             else:
                 current_agentpress_tools = current_config.get('tools', {}).get('agentpress', {})
             
-            # Handle configured MCPs
+            current_configured_mcps = current_config.get('tools', {}).get('mcp', [])
             if configured_mcps is not None:
                 if isinstance(configured_mcps, str):
                     configured_mcps = json.loads(configured_mcps)
-                current_configured_mcps = configured_mcps
-            else:
-                current_configured_mcps = current_config.get('tools', {}).get('mcp', [])
+                
+                existing_mcps_by_name = {mcp.get('qualifiedName', ''): mcp for mcp in current_configured_mcps}
+                
+                for new_mcp in configured_mcps:
+                    qualified_name = new_mcp.get('qualifiedName', '')
+                    if qualified_name:
+                        existing_mcps_by_name[qualified_name] = new_mcp
+                    else:
+                        current_configured_mcps.append(new_mcp)
+                
+                current_configured_mcps = list(existing_mcps_by_name.values())
 
-            # Get custom MCPs from config
             current_custom_mcps = current_config.get('tools', {}).get('custom_mcp', [])
             
-            # Handle avatar from metadata
             current_metadata = current_config.get('metadata', {})
             current_avatar = avatar if avatar is not None else current_metadata.get('avatar')
             current_avatar_color = avatar_color if avatar_color is not None else current_metadata.get('avatar_color')
             
-            # Build the updated config
             unified_config = build_unified_config(
                 system_prompt=current_system_prompt,
                 agentpress_tools=current_agentpress_tools,
@@ -193,7 +194,6 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 avatar_color=current_avatar_color
             )
             
-            # Prepare final update data
             update_data = update_fields.copy()
             update_data["config"] = unified_config
                 

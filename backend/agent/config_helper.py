@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 from utils.logger import logger
 
+
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     agent_id = agent_data.get('agent_id', 'Unknown')
 
@@ -9,13 +10,10 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
     centrally_managed = metadata.get('centrally_managed', False)
     restrictions = metadata.get('restrictions', {})
     
-    # If version_data is provided, use it as the primary source (prioritize active version)
     if version_data:
         logger.info(f"Using active version data for agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
         
-        # Check if version_data has a config field (new format) or legacy fields
         if version_data.get('config'):
-            # New format: extract from config
             config = version_data['config'].copy()
             system_prompt = config.get('system_prompt', '')
             tools = config.get('tools', {})
@@ -23,19 +21,16 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             custom_mcps = tools.get('custom_mcp', [])
             agentpress_tools = tools.get('agentpress', {})
         else:
-            # Legacy format: use individual fields
             system_prompt = version_data.get('system_prompt', '')
             configured_mcps = version_data.get('configured_mcps', [])
             custom_mcps = version_data.get('custom_mcps', [])
             agentpress_tools = version_data.get('agentpress_tools', {})
         
-        # Handle Suna default agent special case
         if is_suna_default:
             from agent.suna.config import SunaConfig
             system_prompt = SunaConfig.get_system_prompt()
             agentpress_tools = SunaConfig.DEFAULT_TOOLS
         
-        # Build the final config structure
         config = {
             'agent_id': agent_data['agent_id'],
             'name': agent_data['name'],
@@ -57,18 +52,15 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         
         return config
     
-    # Use agent's config as primary source
     if agent_data.get('config'):
         logger.info(f"Using agent config for agent {agent_id}")
         config = agent_data['config'].copy()
         
-        # Handle Suna default agent special case
         if is_suna_default:
             from agent.suna.config import SunaConfig
             config['system_prompt'] = SunaConfig.get_system_prompt()
             config['tools']['agentpress'] = SunaConfig.DEFAULT_TOOLS
         
-        # Ensure all required fields are present
         config.update({
             'agent_id': agent_data['agent_id'],
             'name': agent_data['name'],
@@ -81,19 +73,16 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'restrictions': restrictions
         })
         
-        # Extract tools for backward compatibility
         tools = config.get('tools', {})
         config['configured_mcps'] = tools.get('mcp', [])
         config['custom_mcps'] = tools.get('custom_mcp', [])
         config['agentpress_tools'] = _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
         
-        # Extract avatar from database columns (not from config.metadata)
         config['avatar'] = agent_data.get('avatar')
         config['avatar_color'] = agent_data.get('avatar_color')
         
         return config
     
-    # If no config is found, this should not happen after migration
     logger.error(f"No config found for agent {agent_id} - this should not happen after migration")
     raise ValueError(f"No configuration found for agent {agent_id}")
 
@@ -107,9 +96,6 @@ def build_unified_config(
     avatar_color: Optional[str] = None,
     suna_metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """
-    Build a unified configuration object that follows the new config structure.
-    """
     simplified_tools = {}
     for tool_name, tool_config in agentpress_tools.items():
         if isinstance(tool_config, dict):
@@ -137,13 +123,9 @@ def build_unified_config(
 
 
 def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert simplified agentpress tools config to the format expected by agent runs.
-    """
     if not agentpress_config:
         return {}
     
-    # Convert boolean values to the expected format
     run_tools = {}
     for tool_name, enabled in agentpress_config.items():
         if isinstance(enabled, bool):
@@ -154,7 +136,6 @@ def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict
         elif isinstance(enabled, dict):
             run_tools[tool_name] = enabled
         else:
-            # Fallback for any other format
             run_tools[tool_name] = {
                 'enabled': bool(enabled),
                 'description': f"{tool_name} tool"
@@ -163,11 +144,7 @@ def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict
     return run_tools
 
 
-# Deprecated function - keeping for backward compatibility during transition
 def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    DEPRECATED: Use _extract_agentpress_tools_for_run instead.
-    """
     logger.warning("extract_tools_for_agent_run is deprecated, using config-based extraction")
     tools = config.get('tools', {})
     return _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
