@@ -426,13 +426,13 @@ class PipedreamManager:
             agentpress_tools=agentpress_tools,
             change_description=f"Updated {profile.app_name} tools"
         )
-        try:
-            update_result = await client.table('agents').update({
-                'custom_mcps': updated_custom_mcps,
-                'current_version_id': new_version['version_id']
-            }).eq('agent_id', agent_id).execute()
-        except Exception as e:
-            pass
+        update_result = await client.table('agents').update({
+            'custom_mcps': updated_custom_mcps,
+            'current_version_id': new_version['version_id']
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise ValueError("Failed to update agent configuration")
         
         return {
             'success': True,
