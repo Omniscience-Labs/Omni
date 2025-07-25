@@ -208,13 +208,7 @@ class TemplateInstallationService:
             'name': request.instance_name or f"{template.name} (from marketplace)",
             'description': template.description,
             'config': unified_config,
-            'system_prompt': system_prompt,
-            'configured_mcps': configured_mcps,
-            'custom_mcps': custom_mcps,
-            'agentpress_tools': template.agentpress_tools,
             'is_default': False,
-            'avatar': template.avatar,
-            'avatar_color': template.avatar_color,
             'version_count': 1
         }
         

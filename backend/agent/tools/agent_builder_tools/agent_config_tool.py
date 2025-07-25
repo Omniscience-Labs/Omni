@@ -58,6 +58,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                             }
                         }
                     },
+
                     "avatar": {
                         "type": "string",
                         "description": "Emoji to use as the agent's avatar."
@@ -135,53 +136,54 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         f"create workflows, set up triggers, and customize other aspects of Suna."
                     )
             
-            update_data = {}
+            update_fields = {}
             if name is not None:
-                update_data["name"] = name
+                update_fields["name"] = name
             if description is not None:
-                update_data["description"] = description
-            if system_prompt is not None:
-                update_data["system_prompt"] = system_prompt
+                update_fields["description"] = description
+                
+            config_changed = (system_prompt is not None or agentpress_tools is not None or 
+                            configured_mcps is not None or avatar is not None or avatar_color is not None)
+            
+            if not update_fields and not config_changed:
+                return self.fail_response("No fields provided to update")
+            
+            current_config = current_agent.get('config', {})
+            
+            current_system_prompt = system_prompt if system_prompt is not None else current_config.get('system_prompt', '')
+            
             if agentpress_tools is not None:
                 formatted_tools = {}
                 for tool_name, tool_config in agentpress_tools.items():
                     if isinstance(tool_config, dict):
-                        formatted_tools[tool_name] = {
-                            "enabled": tool_config.get("enabled", False),
-                            "description": tool_config.get("description", "")
-                        }
-                update_data["agentpress_tools"] = formatted_tools
+                        formatted_tools[tool_name] = tool_config.get("enabled", False)
+                    else:
+                        formatted_tools[tool_name] = bool(tool_config)
+                current_agentpress_tools = formatted_tools
+            else:
+                current_agentpress_tools = current_config.get('tools', {}).get('agentpress', {})
+            
+            current_configured_mcps = current_config.get('tools', {}).get('mcp', [])
             if configured_mcps is not None:
                 if isinstance(configured_mcps, str):
                     configured_mcps = json.loads(configured_mcps)
-                update_data["configured_mcps"] = configured_mcps
-            if avatar is not None:
-                update_data["avatar"] = avatar
-            if avatar_color is not None:
-                update_data["avatar_color"] = avatar_color
                 
-            if not update_data:
-                return self.fail_response("No fields provided to update")
-            
-            current_system_prompt = system_prompt if system_prompt is not None else current_agent.get('system_prompt', '')
-            current_agentpress_tools = update_data.get('agentpress_tools', current_agent.get('agentpress_tools', {}))
-            current_configured_mcps = configured_mcps if configured_mcps is not None else current_agent.get('configured_mcps', [])
+                existing_mcps_by_name = {mcp.get('qualifiedName', ''): mcp for mcp in current_configured_mcps}
+                
+                for new_mcp in configured_mcps:
+                    qualified_name = new_mcp.get('qualifiedName', '')
+                    if qualified_name:
+                        existing_mcps_by_name[qualified_name] = new_mcp
+                    else:
+                        current_configured_mcps.append(new_mcp)
+                
+                current_configured_mcps = list(existing_mcps_by_name.values())
 
-            raw_custom_mcps = current_agent.get('custom_mcps', [])
-            import re
-            sanitized_custom_mcps = []
-            for mcp in raw_custom_mcps:
-                headers = mcp.get('config', {}).get('headers', {})
-                slug_val = headers.get('x-pd-app-slug')
-                if isinstance(slug_val, str):
-                    match = re.match(r"AppSlug\(value='(.+)'\)", slug_val)
-                    if match:
-                        headers['x-pd-app-slug'] = match.group(1)
-                sanitized_custom_mcps.append(mcp)
-            current_custom_mcps = sanitized_custom_mcps
+            current_custom_mcps = current_config.get('tools', {}).get('custom_mcp', [])
             
-            current_avatar = avatar if avatar is not None else current_agent.get('avatar')
-            current_avatar_color = avatar_color if avatar_color is not None else current_agent.get('avatar_color')
+            current_metadata = current_config.get('metadata', {})
+            current_avatar = avatar if avatar is not None else current_metadata.get('avatar')
+            current_avatar_color = avatar_color if avatar_color is not None else current_metadata.get('avatar_color')
             
             unified_config = build_unified_config(
                 system_prompt=current_system_prompt,
@@ -192,10 +194,8 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 avatar_color=current_avatar_color
             )
             
+            update_data = update_fields.copy()
             update_data["config"] = unified_config
-            
-            if "custom_mcps" not in update_data:
-                update_data["custom_mcps"] = current_custom_mcps
                 
             result = await client.table('agents').update(update_data).eq('agent_id', self.agent_id).execute()
             
@@ -235,31 +235,51 @@ class AgentConfigTool(AgentBuilderBaseTool):
     )
     async def get_current_agent_config(self) -> ToolResult:
         try:
-            agent = await self._get_agent_data()
+            agent_data = await self._get_agent_data()
             
-            if not agent:
+            if not agent_data:
                 return self.fail_response("Agent not found")
             
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    from agent.versioning.facade import version_manager
+                    account_id = await self._get_current_account_id()
+                    version_dict = await version_manager.get_version(
+                        agent_id=self.agent_id,
+                        version_id=agent_data['current_version_id'],
+                        user_id=account_id
+                    )
+                    version_data = version_dict
+                except Exception as e:
+                    logger.warning(f"Failed to get version data for agent config tool: {e}")
+
+            from agent.config_helper import extract_agent_config
+            agent_config = extract_agent_config(agent_data, version_data)
+            
             config_summary = {
-                "agent_id": agent["agent_id"],
-                "name": agent.get("name", "Untitled Agent"),
-                "description": agent.get("description", "No description set"),
-                "system_prompt": agent.get("system_prompt", "No system prompt set"),
-                "avatar": agent.get("avatar", "🤖"),
-                "avatar_color": agent.get("avatar_color", "#6B7280"),
-                "agentpress_tools": agent.get("agentpress_tools", {}),
-                "configured_mcps": agent.get("configured_mcps", []),
-                "custom_mcps": agent.get("custom_mcps", []),
-                "created_at": agent.get("created_at"),
-                "updated_at": agent.get("updated_at")
+                "agent_id": agent_config["agent_id"],
+                "name": agent_config.get("name", "Untitled Agent"),
+                "description": agent_config.get("description", "No description set"),
+                "system_prompt": agent_config.get("system_prompt", "No system prompt set"),
+                "avatar": agent_config.get("avatar", "🤖"),
+                "avatar_color": agent_config.get("avatar_color", "#6B7280"),
+                "agentpress_tools": agent_config.get("agentpress_tools", {}),
+                "configured_mcps": agent_config.get("configured_mcps", []),
+                "custom_mcps": agent_config.get("custom_mcps", []),
+                "created_at": agent_data.get("created_at"),
+                "updated_at": agent_data.get("updated_at"),
+                "current_version": agent_config.get("version_name", "v1") if version_data else "No version data"
             }
             
             tools_count = len([t for t, cfg in config_summary["agentpress_tools"].items() if cfg.get("enabled")])
             mcps_count = len(config_summary["configured_mcps"])
             custom_mcps_count = len(config_summary["custom_mcps"])
             
+            summary_text = f"Agent '{config_summary['name']}' (version: {config_summary['current_version']}) has {tools_count} tools enabled, {mcps_count} MCP servers configured, and {custom_mcps_count} custom MCP integrations."
+            
             return self.success_response({
-                "summary": f"Agent '{config_summary['name']}' has {tools_count} tools enabled, {mcps_count} MCP servers configured, and {custom_mcps_count} custom MCP integrations.",
+                "summary": summary_text,
                 "configuration": config_summary
             })
             

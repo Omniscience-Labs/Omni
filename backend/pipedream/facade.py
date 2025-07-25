@@ -254,9 +254,10 @@ class PipedreamManager:
             except Exception as e:
                 pass
         
-        all_mcps = version_custom_mcps + agent_custom_mcps
-        
+        # Prioritize version MCPs, but ensure we get the right data
         pipedream_mcp = None
+        
+        # First, look in version custom MCPs (most current)
         for mcp in version_custom_mcps:
             mcp_type = mcp.get('type')
             mcp_config = mcp.get('config', {})
@@ -266,6 +267,7 @@ class PipedreamManager:
                 pipedream_mcp = mcp
                 break
 
+        # Fallback to agent custom MCPs only if not found in version
         if not pipedream_mcp:
             for mcp in agent_custom_mcps:
                 mcp_type = mcp.get('type')
@@ -279,7 +281,9 @@ class PipedreamManager:
         if not pipedream_mcp:
             return []
         
-        enabled_tools = pipedream_mcp.get('enabledTools', []) or pipedream_mcp.get('enabled_tools', [])
+        # Handle both naming conventions for enabled tools
+        enabled_tools = pipedream_mcp.get('enabledTools', pipedream_mcp.get('enabled_tools', []))
+        logger.info(f"[PROFILE {profile_id}] Found MCP in {'version' if pipedream_mcp in version_custom_mcps else 'agent'} data with {len(enabled_tools)} enabled tools: {enabled_tools}")
         return enabled_tools
 
     async def get_enabled_tools_for_agent_profile_version(
@@ -323,7 +327,9 @@ class PipedreamManager:
         if not pipedream_mcp:
             return []
         
-        enabled_tools = pipedream_mcp.get('enabledTools', []) or pipedream_mcp.get('enabled_tools', [])
+        # Handle both naming conventions for enabled tools
+        enabled_tools = pipedream_mcp.get('enabledTools', pipedream_mcp.get('enabled_tools', []))
+        logger.info(f"[VERSION {version_id}] [PROFILE {profile_id}] Found MCP with {len(enabled_tools)} enabled tools: {enabled_tools}")
         return enabled_tools
 
     async def update_agent_profile_tools(
@@ -369,21 +375,27 @@ class PipedreamManager:
             system_prompt = current_version_data.get('system_prompt', '')
             configured_mcps = current_version_data.get('configured_mcps', [])
             agentpress_tools = current_version_data.get('agentpress_tools', {})
-            original_custom_mcps = current_version_data.get('custom_mcps', [])
+            current_custom_mcps = current_version_data.get('custom_mcps', [])
         else:
             system_prompt = agent.get('system_prompt', '')
             configured_mcps = agent.get('configured_mcps', [])
             agentpress_tools = agent.get('agentpress_tools', {})
-            original_custom_mcps = agent.get('custom_mcps', [])
+            current_custom_mcps = agent.get('custom_mcps', [])
         
-        agent_custom_mcps = agent.get('custom_mcps', [])
-        updated_custom_mcps = copy.deepcopy(agent_custom_mcps)
+        updated_custom_mcps = copy.deepcopy(current_custom_mcps)
+        
+        for mcp in updated_custom_mcps:
+            if 'enabled_tools' in mcp and 'enabledTools' not in mcp:
+                mcp['enabledTools'] = mcp['enabled_tools']
+            elif 'enabledTools' not in mcp and 'enabled_tools' not in mcp:
+                mcp['enabledTools'] = []
 
         found_match = False
         for mcp in updated_custom_mcps:
             if (mcp.get('type') == 'pipedream' and 
                 mcp.get('config', {}).get('profile_id') == profile_id):                
                 mcp['enabledTools'] = enabled_tools
+                mcp['enabled_tools'] = enabled_tools
                 found_match = True
                 break
         
@@ -398,7 +410,8 @@ class PipedreamManager:
                     },
                     "profile_id": profile_id
                 },
-                "enabledTools": enabled_tools
+                "enabledTools": enabled_tools,
+                "enabled_tools": enabled_tools
             }
             updated_custom_mcps.append(new_mcp_config)
         
@@ -413,13 +426,13 @@ class PipedreamManager:
             agentpress_tools=agentpress_tools,
             change_description=f"Updated {profile.app_name} tools"
         )
-        try:
-            update_result = await client.table('agents').update({
-                'custom_mcps': updated_custom_mcps,
-                'current_version_id': new_version['version_id']
-            }).eq('agent_id', agent_id).execute()
-        except Exception as e:
-            pass
+        update_result = await client.table('agents').update({
+            'custom_mcps': updated_custom_mcps,
+            'current_version_id': new_version['version_id']
+        }).eq('agent_id', agent_id).execute()
+        
+        if not update_result.data:
+            raise ValueError("Failed to update agent configuration")
         
         return {
             'success': True,

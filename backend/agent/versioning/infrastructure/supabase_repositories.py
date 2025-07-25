@@ -19,26 +19,6 @@ class SupabaseVersionRepository(IVersionRepository):
             'agent_id': str(version.agent_id),
             'version_number': version.version_number.value,
             'version_name': version.version_name,
-            'system_prompt': version.system_prompt.value,
-            'configured_mcps': [
-                {
-                    'name': mcp.name,
-                    'type': mcp.type,
-                    'config': mcp.config,
-                    'enabledTools': mcp.enabled_tools
-                }
-                for mcp in version.configured_mcps
-            ],
-            'custom_mcps': [
-                {
-                    'name': mcp.name,
-                    'type': mcp.type,
-                    'config': mcp.config,
-                    'enabledTools': mcp.enabled_tools
-                }
-                for mcp in version.custom_mcps
-            ],
-            'agentpress_tools': version.tool_configuration.tools,
             'is_active': version.is_active,
             'created_at': version.created_at.isoformat(),
             'updated_at': version.updated_at.isoformat(),
@@ -178,12 +158,15 @@ class SupabaseVersionRepository(IVersionRepository):
         return result.count or 0
     
     def _to_entity(self, data: Dict[str, Any]) -> AgentVersion:
+        config = data.get('config', {})
+        tools = config.get('tools', {})
+        
         return AgentVersion(
             version_id=VersionId.from_string(data['version_id']),
             agent_id=AgentId.from_string(data['agent_id']),
             version_number=VersionNumber(data['version_number']),
             version_name=data['version_name'],
-            system_prompt=SystemPrompt(data['system_prompt']),
+            system_prompt=SystemPrompt(config.get('system_prompt', '')),
             configured_mcps=[
                 MCPConfiguration(
                     name=mcp['name'],
@@ -191,7 +174,7 @@ class SupabaseVersionRepository(IVersionRepository):
                     config=mcp.get('config', {}),
                     enabled_tools=mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 )
-                for mcp in data.get('configured_mcps', [])
+                for mcp in tools.get('mcp', [])
             ],
             custom_mcps=[
                 MCPConfiguration(
@@ -200,10 +183,10 @@ class SupabaseVersionRepository(IVersionRepository):
                     config=mcp.get('config', {}),
                     enabled_tools=mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 )
-                for mcp in data.get('custom_mcps', [])
+                for mcp in tools.get('custom_mcp', [])
             ],
             tool_configuration=ToolConfiguration(
-                tools=data.get('agentpress_tools', {})
+                tools=tools.get('agentpress', {})
             ),
             status=VersionStatus.ACTIVE if data.get('is_active') else VersionStatus.INACTIVE,
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),

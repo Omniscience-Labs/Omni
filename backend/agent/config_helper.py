@@ -1,28 +1,35 @@
 from typing import Dict, Any, Optional, List
 from utils.logger import logger
 
+
 def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     agent_id = agent_data.get('agent_id', 'Unknown')
-    
-    agent_has_config = bool(agent_data.get('config') and agent_data['config'] != {})
-    version_has_config = bool(version_data and version_data.get('config') and version_data['config'] != {})
-    
+
     metadata = agent_data.get('metadata', {})
     is_suna_default = metadata.get('is_suna_default', False)
     centrally_managed = metadata.get('centrally_managed', False)
     restrictions = metadata.get('restrictions', {})
     
-    if version_data and ('configured_mcps' in version_data or 'custom_mcps' in version_data or 'system_prompt' in version_data):
-        logger.info(f"Using version data from version manager for agent {agent_id}")
+    if version_data:
+        logger.info(f"Using active version data for agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
+        
+        if version_data.get('config'):
+            config = version_data['config'].copy()
+            system_prompt = config.get('system_prompt', '')
+            tools = config.get('tools', {})
+            configured_mcps = tools.get('mcp', [])
+            custom_mcps = tools.get('custom_mcp', [])
+            agentpress_tools = tools.get('agentpress', {})
+        else:
+            system_prompt = version_data.get('system_prompt', '')
+            configured_mcps = version_data.get('configured_mcps', [])
+            custom_mcps = version_data.get('custom_mcps', [])
+            agentpress_tools = version_data.get('agentpress_tools', {})
         
         if is_suna_default:
             from agent.suna.config import SunaConfig
             system_prompt = SunaConfig.get_system_prompt()
-            # For Suna agents, always use DEFAULT_TOOLS which is in the correct format for run.py
             agentpress_tools = SunaConfig.DEFAULT_TOOLS
-        else:
-            system_prompt = version_data.get('system_prompt', '')
-            agentpress_tools = version_data.get('agentpress_tools', {})
         
         config = {
             'agent_id': agent_data['agent_id'],
@@ -33,144 +40,51 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'current_version_id': agent_data.get('current_version_id'),
             'version_name': version_data.get('version_name', 'v1'),
             'system_prompt': system_prompt,
-            'configured_mcps': version_data.get('configured_mcps', []),
-            'custom_mcps': version_data.get('custom_mcps', []),
-            'agentpress_tools': agentpress_tools,
+            'configured_mcps': configured_mcps,
+            'custom_mcps': custom_mcps,
+            'agentpress_tools': _extract_agentpress_tools_for_run(agentpress_tools),
             'avatar': agent_data.get('avatar'),
             'avatar_color': agent_data.get('avatar_color'),
-            'tools': {
-                'agentpress': agentpress_tools,
-                'mcp': version_data.get('configured_mcps', []),
-                'custom_mcp': version_data.get('custom_mcps', [])
-            },
-            'metadata': {
-                'avatar': agent_data.get('avatar'),
-                'avatar_color': agent_data.get('avatar_color')
-            },
             'is_suna_default': is_suna_default,
             'centrally_managed': centrally_managed,
             'restrictions': restrictions
         }
+        
         return config
     
-    if version_data and version_data.get('config') and version_data['config'] != {}:
-        config = version_data['config'].copy()
-        config['agent_id'] = agent_data['agent_id']
-        config['name'] = agent_data['name']
-        config['description'] = agent_data.get('description')
-        config['is_default'] = agent_data.get('is_default', False)
-        config['account_id'] = agent_data.get('account_id')
-        config['current_version_id'] = agent_data.get('current_version_id')
-        config['version_name'] = version_data.get('version_name', 'v1')
+    if agent_data.get('config'):
+        logger.info(f"Using agent config for agent {agent_id}")
+        config = agent_data['config'].copy()
         
         if is_suna_default:
             from agent.suna.config import SunaConfig
             config['system_prompt'] = SunaConfig.get_system_prompt()
             config['tools']['agentpress'] = SunaConfig.DEFAULT_TOOLS
-            # For Suna agents, use DEFAULT_TOOLS directly as it's already in the correct format
-            config['agentpress_tools'] = SunaConfig.DEFAULT_TOOLS
-        else:
-            config['agentpress_tools'] = extract_tools_for_agent_run(config)
         
-        metadata = config.get('metadata', {})
-        config['avatar'] = metadata.get('avatar', agent_data.get('avatar'))
-        config['avatar_color'] = metadata.get('avatar_color', agent_data.get('avatar_color'))
+        config.update({
+            'agent_id': agent_data['agent_id'],
+            'name': agent_data['name'],
+            'description': agent_data.get('description'),
+            'is_default': agent_data.get('is_default', False),
+            'account_id': agent_data.get('account_id'),
+            'current_version_id': agent_data.get('current_version_id'),
+            'is_suna_default': is_suna_default,
+            'centrally_managed': centrally_managed,
+            'restrictions': restrictions
+        })
         
-        config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
-        config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
+        tools = config.get('tools', {})
+        config['configured_mcps'] = tools.get('mcp', [])
+        config['custom_mcps'] = tools.get('custom_mcp', [])
+        config['agentpress_tools'] = _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
         
-        config['is_suna_default'] = is_suna_default
-        config['centrally_managed'] = centrally_managed
-        config['restrictions'] = restrictions
-        
-        return config
-    
-    if agent_data.get('config') and agent_data['config'] != {}:
-        config = agent_data['config'].copy()
-        if 'tools' not in config:
-            config['tools'] = {
-                'agentpress': {},
-                'mcp': [],
-                'custom_mcp': []
-            }
-        if 'metadata' not in config:
-            config['metadata'] = {}
-            
-        config['agent_id'] = agent_data['agent_id']
-        config['name'] = agent_data['name']
-        config['description'] = agent_data.get('description')
-        config['is_default'] = agent_data.get('is_default', False)
-        config['account_id'] = agent_data.get('account_id')
-        config['current_version_id'] = agent_data.get('current_version_id')
-        
-        metadata = config.get('metadata', {})
-        config['avatar'] = metadata.get('avatar')
-        config['avatar_color'] = metadata.get('avatar_color')
-        
-        if is_suna_default:
-            from agent.suna.config import SunaConfig
-            config['agentpress_tools'] = SunaConfig.DEFAULT_TOOLS
-        else:
-            config['agentpress_tools'] = extract_tools_for_agent_run(config)
-        
-        config['configured_mcps'] = config.get('tools', {}).get('mcp', [])
-        config['custom_mcps'] = config.get('tools', {}).get('custom_mcp', [])
-        
-        config['is_suna_default'] = is_suna_default
-        config['centrally_managed'] = centrally_managed
-        config['restrictions'] = restrictions
+        config['avatar'] = agent_data.get('avatar')
+        config['avatar_color'] = agent_data.get('avatar_color')
         
         return config
     
-    source_data = version_data if version_data else agent_data
-    
-    if is_suna_default:
-        from agent.suna.config import SunaConfig
-        system_prompt = SunaConfig.get_system_prompt()
-        legacy_tools = SunaConfig.DEFAULT_TOOLS
-    else:
-        system_prompt = source_data.get('system_prompt', '')
-        legacy_tools = source_data.get('agentpress_tools', {})
-    
-    simplified_tools = {}
-    for tool_name, tool_config in legacy_tools.items():
-        if isinstance(tool_config, dict):
-            simplified_tools[tool_name] = tool_config.get('enabled', False)
-        elif isinstance(tool_config, bool):
-            simplified_tools[tool_name] = tool_config
-    
-    config = {
-        'agent_id': agent_data['agent_id'],
-        'name': agent_data['name'],
-        'description': agent_data.get('description'),
-        'system_prompt': system_prompt,
-        'tools': {
-            'agentpress': simplified_tools,
-            'mcp': source_data.get('configured_mcps', []),
-            'custom_mcp': source_data.get('custom_mcps', [])
-        },
-        'metadata': {
-            'avatar': agent_data.get('avatar'),
-            'avatar_color': agent_data.get('avatar_color')
-        },
-        'is_default': agent_data.get('is_default', False),
-        'account_id': agent_data.get('account_id'),
-        'current_version_id': agent_data.get('current_version_id'),
-        'avatar': agent_data.get('avatar'),
-        'avatar_color': agent_data.get('avatar_color'),
-        'is_suna_default': is_suna_default,
-        'centrally_managed': centrally_managed,
-        'restrictions': restrictions
-    }
-    
-    if version_data:
-        config['version_name'] = version_data.get('version_name', 'v1')
-    
-    config['configured_mcps'] = source_data.get('configured_mcps', [])
-    config['custom_mcps'] = source_data.get('custom_mcps', [])
-    config['agentpress_tools'] = legacy_tools
-    
-    return config
+    logger.error(f"No config found for agent {agent_id} - this should not happen after migration")
+    raise ValueError(f"No configuration found for agent {agent_id}")
 
 
 def build_unified_config(
@@ -208,22 +122,32 @@ def build_unified_config(
     return config
 
 
-def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
-    tools = config.get('tools', {})
-    agentpress = tools.get('agentpress', {})
+def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict[str, Any]:
+    if not agentpress_config:
+        return {}
     
-    legacy_format = {}
-    
-    for tool_name, enabled in agentpress.items():
+    run_tools = {}
+    for tool_name, enabled in agentpress_config.items():
         if isinstance(enabled, bool):
-            legacy_format[tool_name] = {
+            run_tools[tool_name] = {
                 'enabled': enabled,
-                'description': ''
+                'description': f"{tool_name} tool"
             }
         elif isinstance(enabled, dict):
-            legacy_format[tool_name] = enabled
+            run_tools[tool_name] = enabled
+        else:
+            run_tools[tool_name] = {
+                'enabled': bool(enabled),
+                'description': f"{tool_name} tool"
+            }
     
-    return legacy_format
+    return run_tools
+
+
+def extract_tools_for_agent_run(config: Dict[str, Any]) -> Dict[str, Any]:
+    logger.warning("extract_tools_for_agent_run is deprecated, using config-based extraction")
+    tools = config.get('tools', {})
+    return _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
 
 
 def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
