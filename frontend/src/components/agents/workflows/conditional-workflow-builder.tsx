@@ -31,6 +31,7 @@ export interface ConditionalStep {
   order: number;
   enabled?: boolean;
   hasIssues?: boolean;
+  position?: { x: number; y: number }; // Added for storing node positions
 }
 
 interface ConditionalWorkflowBuilderProps {

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { getConditionLabel } from '../utils';
 import { useReactFlow } from '@xyflow/react';
 
@@ -50,20 +51,36 @@ const ConditionNode = ({ id, data, selected }: any) => {
 
   return (
     <div 
-      className={`react-flow__node-condition group ${selected ? 'selected' : ''}`}
+      className={cn(
+        "react-flow__node-condition group",
+        selected && "selected"
+      )}
     >
-      <Handle type="target" position={Position.Top} isConnectable={false} />
-      <div className="condition-node-content flex-col relative">
-        <div className="flex items-center gap-2">
-          <GitBranch className="h-3 w-3" />
-          <span className="text-xs font-medium">{getConditionLabel(data.conditionType)}</span>
+      <Handle 
+        type="target" 
+        position={Position.Top} 
+        className="react-flow__handle"
+      />
+      <div className="condition-node-content">
+        <div className={cn(
+          "condition-type-badge",
+          data.conditionType === 'if' && "condition-type-if",
+          data.conditionType === 'elseif' && "condition-type-elseif",
+          data.conditionType === 'else' && "condition-type-else"
+        )}>
+          {getConditionLabel(data.conditionType)}
         </div>
         {data.expression && data.conditionType !== 'else' && (
-          <div className="text-[10px] mt-0.5 text-amber-800 truncate max-w-[100px]" title={data.expression}>
-            {data.expression}
+          <div className="condition-expression" title={data.expression}>
+            "{data.expression}"
           </div>
         )}
-        <div className="absolute -top-8 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white rounded shadow-sm p-1">
+        {!data.expression && data.conditionType !== 'else' && (
+          <div className="condition-expression text-muted-foreground">
+            No condition set
+          </div>
+        )}
+        <div className="node-actions">
           <Popover open={isEditOpen} onOpenChange={setIsEditOpen}>
             <PopoverTrigger asChild>
               <Button 
@@ -161,7 +178,11 @@ const ConditionNode = ({ id, data, selected }: any) => {
           </Popover>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} isConnectable={false} />
+      <Handle 
+        type="source" 
+        position={Position.Bottom} 
+        className="react-flow__handle"
+      />
     </div>
   );
 };
