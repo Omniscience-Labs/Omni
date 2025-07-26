@@ -13,32 +13,17 @@ import chardet
 
 import PyPDF2
 import docx
-import openpyxl
-import csv
-import json
-import yaml
-import xml.etree.ElementTree as ET
-from PIL import Image
-import pytesseract
 
 from utils.logger import logger
 from services.supabase import DBConnection
 
 class FileProcessor:
-    """Handles file upload, content extraction, and processing for agent knowledge bases."""
-    
     SUPPORTED_TEXT_EXTENSIONS = {
-        '.txt', '.md', '.py', '.js', '.ts', '.html', '.css', '.json', '.yaml', '.yml',
-        '.xml', '.csv', '.sql', '.sh', '.bat', '.ps1', '.dockerfile', '.gitignore',
-        '.env', '.ini', '.cfg', '.conf', '.log', '.rst', '.toml', '.lock'
+        '.txt'
     }
     
     SUPPORTED_DOCUMENT_EXTENSIONS = {
-        '.pdf', '.docx', '.xlsx', '.pptx'
-    }
-    
-    SUPPORTED_IMAGE_EXTENSIONS = {
-        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
+        '.pdf', '.docx'
     }
     
     MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -247,7 +232,7 @@ class FileProcessor:
         """Clone a Git repository and extract content from supported files."""
         
         if include_patterns is None:
-            include_patterns = ['*.py', '*.js', '*.ts', '*.md', '*.txt', '*.json', '*.yaml', '*.yml']
+            include_patterns = ['*.txt', '*.pdf', '*.docx']
         
         if exclude_patterns is None:
             exclude_patterns = ['node_modules/*', '.git/*', '*.pyc', '__pycache__/*', '.env', '*.log']
@@ -394,7 +379,7 @@ class FileProcessor:
                 shutil.rmtree(temp_dir, ignore_errors=True)
     
     async def _extract_file_content(self, file_content: bytes, filename: str, mime_type: str) -> str:
-        """Extract text content from various file types."""
+        """Extract text content from supported file types."""
         file_extension = Path(filename).suffix.lower()
         
         try:
@@ -410,33 +395,8 @@ class FileProcessor:
             elif file_extension == '.docx':
                 return self._extract_docx_content(file_content)
             
-            # Excel files
-            elif file_extension == '.xlsx':
-                return self._extract_xlsx_content(file_content)
-            
-            # Images (OCR)
-            elif file_extension in self.SUPPORTED_IMAGE_EXTENSIONS:
-                return self._extract_image_content(file_content)
-            
-            # JSON files
-            elif file_extension == '.json':
-                return self._extract_json_content(file_content)
-            
-            # YAML files
-            elif file_extension in {'.yaml', '.yml'}:
-                return self._extract_yaml_content(file_content)
-            
-            # XML files
-            elif file_extension == '.xml':
-                return self._extract_xml_content(file_content)
-            
-            # CSV files
-            elif file_extension == '.csv':
-                return self._extract_csv_content(file_content)
-            
             else:
-                # Try to extract as text if possible
-                return self._extract_text_content(file_content)
+                raise ValueError(f"Unsupported file format: {file_extension}. Only .txt, .pdf, and .docx files are supported.")
         
         except Exception as e:
             logger.error(f"Error extracting content from {filename}: {str(e)}")
@@ -479,77 +439,17 @@ class FileProcessor:
         raw_text = '\n'.join(text_content)
         return self._sanitize_content(raw_text)
     
-    def _extract_xlsx_content(self, file_content: bytes) -> str:
-        """Extract text from Excel files."""
-        
-        workbook = openpyxl.load_workbook(io.BytesIO(file_content))
-        text_content = []
-        
-        for sheet_name in workbook.sheetnames:
-            sheet = workbook[sheet_name]
-            text_content.append(f"Sheet: {sheet_name}")
-            
-            for row in sheet.iter_rows(values_only=True):
-                row_text = [str(cell) if cell is not None else '' for cell in row]
-                if any(row_text): 
-                    text_content.append('\t'.join(row_text))
-        
-        raw_text = '\n'.join(text_content)
-        return self._sanitize_content(raw_text)
+
     
-    def _extract_image_content(self, file_content: bytes) -> str:
-        """Extract text from images using OCR."""
-        
-        try:
-            image = Image.open(io.BytesIO(file_content))
-            raw_text = pytesseract.image_to_string(image)
-            return self._sanitize_content(raw_text)
-        except Exception as e:
-            return f"OCR extraction failed: {str(e)}"
+
     
-    def _extract_json_content(self, file_content: bytes) -> str:
-        """Extract and format JSON content."""
-        
-        text = self._extract_text_content(file_content)
-        try:
-            parsed = json.loads(text)
-            formatted = json.dumps(parsed, indent=2)
-            return self._sanitize_content(formatted)
-        except json.JSONDecodeError:
-            return self._sanitize_content(text)
+
     
-    def _extract_yaml_content(self, file_content: bytes) -> str:
-        """Extract and format YAML content."""
-        
-        text = self._extract_text_content(file_content)
-        try:
-            parsed = yaml.safe_load(text)
-            formatted = yaml.dump(parsed, default_flow_style=False)
-            return self._sanitize_content(formatted)
-        except yaml.YAMLError:
-            return self._sanitize_content(text)
+
     
-    def _extract_xml_content(self, file_content: bytes) -> str:
-        """Extract content from XML files."""
-        
-        try:
-            root = ET.fromstring(file_content)
-            xml_string = ET.tostring(root, encoding='unicode')
-            return self._sanitize_content(xml_string)
-        except ET.ParseError:
-            return self._extract_text_content(file_content)
+
     
-    def _extract_csv_content(self, file_content: bytes) -> str:
-        """Extract and format CSV content."""
-        
-        text = self._extract_text_content(file_content)
-        try:
-            reader = csv.reader(io.StringIO(text))
-            rows = list(reader)
-            formatted = '\n'.join(['\t'.join(row) for row in rows])
-            return self._sanitize_content(formatted)
-        except Exception:
-            return self._sanitize_content(text)
+
     
     def _sanitize_content(self, content: str) -> str:
         """Sanitize extracted content to remove problematic characters for PostgreSQL."""
@@ -576,18 +476,8 @@ class FileProcessor:
             return 'PyPDF2'
         elif file_extension == '.docx':
             return 'python-docx'
-        elif file_extension == '.xlsx':
-            return 'openpyxl'
-        elif file_extension in self.SUPPORTED_IMAGE_EXTENSIONS:
-            return 'pytesseract OCR'
-        elif file_extension == '.json':
-            return 'JSON parser'
-        elif file_extension in {'.yaml', '.yml'}:
-            return 'YAML parser'
-        elif file_extension == '.xml':
-            return 'XML parser'
-        elif file_extension == '.csv':
-            return 'CSV parser'
+        elif file_extension == '.txt':
+            return 'text encoding detection'
         else:
             return 'text encoding detection'
     
