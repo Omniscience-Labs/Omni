@@ -422,14 +422,20 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             if not profile:
                 return self.fail_response("Credential profile not found")
             
-            agent_result = await client.table('agents').select('custom_mcps').eq('agent_id', self.agent_id).execute()
+            agent_result = await client.table('agents').select('config').eq('agent_id', self.agent_id).execute()
             if agent_result.data:
-                current_custom_mcps = agent_result.data[0].get('custom_mcps', [])
+                current_config = agent_result.data[0].get('config', {})
+                current_tools = current_config.get('tools', {})
+                current_custom_mcps = current_tools.get('custom_mcp', [])
+                
                 updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != str(profile.profile_id)]
                 
                 if len(updated_mcps) != len(current_custom_mcps):
+                    current_tools['custom_mcp'] = updated_mcps
+                    current_config['tools'] = current_tools
+                    
                     await client.table('agents').update({
-                        'custom_mcps': updated_mcps
+                        'config': current_config
                     }).eq('agent_id', self.agent_id).execute()
             
             await self.pipedream_manager.delete_profile(account_id, profile_id)
