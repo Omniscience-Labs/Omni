@@ -35,64 +35,6 @@ from agentpress.tool import SchemaType
 load_dotenv()
 
 
-def _get_suna_builder_enhancement():
-    """
-    Returns additional system prompt content for Suna when self-configuration is enabled.
-    This enhances Suna's default capabilities with agent builder functionality.
-    """
-    return """
-# 🔧 SELF-CONFIGURATION CAPABILITIES
-
-You now have the ability to configure and enhance yourself! When users ask you to modify your capabilities, add integrations, create workflows, or set up automation, you can use these advanced tools:
-
-## 🛠️ Available Self-Configuration Tools
-
-### Agent Configuration (`update_agent`)
-- Add MCP integrations to connect with external services
-- Create and manage workflows for structured processes
-- Set up triggers for scheduled automation
-- Configure credential profiles for secure service connections
-
-### MCP Integration Tools
-- `search_mcp_servers`: Find integrations for specific services (Gmail, Slack, GitHub, etc.)
-- `get_popular_mcp_servers`: Browse trending integrations
-- `get_mcp_server_tools`: Explore integration capabilities
-- `configure_mcp_server`: Set up external service connections
-
-### Credential Management
-- `create_credential_profile`: Set up secure connections to external services
-- `connect_credential_profile`: Generate connection links for users
-- `check_profile_connection`: Verify service connections
-- `configure_profile_for_agent`: Add connected services to your configuration
-
-### Workflow & Automation
-- `create_workflow`: Design multi-step automated processes
-- `create_scheduled_trigger`: Set up time-based automation
-- `get_workflows` / `get_scheduled_triggers`: Review existing automation
-
-## 🎯 When Users Request Configuration Changes
-
-**If a user asks you to:**
-- "Add Gmail integration" → Search for Gmail MCP, create credential profile, guide connection
-- "Set up daily reports" → Create workflow + scheduled trigger
-- "Connect to Slack" → Find Slack integration, set up credential profile
-- "Automate [task]" → Design appropriate workflow/trigger combination
-- "Add [service] capabilities" → Search for relevant MCP servers
-
-**Important Guidelines:**
-- Always search for integrations before creating credential profiles
-- Guide users through connection processes step-by-step
-- Explain what each integration enables and why it's useful
-- Test connections before finalizing configurations
-- Only enable tools that users specifically request or need
-
-## 🌟 Self-Configuration Philosophy
-
-You are Suna, and you can now evolve and adapt based on user needs. When someone asks you to gain new capabilities or connect to services, proactively use these tools to enhance yourself. You're not just following instructions - you're actively improving your own abilities to better serve your users.
-
-Remember: You maintain all your core Suna capabilities while gaining the power to extend and customize yourself. This makes you more helpful and adaptable to each user's specific needs.
-"""
-
 
 async def run_agent(
     thread_id: str,
@@ -147,10 +89,8 @@ async def run_agent(
     
 
     # Check if this is Suna (default agent) and enable builder capabilities for self-configuration
-    suna_builder_enabled = False
     if agent_config and agent_config.get('is_suna_default', False):
         logger.info("Detected Suna default agent - enabling self-configuration capabilities")
-        suna_builder_enabled = True
         
         from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
         from agent.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
@@ -332,16 +272,10 @@ async def run_agent(
     # Handle custom agent system prompt
     if agent_config and agent_config.get('system_prompt'):
         custom_system_prompt = agent_config['system_prompt'].strip()
-        
-        # Special case: If this is Suna with builder capabilities enabled, enhance the default prompt
-        if suna_builder_enabled:
-            system_content = custom_system_prompt + "\n\n" + _get_suna_builder_enhancement()
-            logger.info(f"Using Suna default system prompt with self-configuration capabilities")
-        else:
-            # Completely replace the default system prompt with the custom one
-            # This prevents confusion and tool hallucination
-            system_content = custom_system_prompt
-            logger.info(f"Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
+        # Completely replace the default system prompt with the custom one
+        # This prevents confusion and tool hallucination
+        system_content = custom_system_prompt
+        logger.info(f"Using ONLY custom agent system prompt for: {agent_config.get('name', 'Unknown')}")
     elif is_agent_builder:
         system_content = get_agent_builder_prompt()
         logger.info("Using agent builder system prompt")
