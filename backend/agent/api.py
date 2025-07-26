@@ -291,19 +291,17 @@ async def start_agent(
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
-    thread_result = await client.table('threads').select('project_id', 'account_id', 'agent_id', 'metadata').eq('thread_id', thread_id).execute()
+    thread_result = await client.table('threads').select('project_id', 'account_id', 'metadata').eq('thread_id', thread_id).execute()
     if not thread_result.data:
         raise HTTPException(status_code=404, detail="Thread not found")
     thread_data = thread_result.data[0]
     project_id = thread_data.get('project_id')
     account_id = thread_data.get('account_id')
-    thread_agent_id = thread_data.get('agent_id')
     thread_metadata = thread_data.get('metadata', {})
 
     structlog.contextvars.bind_contextvars(
         project_id=project_id,
         account_id=account_id,
-        thread_agent_id=thread_agent_id,
         thread_metadata=thread_metadata,
     )
     
@@ -316,11 +314,10 @@ async def start_agent(
     
     # Load agent configuration with version support
     agent_config = None
-    effective_agent_id = body.agent_id or thread_agent_id  # Use provided agent_id or the one stored in thread
+    effective_agent_id = body.agent_id  # Optional agent ID from request
     
     logger.info(f"[AGENT LOAD] Agent loading flow:")
     logger.info(f"  - body.agent_id: {body.agent_id}")
-    logger.info(f"  - thread_agent_id: {thread_agent_id}")
     logger.info(f"  - effective_agent_id: {effective_agent_id}")
     
     if effective_agent_id:
@@ -359,7 +356,7 @@ async def start_agent(
                 logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) version {agent_config.get('version_name', 'v1')}")
             else:
                 logger.info(f"Using agent {agent_config['name']} ({effective_agent_id}) - no version data")
-            source = "request" if body.agent_id else "thread"
+            source = "request" if body.agent_id else "fallback"
     else:
         logger.info(f"[AGENT LOAD] No effective_agent_id, will try default agent")
     
@@ -399,8 +396,6 @@ async def start_agent(
     logger.info(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
     if agent_config:
         logger.info(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
-
-    if body.agent_id and body.agent_id != thread_agent_id and agent_config:
         logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
@@ -516,8 +511,8 @@ async def get_agent_run(agent_run_id: str, user_id: str = Depends(get_current_us
 
 @router.get("/thread/{thread_id}/agent", response_model=ThreadAgentResponse)
 async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
-    """Get the agent details for a specific thread. Since threads are now agent-agnostic, 
-    this returns the most recently used agent or the default agent."""
+    """Get the agent details for a specific thread. Since threads are fully agent-agnostic, 
+    this returns the most recently used agent from agent_runs only."""
     structlog.contextvars.bind_contextvars(
         thread_id=thread_id,
     )
@@ -525,21 +520,20 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
     client = await db.client
     
     try:
-        # Verify thread access and get thread data including agent_id
+        # Verify thread access and get thread data
         await verify_thread_access(client, thread_id, user_id)
-        thread_result = await client.table('threads').select('agent_id', 'account_id').eq('thread_id', thread_id).execute()
+        thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
         
         if not thread_result.data:
             raise HTTPException(status_code=404, detail="Thread not found")
         
         thread_data = thread_result.data[0]
-        thread_agent_id = thread_data.get('agent_id')
         account_id = thread_data.get('account_id')
         
         effective_agent_id = None
         agent_source = "none"
         
-        # First, try to get the most recently used agent from agent_runs
+        # Get the most recently used agent from agent_runs
         recent_agent_result = await client.table('agent_runs').select('agent_id', 'agent_version_id').eq('thread_id', thread_id).not_.is_('agent_id', 'null').order('created_at', desc=True).limit(1).execute()
         if recent_agent_result.data:
             effective_agent_id = recent_agent_result.data[0]['agent_id']
@@ -547,26 +541,12 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
             agent_source = "recent"
             logger.info(f"Found most recently used agent: {effective_agent_id} (version: {recent_version_id})")
         
-        # If no recent agent, fall back to thread default agent
-        elif thread_agent_id:
-            effective_agent_id = thread_agent_id
-            agent_source = "thread"
-            logger.info(f"Using thread default agent: {effective_agent_id}")
-        
-        # If no thread agent, try to get the default agent for the account
-        else:
-            default_agent_result = await client.table('agents').select('agent_id').eq('account_id', account_id).eq('is_default', True).execute()
-            if default_agent_result.data:
-                effective_agent_id = default_agent_result.data[0]['agent_id']
-                agent_source = "default"
-                logger.info(f"Using account default agent: {effective_agent_id}")
-        
-        # If still no agent found
+        # If no agent found in agent_runs
         if not effective_agent_id:
             return {
                 "agent": None,
                 "source": "none",
-                "message": "No agent configured for this thread. Threads are agent-agnostic - you can select any agent."
+                "message": "No agent has been used in this thread yet. Threads are agent-agnostic - use /agent/start to select an agent."
             }
         
         # Fetch the agent details

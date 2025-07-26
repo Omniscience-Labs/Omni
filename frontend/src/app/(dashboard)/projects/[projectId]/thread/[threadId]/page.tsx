@@ -129,9 +129,9 @@ export default function ThreadPage({
   const agent = threadAgentData?.agent;
   const workflowId = threadQuery.data?.metadata?.workflow_id;
 
-  // Set initial selected agent from thread data
+  // Set initial selected agent from thread data (most recently used agent)
   useEffect(() => {
-    if (threadAgentData?.agent && !selectedAgentId) {
+    if (threadAgentData?.agent && !selectedAgentId && threadAgentData.source === 'recent') {
       setSelectedAgentId(threadAgentData.agent.agent_id);
     }
   }, [threadAgentData, selectedAgentId]);
@@ -282,10 +282,10 @@ export default function ThreadPage({
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options: {
+          options: selectedAgentId ? {
             ...options,
             agent_id: selectedAgentId
-          }
+          } : options
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);

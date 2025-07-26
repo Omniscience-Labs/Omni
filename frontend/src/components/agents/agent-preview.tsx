@@ -213,7 +213,10 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
           try {
             const agentResult = await startAgentMutation.mutateAsync({
               threadId: result.thread_id,
-              options
+              options: {
+                ...options,
+                agent_id: agent.agent_id
+              }
             });
             console.log('[PREVIEW] Agent started manually:', agentResult);
             setAgentRunId(agentResult.agent_run_id);
@@ -280,7 +283,10 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options
+          options: {
+            ...options,
+            agent_id: agent.agent_id
+          }
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);

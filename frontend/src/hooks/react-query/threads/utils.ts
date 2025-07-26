@@ -14,7 +14,6 @@ export type Thread = {
       workflow_name?: string;
       workflow_run_name?: string;
       is_workflow_execution?: boolean;
-      agent_id?: string;
       is_agent_builder?: boolean;
       [key: string]: any;
     };

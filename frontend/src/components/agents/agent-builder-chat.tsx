@@ -312,7 +312,10 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
         const agentPromise = startAgentMutation.mutateAsync({
           threadId,
-          options
+          options: {
+            ...options,
+            agent_id: agentId
+          }
         });
 
         const results = await Promise.allSettled([messagePromise, agentPromise]);

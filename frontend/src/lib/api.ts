@@ -627,7 +627,7 @@ export const startAgent = async (
     enable_thinking?: boolean;
     reasoning_effort?: string;
     stream?: boolean;
-    agent_id?: string;
+    agent_id?: string; // Optional again
   },
 ): Promise<{ agent_run_id: string }> => {
   try {
@@ -656,7 +656,6 @@ export const startAgent = async (
       enable_thinking: false,
       reasoning_effort: 'low',
       stream: true,
-      agent_id: undefined,
     };
 
     const finalOptions = { ...defaultOptions, ...options };

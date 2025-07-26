@@ -400,9 +400,6 @@ class WorkflowExecutor:
             await self._validate_workflow_execution(account_id)
             
             await self._session_manager.start_sandbox(project_id)
-            execution_id = await self._create_workflow_execution_record(
-                workflow_id, agent_id, thread_id, workflow_input, trigger_result
-            )
             
             await self._create_workflow_message(thread_id, workflow_config, workflow_input)
             agent_run_id = await self._start_workflow_agent_execution(
@@ -411,7 +408,6 @@ class WorkflowExecutor:
             
             return {
                 "success": True,
-                "execution_id": execution_id,
                 "thread_id": thread_id,
                 "agent_run_id": agent_run_id,
                 "message": "Workflow execution started successfully"
@@ -439,22 +435,11 @@ class WorkflowExecutor:
         if workflow_config.get('steps'):
             steps_json = workflow_config['steps']
         else:
-            steps_json = await self._get_legacy_workflow_steps(workflow_id)
+            steps_json = []
         
         return workflow_config, steps_json
     
-    async def _get_legacy_workflow_steps(self, workflow_id: str) -> list:
-        client = await self._db.client
-        workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_id).order('step_order').execute()
-        
-        return [{
-            'name': step_data['name'],
-            'description': step_data.get('description'),
-            'type': step_data['type'],
-            'config': step_data.get('config', {}),
-            'conditions': step_data.get('conditions'),
-            'order': step_data['step_order']
-        } for step_data in workflow_steps_result.data]
+
     
     async def _get_agent_data(self, agent_id: str) -> Tuple[Dict[str, Any], str]:
         from agent.versioning.domain.entities import AgentId
@@ -547,26 +532,7 @@ class WorkflowExecutor:
         if not can_run:
             raise Exception(f"Billing check failed: {billing_message}")
     
-    async def _create_workflow_execution_record(
-        self,
-        workflow_id: str,
-        agent_id: str,
-        thread_id: str,
-        workflow_input: Dict[str, Any],
-        trigger_result: TriggerResult
-    ) -> str:
-        client = await self._db.client
-        
-        execution_result = await client.table('workflow_executions').insert({
-            'workflow_id': workflow_id,
-            'agent_id': agent_id,
-            'thread_id': thread_id,
-            'triggered_by': trigger_result.execution_variables.variables.get('triggered_by', 'trigger'),
-            'status': 'running',
-            'input_data': workflow_input
-        }).execute()
-        
-        return execution_result.data[0]['id']
+
     
     async def _create_workflow_message(
         self,

@@ -77,28 +77,6 @@ export function useKnowledgeBaseEntry(entryId: string) {
   });
 }
 
-export function useKnowledgeBaseContext(threadId: string, maxTokens = 4000) {
-  const { getHeaders } = useAuthHeaders();
-  
-  return useQuery({
-    queryKey: knowledgeBaseKeys.context(threadId),
-    queryFn: async () => {
-      const headers = await getHeaders();
-      const url = new URL(`${API_URL}/knowledge-base/threads/${threadId}/context`);
-      url.searchParams.set('max_tokens', maxTokens.toString());
-      
-      const response = await fetch(url.toString(), { headers });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to fetch knowledge base context');
-      }
-      
-      return await response.json();
-    },
-    enabled: !!threadId,
-  });
-}
 
 export function useCreateKnowledgeBaseEntry() {
   const queryClient = useQueryClient();

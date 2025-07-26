@@ -321,6 +321,7 @@ export const agentApi = {
       enable_thinking?: boolean;
       reasoning_effort?: string;
       stream?: boolean;
+      agent_id?: string; // Optional again
     }
   ): Promise<{ agent_run_id: string } | null> {
     const result = await backendApi.post(
