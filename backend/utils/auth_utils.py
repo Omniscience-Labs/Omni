@@ -11,12 +11,14 @@ import os
 DEEPAI_USER_ID = os.getenv('DEEPAI_USER_ID', '00000000-0000-0000-0000-000000000000')
 DEEPAI_API_KEY = os.getenv('DEEPAI_API_KEY', '00000000-0000-0000-0000-000000000000')
 
-def str_safe_compare(str1: str, str2: str) -> bool:
+def str_safe_compare(str1: str | None, str2: str | None) -> bool:
     """
     Compare two strings by first SHA256 hashing them and then comparing the hashes.
     This is a safe way to compare strings that are not known to be equal.
     """
     import hashlib
+    if str1 is None or str2 is None:
+        return False
     return hashlib.sha256(str1.encode()).hexdigest() == hashlib.sha256(str2.encode()).hexdigest()
 
 def is_deepai_user(user_id: str) -> bool:
