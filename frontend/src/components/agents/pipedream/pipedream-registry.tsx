@@ -414,7 +414,8 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
             queryClient.invalidateQueries({ queryKey: ['agent', currentAgentId] });
           }}
           versionData={effectiveVersionData}
-          versionId={versionId}
+          // Don't pass versionId for existing integrations - we want current configuration
+          versionId={undefined}
         />
       )}
     </div>

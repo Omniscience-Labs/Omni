@@ -34,6 +34,8 @@ from agentpress.tool import SchemaType
 
 load_dotenv()
 
+
+
 async def run_agent(
     thread_id: str,
     project_id: str,
@@ -86,6 +88,30 @@ async def run_agent(
         logger.info(f"Using custom tool configuration from agent")
     
 
+    # Check if this is Suna (default agent) and enable builder capabilities for self-configuration
+    if agent_config and agent_config.get('is_suna_default', False):
+        logger.info("Detected Suna default agent - enabling self-configuration capabilities")
+        
+        from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
+        from agent.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
+        from agent.tools.agent_builder_tools.credential_profile_tool import CredentialProfileTool
+        from agent.tools.agent_builder_tools.workflow_tool import WorkflowTool
+        from agent.tools.agent_builder_tools.trigger_tool import TriggerTool
+        from services.supabase import DBConnection
+        db = DBConnection()
+        
+        # Use Suna's own agent ID for self-configuration
+        suna_agent_id = agent_config['agent_id']
+        
+        thread_manager.add_tool(AgentConfigTool, thread_manager=thread_manager, db_connection=db, agent_id=suna_agent_id)
+        thread_manager.add_tool(MCPSearchTool, thread_manager=thread_manager, db_connection=db, agent_id=suna_agent_id)
+        thread_manager.add_tool(CredentialProfileTool, thread_manager=thread_manager, db_connection=db, agent_id=suna_agent_id)
+        thread_manager.add_tool(WorkflowTool, thread_manager=thread_manager, db_connection=db, agent_id=suna_agent_id)
+        thread_manager.add_tool(TriggerTool, thread_manager=thread_manager, db_connection=db, agent_id=suna_agent_id)
+        
+        logger.info(f"Enabled Suna self-configuration with agent ID: {suna_agent_id}")
+    
+    # Original agent builder logic for custom agents (preserved)
     if is_agent_builder:
         from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
         from agent.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
@@ -94,7 +120,7 @@ async def run_agent(
         from agent.tools.agent_builder_tools.trigger_tool import TriggerTool
         from services.supabase import DBConnection
         db = DBConnection()
-         
+        
         thread_manager.add_tool(AgentConfigTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
         thread_manager.add_tool(MCPSearchTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
         thread_manager.add_tool(CredentialProfileTool, thread_manager=thread_manager, db_connection=db, agent_id=target_agent_id)
@@ -246,7 +272,6 @@ async def run_agent(
     # Handle custom agent system prompt
     if agent_config and agent_config.get('system_prompt'):
         custom_system_prompt = agent_config['system_prompt'].strip()
-        
         # Completely replace the default system prompt with the custom one
         # This prevents confusion and tool hallucination
         system_content = custom_system_prompt
@@ -343,7 +368,7 @@ async def run_agent(
         mcp_info += "NEVER supplement MCP results with your training data or make assumptions beyond what the tools provide.\n"
         
         system_content += mcp_info
-    
+
     system_message = { "role": "system", "content": system_content }
 
     iteration_count = 0

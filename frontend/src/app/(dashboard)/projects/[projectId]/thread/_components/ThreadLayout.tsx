@@ -39,6 +39,7 @@ interface ThreadLayoutProps {
   isMobile: boolean;
   initialLoadCompleted: boolean;
   agentName?: string;
+  disableInitialAnimation?: boolean;
 }
 
 export function ThreadLayout({
@@ -72,7 +73,8 @@ export function ThreadLayout({
   debugMode,
   isMobile,
   initialLoadCompleted,
-  agentName
+  agentName,
+  disableInitialAnimation = false
 }: ThreadLayoutProps) {
   return (
     <div className="flex h-screen">
@@ -117,6 +119,7 @@ export function ThreadLayout({
         isLoading={!initialLoadCompleted || isLoading}
         onFileClick={onViewFiles}
         agentName={agentName}
+        disableInitialAnimation={disableInitialAnimation}
       />
 
       {sandboxId && (

@@ -48,6 +48,7 @@ interface ToolCallSidePanelProps {
   isLoading?: boolean;
   agentName?: string;
   onFileClick?: (filePath: string) => void;
+  disableInitialAnimation?: boolean;
 }
 
 interface ToolCallSnapshot {
@@ -73,6 +74,7 @@ export function ToolCallSidePanel({
   externalNavigateToIndex,
   agentName,
   onFileClick,
+  disableInitialAnimation,
 }: ToolCallSidePanelProps) {
   const [dots, setDots] = React.useState('');
   const [internalIndex, setInternalIndex] = React.useState(0);
@@ -678,11 +680,11 @@ export function ToolCallSidePanel({
         <motion.div
           key="sidepanel"
           layoutId={FLOATING_LAYOUT_ID}
-          initial={{ opacity: 0 }}
+          initial={disableInitialAnimation ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{
-            opacity: { duration: 0.15 },
+            opacity: { duration: disableInitialAnimation ? 0 : 0.15 },
             layout: {
               type: "spring",
               stiffness: 400,

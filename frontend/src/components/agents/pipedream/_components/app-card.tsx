@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Plus, Settings, Zap, Bot, ChevronDown, Star, CheckCircle, Eye, ExternalLink, Info } from 'lucide-react';
+import { Plus, Settings, Zap, Bot, ChevronDown, Star, CheckCircle, Eye, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCategoryEmoji } from '../utils';
 import type { AppCardProps } from '../types';
@@ -61,6 +61,14 @@ export const AppCard: React.FC<AppCardProps> = ({
   };
 
   const handleConnectClick = () => {
+    // Open the preview dialog instead of directly connecting
+    setIsDialogOpen(true);
+  };
+
+  const handleActualConnect = () => {
+    // Close the dialog and proceed with actual connection
+    setIsDialogOpen(false);
+    
     if (mode === 'simple' && onAppSelected) {
       onAppSelected({ app_slug: app.name_slug, app_name: app.name });
     } else if (onConnectApp) {
@@ -121,160 +129,13 @@ export const AppCard: React.FC<AppCardProps> = ({
               <h3 className="font-semibold text-base text-foreground truncate group-hover:text-primary transition-colors">
                 {app.name}
               </h3>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Badge variant="outline" className="text-xs cursor-pointer hover:bg-primary/10 transition-colors flex items-center gap-1">
-                    <Info className="h-4 w-4" />
-                    <span className="text-xs">Info</span>
-                  </Badge>
-                </DialogTrigger>
-                <DialogContent className="overflow-hidden max-w-4xl p-0 h-[600px]">
-                  <DialogTitle className='sr-only'>{app.name} Tools</DialogTitle>
-                  <div className="grid grid-cols-2 h-full">
-                    <div className="p-8 border-r bg-gradient-to-br from-background to-muted/20">
-                      <div className="flex flex-col h-full">
-                        <div className="text-start mb-4">
-                          <div className="mx-auto mb-6 relative">
-                            <div className="h-20 w-20 rounded-3xl border bg-muted flex items-center justify-center overflow-hidden">
-                              {(app.img_src || iconData?.icon_url) ? (
-                                <img
-                                  src={app.img_src || iconData?.icon_url}
-                                  alt={`${app.name} icon`}
-                                  className="h-12 w-12 object-cover rounded-lg"
-                                />
-                              ) : (
-                                <span className="font-bold text-2xl text-primary">
-                                  {app.name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <h2 className="text-2xl font-bold text-foreground mb-2">{app.name}</h2>
-                          <Badge variant="outline" className="mb-4 bg-muted">
-                            {tools.length} {tools.length === 1 ? 'Tool' : 'Tools'} Available
-                          </Badge>
-                        </div>
-                        <div className="mb-8 flex-1">
-                          <p className="text-muted-foreground text-sm leading-relaxed">
-                            {app.description}
-                          </p>
-                        </div>
-                        {isConnected && (
-                          <div className="mb-6">
-                            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                Connected ({connectedProfiles.length} profile{connectedProfiles.length !== 1 ? 's' : ''})
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        <div className="space-y-3">
-                          <Button
-                            size="lg"
-                            onClick={() => {
-                              setIsDialogOpen(false);
-                              handleConnectClick();
-                            }}
-                            className="w-full font-medium"
-                          >
-                            {mode === 'simple' ? (
-                              <>
-                                <Plus className="h-4 w-4" />
-                                Connect
-                              </>
-                            ) : mode === 'profile-only' ? (
-                              <>
-                                <Plus className="h-4 w-4" />
-                                {isConnected ? 'Add Profile' : 'Connect'}
-                              </>
-                            ) : (
-                              <>
-                                {isConnected ? (
-                                  <>
-                                    <Zap className="h-4 w-4" />
-                                    Add Tools
-                                  </>
-                                ) : (
-                                  <>
-                                    <Plus className="h-4 w-4" />
-                                    Connect
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col h-full">
-                      <div className="p-4 border-b bg-muted/30">
-                        <h3 className="text-lg font-semibold text-foreground">Available Tools</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {tools.length} tool{tools.length !== 1 ? 's' : ''} ready to integrate
-                        </p>
-                      </div>
-                      <ScrollArea className="flex-1 max-h-[500px]">
-                        <div className="p-4">
-                          {isToolsLoading ? (
-                            <div className="flex flex-col gap-2 items-center justify-center">
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                              <Skeleton className="h-12 w-full rounded-lg" />
-                            </div>
-                          ) : tools.length > 0 ? (
-                            <div className="space-y-2">
-                              {tools.map((tool, index) => (
-                                <Card 
-                                  key={tool.name} 
-                                  className="group p-4 rounded-xl transition-all duration-200"
-                                >
-                                  <CardHeader className='p-0'>
-                                    <CardTitle>
-                                      <div className='flex items-center gap-2'>
-                                        <div className=" flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                          <Zap className="h-4 w-4 text-primary" />
-                                        </div>
-                                        <div className='flex flex-col items-start'>
-                                          <p className="text-sm font-medium text-foreground">
-                                            {tool.name}
-                                          </p>
-                                          <p className="text-xs text-muted-foreground line-clamp-2 font-normal">
-                                            {tool.description}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </CardTitle>
-                                  </CardHeader>
-                                </Card>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center py-12">
-                              <div className="text-center">
-                                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                                  <Settings className="h-6 w-6 text-muted-foreground" />
-                                </div>
-                                <p className="text-sm text-muted-foreground">No tools available</p>
-                                <p className="text-xs text-muted-foreground mt-1">Check back later for updates</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
               {app.description}
             </p>
           </div>
         </div>
+
         {hasAgentTools && (
           <div className="mb-3">
             <div className="rounded-xl bg-muted py-2 border border">
@@ -318,7 +179,9 @@ export const AppCard: React.FC<AppCardProps> = ({
             </div>
           </div>
         )}
+
         <div className="flex-1" />
+        
         <div className="mt-auto">
           <Button
             size="sm"
@@ -354,6 +217,147 @@ export const AppCard: React.FC<AppCardProps> = ({
           </Button>
         </div>
       </CardContent>
+
+      {/* Preview Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="overflow-hidden max-w-4xl p-0 h-[600px]">
+          <DialogTitle className='sr-only'>{app.name} Tools</DialogTitle>
+          <div className="grid grid-cols-2 h-full">
+            <div className="p-8 border-r bg-gradient-to-br from-background to-muted/20">
+              <div className="flex flex-col h-full">
+                <div className="text-start mb-4">
+                  <div className="mx-auto mb-6 relative">
+                    <div className="h-20 w-20 rounded-3xl border bg-muted flex items-center justify-center overflow-hidden">
+                      {(app.img_src || iconData?.icon_url) ? (
+                        <img
+                          src={app.img_src || iconData?.icon_url}
+                          alt={`${app.name} icon`}
+                          className="h-12 w-12 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <span className="font-bold text-2xl text-primary">
+                          {app.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">{app.name}</h2>
+                  <Badge variant="outline" className="mb-4 bg-muted">
+                    {tools.length} {tools.length === 1 ? 'Tool' : 'Tools'} Available
+                  </Badge>
+                </div>
+                <div className="mb-8 flex-1">
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {app.description}
+                  </p>
+                </div>
+                {isConnected && (
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                        Connected ({connectedProfiles.length} profile{connectedProfiles.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <Button
+                    size="lg"
+                    onClick={handleActualConnect}
+                    className="w-full font-medium"
+                  >
+                    {mode === 'simple' ? (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Connect
+                      </>
+                    ) : mode === 'profile-only' ? (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        {isConnected ? 'Add Profile' : 'Connect'}
+                      </>
+                    ) : (
+                      <>
+                        {isConnected ? (
+                          <>
+                            <Zap className="h-4 w-4" />
+                            Add Tools
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4" />
+                            Connect
+                          </>
+                        )}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col h-full">
+              <div className="p-4 border-b bg-muted/30">
+                <h3 className="text-lg font-semibold text-foreground">Available Tools</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {tools.length} tool{tools.length !== 1 ? 's' : ''} ready to integrate
+                </p>
+              </div>
+              <ScrollArea className="flex-1 max-h-[500px]">
+                <div className="p-4">
+                  {isToolsLoading ? (
+                    <div className="flex flex-col gap-2 items-center justify-center">
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-lg" />
+                    </div>
+                  ) : tools.length > 0 ? (
+                    <div className="space-y-2">
+                      {tools.map((tool, index) => (
+                        <Card 
+                          key={tool.name} 
+                          className="group p-4 rounded-xl transition-all duration-200"
+                        >
+                          <CardHeader className='p-0'>
+                            <CardTitle>
+                              <div className='flex items-center gap-2'>
+                                <div className=" flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                  <Zap className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className='flex flex-col items-start'>
+                                  <p className="text-sm font-medium text-foreground">
+                                    {tool.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 font-normal">
+                                    {tool.description}
+                                  </p>
+                                </div>
+                              </div>
+                            </CardTitle>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                          <Settings className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">No tools available</p>
+                        <p className="text-xs text-muted-foreground mt-1">Check back later for updates</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

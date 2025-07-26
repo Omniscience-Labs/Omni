@@ -27,7 +27,7 @@ class CustomMCPHandler:
     async def _initialize_single_custom_mcp(self, config: Dict[str, Any]):
         custom_type = config.get('customType', 'sse')
         server_config = config.get('config', {})
-        enabled_tools = config.get('enabledTools', [])
+        enabled_tools = config.get('enabledTools', config.get('enabled_tools', []))
         server_name = config.get('name', 'Unknown')
         
         logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")

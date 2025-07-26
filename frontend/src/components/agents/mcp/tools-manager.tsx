@@ -40,6 +40,7 @@ interface BaseToolsManagerProps {
   };
   saveMode?: 'direct' | 'callback';
   versionId?: string;
+  initialEnabledTools?: string[];
 }
 
 interface PipedreamToolsManagerProps extends BaseToolsManagerProps {
@@ -58,7 +59,7 @@ interface CustomToolsManagerProps extends BaseToolsManagerProps {
 type ToolsManagerProps = PipedreamToolsManagerProps | CustomToolsManagerProps;
 
 export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
-  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct', versionId } = props;
+  const { agentId, open, onOpenChange, onToolsUpdate, mode, versionData, saveMode = 'direct', versionId, initialEnabledTools } = props;
   const updatePipedreamTools = useUpdatePipedreamToolsForAgent();
   
   const pipedreamResult = usePipedreamToolsData(
@@ -91,14 +92,25 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
   React.useEffect(() => {
     if (data?.tools) {
+      console.log('[ToolsManager] API data received:', {
+        tools: data.tools,
+        initialEnabledTools,
+        mode,
+        data
+      });
+      
       const toolsMap: Record<string, boolean> = {};
       data.tools.forEach((tool: { name: string; enabled: boolean }) => {
         toolsMap[tool.name] = tool.enabled;
+        console.log(`[ToolsManager] Tool ${tool.name}: using API enabled=${tool.enabled}`);
       });
+      
+      console.log('[ToolsManager] Final toolsMap:', toolsMap);
+      console.log('[ToolsManager] Setting localTools to:', toolsMap);
       setLocalTools(toolsMap);
       setHasChanges(false);
     }
-  }, [data]);
+  }, [data, initialEnabledTools]);
 
   const enabledCount = useMemo(() => {
     return Object.values(localTools).filter(Boolean).length;
@@ -115,7 +127,11 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
       const updated = { ...prev, [toolName]: newValue };
       const comparisonState: Record<string, boolean> = {};
       data?.tools?.forEach((tool: any) => {
-        comparisonState[tool.name] = tool.enabled;
+        if (initialEnabledTools && initialEnabledTools.length > 0) {
+          comparisonState[tool.name] = initialEnabledTools.includes(tool.name);
+        } else {
+          comparisonState[tool.name] = tool.enabled;
+        }
       });
       const hasChanges = Object.keys(updated).some(key => updated[key] !== comparisonState[key]);
       setHasChanges(hasChanges);
@@ -160,12 +176,15 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
   const handleCancel = () => {
     if (data?.tools) {
-      const serverState: Record<string, boolean> = {};
+      const resetState: Record<string, boolean> = {};
       data.tools.forEach((tool: any) => {
-        serverState[tool.name] = tool.enabled;
+        if (initialEnabledTools && initialEnabledTools.length > 0) {
+          resetState[tool.name] = initialEnabledTools.includes(tool.name);
+        } else {
+          resetState[tool.name] = tool.enabled;
+        }
       });
-      
-      setLocalTools(serverState);
+      setLocalTools(resetState);
       setHasChanges(false);
     }
   };
@@ -216,7 +235,6 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
           <DialogDescription>
             {versionData ? (
               <div className="flex items-center gap-2 text-amber-600">
-                <Info className="h-4 w-4" />
                 <span>
                   Changes will make a new version of the agent.
                 </span>

@@ -53,6 +53,14 @@ export function getToolTitle(toolName: string): string {
     'complete': 'Task Complete',
     'execute-data-provider-call': 'Data Provider Call',
     'get-data-provider-endpoints': 'Data Endpoints',
+    'search-mcp-servers': 'Search MCP Servers',
+    'get-app-details': 'Get App Details',
+    'create-credential-profile': 'Create Credential Profile',
+    'connect-credential-profile': 'Connect Credential Profile',
+    'check-profile-connection': 'Check Profile Connection',
+    'configure-profile-for-agent': 'Configure Profile For Agent',
+    'get-credential-profiles': 'Get Credential Profiles',
+    'get-current-agent-config': 'Get Current Agent Config',
     'deploy': 'Deploy',
 
     'generic-tool': 'Tool',
@@ -327,10 +335,12 @@ export function extractFilePath(content: string | object | undefined | null): st
       if ('content' in content && typeof content.content === 'string') {
         // Look for XML tags in the content string
         const xmlFilePathMatch =
-          content.content.match(/<(?:create-file|delete-file|full-file-rewrite|str-replace)[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+          content.content.match(/<(?:create-file|delete-file|full-file-rewrite|str-replace|edit-file)[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+          content.content.match(/<edit-file[^>]*\s+target_file=["']([\s\S]*?)["']/i) ||
           content.content.match(/<delete[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
           content.content.match(/<delete-file[^>]*>([^<]+)<\/delete-file>/i) ||
-          content.content.match(/<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']+)/i);
+          content.content.match(/<(?:create-file|delete-file|full-file-rewrite|edit-file)\s+file_path=["']([^"']+)/i) ||
+          content.content.match(/<edit-file\s+target_file=["']([^"']+)/i);
         if (xmlFilePathMatch) {
           return cleanFilePath(xmlFilePathMatch[1]);
         }
@@ -341,11 +351,19 @@ export function extractFilePath(content: string | object | undefined | null): st
         return cleanFilePath(content.file_path as string);
       }
       
+      // Check for direct target_file property (edit-file tool)
+      if ('target_file' in content) {
+        return cleanFilePath(content.target_file as string);
+      }
+      
       // Check for arguments.file_path
       if ('arguments' in content && content.arguments && typeof content.arguments === 'object') {
         const args = content.arguments as any;
         if (args.file_path) {
           return cleanFilePath(args.file_path);
+        }
+        if (args.target_file) {
+          return cleanFilePath(args.target_file);
         }
       }
     } catch (e) {
@@ -379,11 +397,13 @@ export function extractFilePath(content: string | object | undefined | null): st
 
   // Look for file_path in XML-like tags (including incomplete ones for streaming)
   const xmlFilePathMatch =
-    contentStr.match(/<(?:create-file|delete-file|full-file-rewrite|str-replace)[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+    contentStr.match(/<(?:create-file|delete-file|full-file-rewrite|str-replace|edit-file)[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
+    contentStr.match(/<edit-file[^>]*\s+target_file=["']([\s\S]*?)["']/i) ||
     contentStr.match(/<delete[^>]*\s+file_path=["']([\s\S]*?)["']/i) ||
     contentStr.match(/<delete-file[^>]*>([^<]+)<\/delete-file>/i) ||
     // Handle incomplete tags during streaming
-    contentStr.match(/<(?:create-file|delete-file|full-file-rewrite)\s+file_path=["']([^"']+)/i);
+    contentStr.match(/<(?:create-file|delete-file|full-file-rewrite|edit-file)\s+file_path=["']([^"']+)/i) ||
+    contentStr.match(/<edit-file\s+target_file=["']([^"']+)/i);
   if (xmlFilePathMatch) {
     return cleanFilePath(xmlFilePathMatch[1]);
   }
@@ -457,7 +477,7 @@ export function extractStrReplaceContent(content: string | object | undefined | 
 // Helper to extract file content from create-file or file-rewrite
 export function extractFileContent(
   content: string | object | undefined | null,
-  toolType: 'create-file' | 'full-file-rewrite',
+  toolType: 'create-file' | 'full-file-rewrite' | 'edit-file',
 ): string | null {
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
@@ -475,7 +495,7 @@ export function extractFileContent(
       }
       
       // Fall back to old format
-      const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+      const tagName = toolType === 'create-file' ? 'create-file' : toolType === 'edit-file' ? 'edit-file' : 'full-file-rewrite';
       const fileContentMatch = parsedContent.content.match(
         new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
       );
@@ -496,7 +516,7 @@ export function extractFileContent(
   }
 
   // Direct regex search in the content string (old format)
-  const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+  const tagName = toolType === 'create-file' ? 'create-file' : toolType === 'edit-file' ? 'edit-file' : 'full-file-rewrite';
   const fileContentMatch = contentStr.match(
     new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
   );
@@ -1225,6 +1245,7 @@ export function getToolComponent(toolName: string): string {
     case 'delete-file':
     case 'full-file-rewrite':
     case 'read-file':
+    case 'edit-file':
       return 'FileOperationToolView';
 
     // String operations
@@ -1244,6 +1265,23 @@ export function getToolComponent(toolName: string): string {
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
 
+    // MCP operations
+    case 'search-mcp-servers':
+      return 'SearchMcpServersToolView';
+    case 'get-app-details':
+      return 'GetAppDetailsToolView';
+    case 'create-credential-profile':
+      return 'CreateCredentialProfileToolView';
+    case 'connect-credential-profile':
+      return 'ConnectCredentialProfileToolView';
+    case 'check-profile-connection':
+      return 'CheckProfileConnectionToolView';
+    case 'configure-profile-for-agent':
+      return 'ConfigureProfileForAgentToolView';
+    case 'get-credential-profiles':
+      return 'GetCredentialProfilesToolView';
+    case 'get-current-agent-config':
+      return 'GetCurrentAgentConfigToolView';
 
     //Deploy
     case 'deploy':
@@ -1330,12 +1368,12 @@ export function normalizeContentToString(content: string | object | undefined | 
 // Helper function to extract file content for streaming (handles incomplete XML)
 export function extractStreamingFileContent(
   content: string | object | undefined | null,
-  toolType: 'create-file' | 'full-file-rewrite',
+  toolType: 'create-file' | 'full-file-rewrite' | 'edit-file',
 ): string | null {
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
 
-  const tagName = toolType === 'create-file' ? 'create-file' : 'full-file-rewrite';
+  const tagName = toolType === 'create-file' ? 'create-file' : toolType === 'edit-file' ? 'edit-file' : 'full-file-rewrite';
   
   // First check if content is already a parsed object (new format)
   if (typeof content === 'object' && content !== null) {

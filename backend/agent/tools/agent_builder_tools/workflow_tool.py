@@ -14,13 +14,25 @@ class WorkflowTool(AgentBuilderBaseTool):
     async def _get_available_tools_for_agent(self) -> List[str]:
         try:
             client = await self.db.client
-            
-            agent_result = await client.table('agents').select('*, agent_versions!current_version_id(*)').eq('agent_id', self.agent_id).execute()
+
+            agent_result = await client.table('agents').select('*').eq('agent_id', self.agent_id).execute()
             if not agent_result.data:
                 return []
             
             agent_data = agent_result.data[0]
-            version_data = agent_data.get('agent_versions')
+            version_data = None
+            if agent_data.get('current_version_id'):
+                try:
+                    from agent.versioning.facade import version_manager
+                    account_id = await self._get_current_account_id()
+                    version_dict = await version_manager.get_version(
+                        agent_id=self.agent_id,
+                        version_id=agent_data['current_version_id'],
+                        user_id=account_id
+                    )
+                    version_data = version_dict
+                except Exception as e:
+                    logger.warning(f"Failed to get version data for workflow tool: {e}")
             
             agent_config = extract_agent_config(agent_data, version_data)
             
@@ -28,7 +40,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             tool_mapping = {
                 'sb_shell_tool': ['execute_command'],
-                'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
+                'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file', 'edit_file'],
                 'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
                 'sb_vision_tool': ['see_image'],
                 'sb_deploy_tool': ['deploy'],
@@ -44,12 +56,12 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             configured_mcps = agent_config.get('configured_mcps', [])
             for mcp in configured_mcps:
-                enabled_tools = mcp.get('enabledTools', [])
+                enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 available_tools.extend(enabled_tools)
             
             custom_mcps = agent_config.get('custom_mcps', [])
             for mcp in custom_mcps:
-                enabled_tools = mcp.get('enabledTools', [])
+                enabled_tools = mcp.get('enabledTools', mcp.get('enabled_tools', []))
                 available_tools.extend(enabled_tools)
             
             seen = set()

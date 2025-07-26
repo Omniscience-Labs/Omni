@@ -19,12 +19,23 @@ export const useCustomMCPToolsData = (agentId: string, mcpConfig: any) => {
   const { data, isLoading, error, refetch } = useQuery<CustomMCPToolsResponse>({
     queryKey: ['custom-mcp-tools', agentId, mcpConfig?.url],
     queryFn: async () => {
+      console.log('[useCustomMCPToolsData] Making API request with config:', {
+        agentId,
+        mcpConfig,
+        url: mcpConfig?.url,
+        type: mcpConfig?.type,
+        headers: mcpConfig?.headers
+      });
       const response = await backendApi.get(`/agents/${agentId}/custom-mcp-tools`, {
         headers: {
           'X-MCP-URL': mcpConfig.url,
           'X-MCP-Type': mcpConfig.type || 'sse',
           ...(mcpConfig.headers ? { 'X-MCP-Headers': JSON.stringify(mcpConfig.headers) } : {})
         }
+      });
+      console.log('[useCustomMCPToolsData] API response received:', {
+        response: response.data,
+        tools: response.data?.tools
       });
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch custom MCP tools');

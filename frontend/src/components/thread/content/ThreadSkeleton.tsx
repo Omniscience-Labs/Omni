@@ -1,5 +1,7 @@
 import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChatInput } from '@/components/thread/chat-input/chat-input';
+import { cn } from '@/lib/utils';
 
 interface ThreadSkeletonProps {
     isSidePanelOpen?: boolean;
@@ -12,6 +14,17 @@ export function ThreadSkeleton({
     showHeader = true,
     messageCount = 3,
 }: ThreadSkeletonProps) {
+    // Mock handlers for the ChatInput component
+    const handleSubmit = (message: string) => {
+        // No-op for skeleton
+        console.log('Skeleton submit:', message);
+    };
+
+    const handleChange = (value: string) => {
+        // No-op for skeleton
+        console.log('Skeleton change:', value);
+    };
+
     return (
         <div className="flex h-screen">
             <div
@@ -36,7 +49,7 @@ export function ThreadSkeleton({
                 )}
 
                 {/* Skeleton Chat Messages */}
-                <div className="flex-1 overflow-y-auto px-6 py-4 pb-[5.5rem]">
+                <div className="flex-1 overflow-y-auto px-6 py-4 pb-72">
                     <div className="mx-auto max-w-3xl space-y-6">
                         {/* Generate multiple message skeletons based on messageCount */}
                         {Array.from({ length: messageCount }).map((_, index) => (
@@ -102,20 +115,44 @@ export function ThreadSkeleton({
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Skeleton Side Panel (closed state) */}
-            {isSidePanelOpen && (
-                <div className="hidden sm:block">
-                    <div className="h-screen w-[450px] border-l">
-                        <div className="p-4">
-                            <Skeleton className="h-8 w-32 mb-4" />
-                            <Skeleton className="h-20 w-full rounded-md mb-4" />
-                            <Skeleton className="h-40 w-full rounded-md" />
-                        </div>
+                {/* ChatInput - Inside the left div, positioned at bottom with exact same styling */}
+                <div
+                    className={cn(
+                        "bg-gradient-to-t from-background via-background/90 to-transparent px-0 pt-8 transition-all duration-200 ease-in-out"
+                    )}
+                >
+                    <div className={cn(
+                        "mx-auto",
+                        "max-w-3xl"
+                    )}>
+                        <ChatInput
+                            onSubmit={handleSubmit}
+                            onChange={handleChange}
+                            placeholder="Describe what you need help with..."
+                            loading={false}
+                            disabled={true}
+                            isAgentRunning={false}
+                            value=""
+                            hideAttachments={false}
+                            isLoggedIn={true}
+                            hideAgentSelection={true}
+                            defaultShowSnackbar={false}
+                        />
                     </div>
                 </div>
-            )}
+            </div>
+
+            {/* Side Panel - Always visible in skeleton with exact responsive widths */}
+            <div className="hidden sm:block">
+                <div className="h-screen w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px] border-l">
+                    <div className="p-4">
+                        <Skeleton className="h-8 w-32 mb-4" />
+                        <Skeleton className="h-20 w-full rounded-md mb-4" />
+                        <Skeleton className="h-40 w-full rounded-md" />
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
