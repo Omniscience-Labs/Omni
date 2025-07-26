@@ -2545,3 +2545,105 @@ async def admin_install_suna_for_user(
             detail=f"Failed to install Suna agent for user {account_id}"
         )
 
+@router.get("/threads")
+async def get_user_threads(
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    page: Optional[int] = Query(1, ge=1, description="Page number (1-based)"),
+    limit: Optional[int] = Query(1000, ge=1, le=1000, description="Number of items per page (max 1000)")
+):
+    """Get all threads for the current user (account_id = user_id) with pagination."""
+    logger.info(f"Fetching threads for user: {user_id} (page={page}, limit={limit})")
+    client = await db.client
+    try:
+        offset = (page - 1) * limit
+        threads_query = client.table('threads').select('*').eq('account_id', user_id).order('created_at', desc=True)
+        total_result = await threads_query.execute()
+        total_count = len(total_result.data) if total_result.data else 0
+        threads_result = await threads_query.range(offset, offset + limit - 1).execute()
+        threads = threads_result.data or []
+        total_pages = (total_count + limit - 1) // limit if total_count else 0
+        return {
+            "threads": threads,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": total_pages
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error fetching threads for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch threads: {str(e)}")
+
+@router.get("/threads/{thread_id}/messages")
+async def get_thread_messages(
+    thread_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+    order: str = Query("desc", description="Order by created_at: 'asc' or 'desc'")
+):
+    """Get all messages for a thread, fetching in batches of 1000 from the DB to avoid large queries."""
+    logger.info(f"Fetching all messages for thread: {thread_id}, order={order}")
+    client = await db.client
+    await verify_thread_access(client, thread_id, user_id)
+    try:
+        batch_size = 1000
+        offset = 0
+        all_messages = []
+        while True:
+            query = client.table('messages').select('*').eq('thread_id', thread_id)
+            query = query.order('created_at', desc=(order == "desc"))
+            query = query.range(offset, offset + batch_size - 1)
+            messages_result = await query.execute()
+            batch = messages_result.data or []
+            all_messages.extend(batch)
+            logger.debug(f"Fetched batch of {len(batch)} messages (offset {offset})")
+            if len(batch) < batch_size:
+                break
+            offset += batch_size
+        return {"messages": all_messages}
+    except Exception as e:
+        logger.error(f"Error fetching messages for thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch messages: {str(e)}")
+
+@router.get("/agent-runs/{agent_run_id}")
+async def get_agent_run(
+    agent_run_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+):
+    """Get an agent run by ID"""
+    logger.info(f"Fetching agent run: {agent_run_id}")
+    client = await db.client
+    try:
+        agent_run_result = await client.table('agent_runs').select('*').eq('agent_run_id', agent_run_id).eq('account_id', user_id).execute()
+        if not agent_run_result.data:
+            raise HTTPException(status_code=404, detail="Agent run not found")
+        return agent_run_result.data[0]
+    except Exception as e:
+        logger.error(f"Error fetching agent run {agent_run_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch agent run: {str(e)}")  
+
+
+@router.post("/threads/{thread_id}/messages/add")
+async def add_message_to_thread(
+    thread_id: str,
+    message: str,
+    user_id: str = Depends(get_current_user_id_from_jwt),
+):
+    """Add a message to a thread"""
+    logger.info(f"Adding message to thread: {thread_id}")
+    client = await db.client
+    await verify_thread_access(client, thread_id, user_id)
+    try:
+        message_result = await client.table('messages').insert({
+            'thread_id': thread_id,
+            'type': 'user',
+            'is_llm_message': True,
+            'content': {
+              "role": "user",
+              "content": message
+            }
+        }).execute()
+        return message_result.data[0]
+    except Exception as e:
+        logger.error(f"Error adding message to thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add message: {str(e)}")

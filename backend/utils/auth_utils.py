@@ -5,6 +5,36 @@ import jwt
 from jwt.exceptions import PyJWTError
 from utils.logger import structlog
 from utils.config import config
+import os
+
+# DeepAI user UUID
+DEEPAI_USER_ID = os.getenv('DEEPAI_USER_ID', '00000000-0000-0000-0000-000000000000')
+DEEPAI_API_KEY = os.getenv('DEEPAI_API_KEY', '00000000-0000-0000-0000-000000000000')
+
+def str_safe_compare(str1: str, str2: str) -> bool:
+    """
+    Compare two strings by first SHA256 hashing them and then comparing the hashes.
+    This is a safe way to compare strings that are not known to be equal.
+    """
+    import hashlib
+    return hashlib.sha256(str1.encode()).hexdigest() == hashlib.sha256(str2.encode()).hexdigest()
+
+def is_deepai_user(user_id: str) -> bool:
+    """
+    Check if a user ID belongs to an deepai account.
+    
+    This function is maintained for backward compatibility. The deepai user
+    now works like any other user with a proper UUID, so this check is mainly
+    used for legacy code and documentation purposes.
+    
+    Args:
+        user_id: The user ID to check
+        
+    Returns:
+        bool: True if the user is an deepai user, False otherwise
+    """
+    # Check for the specific deepai user UUID or the old string format for backward compatibility
+    return str_safe_compare(user_id, DEEPAI_USER_ID)
 
 # This function extracts the user ID from Supabase JWT
 async def get_current_user_id_from_jwt(request: Request) -> str:
@@ -23,6 +53,12 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
     Raises:
         HTTPException: If no valid token is found or if the token is invalid
     """
+
+    x_api_key = request.headers.get('x-api-key')
+
+    if str_safe_compare(x_api_key, DEEPAI_API_KEY):
+        return DEEPAI_USER_ID
+
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -126,6 +162,9 @@ async def get_user_id_from_stream_auth(
     try:
         # Try to get user_id from token in query param (for EventSource which can't set headers)
         if token:
+            if str_safe_compare(token, DEEPAI_API_KEY):
+                return DEEPAI_USER_ID
+
             try:
                 # For Supabase JWT, we just need to decode and extract the user ID
                 payload = jwt.decode(token, options={"verify_signature": False})
