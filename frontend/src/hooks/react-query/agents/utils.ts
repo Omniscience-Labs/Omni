@@ -74,7 +74,7 @@ export type AgentsParams = {
 
 export type ThreadAgentResponse = {
   agent: Agent | null;
-  source: 'recent' | 'none' | 'missing';
+  source: 'thread' | 'default' | 'none' | 'missing';
   message: string;
 };
 
