@@ -68,20 +68,7 @@ class WorkflowResponse(BaseModel):
     created_at: str
     updated_at: str
 
-class WorkflowExecutionResponse(BaseModel):
-    id: str
-    workflow_id: str
-    agent_id: str
-    thread_id: Optional[str]
-    status: str
-    started_at: str
-    completed_at: Optional[str]
-    duration_seconds: Optional[float]
-    triggered_by: str
-    input_data: Optional[Dict[str, Any]]
-    output_data: Optional[Dict[str, Any]]
-    error_message: Optional[str]
-    created_at: str
+
 
 class WorkflowExecuteRequest(BaseModel):
     input_data: Optional[Dict[str, Any]] = None
@@ -159,20 +146,6 @@ async def get_agent_workflows(
         steps = []
         if workflow_data.get('steps'):
             steps = convert_json_to_steps(workflow_data['steps'])
-        else:
-            workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_data['id']).order('step_order').execute()
-            for step_data in workflow_steps_result.data:
-                steps.append(WorkflowStepResponse(
-                    id=step_data['id'],
-                    name=step_data['name'],
-                    description=step_data.get('description'),
-                    type=step_data['type'],
-                    config=step_data.get('config', {}),
-                    conditions=step_data.get('conditions'),
-                    order=step_data['step_order'],
-                    created_at=step_data['created_at'],
-                    updated_at=step_data['updated_at']
-                ))
         
         workflows.append(WorkflowResponse(
             id=workflow_data['id'],
@@ -264,8 +237,6 @@ async def update_agent_workflow(
     if workflow_data.steps is not None:
         steps_json = convert_steps_to_json(workflow_data.steps)
         update_data['steps'] = steps_json
-        
-        await client.table('workflow_steps').delete().eq('workflow_id', workflow_id).execute()
     
     if update_data:
         await client.table('agent_workflows').update(update_data).eq('id', workflow_id).execute()
@@ -276,20 +247,6 @@ async def update_agent_workflow(
     steps = []
     if workflow_data.get('steps'):
         steps = convert_json_to_steps(workflow_data['steps'])
-    else:
-        workflow_steps_result = await client.table('workflow_steps').select('*').eq('workflow_id', workflow_id).order('step_order').execute()
-        for step_data in workflow_steps_result.data:
-            steps.append(WorkflowStepResponse(
-                id=step_data['id'],
-                name=step_data['name'],
-                description=step_data.get('description'),
-                type=step_data['type'],
-                config=step_data.get('config', {}),
-                conditions=step_data.get('conditions'),
-                order=step_data['step_order'],
-                created_at=step_data['created_at'],
-                updated_at=step_data['updated_at']
-            ))
     
     return WorkflowResponse(
         id=workflow_data['id'],
@@ -409,37 +366,7 @@ async def execute_agent_workflow(
             }
         )
 
-@router.get("/agents/{agent_id}/workflows/{workflow_id}/executions")
-async def get_workflow_executions(
-    agent_id: str,
-    workflow_id: str,
-    user_id: str = Depends(get_current_user_id_from_jwt),
-    limit: int = Query(20, ge=1, le=100)
-):
-    db = await get_db_connection()
-    client = await db.client
-    
-    executions_result = await client.table('workflow_executions').select('*').eq('workflow_id', workflow_id).order('created_at', desc=True).limit(limit).execute()
-    
-    executions = []
-    for execution_data in executions_result.data:
-        executions.append(WorkflowExecutionResponse(
-            id=execution_data['id'],
-            workflow_id=execution_data['workflow_id'],
-            agent_id=execution_data['agent_id'],
-            thread_id=execution_data.get('thread_id'),
-            status=execution_data['status'],
-            started_at=execution_data['started_at'],
-            completed_at=execution_data.get('completed_at'),
-            duration_seconds=execution_data.get('duration_seconds'),
-            triggered_by=execution_data['triggered_by'],
-            input_data=execution_data.get('input_data'),
-            output_data=execution_data.get('output_data'),
-            error_message=execution_data.get('error_message'),
-            created_at=execution_data['created_at']
-        ))
-    
-    return executions
+
 
 @router.post("/agents/{agent_id}/workflows/{workflow_id}/webhook")
 async def trigger_workflow_webhook(
