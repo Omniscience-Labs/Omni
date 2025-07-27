@@ -250,18 +250,21 @@ async def update_knowledge_base_entry(
             detail="This feature is not available at the moment."
         )
     
-    """Update a knowledge base entry (works for both thread and agent entries)"""
+    """Update an agent knowledge base entry"""
     try:
         client = await db.client
-        entry_result = await client.table('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
-        table_name = 'knowledge_base_entries'
         
-        if not entry_result.data:
-            entry_result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
-            table_name = 'agent_knowledge_base_entries'
+        # Get the entry and verify it exists in agent_knowledge_base_entries table
+        entry_result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
             
         if not entry_result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+        
+        entry = entry_result.data[0]
+        agent_id = entry['agent_id']
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
         
         update_data = {}
         if entry_data.name is not None:
@@ -278,12 +281,14 @@ async def update_knowledge_base_entry(
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        result = await client.table(table_name).update(update_data).eq('entry_id', entry_id).execute()
+        result = await client.table('agent_knowledge_base_entries').update(update_data).eq('entry_id', entry_id).execute()
         
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
         
         updated_entry = result.data[0]
+        
+        logger.info(f"Updated agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=updated_entry['entry_id'],
@@ -318,21 +323,25 @@ async def delete_knowledge_base_entry(
             detail="This feature is not available at the moment."
         )
 
-    """Delete a knowledge base entry (works for both thread and agent entries)"""
+    """Delete an agent knowledge base entry"""
     try:
         client = await db.client
         
-        entry_result = await client.table('knowledge_base_entries').select('entry_id').eq('entry_id', entry_id).execute()
-        table_name = 'knowledge_base_entries'
-        
-        if not entry_result.data:
-            entry_result = await client.table('agent_knowledge_base_entries').select('entry_id').eq('entry_id', entry_id).execute()
-            table_name = 'agent_knowledge_base_entries'
+        # Get the entry and verify it exists in agent_knowledge_base_entries table
+        entry_result = await client.table('agent_knowledge_base_entries').select('entry_id, agent_id').eq('entry_id', entry_id).execute()
             
         if not entry_result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
         
-        result = await client.table(table_name).delete().eq('entry_id', entry_id).execute()
+        entry = entry_result.data[0]
+        agent_id = entry['agent_id']
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+        
+        result = await client.table('agent_knowledge_base_entries').delete().eq('entry_id', entry_id).execute()
+        
+        logger.info(f"Deleted agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return {"message": "Knowledge base entry deleted successfully"}
         
@@ -353,19 +362,23 @@ async def get_knowledge_base_entry(
             status_code=403, 
             detail="This feature is not available at the moment."
         )
-    """Get a specific knowledge base entry (works for both thread and agent entries)"""
+    """Get a specific agent knowledge base entry"""
     try:
         client = await db.client
         
-        result = await client.table('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
-        
-        if not result.data:
-            result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        # Get the entry from agent_knowledge_base_entries table only
+        result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Knowledge base entry not found")
         
         entry = result.data[0]
+        agent_id = entry['agent_id']
+        
+        # Verify agent access
+        await verify_agent_access(client, agent_id, user_id)
+        
+        logger.info(f"Retrieved agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=entry['entry_id'],
