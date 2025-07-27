@@ -24,7 +24,7 @@ export function LocalEnvManager() {
   const {data: apiKeys, isLoading} = useQuery({
     queryKey: ['api-keys'],
     queryFn: async() => {
-      const response = await backendApi.get('/env-vars');
+      const response = await backendApi.get('/admin/env-vars');
       return response.data;
     },
     enabled: isLocalMode()
@@ -82,7 +82,7 @@ export function LocalEnvManager() {
 
   const updateApiKeys = useMutation({
     mutationFn: async (data: APIKeyForm) => {
-      const response = await backendApi.post('/env-vars', data);
+      const response = await backendApi.post('/admin/env-vars', data);
       await queryClient.invalidateQueries({ queryKey: ['api-keys'] });
       return response.data;
     },

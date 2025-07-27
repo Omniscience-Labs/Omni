@@ -189,8 +189,7 @@ api_router.include_router(pipedream_api.router)
 
 # MFA functionality moved to frontend
 
-from local_env_manager import api as local_env_manager_api
-api_router.include_router(local_env_manager_api.router)
+
 
 from admin import api as admin_api
 api_router.include_router(admin_api.router)
