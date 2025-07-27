@@ -59,19 +59,37 @@ export function CommandToolView({
   const formattedOutput = React.useMemo(() => {
     if (!output) return [];
     let processedOutput = output;
-    try {
-      if (typeof output === 'string' && (output.trim().startsWith('{') || output.trim().startsWith('{'))) {
-        const parsed = JSON.parse(output);
-        if (parsed && typeof parsed === 'object' && parsed.output) {
-          processedOutput = parsed.output;
-        }
+
+    // Handle case where output is already an object
+    if (typeof output === 'object' && output !== null) {
+      try {
+        processedOutput = JSON.stringify(output, null, 2);
+      } catch (e) {
+        processedOutput = String(output);
       }
-    } catch (e) {
+    } else if (typeof output === 'string') {
+      // Try to parse as JSON first
+      try {
+        if (output.trim().startsWith('{') || output.trim().startsWith('[')) {
+          const parsed = JSON.parse(output);
+          if (parsed && typeof parsed === 'object') {
+            // If it's a complex object, stringify it nicely
+            processedOutput = JSON.stringify(parsed, null, 2);
+          } else {
+            processedOutput = String(parsed);
+          }
+        } else {
+          processedOutput = output;
+        }
+      } catch (e) {
+        // If parsing fails, use as plain text
+        processedOutput = output;
+      }
+    } else {
+      processedOutput = String(output);
     }
 
-    processedOutput = String(processedOutput);
     processedOutput = processedOutput.replace(/\\\\/g, '\\');
-
     processedOutput = processedOutput
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
@@ -141,43 +159,39 @@ export function CommandToolView({
             <div className="p-4">
 
 
-              {output && (
-                <div className="mb-4">
-
-
-                  <div className="bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200/20">
-                    <div className="bg-zinc-300 dark:bg-neutral-800 flex items-center justify-between dark:border-zinc-700/50">
-                      <div className="bg-zinc-200 w-full dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
-                        <TerminalIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Terminal output</span>
-                      </div>
-                      {exitCode !== null && exitCode !== 0 && (
-                        <Badge variant="outline" className="text-xs h-5 border-red-700/30 text-red-400">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Error
-                        </Badge>
+              <div className="mb-4">
+                <div className="bg-zinc-100 dark:bg-neutral-900 rounded-lg overflow-hidden border border-zinc-200/20">
+                  <div className="bg-zinc-300 dark:bg-neutral-800 flex items-center justify-between dark:border-zinc-700/50">
+                    <div className="bg-zinc-200 w-full dark:bg-zinc-800 px-4 py-2 flex items-center gap-2">
+                      <TerminalIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Terminal</span>
+                    </div>
+                    {exitCode !== null && exitCode !== 0 && (
+                      <Badge variant="outline" className="text-xs h-5 border-red-700/30 text-red-400">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Error
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-4 max-h-96 overflow-auto scrollbar-hide">
+                    <pre className="text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-all overflow-visible">
+                      {/* Show command only */}
+                      {command && (
+                        <div className="py-0.5 bg-transparent">
+                          <span className="text-green-500 dark:text-green-400 font-semibold">{displayPrefix} </span>
+                          <span className="text-zinc-700 dark:text-zinc-300">{command}</span>
+                        </div>
                       )}
-                    </div>
-                    <div className="p-4 max-h-96 overflow-auto scrollbar-hide">
-                      <pre className="text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-all overflow-visible">
-                        {linesToShow.map((line, index) => (
-                          <div
-                            key={index}
-                            className="py-0.5 bg-transparent"
-                          >
-                            {line || ' '}
-                          </div>
-                        ))}
-                        {!showFullOutput && hasMoreLines && (
-                          <div className="text-zinc-500 mt-2 border-t border-zinc-700/30 pt-2">
-                            + {formattedOutput.length - 10} more lines
-                          </div>
-                        )}
-                      </pre>
-                    </div>
+
+                      {!showFullOutput && hasMoreLines && (
+                        <div className="text-zinc-500 mt-2 border-t border-zinc-700/30 pt-2">
+                          + {formattedOutput.length - 10} more lines
+                        </div>
+                      )}
+                    </pre>
                   </div>
                 </div>
-              )}
+              </div>
 
               {!output && !isStreaming && (
                 <div className="bg-black rounded-lg overflow-hidden border border-zinc-700/20 shadow-md p-6 flex items-center justify-center">
