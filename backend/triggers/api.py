@@ -114,31 +114,6 @@ async def verify_agent_access(agent_id: str, user_id: str):
         raise HTTPException(status_code=404, detail="Agent not found or access denied")
 
 
-@router.get("/providers", response_model=List[ProviderResponse])
-async def get_providers():
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
-    
-    try:
-        _, _, provider_svc = await get_services()
-        providers = await provider_svc.get_available_providers()
-        
-        return [
-            ProviderResponse(
-                provider_id=provider.provider_id,
-                name=provider.name,
-                description=provider.description,
-                trigger_type=provider.trigger_type.value,
-                webhook_enabled=provider.webhook_enabled,
-                setup_required=provider.setup_required,
-                config_schema=provider.config_schema
-            )
-            for provider in providers
-        ]
-    except Exception as e:
-        logger.error(f"Error getting providers: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
 
 @router.get("/providers/{provider_id}/schema")
 async def get_provider_schema(provider_id: str):
