@@ -34,18 +34,32 @@ const extractFromNewFormat = (content: any): CommandData => {
     const toolExecution = parsedContent.tool_execution;
     const args = toolExecution.arguments || {};
     
-    let parsedOutput = toolExecution.result?.output;
-    if (typeof parsedOutput === 'string') {
+    // Handle the case where result.output is a string (like in your example)
+    let output = toolExecution.result?.output;
+    let parsedOutput: any = {};
+    
+    if (typeof output === 'string') {
+      // First try to parse it as JSON
       try {
-        parsedOutput = JSON.parse(parsedOutput);
+        parsedOutput = JSON.parse(output);
+        // If parsing succeeds, extract the actual output from the nested structure
+        if (parsedOutput && typeof parsedOutput === 'object') {
+          // Look for output in common nested structures
+          output = parsedOutput.output || parsedOutput.message || parsedOutput.content || output;
+        }
       } catch (e) {
+        // If it's not JSON, treat it as plain text output
+        output = output;
       }
+    } else if (typeof output === 'object' && output !== null) {
+      parsedOutput = output;
+      // Extract output from object structure
+      output = (output as any).output || (output as any).message || (output as any).content || null;
     }
-    parsedOutput = parsedOutput || {};
 
     const extractedData = {
       command: args.command || null,
-      output: parsedOutput?.output || null,
+      output: output || parsedOutput?.output || null,
       exitCode: parsedOutput?.exit_code || null,
       sessionName: args.session_name || parsedOutput?.session_name || null,
       cwd: parsedOutput?.cwd || null,

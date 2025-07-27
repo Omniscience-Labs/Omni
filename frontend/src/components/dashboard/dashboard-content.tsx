@@ -154,7 +154,6 @@ export function DashboardContent() {
         console.log('Handling BillingError:', error.detail);
         onOpen("paymentRequiredDialog");
       }
-    } finally {
       setIsSubmitting(false);
     }
   };
