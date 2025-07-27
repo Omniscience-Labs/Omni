@@ -34,8 +34,6 @@ from agentpress.tool import SchemaType
 
 load_dotenv()
 
-
-
 async def run_agent(
     thread_id: str,
     project_id: str,

@@ -28,7 +28,7 @@ from .config_helper import extract_agent_config, build_unified_config, extract_t
 from .versioning.facade import version_manager
 from .versioning.api.routes import router as version_router
 from .versioning.infrastructure.dependencies import set_db_connection
-from agent.services.suna_default_agent_service import SunaDefaultAgentService
+from utils.suna_default_agent_service import SunaDefaultAgentService
 
 router = APIRouter()
 router.include_router(version_router)
@@ -243,8 +243,6 @@ async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None)
 
     logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
 
-
-
 async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: str):
     agent_run = await client.table('agent_runs').select('*').eq('id', agent_run_id).execute()
     if not agent_run.data:
@@ -254,8 +252,6 @@ async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: st
     thread_id = agent_run_data['thread_id']
     await verify_thread_access(client, thread_id, user_id)
     return agent_run_data
-
-
 
 
 @router.post("/thread/{thread_id}/agent/start")
@@ -2517,26 +2513,5 @@ async def get_agent_tools(
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
 
-@router.post("/admin/suna-agents/install-user/{account_id}")
-async def admin_install_suna_for_user(
-    account_id: str,
-    replace_existing: bool = False,
-    _: bool = Depends(verify_admin_api_key)
-):
-    logger.info(f"Admin installing Suna agent for user: {account_id}")
-    
-    service = SunaDefaultAgentService()
-    agent_id = await service.install_suna_agent_for_user(account_id, replace_existing)
-    
-    if agent_id:
-        return {
-            "success": True,
-            "message": f"Successfully installed Suna agent for user {account_id}",
-            "agent_id": agent_id
-        }
-    else:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to install Suna agent for user {account_id}"
-        )
+
 

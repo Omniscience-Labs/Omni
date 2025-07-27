@@ -34,28 +34,6 @@ const useAuthHeaders = () => {
   return { getHeaders };
 };
 
-export function useKnowledgeBaseEntries(threadId: string, includeInactive = false) {
-  const { getHeaders } = useAuthHeaders();
-  
-  return useQuery({
-    queryKey: knowledgeBaseKeys.thread(threadId),
-    queryFn: async (): Promise<KnowledgeBaseListResponse> => {
-      const headers = await getHeaders();
-      const url = new URL(`${API_URL}/knowledge-base/threads/${threadId}`);
-      url.searchParams.set('include_inactive', includeInactive.toString());
-      
-      const response = await fetch(url.toString(), { headers });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to fetch knowledge base entries');
-      }
-      
-      return await response.json();
-    },
-    enabled: !!threadId,
-  });
-}
 
 export function useKnowledgeBaseEntry(entryId: string) {
   const { getHeaders } = useAuthHeaders();
@@ -74,63 +52,6 @@ export function useKnowledgeBaseEntry(entryId: string) {
       return await response.json();
     },
     enabled: !!entryId,
-  });
-}
-
-export function useKnowledgeBaseContext(threadId: string, maxTokens = 4000) {
-  const { getHeaders } = useAuthHeaders();
-  
-  return useQuery({
-    queryKey: knowledgeBaseKeys.context(threadId),
-    queryFn: async () => {
-      const headers = await getHeaders();
-      const url = new URL(`${API_URL}/knowledge-base/threads/${threadId}/context`);
-      url.searchParams.set('max_tokens', maxTokens.toString());
-      
-      const response = await fetch(url.toString(), { headers });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to fetch knowledge base context');
-      }
-      
-      return await response.json();
-    },
-    enabled: !!threadId,
-  });
-}
-
-export function useCreateKnowledgeBaseEntry() {
-  const queryClient = useQueryClient();
-  const { getHeaders } = useAuthHeaders();
-  
-  return useMutation({
-    mutationFn: async ({ threadId, data }: { threadId: string; data: CreateKnowledgeBaseEntryRequest }) => {
-      const headers = await getHeaders();
-      const response = await fetch(`${API_URL}/knowledge-base/threads/${threadId}`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to create knowledge base entry');
-      }
-      
-      return await response.json();
-    },
-    onSuccess: (_, { threadId }) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.thread(threadId) });
-      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.context(threadId) });
-      toast.success('Knowledge base entry created successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to create knowledge base entry: ${error.message}`);
-    },
   });
 }
 
@@ -273,32 +194,6 @@ export function useAgentKnowledgeBaseContext(agentId: string, maxTokens = 4000) 
       return await response.json();
     },
     enabled: !!agentId,
-  });
-}
-
-export function useCombinedKnowledgeBaseContext(threadId: string, agentId?: string, maxTokens = 4000) {
-  const { getHeaders } = useAuthHeaders();
-  
-  return useQuery({
-    queryKey: knowledgeBaseKeys.combinedContext(threadId, agentId),
-    queryFn: async () => {
-      const headers = await getHeaders();
-      const url = new URL(`${API_URL}/knowledge-base/threads/${threadId}/combined-context`);
-      url.searchParams.set('max_tokens', maxTokens.toString());
-      if (agentId) {
-        url.searchParams.set('agent_id', agentId);
-      }
-      
-      const response = await fetch(url.toString(), { headers });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to fetch combined knowledge base context');
-      }
-      
-      return await response.json();
-    },
-    enabled: !!threadId,
   });
 }
 

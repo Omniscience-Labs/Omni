@@ -232,7 +232,7 @@ class Configuration:
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
 
     # Admin API key for server-side operations
-    ADMIN_API_KEY: Optional[str] = None
+    KORTIX_ADMIN_API_KEY: Optional[str] = None
     
     @property
     def STRIPE_PRODUCT_ID(self) -> str:

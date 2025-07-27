@@ -7,6 +7,5 @@ export const knowledgeBaseKeys = {
     entry: (entryId: string) => [...knowledgeBaseKeys.all, 'entry', entryId] as const,
     context: (threadId: string) => [...knowledgeBaseKeys.all, 'context', threadId] as const,
     agentContext: (agentId: string) => [...knowledgeBaseKeys.all, 'agent-context', agentId] as const,
-    combinedContext: (threadId: string, agentId?: string) => [...knowledgeBaseKeys.all, 'combined-context', threadId, agentId] as const,
     processingJobs: (agentId: string) => [...knowledgeBaseKeys.all, 'processing-jobs', agentId] as const,
   };
