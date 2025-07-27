@@ -238,6 +238,158 @@ async def upload_file_to_agent_kb(
         raise HTTPException(status_code=500, detail="Failed to upload file")
 
 
+@router.put("/{entry_id}", response_model=KnowledgeBaseEntryResponse)
+async def update_knowledge_base_entry(
+    entry_id: str,
+    entry_data: UpdateKnowledgeBaseEntryRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("knowledge_base"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    
+    """Update a knowledge base entry (works for both thread and agent entries)"""
+    try:
+        client = await db.client
+        entry_result = await client.table('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        table_name = 'knowledge_base_entries'
+        
+        if not entry_result.data:
+            entry_result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+            table_name = 'agent_knowledge_base_entries'
+            
+        if not entry_result.data:
+            raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+        
+        update_data = {}
+        if entry_data.name is not None:
+            update_data['name'] = entry_data.name
+        if entry_data.description is not None:
+            update_data['description'] = entry_data.description
+        if entry_data.content is not None:
+            update_data['content'] = entry_data.content
+        if entry_data.usage_context is not None:
+            update_data['usage_context'] = entry_data.usage_context
+        if entry_data.is_active is not None:
+            update_data['is_active'] = entry_data.is_active
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        result = await client.table(table_name).update(update_data).eq('entry_id', entry_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
+        
+        updated_entry = result.data[0]
+        
+        return KnowledgeBaseEntryResponse(
+            entry_id=updated_entry['entry_id'],
+            name=updated_entry['name'],
+            description=updated_entry['description'],
+            content=updated_entry['content'],
+            usage_context=updated_entry['usage_context'],
+            is_active=updated_entry['is_active'],
+            content_tokens=updated_entry.get('content_tokens'),
+            created_at=updated_entry['created_at'],
+            updated_at=updated_entry['updated_at'],
+            source_type=updated_entry.get('source_type'),
+            source_metadata=updated_entry.get('source_metadata'),
+            file_size=updated_entry.get('file_size'),
+            file_mime_type=updated_entry.get('file_mime_type')
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating knowledge base entry {entry_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update knowledge base entry")
+
+@router.delete("/{entry_id}")
+async def delete_knowledge_base_entry(
+    entry_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("knowledge_base"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+
+    """Delete a knowledge base entry (works for both thread and agent entries)"""
+    try:
+        client = await db.client
+        
+        entry_result = await client.table('knowledge_base_entries').select('entry_id').eq('entry_id', entry_id).execute()
+        table_name = 'knowledge_base_entries'
+        
+        if not entry_result.data:
+            entry_result = await client.table('agent_knowledge_base_entries').select('entry_id').eq('entry_id', entry_id).execute()
+            table_name = 'agent_knowledge_base_entries'
+            
+        if not entry_result.data:
+            raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+        
+        result = await client.table(table_name).delete().eq('entry_id', entry_id).execute()
+        
+        return {"message": "Knowledge base entry deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting knowledge base entry {entry_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete knowledge base entry")
+
+
+@router.get("/{entry_id}", response_model=KnowledgeBaseEntryResponse)
+async def get_knowledge_base_entry(
+    entry_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    if not await is_enabled("knowledge_base"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This feature is not available at the moment."
+        )
+    """Get a specific knowledge base entry (works for both thread and agent entries)"""
+    try:
+        client = await db.client
+        
+        result = await client.table('knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        
+        if not result.data:
+            result = await client.table('agent_knowledge_base_entries').select('*').eq('entry_id', entry_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+        
+        entry = result.data[0]
+        
+        return KnowledgeBaseEntryResponse(
+            entry_id=entry['entry_id'],
+            name=entry['name'],
+            description=entry['description'],
+            content=entry['content'],
+            usage_context=entry['usage_context'],
+            is_active=entry['is_active'],
+            content_tokens=entry.get('content_tokens'),
+            created_at=entry['created_at'],
+            updated_at=entry['updated_at'],
+            source_type=entry.get('source_type'),
+            source_metadata=entry.get('source_metadata'),
+            file_size=entry.get('file_size'),
+            file_mime_type=entry.get('file_mime_type')
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting knowledge base entry {entry_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve knowledge base entry")
+
+
 @router.get("/agents/{agent_id}/processing-jobs", response_model=List[ProcessingJobResponse])
 async def get_agent_processing_jobs(
     agent_id: str,
