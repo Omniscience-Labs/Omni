@@ -1,6 +1,6 @@
 import { LucideIcon, FilePen, Replace, Trash2, FileCode, FileSpreadsheet, File } from 'lucide-react';
 
-export type FileOperation = 'create' | 'rewrite' | 'delete' | 'edit';
+export type FileOperation = 'create' | 'rewrite' | 'delete' | 'edit' | 'str-replace';
 
 export interface OperationConfig {
   icon: LucideIcon;
@@ -77,12 +77,99 @@ export const getLanguageFromFileName = (fileName: string): string => {
   return extensionMap[extension] || 'text';
 };
 
+export interface ExtractedEditData {
+  filePath: string | null;
+  originalContent: string | null;
+  updatedContent: string | null;
+  success?: boolean;
+  timestamp?: string;
+}
+
+export const extractFileEditData = (
+  assistantContent: any,
+  toolContent: any,
+  isSuccess: boolean,
+  toolTimestamp?: string,
+  assistantTimestamp?: string
+): {
+  filePath: string | null;
+  originalContent: string | null;
+  updatedContent: string | null;
+  actualIsSuccess: boolean;
+  actualToolTimestamp?: string;
+  actualAssistantTimestamp?: string;
+} => {
+  let filePath: string | null = null;
+  let originalContent: string | null = null;
+  let updatedContent: string | null = null;
+  let actualIsSuccess = isSuccess;
+  let actualToolTimestamp = toolTimestamp;
+  let actualAssistantTimestamp = assistantTimestamp;
+
+  const parseOutput = (output: any) => {
+    if (typeof output === 'string') {
+      try {
+        return JSON.parse(output);
+      } catch {
+        return null;
+      }
+    }
+    return output;
+  };
+
+  const extractData = (content: any) => {
+    const parsed = typeof content === 'string' ? parseContent(content) : content;
+    if (parsed?.tool_execution) {
+      const args = parsed.tool_execution.arguments || {};
+      const output = parseOutput(parsed.tool_execution.result?.output);
+      return {
+        filePath: args.target_file || output?.file_path || null,
+        originalContent: output?.original_content || null,
+        updatedContent: output?.updated_content || null,
+        success: parsed.tool_execution.result?.success,
+        timestamp: parsed.tool_execution.execution_details?.timestamp,
+      };
+    }
+    return {};
+  };
+
+  const toolData = extractData(toolContent);
+  const assistantData = extractData(assistantContent);
+
+  filePath = toolData.filePath || assistantData.filePath;
+  originalContent = toolData.originalContent || assistantData.originalContent;
+  updatedContent = toolData.updatedContent || assistantData.updatedContent;
+
+  if (toolData.success !== undefined) {
+    actualIsSuccess = toolData.success;
+    actualToolTimestamp = toolData.timestamp || toolTimestamp;
+  } else if (assistantData.success !== undefined) {
+    actualIsSuccess = assistantData.success;
+    actualAssistantTimestamp = assistantData.timestamp || assistantTimestamp;
+  }
+
+  return { filePath, originalContent, updatedContent, actualIsSuccess, actualToolTimestamp, actualAssistantTimestamp };
+};
+
+const parseContent = (content: any): any => {
+  if (typeof content === 'string') {
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      return content;
+    }
+  }
+  return content;
+};
+
+
 export const getOperationType = (name?: string, assistantContent?: any): FileOperation => {
   if (name) {
     if (name.includes('create')) return 'create';
     if (name.includes('rewrite')) return 'rewrite';
     if (name.includes('delete')) return 'delete';
-    if (name.includes('edit')) return 'edit';
+    if (name.includes('edit-file')) return 'edit'; // Specific for edit_file
+    if (name.includes('str-replace')) return 'str-replace';
   }
 
   if (!assistantContent) return 'create';

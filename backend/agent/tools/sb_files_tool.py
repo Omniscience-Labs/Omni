@@ -525,10 +525,13 @@ def authenticate_user(username, password):
             # AI editing successful
             await self.sandbox.fs.upload_file(new_content.encode(), full_path)
             
-
-            message = f"File '{target_file}' edited successfully."
-           
-            return self.success_response(message)
+            # Return rich data for frontend diff view
+            return self.success_response({
+                "message": f"File '{target_file}' edited successfully.",
+                "file_path": target_file,
+                "original_content": original_content,
+                "updated_content": new_content
+            })
                     
         except Exception as e:
             logger.error(f"Unhandled error in edit_file: {str(e)}", exc_info=True)

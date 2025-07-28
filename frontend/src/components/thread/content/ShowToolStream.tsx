@@ -9,6 +9,7 @@ const FILE_OPERATION_TOOLS = new Set([
     'Delete File',
     'Full File Rewrite',
     'Read File',
+    'AI File Edit',
 ]);
 
 interface ShowToolStreamProps {
@@ -38,6 +39,18 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     }
 
     const toolName = extractToolNameFromStream(content);
+    const isEditFile = toolName === 'AI File Edit';
+
+    // Extract code_edit content for streaming
+    const codeEditContent = React.useMemo(() => {
+        if (!isEditFile || !content) return '';
+        const match = content.match(/<code_edit>([\s\S]*)/);
+        if (match) {
+            // Remove closing tag if present
+            return match[1].replace(/<\/code_edit>[\s\S]*$/, '');
+        }
+        return '';
+    }, [content, isEditFile]);
 
     // Time-based logic - show streaming content after 1500ms
     useEffect(() => {
@@ -97,7 +110,7 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     const paramDisplay = extractPrimaryParam(toolName, content);
 
     // Always show tool button, conditionally show content below for file operations only
-    if (showExpanded && isFileOperationTool) {
+    if (showExpanded && (isFileOperationTool || isEditFile)) {
         return (
             <div className="my-1">
                 {shouldShowContent ? (
@@ -126,7 +139,7 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
                                     WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)'
                                 }}
                             >
-                                {content}
+                                {isEditFile ? codeEditContent : content}
                             </div>
                             {/* Top gradient */}
                             <div className={`absolute top-0 left-0 right-0 h-8 pointer-events-none transition-all duration-500 ease-in-out ${shouldShowContent

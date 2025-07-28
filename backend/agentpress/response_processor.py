@@ -1637,23 +1637,35 @@ class ResponseProcessor:
             # Determine message role based on strategy
             result_role = "user" if strategy == "user_message" else "assistant"
             
-            # Create the new structured tool result format
-            structured_result = self._create_structured_tool_result(tool_call, result, parsing_details)
-            
+            # Create two versions of the structured result
+            # 1. Rich version for the frontend
+            structured_result_for_frontend = self._create_structured_tool_result(tool_call, result, parsing_details, for_llm=False)
+            # 2. Concise version for the LLM
+            structured_result_for_llm = self._create_structured_tool_result(tool_call, result, parsing_details, for_llm=True)
+
             # Add the message with the appropriate role to the conversation history
             # This allows the LLM to see the tool result in subsequent interactions
-            result_message = {
+            result_message_for_llm = {
                 "role": result_role,
-                "content":  json.dumps(structured_result)
+                "content":  json.dumps(structured_result_for_llm)
             }
             message_obj = await self.add_message(
                 thread_id=thread_id, 
                 type="tool",
-                content=result_message,
+                content=result_message_for_llm, # Save the LLM-friendly version
                 is_llm_message=True,
                 metadata=metadata
             )
-            return message_obj # Return the full message object
+
+            # If the message was saved, modify it in-memory for the frontend before returning
+            if message_obj:
+                result_message_for_frontend = {
+                    "role": result_role,
+                    "content": json.dumps(structured_result_for_frontend)
+                }
+                message_obj['content'] = result_message_for_frontend
+
+            return message_obj # Return the modified message object
         except Exception as e:
             logger.error(f"Error adding tool result: {str(e)}", exc_info=True)
             self.trace.event(name="error_adding_tool_result", level="ERROR", status_message=(f"Error adding tool result: {str(e)}"), metadata={"tool_call": tool_call, "result": result, "strategy": strategy, "assistant_message_id": assistant_message_id, "parsing_details": parsing_details})
@@ -1676,13 +1688,14 @@ class ResponseProcessor:
                 self.trace.event(name="failed_even_with_fallback_message", level="ERROR", status_message=(f"Failed even with fallback message: {str(e2)}"), metadata={"tool_call": tool_call, "result": result, "strategy": strategy, "assistant_message_id": assistant_message_id, "parsing_details": parsing_details})
                 return None # Return None on error
 
-    def _create_structured_tool_result(self, tool_call: Dict[str, Any], result: ToolResult, parsing_details: Optional[Dict[str, Any]] = None):
+    def _create_structured_tool_result(self, tool_call: Dict[str, Any], result: ToolResult, parsing_details: Optional[Dict[str, Any]] = None, for_llm: bool = False):
         """Create a structured tool result format that's tool-agnostic and provides rich information.
         
         Args:
             tool_call: The original tool call that was executed
             result: The result from the tool execution
             parsing_details: Optional parsing details for XML calls
+            for_llm: If True, creates a concise version for the LLM context.
             
         Returns:
             Structured dictionary containing tool execution information
@@ -1692,7 +1705,6 @@ class ResponseProcessor:
         xml_tag_name = tool_call.get("xml_tag_name")
         arguments = tool_call.get("arguments", {})
         tool_call_id = tool_call.get("id")
-        logger.info(f"Creating structured tool result for tool_call: {tool_call}")
         
         # Process the output - if it's a JSON string, parse it back to an object
         output = result.output if hasattr(result, 'output') else str(result)
@@ -1707,7 +1719,12 @@ class ResponseProcessor:
             except Exception:
                 # If parsing fails, keep the original string
                 pass
-        
+
+        # If this is for the LLM and it's an edit_file tool, create a concise output
+        if for_llm and function_name == 'edit_file' and isinstance(output, dict):
+            output_for_llm = {"message": output.get("message", "File edited successfully.")}
+            output = output_for_llm
+
         # Create the structured result
         structured_result_v1 = {
             "tool_execution": {
@@ -1717,53 +1734,11 @@ class ResponseProcessor:
                 "arguments": arguments,
                 "result": {
                     "success": result.success if hasattr(result, 'success') else True,
-                    "output": output,  # Now properly structured for frontend
+                    "output": output,  # This will be either rich or concise based on `for_llm`
                     "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
                 },
-                # "execution_details": {
-                #     "timestamp": datetime.now(timezone.utc).isoformat(),
-                #     "parsing_details": parsing_details
-                # }
             }
         } 
-
-        # STRUCTURED_OUTPUT_TOOLS = {
-        #     "str_replace", 
-        #     "get_data_provider_endpoints",
-        # }
-
-        # summary_output = result.output if hasattr(result, 'output') else str(result)
-        
-        # if xml_tag_name:
-        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
-        #     summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
-        # else:
-        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
-        #     summary = f"Function '{function_name}' {status}. Output: {summary_output}"
-        
-        # if self.is_agent_builder:
-        #     return summary
-        # if function_name in STRUCTURED_OUTPUT_TOOLS:
-        #     return structured_result_v1
-        # else:
-        #     return summary
-
-        summary_output = result.output if hasattr(result, 'output') else str(result)
-        success_status = structured_result_v1["tool_execution"]["result"]["success"]
-        
-        # # Create a more comprehensive summary for the LLM
-        # if xml_tag_name:
-        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
-        #     summary = f"Tool '{xml_tag_name}' {status}. Output: {summary_output}"
-        # else:
-        #     status = "completed successfully" if structured_result_v1["tool_execution"]["result"]["success"] else "failed"
-        #     summary = f"Function '{function_name}' {status}. Output: {summary_output}"
-        
-        # if self.is_agent_builder:
-        #     return summary
-        # elif function_name == "get_data_provider_endpoints":
-        #     logger.info(f"Returning sumnary for data provider call: {summary}")
-        #     return summary
             
         return structured_result_v1
 
