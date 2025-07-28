@@ -97,7 +97,7 @@ const SplitDiffView: React.FC<{ oldCode: string; newCode: string }> = ({ oldCode
   />
 );
 
-const ErrorState: React.FC = () => (
+const ErrorState: React.FC<{ message?: string }> = ({ message }) => (
   <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
     <div className="text-center w-full max-w-xs">
       <AlertTriangle className="h-16 w-16 mx-auto mb-6 text-amber-500" />
@@ -105,7 +105,7 @@ const ErrorState: React.FC = () => (
         Invalid File Edit
       </h3>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Could not extract the file changes from the tool result.
+        {message || "Could not extract the file changes from the tool result."}
       </p>
     </div>
   </div>
@@ -128,6 +128,7 @@ export function FileEditToolView({
     updatedContent,
     actualIsSuccess,
     actualToolTimestamp,
+    errorMessage,
   } = extractFileEditData(
     assistantContent,
     toolContent,
@@ -188,7 +189,7 @@ export function FileEditToolView({
             subtitle="Please wait while the file is being modified"
           />
         ) : shouldShowError ? (
-          <ErrorState />
+          <ErrorState message={errorMessage} />
         ) : (
           <div className="h-full flex flex-col">
             <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-accent flex items-center justify-between">

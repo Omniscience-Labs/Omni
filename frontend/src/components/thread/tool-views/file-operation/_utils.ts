@@ -198,6 +198,7 @@ export interface ExtractedEditData {
   updatedContent: string | null;
   success?: boolean;
   timestamp?: string;
+  errorMessage?: string;
 }
 
 export const extractFileEditData = (
@@ -213,6 +214,7 @@ export const extractFileEditData = (
   actualIsSuccess: boolean;
   actualToolTimestamp?: string;
   actualAssistantTimestamp?: string;
+  errorMessage?: string;
 } => {
   let filePath: string | null = null;
   let originalContent: string | null = null;
@@ -220,13 +222,14 @@ export const extractFileEditData = (
   let actualIsSuccess = isSuccess;
   let actualToolTimestamp = toolTimestamp;
   let actualAssistantTimestamp = assistantTimestamp;
+  let errorMessage: string | undefined;
 
   const parseOutput = (output: any) => {
     if (typeof output === 'string') {
       try {
         return JSON.parse(output);
       } catch {
-        return null;
+        return output; // Return as string if not JSON
       }
     }
     return output;
@@ -237,12 +240,14 @@ export const extractFileEditData = (
     if (parsed?.tool_execution) {
       const args = parsed.tool_execution.arguments || {};
       const output = parseOutput(parsed.tool_execution.result?.output);
+      const success = parsed.tool_execution.result?.success;
       return {
         filePath: args.target_file || output?.file_path || null,
         originalContent: output?.original_content || null,
         updatedContent: output?.updated_content || null,
-        success: parsed.tool_execution.result?.success,
+        success: success,
         timestamp: parsed.tool_execution.execution_details?.timestamp,
+        errorMessage: success === false ? (typeof output === 'string' ? output : JSON.stringify(output)) : undefined,
       };
     }
     return {};
@@ -254,6 +259,7 @@ export const extractFileEditData = (
   filePath = toolData.filePath || assistantData.filePath;
   originalContent = toolData.originalContent || assistantData.originalContent;
   updatedContent = toolData.updatedContent || assistantData.updatedContent;
+  errorMessage = toolData.errorMessage || assistantData.errorMessage;
 
   if (toolData.success !== undefined) {
     actualIsSuccess = toolData.success;
@@ -263,7 +269,7 @@ export const extractFileEditData = (
     actualAssistantTimestamp = assistantData.timestamp || assistantTimestamp;
   }
 
-  return { filePath, originalContent, updatedContent, actualIsSuccess, actualToolTimestamp, actualAssistantTimestamp };
+  return { filePath, originalContent, updatedContent, actualIsSuccess, actualToolTimestamp, actualAssistantTimestamp, errorMessage };
 };
 
 const parseContent = (content: any): any => {
