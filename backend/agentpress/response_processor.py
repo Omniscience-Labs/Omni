@@ -1159,8 +1159,12 @@ class ResponseProcessor:
                     next_tag_start = -1
                     current_tag = None
                     
-                    # Find the earliest occurrence of any registered tag
-                    for tag_name in self.tool_registry.xml_tools.keys():
+                    # Find the earliest occurrence of any registered tool function name
+                    # Since we no longer use xml_tools, check for available function names
+                    available_functions = self.tool_registry.get_available_functions()
+                    for func_name in available_functions.keys():
+                        # Convert function name to potential tag name (underscore to dash)
+                        tag_name = func_name.replace('_', '-')
                         start_pattern = f'<{tag_name}'
                         tag_pos = content.find(start_pattern, pos)
                         

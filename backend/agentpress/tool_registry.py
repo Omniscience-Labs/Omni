@@ -1,6 +1,7 @@
 from typing import Dict, Type, Any, List, Optional, Callable
 from agentpress.tool import Tool, SchemaType
 from utils.logger import logger
+import json
 
 
 class ToolRegistry:
@@ -101,3 +102,4 @@ class ToolRegistry:
         ]
         logger.debug(f"Retrieved {len(schemas)} OpenAPI schemas")
         return schemas
+

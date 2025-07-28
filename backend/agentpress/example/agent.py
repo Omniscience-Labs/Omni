@@ -8,7 +8,7 @@ using the ThreadManager and AgentPress tool system.
 import asyncio
 from typing import Dict, Any, Optional, List
 from agentpress.thread_manager import ThreadManager
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema
 from utils.logger import logger
 
 class CalculatorTool(Tool):
@@ -44,15 +44,6 @@ class CalculatorTool(Tool):
             }
         }
     })
-    @xml_schema(
-        tag_name="calculate",
-        mappings=[
-            {"param_name": "operation", "node_type": "attribute", "path": "."},
-            {"param_name": "a", "node_type": "attribute", "path": "."},
-            {"param_name": "b", "node_type": "attribute", "path": "."}
-        ],
-        example='<calculate operation="add" a="5" b="3" />'
-    )
     async def calculate(self, operation: str, a: float, b: float) -> ToolResult:
         """Perform a mathematical calculation.
         
@@ -95,45 +86,6 @@ class CalculatorTool(Tool):
             logger.error(f"Error in calculation: {str(e)}", exc_info=True)
             return self.fail_response(f"Calculation failed: {str(e)}")
 
-    @openapi_schema({
-        "type": "function", 
-        "function": {
-            "name": "get_help",
-            "description": "Get help information about the calculator tool",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
-    })
-    @xml_schema(
-        tag_name="get-help",
-        mappings=[],
-        example='<get-help />'
-    )
-    async def get_help(self) -> ToolResult:
-        """Get help information about the calculator tool."""
-        help_text = """
-Calculator Tool Help:
-
-Available operations:
-- add: Addition (a + b)
-- subtract: Subtraction (a - b) 
-- multiply: Multiplication (a * b)
-- divide: Division (a / b)
-
-Example usage:
-- calculate(operation="add", a=5, b=3) → 8
-- calculate(operation="multiply", a=4, b=2.5) → 10.0
-
-Note: Division by zero is not allowed and will return an error.
-        """
-        
-        return self.success_response({
-            "help": help_text.strip(),
-            "operations": ["add", "subtract", "multiply", "divide"]
-        })
 
 
 class SimpleAgent:
@@ -160,7 +112,7 @@ Always be friendly and explain your reasoning when solving problems.
 
 Available tools:
 - calculate: Perform mathematical operations
-- get_help: Get information about calculator capabilities
+
 """
         }
         
@@ -214,14 +166,27 @@ Available tools:
         }
         
         # Run the thread with the agent's system prompt
+        # Create processor config with XML tool calling enabled
+        from agentpress.response_processor import ProcessorConfig
+        
+        processor_config = ProcessorConfig(
+            xml_tool_calling=True,
+            native_tool_calling=False,
+            execute_tools=True,
+            execute_on_stream=False,
+            tool_execution_strategy="sequential",
+            xml_adding_strategy="user_message",
+            max_xml_tool_calls=0  # No limit
+        )
+        
         return await self.thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=self.system_prompt,
             temporary_message=temp_message,
             stream=stream,
-            llm_model="gpt-4o-mini",  # Using a cost-effective model for the example
+            llm_model="gpt-4o",  # Using a cost-effective model for the example
             llm_temperature=0.1,
-            native_max_auto_continues=3,  # Allow some auto-continues for tool usage
+            processor_config=processor_config,
             include_xml_examples=True  # Include XML examples for tool usage
         )
 
@@ -319,7 +284,7 @@ async def example_usage():
         "What's 15 + 27?",
         "Can you multiply 8.5 by 4?",
         "What's 100 divided by 7? Please round to 2 decimal places in your explanation.",
-        "Can you show me what operations you can perform?"
+        "Can you divide 144 by 12?"
     ]
     
     for i, message in enumerate(test_messages, 1):
@@ -334,17 +299,14 @@ async def example_usage():
             # Process streaming response
             full_response = ""
             async for chunk in response_stream:
+                # Handle case where chunk might be a string instead of dict
+                if not isinstance(chunk, dict):
+                    continue
+                    
                 if chunk.get('type') == 'content':
                     content = chunk.get('content', '')
                     print(content, end='', flush=True)
                     full_response += content
-                elif chunk.get('type') == 'tool':
-                    tool_info = chunk.get('content', {})
-                    print(f"\n🔧 [Tool: {tool_info.get('name', 'unknown')}]", end='', flush=True)
-                elif chunk.get('type') == 'status':
-                    status = chunk.get('status', '')
-                    if status == 'error':
-                        print(f"\n❌ Error: {chunk.get('message', 'Unknown error')}")
             
             print()  # New line after response
             
