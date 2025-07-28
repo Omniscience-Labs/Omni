@@ -202,14 +202,20 @@ export function FileEditToolView({
 
               <div className="flex items-center gap-2">
                 <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400 gap-3">
-                  <div className="flex items-center">
-                    <Plus className="h-3.5 w-3.5 text-emerald-500 mr-1" />
-                    <span>{stats.additions}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Minus className="h-3.5 w-3.5 text-red-500 mr-1" />
-                    <span>{stats.deletions}</span>
-                  </div>
+                  {stats.additions === 0 && stats.deletions === 0 ? (
+                    <Badge variant="outline" className="text-xs font-normal">No changes</Badge>
+                  ) : (
+                    <>
+                      <div className="flex items-center">
+                        <Plus className="h-3.5 w-3.5 text-emerald-500 mr-1" />
+                        <span>{stats.additions}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Minus className="h-3.5 w-3.5 text-red-500 mr-1" />
+                        <span>{stats.deletions}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'unified' | 'split')} className="w-auto">
                   <TabsList className="h-7 p-0.5">

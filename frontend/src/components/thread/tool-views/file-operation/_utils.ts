@@ -282,6 +282,18 @@ export const extractFileEditData = (
         errorMessage: errorMessage,
       };
     }
+    
+    // Fallback for when toolContent is just the output object from the tool result
+    if (typeof parsed === 'object' && parsed !== null && (parsed.original_content !== undefined || parsed.updated_content !== undefined)) {
+        return {
+            filePath: parsed.file_path || null,
+            originalContent: parsed.original_content ?? null,
+            updatedContent: parsed.updated_content ?? null,
+            success: true, // Assume success if we have content
+            timestamp: null,
+            errorMessage: parsed.message,
+        };
+    }
     return {};
   };
 

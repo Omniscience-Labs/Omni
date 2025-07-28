@@ -529,7 +529,7 @@ def authenticate_user(username, password):
                 }))
 
             if new_content == original_content:
-                return ToolResult(success=False, output=json.dumps({
+                return ToolResult(success=True, output=json.dumps({
                     "message": f"AI editing resulted in no changes to the file '{target_file}'.",
                     "file_path": target_file,
                     "original_content": original_content,
