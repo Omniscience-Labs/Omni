@@ -59,7 +59,7 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
         const node: Node = {
           id: nodeId,
           type: 'step',
-          position: { x: xOffset, y: currentY },
+          position: step.position || { x: xOffset, y: currentY },
           data: {
             name: step.name,
             description: step.description,
@@ -155,7 +155,7 @@ export function convertWorkflowToReactFlow(steps: ConditionalStep[]): Conversion
       const conditionNode: Node = {
         id: conditionNodeId,
         type: 'condition',
-        position: { x: branchXPos, y: yOffset + 100 },
+        position: condition.position || { x: branchXPos, y: yOffset + 100 },
         data: {
           conditionType: condition.conditions?.type || 'if',
           expression: condition.conditions?.expression || '',
@@ -259,6 +259,7 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
         order: 0,
         enabled: true,
         hasIssues: nodeData.hasIssues || false,
+        position: node.position,
         children: []
       };
       
@@ -288,6 +289,7 @@ export function convertReactFlowToWorkflow(nodes: Node[], edges: Edge[]): Condit
         order: 0,
         enabled: true,
         hasIssues: false,
+        position: node.position,
         children: []
       };
       

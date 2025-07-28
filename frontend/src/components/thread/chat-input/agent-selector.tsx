@@ -85,11 +85,21 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     }))
   ];
 
-  // Filter agents based on search query
   const filteredAgents = allAgents.filter((agent) =>
     agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const sortedFilteredAgents = React.useMemo(() => {
+    if (!selectedAgentId) {
+      return filteredAgents;
+    }
+    
+    const selectedAgent = filteredAgents.find(agent => agent.id === selectedAgentId);
+    const otherAgents = filteredAgents.filter(agent => agent.id !== selectedAgentId);
+    
+    return selectedAgent ? [selectedAgent, ...otherAgents] : filteredAgents;
+  }, [filteredAgents, selectedAgentId]);
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -114,12 +124,10 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       };
     }
     
-    // If selectedAgentId is not undefined but no agent is found, log a warning
     if (selectedAgentId !== undefined) {
       console.warn('Agent with ID', selectedAgentId, 'not found, falling back to Suna');
     }
     
-    // Default to Suna (the first agent which has id: undefined)
     const defaultAgent = allAgents[0];
     const isDefaultAgentSuna = defaultAgent?.metadata?.is_suna_default || false;
     return {
@@ -145,16 +153,16 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex((prev) =>
-        prev < filteredAgents.length - 1 ? prev + 1 : 0
+        prev < sortedFilteredAgents.length - 1 ? prev + 1 : 0
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex((prev) =>
-        prev > 0 ? prev - 1 : filteredAgents.length - 1
+        prev > 0 ? prev - 1 : sortedFilteredAgents.length - 1
       );
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
       e.preventDefault();
-      const selectedAgent = filteredAgents[highlightedIndex];
+      const selectedAgent = sortedFilteredAgents[highlightedIndex];
       if (selectedAgent) {
         handleAgentSelect(selectedAgent.id);
       }
@@ -320,7 +328,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
               <div className="px-4 py-6 text-sm text-muted-foreground/70 text-center">
                 <div className="animate-pulse">Loading agents...</div>
               </div>
-            ) : filteredAgents.length === 0 ? (
+            ) : sortedFilteredAgents.length === 0 ? (
               <div className="px-4 py-6 text-sm text-muted-foreground/70 text-center">
                 <Search className="h-6 w-6 mx-auto mb-2 opacity-40" />
                 <p>No agents found</p>
@@ -328,7 +336,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
               </div>
             ) : (
               <div className="space-y-0.5">
-                {filteredAgents.map((agent, index) => renderAgentItem(agent, index))}
+                {sortedFilteredAgents.map((agent, index) => renderAgentItem(agent, index))}
               </div>
             )}
           </div>

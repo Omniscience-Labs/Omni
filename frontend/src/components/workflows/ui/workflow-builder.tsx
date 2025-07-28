@@ -26,14 +26,16 @@ import edgeTypes from './edge-types';
 import { ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 import { uuid } from './utils';
 import { convertWorkflowToReactFlow, convertReactFlowToWorkflow } from './utils/conversion';
+import { validateWorkflow, canDeleteNode, autoFixWorkflow } from './utils/validation';
 import { Button } from '@/components/ui/button';
-import { Plus, GitBranch } from 'lucide-react';
+import { Plus, GitBranch, AlertCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
 const proOptions: ProOptions = { account: 'paid-pro', hideAttribution: true };
@@ -313,10 +315,12 @@ function WorkflowBuilderInner({
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.5}
         maxZoom={1.5}
-        nodesDraggable={false}
-        nodesConnectable={false}
+        nodesDraggable={true}
+        nodesConnectable={true}
         zoomOnDoubleClick={false}
         deleteKeyCode={null}
+        snapToGrid={true}
+        snapGrid={[15, 15]}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls />
