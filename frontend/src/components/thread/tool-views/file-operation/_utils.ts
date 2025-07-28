@@ -265,8 +265,8 @@ export const extractFileEditData = (
       const success = parsed.tool_execution.result?.success;
       return {
         filePath: args.target_file || output?.file_path || null,
-        originalContent: output?.original_content || null,
-        updatedContent: output?.updated_content || null,
+        originalContent: output?.original_content ?? null,
+        updatedContent: output?.updated_content ?? null,
         success: success,
         timestamp: parsed.tool_execution.execution_details?.timestamp,
         errorMessage: success === false ? (output?.message || (typeof output === 'string' ? output : JSON.stringify(output))) : undefined,
