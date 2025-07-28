@@ -38,8 +38,8 @@ const UnifiedDiffView: React.FC<{ oldCode: string; newCode: string }> = ({ oldCo
     styles={{
       variables: {
         dark: {
-          color: '#e2e8f0',
-          background: '#09090b',
+          diffViewerColor: '#e2e8f0',
+          diffViewerBackground: '#09090b',
           addedBackground: '#104a32',
           addedColor: '#6ee7b7',
           removedBackground: '#5c1a2e',
@@ -72,8 +72,8 @@ const SplitDiffView: React.FC<{ oldCode: string; newCode: string }> = ({ oldCode
     styles={{
       variables: {
         dark: {
-          color: '#e2e8f0',
-          background: '#09090b',
+          diffViewerColor: '#e2e8f0',
+          diffViewerBackground: '#09090b',
           addedBackground: '#104a32',
           addedColor: '#6ee7b7',
           removedBackground: '#5c1a2e',
