@@ -34,6 +34,7 @@ const UnifiedDiffView: React.FC<{ oldCode: string; newCode: string }> = ({ oldCo
     oldValue={oldCode}
     newValue={newCode}
     splitView={false}
+    hideLineNumbers={true}
     useDarkTheme={document.documentElement.classList.contains('dark')}
     styles={{
       variables: {
@@ -50,11 +51,8 @@ const UnifiedDiffView: React.FC<{ oldCode: string; newCode: string }> = ({ oldCo
         backgroundColor: 'var(--card)',
         border: 'none',
       },
-      gutter: {
-        backgroundColor: 'var(--muted)',
-        '&:hover': {
-          backgroundColor: 'var(--accent)',
-        },
+      diffRemoved: {
+        display: 'none',
       },
       line: {
         fontFamily: 'monospace',
