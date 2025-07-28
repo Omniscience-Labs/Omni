@@ -320,18 +320,6 @@ export const extractFileEditData = (
   return { filePath, originalContent, updatedContent, actualIsSuccess, actualToolTimestamp, actualAssistantTimestamp, errorMessage };
 };
 
-const parseContent = (content: any): any => {
-  if (typeof content === 'string') {
-    try {
-      return JSON.parse(content);
-    } catch (e) {
-      return content;
-    }
-  }
-  return content;
-};
-
-
 export const getOperationType = (name?: string, assistantContent?: any): FileOperation => {
   if (name) {
     if (name.includes('create')) return 'create';
