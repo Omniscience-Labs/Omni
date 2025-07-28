@@ -1730,7 +1730,10 @@ class ResponseProcessor:
         output_to_use = output
         # If this is for the LLM and it's an edit_file tool, create a concise output
         if for_llm and function_name == 'edit_file' and isinstance(output, dict):
-            output_to_use = {"message": output.get("message", "File edited successfully.")}
+            # The frontend needs original_content and updated_content to render diffs.
+            # The concise version for the LLM was causing issues.
+            # We will now pass the full output, and rely on the ContextManager to truncate if needed.
+            output_to_use = output
 
         # Create the structured result
         structured_result_v1 = {
