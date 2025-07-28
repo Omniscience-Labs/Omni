@@ -263,13 +263,25 @@ export const extractFileEditData = (
       const args = parsed.tool_execution.arguments || {};
       const output = parseOutput(parsed.tool_execution.result?.output);
       const success = parsed.tool_execution.result?.success;
+      
+      let errorMessage: string | undefined;
+      if (success === false) {
+        if (typeof output === 'object' && output !== null && output.message) {
+          errorMessage = output.message;
+        } else if (typeof output === 'string') {
+          errorMessage = output;
+        } else {
+          errorMessage = JSON.stringify(output);
+        }
+      }
+
       return {
-        filePath: args.target_file || output?.file_path || null,
-        originalContent: output?.original_content ?? null,
-        updatedContent: output?.updated_content ?? null,
+        filePath: args.target_file || (typeof output === 'object' && output?.file_path) || null,
+        originalContent: (typeof output === 'object' && output?.original_content) ?? null,
+        updatedContent: (typeof output === 'object' && output?.updated_content) ?? null,
         success: success,
         timestamp: parsed.tool_execution.execution_details?.timestamp,
-        errorMessage: success === false ? (output?.message || (typeof output === 'string' ? output : JSON.stringify(output))) : undefined,
+        errorMessage: errorMessage,
       };
     }
     return {};
