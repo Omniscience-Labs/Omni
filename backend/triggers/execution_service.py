@@ -1,20 +1,24 @@
+import json
 import uuid
-from typing import Dict, Any, Tuple
 from datetime import datetime, timezone
+from typing import Dict, Any, Tuple
 
-from ..domain.entities import TriggerResult, TriggerEvent
 from services.supabase import DBConnection
 from services import redis
 from utils.logger import logger, structlog
+from utils.config import config
 from run_agent_background import run_agent_background
-from .workflow_parser import WorkflowParser, format_workflow_for_llm
+from .trigger_service import TriggerEvent, TriggerResult
+from .utils import format_workflow_for_llm
 
 
-class TriggerExecutionService:
+class ExecutionService:
+
     def __init__(self, db_connection: DBConnection):
         self._db = db_connection
-        self._agent_executor = AgentExecutor(db_connection)
-        self._workflow_executor = WorkflowExecutor(db_connection)
+        self._session_manager = SessionManager(db_connection)
+        self._agent_executor = AgentExecutor(db_connection, self._session_manager)
+        self._workflow_executor = WorkflowExecutor(db_connection, self._session_manager)
     
     async def execute_trigger_result(
         self,
@@ -26,7 +30,7 @@ class TriggerExecutionService:
             logger.info(f"Executing trigger for agent {agent_id}: workflow={trigger_result.should_execute_workflow}, agent={trigger_result.should_execute_agent}")
             
             if trigger_result.should_execute_workflow:
-                return await self._workflow_executor.execute_triggered_workflow(
+                return await self._workflow_executor.execute_workflow(
                     agent_id=agent_id,
                     workflow_id=trigger_result.workflow_id,
                     workflow_input=trigger_result.workflow_input or {},
@@ -34,7 +38,7 @@ class TriggerExecutionService:
                     trigger_event=trigger_event
                 )
             else:
-                return await self._agent_executor.execute_triggered_agent(
+                return await self._agent_executor.execute_agent(
                     agent_id=agent_id,
                     trigger_result=trigger_result,
                     trigger_event=trigger_event
@@ -66,6 +70,7 @@ class SessionManager:
         account_id = agent_config.get('account_id')
         
         placeholder_name = f"Trigger: {agent_config.get('name', 'Agent')} - {trigger_event.trigger_id[:8]}"
+        
         await client.table('projects').insert({
             "project_id": project_id,
             "account_id": account_id,
@@ -165,36 +170,15 @@ class SessionManager:
         if "token='" in str(link):
             return str(link).split("token='")[1].split("'")[0]
         return None
-    
-    async def start_sandbox(self, project_id: str) -> None:
-        try:
-            client = await self._db.client
-            project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
-            
-            if not project_result.data:
-                raise Exception("Project not found")
-            
-            sandbox_info = project_result.data[0].get('sandbox', {})
-            sandbox_id = sandbox_info.get('id')
-            
-            if not sandbox_id:
-                raise Exception("No sandbox found for this project")
-            
-            from sandbox.sandbox import get_or_start_sandbox
-            await get_or_start_sandbox(sandbox_id)
-            logger.info(f"Started sandbox {sandbox_id} for project {project_id}")
-            
-        except Exception as e:
-            logger.error(f"Failed to start sandbox for project {project_id}: {e}")
-            raise Exception(f"Failed to initialize sandbox: {e}")
 
 
 class AgentExecutor:
-    def __init__(self, db_connection: DBConnection):
+
+    def __init__(self, db_connection: DBConnection, session_manager: SessionManager):
         self._db = db_connection
-        self._session_manager = SessionManager(db_connection)
+        self._session_manager = session_manager
     
-    async def execute_triggered_agent(
+    async def execute_agent(
         self,
         agent_id: str,
         trigger_result: TriggerResult,
@@ -210,11 +194,11 @@ class AgentExecutor:
             )
             
             await self._create_initial_message(
-                thread_id, trigger_result.agent_prompt, trigger_result.execution_variables.variables
+                thread_id, trigger_result.agent_prompt, trigger_result.execution_variables
             )
             
             agent_run_id = await self._start_agent_execution(
-                thread_id, project_id, agent_config, trigger_result.execution_variables.variables
+                thread_id, project_id, agent_config, trigger_result.execution_variables
             )
             
             return {
@@ -225,7 +209,7 @@ class AgentExecutor:
             }
             
         except Exception as e:
-            logger.error(f"Failed to execute triggered agent {agent_id}: {e}")
+            logger.error(f"Failed to execute agent {agent_id}: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -302,7 +286,6 @@ class AgentExecutor:
     ) -> None:
         client = await self._db.client
         
-        import json
         message_payload = {"role": "user", "content": prompt}
         
         await client.table('messages').insert({
@@ -372,12 +355,11 @@ class AgentExecutor:
 
 
 class WorkflowExecutor:
-    def __init__(self, db_connection: DBConnection):
+    def __init__(self, db_connection: DBConnection, session_manager: SessionManager):
         self._db = db_connection
-        self._session_manager = SessionManager(db_connection)
-        self._workflow_prompt_builder = WorkflowPromptBuilder()
+        self._session_manager = session_manager
     
-    async def execute_triggered_workflow(
+    async def execute_workflow(
         self,
         agent_id: str,
         workflow_id: str,
@@ -399,9 +381,8 @@ class WorkflowExecutor:
             
             await self._validate_workflow_execution(account_id)
             
-            await self._session_manager.start_sandbox(project_id)
-            
             await self._create_workflow_message(thread_id, workflow_config, workflow_input)
+            
             agent_run_id = await self._start_workflow_agent_execution(
                 thread_id, project_id, enhanced_agent_config
             )
@@ -414,7 +395,7 @@ class WorkflowExecutor:
             }
             
         except Exception as e:
-            logger.error(f"Failed to execute triggered workflow {workflow_id}: {e}")
+            logger.error(f"Failed to execute workflow {workflow_id}: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -432,18 +413,12 @@ class WorkflowExecutor:
         if workflow_config['status'] != 'active':
             raise ValueError(f"Workflow {workflow_id} is not active")
         
-        if workflow_config.get('steps'):
-            steps_json = workflow_config['steps']
-        else:
-            steps_json = []
-        
+        steps_json = workflow_config.get('steps', [])
         return workflow_config, steps_json
-    
-
     
     async def _get_agent_data(self, agent_id: str) -> Tuple[Dict[str, Any], str]:
         from agent.versioning.domain.entities import AgentId
-        from agent.versioning.infrastructure.dependencies import set_db_connection
+        from agent.versioning.infrastructure.dependencies import set_db_connection, get_container
         
         set_db_connection(self._db)
         
@@ -456,7 +431,6 @@ class WorkflowExecutor:
             agent_data = agent_result.data[0]
             account_id = agent_data['account_id']
             
-            from agent.versioning.infrastructure.dependencies import get_container
             container = get_container()
             version_service = await container.get_version_service()
             agent_id_obj = AgentId.from_string(agent_id)
@@ -495,7 +469,7 @@ class WorkflowExecutor:
             return agent_config, account_id
             
         except Exception as e:
-            raise ValueError(f"Failed to get agent configuration using versioning system: {str(e)}")
+            raise ValueError(f"Failed to get agent configuration: {str(e)}")
     
     async def _enhance_agent_config_for_workflow(
         self,
@@ -504,9 +478,12 @@ class WorkflowExecutor:
         steps_json: list,
         workflow_input: Dict[str, Any]
     ) -> Dict[str, Any]:
-        available_tools = self._workflow_prompt_builder.get_available_tools(agent_config)
-        workflow_prompt = self._workflow_prompt_builder.build_workflow_system_prompt(
-            workflow_config, steps_json, workflow_input, available_tools
+        available_tools = self._get_available_tools(agent_config)
+        workflow_prompt = format_workflow_for_llm(
+            workflow_config=workflow_config,
+            steps=steps_json,
+            input_data=workflow_input,
+            available_tools=available_tools
         )
         
         enhanced_config = agent_config.copy()
@@ -517,8 +494,38 @@ class WorkflowExecutor:
         
         return enhanced_config
     
+    def _get_available_tools(self, agent_config: Dict[str, Any]) -> list:
+        available_tools = []
+        agentpress_tools = agent_config.get('agentpress_tools', {})
+        
+        tool_mapping = {
+            'sb_shell_tool': ['execute_command'],
+            'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
+            'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
+            'sb_vision_tool': ['see_image'],
+            'sb_deploy_tool': ['deploy'],
+            'sb_expose_tool': ['expose_port'],
+            'web_search_tool': ['web_search'],
+            'data_providers_tool': ['get_data_provider_endpoints', 'execute_data_provider_call']
+        }
+        
+        for tool_key, tool_names in tool_mapping.items():
+            if agentpress_tools.get(tool_key, {}).get('enabled', False):
+                available_tools.extend(tool_names)
+        
+        all_mcps = []
+        if agent_config.get('configured_mcps'):
+            all_mcps.extend(agent_config['configured_mcps'])
+        if agent_config.get('custom_mcps'):
+            all_mcps.extend(agent_config['custom_mcps'])
+        
+        for mcp in all_mcps:
+            enabled_tools_list = mcp.get('enabledTools', [])
+            available_tools.extend(enabled_tools_list)
+        
+        return available_tools
+    
     async def _validate_workflow_execution(self, account_id: str) -> None:
-        from utils.config import config
         from services.billing import check_billing_status, can_use_model
         
         client = await self._db.client
@@ -532,8 +539,6 @@ class WorkflowExecutor:
         if not can_run:
             raise Exception(f"Billing check failed: {billing_message}")
     
-
-    
     async def _create_workflow_message(
         self,
         thread_id: str,
@@ -542,7 +547,6 @@ class WorkflowExecutor:
     ) -> None:
         client = await self._db.client
         
-        import json
         message_content = f"Execute workflow: {workflow_config['name']}\n\nInput: {json.dumps(workflow_input) if workflow_input else 'None'}"
         
         await client.table('messages').insert({
@@ -560,8 +564,6 @@ class WorkflowExecutor:
         project_id: str,
         agent_config: Dict[str, Any]
     ) -> str:
-        from utils.config import config
-        
         client = await self._db.client
         model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
         
@@ -598,7 +600,6 @@ class WorkflowExecutor:
     
     async def _register_workflow_run(self, agent_run_id: str) -> None:
         try:
-            from utils.config import config
             instance_id = getattr(config, 'INSTANCE_ID', 'default')
             instance_key = f"active_run:{instance_id}:{agent_run_id}"
             await redis.set(instance_key, "running", ex=redis.REDIS_KEY_TTL)
@@ -606,49 +607,5 @@ class WorkflowExecutor:
             logger.warning(f"Failed to register workflow run in Redis: {e}")
 
 
-class WorkflowPromptBuilder:
-    def get_available_tools(self, agent_config: Dict[str, Any]) -> list:
-        available_tools = []
-        agentpress_tools = agent_config.get('agentpress_tools', {})
-        tool_mapping = {
-            'sb_shell_tool': ['execute_command'],
-            'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
-            'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
-            'sb_vision_tool': ['see_image'],
-            'sb_deploy_tool': ['deploy'],
-            'sb_expose_tool': ['expose_port'],
-            'web_search_tool': ['web_search'],
-            'data_providers_tool': ['get_data_provider_endpoints', 'execute_data_provider_call']
-        }
-        
-        for tool_key, tool_names in tool_mapping.items():
-            if agentpress_tools.get(tool_key, {}).get('enabled', False):
-                available_tools.extend(tool_names)
-        
-        all_mcps = []
-        if agent_config.get('configured_mcps'):
-            all_mcps.extend(agent_config['configured_mcps'])
-        if agent_config.get('custom_mcps'):
-            all_mcps.extend(agent_config['custom_mcps'])
-        
-        for mcp in all_mcps:
-            enabled_tools_list = mcp.get('enabledTools', [])
-            available_tools.extend(enabled_tools_list)
-        
-        return available_tools
-    
-    def build_workflow_system_prompt(
-        self,
-        workflow: dict,
-        steps_json: list,
-        input_data: dict = None,
-        available_tools: list = None
-    ) -> str:
-        return format_workflow_for_llm(
-            workflow_config=workflow,
-            steps=steps_json,
-            input_data=input_data,
-            available_tools=available_tools
-        )
-    
- 
+def get_execution_service(db_connection: DBConnection) -> ExecutionService:
+    return ExecutionService(db_connection) 
