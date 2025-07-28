@@ -230,28 +230,30 @@ const StepNode = ({ id, data, selected }: any) => {
 
   return (
     <div 
-      className={`react-flow__node-step ${selected ? 'selected' : ''}`}
+      className={cn(
+        "react-flow__node-step",
+        selected && "selected",
+        data.hasIssues && "has-issues"
+      )}
     >
-      <Handle type="target" position={Position.Top} isConnectable={false} />
-      <div className="workflow-node-content">
-        <div className="flex items-start justify-between">
+      <Handle 
+        type="target" 
+        position={Position.Top} 
+        className="react-flow__handle"
+      />
+      <div className="node-content">
+        <div className="node-header">
           <div className="flex-1">
             <div className="flex items-center gap-2">
               {data.hasIssues && (
-                <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
               )}
-              <h3 className="font-medium text-sm">
-                {data.name} {data.stepNumber ? data.stepNumber : ''}
+              <h3 className="node-title">
+                {data.name || 'Unnamed Step'}
               </h3>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{data.description}</p>
-            {data.tool && (
-              <div className="text-xs text-primary mt-2">
-                🔧 {getDisplayToolName(data.tool)}
-              </div>
-            )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="node-actions">
             <Popover open={isEditOpen} onOpenChange={setIsEditOpen}>
                 <PopoverTrigger asChild>
                   <Button 
@@ -468,8 +470,30 @@ const StepNode = ({ id, data, selected }: any) => {
             </Popover>
           </div>
         </div>
+        
+        {/* Node Description */}
+        {data.description && (
+          <p className="node-description">{data.description}</p>
+        )}
+        
+        {/* Tool Badge */}
+        {data.tool && (
+          <div className="node-tool-badge">
+            <span className="text-xs">🔧</span>
+            <span>{getDisplayToolName(data.tool)}</span>
+          </div>
+        )}
+        
+        {/* Error indicator */}
+        {data.hasIssues && (
+          <div className="node-error">Please configure this step</div>
+        )}
       </div>
-      <Handle type="source" position={Position.Bottom} isConnectable={false} />
+      <Handle 
+        type="source" 
+        position={Position.Bottom} 
+        className="react-flow__handle"
+      />
 
       {/* Pipedream Registry Dialog */}
       <Dialog open={showPipedreamRegistry} onOpenChange={setShowPipedreamRegistry}>
