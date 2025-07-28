@@ -269,7 +269,7 @@ class AgentExecutor:
                     }
                     for mcp in active_version.custom_mcps
                 ],
-                'agentpress_tools': active_version.tool_configuration.tools,
+                'agentpress_tools': active_version.tool_configuration.tools if isinstance(active_version.tool_configuration.tools, dict) else {},
                 'current_version_id': str(active_version.version_id),
                 'version_name': active_version.version_name
             }
@@ -461,7 +461,7 @@ class WorkflowExecutor:
                     }
                     for mcp in active_version.custom_mcps
                 ],
-                'agentpress_tools': active_version.tool_configuration.tools,
+                'agentpress_tools': active_version.tool_configuration.tools if isinstance(active_version.tool_configuration.tools, dict) else {},
                 'current_version_id': str(active_version.version_id),
                 'version_name': active_version.version_name
             }
