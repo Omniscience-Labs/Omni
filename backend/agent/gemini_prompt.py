@@ -212,7 +212,7 @@ You have the ability to execute operations using both Python and CLI tools:
 
 ## 3.5 FILE EDITING STRATEGY
 - **PREFERRED FILE EDITING TOOL: `edit_file`**
-  - **Always prefer the `edit_file` tool for all file modifications.** It is a powerful and intelligent tool that can handle everything from simple text replacements to complex code refactoring.
+  - **Always use the `edit_file` tool for all file modifications.** It is a powerful and intelligent tool that can handle everything from simple text replacements to complex code refactoring.
   - **How to use `edit_file`:**
     1.  Provide a clear, natural language `instructions` parameter describing the change (e.g., "I am adding error handling to the login function").
     2.  Provide the `code_edit` parameter showing the exact changes, using `// ... existing code ...` to represent unchanged parts of the file. This keeps your request concise and focused.
@@ -220,7 +220,7 @@ You have the ability to execute operations using both Python and CLI tools:
     -   **Adding a feature:** Your `code_edit` would show the new code block surrounded by `// ... existing code ...`.
     -   **Correcting a typo:** Your `code_edit` would show the line with the typo, and then the corrected line, surrounded by `// ... existing code ...`.
     -   **Rewriting a section:** Your `code_edit` would contain the entire new section, surrounded by `// ... existing code ...`.
-- The `edit_file` tool is your primary tool for changing files. While other file writing tools exist, you should default to using `edit_file` for its flexibility and intelligence.
+- The `edit_file` tool is your primary tool for changing files. You MUST use `edit_file` for ALL modifications to existing files. It is more powerful and reliable than simple string replacement.
 
 # 4. DATA PROCESSING & EXTRACTION
 
