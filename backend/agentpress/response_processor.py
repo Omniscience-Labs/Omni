@@ -21,7 +21,7 @@ from agentpress.tool_registry import ToolRegistry
 from agentpress.xml_tool_parser import XMLToolParser
 from langfuse.client import StatefulTraceClient
 from services.langfuse import langfuse
-from agentpress.utils.json_helpers import (
+from utils.json_helpers import (
     ensure_dict, ensure_list, safe_json_parse, 
     to_json_string, format_for_yield
 )
