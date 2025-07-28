@@ -2,7 +2,7 @@ from typing import Optional
 
 from services.supabase import DBConnection
 from utils.logger import logger
-from credentials.support.encryption import EncryptionService
+from credentials import EncryptionService
 
 from ..repositories.smithery_repository import SmitheryRepository
 from ..services.connection_service import ConnectionService

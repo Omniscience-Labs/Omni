@@ -10,7 +10,30 @@ from .services.marketplace_service import MarketplaceService
 from .support.validator import TemplateValidator
 from .support.factory import MCPRequirementFactory
 from .support.config_builder import ConfigBuilder
-from .protocols import DatabaseConnection, VersionManager, CredentialManager, ProfileManager, Logger
+from .protocols import DatabaseConnection, VersionManager, Logger
+
+
+class CredentialManagerWrapper:
+    def __init__(self, db: DatabaseConnection):
+        self._db = db
+    
+    async def get_default_credential_profile(
+        self, 
+        account_id: str, 
+        qualified_name: str
+    ) -> Optional[Any]:
+        from credentials import get_profile_service
+        profile_service = get_profile_service(self._db)
+        return await profile_service.get_default_profile(account_id, qualified_name)
+    
+    async def get_credential_by_profile(
+        self, 
+        account_id: str, 
+        profile_id: str
+    ) -> Optional[Any]:
+        from credentials import get_profile_service
+        profile_service = get_profile_service(self._db)
+        return await profile_service.get_profile(account_id, profile_id)
 
 
 class TemplateManager:
@@ -18,8 +41,7 @@ class TemplateManager:
         self,
         db: Optional[DatabaseConnection] = None,
         version_manager: Optional[VersionManager] = None,
-        credential_manager: Optional[CredentialManager] = None,
-        profile_manager: Optional[ProfileManager] = None,
+        profile_manager: Optional[Any] = None,
         logger: Optional[Logger] = None
     ):
         self._logger = logger or logging.getLogger(__name__)
@@ -36,6 +58,8 @@ class TemplateManager:
         self._validator = TemplateValidator(self._logger)
         self._factory = MCPRequirementFactory()
         self._config_builder = ConfigBuilder(self._logger)
+        
+        credential_manager = CredentialManagerWrapper(self._db)
         
         self._creation_service = TemplateCreationService(
             self._template_repo,
@@ -224,12 +248,4 @@ class TemplateManager:
         
         return MockVersionManager()
     
-    def _create_mock_credential_manager(self) -> CredentialManager:
-        class MockCredentialManager:
-            async def get_default_credential_profile(self, account_id, qualified_name):
-                return None
-            
-            async def get_credential_by_profile(self, account_id, profile_id):
-                return None
-        
-        return MockCredentialManager() 
+ 
