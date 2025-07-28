@@ -437,7 +437,8 @@ When using the tools:
                     openapi_tool_schemas = self.tool_registry.get_openapi_schemas()
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
-                print(f"\n\n\n\n prepared_messages: {prepared_messages}\n\n\n\n")
+                # print(f"\n\n\n\n prepared_messages: {prepared_messages}\n\n\n\n")
+
                 prepared_messages = self.context_manager.compress_messages(prepared_messages, llm_model)
 
                 # 5. Make LLM API call

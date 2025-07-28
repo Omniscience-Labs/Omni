@@ -6,7 +6,7 @@ ENV_MODE = os.getenv("ENV_MODE", "LOCAL")
 if ENV_MODE.upper() == "PRODUCTION":
     default_level = "DEBUG"
 else:
-    default_level = "WARNING"
+    default_level = "INFO"
 
 LOGGING_LEVEL = logging.getLevelNamesMapping().get(
     os.getenv("LOGGING_LEVEL", default_level).upper(), 

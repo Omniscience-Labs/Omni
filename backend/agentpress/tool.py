@@ -18,14 +18,13 @@ from utils.logger import logger
 class SchemaType(Enum):
     """Enumeration of supported schema types for tool definitions."""
     OPENAPI = "openapi"
-    CUSTOM = "custom"
 
 @dataclass
 class ToolSchema:
     """Container for tool schemas with type information.
     
     Attributes:
-        schema_type (SchemaType): Type of schema (OpenAPI or Custom)
+        schema_type (SchemaType): Type of schema (OpenAPI)
         schema (Dict[str, Any]): The actual schema definition
     """
     schema_type: SchemaType
@@ -124,12 +123,9 @@ def openapi_schema(schema: Dict[str, Any]):
         ))
     return decorator
 
-def custom_schema(schema: Dict[str, Any]):
-    """Decorator for custom schema tools."""
+def xml_schema(schema: Dict[str, Any]):
+    """Deprecated decorator - does nothing, kept for compatibility."""
     def decorator(func):
-        logger.debug(f"Applying custom schema to function {func.__name__}")
-        return _add_schema(func, ToolSchema(
-            schema_type=SchemaType.CUSTOM,
-            schema=schema
-        ))
+        logger.debug(f"xml_schema decorator called on {func.__name__} - ignoring (deprecated)")
+        return func
     return decorator

@@ -52,15 +52,9 @@ class XMLToolParser:
         re.DOTALL | re.IGNORECASE
     )
     
-    def __init__(self, strict_mode: bool = False):
-        """
-        Initialize the XML tool parser.
-        
-        Args:
-            strict_mode: If True, only accept the exact format. If False, 
-                        also try to parse legacy formats for backwards compatibility.
-        """
-        self.strict_mode = strict_mode
+    def __init__(self):
+        """Initialize the XML tool parser."""
+        pass
     
     def parse_content(self, content: str) -> List[XMLToolCall]:
         """
@@ -74,7 +68,7 @@ class XMLToolParser:
         """
         tool_calls = []
         
-        # First, try to find function_calls blocks
+        # Find function_calls blocks
         function_calls_matches = self.FUNCTION_CALLS_PATTERN.findall(content)
         
         for fc_content in function_calls_matches:
@@ -93,10 +87,6 @@ class XMLToolParser:
                 except Exception as e:
                     logger.error(f"Error parsing invoke block for {function_name}: {e}")
         
-        # If not in strict mode and no tool calls found, try legacy format
-        if not self.strict_mode and not tool_calls:
-            tool_calls.extend(self._parse_legacy_format(content))
-        
         return tool_calls
     
     def _parse_invoke_block(
@@ -108,7 +98,6 @@ class XMLToolParser:
         """Parse a single invoke block into an XMLToolCall."""
         parameters = {}
         parsing_details = {
-            "format": "v2",
             "function_name": function_name,
             "raw_parameters": {}
         }
@@ -176,58 +165,6 @@ class XMLToolParser:
         # Return as string
         return value
     
-    def _parse_legacy_format(self, content: str) -> List[XMLToolCall]:
-        """
-        Parse legacy XML tool formats for backwards compatibility.
-        This handles formats like <tool_name>...</tool_name> or 
-        <tool_name param="value">...</tool_name>
-        """
-        tool_calls = []
-        
-        # Pattern for finding XML-like tags
-        tag_pattern = re.compile(r'<([a-zA-Z][\w\-]*)((?:\s+[\w\-]+=["\'][^"\']*["\'])*)\s*>(.*?)</\1>', re.DOTALL)
-        
-        for match in tag_pattern.finditer(content):
-            tag_name = match.group(1)
-            attributes_str = match.group(2)
-            inner_content = match.group(3)
-            
-            # Skip our own format tags
-            if tag_name in ('function_calls', 'invoke', 'parameter'):
-                continue
-            
-            parameters = {}
-            parsing_details = {
-                "format": "legacy",
-                "tag_name": tag_name,
-                "attributes": {},
-                "inner_content": inner_content.strip()
-            }
-            
-            # Parse attributes
-            if attributes_str:
-                attr_pattern = re.compile(r'([\w\-]+)=["\']([^"\']*)["\']')
-                for attr_match in attr_pattern.finditer(attributes_str):
-                    attr_name = attr_match.group(1)
-                    attr_value = attr_match.group(2)
-                    parameters[attr_name] = self._parse_parameter_value(attr_value)
-                    parsing_details["attributes"][attr_name] = attr_value
-            
-            # If there's inner content and no attributes, use it as a 'content' parameter
-            if inner_content.strip() and not parameters:
-                parameters['content'] = inner_content.strip()
-            
-            # Convert tag name to function name (e.g., create-file -> create_file)
-            function_name = tag_name.replace('-', '_')
-            
-            tool_calls.append(XMLToolCall(
-                function_name=function_name,
-                parameters=parameters,
-                raw_xml=match.group(0),
-                parsing_details=parsing_details
-            ))
-        
-        return tool_calls
     
     def format_tool_call(self, function_name: str, parameters: Dict[str, Any]) -> str:
         """
@@ -285,16 +222,15 @@ class XMLToolParser:
 
 
 # Convenience function for quick parsing
-def parse_xml_tool_calls(content: str, strict_mode: bool = False) -> List[XMLToolCall]:
+def parse_xml_tool_calls(content: str) -> List[XMLToolCall]:
     """
     Parse XML tool calls from content.
     
     Args:
         content: The text content potentially containing XML tool calls
-        strict_mode: If True, only accept the Cursor-style format
         
     Returns:
         List of parsed XMLToolCall objects
     """
-    parser = XMLToolParser(strict_mode=strict_mode)
+    parser = XMLToolParser()
     return parser.parse_content(content) 
