@@ -69,6 +69,58 @@ class ThreadManager:
         """Add a tool to the ThreadManager."""
         self.tool_registry.register_tool(tool_class, function_names, **kwargs)
 
+    async def create_thread(
+        self,
+        account_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        is_public: bool = False,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Create a new thread in the database.
+
+        Args:
+            account_id: Optional account ID for the thread. If None, creates an orphaned thread.
+            project_id: Optional project ID for the thread. If None, creates an orphaned thread.
+            is_public: Whether the thread should be public (defaults to False).
+            metadata: Optional metadata dictionary for additional thread context.
+
+        Returns:
+            The thread_id of the newly created thread.
+
+        Raises:
+            Exception: If thread creation fails.
+        """
+        logger.debug(f"Creating new thread (account_id: {account_id}, project_id: {project_id}, is_public: {is_public})")
+        client = await self.db.client
+
+        # Prepare data for thread creation
+        thread_data = {
+            'is_public': is_public,
+            'metadata': metadata or {}
+        }
+
+        # Add optional fields only if provided
+        if account_id:
+            thread_data['account_id'] = account_id
+        if project_id:
+            thread_data['project_id'] = project_id
+
+        try:
+            # Insert the thread and get the thread_id
+            result = await client.table('threads').insert(thread_data).execute()
+            
+            if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'thread_id' in result.data[0]:
+                thread_id = result.data[0]['thread_id']
+                logger.info(f"Successfully created thread: {thread_id}")
+                return thread_id
+            else:
+                logger.error(f"Thread creation failed or did not return expected data structure. Result data: {result.data}")
+                raise Exception("Failed to create thread: no thread_id returned")
+
+        except Exception as e:
+            logger.error(f"Failed to create thread: {str(e)}", exc_info=True)
+            raise Exception(f"Thread creation failed: {str(e)}")
+
     async def add_message(
         self,
         thread_id: str,
@@ -124,6 +176,7 @@ class ThreadManager:
         except Exception as e:
             logger.error(f"Failed to add message to thread {thread_id}: {str(e)}", exc_info=True)
             raise
+
 
     async def get_llm_messages(self, thread_id: str) -> List[Dict[str, Any]]:
         """Get all messages for a thread.
