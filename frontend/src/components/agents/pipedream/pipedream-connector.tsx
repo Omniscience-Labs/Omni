@@ -280,7 +280,6 @@ export const PipedreamConnector: React.FC<PipedreamConnectorProps> = ({
           }
         </p>
       </div>
-
       {mode !== 'profile-only' && availableProfiles.length > 0 && !isCreatingProfile && (
         <div className="space-y-4">
           {connectionSuccessProfileId && (

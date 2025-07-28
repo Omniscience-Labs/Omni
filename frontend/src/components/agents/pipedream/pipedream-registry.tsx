@@ -292,7 +292,7 @@ export const PipedreamRegistry: React.FC<PipedreamRegistryProps> = ({
                   </div>
                   <div>
                     <h2 className="text-md font-semibold text-foreground">
-                      {showAgentSelector && currentAgentId ? 'Connected to Agent' : 'Connected Apps'}
+                    Your Apps
                     </h2>
                   </div>
                 </div>
