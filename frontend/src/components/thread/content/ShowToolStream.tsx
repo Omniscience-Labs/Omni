@@ -64,28 +64,12 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
         return content; // fallback to full content
     }, [content, isEditFile, isCreateFile, isFullFileRewrite]);
 
-    // Time-based logic - show streaming content after 1500ms
+    // Show streaming content immediately for file operations
     useEffect(() => {
-        const effectiveStartTime = stableStartTimeRef.current;
-
-        // Only show expanded content for file operation tools
-        if (!effectiveStartTime || !showExpanded || !FILE_OPERATION_TOOLS.has(toolName || '')) {
-            setShouldShowContent(false);
-            return;
-        }
-
-        const elapsed = Date.now() - effectiveStartTime;
-        if (elapsed >= 2000) {
+        if (showExpanded && FILE_OPERATION_TOOLS.has(toolName || '')) {
             setShouldShowContent(true);
         } else {
-            const delay = 2000 - elapsed;
-            const timer = setTimeout(() => {
-                setShouldShowContent(true);
-            }, delay);
-
-            return () => {
-                clearTimeout(timer);
-            };
+            setShouldShowContent(false);
         }
     }, [showExpanded, toolName]);
 

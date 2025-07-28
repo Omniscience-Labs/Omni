@@ -238,14 +238,6 @@ export const extractFileEditData = (
   actualAssistantTimestamp?: string;
   errorMessage?: string;
 } => {
-  let filePath: string | null = null;
-  let originalContent: string | null = null;
-  let updatedContent: string | null = null;
-  let actualIsSuccess = isSuccess;
-  let actualToolTimestamp = toolTimestamp;
-  let actualAssistantTimestamp = assistantTimestamp;
-  let errorMessage: string | undefined;
-
   const parseOutput = (output: any) => {
     if (typeof output === 'string') {
       try {
@@ -258,7 +250,13 @@ export const extractFileEditData = (
   };
 
   const extractData = (content: any) => {
-    const parsed = typeof content === 'string' ? parseContent(content) : content;
+    let parsed = typeof content === 'string' ? parseContent(content) : content;
+    
+    // Handle nested content structures like { role: '...', content: '...' }
+    if (parsed?.role && parsed?.content) {
+        parsed = typeof parsed.content === 'string' ? parseContent(parsed.content) : parsed.content;
+    }
+
     if (parsed?.tool_execution) {
       const args = parsed.tool_execution.arguments || {};
       const output = parseOutput(parsed.tool_execution.result?.output);
@@ -290,10 +288,14 @@ export const extractFileEditData = (
   const toolData = extractData(toolContent);
   const assistantData = extractData(assistantContent);
 
-  filePath = toolData.filePath || assistantData.filePath;
-  originalContent = toolData.originalContent || assistantData.originalContent;
-  updatedContent = toolData.updatedContent || assistantData.updatedContent;
-  errorMessage = toolData.errorMessage || assistantData.errorMessage;
+  const filePath = toolData.filePath || assistantData.filePath;
+  const originalContent = toolData.originalContent || assistantData.originalContent;
+  const updatedContent = toolData.updatedContent || assistantData.updatedContent;
+  const errorMessage = toolData.errorMessage || assistantData.errorMessage;
+
+  let actualIsSuccess = isSuccess;
+  let actualToolTimestamp = toolTimestamp;
+  let actualAssistantTimestamp = assistantTimestamp;
 
   if (toolData.success !== undefined) {
     actualIsSuccess = toolData.success;
