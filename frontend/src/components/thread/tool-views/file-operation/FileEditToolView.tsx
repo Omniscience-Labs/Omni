@@ -142,7 +142,7 @@ export function FileEditToolView({
   const lineDiff = originalContent && updatedContent ? generateLineDiff(originalContent, updatedContent) : [];
   const stats: DiffStats = calculateDiffStats(lineDiff);
 
-  const shouldShowError = !isStreaming && !actualIsSuccess;
+  const shouldShowError = !isStreaming && (!actualIsSuccess || (actualIsSuccess && (!originalContent || !updatedContent)));
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">

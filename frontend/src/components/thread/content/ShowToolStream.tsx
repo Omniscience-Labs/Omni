@@ -5,10 +5,8 @@ import { getToolIcon, getUserFriendlyToolName, extractPrimaryParam } from '@/com
 
 // Only show streaming for file operation tools
 const FILE_OPERATION_TOOLS = new Set([
-    'Create File',
-    'Delete File',
-    'Full File Rewrite',
-    'Read File',
+    'Creating File',
+    'Rewriting File',
     'AI File Edit',
 ]);
 
@@ -41,26 +39,30 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     const rawToolName = extractToolNameFromStream(content);
     const toolName = getUserFriendlyToolName(rawToolName || '');
     const isEditFile = toolName === 'AI File Edit';
+    const isCreateFile = toolName === 'Creating File';
+    const isFullFileRewrite = toolName === 'Rewriting File';
 
-    // Extract code_edit content for streaming
-    const codeEditContent = React.useMemo(() => {
-        if (!isEditFile || !content) return '';
-        
-        // New regex for <parameter name="code_edit">
-        const newMatch = content.match(/<parameter\s+name=["']code_edit["']>([\s\S]*)/i);
-        if (newMatch && newMatch[1]) {
-            // Remove closing tags if present
-            return newMatch[1].replace(/<\/parameter>[\s\S]*$/, '');
-        }
+    const streamingFileContent = React.useMemo(() => {
+        if (!content) return '';
+        let paramName: string | null = null;
+        if (isEditFile) paramName = 'code_edit';
+        else if (isCreateFile || isFullFileRewrite) paramName = 'file_contents';
 
-        // Fallback for old format <code_edit>
-        const oldMatch = content.match(/<code_edit>([\s\S]*)/i);
-        if (oldMatch && oldMatch[1]) {
-            return oldMatch[1].replace(/<\/code_edit>[\s\S]*$/, '');
+        if (paramName) {
+            const newMatch = content.match(new RegExp(`<parameter\\s+name=["']${paramName}["']>([\\s\\S]*)`, 'i'));
+            if (newMatch && newMatch[1]) {
+                return newMatch[1].replace(/<\/parameter>[\s\S]*$/, '');
+            }
+            // Fallback for old formats
+            if (isEditFile) {
+                const oldMatch = content.match(/<code_edit>([\s\S]*)/i);
+                if (oldMatch && oldMatch[1]) {
+                    return oldMatch[1].replace(/<\/code_edit>[\s\S]*$/, '');
+                }
+            }
         }
-        
-        return '';
-    }, [content, isEditFile]);
+        return content; // fallback to full content
+    }, [content, isEditFile, isCreateFile, isFullFileRewrite]);
 
     // Time-based logic - show streaming content after 1500ms
     useEffect(() => {
@@ -149,7 +151,7 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
                                     WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)'
                                 }}
                             >
-                                {isEditFile ? codeEditContent : content}
+                                {isEditFile || isCreateFile || isFullFileRewrite ? streamingFileContent : content}
                             </div>
                             {/* Top gradient */}
                             <div className={`absolute top-0 left-0 right-0 h-8 pointer-events-none transition-all duration-500 ease-in-out ${shouldShowContent
