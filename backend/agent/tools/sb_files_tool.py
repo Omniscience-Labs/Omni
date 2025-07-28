@@ -470,11 +470,40 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "code_edit", "node_type": "element", "path": "code_edit"}
         ],
         example='''
+        <!-- Example: Mark multiple scattered tasks as complete in a todo list -->
+        <function_calls>
+        <invoke name="edit_file">
+        <parameter name="target_file">todo.md</parameter>
+        <parameter name="instructions">I am marking the research and setup tasks as complete in my todo list.</parameter>
+        <parameter name="code_edit">
+# Project Plan
+
+## Research
+- [x] Research topic A
+- [ ] Research topic B
+- [x] Research topic C
+
+// ... existing code ...
+
+## Setup
+- [x] Setup database
+- [x] Configure server
+- [ ] Deploy to staging
+
+// ... existing code ...
+        </parameter>
+        </invoke>
+        </function_calls>
+
+        <!-- Example: Add error handling and logging to a function -->
         <function_calls>
         <invoke name="edit_file">
         <parameter name="target_file">src/main.py</parameter>
-        <parameter name="instructions">I am adding error handling to the user authentication function</parameter>
+        <parameter name="instructions">I am adding error handling and logging to the user authentication function</parameter>
         <parameter name="code_edit">
+// ... existing imports ...
+from my_app.logging import logger
+from my_app.exceptions import DatabaseError
 // ... existing code ...
 def authenticate_user(username, password):
     try:

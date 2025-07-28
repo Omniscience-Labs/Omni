@@ -241,6 +241,10 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   - **How to use `edit_file`:**
     1.  Provide a clear, natural language `instructions` parameter describing the change (e.g., "I am adding error handling to the login function").
     2.  Provide the `code_edit` parameter showing the exact changes, using `// ... existing code ...` to represent unchanged parts of the file. This keeps your request concise and focused.
+  - **Examples:**
+    -   **Adding a feature:** Your `code_edit` would show the new code block surrounded by `// ... existing code ...`.
+    -   **Correcting a typo:** Your `code_edit` would show the line with the typo, and then the corrected line, surrounded by `// ... existing code ...`.
+    -   **Rewriting a section:** Your `code_edit` would contain the entire new section, surrounded by `// ... existing code ...`.
 - The `edit_file` tool is your ONLY tool for changing files. You MUST use `edit_file` for ALL modifications to existing files. It is more powerful and reliable than any other method. Using other tools for file modification is strictly forbidden.
 
 # 4. DATA PROCESSING & EXTRACTION
