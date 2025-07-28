@@ -45,11 +45,20 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     // Extract code_edit content for streaming
     const codeEditContent = React.useMemo(() => {
         if (!isEditFile || !content) return '';
-        const match = content.match(/<code_edit>([\s\S]*)/);
-        if (match) {
-            // Remove closing tag if present
-            return match[1].replace(/<\/code_edit>[\s\S]*$/, '');
+        
+        // New regex for <parameter name="code_edit">
+        const newMatch = content.match(/<parameter\s+name=["']code_edit["']>([\s\S]*)/i);
+        if (newMatch && newMatch[1]) {
+            // Remove closing tags if present
+            return newMatch[1].replace(/<\/parameter>[\s\S]*$/, '');
         }
+
+        // Fallback for old format <code_edit>
+        const oldMatch = content.match(/<code_edit>([\s\S]*)/i);
+        if (oldMatch && oldMatch[1]) {
+            return oldMatch[1].replace(/<\/code_edit>[\s\S]*$/, '');
+        }
+        
         return '';
     }, [content, isEditFile]);
 
