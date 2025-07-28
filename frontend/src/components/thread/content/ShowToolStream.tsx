@@ -38,7 +38,8 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
         stableStartTimeRef.current = Date.now();
     }
 
-    const toolName = extractToolNameFromStream(content);
+    const rawToolName = extractToolNameFromStream(content);
+    const toolName = getUserFriendlyToolName(rawToolName || '');
     const isEditFile = toolName === 'AI File Edit';
 
     // Extract code_edit content for streaming
@@ -105,9 +106,9 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     // Check if this is a file operation tool
     const isFileOperationTool = FILE_OPERATION_TOOLS.has(toolName);
 
-    const IconComponent = getToolIcon(toolName);
-    const displayName = getUserFriendlyToolName(toolName);
-    const paramDisplay = extractPrimaryParam(toolName, content);
+    const IconComponent = getToolIcon(rawToolName || '');
+    const displayName = toolName;
+    const paramDisplay = extractPrimaryParam(rawToolName || '', content);
 
     // Always show tool button, conditionally show content below for file operations only
     if (showExpanded && (isFileOperationTool || isEditFile)) {

@@ -201,6 +201,28 @@ export interface ExtractedEditData {
   errorMessage?: string;
 }
 
+const parseContent = (content: any): any => {
+  if (typeof content === 'string') {
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      return content;
+    }
+  }
+  return content;
+};
+
+const parseOutput = (output: any) => {
+    if (typeof output === 'string') {
+      try {
+        return JSON.parse(output);
+      } catch {
+        return output; // Return as string if not JSON
+      }
+    }
+    return output;
+  };
+
 export const extractFileEditData = (
   assistantContent: any,
   toolContent: any,
