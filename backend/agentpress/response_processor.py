@@ -1649,7 +1649,13 @@ class ResponseProcessor:
                 "role": result_role,
                 "content":  json.dumps(structured_result_for_llm)
             }
-            message_obj = await self.add_message(
+            
+            # Add rich content to metadata for frontend use
+            if metadata is None:
+                metadata = {}
+            metadata['frontend_content'] = structured_result_for_frontend
+
+            message_obj = await self._add_message_with_agent_info(
                 thread_id=thread_id, 
                 type="tool",
                 content=result_message_for_llm, # Save the LLM-friendly version
@@ -1659,11 +1665,12 @@ class ResponseProcessor:
 
             # If the message was saved, modify it in-memory for the frontend before returning
             if message_obj:
-                result_message_for_frontend = {
-                    "role": result_role,
-                    "content": json.dumps(structured_result_for_frontend)
-                }
-                message_obj['content'] = result_message_for_frontend
+                # The frontend expects the rich content in the 'content' field.
+                # The DB has the rich content in metadata.frontend_content.
+                # Let's reconstruct the message for yielding.
+                message_for_yield = message_obj.copy()
+                message_for_yield['content'] = structured_result_for_frontend
+                return message_for_yield
 
             return message_obj # Return the modified message object
         except Exception as e:
