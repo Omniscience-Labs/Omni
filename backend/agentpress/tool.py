@@ -18,6 +18,7 @@ from utils.logger import logger
 class SchemaType(Enum):
     """Enumeration of supported schema types for tool definitions."""
     OPENAPI = "openapi"
+    USAGE_EXAMPLE = "usage_example"
 
 @dataclass
 class ToolSchema:
@@ -120,6 +121,16 @@ def openapi_schema(schema: Dict[str, Any]):
         return _add_schema(func, ToolSchema(
             schema_type=SchemaType.OPENAPI,
             schema=schema
+        ))
+    return decorator
+
+def usage_example(example: str):
+    """Decorator for providing usage examples for tools in prompts."""
+    def decorator(func):
+        logger.debug(f"Adding usage example to function {func.__name__}")
+        return _add_schema(func, ToolSchema(
+            schema_type=SchemaType.USAGE_EXAMPLE,
+            schema={"example": example}
         ))
     return decorator
 

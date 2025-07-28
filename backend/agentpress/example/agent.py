@@ -8,7 +8,7 @@ using the ThreadManager and AgentPress tool system.
 import asyncio
 from typing import Dict, Any, Optional, List
 from agentpress.thread_manager import ThreadManager
-from agentpress.tool import Tool, ToolResult, openapi_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from utils.logger import logger
 
 class CalculatorTool(Tool):
@@ -44,6 +44,16 @@ class CalculatorTool(Tool):
             }
         }
     })
+    @usage_example("""
+<function_calls>
+<invoke name="calculate">
+<parameter name="operation">add</parameter>
+<parameter name="a">15</parameter>
+<parameter name="b">27</parameter>
+</invoke>
+</function_calls>
+
+This will add 15 and 27 to get 42.""")
     async def calculate(self, operation: str, a: float, b: float) -> ToolResult:
         """Perform a mathematical calculation.
         
@@ -85,7 +95,6 @@ class CalculatorTool(Tool):
         except Exception as e:
             logger.error(f"Error in calculation: {str(e)}", exc_info=True)
             return self.fail_response(f"Calculation failed: {str(e)}")
-
 
 
 class SimpleAgent:
