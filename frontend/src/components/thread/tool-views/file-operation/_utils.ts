@@ -269,7 +269,7 @@ export const extractFileEditData = (
         updatedContent: output?.updated_content || null,
         success: success,
         timestamp: parsed.tool_execution.execution_details?.timestamp,
-        errorMessage: success === false ? (typeof output === 'string' ? output : JSON.stringify(output)) : undefined,
+        errorMessage: success === false ? (output?.message || (typeof output === 'string' ? output : JSON.stringify(output))) : undefined,
       };
     }
     return {};

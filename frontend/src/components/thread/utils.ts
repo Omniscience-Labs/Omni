@@ -304,6 +304,7 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['str-replace', 'Editing Text'],
   ['str_replace', 'Editing Text'],
   ['edit_file', 'AI File Edit'],
+  ['edit-file', 'AI File Edit'],
   
   ['browser-click-element', 'Clicking Element'],
   ['browser-close-tab', 'Closing Tab'],

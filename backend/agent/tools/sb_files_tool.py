@@ -513,14 +513,28 @@ def authenticate_user(username, password):
             new_content, error_message = await self._call_morph_api(original_content, code_edit, instructions, target_file)
 
             if error_message:
-                return self.fail_response(error_message)
+                return ToolResult(success=False, output=json.dumps({
+                    "message": f"AI editing failed: {error_message}",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": None
+                }))
 
             if new_content is None:
-                # This case should ideally be covered by error_message, but as a safeguard:
-                return self.fail_response("AI editing failed for an unknown reason. The model returned no content.")
+                return ToolResult(success=False, output=json.dumps({
+                    "message": "AI editing failed for an unknown reason. The model returned no content.",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": None
+                }))
 
             if new_content == original_content:
-                return self.fail_response(f"AI editing resulted in no changes to the file '{target_file}'.")
+                return ToolResult(success=False, output=json.dumps({
+                    "message": f"AI editing resulted in no changes to the file '{target_file}'.",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": original_content
+                }))
 
             # AI editing successful
             await self.sandbox.fs.upload_file(new_content.encode(), full_path)
@@ -535,7 +549,21 @@ def authenticate_user(username, password):
                     
         except Exception as e:
             logger.error(f"Unhandled error in edit_file: {str(e)}", exc_info=True)
-            return self.fail_response(f"Error editing file: {str(e)}")
+            # Try to get original_content if possible
+            original_content_on_error = None
+            try:
+                full_path_on_error = f"{self.workspace_path}/{self.clean_path(target_file)}"
+                if await self._file_exists(full_path_on_error):
+                    original_content_on_error = (await self.sandbox.fs.download_file(full_path_on_error)).decode()
+            except:
+                pass
+            
+            return ToolResult(success=False, output=json.dumps({
+                "message": f"Error editing file: {str(e)}",
+                "file_path": target_file,
+                "original_content": original_content_on_error,
+                "updated_content": None
+            }))
 
     # @openapi_schema({
     #     "type": "function",
