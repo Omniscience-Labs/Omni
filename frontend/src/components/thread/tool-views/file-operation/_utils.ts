@@ -289,7 +289,7 @@ export const extractFileEditData = (
             filePath: parsed.file_path || null,
             originalContent: parsed.original_content ?? null,
             updatedContent: parsed.updated_content ?? null,
-            success: true, // Assume success if we have content
+            success: parsed.updated_content !== null, // Success is false if updated_content is null
             timestamp: null,
             errorMessage: parsed.message,
         };

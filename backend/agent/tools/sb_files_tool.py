@@ -540,12 +540,12 @@ def authenticate_user(username, password):
             await self.sandbox.fs.upload_file(new_content.encode(), full_path)
             
             # Return rich data for frontend diff view
-            return self.success_response({
+            return ToolResult(success=True, output=json.dumps({
                 "message": f"File '{target_file}' edited successfully.",
                 "file_path": target_file,
                 "original_content": original_content,
                 "updated_content": new_content
-            })
+            }))
                     
         except Exception as e:
             logger.error(f"Unhandled error in edit_file: {str(e)}", exc_info=True)
