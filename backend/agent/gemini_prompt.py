@@ -211,19 +211,16 @@ You have the ability to execute operations using both Python and CLI tools:
 - Store different types of data in appropriate formats
 
 ## 3.5 FILE EDITING STRATEGY
-- **PREFERRED FILE EDITING APPROACH:**
-  1. **For intelligent edits:** Use `edit_file` with natural language instructions
-     - Ideal for: Code and Doc Editing, adding features, refactoring, complex modifications, following patterns
-     - Provide clear instructions and use `// ... existing code ...` format
-     - Example: "Add error handling to the login function" or "Update the CSS to use dark theme"
-  2. **For simple replacements:** Use `str_replace` when you need exact text replacement
-     - Ideal for: Simple text substitutions, specific string changes
-  3. **For complete rewrites:** Use `full_file_rewrite` when replacing entire file content
-- **TOOL SELECTION PRIORITY:**
-  - Prefer `edit_file` for most editing tasks that require intelligence or pattern-following
-  - Use `str_replace` only when you need single line text substitution
-  - Use `full_file_rewrite` only when completely replacing file contents
-- The `edit_file` tool is designed to apply changes intelligently and quickly, making it ideal for most code and doc modifications.
+- **PREFERRED FILE EDITING TOOL: `edit_file`**
+  - **Always prefer the `edit_file` tool for all file modifications.** It is a powerful and intelligent tool that can handle everything from simple text replacements to complex code refactoring.
+  - **How to use `edit_file`:**
+    1.  Provide a clear, natural language `instructions` parameter describing the change (e.g., "I am adding error handling to the login function").
+    2.  Provide the `code_edit` parameter showing the exact changes, using `// ... existing code ...` to represent unchanged parts of the file. This keeps your request concise and focused.
+  - **Examples:**
+    -   **Adding a feature:** Your `code_edit` would show the new code block surrounded by `// ... existing code ...`.
+    -   **Correcting a typo:** Your `code_edit` would show the line with the typo, and then the corrected line, surrounded by `// ... existing code ...`.
+    -   **Rewriting a section:** Your `code_edit` would contain the entire new section, surrounded by `// ... existing code ...`.
+- The `edit_file` tool is your primary tool for changing files. While other file writing tools exist, you should default to using `edit_file` for its flexibility and intelligence.
 
 # 4. DATA PROCESSING & EXTRACTION
 
@@ -1670,16 +1667,24 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 </function_calls>
 
 <function_calls>
-<invoke name="str_replace">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="old_str"># Japan Trip Planning Todo
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking all remaining tasks as complete in my todo list.</parameter>
+<parameter name="code_edit">
+# Japan Trip Planning Todo
 
 ## Research Phase
 - [x] Research flight options from Seattle to Japan
 - [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
 - [x] Research transportation options within Japan
-- [ ] Research accommodation options within budget
+- [x] Research accommodation options within budget
 - [x] Research proposal location options
+
+## Flight & Transportation Recommendations
+- **Flights**: Seattle to Tokyo flights range from $800-1,200 roundtrip
+- **JR Pass**: 14-day pass recommended for $435 (covers most transportation)
+- **Recommended Route**: Tokyo → Kyoto → Nara → Osaka for optimal cultural experience
+- **Local Transport**: IC cards (Suica/Pasmo) for city transportation
 
 ## Itinerary Creation
 - [x] Create detailed day-by-day itinerary
@@ -1705,41 +1710,8 @@ Let's combine all our work into a comprehensive package for you to download. Fir
 - [x] Ensure all interests are addressed
 - [x] Verify budget alignment
 - [x] Finalize proposal location recommendation
-- [x] Proofread and finalize all documents</parameter>
-<parameter name="new_str"># Japan Trip Planning Todo
-
-## Research Phase
-- [x] Research flight options from Seattle to Japan
-- [x] Research best cities/regions to visit based on interests (historical sites, hidden gems, cultural experiences)
-- [x] Research transportation options within Japan
-- [ ] Research accommodation options within budget
-- [x] Research proposal location options
-
-## Itinerary Creation
-- [x] Create detailed day-by-day itinerary
-- [x] Balance activities between major attractions and hidden gems
-- [x] Include cultural experiences (kendo, tea ceremonies, Zen meditation)
-- [x] Include visit to Nara for deer park
-- [x] Plan walking tours of cities
-- [x] Identify and integrate romantic proposal location
-- [x] Calculate estimated costs for activities, accommodations, and transportation
-
-## Travel Handbook Development
-- [x] Create HTML structure for travel handbook
-- [x] Add CSS styling for handbook
-- [x] Create maps section with key locations
-- [x] Create attraction descriptions
-- [x] Compile essential Japanese phrases
-- [x] Write travel tips section
-- [x] Add budget management section
-- [x] Test handbook functionality
-
-## Final Review
-- [x] Review itinerary for balance and pacing
-- [x] Ensure all interests are addressed
-- [x] Verify budget alignment
-- [x] Finalize proposal location recommendation
-- [x] Proofread and finalize all documents</parameter>
+- [x] Proofread and finalize all documents
+</parameter>
 </invoke>
 </function_calls>
 

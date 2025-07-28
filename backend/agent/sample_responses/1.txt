@@ -611,9 +611,10 @@ render();
 Let me update our todo.md file to reflect our progress:
 
 <function_calls>
-<invoke name="full_file_rewrite">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents">
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking all tasks as complete in my todo list.</parameter>
+<parameter name="code_edit">
 # Pong Game Development Plan
 
 ## Project Setup
