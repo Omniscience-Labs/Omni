@@ -357,6 +357,17 @@ export const getOperationConfigs = (): Record<FileOperation, OperationConfig> =>
       badgeColor: 'bg-red-100 text-red-700 border-red-200',
       hoverColor: 'hover:bg-red-100',
   },
+  'str-replace': {
+    icon: Replace,
+    color: 'text-blue-600',
+    successMessage: 'String replaced successfully',
+    progressMessage: 'Replacing string...',
+    bgColor: 'bg-blue-50',
+    gradientBg: 'from-blue-50 to-blue-100',
+    borderColor: 'border-blue-200',
+    badgeColor: 'bg-blue-100 text-blue-700 border-blue-200',
+    hoverColor: 'hover:bg-blue-100',
+  },
   };
 };
 
