@@ -69,11 +69,9 @@ async def lifespan(app: FastAPI):
         # Start background tasks
         # asyncio.create_task(agent_api.restore_running_agent_runs())
         
-        # Initialize triggers API
         triggers_api.initialize(db)
-
-        # Initialize pipedream API
         pipedream_api.initialize(db)
+        credentials_api.initialize(db)
         
         yield
         

@@ -1,41 +1,61 @@
-from utils.logger import logger
-from services.supabase import DBConnection
+# Credentials Module - Simplified and Clean
 
-from .facade import CredentialManager
-from .domain.entities import (
+from .credential_service import (
+    CredentialService,
     MCPCredential,
-    MCPCredentialProfile,
     MCPRequirement,
-    CredentialMapping,
     CredentialRequest,
-    ProfileRequest
+    CredentialNotFoundError,
+    CredentialAccessDeniedError,
+    EncryptionService,
+    get_credential_service
 )
 
-db = DBConnection()
+from .profile_service import (
+    ProfileService,
+    MCPCredentialProfile,
+    CredentialMapping,
+    ProfileRequest,
+    ProfileNotFoundError,
+    ProfileAccessDeniedError,
+    get_profile_service
+)
 
-try:
-    from pipedream.facade import PipedreamManager
-    pipedream_manager = PipedreamManager()
-except ImportError:
-    pipedream_manager = None
-
-credential_manager = CredentialManager(
-    db=db, 
-    profile_manager=pipedream_manager,
-    logger=logger
+from .utils import (
+    validate_config_not_empty,
+    validate_credential_mappings,
+    get_missing_credentials_advanced,
+    decode_mcp_qualified_name,
+    encode_mcp_qualified_name,
+    extract_config_keys,
+    sanitize_display_name,
+    build_custom_qualified_name,
+    matches_custom_pattern
 )
 
 from . import api
-api.credential_manager = credential_manager
 
 __all__ = [
-    'CredentialManager',
-    'MCPCredential',
-    'MCPCredentialProfile', 
-    'MCPRequirement',
-    'CredentialMapping',
-    'CredentialRequest',
-    'ProfileRequest',
-    'credential_manager',
-    'api'
+    # Services and factory functions
+    "CredentialService", "get_credential_service",
+    "ProfileService", "get_profile_service",
+    "EncryptionService",
+    
+    # Domain objects
+    "MCPCredential", "MCPCredentialProfile", "MCPRequirement",
+    "CredentialRequest", "ProfileRequest", "CredentialMapping",
+    
+    # Exceptions
+    "CredentialNotFoundError", "CredentialAccessDeniedError",
+    "ProfileNotFoundError", "ProfileAccessDeniedError",
+    
+    # Utilities
+    "validate_config_not_empty", "validate_credential_mappings",
+    "get_missing_credentials_advanced", "decode_mcp_qualified_name",
+    "encode_mcp_qualified_name", "extract_config_keys",
+    "sanitize_display_name", "build_custom_qualified_name",
+    "matches_custom_pattern",
+    
+    # API module
+    "api"
 ] 

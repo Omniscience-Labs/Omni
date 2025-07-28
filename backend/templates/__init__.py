@@ -12,7 +12,6 @@ from .domain.entities import (
 
 from agent.versioning.facade import version_manager
 from agent.versioning.infrastructure.dependencies import set_db_connection
-from credentials import credential_manager
 
 db = DBConnection()
 
@@ -21,7 +20,6 @@ set_db_connection(db)
 template_manager = TemplateManager(
     db=db, 
     version_manager=version_manager, 
-    credential_manager=credential_manager,
     logger=logger
 )
 
