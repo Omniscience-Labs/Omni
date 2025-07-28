@@ -1,22 +1,29 @@
-from .domain.entities import Trigger, TriggerProvider, TriggerEvent, TriggerResult
-from .domain.value_objects import TriggerType, TriggerConfig, ProviderDefinition
-from .services.trigger_service import TriggerService
-from .services.execution_service import TriggerExecutionService
-from .services.provider_service import ProviderService
-from .support.factory import TriggerModuleFactory
-from .support.dependency_injection import get_trigger_container
+# Import from new simplified service files
+from .trigger_service import (
+    Trigger, 
+    TriggerEvent, 
+    TriggerResult, 
+    TriggerType,
+    get_trigger_service
+)
+from .provider_service import (
+    TriggerProvider,
+    get_provider_service  
+)
+from .execution_service import (
+    get_execution_service
+)
 
 __all__ = [
+    # Domain objects
     'Trigger',
-    'TriggerProvider',
     'TriggerEvent', 
     'TriggerResult',
     'TriggerType',
-    'TriggerConfig',
-    'ProviderDefinition',
-    'TriggerService',
-    'TriggerExecutionService',
-    'ProviderService',
-    'TriggerModuleFactory',
-    'get_trigger_container'
+    'TriggerProvider',
+    
+    # Service factories
+    'get_trigger_service',
+    'get_provider_service',
+    'get_execution_service'
 ] 

@@ -41,7 +41,6 @@ class FileProcessor:
         filename: str, 
         mime_type: str
     ) -> Dict[str, Any]:
-        """Process a single uploaded file and extract its content."""
         try:
             file_size = len(file_content)
             if file_size > self.MAX_FILE_SIZE:
@@ -106,8 +105,6 @@ class FileProcessor:
         zip_content: bytes, 
         zip_filename: str
     ) -> Dict[str, Any]:
-        """Extract and process all files from a ZIP archive."""
-        
         try:
             client = await self.db.client
             
@@ -133,7 +130,6 @@ class FileProcessor:
             zip_result = await client.table('agent_knowledge_base_entries').insert(zip_entry_data).execute()
             zip_entry_id = zip_result.data[0]['entry_id']
             
-            # Extract files from ZIP
             extracted_files = []
             failed_files = []
             
@@ -151,15 +147,13 @@ class FileProcessor:
                         file_content = zip_ref.read(file_path)
                         filename = os.path.basename(file_path)
                         
-                        if not filename:  # Skip if no filename
+                        if not filename:
                             continue
                         
-                        # Detect MIME type
                         mime_type, _ = mimetypes.guess_type(filename)
                         if not mime_type:
                             mime_type = 'application/octet-stream'
                         
-                        # Extract content
                         content = await self._extract_file_content(file_content, filename, mime_type)
                         
                         if content and content.strip():
@@ -229,8 +223,6 @@ class FileProcessor:
         include_patterns: List[str] = None,
         exclude_patterns: List[str] = None
     ) -> Dict[str, Any]:
-        """Clone a Git repository and extract content from supported files."""
-        
         if include_patterns is None:
             include_patterns = ['*.txt', '*.pdf', '*.docx']
         
@@ -239,10 +231,8 @@ class FileProcessor:
         
         temp_dir = None
         try:
-            # Create temporary directory
             temp_dir = tempfile.mkdtemp()
             
-            # Clone repository
             clone_cmd = ['git', 'clone', '--depth', '1', '--branch', branch, git_url, temp_dir]
             process = await asyncio.create_subprocess_exec(
                 *clone_cmd,
@@ -254,7 +244,6 @@ class FileProcessor:
             if process.returncode != 0:
                 raise Exception(f"Git clone failed: {stderr.decode()}")
             
-            # Create main repository entry
             client = await self.db.client
             
             repo_name = git_url.split('/')[-1].replace('.git', '')
@@ -278,12 +267,10 @@ class FileProcessor:
             repo_result = await client.table('agent_knowledge_base_entries').insert(repo_entry_data).execute()
             repo_entry_id = repo_result.data[0]['entry_id']
             
-            # Process files in repository
             processed_files = []
             failed_files = []
             
             for root, dirs, files in os.walk(temp_dir):
-                # Skip .git directory
                 if '.git' in dirs:
                     dirs.remove('.git')
                 
@@ -291,7 +278,6 @@ class FileProcessor:
                     file_path = os.path.join(root, file)
                     relative_path = os.path.relpath(file_path, temp_dir)
                     
-                    # Check if file should be included
                     if not self._should_include_file(relative_path, include_patterns, exclude_patterns):
                         continue
                     
@@ -300,18 +286,15 @@ class FileProcessor:
                             file_content = f.read()
                         
                         if len(file_content) > self.MAX_FILE_SIZE:
-                            continue  # Skip large files
+                            continue
                         
-                        # Detect MIME type
                         mime_type, _ = mimetypes.guess_type(file)
                         if not mime_type:
                             mime_type = 'application/octet-stream'
                         
-                        # Extract content
                         content = await self._extract_file_content(file_content, file, mime_type)
                         
                         if content and content.strip():
-                            # Create entry for file
                             file_entry_data = {
                                 'agent_id': agent_id,
                                 'account_id': account_id,
@@ -331,7 +314,7 @@ class FileProcessor:
                                 },
                                 'file_size': len(file_content),
                                 'file_mime_type': mime_type,
-                                'extracted_from_zip_id': repo_entry_id,  # Reuse this field for git repo reference
+                                'extracted_from_zip_id': repo_entry_id,
                                 'usage_context': 'always',
                                 'is_active': True
                             }
@@ -374,24 +357,19 @@ class FileProcessor:
             }
         
         finally:
-            # Clean up temporary directory
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir, ignore_errors=True)
     
     async def _extract_file_content(self, file_content: bytes, filename: str, mime_type: str) -> str:
-        """Extract text content from supported file types."""
         file_extension = Path(filename).suffix.lower()
         
         try:
-            # Text files
             if file_extension in self.SUPPORTED_TEXT_EXTENSIONS or mime_type.startswith('text/'):
                 return self._extract_text_content(file_content)
             
-            # PDF files
             elif file_extension == '.pdf':
                 return self._extract_pdf_content(file_content)
             
-            # Word documents
             elif file_extension == '.docx':
                 return self._extract_docx_content(file_content)
             
@@ -403,8 +381,6 @@ class FileProcessor:
             return f"Error extracting content: {str(e)}"
     
     def _extract_text_content(self, file_content: bytes) -> str:
-        """Extract content from text files with encoding detection."""
-
         detected = chardet.detect(file_content)
         encoding = detected.get('encoding', 'utf-8')
         
@@ -416,8 +392,6 @@ class FileProcessor:
         return self._sanitize_content(raw_text)
     
     def _extract_pdf_content(self, file_content: bytes) -> str:
-        """Extract text from PDF files."""
-        
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
         text_content = []
         
@@ -428,8 +402,6 @@ class FileProcessor:
         return self._sanitize_content(raw_text)
     
     def _extract_docx_content(self, file_content: bytes) -> str:
-        """Extract text from Word documents."""
-        
         doc = docx.Document(io.BytesIO(file_content))
         text_content = []
         
@@ -439,20 +411,8 @@ class FileProcessor:
         raw_text = '\n'.join(text_content)
         return self._sanitize_content(raw_text)
     
-
-    
-
-    
-
-    
-
-    
-
-    
-
     
     def _sanitize_content(self, content: str) -> str:
-        """Sanitize extracted content to remove problematic characters for PostgreSQL."""
         if not content:
             return content
 
@@ -470,8 +430,6 @@ class FileProcessor:
         return sanitized.strip()
 
     def _get_extraction_method(self, file_extension: str, mime_type: str) -> str:
-        """Get the extraction method used for a file type."""
-        
         if file_extension == '.pdf':
             return 'PyPDF2'
         elif file_extension == '.docx':
@@ -482,8 +440,6 @@ class FileProcessor:
             return 'text encoding detection'
     
     def _should_include_file(self, file_path: str, include_patterns: List[str], exclude_patterns: List[str]) -> bool:
-        """Check if a file should be included based on patterns."""
-        
         import fnmatch
         
         for pattern in exclude_patterns:
