@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CircleDashed } from 'lucide-react';
 import { extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { getToolIcon, getUserFriendlyToolName, extractPrimaryParam } from '@/components/thread/utils';
+import { CodeBlockCode } from '@/components/ui/code-block';
+import { getLanguageFromFileName } from '../tool-views/file-operation/_utils';
 
 // Only show streaming for file operation tools
 const FILE_OPERATION_TOOLS = new Set([
