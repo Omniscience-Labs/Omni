@@ -246,9 +246,9 @@ export const extractPrimaryParam = (
         return match ? match[1].split('/').pop() || match[1] : null;
       case 'edit-file':
         // Try to match target_file attribute for edit-file
-        match = content.match(/target_file=(?:"|')([^"|']+)(?:"|')/);
+        match = content.match(/target_file=(?:"|')([^"|']+)(?:"|')/) || content.match(/<parameter\s+name=["']target_file["']>([^<]+)/i);
         // Return just the filename part
-        return match ? match[1].split('/').pop() || match[1] : null;
+        return match ? (match[1].split('/').pop() || match[1]).trim() : null;
 
       // Shell commands
       case 'execute-command':

@@ -1727,10 +1727,10 @@ class ResponseProcessor:
                 # If parsing fails, keep the original string
                 pass
 
+        output_to_use = output
         # If this is for the LLM and it's an edit_file tool, create a concise output
         if for_llm and function_name == 'edit_file' and isinstance(output, dict):
-            output_for_llm = {"message": output.get("message", "File edited successfully.")}
-            output = output_for_llm
+            output_to_use = {"message": output.get("message", "File edited successfully.")}
 
         # Create the structured result
         structured_result_v1 = {
@@ -1741,7 +1741,7 @@ class ResponseProcessor:
                 "arguments": arguments,
                 "result": {
                     "success": result.success if hasattr(result, 'success') else True,
-                    "output": output,  # This will be either rich or concise based on `for_llm`
+                    "output": output_to_use,  # This will be either rich or concise based on `for_llm`
                     "error": getattr(result, 'error', None) if hasattr(result, 'error') else None
                 },
             }
