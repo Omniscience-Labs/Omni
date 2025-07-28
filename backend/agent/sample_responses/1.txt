@@ -662,7 +662,6 @@ Let's update our todo list to mark the testing as complete:
 <parameter name="instructions">I am marking all tasks in the 'Testing' section of my todo list as complete.</parameter>
 <parameter name="code_edit">
 // ... existing code ...
-## Testing
 - [x] Test game mechanics
 - [x] Test collision detection
 - [x] Test scoring

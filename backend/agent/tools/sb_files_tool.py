@@ -476,20 +476,13 @@ class SandboxFilesTool(SandboxToolsBase):
         <parameter name="target_file">todo.md</parameter>
         <parameter name="instructions">I am marking the research and setup tasks as complete in my todo list.</parameter>
         <parameter name="code_edit">
-# Project Plan
-
-## Research
+// ... existing code ...
 - [x] Research topic A
 - [ ] Research topic B
 - [x] Research topic C
-
 // ... existing code ...
-
-## Setup
 - [x] Setup database
 - [x] Configure server
-- [ ] Deploy to staging
-
 // ... existing code ...
         </parameter>
         </invoke>
