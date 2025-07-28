@@ -2243,11 +2243,17 @@ async def get_pipedream_tools_for_agent(
             available_tools = server.available_tools
             
             formatted_tools = []
+            def tools_match(api_tool_name, stored_tool_name):
+                api_normalized = api_tool_name.lower().replace('-', '_')
+                stored_normalized = stored_tool_name.lower().replace('-', '_')
+                return api_normalized == stored_normalized
+            
             for tool in available_tools:
+                is_enabled = any(tools_match(tool.name, stored_tool) for stored_tool in enabled_tools)
                 formatted_tools.append({
                     'name': tool.name,
                     'description': tool.description or f"Tool from {profile.app_name}",
-                    'enabled': tool.name in enabled_tools
+                    'enabled': is_enabled
                 })
             
             return {
@@ -2285,9 +2291,8 @@ async def update_pipedream_tools_for_agent(
 ):
     try:
         client = await db.client
-        
         agent_row = await client.table('agents')\
-            .select('custom_mcps')\
+            .select('config')\
             .eq('agent_id', agent_id)\
             .eq('account_id', user_id)\
             .maybe_single()\
@@ -2295,7 +2300,9 @@ async def update_pipedream_tools_for_agent(
         if not agent_row.data:
             raise HTTPException(status_code=404, detail="Agent not found")
 
-        custom_mcps = agent_row.data.get('custom_mcps', []) or []
+        agent_config = agent_row.data.get('config', {})
+        tools = agent_config.get('tools', {})
+        custom_mcps = tools.get('custom_mcp', []) or []
 
         if any(mcp.get('config', {}).get('profile_id') == profile_id for mcp in custom_mcps):
             raise HTTPException(status_code=400, detail="This profile is already added to this agent")
@@ -2336,7 +2343,9 @@ async def get_custom_mcp_tools_for_agent(
             raise HTTPException(status_code=404, detail="Agent not found")
         
         agent = agent_result.data[0]
-        custom_mcps = agent.get('custom_mcps', [])
+        agent_config = agent.get('config', {})
+        tools = agent_config.get('tools', {})
+        custom_mcps = tools.get('custom_mcp', [])
         
         mcp_url = request.headers.get('X-MCP-URL')
         mcp_type = request.headers.get('X-MCP-Type', 'sse')
@@ -2409,7 +2418,9 @@ async def update_custom_mcp_tools_for_agent(
             raise HTTPException(status_code=404, detail="Agent not found")
         
         agent = agent_result.data[0]
-        custom_mcps = agent.get('custom_mcps', [])
+        agent_config = agent.get('config', {})
+        tools = agent_config.get('tools', {})
+        custom_mcps = tools.get('custom_mcp', [])
         
         mcp_url = request.get('url')
         mcp_type = request.get('type', 'sse')
@@ -2438,8 +2449,12 @@ async def update_custom_mcp_tools_for_agent(
             }
             custom_mcps.append(new_mcp_config)
         
+        # Update the config structure with the modified custom MCPs
+        tools['custom_mcp'] = custom_mcps
+        agent_config['tools'] = tools
+        
         update_result = await client.table('agents').update({
-            'custom_mcps': custom_mcps
+            'config': agent_config
         }).eq('agent_id', agent_id).execute()
         
         if not update_result.data:

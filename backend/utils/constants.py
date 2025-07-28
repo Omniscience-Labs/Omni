@@ -51,7 +51,7 @@ MODELS = {
         "tier_availability": ["free", "paid"]
     },
     "xai/grok-4": {
-        "aliases": ["grok-4"],
+        "aliases": ["grok-4", "x-ai/grok-4"],
         "pricing": {
             "input_cost_per_million_tokens": 5.00,
             "output_cost_per_million_tokens": 15.00
@@ -152,6 +152,10 @@ def _generate_model_structures():
             # Add anthropic/claude-sonnet-4 alias for claude-sonnet-4-20250514
             if "claude-sonnet-4-20250514" in model_name:
                 pricing["anthropic/claude-sonnet-4"] = config["pricing"]
+        elif model_name.startswith("xai/"):
+            # Add pricing for OpenRouter x-ai models
+            openrouter_name = model_name.replace("xai/", "openrouter/x-ai/")
+            pricing[openrouter_name] = config["pricing"]
     
     return free_models, paid_models, aliases, pricing
 

@@ -28,7 +28,13 @@ export const usePipedreamToolsForAgent = (agentId: string, profileId: string, ve
       const url = versionId 
         ? `/agents/${agentId}/pipedream-tools/${profileId}?version=${versionId}`
         : `/agents/${agentId}/pipedream-tools/${profileId}`;
+      console.log('[usePipedreamToolsForAgent] Making API request to:', url);
       const response = await backendApi.get(url);
+      console.log('[usePipedreamToolsForAgent] API response received:', {
+        url,
+        response: response.data,
+        tools: JSON.stringify(response.data?.tools)
+      });
       return response.data;
     },
     enabled: !!agentId && !!profileId,

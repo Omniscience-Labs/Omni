@@ -168,8 +168,8 @@ class SandboxShellTool(SandboxToolsBase):
                     # Get current output and check for our completion marker
                     output_result = await self._execute_raw_command(f"tmux capture-pane -t {session_name} -p -S - -E -")
                     current_output = output_result.get("output", "")
-                    
-                    if marker in current_output:
+
+                    if self._is_command_completed(current_output, marker):
                         final_output = current_output
                         break
                 
@@ -420,6 +420,82 @@ class SandboxShellTool(SandboxToolsBase):
                 
         except Exception as e:
             return self.fail_response(f"Error listing commands: {str(e)}")
+
+    def _is_command_completed(self, current_output: str, marker: str) -> bool:
+        """
+        Check if command execution is completed by comparing marker from end to start.
+        
+        Args:
+            current_output: Current output content
+            marker: Completion marker
+            
+        Returns:
+            bool: True if command completed, False otherwise
+        """
+        if not current_output or not marker:
+            return False
+
+        # Find the last complete marker match position to start comparison
+        # Avoid terminal prompt output at the end
+        marker_end_pos = -1
+        for i in range(len(current_output) - len(marker), -1, -1):
+            if current_output[i:i+len(marker)] == marker:
+                marker_end_pos = i + len(marker) - 1
+                break
+        
+        # Start comparison from found marker position or end of output
+        if marker_end_pos != -1:
+            output_idx = marker_end_pos
+            marker_idx = len(marker) - 1
+        else:
+            output_idx = len(current_output) - 1
+            marker_idx = len(marker) - 1
+        
+        # Compare characters from end to start
+        while marker_idx >= 0 and output_idx >= 0:
+            # Skip newlines in current_output
+            if current_output[output_idx] == '\n':
+                output_idx -= 1
+                continue
+                
+            # Compare characters
+            if current_output[output_idx] != marker[marker_idx]:
+                return False
+                
+            # Continue comparison
+            output_idx -= 1
+            marker_idx -= 1
+        
+        # If marker not fully matched
+        if marker_idx >= 0:
+            return False
+            
+        # Check if preceded by "echo " (command just started)
+        check_count = 0
+        echo_chars = "echo "
+        echo_idx = len(echo_chars) - 1
+        
+        while output_idx >= 0 and check_count < 5:
+            # Skip newlines
+            if current_output[output_idx] == '\n':
+                output_idx -= 1
+                continue
+                
+            check_count += 1
+            
+            # Check for "echo " pattern
+            if echo_idx >= 0 and current_output[output_idx] == echo_chars[echo_idx]:
+                echo_idx -= 1
+            else:
+                echo_idx = len(echo_chars) - 1
+                
+            output_idx -= 1
+            
+        # If "echo " found, command just started
+        if echo_idx < 0:
+            return False
+            
+        return True
 
     async def cleanup(self):
         """Clean up all sessions."""
