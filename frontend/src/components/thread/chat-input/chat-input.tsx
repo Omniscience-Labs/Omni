@@ -37,7 +37,7 @@ export interface ChatInputHandles {
 export interface ChatInputProps {
   onSubmit: (
     message: string,
-    options?: { model_name?: string; enable_thinking?: boolean },
+    options?: { model_name?: string; llm_enable_thinking?: boolean },
   ) => void;
   placeholder?: string;
   loading?: boolean;
@@ -280,7 +280,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
       onSubmit(message, {
         model_name: baseModelName,
-        enable_thinking: thinkingEnabled,
+        llm_enable_thinking: thinkingEnabled,
       });
 
       if (!isControlled) {

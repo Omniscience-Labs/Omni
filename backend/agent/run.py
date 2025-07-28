@@ -42,8 +42,8 @@ async def run_agent(
     native_max_auto_continues: int = 25,
     max_iterations: int = 100,
     model_name: str = "anthropic/claude-sonnet-4-20250514",
-    enable_thinking: Optional[bool] = False,
-    reasoning_effort: Optional[str] = 'low',
+    llm_enable_thinking: Optional[bool] = False,
+    llm_reasoning_effort: Optional[str] = 'low',
     enable_context_manager: bool = True,
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None,
@@ -542,8 +542,8 @@ async def run_agent(
                 ),
                 native_max_auto_continues=native_max_auto_continues,
                 include_xml_examples=True,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
+                llm_enable_thinking=llm_enable_thinking,
+                llm_reasoning_effort=llm_reasoning_effort,
                 enable_context_manager=enable_context_manager,
                 generation=generation
             )

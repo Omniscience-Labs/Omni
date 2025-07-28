@@ -254,7 +254,7 @@ export default function ThreadPage({
   const handleSubmitMessage = useCallback(
     async (
       message: string,
-      options?: { model_name?: string; enable_thinking?: boolean },
+      options?: { model_name?: string; llm_enable_thinking?: boolean },
     ) => {
       if (!message.trim()) return;
       setIsSending(true);

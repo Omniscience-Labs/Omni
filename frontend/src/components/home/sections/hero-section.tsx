@@ -148,7 +148,7 @@ export function HeroSection() {
   // Handle ChatInput submission
   const handleChatInputSubmit = async (
     message: string,
-    options?: { model_name?: string; enable_thinking?: boolean }
+    options?: { model_name?: string; llm_enable_thinking?: boolean }
   ) => {
     if ((!message.trim() && !chatInputRef.current?.getPendingFiles().length) || isSubmitting) return;
 
@@ -180,8 +180,8 @@ export function HeroSection() {
       });
 
       if (options?.model_name) formData.append('model_name', options.model_name);
-      formData.append('enable_thinking', String(options?.enable_thinking ?? false));
-      formData.append('reasoning_effort', 'low');
+      formData.append('llm_enable_thinking', String(options?.llm_enable_thinking ?? false));
+      formData.append('llm_reasoning_effort', 'low');
       formData.append('stream', 'true');
       formData.append('enable_context_manager', 'false');
 

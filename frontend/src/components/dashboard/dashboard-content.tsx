@@ -100,8 +100,8 @@ export function DashboardContent() {
     message: string,
     options?: {
       model_name?: string;
-      enable_thinking?: boolean;
-      reasoning_effort?: string;
+      llm_enable_thinking?: boolean;
+      llm_reasoning_effort?: string;
       stream?: boolean;
       enable_context_manager?: boolean;
     },
@@ -132,8 +132,8 @@ export function DashboardContent() {
       });
 
       if (options?.model_name) formData.append('model_name', options.model_name);
-      formData.append('enable_thinking', String(options?.enable_thinking ?? false));
-      formData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
+      formData.append('llm_enable_thinking', String(options?.llm_enable_thinking ?? false));
+      formData.append('llm_reasoning_effort', options?.llm_reasoning_effort ?? 'low');
       formData.append('stream', String(options?.stream ?? true));
       formData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 

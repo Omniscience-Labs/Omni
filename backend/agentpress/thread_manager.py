@@ -257,8 +257,8 @@ class ThreadManager:
         native_max_auto_continues: int = 25,
         max_xml_tool_calls: int = 0,
         include_xml_examples: bool = False,
-        enable_thinking: Optional[bool] = False,
-        reasoning_effort: Optional[str] = 'low',
+        llm_enable_thinking: Optional[bool] = False,
+        llm_reasoning_effort: Optional[str] = 'low',
         enable_context_manager: bool = True,
         generation: Optional[StatefulGenerationClient] = None,
     ) -> Union[Dict[str, Any], AsyncGenerator]:
@@ -278,8 +278,8 @@ class ThreadManager:
                                       finish_reason="tool_calls" (0 disables auto-continue)
             max_xml_tool_calls: Maximum number of XML tool calls to allow (0 = no limit)
             include_xml_examples: Whether to include XML tool examples in the system prompt
-            enable_thinking: Whether to enable thinking before making a decision
-            reasoning_effort: The effort level for reasoning
+            llm_enable_thinking: Whether to enable thinking before making a decision
+            llm_reasoning_effort: The effort level for reasoning
             enable_context_manager: Whether to enable automatic context summarization.
 
         Returns:
@@ -460,8 +460,8 @@ When using the tools:
                             model_parameters={
                               "max_tokens": llm_max_tokens,
                               "temperature": llm_temperature,
-                              "enable_thinking": enable_thinking,
-                              "reasoning_effort": reasoning_effort,
+                              "llm_enable_thinking": llm_enable_thinking,
+                              "llm_reasoning_effort": llm_reasoning_effort,
                               "tool_choice": tool_choice,
                               "tools": openapi_tool_schemas,
                             }
@@ -475,8 +475,8 @@ When using the tools:
                         tools=openapi_tool_schemas,
                         tool_choice=tool_choice if config.native_tool_calling else "none",
                         stream=stream,
-                        enable_thinking=enable_thinking,
-                        reasoning_effort=reasoning_effort
+                        enable_thinking=llm_enable_thinking,
+                        reasoning_effort=llm_reasoning_effort
                     )
                     logger.debug("Successfully received raw LLM API response stream/object")
 
