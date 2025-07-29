@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, AlertTriangle, GripVertical } from 'lucide-react';
+import { Plus, AlertTriangle, GripVertical, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -15,28 +15,54 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 interface ConditionalGroupProps {
     conditionSteps: ConditionalStep[];
     groupKey: string;
-    onUpdate: (updates: Partial<ConditionalStep>) => void;
+    onUpdateStep: (updates: Partial<ConditionalStep>) => void;
     onAddElse: (afterStepId: string) => void;
     onAddElseIf: (afterStepId: string) => void;
     onRemove: (stepId: string) => void;
     onEdit: (step: ConditionalStep) => void;
+    onAddStep: (index: number, parentStepId?: string) => void;
     agentTools?: any;
     isLoadingTools?: boolean;
 }
 
+const MAX_ELSE_IF_CONDITIONS = 5; // Limit the number of else-if conditions
+
 export function ConditionalGroup({
     conditionSteps,
     groupKey,
-    onUpdate,
+    onUpdateStep,
     onAddElse,
     onAddElseIf,
     onRemove,
     onEdit,
+    onAddStep,
     agentTools,
     isLoadingTools
 }: ConditionalGroupProps) {
     const [activeConditionTab, setActiveConditionTab] = useState<string>(conditionSteps[0]?.id || '');
+
+    // Ensure we always have an "else" step at the end
     const hasElse = conditionSteps.some(step => step.conditions?.type === 'else');
+    const elseIfCount = conditionSteps.filter(step => step.conditions?.type === 'elseif').length;
+    const canAddElseIf = !hasElse && elseIfCount < MAX_ELSE_IF_CONDITIONS;
+
+    // Create a virtual else step if none exists to show the tab
+    const displaySteps = React.useMemo(() => {
+        if (!hasElse) {
+            const virtualElse: ConditionalStep = {
+                id: 'virtual-else',
+                name: 'Else',
+                description: '',
+                type: 'condition',
+                config: {},
+                conditions: { type: 'else' },
+                children: [],
+                order: conditionSteps.length
+            };
+            return [...conditionSteps, virtualElse];
+        }
+        return conditionSteps;
+    }, [conditionSteps, hasElse]);
 
     const {
         attributes,
@@ -56,7 +82,25 @@ export function ConditionalGroup({
         return String.fromCharCode(65 + index);
     };
 
-    const activeStep = conditionSteps.find(s => s.id === activeConditionTab) || conditionSteps[0];
+    // Ensure we have a valid active tab when steps change
+    React.useEffect(() => {
+        if (!displaySteps.find(s => s.id === activeConditionTab)) {
+            setActiveConditionTab(displaySteps[0]?.id || '');
+        }
+    }, [displaySteps, activeConditionTab]);
+
+    const activeStep = displaySteps.find(s => s.id === activeConditionTab) || displaySteps[0];
+
+    // Handle clicking add step button
+    const handleAddStepClick = React.useCallback(() => {
+        if (activeStep?.id === 'virtual-else') {
+            // If clicking on virtual else, create a real else step first
+            onAddElse(conditionSteps[conditionSteps.length - 1].id);
+        } else {
+            // Call onAddStep with index and parent step ID
+            onAddStep(-1, activeStep?.id);
+        }
+    }, [activeStep, onAddElse, conditionSteps, onAddStep]);
 
     return (
         <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50")}>
@@ -71,58 +115,56 @@ export function ConditionalGroup({
                     </div>
                 </div>
 
+                {/* Gear icon for editing - appears on hover */}
+                <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(activeStep)}
+                        className="h-8 w-8 p-0"
+                    >
+                        <Settings className="h-4 w-4" />
+                    </Button>
+                </div>
+
                 {/* Condition Tabs */}
-                <div className="flex items-center gap-2 flex-wrap pl-5">
-                    {conditionSteps.map((step, index) => {
+                <div className="flex items-center gap-2 flex-wrap pl-5 pr-12">
+                    {displaySteps.map((step, index) => {
                         const letter = getConditionLetter(index);
                         const isActive = step.id === activeConditionTab;
                         const conditionType = step.conditions?.type === 'if' ? 'If' :
                             step.conditions?.type === 'elseif' ? 'Else If' :
                                 step.conditions?.type === 'else' ? 'Else' : 'If';
+
                         return (
-                            <button
+                            <Button
                                 key={step.id}
                                 onClick={() => setActiveConditionTab(step.id)}
                                 className={cn(
-                                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all",
+                                    "h-9 px-3 border border-dashed text-xs",
                                     isActive
-                                        ? "bg-blue-500 text-white border-blue-500 shadow-sm"
-                                        : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                                        ? "bg-blue-500 hover:bg-blue-600 "
+                                        : "bg-white dark:bg-zinc-800 border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700"
                                 )}
                             >
+
                                 <span className="font-mono text-xs font-bold">{letter}</span>
                                 <span>•</span>
                                 <span>{conditionType}</span>
                                 {step.hasIssues && (
                                     <AlertTriangle className="h-3 w-3 text-red-500" />
                                 )}
-                            </button>
+                            </Button>
                         );
                     })}
 
-                    {/* Add Else If button */}
-                    {!hasElse && (
+                    {/* Plus button to add Else If - always show next to Else if we can add more */}
+                    {canAddElseIf && (
                         <Button
-                            variant="outline"
-                            size="sm"
                             onClick={() => onAddElseIf(conditionSteps[conditionSteps.length - 1].id)}
-                            className="h-9 px-3 border-dashed text-xs"
+                            className="h-6 w-6 p-0 border border-dashed rounded-md border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
                         >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Else If
-                        </Button>
-                    )}
-
-                    {/* Add Else button */}
-                    {!hasElse && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onAddElse(conditionSteps[conditionSteps.length - 1].id)}
-                            className="h-9 px-3 border-dashed text-xs"
-                        >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Else
+                            <Plus className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
                         </Button>
                     )}
                 </div>
@@ -130,30 +172,8 @@ export function ConditionalGroup({
                 {/* Active condition content */}
                 {activeStep && (
                     <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-700">
-                        {(activeStep.conditions?.type === 'if' || activeStep.conditions?.type === 'elseif') ? (
-                            <div className="space-y-3">
-                                <Label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                    {activeStep.conditions?.type === 'if' ? 'If condition' : 'Else if condition'}
-                                </Label>
-                                <Input
-                                    type="text"
-                                    value={activeStep.conditions.expression || ''}
-                                    onChange={(e) => onUpdate({
-                                        id: activeStep.id,
-                                        conditions: { ...activeStep.conditions, expression: e.target.value }
-                                    })}
-                                    placeholder="e.g., user asks about pricing"
-                                    className="w-full"
-                                />
-                            </div>
-                        ) : (
-                            <div className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
-                                Otherwise (fallback condition)
-                            </div>
-                        )}
-
                         {/* Steps within this condition */}
-                        <div className="mt-4 space-y-3">
+                        <div className="space-y-3">
                             {activeStep.children && activeStep.children.length > 0 ? (
                                 <SortableContext items={activeStep.children.map(child => child.id)} strategy={verticalListSortingStrategy}>
                                     <div className="space-y-2">
@@ -164,7 +184,7 @@ export function ConditionalGroup({
                                                 stepNumber={index + 1}
                                                 isNested={true}
                                                 onEdit={onEdit}
-                                                onUpdate={onUpdate}
+                                                onUpdateStep={onUpdateStep}
                                                 agentTools={agentTools}
                                                 isLoadingTools={isLoadingTools}
                                             />
@@ -177,19 +197,12 @@ export function ConditionalGroup({
                                 </div>
                             )}
 
-                            {/* Add step button */}
+                            {/* Add step button - triggers special edit mode for adding child steps */}
                             <div className="flex justify-center pt-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => onEdit({
-                                        id: 'new',
-                                        name: 'New Step',
-                                        description: '',
-                                        type: 'instruction',
-                                        config: {},
-                                        order: activeStep.children?.length || 0
-                                    } as ConditionalStep)}
+                                    onClick={handleAddStepClick}
                                     className="border-dashed text-xs"
                                 >
                                     <Plus className="h-3 w-3 mr-1" />

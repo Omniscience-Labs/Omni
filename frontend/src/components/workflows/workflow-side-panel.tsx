@@ -159,7 +159,7 @@ export function WorkflowSidePanel({
                         <Input
                             id="step-name"
                             value={selectedStep.name}
-                            onChange={(e) => onUpdateStep({ name: e.target.value })}
+                            onChange={(e) => onUpdateStep({ id: selectedStep.id, name: e.target.value })}
                             placeholder="Step name"
                             className="mt-1"
                         />
@@ -170,7 +170,7 @@ export function WorkflowSidePanel({
                         <Textarea
                             id="step-description"
                             value={selectedStep.description}
-                            onChange={(e) => onUpdateStep({ description: e.target.value })}
+                            onChange={(e) => onUpdateStep({ id: selectedStep.id, description: e.target.value })}
                             placeholder="What should this step do?"
                             rows={3}
                             className="mt-1 resize-none"
@@ -197,6 +197,7 @@ export function WorkflowSidePanel({
                                 id="condition-expression"
                                 value={selectedStep.conditions?.expression || ''}
                                 onChange={(e) => onUpdateStep({
+                                    id: selectedStep.id,
                                     conditions: {
                                         ...selectedStep.conditions,
                                         type: 'if' as const,

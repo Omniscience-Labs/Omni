@@ -1,4 +1,4 @@
-import { FileText, Terminal, Rocket, Computer, Eye, Search, Globe, GitBranch, Settings, MonitorPlay } from 'lucide-react';
+import { FileText, Terminal, Rocket, Computer, Eye, Search, Globe, GitBranch, Settings, MonitorPlay, Cog, Key } from 'lucide-react';
 
 export interface StepDefinition {
     id: string;
@@ -44,6 +44,8 @@ export const TOOL_COLORS: Record<string, string> = {
 export const ACTION_ICONS: Record<string, any> = {
     'FileText': FileText,
     'GitBranch': GitBranch,
+    'Cog': Cog,
+    'Key': Key,
 };
 
 // Base step definitions
@@ -72,6 +74,24 @@ export const BASE_STEP_DEFINITIONS: StepDefinition[] = [
         category: 'conditions',
         color: 'from-orange-500/20 to-orange-600/10 border-orange-500/20 text-orange-500'
     },
+    {
+        id: 'mcp_configuration',
+        name: 'MCP Configuration',
+        description: 'Configure MCP server connections and settings',
+        icon: Cog,
+        category: 'configuration',
+        color: 'from-indigo-500/20 to-indigo-600/10 border-indigo-500/20 text-indigo-500',
+        config: { step_type: 'mcp_configuration' }
+    },
+    {
+        id: 'credentials_profile',
+        name: 'Credentials Profile',
+        description: 'Select and configure credential profiles for authentication',
+        icon: Key,
+        category: 'configuration',
+        color: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/20 text-emerald-500',
+        config: { step_type: 'credentials_profile' }
+    },
 ];
 
 // Category definitions
@@ -85,6 +105,11 @@ export const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
         id: 'conditions',
         name: 'Conditions',
         description: 'Add logic and branching'
+    },
+    {
+        id: 'configuration',
+        name: 'Configuration',
+        description: 'Setup and configure services'
     },
     {
         id: 'tools',
@@ -131,6 +156,14 @@ export function getStepIconAndColor(stepType: any): { icon: any; color: string }
         return { icon, color };
     } else if (stepType.category === 'conditions') {
         return { icon: Settings, color: 'from-orange-500/20 to-orange-600/10 border-orange-500/20 text-orange-500' };
+    } else if (stepType.category === 'configuration') {
+        const stepType_id = stepType.config?.step_type || stepType.id;
+        if (stepType_id === 'mcp_configuration') {
+            return { icon: Cog, color: 'from-indigo-500/20 to-indigo-600/10 border-indigo-500/20 text-indigo-500' };
+        } else if (stepType_id === 'credentials_profile') {
+            return { icon: Key, color: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/20 text-emerald-500' };
+        }
+        return { icon: Cog, color: 'from-indigo-500/20 to-indigo-600/10 border-indigo-500/20 text-indigo-500' };
     } else {
         const icon = ACTION_ICONS[stepType.icon] || FileText;
         return { icon, color: 'from-gray-500/20 to-gray-600/10 border-gray-500/20 text-gray-500' };

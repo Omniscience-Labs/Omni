@@ -53,6 +53,7 @@ export function WorkflowBuilder({
     const [selectedStep, setSelectedStep] = useState<ConditionalStep | null>(null);
     const [insertIndex, setInsertIndex] = useState<number>(-1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [parentStepId, setParentStepId] = useState<string | null>(null);
 
     const {
         handleAddStep,
@@ -72,7 +73,11 @@ export function WorkflowBuilder({
         setPanelMode,
         setSelectedStep,
         setInsertIndex,
-        setSearchQuery
+        setSearchQuery,
+        selectedStep,
+        insertIndex,
+        parentStepId,
+        setParentStepId
     });
 
     const handleToggleSidePanel = () => {
@@ -98,7 +103,7 @@ export function WorkflowBuilder({
             onDeleteStep={handleDeleteStep}
             isLoadingTools={isLoadingTools}
         >
-            <div className="h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="min-h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="mx-auto max-w-3xl md:px-8 min-w-0 py-8">
                     {steps.length === 0 ? (
                         // Empty state
@@ -130,6 +135,7 @@ export function WorkflowBuilder({
                                 onDeleteStep={handleDeleteStep}
                                 onAddElseIf={handleAddElseIf}
                                 onAddElse={handleAddElse}
+                                onStepsChange={onStepsChange}
                                 agentTools={agentTools}
                                 isLoadingTools={isLoadingTools}
                             />

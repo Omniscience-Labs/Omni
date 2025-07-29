@@ -27,12 +27,13 @@ import {
 
 interface WorkflowStepsProps {
     steps: ConditionalStep[];
-    onAddStep: (index: number) => void;
+    onAddStep: (index: number, parentStepId?: string) => void;
     onEditStep: (step: ConditionalStep) => void;
     onUpdateStep: (updates: Partial<ConditionalStep>) => void;
     onDeleteStep: (stepId: string) => void;
     onAddElseIf: (afterStepId: string) => void;
     onAddElse: (afterStepId: string) => void;
+    onStepsChange: (steps: ConditionalStep[]) => void;
     agentTools?: any;
     isLoadingTools?: boolean;
 }
@@ -45,6 +46,7 @@ export function WorkflowSteps({
     onDeleteStep,
     onAddElseIf,
     onAddElse,
+    onStepsChange,
     agentTools,
     isLoadingTools
 }: WorkflowStepsProps) {
@@ -123,8 +125,7 @@ export function WorkflowSteps({
                 });
 
                 // Call the parent's onStepsChange
-                // This would need to be passed down from the parent
-                // For now, we'll just update the local state
+                onStepsChange(newSteps);
             }
         }
     };
@@ -145,11 +146,12 @@ export function WorkflowSteps({
                                 <ConditionalGroup
                                     conditionSteps={item}
                                     groupKey={`condition-group-${index}`}
-                                    onUpdate={onUpdateStep}
+                                    onUpdateStep={onUpdateStep}
                                     onAddElse={onAddElse}
                                     onAddElseIf={onAddElseIf}
                                     onRemove={onDeleteStep}
                                     onEdit={onEditStep}
+                                    onAddStep={onAddStep}
                                     agentTools={agentTools}
                                     isLoadingTools={isLoadingTools}
                                 />
@@ -159,7 +161,7 @@ export function WorkflowSteps({
                                     step={item}
                                     stepNumber={index + 1}
                                     onEdit={onEditStep}
-                                    onUpdate={onUpdateStep}
+                                    onUpdateStep={onUpdateStep}
                                     agentTools={agentTools}
                                     isLoadingTools={isLoadingTools}
                                 />
@@ -211,7 +213,7 @@ export function WorkflowSteps({
                                     step={activeStep}
                                     stepNumber={1}
                                     onEdit={() => { }}
-                                    onUpdate={() => { }}
+                                    onUpdateStep={() => { }}
                                 />
                             );
                         })()}

@@ -15,7 +15,7 @@ interface StepCardProps {
     stepNumber: number;
     isNested?: boolean;
     onEdit: (step: ConditionalStep) => void;
-    onUpdate: (updates: Partial<ConditionalStep>) => void;
+    onUpdateStep: (updates: Partial<ConditionalStep>) => void;
     agentTools?: any;
     isLoadingTools?: boolean;
 }
@@ -25,7 +25,7 @@ export function StepCard({
     stepNumber,
     isNested = false,
     onEdit,
-    onUpdate,
+    onUpdateStep,
     agentTools,
     isLoadingTools
 }: StepCardProps) {
@@ -44,12 +44,53 @@ export function StepCard({
     };
 
     const getStepIcon = (step: ConditionalStep) => {
-        const stepType = {
-            category: step.config?.tool_type === 'agentpress' || step.config?.tool_type === 'mcp' ? 'tools' :
-                step.type === 'condition' ? 'conditions' : 'actions',
-            config: step.config,
-            icon: step.type === 'condition' ? 'Settings' : 'FileText'
-        };
+        // Determine the proper step type based on the step configuration
+        let stepType;
+
+        if (step.type === 'condition') {
+            stepType = {
+                category: 'conditions',
+                config: step.config,
+                icon: 'Settings'
+            };
+        } else if (step.config?.tool_type === 'agentpress' || step.config?.tool_type === 'mcp') {
+            stepType = {
+                category: 'tools',
+                config: step.config,
+                icon: 'FileText'
+            };
+        } else if (step.config?.step_type === 'mcp_configuration') {
+            stepType = {
+                category: 'configuration',
+                config: { step_type: 'mcp_configuration' },
+                icon: 'Cog'
+            };
+        } else if (step.config?.step_type === 'credentials_profile') {
+            stepType = {
+                category: 'configuration',
+                config: { step_type: 'credentials_profile' },
+                icon: 'Key'
+            };
+        } else if (step.type === 'instruction') {
+            stepType = {
+                category: 'actions',
+                config: step.config,
+                icon: 'FileText'
+            };
+        } else if (step.type === 'sequence') {
+            stepType = {
+                category: 'actions',
+                config: step.config,
+                icon: 'GitBranch'
+            };
+        } else {
+            // Default fallback
+            stepType = {
+                category: 'actions',
+                config: step.config,
+                icon: 'FileText'
+            };
+        }
 
         const { icon: IconComponent, color } = getStepIconAndColor(stepType);
         return (
@@ -90,7 +131,7 @@ export function StepCard({
                             </div>
                         )}
                         {step.config?.tool_name && (
-                            <Badge variant="secondary" className="mt-1 text-xs">
+                            <Badge variant="default" className="mt-1 text-xs">
                                 {step.config.tool_name}
                             </Badge>
                         )}

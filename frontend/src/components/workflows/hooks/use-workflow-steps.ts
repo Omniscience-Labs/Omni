@@ -23,6 +23,10 @@ interface UseWorkflowStepsProps {
     setSelectedStep: (step: ConditionalStep | null) => void;
     setInsertIndex: (index: number) => void;
     setSearchQuery: (query: string) => void;
+    selectedStep: ConditionalStep | null;
+    insertIndex: number;
+    parentStepId: string | null;
+    setParentStepId: (id: string | null) => void;
 }
 
 const STEP_CATEGORIES = CATEGORY_DEFINITIONS;
@@ -65,7 +69,11 @@ export function useWorkflowSteps({
     setPanelMode,
     setSelectedStep,
     setInsertIndex,
-    setSearchQuery
+    setSearchQuery,
+    selectedStep,
+    insertIndex,
+    parentStepId,
+    setParentStepId
 }: UseWorkflowStepsProps) {
     const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -81,18 +89,20 @@ export function useWorkflowSteps({
         }));
     }, [agentTools]);
 
-    const handleAddStep = useCallback((index: number) => {
+    const handleAddStep = useCallback((index: number, parentId?: string) => {
         setInsertIndex(index);
         setPanelMode('add');
         setSelectedStep(null);
+        setParentStepId(parentId || null);
         setIsPanelOpen(true);
-    }, [setInsertIndex, setPanelMode, setSelectedStep, setIsPanelOpen]);
+    }, [setInsertIndex, setPanelMode, setSelectedStep, setParentStepId, setIsPanelOpen]);
 
     const handleEditStep = useCallback((step: ConditionalStep) => {
         setSelectedStep(step);
         setPanelMode('edit');
+        setParentStepId(null);
         setIsPanelOpen(true);
-    }, [setSelectedStep, setPanelMode, setIsPanelOpen]);
+    }, [setSelectedStep, setPanelMode, setParentStepId, setIsPanelOpen]);
 
     const handleCreateStep = useCallback((stepType: StepType) => {
         const newStep: ConditionalStep = {
@@ -113,34 +123,103 @@ export function useWorkflowSteps({
             };
         }
 
-        const newSteps = [...steps];
-        newSteps.push(newStep);
+        // Check if we're adding a child step to a condition
+        if (parentStepId) {
+            // Find the parent step and add the new step as its child
+            const findAndUpdateStep = (stepsArray: ConditionalStep[]): ConditionalStep[] => {
+                return stepsArray.map(step => {
+                    if (step.id === parentStepId) {
+                        return {
+                            ...step,
+                            children: [...(step.children || []), { ...newStep, order: step.children?.length || 0 }]
+                        };
+                    }
+                    // Also check nested children for conditional steps
+                    if (step.children && step.children.length > 0) {
+                        return {
+                            ...step,
+                            children: findAndUpdateStep(step.children)
+                        };
+                    }
+                    return step;
+                });
+            };
 
-        // Update order values
-        newSteps.forEach((step, idx) => {
-            step.order = idx;
-        });
+            const newSteps = findAndUpdateStep(steps);
+            onStepsChange(newSteps);
+        } else {
+            // Regular step addition to main workflow
+            const newSteps = [...steps];
+            if (insertIndex >= 0 && insertIndex < steps.length) {
+                newSteps.splice(insertIndex, 0, newStep);
+            } else {
+                newSteps.push(newStep);
+            }
 
-        onStepsChange(newSteps);
+            // Update order values
+            newSteps.forEach((step, idx) => {
+                step.order = idx;
+            });
+
+            onStepsChange(newSteps);
+        }
         
-        // Instead of closing panel, switch to edit mode with the new step
+        // Switch to edit mode for the newly created step
         setSelectedStep(newStep);
         setPanelMode('edit');
+        setParentStepId(null);
         setSearchQuery('');
-    }, [steps, onStepsChange, setSelectedStep, setPanelMode, setSearchQuery]);
+    }, [steps, onStepsChange, parentStepId, insertIndex, setSelectedStep, setPanelMode, setParentStepId, setSearchQuery]);
 
     const handleUpdateStep = useCallback((updates: Partial<ConditionalStep>) => {
-        const newSteps = steps.map(step =>
-            step.id === updates.id ? { ...step, ...updates } : step
-        );
+        // Recursive function to update steps at any level
+        const updateStepRecursive = (stepsArray: ConditionalStep[]): ConditionalStep[] => {
+            return stepsArray.map(step => {
+                if (step.id === updates.id) {
+                    return { ...step, ...updates };
+                }
+                // Check nested children for conditional steps
+                if (step.children && step.children.length > 0) {
+                    return {
+                        ...step,
+                        children: updateStepRecursive(step.children)
+                    };
+                }
+                return step;
+            });
+        };
+
+        const newSteps = updateStepRecursive(steps);
         onStepsChange(newSteps);
-    }, [steps, onStepsChange]);
+        
+        // Update the selected step if it's the one being updated
+        if (updates.id === selectedStep?.id) {
+            setSelectedStep({ ...selectedStep, ...updates });
+        }
+    }, [steps, onStepsChange, selectedStep, setSelectedStep]);
 
     const handleDeleteStep = useCallback((stepId: string) => {
-        const newSteps = steps.filter(step => step.id !== stepId);
+        // Recursive function to delete steps at any level
+        const deleteStepRecursive = (stepsArray: ConditionalStep[]): ConditionalStep[] => {
+            const filtered = stepsArray.filter(step => step.id !== stepId);
+            return filtered.map(step => {
+                if (step.children && step.children.length > 0) {
+                    return {
+                        ...step,
+                        children: deleteStepRecursive(step.children)
+                    };
+                }
+                return step;
+            });
+        };
+
+        const newSteps = deleteStepRecursive(steps);
+        
+        // Update order values for top-level steps
         newSteps.forEach((step, idx) => {
             step.order = idx;
         });
+        
         onStepsChange(newSteps);
         setIsPanelOpen(false);
     }, [steps, onStepsChange, setIsPanelOpen]);
