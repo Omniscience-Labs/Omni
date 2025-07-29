@@ -1,23 +1,9 @@
-"""
-Simple Agent Example for AgentPress
-
-This example demonstrates how to create a basic agent with a custom tool
-using the ThreadManager and AgentPress tool system.
-"""
-
 import asyncio
-from typing import Dict, Any, Optional, List
 from agentpress.thread_manager import ThreadManager
 from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
-from utils.logger import logger
+from agentpress.response_processor import ProcessorConfig
 
 class CalculatorTool(Tool):
-    """A simple calculator tool for basic mathematical operations."""
-
-    def __init__(self):
-        super().__init__()
-        logger.info("Initialized CalculatorTool")
-
     @openapi_schema({
         "type": "function",
         "function": {
@@ -55,59 +41,25 @@ class CalculatorTool(Tool):
 
 This will add 15 and 27 to get 42.""")
     async def calculate(self, operation: str, a: float, b: float) -> ToolResult:
-        """Perform a mathematical calculation.
+        if operation == "add":
+            result = a + b
+        elif operation == "subtract":
+            result = a - b
+        elif operation == "multiply":
+            result = a * b
+        elif operation == "divide":
+            if b == 0:
+                return self.fail_response("Cannot divide by zero")
+            result = a / b
+        else:
+            return self.fail_response(f"Unknown operation: {operation}")
         
-        Args:
-            operation: The operation to perform (add, subtract, multiply, divide)
-            a: First number
-            b: Second number
-            
-        Returns:
-            ToolResult with the calculation result
-        """
-        try:
-            logger.info(f"Performing calculation: {a} {operation} {b}")
-            
-            if operation == "add":
-                result = a + b
-            elif operation == "subtract":
-                result = a - b
-            elif operation == "multiply":
-                result = a * b
-            elif operation == "divide":
-                if b == 0:
-                    return self.fail_response("Cannot divide by zero")
-                result = a / b
-            else:
-                return self.fail_response(f"Unknown operation: {operation}")
-            
-            response_data = {
-                "operation": operation,
-                "a": a,
-                "b": b,
-                "result": result,
-                "message": f"{a} {operation} {b} = {result}"
-            }
-            
-            logger.info(f"Calculation result: {result}")
-            return self.success_response(response_data)
-            
-        except Exception as e:
-            logger.error(f"Error in calculation: {str(e)}", exc_info=True)
-            return self.fail_response(f"Calculation failed: {str(e)}")
-
+        return self.success_response({"result": result})
 
 class SimpleAgent:
-    """A simple agent that can perform mathematical calculations."""
-    
     def __init__(self):
-        """Initialize the agent with ThreadManager and calculator tool."""
         self.thread_manager = ThreadManager()
-        
-        # Add the calculator tool to the thread manager
         self.thread_manager.add_tool(CalculatorTool)
-        
-        # System prompt for the agent
         self.system_prompt = {
             "role": "system",
             "content": """You are a helpful mathematical assistant agent. You can:
@@ -124,71 +76,32 @@ Available tools:
 
 """
         }
-        
-        logger.info("Initialized SimpleAgent with CalculatorTool")
 
-    async def chat(self, thread_id: str, user_message: str, stream: bool = True) -> Any:
-        """Send a message to the agent and get a response.
-        
-        Args:
-            thread_id: The conversation thread ID
-            user_message: The user's message
-            stream: Whether to stream the response
-            
-        Returns:
-            Agent response (streaming generator or dict)
-        """
-        logger.info(f"Processing message in thread {thread_id}: {user_message[:100]}...")
-        
-        # Add user message to thread in proper LLM format
-        user_message_formatted = {
-            "role": "user",
-            "content": user_message
-        }
-        
+    async def chat(self, thread_id: str, user_message: str, stream: bool = True):
         await self.thread_manager.add_message(
             thread_id=thread_id,
             type="user",
-            content=user_message_formatted,
+            content={"role": "user", "content": user_message},
             is_llm_message=True
         )
         
-        # Create temporary message for this interaction
-        temp_message = {
-            "role": "user", 
-            "content": user_message
-        }
-        
-        from agentpress.response_processor import ProcessorConfig
-        
         processor_config = ProcessorConfig(
             xml_tool_calling=True,
-            native_tool_calling=False,
             execute_tools=True,
-            execute_on_stream=False,
-            tool_execution_strategy="sequential",
-            xml_adding_strategy="user_message",
-            max_xml_tool_calls=0  # No limit
+            tool_execution_strategy="sequential"
         )
         
         return await self.thread_manager.run_thread(
             thread_id=thread_id,
             system_prompt=self.system_prompt,
-            temporary_message=temp_message,
+            temporary_message={"role": "user", "content": user_message},
             stream=stream,
-            llm_model="gpt-4o",  # Using a cost-effective model for the example
-            llm_temperature=0.1,
+            llm_model="gpt-4o",
             processor_config=processor_config,
-            include_xml_examples=True  # Include XML examples for tool usage
+            include_xml_examples=True
         )
 
-
-    def render_conversation(self, messages: List[Dict[str, Any]]) -> None:
-        """Render a conversation history in a readable format.
-        
-        Args:
-            messages: List of message objects from get_llm_messages
-        """
+    def render_conversation(self, messages):
         print("\n" + "="*60)
         print("📜 CONVERSATION HISTORY")
         print("="*60)
@@ -197,26 +110,23 @@ Available tools:
             role = message.get('role', 'unknown')
             content = message.get('content', '')
             
-            # Format role display
             if role == 'user':
                 role_display = "👤 USER"
-                color = '\033[94m'  # Blue
+                color = '\033[94m'
             elif role == 'assistant':
                 role_display = "🤖 ASSISTANT"
-                color = '\033[92m'  # Green
+                color = '\033[92m'
             elif role == 'system':
                 role_display = "⚙️  SYSTEM"
-                color = '\033[93m'  # Yellow
+                color = '\033[93m'
             else:
                 role_display = f"📝 {role.upper()}"
-                color = '\033[96m'  # Cyan
+                color = '\033[96m'
             
             reset = '\033[0m'
-            
             print(f"\n{color}{role_display} (Message {i}){reset}")
             print("-" * 40)
             
-            # Handle different content types
             if isinstance(content, str):
                 print(content)
             elif isinstance(content, list):
@@ -234,7 +144,6 @@ Available tools:
                     else:
                         print(f"   {item}")
             elif isinstance(content, dict):
-                # Handle tool calls or other structured content
                 if 'tool_calls' in content:
                     for tool_call in content['tool_calls']:
                         function = tool_call.get('function', {})
@@ -247,66 +156,32 @@ Available tools:
         
         print("\n" + "="*60)
 
-
-# Example usage and testing
-async def example_usage():
-    """Demonstrate how to use the SimpleAgent."""
-    print("🤖 Starting SimpleAgent Example")
-    
-    # Create agent instance
+async def main():
     agent = SimpleAgent()
-    
-    # Create a new conversation thread
     thread_id = await agent.thread_manager.create_thread()
-
-    print(f"📝 Created thread: {thread_id}")
     
-    # Example conversations
-    test_messages = [
-        "Hello! Can you help me with some math?",
+    messages = [
         "What's 15 + 27?",
         "Can you multiply 8.5 by 4?",
-        "What's 100 divided by 7? Please round to 2 decimal places in your explanation.",
-        "Can you divide 144 by 12?"
+        "What's 100 divided by 7?"
     ]
     
-    for i, message in enumerate(test_messages, 1):
-        print(f"\n--- Test {i} ---")
-        print(f"👤 User: {message}")
-        print("🤖 Agent: ", end="", flush=True)
+    for message in messages:
+        print(f"User: {message}")
+        print("Agent: ", end="", flush=True)
         
-        try:
-            # Get streaming response
-            response_stream = await agent.chat(thread_id, message, stream=True)
-            
-            # Process streaming response
-            full_response = ""
-            async for chunk in response_stream:
-                # Handle case where chunk might be a string instead of dict
-                if not isinstance(chunk, dict):
-                    continue
-                    
-                if chunk.get('type') == 'content':
-                    content = chunk.get('content', '')
-                    print(content, end='', flush=True)
-                    full_response += content
-            
-            print()  # New line after response
-            
-        except Exception as e:
-            print(f"\n❌ Error: {str(e)}")
+        response_stream = await agent.chat(thread_id, message, stream=True)
+        
+        async for chunk in response_stream:
+            if isinstance(chunk, dict) and chunk.get('type') == 'content':
+                print(chunk.get('content', ''), end='', flush=True)
+        print()
     
-    print(f"\n✅ Example completed! Thread ID: {thread_id}")
-    
-    # Display conversation history at the end
     try:
-        print("\n🔍 Fetching conversation history...")
         conversation_history = await agent.thread_manager.get_llm_messages(thread_id)
         agent.render_conversation(conversation_history)
     except Exception as e:
-        print(f"❌ Failed to fetch conversation history: {e}")
-
+        print(f"Failed to fetch conversation history: {e}")
 
 if __name__ == "__main__":
-    # Run the example
-    asyncio.run(example_usage())
+    asyncio.run(main())
