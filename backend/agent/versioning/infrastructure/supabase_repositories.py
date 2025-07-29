@@ -185,8 +185,8 @@ class SupabaseVersionRepository(IVersionRepository):
                 )
                 for mcp in tools.get('custom_mcp', [])
             ],
-            tool_configuration=ToolConfiguration(
-                tools=tools.get('agentpress', {})
+            tool_configuration=ToolConfiguration.create_normalized(
+                tools.get('agentpress', {})
             ),
             status=VersionStatus.ACTIVE if data.get('is_active') else VersionStatus.INACTIVE,
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),

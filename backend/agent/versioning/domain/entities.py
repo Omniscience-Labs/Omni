@@ -92,6 +92,23 @@ class MCPConfiguration:
 class ToolConfiguration:
     tools: Dict[str, Any] = field(default_factory=dict)
     
+    @classmethod
+    def normalize_agentpress_tools(cls, agentpress_tools: Dict[str, Any]) -> Dict[str, bool]:
+        normalized = {}
+        for tool_name, tool_config in agentpress_tools.items():
+            if isinstance(tool_config, bool):
+                normalized[tool_name] = tool_config
+            elif isinstance(tool_config, dict) and 'enabled' in tool_config:
+                normalized[tool_name] = tool_config['enabled']
+            else:
+                normalized[tool_name] = False
+        return normalized
+    
+    @classmethod
+    def create_normalized(cls, agentpress_tools: Dict[str, Any]) -> 'ToolConfiguration':
+        normalized_tools = cls.normalize_agentpress_tools(agentpress_tools)
+        return cls(tools=normalized_tools)
+    
     def is_tool_enabled(self, tool_name: str) -> bool:
         tool_config = self.tools.get(tool_name, {})
         if isinstance(tool_config, bool):

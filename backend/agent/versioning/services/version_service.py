@@ -68,7 +68,7 @@ class VersionService:
                 )
                 for mcp in custom_mcps
             ],
-            tool_configuration=ToolConfiguration(tools=agentpress_tools),
+            tool_configuration=ToolConfiguration.create_normalized(agentpress_tools),
             status=VersionStatus.ACTIVE,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
