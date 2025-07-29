@@ -2702,7 +2702,7 @@ async def get_thread(
 
 @router.post("/threads", response_model=CreateThreadResponse)
 async def create_thread(
-    name: Optional[str] = Form(...),
+    name: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     """
@@ -2710,6 +2710,8 @@ async def create_thread(
 
     [WARNING] Keep in sync with initiate endpoint.
     """
+    if not name:
+        name = "New Project"
     logger.info(f"Creating new thread with name: {name}")
     client = await db.client
     account_id = user_id  # In Basejump, personal account_id is the same as user_id

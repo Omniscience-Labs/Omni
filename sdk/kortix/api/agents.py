@@ -26,17 +26,12 @@ class AgentPress_ToolConfig:
 
 
 @dataclass
-class AgentPress_Tools(Dict[AgentPressTools, AgentPress_ToolConfig]):
-    pass
-
-
-@dataclass
 class AgentCreateRequest:
     name: str
     system_prompt: str
     description: Optional[str] = None
     custom_mcps: Optional[List[CustomMCP]] = None
-    agentpress_tools: Optional[AgentPress_Tools] = None
+    agentpress_tools: Optional[Dict[AgentPressTools, AgentPress_ToolConfig]] = None
     is_default: bool = False
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
@@ -48,7 +43,7 @@ class AgentUpdateRequest:
     description: Optional[str] = None
     system_prompt: Optional[str] = None
     custom_mcps: Optional[List[CustomMCP]] = None
-    agentpress_tools: Optional[AgentPress_Tools] = None
+    agentpress_tools: Optional[Dict[AgentPressTools, AgentPress_ToolConfig]] = None
     is_default: Optional[bool] = None
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
@@ -75,7 +70,7 @@ class AgentVersionResponse:
     version_name: str
     system_prompt: str
     custom_mcps: List[CustomMCP]
-    agentpress_tools: AgentPress_Tools
+    agentpress_tools: Dict[AgentPressTools, AgentPress_ToolConfig]
     is_active: bool
     created_at: str
     updated_at: str
@@ -89,7 +84,7 @@ class AgentResponse:
     name: str
     system_prompt: str
     custom_mcps: List[CustomMCP]
-    agentpress_tools: AgentPress_Tools
+    agentpress_tools: Dict[AgentPressTools, AgentPress_ToolConfig]
     is_default: bool
     created_at: str
     description: Optional[str] = None

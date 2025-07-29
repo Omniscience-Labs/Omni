@@ -1,11 +1,12 @@
 """
 Kortix SDK for Suna AI Agent Platform
 
-A Python SDK for creating and managing AI agents with tool execution capabilities.
+A Python SDK for creating and managing AI agents with thread execution capabilities.
 """
 
 __version__ = "0.1.0"
 
-from .kortix.config import global_config as config
+from kortix._kortix import Kortix
+from kortix.tools import AgentPressTools, KortixMCP
 
-__all__ = ["config"]
+__all__ = ["Kortix", "AgentPressTools", "KortixMCP"]

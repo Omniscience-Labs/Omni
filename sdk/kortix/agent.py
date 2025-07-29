@@ -3,7 +3,6 @@ from thread import Thread, AgentRun
 from tools import AgentPressTools, KortixMCP, KortixTools
 from api.agents import (
     AgentCreateRequest,
-    AgentPress_Tools,
     AgentPress_ToolConfig,
     AgentsClient,
     CustomMCP,
@@ -35,7 +34,7 @@ class KortixAgent:
     async def create(
         self, name: str, system_prompt: str, model: str, tools: list[KortixTools] = []
     ) -> Agent:
-        agentpress_tools = AgentPress_Tools()
+        agentpress_tools = {}
         custom_mcps: list[CustomMCP] = []
         for tool in tools:
             if isinstance(tool, AgentPressTools):

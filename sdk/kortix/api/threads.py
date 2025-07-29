@@ -92,6 +92,10 @@ class Message:
     is_llm_message: bool
     content: Any  # Can be string, dict, or ContentObject
     created_at: str
+    updated_at: str
+    agent_id: str
+    agent_version_id: str
+    metadata: Any
 
     @property
     def message_type(self) -> MessageType:
@@ -429,7 +433,7 @@ class ThreadsClient:
         # This endpoint expects form data, not JSON
         response = await self.client.post(
             f"/threads/{thread_id}/messages/add",
-            data={"message": message},
+            params={"message": message},
             headers={k: v for k, v in self.headers.items() if k != "Content-Type"},
         )
         data = self._handle_response(response)
@@ -462,11 +466,10 @@ class ThreadsClient:
         Returns:
             CreateThreadResponse containing the new thread ID and project ID
         """
-        # This endpoint expects form data, not JSON
-        form_data = {"name": name} if name is not None else {"name": "New Thread"}
+        data = None if name is None else {"name": name}
         response = await self.client.post(
             "/threads",
-            data=form_data,
+            data=data,
             headers={k: v for k, v in self.headers.items() if k != "Content-Type"},
         )
         data = self._handle_response(response)

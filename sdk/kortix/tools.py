@@ -4,16 +4,20 @@ from fastmcp import FastMCP
 
 
 class KortixMCP:
-    async def create(self, endpoint: str, mcp: FastMCP):
+    def __init__(self, mcp: FastMCP, endpoint: str):
         self._fastmcp = mcp
         self.url = endpoint
-        self.name = mcp.name
+        self._initialized = False
+
+    async def initialize(self):
+        self.name = self._fastmcp.name
         self.type = "http"
         self.enabled_tools: list[str] = []
-        tools = await mcp.get_tools()
+        tools = await self._fastmcp.get_tools()
         for tool in tools.values():
             if tool.enabled:
                 self.enabled_tools.append(tool.name)
+        self._initialized = True
         return self
 
 

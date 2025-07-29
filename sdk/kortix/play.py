@@ -5,10 +5,13 @@ from typing import Any, Optional
 
 
 from _kortix import Kortix
+from tools import AgentPressTools, KortixMCP
+from fastmcp import FastMCP
 
 
+# Local key-value store for storing agent and thread IDs
 class LocalKVStore:
-    def __init__(self, filename: str = "kvstore.json"):
+    def __init__(self, filename: str = ".kvstore.json"):
         self.filename = filename
         self._data = {}
         self._load()
@@ -47,20 +50,41 @@ class LocalKVStore:
 kv = LocalKVStore()
 
 
+mcp = FastMCP(name="Kortix")
+
+
+@mcp.tool
+async def get_weather(city: str) -> str:
+    return f"The weather in {city} is rainy."
+
+
 async def main():
+    kortixMCP = KortixMCP(mcp, "http://localhost:4000/mcp/")
+    await kortixMCP.initialize()
+
+    # Start the MCP server in the background
+    asyncio.create_task(
+        mcp.run_http_async(
+            show_banner=False, log_level="error", host="0.0.0.0", port=4000
+        )
+    )
+
     kortix = Kortix("af3d6952-2109-4ab3-bbfe-4a2e2326c740", "http://localhost:8000/api")
 
+    # Setup the agent
     agent_id = kv.get("agent_id")
     if not agent_id:
         agent = await kortix.Agent.create(
-            name="Test Agent",
-            system_prompt="You are a test agent. You only respond with 'Hello, world!'",
+            name="Generic Agent",
+            system_prompt="You are a generic agent. You can use the tools provided to you to answer questions.",
             model="gpt-4o-mini",
+            tools=[AgentPressTools.WEB_SEARCH_TOOL, kortixMCP],
         )
         kv.set("agent_id", agent._agent_id)
     else:
         agent = await kortix.Agent.get(agent_id)
 
+    # Setup the thread
     thread_id = kv.get("thread_id")
     if not thread_id:
         thread = await kortix.Thread.create()
@@ -68,7 +92,8 @@ async def main():
     else:
         thread = await kortix.Thread.get(thread_id)
 
-    agent_run = await agent.run("What is the weather in Tokyo?", thread)
+    # Run the agent
+    agent_run = await agent.run("What is the weather in Singapore?", thread)
 
     stream = await agent_run.get_stream()
 
@@ -77,4 +102,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except:
+        exit(0)
