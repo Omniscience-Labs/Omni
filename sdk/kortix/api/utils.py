@@ -13,7 +13,15 @@ async def stream_from_url(url: str, **kwargs) -> AsyncGenerator[str, None]:
     Yields:
         str: Each line from the streaming response
     """
-    async with httpx.AsyncClient() as client:
+    # Configure timeout settings to prevent ReadTimeout errors
+    timeout = httpx.Timeout(
+        connect=30.0,  # 30 seconds to establish connection
+        read=300.0,  # 300 seconds to read data (good for streaming)
+        write=30.0,  # 30 seconds to write data
+        pool=30.0,  # 30 seconds to get connection from pool
+    )
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream("GET", url, **kwargs) as response:
             response.raise_for_status()
 
