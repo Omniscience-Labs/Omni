@@ -29,6 +29,7 @@ from services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
 from agent.gemini_prompt import get_gemini_system_prompt
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
+from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
 
 load_dotenv()
