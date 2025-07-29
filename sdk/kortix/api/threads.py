@@ -4,7 +4,7 @@ import httpx
 from datetime import datetime
 
 # Import from shared models
-from models import (
+from ..models import (
     Role,
     MessageType,
     BaseMessage,
