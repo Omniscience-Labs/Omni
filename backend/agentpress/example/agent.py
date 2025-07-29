@@ -127,21 +127,6 @@ Available tools:
         
         logger.info("Initialized SimpleAgent with CalculatorTool")
 
-    async def create_thread(self) -> str:
-        """Create a new conversation thread.
-        
-        Returns:
-            The thread ID for the new conversation
-        """
-        # Use ThreadManager's create_thread method to properly create the thread in the database
-        # For the example, we'll create a public orphaned thread (no account_id or project_id)
-        thread_id = await self.thread_manager.create_thread(
-            is_public=True,  # Make it public so we don't need authentication for the example
-            metadata={"agent_type": "simple_calculator", "created_by": "example_agent"}
-        )
-        logger.info(f"Created new thread: {thread_id}")
-        return thread_id
-
     async def chat(self, thread_id: str, user_message: str, stream: bool = True) -> Any:
         """Send a message to the agent and get a response.
         
@@ -174,8 +159,6 @@ Available tools:
             "content": user_message
         }
         
-        # Run the thread with the agent's system prompt
-        # Create processor config with XML tool calling enabled
         from agentpress.response_processor import ProcessorConfig
         
         processor_config = ProcessorConfig(
@@ -199,16 +182,6 @@ Available tools:
             include_xml_examples=True  # Include XML examples for tool usage
         )
 
-    async def get_conversation_history(self, thread_id: str) -> List[Dict[str, Any]]:
-        """Get the full conversation history for a thread.
-        
-        Args:
-            thread_id: The conversation thread ID
-            
-        Returns:
-            List of messages in the conversation
-        """
-        return await self.thread_manager.get_llm_messages(thread_id)
 
     def render_conversation(self, messages: List[Dict[str, Any]]) -> None:
         """Render a conversation history in a readable format.
@@ -284,7 +257,8 @@ async def example_usage():
     agent = SimpleAgent()
     
     # Create a new conversation thread
-    thread_id = await agent.create_thread()
+    thread_id = await agent.thread_manager.create_thread()
+
     print(f"📝 Created thread: {thread_id}")
     
     # Example conversations
@@ -327,7 +301,7 @@ async def example_usage():
     # Display conversation history at the end
     try:
         print("\n🔍 Fetching conversation history...")
-        conversation_history = await agent.get_conversation_history(thread_id)
+        conversation_history = await agent.thread_manager.get_llm_messages(thread_id)
         agent.render_conversation(conversation_history)
     except Exception as e:
         print(f"❌ Failed to fetch conversation history: {e}")
