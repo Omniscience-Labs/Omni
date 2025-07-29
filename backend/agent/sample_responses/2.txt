@@ -999,9 +999,11 @@ Now let's check that our files are in place and update our todo list:
 </function_calls>
 
 <function_calls>
-<invoke name="full_file_rewrite">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents"># Japan Trip Planning Todo
+<invoke name="edit_file">
+<parameter name="target_file">todo.md</parameter>
+<parameter name="instructions">I am marking all remaining tasks as complete in my todo list.</parameter>
+<parameter name="code_edit">
+# Japan Trip Planning Todo
 
 ## Research Phase
 - [x] Research flight options from Seattle to Japan
