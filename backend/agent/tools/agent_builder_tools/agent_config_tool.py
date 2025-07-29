@@ -159,15 +159,17 @@ class AgentConfigTool(AgentBuilderBaseTool):
             version_created = False
             if config_changed:
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     current_version = None
                     if current_agent.get('current_version_id'):
                         try:
-                            current_version = await version_manager.get_version(
+                            version_service = await get_version_service()
+                            current_version_obj = await version_service.get_version(
                                 agent_id=self.agent_id,
                                 version_id=current_agent['current_version_id'],
                                 user_id=self.account_id
                             )
+                            current_version = current_version_obj.to_dict()
                         except Exception as e:
                             logger.warning(f"Failed to get current version: {e}")
                     
@@ -205,7 +207,10 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
-                    new_version = await version_manager.create_version(
+                    version_service = await get_version_service()
+
+                    
+                    new_version = await version_service.create_version(
                         agent_id=self.agent_id,
                         user_id=self.account_id,
                         system_prompt=current_system_prompt,
@@ -217,7 +222,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     )
                     
                     version_created = True
-                    logger.info(f"Created new version {new_version['version_id']} for agent {self.agent_id}")
+                    logger.info(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to create new version: {e}")
@@ -272,14 +277,15 @@ class AgentConfigTool(AgentBuilderBaseTool):
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     account_id = await self._get_current_account_id()
-                    version_dict = await version_manager.get_version(
+                    version_service = await get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=self.agent_id,
                         version_id=agent_data['current_version_id'],
                         user_id=account_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                 except Exception as e:
                     logger.warning(f"Failed to get version data for agent config tool: {e}")
 

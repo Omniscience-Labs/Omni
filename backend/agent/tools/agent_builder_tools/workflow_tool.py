@@ -23,14 +23,15 @@ class WorkflowTool(AgentBuilderBaseTool):
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     account_id = await self._get_current_account_id()
-                    version_dict = await version_manager.get_version(
+                    version_service = await get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=self.agent_id,
                         version_id=agent_data['current_version_id'],
                         user_id=account_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                 except Exception as e:
                     logger.warning(f"Failed to get version data for workflow tool: {e}")
             

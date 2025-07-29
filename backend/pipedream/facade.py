@@ -228,11 +228,10 @@ class PipedreamManager:
         user_id: str
     ) -> List[str]:
         from services.supabase import DBConnection
-        from agent.versioning.facade import VersionManagerFacade
+        from agent.versioning.version_service import get_version_service
         
         db = DBConnection()
         client = await db.client
-        version_manager = VersionManagerFacade()
         
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
@@ -243,12 +242,14 @@ class PipedreamManager:
         version_custom_mcps = []
         if agent.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await get_version_service()
+                version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent['current_version_id'],
                     user_id=user_id
                 )
-                version_custom_mcps = version_dict.get('custom_mcps', [])
+                version_data = version_obj.to_dict()
+                version_custom_mcps = version_data.get('custom_mcps', [])
             except Exception as e:
                 pass
         
@@ -284,23 +285,24 @@ class PipedreamManager:
         version_id: str
     ) -> List[str]:
         from services.supabase import DBConnection
-        from agent.versioning.facade import VersionManagerFacade
+        from agent.versioning.version_service import get_version_service
         
         db = DBConnection()
         client = await db.client
-        version_manager = VersionManagerFacade()
         
         agent_result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             return []
 
         try:
-            version_dict = await version_manager.get_version(
+            version_service = await get_version_service()
+            version_obj = await version_service.get_version(
                 agent_id=agent_id,
                 version_id=version_id,
                 user_id=user_id
             )
-            version_custom_mcps = version_dict.get('custom_mcps', [])
+            version_data = version_obj.to_dict()
+            version_custom_mcps = version_data.get('custom_mcps', [])
         except Exception as e:
             return []
         
@@ -336,13 +338,13 @@ class PipedreamManager:
         enabled_tools: List[str]
     ) -> Dict[str, Any]:
         from services.supabase import DBConnection
-        from agent.versioning.facade import version_manager
+        from agent.versioning.version_service import get_version_service
         import copy
         
         db = DBConnection()
 
-        from agent.versioning.infrastructure.dependencies import set_db_connection
-        set_db_connection(db)
+        # Legacy import - no longer needed with simplified versioning
+        # set_db_connection(db)  # No longer needed
         client = await db.client
         
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
@@ -354,11 +356,13 @@ class PipedreamManager:
         current_version_data = None
         if agent.get('current_version_id'):
             try:
-                current_version_data = await version_manager.get_version(
+                current_version_data = await get_version_service().get_version(
                     agent_id=agent_id,
                     version_id=agent['current_version_id'],
                     user_id=user_id
                 )
+                version_data = current_version_data.to_dict()
+                current_custom_mcps = version_data.get('custom_mcps', [])
             except Exception as e:
                 pass
         
@@ -368,10 +372,10 @@ class PipedreamManager:
             raise ValueError("Profile not found")
         
         if current_version_data:
-            system_prompt = current_version_data.get('system_prompt', '')
-            configured_mcps = current_version_data.get('configured_mcps', [])
-            agentpress_tools = current_version_data.get('agentpress_tools', {})
-            current_custom_mcps = current_version_data.get('custom_mcps', [])
+            system_prompt = current_version_data.system_prompt
+            configured_mcps = current_version_data.configured_mcps
+            agentpress_tools = current_version_data.agentpress_tools
+            current_custom_mcps = current_version_data.custom_mcps
         else:
             system_prompt = ''
             configured_mcps = []
@@ -411,7 +415,10 @@ class PipedreamManager:
             }
             updated_custom_mcps.append(new_mcp_config)
         
-        new_version = await version_manager.create_version(
+        version_service = await get_version_service()
+
+        
+        new_version = await version_service.create_version(
             agent_id=agent_id,
             user_id=user_id,
             system_prompt=system_prompt,
@@ -422,7 +429,7 @@ class PipedreamManager:
         )
         
         update_result = await client.table('agents').update({
-            'current_version_id': new_version['version_id']
+            'current_version_id': new_version.version_id
         }).eq('agent_id', agent_id).execute()
         
         if not update_result.data:
@@ -432,7 +439,7 @@ class PipedreamManager:
             'success': True,
             'enabled_tools': enabled_tools,
             'total_tools': len(enabled_tools),
-            'version_id': new_version['version_id'],
+            'version_id': new_version.version_id,
             'version_name': new_version['version_name']
         }
 

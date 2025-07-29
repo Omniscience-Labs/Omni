@@ -439,12 +439,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                     updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != str(profile.profile_id)]
                     
                     if len(updated_mcps) != len(current_custom_mcps):
-                        from agent.versioning.facade import version_manager
+                        from agent.versioning.version_service import get_version_service
                         try:
                             current_tools['custom_mcp'] = updated_mcps
                             current_config['tools'] = current_tools
                             
-                            await version_manager.create_version(
+                            version_service = await get_version_service()
+                            await version_service.create_version(
                                 agent_id=self.agent_id,
                                 user_id=self.account_id,
                                 system_prompt=current_config.get('system_prompt', ''),
