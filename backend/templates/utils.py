@@ -124,15 +124,14 @@ def is_suna_default_agent(agent_data: Dict[str, Any]) -> bool:
 
 
 def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
-    """Format template for API response using the new config structure"""
     return {
         'template_id': template.template_id,
         'creator_id': template.creator_id,
         'name': template.name,
         'description': template.description,
-        'system_prompt': template.system_prompt,  # Use property
-        'mcp_requirements': format_mcp_requirements_for_response(template.mcp_requirements),  # Use property
-        'agentpress_tools': template.agentpress_tools,  # Use property
+        'system_prompt': template.system_prompt,
+        'mcp_requirements': format_mcp_requirements_for_response(template.mcp_requirements),
+        'agentpress_tools': template.agentpress_tools,
         'tags': template.tags,
         'is_public': template.is_public,
         'marketplace_published_at': template.marketplace_published_at.isoformat() if template.marketplace_published_at else None,
@@ -187,7 +186,6 @@ def search_templates_by_name(templates: List[AgentTemplate], query: str) -> List
 
 
 def sanitize_config_for_security(config: Dict[str, Any]) -> Dict[str, Any]:
-    # Sanitize agentpress tools to extract only enabled values
     original_agentpress_tools = config.get('tools', {}).get('agentpress', {})
     sanitized_agentpress_tools = {}
     
@@ -197,7 +195,6 @@ def sanitize_config_for_security(config: Dict[str, Any]) -> Dict[str, Any]:
         elif isinstance(tool_config, dict) and 'enabled' in tool_config:
             sanitized_agentpress_tools[tool_name] = tool_config['enabled']
         else:
-            # Default to false if unclear
             sanitized_agentpress_tools[tool_name] = False
 
     sanitized = {
