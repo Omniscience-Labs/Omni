@@ -7,6 +7,7 @@ from typing import Any, Optional
 from _kortix import Kortix
 from tools import AgentPressTools, KortixMCP
 from fastmcp import FastMCP
+from stream import RealtimeStreamProcessor, RealtimeCallbacks
 
 
 # Local key-value store for storing agent and thread IDs
@@ -55,10 +56,14 @@ mcp = FastMCP(name="Kortix")
 
 @mcp.tool
 async def get_weather(city: str) -> str:
-    return f"The weather in {city} is rainy."
+    return f"The weather in {city} is windy."
 
 
 async def main():
+    """
+    Please ignore the asyncio.cancelledError that is thrown when the MCP server is stopped. I couldn't fix it.
+    """
+
     kortixMCP = KortixMCP(mcp, "http://localhost:4000/mcp/")
     await kortixMCP.initialize()
 
@@ -93,12 +98,27 @@ async def main():
         thread = await kortix.Thread.get(thread_id)
 
     # Run the agent
-    agent_run = await agent.run("What is the weather in Singapore?", thread)
+    agent_run = await agent.run("What is the weather in Bangalore?", thread)
 
     stream = await agent_run.get_stream()
 
+    processor = RealtimeStreamProcessor(
+        callbacks=RealtimeCallbacks(
+            # on_text_update=lambda full_text: print(f"[TEXT] {full_text}"), # Uncomment to see each chunk coming in
+            on_status_update=lambda status: print(
+                f"[STATUS] {status.get('status_type', status.get('status', 'unknown'))}"
+            ),
+            on_function_call_start=lambda: print("\n[TOOL USE DETECTED]"),
+            on_function_call_update=lambda details: print(
+                f'[TOOL UPDATE] Calling function: "{details.name}"'
+            ),
+            on_tool_result=lambda message: print(f"[TOOL RESULT] {message.content}"),
+            on_message_end=lambda message: print(f"[MESSAGE] {message.content}"),
+        )
+    )
+
     async for line in stream:
-        print(line)
+        processor.process_line(line)
 
 
 if __name__ == "__main__":
