@@ -6,11 +6,11 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 
-from .kortix import Kortix
-from .tools import AgentPressTools, KortixMCP
+from kortix.kortix import Kortix
+from kortix.tools import AgentPressTools, KortixMCP
 from .stream import RealtimeStreamProcessor, RealtimeCallbacks
 
-load_dotenv("../.env")
+load_dotenv("../../.env")
 
 
 # Local key-value store for storing agent and thread IDs

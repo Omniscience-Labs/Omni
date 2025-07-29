@@ -1,7 +1,7 @@
 from typing import AsyncGenerator
 
 from .api.threads import ThreadsClient
-from .stream import stream_from_url
+from .api.utils import stream_from_url
 
 
 class Thread:
