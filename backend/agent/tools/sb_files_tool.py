@@ -1,12 +1,13 @@
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
-from sandbox.tool_base import SandboxToolsBase    
+from sandbox.tool_base import SandboxToolsBase
 from utils.files_utils import should_exclude_file, clean_path
 from agentpress.thread_manager import ThreadManager
 from utils.logger import logger
 from utils.config import config
 import os
 import json
-import httpx
+import litellm
+import openai
 import asyncio
 from typing import Optional
 
@@ -167,7 +168,7 @@ class SandboxFilesTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "str_replace",
-            "description": "Replace specific text in a file. The file path must be relative to /workspace (e.g., 'src/main.py' for /workspace/src/main.py). Use this when you need to replace a unique string that appears exactly once in the file.",
+            "description": "Replace specific text in a file. The file path must be relative to /workspace (e.g., 'src/main.py' for /workspace/src/main.py). IMPORTANT: Prefer using edit_file for faster, shorter edits to avoid repetition. Only use this tool when you need to replace a unique string that appears exactly once in the file and edit_file is not suitable.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -251,7 +252,7 @@ class SandboxFilesTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "full_file_rewrite",
-            "description": "Completely rewrite an existing file with new content. The file path must be relative to /workspace (e.g., 'src/main.py' for /workspace/src/main.py). Use this when you need to replace the entire file content or make extensive changes throughout the file.",
+            "description": "Completely rewrite an existing file with new content. The file path must be relative to /workspace (e.g., 'src/main.py' for /workspace/src/main.py). IMPORTANT: Always prefer using edit_file for making changes to code. Only use this tool when edit_file fails or when you need to replace the entire file content.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -367,78 +368,74 @@ class SandboxFilesTool(SandboxToolsBase):
         except Exception as e:
             return self.fail_response(f"Error deleting file: {str(e)}")
 
-    async def _call_morph_api(self, file_content: str, code_edit: str, instructions: str, file_path: str) -> Optional[str]:
-        """Call Morph API to apply edits to file content"""
+    async def _call_morph_api(self, file_content: str, code_edit: str, instructions: str, file_path: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        Call Morph API to apply edits to file content.
+        Returns a tuple (new_content, error_message).
+        On success, error_message is None.
+        On failure, new_content is None.
+        """
         try:
             morph_api_key = getattr(config, 'MORPH_API_KEY', None) or os.getenv('MORPH_API_KEY')
             openrouter_key = getattr(config, 'OPENROUTER_API_KEY', None) or os.getenv('OPENROUTER_API_KEY')
             
-            api_key = None
-            base_url = None
-            
+            messages = [{
+                "role": "user", 
+                "content": f"<instruction>{instructions}</instruction>\n<code>{file_content}</code>\n<update>{code_edit}</update>"
+            }]
+
+            response = None
             if morph_api_key:
-                api_key = morph_api_key
-                base_url = "https://api.morphllm.com/v1"
-                logger.debug("Using Morph API for file editing.")
+                logger.debug("Using direct Morph API for file editing.")
+                client = openai.AsyncOpenAI(
+                    api_key=morph_api_key,
+                    base_url="https://api.morphllm.com/v1"
+                )
+                response = await client.chat.completions.create(
+                    model="morph-v3-large",
+                    messages=messages,
+                    temperature=0.0,
+                    timeout=30.0
+                )
             elif openrouter_key:
-                api_key = openrouter_key
-                base_url = "https://openrouter.ai/api/v1"
-                logger.debug("Morph API key not set, falling back to OpenRouter for file editing.")
+                logger.debug("Morph API key not set, falling back to OpenRouter for file editing via litellm.")
+                response = await litellm.acompletion(
+                    model="openrouter/morph/morph-v3-large",
+                    messages=messages,
+                    api_key=openrouter_key,
+                    api_base="https://openrouter.ai/api/v1",
+                    temperature=0.0,
+                    timeout=30.0
+                )
+            else:
+                error_msg = "No Morph or OpenRouter API key found, cannot perform AI edit."
+                logger.warning(error_msg)
+                return None, error_msg
             
-            if not api_key:
-                logger.warning("No Morph or OpenRouter API key found, falling back to traditional editing")
-                return None
-            
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://suna.ai",
-                "X-Title": "Suna AI Agent"
-            }
-            
-            # Prepare the request for Morph's fast apply using the exact format from their docs
-            payload = {
-                "model": "morph/morph-code-edit",
-                "messages": [
-                    {
-                        "role": "user", 
-                        "content": f"<instructions>\n{instructions}\n</instructions>\n\n<code>\n{file_content}\n</code>\n\n<update>\n{code_edit}\n</update>"
-                    }
-                ],
-                "max_tokens": 16384,
-                "temperature": 0.0
-            }
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
-                response.raise_for_status()
+            if response and response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content.strip()
+
+                # Extract code block if wrapped in markdown
+                if content.startswith("```") and content.endswith("```"):
+                    lines = content.split('\n')
+                    if len(lines) > 2:
+                        content = '\n'.join(lines[1:-1])
                 
-                result = response.json()
+                return content, None
+            else:
+                error_msg = f"Invalid response from Morph/OpenRouter API: {response}"
+                logger.error(error_msg)
+                return None, error_msg
                 
-                if result.get("choices") and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"].strip()
-                    
-                    # Extract code block if wrapped in markdown
-                    if content.startswith("```") and content.endswith("```"):
-                        lines = content.split('\n')
-                        if len(lines) > 2:
-                            # Remove first line (```language) and last line (```)
-                            content = '\n'.join(lines[1:-1])
-                    
-                    return content
-                else:
-                    logger.error("Invalid response from Morph API")
-                    return None
-                    
-        except httpx.TimeoutException:
-            logger.error("Morph API request timed out")
-            return None
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Morph API returned error: {e.response.status_code}")
-            return None
         except Exception as e:
-            logger.error(f"Error calling Morph API: {str(e)}")
-            return None
+            error_message = f"AI model call for file edit failed. Exception: {str(e)}"
+            # Try to get more details from the exception if it's an API error
+            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                error_message += f"\n\nAPI Response Body:\n{e.response.text}"
+            elif hasattr(e, 'body'): # litellm sometimes puts it in body
+                error_message += f"\n\nAPI Response Body:\n{e.body}"
+            logger.error(f"Error calling Morph/OpenRouter API: {error_message}", exc_info=True)
+            return None, error_message
 
     @openapi_schema({
         "type": "function",
@@ -473,11 +470,33 @@ class SandboxFilesTool(SandboxToolsBase):
             {"param_name": "code_edit", "node_type": "element", "path": "code_edit"}
         ],
         example='''
+        <!-- Example: Mark multiple scattered tasks as complete in a todo list -->
+        <function_calls>
+        <invoke name="edit_file">
+        <parameter name="target_file">todo.md</parameter>
+        <parameter name="instructions">I am marking the research and setup tasks as complete in my todo list.</parameter>
+        <parameter name="code_edit">
+// ... existing code ...
+- [x] Research topic A
+- [ ] Research topic B
+- [x] Research topic C
+// ... existing code ...
+- [x] Setup database
+- [x] Configure server
+// ... existing code ...
+        </parameter>
+        </invoke>
+        </function_calls>
+
+        <!-- Example: Add error handling and logging to a function -->
         <function_calls>
         <invoke name="edit_file">
         <parameter name="target_file">src/main.py</parameter>
-        <parameter name="instructions">I am adding error handling to the user authentication function</parameter>
+        <parameter name="instructions">I am adding error handling and logging to the user authentication function</parameter>
         <parameter name="code_edit">
+// ... existing imports ...
+from my_app.logging import logger
+from my_app.exceptions import DatabaseError
 // ... existing code ...
 def authenticate_user(username, password):
     try:
@@ -513,40 +532,60 @@ def authenticate_user(username, password):
             
             # Try Morph AI editing first
             logger.info(f"Attempting AI-powered edit for file '{target_file}' with instructions: {instructions[:100]}...")
-            new_content = await self._call_morph_api(original_content, code_edit, instructions, target_file)
+            new_content, error_message = await self._call_morph_api(original_content, code_edit, instructions, target_file)
+
+            if error_message:
+                return ToolResult(success=False, output=json.dumps({
+                    "message": f"AI editing failed: {error_message}",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": None
+                }))
+
+            if new_content is None:
+                return ToolResult(success=False, output=json.dumps({
+                    "message": "AI editing failed for an unknown reason. The model returned no content.",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": None
+                }))
+
+            if new_content == original_content:
+                return ToolResult(success=True, output=json.dumps({
+                    "message": f"AI editing resulted in no changes to the file '{target_file}'.",
+                    "file_path": target_file,
+                    "original_content": original_content,
+                    "updated_content": original_content
+                }))
+
+            # AI editing successful
+            await self.sandbox.fs.upload_file(new_content.encode(), full_path)
             
-            if new_content and new_content != original_content:
-                # AI editing successful
-                await self.sandbox.fs.upload_file(new_content.encode(), full_path)
-                
-                # Show snippet of changes
-                original_lines = original_content.split('\n')
-                new_lines = new_content.split('\n')
-                
-                # Find first differing line for context
-                diff_line = 0
-                for i, (old_line, new_line) in enumerate(zip(original_lines, new_lines)):
-                    if old_line != new_line:
-                        diff_line = i
-                        break
-                
-                # Show context around the change
-                start_line = max(0, diff_line - self.SNIPPET_LINES)
-                end_line = min(len(new_lines), diff_line + self.SNIPPET_LINES + 1)
-                snippet = '\n'.join(new_lines[start_line:end_line])
-                
-                message = f"File '{target_file}' edited successfully using AI-powered editing."
-                if snippet:
-                    message += f"\n\nPreview of changes (around line {diff_line + 1}):\n{snippet}"
-                
-                return self.success_response(message)
-            
-            else:
-                # No changes could be made
-                return self.fail_response(f"AI editing was unable to apply the requested changes. The edit may be unclear or the file content may not match the expected format.")
+            # Return rich data for frontend diff view
+            return ToolResult(success=True, output=json.dumps({
+                "message": f"File '{target_file}' edited successfully.",
+                "file_path": target_file,
+                "original_content": original_content,
+                "updated_content": new_content
+            }))
                     
         except Exception as e:
-            return self.fail_response(f"Error editing file: {str(e)}")
+            logger.error(f"Unhandled error in edit_file: {str(e)}", exc_info=True)
+            # Try to get original_content if possible
+            original_content_on_error = None
+            try:
+                full_path_on_error = f"{self.workspace_path}/{self.clean_path(target_file)}"
+                if await self._file_exists(full_path_on_error):
+                    original_content_on_error = (await self.sandbox.fs.download_file(full_path_on_error)).decode()
+            except:
+                pass
+            
+            return ToolResult(success=False, output=json.dumps({
+                "message": f"Error editing file: {str(e)}",
+                "file_path": target_file,
+                "original_content": original_content_on_error,
+                "updated_content": None
+            }))
 
     # @openapi_schema({
     #     "type": "function",
@@ -649,4 +688,3 @@ def authenticate_user(username, password):
     #         return self.fail_response(f"File '{file_path}' appears to be binary and cannot be read as text")
     #     except Exception as e:
     #         return self.fail_response(f"Error reading file: {str(e)}")
-

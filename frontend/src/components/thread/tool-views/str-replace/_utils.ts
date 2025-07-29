@@ -1,21 +1,15 @@
-export type DiffType = 'unchanged' | 'added' | 'removed';
+import {
+  DiffType,
+  LineDiff,
+  CharDiffPart,
+  DiffStats,
+  generateLineDiff,
+  generateCharDiff,
+  calculateDiffStats,
+} from '../file-operation/_utils';
 
-export interface LineDiff {
-  type: DiffType;
-  oldLine: string | null;
-  newLine: string | null;
-  lineNumber: number;
-}
-
-export interface CharDiffPart {
-  text: string;
-  type: DiffType;
-}
-
-export interface DiffStats {
-  additions: number;
-  deletions: number;
-}
+export type { DiffType, LineDiff, CharDiffPart, DiffStats };
+export { generateLineDiff, generateCharDiff, calculateDiffStats };
 
 export interface ExtractedData {
   filePath: string | null;
@@ -120,103 +114,5 @@ export const extractFromLegacyFormat = (content: any, extractToolData: any, extr
     filePath: legacyFilePath,
     oldStr: strReplaceContent.oldStr,
     newStr: strReplaceContent.newStr
-  };
-};
-
-
-export const parseNewlines = (text: string): string => {
-  return text.replace(/\\n/g, '\n');
-};
-
-
-export const generateLineDiff = (oldText: string, newText: string): LineDiff[] => {
-  const parsedOldText = parseNewlines(oldText);
-  const parsedNewText = parseNewlines(newText);
-  
-  const oldLines = parsedOldText.split('\n');
-  const newLines = parsedNewText.split('\n');
-  
-  const diffLines: LineDiff[] = [];
-  const maxLines = Math.max(oldLines.length, newLines.length);
-  
-  for (let i = 0; i < maxLines; i++) {
-    const oldLine = i < oldLines.length ? oldLines[i] : null;
-    const newLine = i < newLines.length ? newLines[i] : null;
-    
-    if (oldLine === newLine) {
-      diffLines.push({ type: 'unchanged', oldLine, newLine, lineNumber: i + 1 });
-    } else {
-      if (oldLine !== null) {
-        diffLines.push({ type: 'removed', oldLine, newLine: null, lineNumber: i + 1 });
-      }
-      if (newLine !== null) {
-        diffLines.push({ type: 'added', oldLine: null, newLine, lineNumber: i + 1 });
-      }
-    }
-  }
-  
-  return diffLines;
-};
-
-export const generateCharDiff = (oldText: string, newText: string): CharDiffPart[] => {
-  const parsedOldText = parseNewlines(oldText);
-  const parsedNewText = parseNewlines(newText);
-  
-  let prefixLength = 0;
-  while (
-    prefixLength < parsedOldText.length &&
-    prefixLength < parsedNewText.length &&
-    parsedOldText[prefixLength] === parsedNewText[prefixLength]
-  ) {
-    prefixLength++;
-  }
-
-  let oldSuffixStart = parsedOldText.length;
-  let newSuffixStart = parsedNewText.length;
-  while (
-    oldSuffixStart > prefixLength &&
-    newSuffixStart > prefixLength &&
-    parsedOldText[oldSuffixStart - 1] === parsedNewText[newSuffixStart - 1]
-  ) {
-    oldSuffixStart--;
-    newSuffixStart--;
-  }
-
-  const parts: CharDiffPart[] = [];
-
-  if (prefixLength > 0) {
-    parts.push({
-      text: parsedOldText.substring(0, prefixLength),
-      type: 'unchanged',
-    });
-  }
-
-  if (oldSuffixStart > prefixLength) {
-    parts.push({
-      text: parsedOldText.substring(prefixLength, oldSuffixStart),
-      type: 'removed',
-    });
-  }
-  if (newSuffixStart > prefixLength) {
-    parts.push({
-      text: parsedNewText.substring(prefixLength, newSuffixStart),
-      type: 'added',
-    });
-  }
-
-  if (oldSuffixStart < parsedOldText.length) {
-    parts.push({
-      text: parsedOldText.substring(oldSuffixStart),
-      type: 'unchanged',
-    });
-  }
-
-  return parts;
-};
-
-export const calculateDiffStats = (lineDiff: LineDiff[]): DiffStats => {
-  return {
-    additions: lineDiff.filter(line => line.type === 'added').length,
-    deletions: lineDiff.filter(line => line.type === 'removed').length
   };
 };
