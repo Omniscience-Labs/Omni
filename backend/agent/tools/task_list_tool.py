@@ -20,28 +20,21 @@ class Task(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: Optional[str] = None
-    
-    def mark_completed(self):
-        """Mark task as completed"""
-        self.status = TaskStatus.COMPLETED
-        self.completed_at = datetime.now(timezone.utc).isoformat()
-        self.updated_at = datetime.now(timezone.utc).isoformat()
-    
-    def mark_pending(self):
-        """Mark task as pending"""
-        self.status = TaskStatus.PENDING
-        self.completed_at = None
-        self.updated_at = datetime.now(timezone.utc).isoformat()
-    
-    def update_content(self, content: str):
-        """Update task content"""
-        self.content = content
-        self.updated_at = datetime.now(timezone.utc).isoformat()
 
-class TaskCreateRequest(BaseModel):
-    content: str
-    status: TaskStatus = TaskStatus.PENDING
-
+    def update(self, content: Optional[str] = None, status: Optional[TaskStatus] = None):
+        """Update task content and/or status"""
+        if content is not None:
+            self.content = content
+        
+        if status is not None:
+            self.status = status
+            if status == TaskStatus.COMPLETED:
+                self.completed_at = datetime.now(timezone.utc).isoformat()
+            elif status == TaskStatus.PENDING:
+                self.completed_at = None
+        
+        self.updated_at = datetime.now(timezone.utc).isoformat()
+    
 class TaskUpdateRequest(BaseModel):
     id: str
     content: Optional[str] = None
@@ -51,7 +44,7 @@ class TaskListTool(SandboxToolsBase):
     """Tool for managing tasks stored in a single task_list message.
     
     Provides simple CRUD operations with batch support for efficient task management.
-    Tasks persist in a single message with type "task_list" following the KISS principle.
+    Tasks persist in a single message with type "task_list"
     """
     
     def __init__(self, project_id: str, thread_manager, thread_id: str):
@@ -178,23 +171,13 @@ class TaskListTool(SandboxToolsBase):
                         "filter": status_filter
                     }, indent=2)
                 )
-            
-            # Format for display
-            formatted_tasks = []
-            for task in tasks:
-                formatted_tasks.append({
-                    "id": task.id,
-                    "content": task.content,
-                    "status": task.status.value,
-                    "created_at": task.created_at,
-                    "completed_at": task.completed_at
-                })
+    
             
             return ToolResult(
                 success=True,
                 output=json.dumps({
-                    "tasks": formatted_tasks,
-                    "total": len(formatted_tasks),
+                    "tasks": [task.model_dump() for task in tasks],
+                    "total": len(tasks),
                     "filter": status_filter
                 }, indent=2)
             )
@@ -263,17 +246,12 @@ class TaskListTool(SandboxToolsBase):
             # Validate input and create task objects
             created_tasks = []
             for task_data in tasks:
-                task_request = TaskCreateRequest(**task_data)
                 new_task = Task(
-                    content=task_request.content,
-                    status=task_request.status
+                    content=task_data["content"],
+                    status=TaskStatus(task_data.get("status", "pending"))
                 )
                 existing_tasks.append(new_task)
-                created_tasks.append({
-                    "id": new_task.id,
-                    "content": new_task.content,
-                    "status": new_task.status.value
-                })
+                created_tasks.append(new_task.model_dump())
             
             await self._save_tasks(existing_tasks)
             
@@ -360,16 +338,10 @@ class TaskListTool(SandboxToolsBase):
                 task = task_map[update_request.id]
                 
                 if update_request.content is not None:
-                    task.update_content(update_request.content)
+                    task.update(content=update_request.content)
                 
                 if update_request.status is not None:
-                    if update_request.status == TaskStatus.COMPLETED:
-                        task.mark_completed()
-                    elif update_request.status == TaskStatus.PENDING:
-                        task.mark_pending()
-                    else:
-                        task.status = update_request.status
-                        task.updated_at = datetime.now(timezone.utc).isoformat()
+                    task.update(status=update_request.status)
                 
                 updated_count += 1
             
@@ -490,7 +462,7 @@ class TaskListTool(SandboxToolsBase):
                 success=True,
                 output=json.dumps({
                     "message": "All tasks have been cleared",
-                    "tasks_remaining": 0
+                    "tasks": []
                 }, indent=2)
             )
             
