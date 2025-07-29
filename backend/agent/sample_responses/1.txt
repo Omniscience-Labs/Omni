@@ -639,11 +639,6 @@ render();
 Let me update our task list to reflect our progress by marking all tasks as completed:
 
 <function_calls>
-<invoke name="view_tasks">
-</invoke>
-</function_calls>
-
-<function_calls>
 <invoke name="update_tasks">
 <parameter name="task_updates">[
   {
