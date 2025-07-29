@@ -6,33 +6,69 @@ Let me create a plan and get started right away.
 
 ## Setting Up the Project Structure
 
-First, I'll create a structured plan in a todo.md file to organize my approach:
+First, I'll create a structured task list to organize my approach:
 
 <function_calls>
-<invoke name="create_file">
-<parameter name="file_path">todo.md</parameter>
-<parameter name="file_contents">
-# Pong Game Development Plan
-
-## Project Setup
-- [ ] Create basic project structure (HTML, CSS, JS files)
-- [ ] Set up the HTML canvas element
-- [ ] Create basic styling 
-
-## Testing
-- [ ] Test game mechanics
-- [ ] Test collision detection
-- [ ] Test scoring
-- [ ] Test on different screen sizes
-- [ ] Final review and adjustments
-
-## Game Polish
-- [ ] Add sound effects
-- [ ] Implement start/restart game functionality
-- [ ] Add visual effects (ball trails, paddle hits)
-- [ ] Add game instructions
-- [ ] Ensure responsive design
-</parameter>
+<invoke name="create_tasks">
+<parameter name="tasks">[
+  {
+    "content": "Create basic project structure (HTML, CSS, JS files)"
+  },
+  {
+    "content": "Set up the HTML canvas element"
+  },
+  {
+    "content": "Create basic styling"
+  },
+  {
+    "content": "Implement game canvas and rendering context"
+  },
+  {
+    "content": "Create the paddles (player and opponent)"
+  },
+  {
+    "content": "Create the ball with movement physics"
+  },
+  {
+    "content": "Implement collision detection"
+  },
+  {
+    "content": "Add scoring system"
+  },
+  {
+    "content": "Implement basic AI for the opponent paddle"
+  },
+  {
+    "content": "Add sound effects"
+  },
+  {
+    "content": "Implement start/restart game functionality"
+  },
+  {
+    "content": "Add visual effects (ball trails, paddle hits)"
+  },
+  {
+    "content": "Add game instructions"
+  },
+  {
+    "content": "Ensure responsive design"
+  },
+  {
+    "content": "Test game mechanics"
+  },
+  {
+    "content": "Test collision detection"
+  },
+  {
+    "content": "Test scoring"
+  },
+  {
+    "content": "Test on different screen sizes"
+  },
+  {
+    "content": "Final review and adjustments"
+  }
+]</parameter>
 </invoke>
 </function_calls>
 
@@ -598,27 +634,95 @@ render();
 </invoke>
 </function_calls>
 
-## Updating Todo List
+## Updating Task List
 
-Let me update our todo.md file to reflect our progress:
+Let me update our task list to reflect our progress by marking all tasks as completed:
 
 <function_calls>
-<invoke name="edit_file">
-<parameter name="target_file">todo.md</parameter>
-<parameter name="instructions">I am updating my todo list.</parameter>
-<parameter name="code_edit">
-// ... existing code ...
-- [x] Create basic project structure (HTML, CSS, JS files)
-- [x] Set up the HTML canvas element
-- [x] Create basic styling 
-// ... existing code ...
-- [x] Add sound effects
-- [x] Implement start/restart game functionality
-- [x] Add visual effects (ball trails, paddle hits)
-- [x] Add game instructions
-- [x] Ensure responsive design
-// ... existing code ...
-</parameter>
+<invoke name="view_tasks">
+</invoke>
+</function_calls>
+
+<function_calls>
+<invoke name="update_tasks">
+<parameter name="task_updates">[
+  {
+    "content": "Create basic project structure (HTML, CSS, JS files)",
+    "status": "completed"
+  },
+  {
+    "content": "Set up the HTML canvas element", 
+    "status": "completed"
+  },
+  {
+    "content": "Create basic styling",
+    "status": "completed"
+  },
+  {
+    "content": "Implement game canvas and rendering context",
+    "status": "completed"
+  },
+  {
+    "content": "Create the paddles (player and opponent)",
+    "status": "completed"
+  },
+  {
+    "content": "Create the ball with movement physics",
+    "status": "completed"
+  },
+  {
+    "content": "Implement collision detection",
+    "status": "completed"
+  },
+  {
+    "content": "Add scoring system",
+    "status": "completed"
+  },
+  {
+    "content": "Implement basic AI for the opponent paddle",
+    "status": "completed"
+  },
+  {
+    "content": "Add sound effects",
+    "status": "completed"
+  },
+  {
+    "content": "Implement start/restart game functionality",
+    "status": "completed"
+  },
+  {
+    "content": "Add visual effects (ball trails, paddle hits)",
+    "status": "completed"
+  },
+  {
+    "content": "Add game instructions",
+    "status": "completed"
+  },
+  {
+    "content": "Ensure responsive design",
+    "status": "completed"
+  },
+  {
+    "content": "Test game mechanics",
+    "status": "completed"
+  },
+  {
+    "content": "Test collision detection",
+    "status": "completed"
+  },
+  {
+    "content": "Test scoring",
+    "status": "completed"
+  },
+  {
+    "content": "Test on different screen sizes",
+    "status": "completed"
+  },
+  {
+    "content": "Final review and adjustments",
+    "status": "completed"
+  }
+]</parameter>
 </invoke>
 </function_calls>
 
@@ -654,20 +758,10 @@ Let me perform some final checks to ensure everything is working correctly:
 </invoke>
 </function_calls>
 
-Let's update our todo list to mark the testing as complete:
+Let's view our final task list to confirm all tasks are complete:
 
 <function_calls>
-<invoke name="edit_file">
-<parameter name="target_file">todo.md</parameter>
-<parameter name="instructions">I am marking all tasks in the 'Testing' section of my todo list as complete.</parameter>
-<parameter name="code_edit">
-// ... existing code ...
-- [x] Test game mechanics
-- [x] Test collision detection
-- [x] Test scoring
-- [x] Test on different screen sizes
-- [x] Final review and adjustments
-</parameter>
+<invoke name="view_tasks">
 </invoke>
 </function_calls>
 
