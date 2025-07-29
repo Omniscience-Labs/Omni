@@ -1,11 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, Union, Dict, Any
 from enum import Enum
-from fastmcp.tools import Tool as FastMCPTool
-
-
-class Tool(FastMCPTool):
-    pass
 
 
 class Role(str, Enum):

@@ -1,6 +1,21 @@
-from .models import Tool
 from typing import Union
 from enum import Enum
+from fastmcp import FastMCP
+
+
+class KortixMCP:
+    async def create(self, endpoint: str, mcp: FastMCP):
+        self._fastmcp = mcp
+        self.url = endpoint
+        self.name = mcp.name
+        self.type = "http"
+        self.enabled_tools: list[str] = []
+        tools = await mcp.get_tools()
+        for tool in tools.values():
+            if tool.enabled:
+                self.enabled_tools.append(tool.name)
+        return self
+
 
 _AgentPressTools_descriptions = {
     "sb_files_tool": "Read, write, and edit files",
@@ -33,4 +48,4 @@ class AgentPressTools(str, Enum):
         return desc
 
 
-KortixTools = Union[AgentPressTools, Tool]
+KortixTools = Union[AgentPressTools, KortixMCP]

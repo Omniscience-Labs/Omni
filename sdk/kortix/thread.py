@@ -1,4 +1,6 @@
-from .api.threads import ThreadsClient
+from api.threads import ThreadsClient
+from typing import AsyncGenerator
+from stream import stream_from_url
 
 
 class Thread:
@@ -7,15 +9,34 @@ class Thread:
         self._thread_id = thread_id
 
     async def add_message(self, message: str):
-        pass
+        response = await self._client.add_message_to_thread(self._thread_id, message)
+        return response.message_id
+
+    async def get_agent_runs(self):
+        response = await self._client.get_thread(self._thread_id)
+        if not response.recent_agent_runs:
+            return None
+        return [AgentRun(self, run.id) for run in response.recent_agent_runs]
+
+
+class AgentRun:
+    def __init__(self, thread: Thread, agent_run_id: str):
+        self._thread = thread
+        self._agent_run_id = agent_run_id
+
+    async def get_stream(self) -> AsyncGenerator[str, None]:
+        stream_url = self._thread._client.get_agent_run_stream_url(self._agent_run_id)
+        stream = stream_from_url(stream_url)
+        return stream
 
 
 class KortixThread:
     def __init__(self, client: ThreadsClient):
         self._client = client
 
-    async def create(self) -> Thread:
-        pass
+    async def create(self, name: str | None = None) -> Thread:
+        thread_data = await self._client.create_thread(name)
+        return Thread(self._client, thread_data.thread_id)
 
     async def get(self, thread_id: str) -> Thread:
         return Thread(self._client, thread_id)

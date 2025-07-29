@@ -1,6 +1,6 @@
-from .api import agents, threads
-from .agent import KortixAgent
-from .thread import KortixThread
+from api import agents, threads
+from agent import KortixAgent
+from thread import KortixThread
 
 
 class Kortix:

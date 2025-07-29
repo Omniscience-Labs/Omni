@@ -3,8 +3,7 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
 import json
 
-from ..tools import AgentPressTools
-from ..config import global_config
+from tools import AgentPressTools
 
 
 @dataclass
@@ -36,7 +35,6 @@ class AgentCreateRequest:
     name: str
     system_prompt: str
     description: Optional[str] = None
-    configured_mcps: Optional[List[CustomMCP]] = None
     custom_mcps: Optional[List[CustomMCP]] = None
     agentpress_tools: Optional[AgentPress_Tools] = None
     is_default: bool = False
@@ -49,7 +47,6 @@ class AgentUpdateRequest:
     name: Optional[str] = None
     description: Optional[str] = None
     system_prompt: Optional[str] = None
-    configured_mcps: Optional[List[CustomMCP]] = None
     custom_mcps: Optional[List[CustomMCP]] = None
     agentpress_tools: Optional[AgentPress_Tools] = None
     is_default: Optional[bool] = None
@@ -77,7 +74,6 @@ class AgentVersionResponse:
     version_number: int
     version_name: str
     system_prompt: str
-    configured_mcps: List[CustomMCP]
     custom_mcps: List[CustomMCP]
     agentpress_tools: AgentPress_Tools
     is_active: bool
@@ -92,7 +88,6 @@ class AgentResponse:
     account_id: str
     name: str
     system_prompt: str
-    configured_mcps: List[CustomMCP]
     custom_mcps: List[CustomMCP]
     agentpress_tools: AgentPress_Tools
     is_default: bool
@@ -312,7 +307,7 @@ class AgentsClient:
 
         # Add auth token if provided
         if auth_token:
-            default_headers["Authorization"] = f"Bearer {auth_token}"
+            default_headers["X-API-Key"] = auth_token
 
         # Merge with custom headers
         if custom_headers:

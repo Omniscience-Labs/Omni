@@ -1,7 +1,7 @@
-from .models import Tool
-from .thread import Thread
-from .tools import AgentPressTools, KortixTools
-from .api.agents import (
+from api.threads import AgentStartRequest
+from thread import Thread, AgentRun
+from tools import AgentPressTools, KortixMCP, KortixTools
+from api.agents import (
     AgentCreateRequest,
     AgentPress_Tools,
     AgentPress_ToolConfig,
@@ -16,9 +16,16 @@ class Agent:
         self._client = client
         self._agent_id = agent_id
 
-    async def run(self, prompt: str, thread: Thread):
-        # TODO finish this
-        pass
+    async def run(self, prompt: str, thread: Thread, model: str = "gpt-4o-mini"):
+        await thread.add_message(prompt)
+        response = await thread._client.start_agent(
+            thread._thread_id,
+            AgentStartRequest(
+                agent_id=self._agent_id,
+                model_name=model,
+            ),
+        )
+        return AgentRun(thread, response.agent_run_id)
 
 
 class KortixAgent:
@@ -35,13 +42,14 @@ class KortixAgent:
                 agentpress_tools[tool] = AgentPress_ToolConfig(
                     enabled=True, description=tool.get_description()
                 )
-            elif isinstance(tool, Tool):
+            elif isinstance(tool, KortixMCP):
+                mcp = tool
                 custom_mcps.append(
                     CustomMCP(
-                        name=tool.name,
-                        type="http",
-                        config=MCPConfig(url=tool.url),
-                        enabled_tools=[tool.name],
+                        name=mcp.name,
+                        type=mcp.type,
+                        config=MCPConfig(url=mcp.url),
+                        enabled_tools=mcp.enabled_tools,
                     )
                 )
             else:

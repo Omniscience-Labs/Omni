@@ -4,6 +4,9 @@ import os
 from typing import Any, Optional
 
 
+from _kortix import Kortix
+
+
 class LocalKVStore:
     def __init__(self, filename: str = "kvstore.json"):
         self.filename = filename
@@ -45,7 +48,32 @@ kv = LocalKVStore()
 
 
 async def main():
-    pass
+    kortix = Kortix("af3d6952-2109-4ab3-bbfe-4a2e2326c740", "http://localhost:8000/api")
+
+    agent_id = kv.get("agent_id")
+    if not agent_id:
+        agent = await kortix.Agent.create(
+            name="Test Agent",
+            system_prompt="You are a test agent. You only respond with 'Hello, world!'",
+            model="gpt-4o-mini",
+        )
+        kv.set("agent_id", agent._agent_id)
+    else:
+        agent = await kortix.Agent.get(agent_id)
+
+    thread_id = kv.get("thread_id")
+    if not thread_id:
+        thread = await kortix.Thread.create()
+        kv.set("thread_id", thread._thread_id)
+    else:
+        thread = await kortix.Thread.get(thread_id)
+
+    agent_run = await agent.run("What is the weather in Tokyo?", thread)
+
+    stream = await agent_run.get_stream()
+
+    async for line in stream:
+        print(line)
 
 
 if __name__ == "__main__":

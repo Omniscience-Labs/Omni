@@ -4,7 +4,7 @@ import httpx
 from datetime import datetime
 
 # Import from shared models
-from ..models import (
+from models import (
     Role,
     MessageType,
     BaseMessage,
@@ -275,7 +275,7 @@ class ThreadsClient:
         # Set up default headers
         self.headers = {"Content-Type": "application/json"}
         if auth_token:
-            self.headers["Authorization"] = f"Bearer {auth_token}"
+            self.headers["X-API-Key"] = auth_token
         if custom_headers:
             self.headers.update(custom_headers)
 
@@ -535,6 +535,9 @@ class ThreadsClient:
         Returns:
             The streaming URL
         """
+
+        if token is None:
+            token = self.headers["X-API-Key"]
         url = f"{self.base_url}/agent-run/{agent_run_id}/stream"
         if token:
             url += f"?token={token}"
