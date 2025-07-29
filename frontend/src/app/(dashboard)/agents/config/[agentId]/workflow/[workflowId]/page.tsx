@@ -15,6 +15,7 @@ import { ConditionalStep } from '@/components/agents/workflows/conditional-workf
 import { WorkflowBuilder } from '@/components/workflows/workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
+  // Since we're using the old structure directly, just pass it through
   let globalOrder = 1;
   const convertStepsWithNesting = (stepList: ConditionalStep[]): any[] => {
     return stepList.map((step) => {
@@ -40,7 +41,18 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
 };
 
 const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
-  if (!nestedSteps || nestedSteps.length === 0) return [];
+  if (!nestedSteps || nestedSteps.length === 0) {
+    // Return default root structure if no steps
+    return [{
+      id: 'start-node',
+      name: 'Start',
+      description: 'Click to add steps or use the Add Node button',
+      type: 'instruction',
+      config: {},
+      order: 0,
+      children: []
+    }];
+  }
 
   const convertStepsFromNested = (stepList: any[]): ConditionalStep[] => {
     return stepList.map((step) => {
@@ -70,7 +82,25 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
     });
   };
 
-  return convertStepsFromNested(nestedSteps);
+  const reconstructedSteps = convertStepsFromNested(nestedSteps);
+
+  // Make sure we have proper root structure
+  if (reconstructedSteps.length > 0 &&
+    reconstructedSteps[0].name === 'Start' &&
+    reconstructedSteps[0].description === 'Click to add steps or use the Add Node button') {
+    return reconstructedSteps;
+  }
+
+  // If not proper structure, wrap in root node
+  return [{
+    id: 'start-node',
+    name: 'Start',
+    description: 'Click to add steps or use the Add Node button',
+    type: 'instruction',
+    config: {},
+    order: 0,
+    children: reconstructedSteps
+  }];
 };
 
 const reconstructFromFlatJSON = (flatSteps: any[]): ConditionalStep[] => {

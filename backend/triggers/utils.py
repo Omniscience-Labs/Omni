@@ -26,7 +26,16 @@ class WorkflowParser:
         self.step_counter = 0
         self.parsed_steps = []
         
-        filtered_steps = [step for step in steps if step.get('name') != 'Start' or step.get('description') != 'Click to add steps or use the Add Node button']
+        start_node = next(
+            (step for step in steps if step.get('name') == 'Start' and step.get('description') == 'Click to add steps or use the Add Node button'),
+            None
+        )
+
+        if start_node and "children" in start_node:
+            filtered_steps = start_node["children"]
+        else:
+            # fallback: use top-level list (for backward compat)
+            filtered_steps = steps
         
         return self._parse_steps_recursive(filtered_steps)
     
@@ -142,6 +151,22 @@ class WorkflowParser:
             return count, conditions_count, max_depth
         
         total_steps, total_conditions, max_nesting_depth = count_steps_recursive(steps)
+        
+        # Large debug print to show inputs and parsed output
+        print("=" * 80)
+        print("WORKFLOW PARSER DEBUG - get_workflow_summary")
+        print("=" * 80)
+        print(f"INPUT STEPS:")
+        print(f"Type: {type(steps)}")
+        print(f"Length: {len(steps) if isinstance(steps, list) else 'N/A'}")
+        print(f"Raw steps: {steps}")
+        print("-" * 80)
+        print(f"PARSED OUTPUT:")
+        print(f"Total steps: {total_steps}")
+        print(f"Total conditions: {total_conditions}")
+        print(f"Max nesting depth: {max_nesting_depth}")
+        print(f"Has conditional logic: {total_conditions > 0}")
+        print("=" * 80)
         
         return {
             "total_steps": total_steps,

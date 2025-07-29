@@ -180,10 +180,10 @@ export function WorkflowSidePanel({
 
                 {/* Tool configuration */}
                 {selectedStep.config?.tool_name && (
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800">
                         <div className="font-medium text-sm mb-2 text-zinc-900 dark:text-zinc-100">Tool Configuration</div>
                         <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                            Using: <Badge variant="secondary" className="ml-1">{selectedStep.config.tool_name}</Badge>
+                            Using: <Badge variant="default" className="ml-1">{selectedStep.config.tool_name}</Badge>
                         </div>
                     </div>
                 )}
