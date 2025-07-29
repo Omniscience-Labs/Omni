@@ -274,7 +274,9 @@ export default function APIKeysPage() {
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title" className="m-1">
+                    Title *
+                  </Label>
                   <Input
                     id="title"
                     placeholder="My API Key"
@@ -289,7 +291,9 @@ export default function APIKeysPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className="m-1">
+                    Description
+                  </Label>
                   <Textarea
                     id="description"
                     placeholder="Optional description for this API key"
@@ -304,7 +308,9 @@ export default function APIKeysPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="expires">Expires In</Label>
+                  <Label htmlFor="expires" className="m-1">
+                    Expires In
+                  </Label>
                   <Select
                     value={newKeyData.expiresInDays}
                     onValueChange={(value) =>
@@ -396,7 +402,7 @@ export default function APIKeysPage() {
                   isKeyExpired(apiKey.expires_at) ? 'border-yellow-200' : ''
                 }
               >
-                <CardHeader className="pb-3">
+                <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg">{apiKey.title}</CardTitle>
@@ -413,36 +419,16 @@ export default function APIKeysPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-muted-foreground text-sm">
-                        Public Key
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <code className="bg-muted px-2 py-1 rounded text-sm font-mono">
-                          {apiKey.public_key}
-                        </code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            handleCopyKey(apiKey.public_key, 'Public key')
-                          }
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Created</p>
+                        <p className="text-muted-foreground mb-1">Created</p>
                         <p className="font-medium">
                           {formatDate(apiKey.created_at)}
                         </p>
                       </div>
                       {apiKey.expires_at && (
                         <div>
-                          <p className="text-muted-foreground">Expires</p>
+                          <p className="text-muted-foreground mb-1">Expires</p>
                           <p
                             className={`font-medium ${isKeyExpired(apiKey.expires_at) ? 'text-yellow-600' : ''}`}
                           >
@@ -452,7 +438,9 @@ export default function APIKeysPage() {
                       )}
                       {apiKey.last_used_at && (
                         <div>
-                          <p className="text-muted-foreground">Last Used</p>
+                          <p className="text-muted-foreground mb-1">
+                            Last Used
+                          </p>
                           <p className="font-medium">
                             {formatDate(apiKey.last_used_at)}
                           </p>
@@ -485,7 +473,7 @@ export default function APIKeysPage() {
                               onClick={() =>
                                 revokeMutation.mutate(apiKey.key_id)
                               }
-                              className="bg-red-600 hover:bg-red-700"
+                              className="bg-destructive hover:bg-destructive/90 text-white"
                             >
                               Revoke Key
                             </AlertDialogAction>
@@ -519,7 +507,7 @@ export default function APIKeysPage() {
                               onClick={() =>
                                 deleteMutation.mutate(apiKey.key_id)
                               }
-                              className="bg-red-600 hover:bg-red-700"
+                              className="bg-destructive hover:bg-destructive/90 text-white"
                             >
                               Delete Key
                             </AlertDialogAction>
@@ -543,55 +531,14 @@ export default function APIKeysPage() {
                 API Key Created
               </DialogTitle>
               <DialogDescription>
-                Your API key has been created successfully. Copy it now as it
-                won't be shown again.
+                Your API key has been created successfully
               </DialogDescription>
             </DialogHeader>
 
             {createdApiKey && (
               <div className="space-y-4">
                 <div>
-                  <Label>Public Key</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={createdApiKey.public_key}
-                      readOnly
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleCopyKey(createdApiKey.public_key, 'Public key')
-                      }
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Secret Key</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={createdApiKey.secret_key}
-                      readOnly
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleCopyKey(createdApiKey.secret_key, 'Secret key')
-                      }
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Full API Key (for X-API-Key header)</Label>
+                  <Label className="m-1">API Key</Label>
                   <div className="flex gap-2">
                     <Input
                       value={`${createdApiKey.public_key}:${createdApiKey.secret_key}`}
@@ -616,22 +563,8 @@ export default function APIKeysPage() {
                 <div className="space-y-3">
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800">
-                      <strong>Important:</strong> Store both keys securely. For
-                      security reasons, we cannot show the secret key again.
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>Usage:</strong> Use the full API key format{' '}
-                      <code className="bg-blue-100 px-1 rounded">
-                        pk_xxx:sk_xxx
-                      </code>{' '}
-                      in the{' '}
-                      <code className="bg-blue-100 px-1 rounded">
-                        X-API-Key
-                      </code>{' '}
-                      header for authentication.
+                      <strong>Important:</strong> Store this API key securely.
+                      For security reasons, we cannot show it again.
                     </p>
                   </div>
                 </div>
@@ -639,9 +572,7 @@ export default function APIKeysPage() {
             )}
 
             <div className="flex justify-end">
-              <Button onClick={() => setShowCreatedKey(false)}>
-                I've Saved My Key
-              </Button>
+              <Button onClick={() => setShowCreatedKey(false)}>Close</Button>
             </div>
           </DialogContent>
         </Dialog>
