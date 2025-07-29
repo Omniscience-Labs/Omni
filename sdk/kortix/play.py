@@ -3,12 +3,12 @@ import json
 import os
 from typing import Any, Optional
 from dotenv import load_dotenv
-
-
-from _kortix import Kortix
-from tools import AgentPressTools, KortixMCP
 from fastmcp import FastMCP
-from stream import RealtimeStreamProcessor, RealtimeCallbacks
+
+
+from .kortix import Kortix
+from .tools import AgentPressTools, KortixMCP
+from .stream import RealtimeStreamProcessor, RealtimeCallbacks
 
 load_dotenv("../.env")
 

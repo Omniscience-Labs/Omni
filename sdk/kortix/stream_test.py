@@ -1,12 +1,12 @@
 import asyncio
 import json
-from stream import (
+from .stream import (
     RealtimeStreamProcessor,
     RealtimeCallbacks,
     CompleteMessage,
     ToolResultMessage,
 )
-from stream import try_parse_json
+from .stream import try_parse_json
 
 
 # Load the example stream data from the file

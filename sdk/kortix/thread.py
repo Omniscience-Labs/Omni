@@ -1,6 +1,7 @@
-from api.threads import ThreadsClient
 from typing import AsyncGenerator
-from stream import stream_from_url
+
+from .api.threads import ThreadsClient
+from .stream import stream_from_url
 
 
 class Thread:

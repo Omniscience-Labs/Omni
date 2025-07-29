@@ -1,7 +1,7 @@
-from api.threads import AgentStartRequest
-from thread import Thread, AgentRun
-from tools import AgentPressTools, KortixMCP, KortixTools
-from api.agents import (
+from .api.threads import AgentStartRequest
+from .thread import Thread, AgentRun
+from .tools import AgentPressTools, KortixMCP, KortixTools
+from .api.agents import (
     AgentCreateRequest,
     AgentPress_ToolConfig,
     AgentsClient,
