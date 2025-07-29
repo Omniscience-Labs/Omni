@@ -3,32 +3,33 @@ from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import os
+import uuid
 from datetime import datetime, timezone
-import croniter
-import pytz
+import json
 
-from .support.factory import TriggerModuleFactory
-from .support.exceptions import TriggerError, ConfigurationError, ProviderError
-from .services.trigger_service import TriggerService
-from .services.execution_service import TriggerExecutionService
-from .services.provider_service import ProviderService
-from .endpoints import workflows_router, set_workflows_db_connection
 from services.supabase import DBConnection
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from flags.flags import is_enabled
-from utils.config import config, EnvMode
+from utils.config import config
+from services.billing import check_billing_status, can_use_model
+
+from .trigger_service import get_trigger_service, TriggerType
+from .provider_service import get_provider_service
+from .execution_service import get_execution_service
+from .utils import get_next_run_time, get_human_readable_schedule
+
+
+# ===== ROUTERS =====
 
 router = APIRouter(prefix="/triggers", tags=["triggers"])
+workflows_router = APIRouter(prefix="/workflows", tags=["workflows"])
 
-workflows_api_router = APIRouter(prefix="/workflows", tags=["workflows"])
-workflows_api_router.include_router(workflows_router)
+# Global database connection
+db: Optional[DBConnection] = None
 
-trigger_service: Optional[TriggerService] = None
-execution_service: Optional[TriggerExecutionService] = None
-provider_service: Optional[ProviderService] = None
-db = None
 
+# ===== REQUEST/RESPONSE MODELS =====
 
 class TriggerCreateRequest(BaseModel):
     provider_id: str
@@ -64,7 +65,6 @@ class ProviderResponse(BaseModel):
     description: str
     trigger_type: str
     webhook_enabled: bool
-    setup_required: bool
     config_schema: Dict[str, Any]
 
 
@@ -88,25 +88,52 @@ class UpcomingRunsResponse(BaseModel):
     total_count: int
 
 
+# Workflow models
+class WorkflowStepRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    type: Optional[str] = "instruction"
+    config: Dict[str, Any] = {}
+    conditions: Optional[Dict[str, Any]] = None
+    order: int
+    children: Optional[List['WorkflowStepRequest']] = None
+
+
+class WorkflowCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    trigger_phrase: Optional[str] = None
+    is_default: bool = False
+    steps: List[WorkflowStepRequest] = []
+
+
+class WorkflowUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    trigger_phrase: Optional[str] = None
+    is_default: Optional[bool] = None
+    status: Optional[str] = None
+    steps: Optional[List[WorkflowStepRequest]] = None
+
+
+class WorkflowExecuteRequest(BaseModel):
+    input_data: Optional[Dict[str, Any]] = None
+
+
+# Rebuild models to handle forward references
+WorkflowStepRequest.model_rebuild()
+
+
+# ===== INITIALIZATION =====
+
 def initialize(database: DBConnection):
-    global db, trigger_service, execution_service, provider_service
+    """Initialize the triggers module with database connection"""
+    global db
     db = database
-    set_workflows_db_connection(database)
-
-
-async def get_services() -> tuple[TriggerService, TriggerExecutionService, ProviderService]:
-    global trigger_service, execution_service, provider_service
-    
-    if trigger_service is None or execution_service is None or provider_service is None:
-        if db is None:
-            raise HTTPException(status_code=500, detail="Database not initialized")
-        
-        trigger_service, execution_service, provider_service = await TriggerModuleFactory.create_trigger_module(db)
-    
-    return trigger_service, execution_service, provider_service
 
 
 async def verify_agent_access(agent_id: str, user_id: str):
+    """Verify user has access to the agent"""
     client = await db.client
     result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
     
@@ -114,27 +141,20 @@ async def verify_agent_access(agent_id: str, user_id: str):
         raise HTTPException(status_code=404, detail="Agent not found or access denied")
 
 
-@router.get("/providers", response_model=List[ProviderResponse])
+# ===== PROVIDER ENDPOINTS =====
+
+@router.get("/providers")
 async def get_providers():
+    """Get available trigger providers"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        _, _, provider_svc = await get_services()
-        providers = await provider_svc.get_available_providers()
+        provider_service = get_provider_service(db)
+        providers = await provider_service.get_available_providers()
         
-        return [
-            ProviderResponse(
-                provider_id=provider.provider_id,
-                name=provider.name,
-                description=provider.description,
-                trigger_type=provider.trigger_type.value,
-                webhook_enabled=provider.webhook_enabled,
-                setup_required=provider.setup_required,
-                config_schema=provider.config_schema
-            )
-            for provider in providers
-        ]
+        return [ProviderResponse(**provider) for provider in providers]
+        
     except Exception as e:
         logger.error(f"Error getting providers: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -142,61 +162,64 @@ async def get_providers():
 
 @router.get("/providers/{provider_id}/schema")
 async def get_provider_schema(provider_id: str):
+    """Get provider configuration schema"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        _, _, provider_svc = await get_services()
-        schema = await provider_svc.get_provider_config_schema(provider_id)
+        provider_service = get_provider_service(db)
+        providers = await provider_service.get_available_providers()
         
-        if not schema:
+        provider = next((p for p in providers if p["provider_id"] == provider_id), None)
+        if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        return {"schema": schema}
+        return {"schema": provider["config_schema"]}
+        
     except Exception as e:
         logger.error(f"Error getting provider schema: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
+# ===== TRIGGER ENDPOINTS =====
 
 @router.get("/agents/{agent_id}/triggers", response_model=List[TriggerResponse])
 async def get_agent_triggers(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Get all triggers for an agent"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     await verify_agent_access(agent_id, user_id)
     
     try:
-        trigger_svc, _, provider_svc = await get_services()
-        triggers = await trigger_svc.get_agent_triggers(agent_id)
+        trigger_service = get_trigger_service(db)
+        triggers = await trigger_service.get_agent_triggers(agent_id)
         
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         
         responses = []
         for trigger in triggers:
-            provider_def = await provider_svc.get_provider_definition(trigger.provider_id)
-            
-            webhook_url = None
-            if provider_def and provider_def.webhook_enabled:
-                webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
+            webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
             
             responses.append(TriggerResponse(
                 trigger_id=trigger.trigger_id,
                 agent_id=trigger.agent_id,
                 trigger_type=trigger.trigger_type.value,
                 provider_id=trigger.provider_id,
-                name=trigger.config.name,
-                description=trigger.config.description,
+                name=trigger.name,
+                description=trigger.description,
                 is_active=trigger.is_active,
                 webhook_url=webhook_url,
-                created_at=trigger.metadata.created_at.isoformat(),
-                updated_at=trigger.metadata.updated_at.isoformat(),
-                config=trigger.config.config
+                created_at=trigger.created_at.isoformat(),
+                updated_at=trigger.updated_at.isoformat(),
+                config=trigger.config
             ))
         
         return responses
+        
     except Exception as e:
         logger.error(f"Error getting agent triggers: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -208,23 +231,25 @@ async def get_agent_upcoming_runs(
     limit: int = Query(10, ge=1, le=50),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Get upcoming scheduled runs for agent triggers"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     await verify_agent_access(agent_id, user_id)
     
     try:
-        trigger_svc, _, _ = await get_services()
-        triggers = await trigger_svc.get_agent_triggers(agent_id)
+        trigger_service = get_trigger_service(db)
+        triggers = await trigger_service.get_agent_triggers(agent_id)
+        
+        # Filter for active schedule triggers
         schedule_triggers = [
             trigger for trigger in triggers 
-            if trigger.is_active and trigger.trigger_type.value == "schedule"
+            if trigger.is_active and trigger.trigger_type == TriggerType.SCHEDULE
         ]
         
         upcoming_runs = []
-        now = datetime.now(timezone.utc)
         for trigger in schedule_triggers:
-            config = trigger.config.config
+            config = trigger.config
             cron_expression = config.get('cron_expression')
             user_timezone = config.get('timezone', 'UTC')
             
@@ -232,18 +257,19 @@ async def get_agent_upcoming_runs(
                 continue
                 
             try:
-                next_run = _get_next_run_time(cron_expression, user_timezone)
+                next_run = get_next_run_time(cron_expression, user_timezone)
                 if not next_run:
                     continue
-                    
+                
+                import pytz
                 local_tz = pytz.timezone(user_timezone)
                 next_run_local = next_run.astimezone(local_tz)
                 
-                human_readable = _get_human_readable_schedule(cron_expression, user_timezone)
+                human_readable = get_human_readable_schedule(cron_expression, user_timezone)
                 
                 upcoming_runs.append(UpcomingRun(
                     trigger_id=trigger.trigger_id,
-                    trigger_name=trigger.config.name,
+                    trigger_name=trigger.name,
                     trigger_type=trigger.trigger_type.value,
                     next_run_time=next_run.isoformat(),
                     next_run_time_local=next_run_local.isoformat(),
@@ -273,103 +299,22 @@ async def get_agent_upcoming_runs(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-def _get_next_run_time(cron_expression: str, user_timezone: str) -> Optional[datetime]:
-    try:
-        tz = pytz.timezone(user_timezone)
-        now_local = datetime.now(tz)
-        
-        cron = croniter.croniter(cron_expression, now_local)
-        
-        next_run_local = cron.get_next(datetime)
-        next_run_utc = next_run_local.astimezone(timezone.utc)
-        
-        return next_run_utc
-        
-    except Exception as e:
-        logger.error(f"Error calculating next run time: {e}")
-        return None
-
-
-def _get_human_readable_schedule(cron_expression: str, user_timezone: str) -> str:
-    try:
-        patterns = {
-            '*/5 * * * *': 'Every 5 minutes',
-            '*/10 * * * *': 'Every 10 minutes',
-            '*/15 * * * *': 'Every 15 minutes',
-            '*/30 * * * *': 'Every 30 minutes',
-            '0 * * * *': 'Every hour',
-            '0 */2 * * *': 'Every 2 hours',
-            '0 */4 * * *': 'Every 4 hours',
-            '0 */6 * * *': 'Every 6 hours',
-            '0 */12 * * *': 'Every 12 hours',
-            '0 0 * * *': 'Daily at midnight',
-            '0 9 * * *': 'Daily at 9:00 AM',
-            '0 12 * * *': 'Daily at 12:00 PM',
-            '0 18 * * *': 'Daily at 6:00 PM',
-            '0 9 * * 1-5': 'Weekdays at 9:00 AM',
-            '0 9 * * 1': 'Every Monday at 9:00 AM',
-            '0 9 * * 2': 'Every Tuesday at 9:00 AM',
-            '0 9 * * 3': 'Every Wednesday at 9:00 AM',
-            '0 9 * * 4': 'Every Thursday at 9:00 AM',
-            '0 9 * * 5': 'Every Friday at 9:00 AM',
-            '0 9 * * 6': 'Every Saturday at 9:00 AM',
-            '0 9 * * 0': 'Every Sunday at 9:00 AM',
-            '0 9 1 * *': 'Monthly on the 1st at 9:00 AM',
-            '0 9 15 * *': 'Monthly on the 15th at 9:00 AM',
-            '0 9,17 * * *': 'Daily at 9:00 AM and 5:00 PM',
-            '0 10 * * 0,6': 'Weekends at 10:00 AM',
-        }
-        
-        if cron_expression in patterns:
-            description = patterns[cron_expression]
-            if user_timezone != 'UTC':
-                description += f" ({user_timezone})"
-            return description
-        
-        parts = cron_expression.split()
-        if len(parts) != 5:
-            return f"Custom schedule: {cron_expression}"
-            
-        minute, hour, day, month, weekday = parts
-
-        if minute.isdigit() and hour == '*' and day == '*' and month == '*' and weekday == '*':
-            return f"Every hour at :{minute.zfill(2)}"
-            
-        if minute.isdigit() and hour.isdigit() and day == '*' and month == '*' and weekday == '*':
-            time_str = f"{hour.zfill(2)}:{minute.zfill(2)}"
-            description = f"Daily at {time_str}"
-            if user_timezone != 'UTC':
-                description += f" ({user_timezone})"
-            return description
-            
-        if minute.isdigit() and hour.isdigit() and day == '*' and month == '*' and weekday == '1-5':
-            time_str = f"{hour.zfill(2)}:{minute.zfill(2)}"
-            description = f"Weekdays at {time_str}"
-            if user_timezone != 'UTC':
-                description += f" ({user_timezone})"
-            return description
-            
-        return f"Custom schedule: {cron_expression}"
-        
-    except Exception:
-        return f"Custom schedule: {cron_expression}"
-
-
 @router.post("/agents/{agent_id}/triggers", response_model=TriggerResponse)
 async def create_agent_trigger(
     agent_id: str,
     request: TriggerCreateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Create a new trigger for an agent"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
         
     await verify_agent_access(agent_id, user_id)
     
     try:
-        trigger_svc, _, provider_svc = await get_services()
+        trigger_service = get_trigger_service(db)
         
-        trigger = await trigger_svc.create_trigger(
+        trigger = await trigger_service.create_trigger(
             agent_id=agent_id,
             provider_id=request.provider_id,
             name=request.name,
@@ -377,27 +322,24 @@ async def create_agent_trigger(
             description=request.description
         )
         
-        provider_def = await provider_svc.get_provider_definition(request.provider_id)
-        webhook_url = None
-        if provider_def and provider_def.webhook_enabled:
-            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-            webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+        webhook_url = f"{base_url}/api/triggers/{trigger.trigger_id}/webhook"
         
         return TriggerResponse(
             trigger_id=trigger.trigger_id,
             agent_id=trigger.agent_id,
             trigger_type=trigger.trigger_type.value,
             provider_id=trigger.provider_id,
-            name=trigger.config.name,
-            description=trigger.config.description,
+            name=trigger.name,
+            description=trigger.description,
             is_active=trigger.is_active,
             webhook_url=webhook_url,
-            created_at=trigger.metadata.created_at.isoformat(),
-            updated_at=trigger.metadata.updated_at.isoformat(),
-            config=trigger.config.config
+            created_at=trigger.created_at.isoformat(),
+            updated_at=trigger.updated_at.isoformat(),
+            config=trigger.config
         )
         
-    except (ValueError, ConfigurationError, ProviderError) as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating trigger: {e}")
@@ -409,38 +351,36 @@ async def get_trigger(
     trigger_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Get a trigger by ID"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        trigger_svc, _, provider_svc = await get_services()
-        trigger = await trigger_svc.get_trigger(trigger_id)
+        trigger_service = get_trigger_service(db)
+        trigger = await trigger_service.get_trigger(trigger_id)
         
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
         
         await verify_agent_access(trigger.agent_id, user_id)
         
-        provider_def = await provider_svc.get_provider_definition(trigger.provider_id)
-        
-        webhook_url = None
-        if provider_def and provider_def.webhook_enabled:
-            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-            webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+        webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
         
         return TriggerResponse(
             trigger_id=trigger.trigger_id,
             agent_id=trigger.agent_id,
             trigger_type=trigger.trigger_type.value,
             provider_id=trigger.provider_id,
-            name=trigger.config.name,
-            description=trigger.config.description,
+            name=trigger.name,
+            description=trigger.description,
             is_active=trigger.is_active,
             webhook_url=webhook_url,
-            created_at=trigger.metadata.created_at.isoformat(),
-            updated_at=trigger.metadata.updated_at.isoformat(),
-            config=trigger.config.config
+            created_at=trigger.created_at.isoformat(),
+            updated_at=trigger.updated_at.isoformat(),
+            config=trigger.config
         )
+        
     except Exception as e:
         logger.error(f"Error getting trigger: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -452,19 +392,20 @@ async def update_trigger(
     request: TriggerUpdateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Update a trigger"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        trigger_svc, _, provider_svc = await get_services()
+        trigger_service = get_trigger_service(db)
         
-        trigger = await trigger_svc.get_trigger(trigger_id)
+        trigger = await trigger_service.get_trigger(trigger_id)
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
 
         await verify_agent_access(trigger.agent_id, user_id)
         
-        updated_trigger = await trigger_svc.update_trigger(
+        updated_trigger = await trigger_service.update_trigger(
             trigger_id=trigger_id,
             config=request.config,
             name=request.name,
@@ -472,28 +413,24 @@ async def update_trigger(
             is_active=request.is_active
         )
         
-        provider_def = await provider_svc.get_provider_definition(updated_trigger.provider_id)
-        
-        webhook_url = None
-        if provider_def and provider_def.webhook_enabled:
-            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
-            webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
+        base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+        webhook_url = f"{base_url}/api/triggers/{trigger_id}/webhook"
 
         return TriggerResponse(
             trigger_id=updated_trigger.trigger_id,
             agent_id=updated_trigger.agent_id,
             trigger_type=updated_trigger.trigger_type.value,
             provider_id=updated_trigger.provider_id,
-            name=updated_trigger.config.name,
-            description=updated_trigger.config.description,
+            name=updated_trigger.name,
+            description=updated_trigger.description,
             is_active=updated_trigger.is_active,
             webhook_url=webhook_url,
-            created_at=updated_trigger.metadata.created_at.isoformat(),
-            updated_at=updated_trigger.metadata.updated_at.isoformat(),
-            config=updated_trigger.config.config
+            created_at=updated_trigger.created_at.isoformat(),
+            updated_at=updated_trigger.updated_at.isoformat(),
+            config=updated_trigger.config
         )
         
-    except (ValueError, ConfigurationError, ProviderError) as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating trigger: {e}")
@@ -505,18 +442,19 @@ async def delete_trigger(
     trigger_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """Delete a trigger"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        trigger_svc, _, _ = await get_services()
-        trigger = await trigger_svc.get_trigger(trigger_id)
+        trigger_service = get_trigger_service(db)
+        trigger = await trigger_service.get_trigger(trigger_id)
         if not trigger:
             raise HTTPException(status_code=404, detail="Trigger not found")
 
         await verify_agent_access(trigger.agent_id, user_id)
         
-        success = await trigger_svc.delete_trigger(trigger_id)
+        success = await trigger_service.delete_trigger(trigger_id)
         if not success:
             raise HTTPException(status_code=404, detail="Trigger not found")
         
@@ -532,17 +470,21 @@ async def trigger_webhook(
     trigger_id: str,
     request: Request
 ):
+    """Handle incoming webhook for a trigger"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     
     try:
-        trigger_svc, execution_svc, _ = await get_services()
+        # Get raw data from request
+        raw_data = {}
         try:
             raw_data = await request.json()
         except:
-            raw_data = {}
+            pass
         
-        result = await trigger_svc.process_trigger_event(trigger_id, raw_data)
+        # Process trigger event
+        trigger_service = get_trigger_service(db)
+        result = await trigger_service.process_trigger_event(trigger_id, raw_data)
         
         if not result.success:
             return JSONResponse(
@@ -550,12 +492,13 @@ async def trigger_webhook(
                 content={"success": False, "error": result.error_message}
             )
         
+        # Execute if needed
         if result.should_execute_agent or result.should_execute_workflow:
-            trigger = await trigger_svc.get_trigger(trigger_id)
+            trigger = await trigger_service.get_trigger(trigger_id)
             if trigger:
                 logger.info(f"Executing agent {trigger.agent_id} for trigger {trigger_id}")
                 
-                from .domain.entities import TriggerEvent
+                from .trigger_service import TriggerEvent
                 event = TriggerEvent(
                     trigger_id=trigger_id,
                     agent_id=trigger.agent_id,
@@ -563,7 +506,8 @@ async def trigger_webhook(
                     raw_data=raw_data
                 )
                 
-                execution_result = await execution_svc.execute_trigger_result(
+                execution_service = get_execution_service(db)
+                execution_result = await execution_service.execute_trigger_result(
                     agent_id=trigger.agent_id,
                     trigger_result=result,
                     trigger_event=event
@@ -584,7 +528,7 @@ async def trigger_webhook(
             else:
                 logger.warning(f"Trigger {trigger_id} not found for execution")
         
-        logger.info(f"Webhook processed but no execution needed (should_execute_agent={result.should_execute_agent})")
+        logger.info(f"Webhook processed but no execution needed")
         return JSONResponse(content={
             "success": True,
             "message": "Trigger processed successfully (no execution needed)",
@@ -600,3 +544,223 @@ async def trigger_webhook(
             status_code=500,
             content={"success": False, "error": "Internal server error"}
         )
+
+
+# ===== WORKFLOW ENDPOINTS =====
+
+def convert_steps_to_json(steps: List[WorkflowStepRequest]) -> List[Dict[str, Any]]:
+    """Convert workflow steps to JSON format"""
+    if not steps:
+        return []
+    
+    result = []
+    for step in steps:
+        step_dict = {
+            'name': step.name,
+            'description': step.description,
+            'type': step.type or 'instruction',
+            'config': step.config,
+            'conditions': step.conditions,
+            'order': step.order
+        }
+        if step.children:
+            step_dict['children'] = convert_steps_to_json(step.children)
+        result.append(step_dict)
+    return result
+
+
+@workflows_router.get("/agents/{agent_id}/workflows")
+async def get_agent_workflows(
+    agent_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get workflows for an agent"""
+    await verify_agent_access(agent_id, user_id)
+    
+    client = await db.client
+    result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).order('created_at', desc=True).execute()
+    
+    return result.data
+
+
+@workflows_router.post("/agents/{agent_id}/workflows")
+async def create_agent_workflow(
+    agent_id: str,
+    workflow_data: WorkflowCreateRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Create a new workflow for an agent"""
+    await verify_agent_access(agent_id, user_id)
+    
+    try:
+        client = await db.client
+        steps_json = convert_steps_to_json(workflow_data.steps)
+        
+        result = await client.table('agent_workflows').insert({
+            'agent_id': agent_id,
+            'name': workflow_data.name,
+            'description': workflow_data.description,
+            'trigger_phrase': workflow_data.trigger_phrase,
+            'is_default': workflow_data.is_default,
+            'status': 'draft',
+            'steps': steps_json
+        }).execute()
+        
+        return result.data[0]
+        
+    except Exception as e:
+        logger.error(f"Error creating workflow: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to create workflow: {str(e)}")
+
+
+@workflows_router.put("/agents/{agent_id}/workflows/{workflow_id}")
+async def update_agent_workflow(
+    agent_id: str,
+    workflow_id: str,
+    workflow_data: WorkflowUpdateRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Update a workflow"""
+    await verify_agent_access(agent_id, user_id)
+    
+    client = await db.client
+    
+    # Verify workflow exists
+    workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+    if not workflow_result.data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    # Build update data
+    update_data = {}
+    if workflow_data.name is not None:
+        update_data['name'] = workflow_data.name
+    if workflow_data.description is not None:
+        update_data['description'] = workflow_data.description
+    if workflow_data.trigger_phrase is not None:
+        update_data['trigger_phrase'] = workflow_data.trigger_phrase
+    if workflow_data.is_default is not None:
+        update_data['is_default'] = workflow_data.is_default
+    if workflow_data.status is not None:
+        update_data['status'] = workflow_data.status
+    if workflow_data.steps is not None:
+        update_data['steps'] = convert_steps_to_json(workflow_data.steps)
+    
+    if update_data:
+        await client.table('agent_workflows').update(update_data).eq('id', workflow_id).execute()
+    
+    # Return updated workflow
+    updated_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).execute()
+    return updated_result.data[0]
+
+
+@workflows_router.delete("/agents/{agent_id}/workflows/{workflow_id}")
+async def delete_agent_workflow(
+    agent_id: str,
+    workflow_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Delete a workflow"""
+    await verify_agent_access(agent_id, user_id)
+    
+    client = await db.client
+    
+    # Verify workflow exists
+    workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+    if not workflow_result.data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    await client.table('agent_workflows').delete().eq('id', workflow_id).execute()
+    return {"message": "Workflow deleted successfully"}
+
+
+@workflows_router.post("/agents/{agent_id}/workflows/{workflow_id}/execute")
+async def execute_agent_workflow(
+    agent_id: str,
+    workflow_id: str,
+    execution_data: WorkflowExecuteRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Manually execute a workflow"""
+    await verify_agent_access(agent_id, user_id)
+    
+    client = await db.client
+    
+    # Get workflow
+    workflow_result = await client.table('agent_workflows').select('*').eq('id', workflow_id).eq('agent_id', agent_id).execute()
+    if not workflow_result.data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    workflow = workflow_result.data[0]
+    if workflow['status'] != 'active':
+        raise HTTPException(status_code=400, detail="Workflow is not active")
+    
+    # Get agent info
+    agent_result = await client.table('agents').select('account_id, name').eq('agent_id', agent_id).execute()
+    if not agent_result.data:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    account_id = agent_result.data[0]['account_id']
+    
+    # Validate permissions
+    model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+    can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+    if not can_use:
+        raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
+
+    can_run, message, subscription = await check_billing_status(client, account_id)
+    if not can_run:
+        raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
+    
+    # Create execution objects
+    from .trigger_service import TriggerResult, TriggerEvent, TriggerType
+    
+    trigger_result = TriggerResult(
+        success=True,
+        should_execute_workflow=True,
+        workflow_id=workflow_id,
+        workflow_input=execution_data.input_data or {},
+        execution_variables={
+            'triggered_by': 'manual',
+            'execution_timestamp': datetime.now(timezone.utc).isoformat(),
+            'user_id': user_id,
+            'execution_source': 'workflow_api'
+        }
+    )
+    
+    trigger_event = TriggerEvent(
+        trigger_id=f"manual_{workflow_id}_{uuid.uuid4()}",
+        agent_id=agent_id,
+        trigger_type=TriggerType.WEBHOOK,
+        raw_data=execution_data.input_data or {}
+    )
+    
+    # Execute workflow
+    execution_service = get_execution_service(db)
+    execution_result = await execution_service.execute_trigger_result(
+        agent_id=agent_id,
+        trigger_result=trigger_result,
+        trigger_event=trigger_event
+    )
+    
+    if execution_result["success"]:
+        logger.info(f"Manual workflow execution started: {execution_result}")
+        return {
+            "thread_id": execution_result.get("thread_id"),
+            "agent_run_id": execution_result.get("agent_run_id"),
+            "status": "running",
+            "message": f"Workflow '{workflow['name']}' execution started"
+        }
+    else:
+        logger.error(f"Manual workflow execution failed: {execution_result}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to start workflow execution",
+                "details": execution_result.get("error", "Unknown error")
+            }
+        )
+
+
+# ===== INCLUDE WORKFLOWS ROUTER =====
+
+router.include_router(workflows_router)

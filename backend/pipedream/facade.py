@@ -234,17 +234,13 @@ class PipedreamManager:
         client = await db.client
         version_manager = VersionManagerFacade()
         
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             return []
 
         agent = agent_result.data[0]
         
-        agent_config = agent.get('config', {})
-        tools = agent_config.get('tools', {})
-        agent_custom_mcps = tools.get('custom_mcp', [])
         version_custom_mcps = []
-
         if agent.get('current_version_id'):
             try:
                 version_dict = await version_manager.get_version(
@@ -258,9 +254,8 @@ class PipedreamManager:
         
         pipedream_mcp = None
         
-        print(f"[PROFILE {profile_id}] Searching for pipedream MCP. Version MCPs: {len(version_custom_mcps)}, Agent MCPs: {len(agent_custom_mcps)}")
+        print(f"[PROFILE {profile_id}] Searching for pipedream MCP. Version MCPs: {len(version_custom_mcps)}")
         print(f"[PROFILE {profile_id}] Version custom MCPs: {version_custom_mcps}")
-        print(f"[PROFILE {profile_id}] Agent custom MCPs: {agent_custom_mcps}")
         
         for mcp in version_custom_mcps:
             mcp_type = mcp.get('type')
@@ -273,27 +268,12 @@ class PipedreamManager:
                 print(f"[PROFILE {profile_id}] Found matching MCP in version data: {mcp}")
                 break
 
-        # Fallback to agent custom MCPs only if not found in version
-        if not pipedream_mcp:
-            print(f"[PROFILE {profile_id}] No matching MCP found in version data, checking agent data")
-            for mcp in agent_custom_mcps:
-                mcp_type = mcp.get('type')
-                mcp_config = mcp.get('config', {})
-                mcp_profile_id = mcp_config.get('profile_id')
-                print(f"[PROFILE {profile_id}] Agent MCP: type={mcp_type}, profile_id={mcp_profile_id}, target_profile_id={profile_id}")
-                
-                if mcp_type == 'pipedream' and mcp_profile_id == profile_id:
-                    pipedream_mcp = mcp
-                    print(f"[PROFILE {profile_id}] Found matching MCP in agent data: {mcp}")
-                    break
-
         if not pipedream_mcp:
             print(f"[PROFILE {profile_id}] No matching pipedream MCP found!")
             return []
         
-        # Handle both naming conventions for enabled tools
         enabled_tools = pipedream_mcp.get('enabledTools', pipedream_mcp.get('enabled_tools', []))
-        print(f"[PROFILE {profile_id}] Found MCP in {'version' if pipedream_mcp in version_custom_mcps else 'agent'} data with {len(enabled_tools)} enabled tools: {enabled_tools}")
+        print(f"[PROFILE {profile_id}] Found MCP in version data with {len(enabled_tools)} enabled tools: {enabled_tools}")
         return enabled_tools
 
     async def get_enabled_tools_for_agent_profile_version(
@@ -310,7 +290,7 @@ class PipedreamManager:
         client = await db.client
         version_manager = VersionManagerFacade()
         
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        agent_result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             return []
 
@@ -344,7 +324,6 @@ class PipedreamManager:
             print(f"[VERSION {version_id}] [PROFILE {profile_id}] No matching pipedream MCP found!")
             return []
         
-        # Handle both naming conventions for enabled tools
         enabled_tools = pipedream_mcp.get('enabledTools', pipedream_mcp.get('enabled_tools', []))
         print(f"[VERSION {version_id}] [PROFILE {profile_id}] Found MCP with {len(enabled_tools)} enabled tools: {enabled_tools}")
         return enabled_tools
@@ -366,7 +345,7 @@ class PipedreamManager:
         set_db_connection(db)
         client = await db.client
         
-        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             raise ValueError("Agent not found")
         
@@ -394,12 +373,10 @@ class PipedreamManager:
             agentpress_tools = current_version_data.get('agentpress_tools', {})
             current_custom_mcps = current_version_data.get('custom_mcps', [])
         else:
-            agent_config = agent.get('config', {})
-            system_prompt = agent_config.get('system_prompt', '')
-            tools = agent_config.get('tools', {})
-            configured_mcps = tools.get('mcp', [])
-            agentpress_tools = tools.get('agentpress', {})
-            current_custom_mcps = tools.get('custom_mcp', [])
+            system_prompt = ''
+            configured_mcps = []
+            agentpress_tools = {}
+            current_custom_mcps = []
         
         updated_custom_mcps = copy.deepcopy(current_custom_mcps)
         
@@ -434,7 +411,6 @@ class PipedreamManager:
             }
             updated_custom_mcps.append(new_mcp_config)
         
-        # Create new version with updated configuration
         new_version = await version_manager.create_version(
             agent_id=agent_id,
             user_id=user_id,
@@ -445,14 +421,7 @@ class PipedreamManager:
             change_description=f"Updated {profile.app_name} tools"
         )
         
-        # Update the agent's config to reflect the changes in the unified config structure
-        current_config = agent.get('config', {})
-        current_tools = current_config.get('tools', {})
-        current_tools['custom_mcp'] = updated_custom_mcps
-        current_config['tools'] = current_tools
-        
         update_result = await client.table('agents').update({
-            'config': current_config,
             'current_version_id': new_version['version_id']
         }).eq('agent_id', agent_id).execute()
         

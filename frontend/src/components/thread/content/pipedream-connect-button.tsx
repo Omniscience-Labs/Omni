@@ -130,7 +130,6 @@ export const PipedreamConnectButton: React.FC<PipedreamConnectButtonProps> = ({
           <Button 
             onClick={handleConnect}
             size="sm"
-            className='bg-blue-600 hover:bg-blue-700 text-white gap-2 flex-shrink-0'
           >
             Connect to {appName}
             <ExternalLink className="h-4 w-4" />

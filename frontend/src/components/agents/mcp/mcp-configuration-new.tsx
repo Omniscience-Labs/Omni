@@ -8,8 +8,6 @@ import { CustomMCPDialog } from './custom-mcp-dialog';
 import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
 import { ToolsManager } from './tools-manager';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
-import { agentKeys } from '@/hooks/react-query/agents/keys';
 
 export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   configuredMCPs,

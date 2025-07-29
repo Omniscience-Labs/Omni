@@ -427,12 +427,22 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(zipFile);
       const extractedFiles: UploadedFile[] = [];
+      const rejectedFiles: string[] = [];
+      const supportedExtensions = ['.txt', '.pdf', '.docx'];
 
       for (const [path, file] of Object.entries(zipContent.files)) {
         if (!file.dir && !path.startsWith('__MACOSX/') && !path.includes('/.')) {
+          const fileName = path.split('/').pop() || path;
+          const fileExtension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+          
+          // Only process supported file formats
+          if (!supportedExtensions.includes(fileExtension)) {
+            rejectedFiles.push(fileName);
+            continue;
+          }
+          
           try {
             const blob = await file.async('blob');
-            const fileName = path.split('/').pop() || path;
             const extractedFile = new File([blob], fileName);
 
             extractedFiles.push({
@@ -454,7 +464,12 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         ...extractedFiles
       ]);
 
-      toast.success(`Extracted ${extractedFiles.length} files from ${zipFile.name}`);
+      let message = `Extracted ${extractedFiles.length} supported files from ${zipFile.name}`;
+      if (rejectedFiles.length > 0) {
+        message += `. Skipped ${rejectedFiles.length} unsupported files: ${rejectedFiles.slice(0, 5).join(', ')}${rejectedFiles.length > 5 ? '...' : ''}`;
+      }
+      
+      toast.success(message);
     } catch (error) {
       console.error('Error extracting ZIP:', error);
       setUploadedFiles(prev => prev.map(f => 
@@ -471,9 +486,19 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
+    const supportedExtensions = ['.txt', '.pdf', '.docx'];
     const newFiles: UploadedFile[] = [];
+    const rejectedFiles: string[] = [];
     
     for (const file of Array.from(files)) {
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      // Allow ZIP files as they can contain supported formats
+      if (!supportedExtensions.includes(fileExtension) && fileExtension !== '.zip') {
+        rejectedFiles.push(file.name);
+        continue;
+      }
+      
       const fileId = Math.random().toString(36).substr(2, 9);
       const uploadedFile: UploadedFile = {
         file,
@@ -482,15 +507,23 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       };
       
       newFiles.push(uploadedFile);
+      
+      // Extract ZIP files to get individual files
       if (file.name.toLowerCase().endsWith('.zip')) {
         setTimeout(() => extractZipFile(file, fileId), 100);
       }
     }
     
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-    if (!addDialogOpen) {
-      setAddDialogTab('files');
-      setAddDialogOpen(true);
+    if (rejectedFiles.length > 0) {
+      toast.error(`Unsupported file format(s): ${rejectedFiles.join(', ')}. Only .txt, .pdf, .docx, and .zip files are supported.`);
+    }
+    
+    if (newFiles.length > 0) {
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      if (!addDialogOpen) {
+        setAddDialogTab('files');
+        setAddDialogOpen(true);
+      }
     }
   };
 
@@ -802,7 +835,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         multiple
         onChange={(e) => handleFileUpload(e.target.files)}
         className="hidden"
-        accept=".txt,.md,.py,.js,.ts,.html,.css,.json,.yaml,.yml,.xml,.csv,.pdf,.docx,.xlsx,.png,.jpg,.jpeg,.gif,.zip"
+        accept=".txt,.pdf,.docx,.zip"
       />
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">

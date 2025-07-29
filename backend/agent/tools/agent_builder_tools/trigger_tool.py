@@ -6,7 +6,7 @@ from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
 from datetime import datetime
 from services.supabase import DBConnection
-from triggers.support.factory import TriggerModuleFactory
+from triggers import get_trigger_service
 
 
 class TriggerTool(AgentBuilderBaseTool):
@@ -124,8 +124,7 @@ class TriggerTool(AgentBuilderBaseTool):
             else:
                 trigger_config["agent_prompt"] = agent_prompt
             
-            trigger_db = DBConnection()
-            trigger_svc, _, _ = await TriggerModuleFactory.create_trigger_module(trigger_db)
+            trigger_svc = get_trigger_service(self.db)
             
             try:
                 trigger = await trigger_svc.create_trigger(
@@ -153,12 +152,12 @@ class TriggerTool(AgentBuilderBaseTool):
                     "message": result_message,
                     "trigger": {
                         "id": trigger.trigger_id,
-                        "name": trigger.config.name,
-                        "description": trigger.config.description,
+                        "name": trigger.name,
+                        "description": trigger.description,
                         "cron_expression": cron_expression,
                         "execution_type": execution_type,
-                        "is_active": trigger.config.is_active,
-                        "created_at": trigger.metadata.created_at.isoformat()
+                        "is_active": trigger.is_active,
+                        "created_at": trigger.created_at.isoformat()
                     }
                 })
             except ValueError as ve:
@@ -195,12 +194,11 @@ class TriggerTool(AgentBuilderBaseTool):
     )
     async def get_scheduled_triggers(self) -> ToolResult:
         try:
-            from triggers.core import TriggerType
+            from triggers import TriggerType
             
-            trigger_db = DBConnection()
-            trigger_manager = TriggerManager(trigger_db)
+            trigger_svc = get_trigger_service(self.db)
             
-            triggers = await trigger_manager.get_agent_triggers(self.agent_id)
+            triggers = await trigger_svc.get_agent_triggers(self.agent_id)
             
             schedule_triggers = [t for t in triggers if t.trigger_type == TriggerType.SCHEDULE]
             
@@ -282,10 +280,9 @@ class TriggerTool(AgentBuilderBaseTool):
     )
     async def delete_scheduled_trigger(self, trigger_id: str) -> ToolResult:
         try:
-            trigger_db = DBConnection()
-            trigger_manager = TriggerManager(trigger_db)
+            trigger_svc = get_trigger_service(self.db)
             
-            trigger_config = await trigger_manager.get_trigger(trigger_id)
+            trigger_config = await trigger_svc.get_trigger(trigger_id)
             
             if not trigger_config:
                 return self.fail_response("Trigger not found")
@@ -293,7 +290,7 @@ class TriggerTool(AgentBuilderBaseTool):
             if trigger_config.agent_id != self.agent_id:
                 return self.fail_response("This trigger doesn't belong to the current agent")
             
-            success = await trigger_manager.delete_trigger(trigger_id)
+            success = await trigger_svc.delete_trigger(trigger_id)
             
             if success:
                 return self.success_response({
@@ -345,10 +342,9 @@ class TriggerTool(AgentBuilderBaseTool):
     )
     async def toggle_scheduled_trigger(self, trigger_id: str, is_active: bool) -> ToolResult:
         try:
-            trigger_db = DBConnection()
-            trigger_manager = TriggerManager(trigger_db)
+            trigger_svc = get_trigger_service(self.db)
             
-            trigger_config = await trigger_manager.get_trigger(trigger_id)
+            trigger_config = await trigger_svc.get_trigger(trigger_id)
             
             if not trigger_config:
                 return self.fail_response("Trigger not found")
@@ -356,7 +352,7 @@ class TriggerTool(AgentBuilderBaseTool):
             if trigger_config.agent_id != self.agent_id:
                 return self.fail_response("This trigger doesn't belong to the current agent")
             
-            updated_config = await trigger_manager.update_trigger(
+            updated_config = await trigger_svc.update_trigger(
                 trigger_id=trigger_id,
                 is_active=is_active
             )

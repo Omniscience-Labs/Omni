@@ -34,8 +34,6 @@ from agentpress.tool import SchemaType
 
 load_dotenv()
 
-
-
 async def run_agent(
     thread_id: str,
     project_id: str,
@@ -78,14 +76,17 @@ async def run_agent(
     if not sandbox_info.get('id'):
         raise ValueError(f"No sandbox found for project {project_id}")
 
-    # Initialize tools with project_id instead of sandbox object
-    # This ensures each tool independently verifies it's operating on the correct project
-    
-    # Get enabled tools from agent config, or use defaults
-    enabled_tools = None
+    enabled_tools = {}
     if agent_config and 'agentpress_tools' in agent_config:
-        enabled_tools = agent_config['agentpress_tools']
-        logger.info(f"Using custom tool configuration from agent")
+        raw_tools = agent_config['agentpress_tools']
+        logger.info(f"Raw agentpress_tools type: {type(raw_tools)}, value: {raw_tools}")
+        
+        if isinstance(raw_tools, dict):
+            enabled_tools = raw_tools
+            logger.info(f"Using custom tool configuration from agent")
+        else:
+            logger.warning(f"agentpress_tools is not a dict (got {type(raw_tools)}), using empty dict")
+            enabled_tools = {}
     
 
     # Check if this is Suna (default agent) and enable builder capabilities for self-configuration
@@ -144,23 +145,43 @@ async def run_agent(
             thread_manager.add_tool(DataProvidersTool)
     else:
         logger.info("Custom agent specified - registering only enabled tools")
+        
+        # Final safety check: ensure enabled_tools is always a dictionary
+        if not isinstance(enabled_tools, dict):
+            logger.error(f"CRITICAL: enabled_tools is still not a dict at runtime! Type: {type(enabled_tools)}, Value: {enabled_tools}")
+            enabled_tools = {}
+        
         thread_manager.add_tool(ExpandMessageTool, thread_id=thread_id, thread_manager=thread_manager)
         thread_manager.add_tool(MessageTool)
-        if enabled_tools.get('sb_shell_tool', {}).get('enabled', False):
+
+        def safe_tool_check(tool_name: str) -> bool:
+            try:
+                if not isinstance(enabled_tools, dict):
+                    logger.error(f"enabled_tools is {type(enabled_tools)} at tool check for {tool_name}")
+                    return False
+                tool_config = enabled_tools.get(tool_name, {})
+                if not isinstance(tool_config, dict):
+                    return bool(tool_config) if isinstance(tool_config, bool) else False
+                return tool_config.get('enabled', False)
+            except Exception as e:
+                logger.error(f"Exception in tool check for {tool_name}: {e}")
+                return False
+        
+        if safe_tool_check('sb_shell_tool'):
             thread_manager.add_tool(SandboxShellTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('sb_files_tool', {}).get('enabled', False):
+        if safe_tool_check('sb_files_tool'):
             thread_manager.add_tool(SandboxFilesTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('sb_browser_tool', {}).get('enabled', False):
+        if safe_tool_check('sb_browser_tool'):
             thread_manager.add_tool(SandboxBrowserTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
-        if enabled_tools.get('sb_deploy_tool', {}).get('enabled', False):
+        if safe_tool_check('sb_deploy_tool'):
             thread_manager.add_tool(SandboxDeployTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('sb_expose_tool', {}).get('enabled', False):
+        if safe_tool_check('sb_expose_tool'):
             thread_manager.add_tool(SandboxExposeTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('web_search_tool', {}).get('enabled', False):
+        if safe_tool_check('web_search_tool'):
             thread_manager.add_tool(SandboxWebSearchTool, project_id=project_id, thread_manager=thread_manager)
-        if enabled_tools.get('sb_vision_tool', {}).get('enabled', False):
+        if safe_tool_check('sb_vision_tool'):
             thread_manager.add_tool(SandboxVisionTool, project_id=project_id, thread_id=thread_id, thread_manager=thread_manager)
-        if config.RAPID_API_KEY and enabled_tools.get('data_providers_tool', {}).get('enabled', False):
+        if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):
             thread_manager.add_tool(DataProvidersTool)
 
     # Register MCP tool wrapper if agent has configured MCPs or custom MCPs

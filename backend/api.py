@@ -29,7 +29,6 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
-from triggers.endpoints.workflows import router as workflows_router
 
 
 if sys.platform == "win32":
@@ -70,15 +69,10 @@ async def lifespan(app: FastAPI):
         # Start background tasks
         # asyncio.create_task(agent_api.restore_running_agent_runs())
         
-        # Initialize triggers API
         triggers_api.initialize(db)
-        
-        # Initialize workflows API (part of triggers module)
-        from triggers.endpoints.workflows import set_db_connection
-        set_db_connection(db)
-
-        # Initialize pipedream API
         pipedream_api.initialize(db)
+        credentials_api.initialize(db)
+        template_api.initialize(db)
         
         yield
         
@@ -182,15 +176,16 @@ from knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)
 
 api_router.include_router(triggers_api.router)
-api_router.include_router(workflows_router, prefix="/workflows")
 
 from pipedream import api as pipedream_api
 api_router.include_router(pipedream_api.router)
 
 # MFA functionality moved to frontend
 
-from local_env_manager import api as local_env_manager_api
-api_router.include_router(local_env_manager_api.router)
+
+
+from admin import api as admin_api
+api_router.include_router(admin_api.router)
 
 @api_router.get("/health")
 async def health_check():
