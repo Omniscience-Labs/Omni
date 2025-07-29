@@ -1,18 +1,16 @@
 export interface TaskListData {
-  tasks?: Task[]
-  updated_tasks?: Task[]
-  deleted_tasks?: Task[]
+  tasks: Task[]
   filter?: string
   total?: number
-  [key: string]: any
+  message?: string
 }
 
 export interface Task {
   id: string
   content: string
   status: "pending" | "completed" | "cancelled"
-  created_at?: string
-  updated_at?: string
+  created_at: string
+  updated_at: string
   completed_at?: string
 }
 
