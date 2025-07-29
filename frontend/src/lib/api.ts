@@ -1091,17 +1091,8 @@ export const streamAgent = (
               `[STREAM] Detected thread run end message for ${agentRunId}`,
             );
 
-            // Add to non-running set
-            nonRunningAgentRuns.add(agentRunId);
-
             // Notify about the message
             callbacks.onMessage(rawData);
-
-            // Clean up
-            eventSource.close();
-            activeStreams.delete(agentRunId);
-            callbacks.onClose();
-
             return;
           }
 
