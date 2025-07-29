@@ -6,51 +6,74 @@ from jwt.exceptions import PyJWTError
 from utils.logger import structlog
 from utils.config import config
 import os
+from services.supabase import DBConnection
+from services import redis
 
-# DeepAI user UUID
-DEEPAI_USER_ID = os.getenv('DEEPAI_USER_ID', '00000000-0000-0000-0000-000000000000')
-DEEPAI_API_KEY = os.getenv('DEEPAI_API_KEY', '00000000-0000-0000-0000-000000000000')
-
-def str_safe_compare(str1: str | None, str2: str | None) -> bool:
+async def _get_user_id_from_account_cached(account_id: str) -> Optional[str]:
     """
-    Compare two strings by first SHA256 hashing them and then comparing the hashes.
-    This is a safe way to compare strings that are not known to be equal.
-    """
-    import hashlib
-    if str1 is None or str2 is None:
-        return False
-    return hashlib.sha256(str1.encode()).hexdigest() == hashlib.sha256(str2.encode()).hexdigest()
-
-def is_deepai_user(user_id: str) -> bool:
-    """
-    Check if a user ID belongs to an deepai account.
-    
-    This function is maintained for backward compatibility. The deepai user
-    now works like any other user with a proper UUID, so this check is mainly
-    used for legacy code and documentation purposes.
+    Get user_id from account_id with Redis caching for performance
     
     Args:
-        user_id: The user ID to check
+        account_id: The account ID to look up
         
     Returns:
-        bool: True if the user is an deepai user, False otherwise
+        str: The primary owner user ID, or None if not found
     """
-    # Check for the specific deepai user UUID or the old string format for backward compatibility
-    return str_safe_compare(user_id, DEEPAI_USER_ID)
+    cache_key = f"account_user:{account_id}"
+    
+    try:
+        # Check Redis cache first
+        redis_client = await redis.get_client()
+        cached_user_id = await redis_client.get(cache_key)
+        if cached_user_id:
+            return cached_user_id.decode('utf-8') if isinstance(cached_user_id, bytes) else cached_user_id
+    except Exception as e:
+        structlog.get_logger().warning(f"Redis cache lookup failed for account {account_id}: {e}")
+    
+    try:
+        # Fallback to database
+        db = DBConnection()
+        await db.initialize()
+        client = await db.client
+        
+        user_result = await client.schema('basejump').table('accounts').select(
+            'primary_owner_user_id'
+        ).eq('id', account_id).limit(1).execute()
+        
+        if user_result.data:
+            user_id = user_result.data[0]['primary_owner_user_id']
+            
+            # Cache the result for 5 minutes
+            try:
+                await redis_client.setex(cache_key, 300, user_id)
+            except Exception as e:
+                structlog.get_logger().warning(f"Failed to cache user lookup: {e}")
+                
+            return user_id
+        
+        return None
+        
+    except Exception as e:
+        structlog.get_logger().error(f"Database lookup failed for account {account_id}: {e}")
+        return None
 
 # This function extracts the user ID from Supabase JWT
 async def get_current_user_id_from_jwt(request: Request) -> str:
     """
-    Extract and verify the user ID from the JWT in the Authorization header.
+    Extract and verify the user ID from the JWT in the Authorization header or API key.
     
     This function is used as a dependency in FastAPI routes to ensure the user
     is authenticated and to provide the user ID for authorization checks.
+    
+    Supports authentication via:
+    1. X-API-Key header (public:secret key pairs from API keys table)
+    2. Authorization header with Bearer token (JWT from Supabase)
     
     Args:
         request: The FastAPI request object
         
     Returns:
-        str: The user ID extracted from the JWT
+        str: The user ID extracted from the JWT or API key
         
     Raises:
         HTTPException: If no valid token is found or if the token is invalid
@@ -58,9 +81,62 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
 
     x_api_key = request.headers.get('x-api-key')
 
-    if str_safe_compare(x_api_key, DEEPAI_API_KEY):
-        return DEEPAI_USER_ID
+    # Check for user API keys in the database
+    if x_api_key:
+        try:
+            # Parse the API key format: "pk_xxx:sk_xxx"
+            if ':' not in x_api_key:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid API key format. Expected format: pk_xxx:sk_xxx",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+            
+            public_key, secret_key = x_api_key.split(':', 1)
+            
+            from services.api_keys import APIKeyService
+            db = DBConnection()
+            await db.initialize()
+            api_key_service = APIKeyService(db)
+            
+            validation_result = await api_key_service.validate_api_key(public_key, secret_key)
+            
+            if validation_result.is_valid:
+                # Get user_id from account_id with caching
+                user_id = await _get_user_id_from_account_cached(str(validation_result.account_id))
+                
+                if user_id:
+                    sentry.sentry.set_user({ "id": user_id })
+                    structlog.contextvars.bind_contextvars(
+                        user_id=user_id,
+                        auth_method="api_key",
+                        api_key_id=str(validation_result.key_id),
+                        public_key=public_key
+                    )
+                    return user_id
+                else:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="API key account not found",
+                        headers={"WWW-Authenticate": "Bearer"}
+                    )
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Invalid API key: {validation_result.error_message}",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            structlog.get_logger().error(f"Error validating API key: {e}")
+            raise HTTPException(
+                status_code=401,
+                detail="API key validation failed",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
 
+    # Fall back to JWT authentication
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -85,7 +161,8 @@ async def get_current_user_id_from_jwt(request: Request) -> str:
 
         sentry.sentry.set_user({ "id": user_id })
         structlog.contextvars.bind_contextvars(
-            user_id=user_id
+            user_id=user_id,
+            auth_method="jwt"
         )
         return user_id
         
@@ -147,26 +224,35 @@ async def get_user_id_from_stream_auth(
     token: Optional[str] = None
 ) -> str:
     """
-    Extract and verify the user ID from either the Authorization header or query parameter token.
+    Extract and verify the user ID from multiple authentication methods.
     This function is specifically designed for streaming endpoints that need to support both
     header-based and query parameter-based authentication (for EventSource compatibility).
     
+    Supports authentication via:
+    1. X-API-Key header (public:secret key pairs from API keys table) 
+    2. Authorization header with Bearer token (JWT from Supabase)
+    3. Query parameter token (JWT for EventSource compatibility)
+    
     Args:
         request: The FastAPI request object
-        token: Optional token from query parameters
+        token: Optional JWT token from query parameters
         
     Returns:
-        str: The user ID extracted from the JWT
+        str: The user ID extracted from the authentication method
         
     Raises:
         HTTPException: If no valid token is found or if the token is invalid
     """
     try:
+        # First, try the standard authentication (handles both API keys and Authorization header)
+        try:
+            return await get_current_user_id_from_jwt(request)
+        except HTTPException:
+            # If standard auth fails, try query parameter JWT for EventSource compatibility
+            pass
+        
         # Try to get user_id from token in query param (for EventSource which can't set headers)
         if token:
-            if str_safe_compare(token, DEEPAI_API_KEY):
-                return DEEPAI_USER_ID
-
             try:
                 # For Supabase JWT, we just need to decode and extract the user ID
                 payload = jwt.decode(token, options={"verify_signature": False})
@@ -174,21 +260,9 @@ async def get_user_id_from_stream_auth(
                 if user_id:
                     sentry.sentry.set_user({ "id": user_id })
                     structlog.contextvars.bind_contextvars(
-                        user_id=user_id
+                        user_id=user_id,
+                        auth_method="jwt_query"
                     )
-                    return user_id
-            except Exception:
-                pass
-        
-        # If no valid token in query param, try to get it from the Authorization header
-        auth_header = request.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            try:
-                # Extract token from header
-                header_token = auth_header.split(' ')[1]
-                payload = jwt.decode(header_token, options={"verify_signature": False})
-                user_id = payload.get('sub')
-                if user_id:
                     return user_id
             except Exception:
                 pass

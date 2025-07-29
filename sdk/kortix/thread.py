@@ -26,7 +26,7 @@ class AgentRun:
 
     async def get_stream(self) -> AsyncGenerator[str, None]:
         stream_url = self._thread._client.get_agent_run_stream_url(self._agent_run_id)
-        stream = stream_from_url(stream_url)
+        stream = stream_from_url(stream_url, headers=self._thread._client.headers)
         return stream
 
 

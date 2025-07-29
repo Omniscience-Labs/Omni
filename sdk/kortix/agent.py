@@ -15,7 +15,12 @@ class Agent:
         self._client = client
         self._agent_id = agent_id
 
-    async def run(self, prompt: str, thread: Thread, model: str = "gpt-4o-mini"):
+    async def run(
+        self,
+        prompt: str,
+        thread: Thread,
+        model: str = "anthropic/claude-sonnet-4-20250514",
+    ):
         await thread.add_message(prompt)
         response = await thread._client.start_agent(
             thread._thread_id,

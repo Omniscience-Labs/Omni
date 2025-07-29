@@ -539,11 +539,7 @@ class ThreadsClient:
             The streaming URL
         """
 
-        if token is None:
-            token = self.headers["X-API-Key"]
         url = f"{self.base_url}/agent-run/{agent_run_id}/stream"
-        if token:
-            url += f"?token={token}"
         return url
 
 

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from utils.logger import logger
 from utils.config import config, EnvMode
 from services.supabase import DBConnection
-from utils.auth_utils import get_current_user_id_from_jwt, is_deepai_user
+from utils.auth_utils import get_current_user_id_from_jwt
 from pydantic import BaseModel
 from utils.constants import MODEL_ACCESS_TIERS, MODEL_NAME_ALIASES, HARDCODED_MODEL_PRICES
 from litellm.cost_calculator import cost_per_token
@@ -419,9 +419,7 @@ async def get_allowed_models_for_user(client, user_id: str):
     Returns:
         List of model names allowed for the user's subscription tier.
     """
-    if is_deepai_user(user_id):
-        # DeepAI users get all models
-        return list(set(MODEL_NAME_ALIASES.values()))
+
     subscription = await get_user_subscription(user_id)
     tier_name = 'free'
     
@@ -449,9 +447,7 @@ async def can_use_model(client, user_id: str, model_name: str):
             "plan_name": "Local Development",
             "minutes_limit": "no limit"
         }
-    if is_deepai_user(user_id):
-        # DeepAI users can use any model
-        return True, "DeepAI user: all models allowed", list(set(MODEL_NAME_ALIASES.values()))
+
     allowed_models = await get_allowed_models_for_user(client, user_id)
     resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
     if resolved_model in allowed_models:
@@ -473,13 +469,7 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
             "plan_name": "Local Development",
             "minutes_limit": "no limit"
         }
-    if is_deepai_user(user_id):
-        # DeepAI users have infinite usage
-        return True, "DeepAI user: unlimited usage", {
-            "price_id": "deepai",
-            "plan_name": "DeepAI",
-            "minutes_limit": "no limit"
-        }
+
     # Get current subscription
     subscription = await get_user_subscription(user_id)
     # print("Current subscription:", subscription)
@@ -1124,22 +1114,6 @@ async def get_available_models(
                 "total_models": len(model_info)
             }
         
-        if is_deepai_user(current_user_id):
-            # DeepAI users get all models, all available
-            model_info = []
-            for short_name, full_name in MODEL_NAME_ALIASES.items():
-                model_info.append({
-                    "id": full_name,
-                    "display_name": short_name,
-                    "short_name": short_name,
-                    "requires_subscription": False,
-                    "is_available": True
-                })
-            return {
-                "models": model_info,
-                "subscription_tier": "DeepAI",
-                "total_models": len(model_info)
-            }
         
         # For non-local mode, get list of allowed models for this user
         allowed_models = await get_allowed_models_for_user(client, current_user_id)

@@ -2,12 +2,15 @@ import asyncio
 import json
 import os
 from typing import Any, Optional
+from dotenv import load_dotenv
 
 
 from _kortix import Kortix
 from tools import AgentPressTools, KortixMCP
 from fastmcp import FastMCP
 from stream import RealtimeStreamProcessor, RealtimeCallbacks
+
+load_dotenv("../.env")
 
 
 # Local key-value store for storing agent and thread IDs
@@ -61,7 +64,7 @@ async def get_weather(city: str) -> str:
 
 async def main():
     """
-    Please ignore the asyncio.cancelledError that is thrown when the MCP server is stopped. I couldn't fix it.
+    Please ignore the asyncio.exceptions.CancelledError that is thrown when the MCP server is stopped. I couldn't fix it.
     """
 
     kortixMCP = KortixMCP(mcp, "http://localhost:4000/mcp/")
@@ -74,7 +77,10 @@ async def main():
         )
     )
 
-    kortix = Kortix("af3d6952-2109-4ab3-bbfe-4a2e2326c740", "http://localhost:8000/api")
+    kortix = Kortix(
+        os.getenv("KORTIX_API_KEY", "pk_xxx:sk_xxx"),
+        "http://localhost:8000/api",
+    )
 
     # Setup the agent
     agent_id = kv.get("agent_id")
@@ -82,7 +88,7 @@ async def main():
         agent = await kortix.Agent.create(
             name="Generic Agent",
             system_prompt="You are a generic agent. You can use the tools provided to you to answer questions.",
-            model="gpt-4o-mini",
+            model="anthropic/claude-sonnet-4-20250514",
             tools=[AgentPressTools.WEB_SEARCH_TOOL, kortixMCP],
         )
         kv.set("agent_id", agent._agent_id)

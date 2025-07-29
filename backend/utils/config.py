@@ -234,7 +234,11 @@ class Configuration:
 
     # Admin API key for server-side operations
     KORTIX_ADMIN_API_KEY: Optional[str] = None
-    
+
+    # API Keys system configuration
+    API_KEY_SECRET: str = "default-secret-key-change-in-production"
+    API_KEY_LAST_USED_THROTTLE_SECONDS: int = 900
+
     @property
     def STRIPE_PRODUCT_ID(self) -> str:
         if self.ENV_MODE == EnvMode.STAGING:
