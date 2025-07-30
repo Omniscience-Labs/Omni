@@ -102,17 +102,16 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
       if (!textarea.current) return;
 
       const adjustHeight = () => {
-        textarea.current!.style.height = 'auto';
-        const newHeight = Math.min(
-          Math.max(textarea.current!.scrollHeight, 24),
-          200,
-        );
-        textarea.current!.style.height = `${newHeight}px`;
+        const el = textarea.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.maxHeight = '200px';
+        el.style.overflowY = el.scrollHeight > 200 ? 'auto' : 'hidden';
+
+        const newHeight = Math.min(el.scrollHeight, 200);
+        el.style.height = `${newHeight}px`;
       };
 
-      adjustHeight();
-
-      // Call it twice to ensure proper height calculation
       adjustHeight();
 
       window.addEventListener('resize', adjustHeight);

@@ -100,14 +100,12 @@ export function isNewXmlFormat(content: string): boolean {
 export function extractToolNameFromStream(content: string): string | null {
   const invokeMatch = content.match(/<invoke\s+name=["']([^"']+)["']/i);
   if (invokeMatch) {
-    const toolName = invokeMatch[1].replace(/_/g, '-');
-    return formatToolNameForDisplay(toolName);
+    return invokeMatch[1].replace(/_/g, '-');
   }
 
   const oldFormatMatch = content.match(/<([a-zA-Z\-_]+)(?:\s+[^>]*)?>(?!\/)/);
   if (oldFormatMatch) {
-    const toolName = oldFormatMatch[1].replace(/_/g, '-');
-    return formatToolNameForDisplay(toolName);
+    return oldFormatMatch[1].replace(/_/g, '-');
   }
   
   return null;

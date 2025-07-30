@@ -35,20 +35,9 @@ export const CustomServerStep: React.FC<CustomServerStepProps> = ({
           <span className="text-sm text-muted-foreground">Custom Server</span>
         </div>
       )}
-
-      <Alert className="border-primary/20 bg-primary/5">
-        <Server className="h-4 w-4" />
-        <AlertDescription>
-          Configure your personal {step.service_name} server connection details.
-        </AlertDescription>
-      </Alert>
-
       <div className="space-y-4">
         {step.required_fields?.map((field) => (
           <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key} className="text-sm font-medium">
-              {field.label}
-            </Label>
             <Input
               id={field.key}
               type={field.type}

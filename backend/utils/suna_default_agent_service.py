@@ -55,11 +55,7 @@ class SunaDefaultAgentService:
                     logger.info(f"User {account_id} already has Suna agent: {existing.agent_id}")
                     return existing.agent_id
 
-            current_config = self._sync_service.config_manager.get_current_config()
-            agent_id = await self._sync_service.repository.create_suna_agent_simple(
-                account_id,
-                current_config.version_tag
-            )
+            agent_id = await self._sync_service.repository.create_suna_agent_simple(account_id)
             
             logger.info(f"Successfully installed Suna agent {agent_id} for user {account_id}")
             return agent_id

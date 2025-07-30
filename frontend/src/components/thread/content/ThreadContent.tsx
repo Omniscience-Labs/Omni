@@ -1,10 +1,9 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { ArrowDown, CircleDashed, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Markdown } from '@/components/ui/markdown';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
-import { useFilePreloader, FileCache } from '@/hooks/react-query/files';
+import { useFilePreloader } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
 import {
@@ -13,13 +12,10 @@ import {
     getUserFriendlyToolName,
     safeJsonParse,
 } from '@/components/thread/utils';
-import { formatMCPToolDisplayName } from '@/components/thread/tool-views/mcp-tool/_utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
-import { parseXmlToolCalls, isNewXmlFormat, extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
-import { parseToolResult } from '@/components/thread/tool-views/tool-result-parser';
+import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-views/xml-parser';
 import { ShowToolStream } from './ShowToolStream';
-import { PipedreamConnectButton } from './pipedream-connect-button';
 import { PipedreamUrlDetector } from './pipedream-url-detector';
 
 const HIDE_STREAMING_XML_TAGS = new Set([
@@ -49,30 +45,12 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'crawl-webpage',
     'web-search',
     'see-image',
-    'call-mcp-tool',
-
     'execute_data_provider_call',
     'execute_data_provider_endpoint',
 
     'execute-data-provider-call',
     'execute-data-provider-endpoint',
 ]);
-
-function getEnhancedToolDisplayName(toolName: string, rawXml?: string): string {
-    if (toolName === 'call-mcp-tool' && rawXml) {
-        const toolNameMatch = rawXml.match(/tool_name="([^"]+)"/);
-        if (toolNameMatch) {
-            const fullToolName = toolNameMatch[1];
-            const parts = fullToolName.split('_');
-            if (parts.length >= 3 && fullToolName.startsWith('mcp_')) {
-                const serverName = parts[1];
-                const toolNamePart = parts.slice(2).join('_');
-                return formatMCPToolDisplayName(serverName, toolNamePart);
-            }
-        }
-    }
-    return getUserFriendlyToolName(toolName);
-}
 
 // Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
@@ -702,7 +680,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                     Type: {message.type} | ID: {message.message_id || 'no-id'}
                                                                                 </div>
                                                                                 <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                    {message.content}
+                                                                                    {JSON.stringify(message.content, null, 2)}
                                                                                 </pre>
                                                                                 {message.metadata && message.metadata !== '{}' && (
                                                                                     <div className="mt-2">
@@ -710,7 +688,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                                             Metadata:
                                                                                         </div>
                                                                                         <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto p-2 border border-border rounded-md bg-muted/30">
-                                                                                            {message.metadata}
+                                                                                            {JSON.stringify(message.metadata, null, 2)}
                                                                                         </pre>
                                                                                     </div>
                                                                                 )}

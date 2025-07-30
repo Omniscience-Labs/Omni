@@ -145,10 +145,54 @@ class MCPSearchTool(AgentBuilderBaseTool):
                 "available_triggers": getattr(app_data, 'available_triggers', [])
             }
             
-            return self.success_response({
+            available_tools = []
+            try:
+                import httpx
+                import json
+                
+                url = f"https://remote.mcp.pipedream.net/?app={app_slug}&externalUserId=tools_preview"
+                payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+                headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                        resp.raise_for_status()
+                        async for line in resp.aiter_lines():
+                            if not line or not line.startswith("data:"):
+                                continue
+                            data_str = line[len("data:"):].strip()
+                            try:
+                                data_obj = json.loads(data_str)
+                                tools = data_obj.get("result", {}).get("tools", [])
+                                for tool in tools:
+                                    desc = tool.get("description", "") or ""
+                                    idx = desc.find("[")
+                                    if idx != -1:
+                                        desc = desc[:idx].strip()
+                                    
+                                    available_tools.append({
+                                        "name": tool.get("name", ""),
+                                        "description": desc
+                                    })
+                                break
+                            except json.JSONDecodeError:
+                                logger.warning(f"Failed to parse JSON data: {data_str}")
+                                continue
+                                
+            except Exception as tools_error:
+                logger.warning(f"Could not fetch MCP tools for {app_slug}: {tools_error}")
+            
+            result = {
                 "message": f"Retrieved details for {formatted_app['name']}",
-                "app": formatted_app
-            })
+                "app": formatted_app,
+                "available_mcp_tools": available_tools,
+                "total_mcp_tools": len(available_tools)
+            }
+            
+            if available_tools:
+                result["message"] += f" - {len(available_tools)} MCP tools available"
+            
+            return self.success_response(result)
             
         except Exception as e:
             return self.fail_response(f"Error getting app details: {str(e)}")

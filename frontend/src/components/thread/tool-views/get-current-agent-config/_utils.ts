@@ -13,7 +13,7 @@ export interface CustomMcp {
     headers?: Record<string, string>;
     profile_id?: string;
   };
-  enabled_tools: string[];
+  enabledTools: string[];
 }
 
 export interface AgentConfiguration {

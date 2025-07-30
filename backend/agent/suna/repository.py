@@ -78,7 +78,6 @@ class SunaAgentRepository:
                 tools_count = len(mcp.get('enabledTools', mcp.get('enabled_tools', [])))
                 logger.info(f"Agent {agent_id} - Preserving custom MCP {i+1} ({mcp.get('name', 'Unknown')}) with {tools_count} enabled tools")
             
-            # Update the config with preserved MCPs and new metadata
             updated_config = unified_config.copy()
             updated_config['tools']['mcp'] = preserved_configured_mcps
             updated_config['tools']['custom_mcp'] = preserved_custom_mcps
@@ -157,7 +156,6 @@ class SunaAgentRepository:
     async def create_suna_agent_simple(
         self, 
         account_id: str,
-        version_tag: str
     ) -> str:
         try:
             from agent.suna.config import SunaConfig
@@ -169,25 +167,11 @@ class SunaAgentRepository:
                 "name": SunaConfig.NAME,
                 "description": SunaConfig.DESCRIPTION,
                 "is_default": True,
-                "system_prompt": "[SUNA_MANAGED]",
-                "agentpress_tools": {},
-                "configured_mcps": SunaConfig.DEFAULT_MCPS,
-                "custom_mcps": SunaConfig.DEFAULT_CUSTOM_MCPS,
-                "config": {
-                    'tools': {
-                        'mcp': SunaConfig.DEFAULT_MCPS,
-                        'custom_mcp': SunaConfig.DEFAULT_CUSTOM_MCPS,
-                        'agentpress': {}
-                    },
-                    'metadata': {
-                        'is_suna_default': True,
-                        'centrally_managed': True
-                    }
-                },
+                "avatar": SunaConfig.AVATAR,
+                "avatar_color": SunaConfig.AVATAR_COLOR,
                 "metadata": {
                     "is_suna_default": True,
                     "centrally_managed": True,
-                    "config_version": version_tag,
                     "installation_date": datetime.now(timezone.utc).isoformat()
                 },
                 "version_count": 1
@@ -198,6 +182,14 @@ class SunaAgentRepository:
             if result.data:
                 agent_id = result.data[0]['agent_id']
                 logger.info(f"Created minimal Suna agent {agent_id} for {account_id}")
+                await self._create_initial_version(
+                    agent_id=agent_id,
+                    account_id=account_id,
+                    system_prompt="[MANAGED]",
+                    configured_mcps=SunaConfig.DEFAULT_MCPS,
+                    custom_mcps=SunaConfig.DEFAULT_CUSTOM_MCPS,
+                    agentpress_tools=SunaConfig.DEFAULT_TOOLS
+                )
                 return agent_id
             
             raise Exception("No data returned from insert")
@@ -211,7 +203,6 @@ class SunaAgentRepository:
         agent_id: str,
         version_tag: str
     ) -> bool:
-        """Update only metadata for a Suna agent (system prompt/tools read from SunaConfig)"""
         try:
             client = await self.db.client
             
@@ -244,7 +235,6 @@ class SunaAgentRepository:
             raise
     
     async def get_all_personal_accounts(self) -> List[str]:
-        """Get all personal account IDs"""
         try:
             client = await self.db.client
             result = await client.schema('basejump').table('accounts').select(
@@ -255,4 +245,33 @@ class SunaAgentRepository:
             
         except Exception as e:
             logger.error(f"Failed to get personal accounts: {e}")
-            raise 
+            raise
+    
+    async def _create_initial_version(
+        self,
+        agent_id: str,
+        account_id: str,
+        system_prompt: str,
+        configured_mcps: List[Dict[str, Any]],
+        custom_mcps: List[Dict[str, Any]],
+        agentpress_tools: Dict[str, Any]
+    ) -> None:
+        try:
+            from agent.versioning.version_service import get_version_service
+            
+            version_service = await get_version_service()
+            await version_service.create_version(
+                agent_id=agent_id,
+                user_id=account_id,
+                system_prompt=system_prompt,
+                configured_mcps=configured_mcps,
+                custom_mcps=custom_mcps,
+                agentpress_tools=agentpress_tools,
+                version_name="v1",
+                change_description="Initial Suna agent version"
+            )
+            
+            logger.info(f"Created initial version for Suna agent {agent_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create initial version for Suna agent {agent_id}: {e}")
