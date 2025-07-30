@@ -3,7 +3,7 @@ from services.supabase import DBConnection
 
 from .profile_service import ProfileService, Profile
 from .connection_service import ConnectionService, Connection, AuthType
-from .app_service import AppService, App
+from .app_service import get_app_service, App
 from .mcp_service import MCPService, MCPServer, MCPTool, ConnectionStatus
 from .connection_token_service import ConnectionTokenService
 
@@ -11,7 +11,7 @@ db = DBConnection()
 
 profile_service = ProfileService()
 connection_service = ConnectionService()
-app_service = AppService(logger=logger)
+app_service = get_app_service()
 mcp_service = MCPService()
 connection_token_service = ConnectionTokenService()
 

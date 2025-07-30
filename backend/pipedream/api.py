@@ -8,7 +8,7 @@ from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
 from .profile_service import ProfileService, Profile, ProfileServiceError, ProfileNotFoundError, ProfileAlreadyExistsError, InvalidConfigError, EncryptionError
 from .connection_service import ConnectionService
-from .app_service import AppService
+from .app_service import get_app_service
 from .mcp_service import MCPService, ConnectionStatus, MCPConnectionError, MCPServiceError
 from .connection_token_service import ConnectionTokenService
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/pipedream", tags=["pipedream"])
 
 profile_service: Optional[ProfileService] = None
 connection_service: Optional[ConnectionService] = None
-app_service: Optional[AppService] = None
+app_service = None
 mcp_service: Optional[MCPService] = None
 connection_token_service: Optional[ConnectionTokenService] = None
 
@@ -401,7 +401,7 @@ async def get_pipedream_apps(
                 
             apps_data.append({
                 "name": app.name,
-                "name_slug": app.slug.value,
+                "name_slug": app.slug,
                 "description": app.description,
                 "category": app.category,
                 "categories": categories,
@@ -447,7 +447,7 @@ async def get_popular_pipedream_apps():
                 
             apps_data.append({
                 "name": app.name,
-                "name_slug": app.slug.value,
+                "name_slug": app.slug,
                 "description": app.description,
                 "category": app.category,
                 "categories": categories,

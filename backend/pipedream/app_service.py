@@ -1,39 +1,39 @@
-from typing import List, Optional, Dict, Any, Protocol
+from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 import os
-import logging
 import re
 import httpx
 import json
 import asyncio
+from utils.logger import logger
 
-@dataclass(frozen=True)
 class AppSlug:
-    value: str
-    def __post_init__(self):
-        if not self.value or not isinstance(self.value, str):
+    def __init__(self, value: str):
+        if not value or not isinstance(value, str):
             raise ValueError("AppSlug must be a non-empty string")
-        if not re.match(r'^[a-z0-9_-]+$', self.value):
+        if not re.match(r'^[a-z0-9_-]+$', value):
             raise ValueError("AppSlug must contain only lowercase letters, numbers, hyphens, and underscores")
+        self.value = value
 
-@dataclass(frozen=True)
 class SearchQuery:
-    value: Optional[str] = None
+    def __init__(self, value: Optional[str] = None):
+        self.value = value
+    
     def is_empty(self) -> bool:
         return not self.value or not self.value.strip()
 
-@dataclass(frozen=True)
 class Category:
-    value: str
-    def __post_init__(self):
-        if not self.value or not isinstance(self.value, str):
+    def __init__(self, value: str):
+        if not value or not isinstance(value, str):
             raise ValueError("Category must be a non-empty string")
+        self.value = value
 
-@dataclass(frozen=True)
 class PaginationCursor:
-    value: Optional[str] = None
+    def __init__(self, value: Optional[str] = None):
+        self.value = value
+    
     def has_more(self) -> bool:
         return self.value is not None
 
@@ -55,7 +55,7 @@ class AuthType(Enum):
 @dataclass
 class App:
     name: str
-    slug: AppSlug
+    slug: str
     description: str
     category: str
     logo_url: Optional[str] = None
@@ -68,42 +68,29 @@ class App:
     def is_featured(self) -> bool:
         return self.featured_weight > 0
 
-class PipedreamException(Exception):
-    def __init__(self, message: str, error_code: str = None):
-        super().__init__(message)
-        self.error_code = error_code
-        self.message = message
+class AppServiceError(Exception):
+    pass
 
-class HttpClientException(PipedreamException):
-    def __init__(self, url: str, status_code: int, reason: str):
-        super().__init__(f"HTTP request to {url} failed with status {status_code}: {reason}", "HTTP_CLIENT_ERROR")
-        self.url = url
-        self.status_code = status_code
-        self.reason = reason
+class AppNotFoundError(AppServiceError):
+    pass
 
-class AuthenticationException(PipedreamException):
-    def __init__(self, reason: str):
-        super().__init__(f"Authentication failed: {reason}", "AUTHENTICATION_ERROR")
-        self.reason = reason
+class InvalidAppSlugError(AppServiceError):
+    pass
 
-class RateLimitException(PipedreamException):
-    def __init__(self, retry_after: int = None):
-        super().__init__("Rate limit exceeded", "RATE_LIMIT_EXCEEDED")
-        self.retry_after = retry_after
+class AuthenticationError(AppServiceError):
+    pass
 
-class Logger(Protocol):
-    def info(self, message: str) -> None: ...
-    def warning(self, message: str) -> None: ...
-    def error(self, message: str) -> None: ...
-    def debug(self, message: str) -> None: ...
+class RateLimitError(AppServiceError):
+    pass
 
-class HttpClient:
+class AppService:
     def __init__(self):
         self.base_url = "https://api.pipedream.com/v1"
         self.session: Optional[httpx.AsyncClient] = None
         self.access_token: Optional[str] = None
         self.token_expires_at: Optional[datetime] = None
-        
+        self._semaphore = asyncio.Semaphore(10)
+
     async def _get_session(self) -> httpx.AsyncClient:
         if self.session is None or self.session.is_closed:
             self.session = httpx.AsyncClient(
@@ -124,7 +111,7 @@ class HttpClient:
         client_secret = os.getenv("PIPEDREAM_CLIENT_SECRET")
         
         if not all([project_id, client_id, client_secret]):
-            raise AuthenticationException("Missing required environment variables")
+            raise AuthenticationError("Missing required environment variables")
         
         session = await self._get_session()
         
@@ -148,10 +135,10 @@ class HttpClient:
             
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                raise RateLimitException()
-            raise AuthenticationException(f"Failed to obtain access token: {e}")
+                raise RateLimitError()
+            raise AuthenticationError(f"Failed to obtain access token: {e}")
     
-    async def get(self, url: str, headers: Dict[str, str] = None, params: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def _make_request(self, url: str, headers: Dict[str, str] = None, params: Dict[str, Any] = None) -> Dict[str, Any]:
         session = await self._get_session()
         access_token = await self._ensure_access_token()
         
@@ -169,22 +156,12 @@ class HttpClient:
             return response.json()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                raise RateLimitException()
-            raise HttpClientException(url, e.response.status_code, str(e))
-    
-    async def close(self) -> None:
-        if self.session and not self.session.is_closed:
-            await self.session.aclose()
+                raise RateLimitError()
+            raise AppServiceError(f"HTTP request failed: {e}")
 
-class AppRepository:
-    def __init__(self, http_client: HttpClient, logger: Logger):
-        self._http_client = http_client
-        self._logger = logger
-        self._semaphore = asyncio.Semaphore(10)
-
-    async def search(self, query: SearchQuery, category: Optional[Category] = None, 
+    async def _search(self, query: SearchQuery, category: Optional[Category] = None, 
                     page: int = 1, limit: int = 20, cursor: Optional[PaginationCursor] = None) -> Dict[str, Any]:
-        url = f"{self._http_client.base_url}/apps"
+        url = f"{self.base_url}/apps"
         params = {}
         
         if not query.is_empty():
@@ -195,20 +172,20 @@ class AppRepository:
             params["after"] = cursor.value
         
         try:
-            data = await self._http_client.get(url, params=params)
+            data = await self._make_request(url, params=params)
             apps = []
             for app_data in data.get("data", []):
                 try:
                     app = self._map_to_domain(app_data)
                     apps.append(app)
                 except Exception as e:
-                    self._logger.warning(f"Error mapping app data: {str(e)}")
+                    logger.warning(f"Error mapping app data: {str(e)}")
                     continue
             
             page_info = data.get("page_info", {})
             page_info["has_more"] = bool(page_info.get("end_cursor"))
             
-            self._logger.info(f"Found {len(apps)} apps from search")
+            logger.info(f"Found {len(apps)} apps from search")
             
             return {
                 "success": True,
@@ -218,7 +195,7 @@ class AppRepository:
             }
             
         except Exception as e:
-            self._logger.error(f"Error searching apps: {str(e)}")
+            logger.error(f"Error searching apps: {str(e)}")
             return {
                 "success": False,
                 "error": str(e),
@@ -227,29 +204,29 @@ class AppRepository:
                 "total_count": 0
             }
 
-    async def get_by_slug(self, app_slug: AppSlug) -> Optional[App]:
-        cache_key = f"pipedream:app:{app_slug.value}"
+    async def _get_by_slug(self, app_slug: str) -> Optional[App]:
+        cache_key = f"pipedream:app:{app_slug}"
         try:
             from services import redis
             redis_client = await redis.get_client()
             cached_data = await redis_client.get(cache_key)
             
             if cached_data:
-                self._logger.debug(f"Found cached app for slug: {app_slug.value}")
+                logger.debug(f"Found cached app for slug: {app_slug}")
                 cached_app_data = json.loads(cached_data)
                 return self._map_cached_app_to_domain(cached_app_data)
         except Exception as e:
-            self._logger.warning(f"Redis cache error for app {app_slug.value}: {e}")
+            logger.warning(f"Redis cache error for app {app_slug}: {e}")
         
         async with self._semaphore:
-            url = f"{self._http_client.base_url}/apps"
-            params = {"q": app_slug.value, "pageSize": 20}
+            url = f"{self.base_url}/apps"
+            params = {"q": app_slug, "pageSize": 20}
             
             try:
-                data = await self._http_client.get(url, params=params)
+                data = await self._make_request(url, params=params)
                 
                 apps = data.get("data", [])
-                exact_match = next((app for app in apps if app.get("name_slug") == app_slug.value), None)
+                exact_match = next((app for app in apps if app.get("name_slug") == app_slug), None)
                 
                 if exact_match:
                     app = self._map_to_domain(exact_match)
@@ -259,19 +236,19 @@ class AppRepository:
                         redis_client = await redis.get_client()
                         app_data = self._map_domain_app_to_cache(app)
                         await redis_client.setex(cache_key, 21600, json.dumps(app_data))
-                        self._logger.debug(f"Cached app: {app_slug.value}")
+                        logger.debug(f"Cached app: {app_slug}")
                     except Exception as e:
-                        self._logger.warning(f"Failed to cache app {app_slug.value}: {e}")
+                        logger.warning(f"Failed to cache app {app_slug}: {e}")
                     
                     return app
                 
                 return None
                 
             except Exception as e:
-                self._logger.error(f"Error getting app by slug: {str(e)}")
+                logger.error(f"Error getting app by slug: {str(e)}")
                 return None
 
-    async def get_popular(self, category: Optional[Category] = None, limit: int = 100) -> List[App]:
+    async def _get_popular(self, category: Optional[str] = None, limit: int = 100) -> List[App]:
         popular_slugs = [
             "slack", "microsoft_teams", "discord", "zoom", "telegram_bot_api",
             "gmail", "microsoft_outlook", "google_calendar", "microsoft_exchange", "calendly",
@@ -293,12 +270,12 @@ class AppRepository:
         
         async def fetch_app(slug: str):
             try:
-                app = await self.get_by_slug(AppSlug(slug))
-                if app and (not category or app.category == category.value):
+                app = await self._get_by_slug(slug)
+                if app and (not category or app.category == category):
                     return app
                 return None
             except Exception as e:
-                self._logger.warning(f"Error fetching popular app {slug}: {e}")
+                logger.warning(f"Error fetching popular app {slug}: {e}")
                 return None
         
         for i in range(0, len(target_slugs), batch_size):
@@ -322,9 +299,10 @@ class AppRepository:
         
         return apps
 
-    async def get_by_category(self, category: Category, limit: int = 20) -> List[App]:
+    async def _get_by_category(self, category: str, limit: int = 20) -> List[App]:
         query = SearchQuery(None)
-        result = await self.search(query, category, limit=limit)
+        category_obj = Category(category)
+        result = await self._search(query, category_obj, limit=limit)
         return result.get("apps", [])
 
     def _map_to_domain(self, app_data: Dict[str, Any]) -> App:
@@ -332,12 +310,12 @@ class AppRepository:
             auth_type_str = app_data.get("auth_type", "oauth")
             auth_type = AuthType(auth_type_str)
         except ValueError:
-            self._logger.warning(f"Unknown auth type '{auth_type_str}', using CUSTOM")
+            logger.warning(f"Unknown auth type '{auth_type_str}', using CUSTOM")
             auth_type = AuthType.CUSTOM
         
         return App(
             name=app_data.get("name", "Unknown"),
-            slug=AppSlug(app_data.get("name_slug", "")),
+            slug=app_data.get("name_slug", ""),
             description=app_data.get("description", ""),
             category=app_data.get("category", "Other"),
             logo_url=app_data.get("img_src"),
@@ -351,7 +329,7 @@ class AppRepository:
     def _map_domain_app_to_cache(self, app: App) -> Dict[str, Any]:
         return {
             "name": app.name,
-            "name_slug": app.slug.value,
+            "name_slug": app.slug,
             "description": app.description,
             "category": app.category,
             "img_src": app.logo_url,
@@ -367,12 +345,12 @@ class AppRepository:
             auth_type_str = app_data.get("auth_type", "oauth")
             auth_type = AuthType(auth_type_str)
         except ValueError:
-            self._logger.warning(f"Unknown auth type '{auth_type_str}', using CUSTOM")
+            logger.warning(f"Unknown auth type '{auth_type_str}', using CUSTOM")
             auth_type = AuthType.CUSTOM
         
         return App(
             name=app_data.get("name", "Unknown"),
-            slug=AppSlug(app_data.get("name_slug", "")),
+            slug=app_data.get("name_slug", ""),
             description=app_data.get("description", ""),
             category=app_data.get("category", "Other"),
             logo_url=app_data.get("img_src"),
@@ -382,12 +360,6 @@ class AppRepository:
             tags=app_data.get("tags", []),
             featured_weight=app_data.get("featured_weight", 0)
         )
-
-class AppService:
-    def __init__(self, logger: Optional[Logger] = None):
-        self._logger = logger or logging.getLogger(__name__)
-        self._http_client = HttpClient()
-        self._app_repo = AppRepository(self._http_client, self._logger)
 
     async def search_apps(
         self,
@@ -401,52 +373,62 @@ class AppService:
         category_vo = Category(category) if category else None
         cursor_vo = PaginationCursor(cursor) if cursor else None
         
-        self._logger.info(f"Searching apps: query='{query}', category='{category}', page={page}")
+        logger.info(f"Searching apps: query='{query}', category='{category}', page={page}")
         
-        result = await self._app_repo.search(search_query, category_vo, page, limit, cursor_vo)
+        result = await self._search(search_query, category_vo, page, limit, cursor_vo)
         
-        self._logger.info(f"Found {len(result.get('apps', []))} apps")
+        logger.info(f"Found {len(result.get('apps', []))} apps")
         return result
 
     async def get_app_by_slug(self, app_slug: str) -> Optional[App]:
-        app_slug_vo = AppSlug(app_slug)
+        logger.info(f"Getting app by slug: {app_slug}")
         
-        self._logger.info(f"Getting app by slug: {app_slug}")
-        
-        app = await self._app_repo.get_by_slug(app_slug_vo)
+        app = await self._get_by_slug(app_slug)
         
         if app:
-            self._logger.info(f"Found app: {app.name}")
+            logger.info(f"Found app: {app.name}")
         else:
-            self._logger.info(f"App not found: {app_slug}")
+            logger.info(f"App not found: {app_slug}")
         
         return app
 
     async def get_popular_apps(self, category: Optional[str] = None, limit: int = 10) -> List[App]:
-        category_vo = Category(category) if category else None
+        logger.info(f"Getting popular apps: category='{category}', limit={limit}")
         
-        self._logger.info(f"Getting popular apps: category='{category}', limit={limit}")
+        apps = await self._get_popular(category, limit)
         
-        apps = await self._app_repo.get_popular(category_vo, limit)
-        
-        self._logger.info(f"Found {len(apps)} popular apps")
+        logger.info(f"Found {len(apps)} popular apps")
         return apps
 
     async def get_apps_by_category(self, category: str, limit: int = 20) -> List[App]:
-        category_vo = Category(category)
+        logger.info(f"Getting apps by category: {category}, limit={limit}")
         
-        self._logger.info(f"Getting apps by category: {category}, limit={limit}")
+        apps = await self._get_by_category(category, limit)
         
-        apps = await self._app_repo.get_by_category(category_vo, limit)
-        
-        self._logger.info(f"Found {len(apps)} apps in category {category}")
+        logger.info(f"Found {len(apps)} apps in category {category}")
         return apps
     
     async def close(self):
-        await self._http_client.close()
+        if self.session and not self.session.is_closed:
+            await self.session.aclose()
     
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close() 
+        await self.close()
+
+
+_app_service = None
+
+def get_app_service() -> AppService:
+    global _app_service
+    if _app_service is None:
+        _app_service = AppService()
+    return _app_service
+
+
+PipedreamException = AppServiceError
+HttpClientException = AppServiceError
+AuthenticationException = AuthenticationError
+RateLimitException = RateLimitError 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -8,6 +9,14 @@ from enum import Enum
 
 import httpx
 from utils.logger import logger
+
+try:
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    logger.warning("MCP client libraries not available")
 
 
 class ConnectionStatus(Enum):
@@ -42,6 +51,9 @@ class MCPServer:
 
     def get_tool_count(self) -> int:
         return len(self.available_tools)
+
+    def add_tool(self, tool: MCPTool):
+        self.available_tools.append(tool)
 
 
 class MCPServiceError(Exception):
@@ -158,41 +170,67 @@ class MCPService:
                 raise RateLimitError("Rate limit exceeded")
             raise MCPServiceError(f"HTTP request failed: {e}")
 
-    async def _fetch_server_tools(self, external_user_id: str, app_slug: str) -> List[MCPTool]:
-        project_id = os.getenv("PIPEDREAM_PROJECT_ID")
-        environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
-
-        if not project_id:
-            return []
-
-        url = f"{self.base_url}/connect/{project_id}/tools"
-        params = {
-            "app": app_slug,
-            "external_id": external_user_id
-        }
-        headers = {"X-PD-Environment": environment}
-
+    async def test_connection(self, server: MCPServer) -> MCPServer:
+        if not MCP_AVAILABLE:
+            logger.warning(f"MCP client not available for testing {server.app_name}")
+            server.status = ConnectionStatus.ERROR
+            server.error_message = "MCP client libraries not available"
+            return server
+        
         try:
-            data = await self._make_request(url, headers=headers, params=params)
-            tools_data = data.get("data", [])
-
-            tools = []
-            for tool_data in tools_data:
-                if tool_data.get("name") or tool_data.get("key"):
-                    tool = MCPTool(
-                        name=tool_data.get("name") or tool_data.get("key", ""),
-                        description=tool_data.get("description", f"Tool from {app_slug}"),
-                        input_schema=tool_data.get("inputSchema") or tool_data.get("props", {})
-                    )
-                    tools.append(tool)
-
-            return tools
-
+            access_token = await self._ensure_access_token()
         except Exception as e:
-            logger.error(f"Error fetching tools for {app_slug}: {str(e)}")
-            return []
+            logger.error(f"Failed to get access token for MCP connection: {str(e)}")
+            server.status = ConnectionStatus.ERROR
+            server.error_message = f"Authentication failed: {str(e)}"
+            return server
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "x-pd-project-id": server.project_id,
+            "x-pd-environment": server.environment,
+            "x-pd-external-user-id": server.external_user_id,
+            "x-pd-app-slug": server.app_slug,
+        }
+        
+        logger.info(f"Testing MCP connection for {server.app_name} at {server.server_url}")
+        
+        try:
+            async with asyncio.timeout(15):
+                async with streamablehttp_client(server.server_url, headers=headers) as (read_stream, write_stream, _):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        await session.initialize()
+                        tools_result = await session.list_tools()
+                        tools = tools_result.tools if hasattr(tools_result, 'tools') else tools_result
+                        
+                        for tool in tools:
+                            mcp_tool = MCPTool(
+                                name=tool.name,
+                                description=tool.description,
+                                input_schema=tool.inputSchema
+                            )
+                            server.add_tool(mcp_tool)
+                        
+                        server.status = ConnectionStatus.CONNECTED
+                        logger.info(f"Successfully tested MCP server for {server.app_name} with {server.get_tool_count()} tools")
+                        return server
+                        
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout testing MCP connection for {server.app_name}")
+            server.status = ConnectionStatus.ERROR
+            server.error_message = "Connection timeout"
+        except Exception as e:
+            logger.error(f"Failed to test MCP connection for {server.app_name}: {str(e)}")
+            server.status = ConnectionStatus.ERROR
+            server.error_message = str(e)
+        
+        return server
 
     async def discover_servers_for_user(self, external_user_id: ExternalUserId, app_slug: Optional[AppSlug] = None) -> List[MCPServer]:
+        if not MCP_AVAILABLE:
+            logger.warning("MCP client libraries not available - returning empty server list")
+            return []
+        
         project_id = os.getenv("PIPEDREAM_PROJECT_ID")
         environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
 
@@ -218,57 +256,50 @@ class MCPService:
 
             if app_slug:
                 user_apps = [app for app in user_apps if app.get("name_slug") == app_slug.value]
+                logger.info(f"Filtered to {len(user_apps)} apps for app_slug: {app_slug.value}")
 
-            servers = []
+            mcp_servers = []
             for app in user_apps:
-                try:
-                    server = MCPServer(
-                        app_slug=app.get("name_slug", ""),
-                        app_name=app.get("name", "Unknown"),
-                        server_url="https://remote.mcp.pipedream.net",
-                        project_id=project_id,
-                        environment=environment,
-                        external_user_id=external_user_id.value,
-                        status=ConnectionStatus.CONNECTED
-                    )
-
-                    try:
-                        logger.info(f"Attempting to fetch tools for {app.get('name_slug')}...")
-                        tools = await self._fetch_server_tools(external_user_id.value, server.app_slug)
-                        server.available_tools = tools
-
-                        logger.info(f"Successfully fetched {len(tools)} tools for app: {app.get('name_slug')}")
-
-                    except Exception as e:
-                        logger.error(f"Error fetching tools for {app.get('name_slug')}: {str(e)}")
-                        server.available_tools = []
-
-                    servers.append(server)
-
-                except Exception as e:
-                    logger.error(f"Error creating server for app {app.get('name_slug', 'unknown')}: {str(e)}")
+                app_slug_current = app.get('name_slug')
+                app_name = app.get('name')
+                
+                if not app_slug_current:
+                    logger.warning(f"App missing name_slug: {app}")
                     continue
+                
+                logger.info(f"Creating MCP server for app: {app_name} ({app_slug_current})")
+                
+                server = MCPServer(
+                    app_slug=app_slug_current,
+                    app_name=app_name,
+                    server_url='https://remote.mcp.pipedream.net',
+                    project_id=project_id,
+                    environment=environment,
+                    external_user_id=external_user_id.value,
+                    status=ConnectionStatus.DISCONNECTED
+                )
+                
+                try:
+                    tested_server = await self.test_connection(server)
+                    mcp_servers.append(tested_server)
+                    logger.info(f"Successfully tested MCP server for {app_name}: {tested_server.status.value}")
+                except Exception as e:
+                    logger.warning(f"Failed to test MCP server for {app_name}: {str(e)}")
+                    server.status = ConnectionStatus.ERROR
+                    server.error_message = str(e)
+                    mcp_servers.append(server)
 
-            logger.info(f"Successfully discovered {len(servers)} MCP servers")
-            return servers
+            logger.info(f"Discovered {len(mcp_servers)} MCP servers for user: {external_user_id.value}")
+            return mcp_servers
 
         except Exception as e:
-            logger.error(f"Error discovering servers for user {external_user_id.value}: {str(e)}")
+            logger.error(f"Error discovering MCP servers: {str(e)}")
             return []
 
-    async def test_server_connection(self, server: MCPServer) -> MCPServer:
-        logger.info(f"Testing MCP server connection: {server.app_name}")
-        
-        server.status = ConnectionStatus.CONNECTED
-        
-        if server.is_connected():
-            logger.info(f"MCP server {server.app_name} connected successfully with {server.get_tool_count()} tools")
-        else:
-            logger.warning(f"MCP server {server.app_name} connection failed: {server.error_message}")
-        
-        return server
-
     async def create_connection(self, external_user_id: ExternalUserId, app_slug: AppSlug, oauth_app_id: Optional[str] = None) -> MCPServer:
+        if not MCP_AVAILABLE:
+            raise MCPServerNotAvailableError("MCP client not available")
+        
         project_id = os.getenv("PIPEDREAM_PROJECT_ID")
         environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
 
@@ -277,23 +308,43 @@ class MCPService:
 
         logger.info(f"Creating MCP connection for user: {external_user_id.value}, app: {app_slug.value}")
 
-        server = MCPServer(
-            app_slug=app_slug.value,
-            app_name=app_slug.value.replace('_', ' ').title(),
-            server_url="https://remote.mcp.pipedream.net",
-            project_id=project_id,
-            environment=environment,
-            external_user_id=external_user_id.value,
-            oauth_app_id=oauth_app_id,
-            status=ConnectionStatus.CONNECTED
-        )
+        url = f"{self.base_url}/connect/{project_id}/accounts"
+        params = {"external_id": external_user_id.value}
+        headers = {"X-PD-Environment": environment}
 
-        if server.is_connected():
-            logger.info(f"Successfully created MCP connection for {app_slug.value} with {server.get_tool_count()} tools")
-        else:
-            logger.error(f"Failed to create MCP connection for {app_slug.value}: {server.error_message}")
+        try:
+            data = await self._make_request(url, headers=headers, params=params)
 
-        return server
+            accounts = data.get("data", [])
+            user_apps = [account.get("app") for account in accounts if account.get("app")]
+
+            connected_app = None
+            for app in user_apps:
+                if app.get('name_slug') == app_slug.value:
+                    connected_app = app
+                    break
+
+            if not connected_app:
+                raise MCPConnectionError(f"User {external_user_id.value} does not have {app_slug.value} connected")
+
+            server = MCPServer(
+                app_slug=app_slug.value,
+                app_name=connected_app.get('name'),
+                server_url='https://remote.mcp.pipedream.net',
+                project_id=project_id,
+                environment=environment,
+                external_user_id=external_user_id.value,
+                oauth_app_id=oauth_app_id,
+                status=ConnectionStatus.DISCONNECTED
+            )
+
+            tested_server = await self.test_connection(server)
+            logger.info(f"Successfully created MCP connection for {app_slug.value}")
+            return tested_server
+
+        except Exception as e:
+            logger.error(f"Failed to create MCP connection for {app_slug.value}: {str(e)}")
+            raise MCPConnectionError(str(e))
 
     async def close(self):
         if self.session and not self.session.is_closed:
