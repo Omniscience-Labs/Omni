@@ -60,7 +60,7 @@ export function ConfigurationTab({
   const isSunaAgent = agentMetadata?.is_suna_default || false;
   
   const mapAccordion = (val?: string) => {
-    if (val === 'instructions') return 'system';
+    if (val === 'instructions') return isSunaAgent ? 'integrations' : 'system';
     if (isSunaAgent && (val === 'system' || val === 'tools')) {
       return 'integrations';
     }

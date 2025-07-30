@@ -157,25 +157,6 @@ export function ToolCallSidePanel({
   const currentToolCall = currentSnapshot?.toolCall;
   const totalCalls = toolCallSnapshots.length;
 
-  const extractToolName = (toolCall: any) => {
-    const rawName = toolCall?.assistantCall?.name || 'Tool Call';
-    if (rawName === 'call-mcp-tool') {
-      const assistantContent = toolCall?.assistantCall?.content;
-      if (assistantContent) {
-        try {
-          const toolNameMatch = assistantContent.match(/tool_name="([^"]+)"/);
-          if (toolNameMatch && toolNameMatch[1]) {
-            const mcpToolName = toolNameMatch[1];
-            return getUserFriendlyToolName(mcpToolName);
-          }
-        } catch (e) {
-        }
-      }
-      return 'External Tool';
-    }
-    return getUserFriendlyToolName(rawName);
-  };
-
   const completedToolCalls = toolCallSnapshots.filter(snapshot =>
     snapshot.toolCall.toolResult?.content &&
     snapshot.toolCall.toolResult.content !== 'STREAMING'

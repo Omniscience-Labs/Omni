@@ -397,14 +397,11 @@ class PipedreamManager:
         print(f"[DEBUG] After deepcopy - updated_custom_mcps count: {len(updated_custom_mcps)}")
         print(f"[DEBUG] After deepcopy - updated_custom_mcps: {updated_custom_mcps}")
         
-        # Normalize enabledTools vs enabled_tools
         for mcp in updated_custom_mcps:
-            if 'enabled_tools' in mcp and 'enabledTools' not in mcp:
-                mcp['enabledTools'] = mcp['enabled_tools']
-            elif 'enabledTools' not in mcp and 'enabled_tools' not in mcp:
-                mcp['enabledTools'] = []
+            if 'enabledTools' not in mcp:
+                mcp['enabledTools'] = mcp.get('enabled_tools', [])
+ 
 
-        # Look for existing MCP with same profile_id
         found_match = False
         for i, mcp in enumerate(updated_custom_mcps):
             print(f"[DEBUG] Checking MCP {i}: type={mcp.get('type')}, profile_id={mcp.get('config', {}).get('profile_id')}")
@@ -412,7 +409,6 @@ class PipedreamManager:
                 mcp.get('config', {}).get('profile_id') == profile_id):                
                 print(f"[DEBUG] Found existing MCP at index {i}, updating tools from {mcp.get('enabledTools', [])} to {enabled_tools}")
                 mcp['enabledTools'] = enabled_tools
-                mcp['enabled_tools'] = enabled_tools
                 found_match = True
                 break
         
@@ -428,8 +424,7 @@ class PipedreamManager:
                     },
                     "profile_id": profile_id
                 },
-                "enabledTools": enabled_tools,
-                "enabled_tools": enabled_tools
+                "enabledTools": enabled_tools
             }
             print(f"[DEBUG] New MCP config: {new_mcp_config}")
             updated_custom_mcps.append(new_mcp_config)
