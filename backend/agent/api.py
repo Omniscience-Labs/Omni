@@ -25,9 +25,12 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
-from .versioning.facade import version_manager
-from .versioning.api.routes import router as version_router
-from .versioning.infrastructure.dependencies import set_db_connection
+from .versioning.version_service import get_version_service
+from .versioning.api import router as version_router, initialize as initialize_versioning
+
+# Helper for version service
+async def _get_version_service():
+    return await get_version_service()
 from utils.suna_default_agent_service import SunaDefaultAgentService
 
 router = APIRouter()
@@ -143,7 +146,7 @@ def initialize(
     db = _db
     
     # Initialize the versioning module with the same database connection
-    set_db_connection(_db)
+    initialize_versioning(_db)
 
     # Use provided instance_id or generate a new one
     if _instance_id:
@@ -332,12 +335,13 @@ async def start_agent(
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    version_dict = await version_manager.get_version(
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=effective_agent_id,
                         version_id=agent_data['current_version_id'],
                         user_id=user_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                     logger.info(f"[AGENT LOAD] Got version data from version manager: {version_data.get('version_name')}")
                 except Exception as e:
                     logger.warning(f"[AGENT LOAD] Failed to get version data: {e}")
@@ -367,12 +371,13 @@ async def start_agent(
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    version_dict = await version_manager.get_version(
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=agent_data['agent_id'],
                         version_id=agent_data['current_version_id'],
                         user_id=user_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                     logger.info(f"[AGENT LOAD] Got default agent version from version manager: {version_data.get('version_name')}")
                 except Exception as e:
                     logger.warning(f"[AGENT LOAD] Failed to get default agent version data: {e}")
@@ -562,30 +567,32 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
         current_version = None
         if agent_data.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await _get_version_service()
+                current_version_obj = await version_service.get_version(
                     agent_id=effective_agent_id,
                     version_id=agent_data['current_version_id'],
                     user_id=user_id
                 )
-                version_data = version_dict
+                current_version_data = current_version_obj.to_dict()
+                version_data = current_version_data
                 
                 # Create AgentVersionResponse from version data
                 current_version = AgentVersionResponse(
-                    version_id=version_dict['version_id'],
-                    agent_id=version_dict['agent_id'],
-                    version_number=version_dict['version_number'],
-                    version_name=version_dict['version_name'],
-                    system_prompt=version_dict['system_prompt'],
-                    configured_mcps=version_dict.get('configured_mcps', []),
-                    custom_mcps=version_dict.get('custom_mcps', []),
-                    agentpress_tools=version_dict.get('agentpress_tools', {}),
-                    is_active=version_dict.get('is_active', True),
-                    created_at=version_dict['created_at'],
-                    updated_at=version_dict.get('updated_at', version_dict['created_at']),
-                    created_by=version_dict.get('created_by')
+                    version_id=current_version_data['version_id'],
+                    agent_id=current_version_data['agent_id'],
+                    version_number=current_version_data['version_number'],
+                    version_name=current_version_data['version_name'],
+                    system_prompt=current_version_data['system_prompt'],
+                    configured_mcps=current_version_data.get('configured_mcps', []),
+                    custom_mcps=current_version_data.get('custom_mcps', []),
+                    agentpress_tools=current_version_data.get('agentpress_tools', {}),
+                    is_active=current_version_data.get('is_active', True),
+                    created_at=current_version_data['created_at'],
+                    updated_at=current_version_data.get('updated_at', current_version_data['created_at']),
+                    created_by=current_version_data.get('created_by')
                 )
                 
-                logger.info(f"Using agent {agent_data['name']} version {version_dict.get('version_name', 'v1')}")
+                logger.info(f"Using agent {agent_data['name']} version {current_version_data.get('version_name', 'v1')}")
             except Exception as e:
                 logger.warning(f"Failed to get version data for agent {effective_agent_id}: {e}")
         
@@ -614,7 +621,7 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 avatar=agent_config.get('avatar'),
                 avatar_color=agent_config.get('avatar_color'),
                 created_at=agent_data['created_at'],
-                updated_at=agent_data['updated_at'],
+                updated_at=agent_data.get('updated_at', agent_data['created_at']),
                 current_version_id=agent_data.get('current_version_id'),
                 version_count=agent_data.get('version_count', 1),
                 current_version=current_version,
@@ -924,12 +931,13 @@ async def initiate_agent_with_files(
         version_data = None
         if agent_data.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await _get_version_service()
+                version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent_data['current_version_id'],
                     user_id=user_id
                 )
-                version_data = version_dict
+                version_data = version_obj.to_dict()
                 logger.info(f"[AGENT INITIATE] Got version data from version manager: {version_data.get('version_name')}")
                 logger.info(f"[AGENT INITIATE] Version data: {version_data}")
             except Exception as e:
@@ -956,12 +964,13 @@ async def initiate_agent_with_files(
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    version_dict = await version_manager.get_version(
+                    version_service = await _get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=agent_data['agent_id'],
                         version_id=agent_data['current_version_id'],
                         user_id=user_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                     logger.info(f"[AGENT INITIATE] Got default agent version from version manager: {version_data.get('version_name')}")
                 except Exception as e:
                     logger.warning(f"[AGENT INITIATE] Failed to get default agent version data: {e}")
@@ -1273,11 +1282,14 @@ async def get_agents(
         for agent in agents_data:
             if agent.get('current_version_id'):
                 try:
-                    version_dict = await version_manager.get_version(
+                    version_service = await _get_version_service()
+
+                    version_obj = await version_service.get_version(
                         agent_id=agent['agent_id'],
                         version_id=agent['current_version_id'],
                         user_id=user_id
                     )
+                    version_dict = version_obj.to_dict()
                     agent_version_map[agent['agent_id']] = version_dict
                 except Exception as e:
                     logger.warning(f"Failed to get version data for agent {agent['agent_id']}: {e}")
@@ -1464,25 +1476,32 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
         current_version = None
         if agent_data.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await _get_version_service()
+                current_version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent_data['current_version_id'],
                     user_id=user_id
                 )
+                current_version_data = current_version_obj.to_dict()
+                version_data = current_version_data
+                
+                # Create AgentVersionResponse from version data
                 current_version = AgentVersionResponse(
-                    version_id=version_dict['version_id'],
-                    agent_id=version_dict['agent_id'],
-                    version_number=version_dict['version_number'],
-                    version_name=version_dict['version_name'],
-                    system_prompt=version_dict['system_prompt'],
-                    configured_mcps=version_dict.get('configured_mcps', []),
-                    custom_mcps=version_dict.get('custom_mcps', []),
-                    agentpress_tools=version_dict.get('agentpress_tools', {}),
-                    is_active=version_dict.get('is_active', True),
-                    created_at=version_dict['created_at'],
-                    updated_at=version_dict.get('updated_at', version_dict['created_at']),
-                    created_by=version_dict.get('created_by')
+                    version_id=current_version_data['version_id'],
+                    agent_id=current_version_data['agent_id'],
+                    version_number=current_version_data['version_number'],
+                    version_name=current_version_data['version_name'],
+                    system_prompt=current_version_data['system_prompt'],
+                    configured_mcps=current_version_data.get('configured_mcps', []),
+                    custom_mcps=current_version_data.get('custom_mcps', []),
+                    agentpress_tools=current_version_data.get('agentpress_tools', {}),
+                    is_active=current_version_data.get('is_active', True),
+                    created_at=current_version_data['created_at'],
+                    updated_at=current_version_data.get('updated_at', current_version_data['created_at']),
+                    created_by=current_version_data.get('created_by')
                 )
+                
+                logger.info(f"Using agent {agent_data['name']} version {current_version_data.get('version_name', 'v1')}")
             except Exception as e:
                 logger.warning(f"Failed to get version data for agent {agent_id}: {e}")
         
@@ -1575,7 +1594,9 @@ async def create_agent(
         agent = new_agent.data[0]
         
         try:
-            version = await version_manager.create_version(
+            version_service = await _get_version_service()
+
+            version = await version_service.create_version(
                 agent_id=agent['agent_id'],
                 user_id=user_id,
                 system_prompt=agent_data.system_prompt,
@@ -1739,11 +1760,13 @@ async def update_agent(
         current_version_data = None
         if existing_data.get('current_version_id'):
             try:
-                current_version_data = await version_manager.get_version(
+                version_service = await _get_version_service()
+                current_version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=existing_data['current_version_id'],
                     user_id=user_id
                 )
+                current_version_data = current_version_obj.to_dict()
             except Exception as e:
                 logger.warning(f"Failed to get current version data for agent {agent_id}: {e}")
         
@@ -1871,7 +1894,9 @@ async def update_agent(
         new_version_id = None
         if needs_new_version:
             try:
-                new_version = await version_manager.create_version(
+                version_service = await _get_version_service()
+
+                new_version = await version_service.create_version(
                     agent_id=agent_id,
                     user_id=user_id,
                     system_prompt=current_system_prompt,
@@ -1881,7 +1906,7 @@ async def update_agent(
                     change_description="Configuration updated"
                 )
                 
-                new_version_id = new_version['version_id']
+                new_version_id = new_version.version_id
                 update_data['current_version_id'] = new_version_id
                 update_data['version_count'] = new_version['version_number']
                 
@@ -1914,66 +1939,39 @@ async def update_agent(
         current_version = None
         if agent.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await _get_version_service()
+                current_version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent['current_version_id'],
                     user_id=user_id
                 )
+                current_version_data = current_version_obj.to_dict()
+                version_data = current_version_data
+                
+                # Create AgentVersionResponse from version data
                 current_version = AgentVersionResponse(
-                    version_id=version_dict['version_id'],
-                    agent_id=version_dict['agent_id'],
-                    version_number=version_dict['version_number'],
-                    version_name=version_dict['version_name'],
-                    system_prompt=version_dict['system_prompt'],
-                    configured_mcps=version_dict.get('configured_mcps', []),
-                    custom_mcps=version_dict.get('custom_mcps', []),
-                    agentpress_tools=version_dict.get('agentpress_tools', {}),
-                    is_active=version_dict.get('is_active', True),
-                    created_at=version_dict['created_at'],
-                    updated_at=version_dict.get('updated_at', version_dict['created_at']),
-                    created_by=version_dict.get('created_by')
+                    version_id=current_version_data['version_id'],
+                    agent_id=current_version_data['agent_id'],
+                    version_number=current_version_data['version_number'],
+                    version_name=current_version_data['version_name'],
+                    system_prompt=current_version_data['system_prompt'],
+                    configured_mcps=current_version_data.get('configured_mcps', []),
+                    custom_mcps=current_version_data.get('custom_mcps', []),
+                    agentpress_tools=current_version_data.get('agentpress_tools', {}),
+                    is_active=current_version_data.get('is_active', True),
+                    created_at=current_version_data['created_at'],
+                    updated_at=current_version_data.get('updated_at', current_version_data['created_at']),
+                    created_by=current_version_data.get('created_by')
                 )
+                
+                logger.info(f"Using agent {agent['name']} version {current_version_data.get('version_name', 'v1')}")
             except Exception as e:
                 logger.warning(f"Failed to get version data for updated agent {agent_id}: {e}")
         
         logger.info(f"Updated agent {agent_id} for user: {user_id}")
         
-        try:
-            auto_version_id = await version_manager.auto_create_version_on_config_change(
-                agent_id=agent_id,
-                user_id=user_id,
-                change_description="Auto-saved configuration changes"
-            )
-            if auto_version_id:
-                logger.info(f"Auto-created version {auto_version_id} for agent {agent_id}")
-                updated_agent = await client.table('agents').select('*').eq("agent_id", agent_id).eq("account_id", user_id).maybe_single().execute()
-                if updated_agent.data:
-                    agent = updated_agent.data
-                    if agent.get('current_version_id'):
-                        try:
-                            version_dict = await version_manager.get_version(
-                                agent_id=agent_id,
-                                version_id=agent['current_version_id'],
-                                user_id=user_id
-                            )
-                            current_version = AgentVersionResponse(
-                                version_id=version_dict['version_id'],
-                                agent_id=version_dict['agent_id'],
-                                version_number=version_dict['version_number'],
-                                version_name=version_dict['version_name'],
-                                system_prompt=version_dict['system_prompt'],
-                                configured_mcps=version_dict.get('configured_mcps', []),
-                                custom_mcps=version_dict.get('custom_mcps', []),
-                                agentpress_tools=version_dict.get('agentpress_tools', {}),
-                                is_active=version_dict.get('is_active', True),
-                                created_at=version_dict['created_at'],
-                                updated_at=version_dict.get('updated_at', version_dict['created_at']),
-                                created_by=version_dict.get('created_by')
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to get version data after auto-versioning for agent {agent_id}: {e}")
-        except Exception as e:
-            logger.warning(f"Auto-versioning failed for agent {agent_id}: {e}")
+        # Auto-versioning removed for simplicity - users can manually create versions when needed
+        logger.info(f"Agent {agent_id} configuration updated. Users can create a new version if needed.")
 
         # Extract configuration using the unified config approach
         version_data = None
@@ -2421,9 +2419,10 @@ async def update_custom_mcp_tools_for_agent(
         tools['custom_mcp'] = custom_mcps
         agent_config['tools'] = tools
         
-        from agent.versioning.facade import version_manager
+        from agent.versioning.version_service import get_version_service
         try:
-            new_version = await version_manager.create_version(
+            version_service = await get_version_service()
+            new_version = await version_service.create_version(
                 agent_id=agent_id,
                 user_id=user_id,
                 system_prompt=agent_config.get('system_prompt', ''),
@@ -2433,7 +2432,7 @@ async def update_custom_mcp_tools_for_agent(
                 version_name="Auto-updated MCP tools",
                 change_description=f"Updated custom MCP tools for {mcp_url}"
             )
-            logger.info(f"Created version {new_version['version_id']} for custom MCP tools update on agent {agent_id}")
+            logger.info(f"Created version {new_version.version_id} for custom MCP tools update on agent {agent_id}")
         except Exception as e:
             logger.error(f"Failed to create version for custom MCP tools update: {e}")
             raise HTTPException(status_code=500, detail="Failed to save changes")
@@ -2473,12 +2472,14 @@ async def get_agent_tools(
     version_data = None
     if agent.get('current_version_id'):
         try:
-            version_dict = await version_manager.get_version(
+            version_service = await _get_version_service()
+
+            version_obj = await version_service.get_version(
                 agent_id=agent_id,
                 version_id=agent['current_version_id'],
                 user_id=user_id
             )
-            version_data = version_dict
+            version_data = version_obj.to_dict()
         except Exception as e:
             logger.warning(f"Failed to fetch version data for tools endpoint: {e}")
     

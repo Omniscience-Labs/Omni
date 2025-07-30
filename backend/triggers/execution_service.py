@@ -217,10 +217,7 @@ class AgentExecutor:
             }
     
     async def _get_agent_config(self, agent_id: str) -> Dict[str, Any]:
-        from agent.versioning.domain.entities import AgentId
-        from agent.versioning.infrastructure.dependencies import set_db_connection, get_container
-        
-        set_db_connection(self._db)
+
         
         try:
             client = await self._db.client
@@ -230,11 +227,10 @@ class AgentExecutor:
             
             agent_data = agent_result.data[0]
             
-            container = get_container()
-            version_service = await container.get_version_service()
-            agent_id_obj = AgentId.from_string(agent_id)
+            from agent.versioning.version_service import get_version_service
+            version_service = await get_version_service()
             
-            active_version = await version_service.version_repo.find_active_version(agent_id_obj)
+            active_version = await version_service.get_active_version(agent_id, "system")
             if not active_version:
                 return {
                     'agent_id': agent_id,
@@ -250,27 +246,11 @@ class AgentExecutor:
                 'agent_id': agent_id,
                 'account_id': agent_data.get('account_id'),
                 'name': agent_data.get('name', 'Unknown Agent'),
-                'system_prompt': active_version.system_prompt.value,
-                'configured_mcps': [
-                    {
-                        'name': mcp.name,
-                        'type': mcp.type,
-                        'config': mcp.config,
-                        'enabledTools': mcp.enabled_tools
-                    }
-                    for mcp in active_version.configured_mcps
-                ],
-                'custom_mcps': [
-                    {
-                        'name': mcp.name,
-                        'type': mcp.type,
-                        'config': mcp.config,
-                        'enabledTools': mcp.enabled_tools
-                    }
-                    for mcp in active_version.custom_mcps
-                ],
-                'agentpress_tools': active_version.tool_configuration.tools if isinstance(active_version.tool_configuration.tools, dict) else {},
-                'current_version_id': str(active_version.version_id),
+                'system_prompt': active_version.system_prompt,
+                'configured_mcps': active_version.configured_mcps,
+                'custom_mcps': active_version.custom_mcps,
+                'agentpress_tools': active_version.agentpress_tools if isinstance(active_version.agentpress_tools, dict) else {},
+                'current_version_id': active_version.version_id,
                 'version_name': active_version.version_name
             }
             
@@ -417,10 +397,6 @@ class WorkflowExecutor:
         return workflow_config, steps_json
     
     async def _get_agent_data(self, agent_id: str) -> Tuple[Dict[str, Any], str]:
-        from agent.versioning.domain.entities import AgentId
-        from agent.versioning.infrastructure.dependencies import set_db_connection, get_container
-        
-        set_db_connection(self._db)
         
         try:
             client = await self._db.client
@@ -431,38 +407,21 @@ class WorkflowExecutor:
             agent_data = agent_result.data[0]
             account_id = agent_data['account_id']
             
-            container = get_container()
-            version_service = await container.get_version_service()
-            agent_id_obj = AgentId.from_string(agent_id)
+            from agent.versioning.version_service import get_version_service
+            version_service = await get_version_service()
             
-            active_version = await version_service.version_repo.find_active_version(agent_id_obj)
+            active_version = await version_service.get_active_version(agent_id, "system")
             if not active_version:
                 raise ValueError(f"No active version found for agent {agent_id}")
             
             agent_config = {
                 'agent_id': agent_id,
                 'name': agent_data.get('name', 'Unknown Agent'),
-                'system_prompt': active_version.system_prompt.value,
-                'configured_mcps': [
-                    {
-                        'name': mcp.name,
-                        'type': mcp.type,
-                        'config': mcp.config,
-                        'enabledTools': mcp.enabled_tools
-                    }
-                    for mcp in active_version.configured_mcps
-                ],
-                'custom_mcps': [
-                    {
-                        'name': mcp.name,
-                        'type': mcp.type,
-                        'config': mcp.config,
-                        'enabledTools': mcp.enabled_tools
-                    }
-                    for mcp in active_version.custom_mcps
-                ],
-                'agentpress_tools': active_version.tool_configuration.tools if isinstance(active_version.tool_configuration.tools, dict) else {},
-                'current_version_id': str(active_version.version_id),
+                'system_prompt': active_version.system_prompt,
+                'configured_mcps': active_version.configured_mcps,
+                'custom_mcps': active_version.custom_mcps,
+                'agentpress_tools': active_version.agentpress_tools if isinstance(active_version.agentpress_tools, dict) else {},
+                'current_version_id': active_version.version_id,
                 'version_name': active_version.version_name
             }
             

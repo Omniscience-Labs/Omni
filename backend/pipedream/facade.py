@@ -228,11 +228,10 @@ class PipedreamManager:
         user_id: str
     ) -> List[str]:
         from services.supabase import DBConnection
-        from agent.versioning.facade import VersionManagerFacade
+        from agent.versioning.version_service import get_version_service
         
         db = DBConnection()
         client = await db.client
-        version_manager = VersionManagerFacade()
         
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
@@ -243,12 +242,14 @@ class PipedreamManager:
         version_custom_mcps = []
         if agent.get('current_version_id'):
             try:
-                version_dict = await version_manager.get_version(
+                version_service = await get_version_service()
+                version_obj = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent['current_version_id'],
                     user_id=user_id
                 )
-                version_custom_mcps = version_dict.get('custom_mcps', [])
+                version_data = version_obj.to_dict()
+                version_custom_mcps = version_data.get('custom_mcps', [])
             except Exception as e:
                 pass
         
@@ -284,23 +285,24 @@ class PipedreamManager:
         version_id: str
     ) -> List[str]:
         from services.supabase import DBConnection
-        from agent.versioning.facade import VersionManagerFacade
+        from agent.versioning.version_service import get_version_service
         
         db = DBConnection()
         client = await db.client
-        version_manager = VersionManagerFacade()
         
         agent_result = await client.table('agents').select('agent_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
         if not agent_result.data:
             return []
 
         try:
-            version_dict = await version_manager.get_version(
+            version_service = await get_version_service()
+            version_obj = await version_service.get_version(
                 agent_id=agent_id,
                 version_id=version_id,
                 user_id=user_id
             )
-            version_custom_mcps = version_dict.get('custom_mcps', [])
+            version_data = version_obj.to_dict()
+            version_custom_mcps = version_data.get('custom_mcps', [])
         except Exception as e:
             return []
         
@@ -335,14 +337,15 @@ class PipedreamManager:
         user_id: str,
         enabled_tools: List[str]
     ) -> Dict[str, Any]:
+        
         from services.supabase import DBConnection
-        from agent.versioning.facade import version_manager
+        from agent.versioning.version_service import get_version_service
         import copy
         
         db = DBConnection()
 
-        from agent.versioning.infrastructure.dependencies import set_db_connection
-        set_db_connection(db)
+        # Legacy import - no longer needed with simplified versioning
+        # set_db_connection(db)  # No longer needed
         client = await db.client
         
         agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).eq('account_id', user_id).execute()
@@ -351,15 +354,24 @@ class PipedreamManager:
         
         agent = agent_result.data[0]
         
+        print(f"[DEBUG] Starting update_agent_profile_tools for agent {agent_id}, profile {profile_id}")
+        
         current_version_data = None
         if agent.get('current_version_id'):
             try:
-                current_version_data = await version_manager.get_version(
+                version_service = await get_version_service()
+                current_version_data = await version_service.get_version(
                     agent_id=agent_id,
                     version_id=agent['current_version_id'],
                     user_id=user_id
                 )
+                version_data = current_version_data.to_dict()
+                current_custom_mcps = version_data.get('custom_mcps', [])
+                print(f"[DEBUG] Retrieved current version {agent['current_version_id']}")
+                print(f"[DEBUG] Current custom_mcps count: {len(current_custom_mcps)}")
+                print(f"[DEBUG] Current custom_mcps: {current_custom_mcps}")
             except Exception as e:
+                print(f"[DEBUG] Error getting current version: {e}")
                 pass
         
 
@@ -368,34 +380,44 @@ class PipedreamManager:
             raise ValueError("Profile not found")
         
         if current_version_data:
-            system_prompt = current_version_data.get('system_prompt', '')
-            configured_mcps = current_version_data.get('configured_mcps', [])
-            agentpress_tools = current_version_data.get('agentpress_tools', {})
-            current_custom_mcps = current_version_data.get('custom_mcps', [])
+            system_prompt = current_version_data.system_prompt
+            configured_mcps = current_version_data.configured_mcps
+            agentpress_tools = current_version_data.agentpress_tools
+            current_custom_mcps = current_version_data.custom_mcps
+            print(f"[DEBUG] Using version data - custom_mcps count: {len(current_custom_mcps)}")
         else:
             system_prompt = ''
             configured_mcps = []
             agentpress_tools = {}
             current_custom_mcps = []
+            print(f"[DEBUG] No version data - starting with empty custom_mcps")
+
         
         updated_custom_mcps = copy.deepcopy(current_custom_mcps)
+        print(f"[DEBUG] After deepcopy - updated_custom_mcps count: {len(updated_custom_mcps)}")
+        print(f"[DEBUG] After deepcopy - updated_custom_mcps: {updated_custom_mcps}")
         
+        # Normalize enabledTools vs enabled_tools
         for mcp in updated_custom_mcps:
             if 'enabled_tools' in mcp and 'enabledTools' not in mcp:
                 mcp['enabledTools'] = mcp['enabled_tools']
             elif 'enabledTools' not in mcp and 'enabled_tools' not in mcp:
                 mcp['enabledTools'] = []
 
+        # Look for existing MCP with same profile_id
         found_match = False
-        for mcp in updated_custom_mcps:
+        for i, mcp in enumerate(updated_custom_mcps):
+            print(f"[DEBUG] Checking MCP {i}: type={mcp.get('type')}, profile_id={mcp.get('config', {}).get('profile_id')}")
             if (mcp.get('type') == 'pipedream' and 
                 mcp.get('config', {}).get('profile_id') == profile_id):                
+                print(f"[DEBUG] Found existing MCP at index {i}, updating tools from {mcp.get('enabledTools', [])} to {enabled_tools}")
                 mcp['enabledTools'] = enabled_tools
                 mcp['enabled_tools'] = enabled_tools
                 found_match = True
                 break
         
         if not found_match:
+            print(f"[DEBUG] No existing MCP found, creating new one")
             new_mcp_config = {
                 "name": profile.app_name,
                 "type": "pipedream",
@@ -409,9 +431,17 @@ class PipedreamManager:
                 "enabledTools": enabled_tools,
                 "enabled_tools": enabled_tools
             }
+            print(f"[DEBUG] New MCP config: {new_mcp_config}")
             updated_custom_mcps.append(new_mcp_config)
+            print(f"[DEBUG] After append - updated_custom_mcps count: {len(updated_custom_mcps)}")
         
-        new_version = await version_manager.create_version(
+        print(f"[DEBUG] Final updated_custom_mcps count: {len(updated_custom_mcps)}")
+        print(f"[DEBUG] Final updated_custom_mcps: {updated_custom_mcps}")
+        
+        version_service = await get_version_service()
+
+        
+        new_version = await version_service.create_version(
             agent_id=agent_id,
             user_id=user_id,
             system_prompt=system_prompt,
@@ -421,8 +451,10 @@ class PipedreamManager:
             change_description=f"Updated {profile.app_name} tools"
         )
         
+        print(f"[DEBUG] Created new version {new_version.version_id} with {len(updated_custom_mcps)} custom MCPs")
+        
         update_result = await client.table('agents').update({
-            'current_version_id': new_version['version_id']
+            'current_version_id': new_version.version_id
         }).eq('agent_id', agent_id).execute()
         
         if not update_result.data:
@@ -432,8 +464,8 @@ class PipedreamManager:
             'success': True,
             'enabled_tools': enabled_tools,
             'total_tools': len(enabled_tools),
-            'version_id': new_version['version_id'],
-            'version_name': new_version['version_name']
+            'version_id': new_version.version_id,
+            'version_name': new_version.version_name
         }
 
     async def close(self):
