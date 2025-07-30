@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from agentpress.tool import Tool, ToolResult, ToolSchema, SchemaType
-from mcp_module import mcp_manager
+from mcp_module import mcp_service
 from utils.logger import logger
 import inspect
 from agent.tools.utils.mcp_connection_manager import MCPConnectionManager
@@ -11,7 +11,7 @@ from agent.tools.utils.mcp_tool_executor import MCPToolExecutor
 
 class MCPToolWrapper(Tool):
     def __init__(self, mcp_configs: Optional[List[Dict[str, Any]]] = None):
-        self.mcp_manager = mcp_manager
+        self.mcp_manager = mcp_service
         self.mcp_configs = mcp_configs or []
         self._initialized = False
         self._schemas: Dict[str, List[ToolSchema]] = {}
