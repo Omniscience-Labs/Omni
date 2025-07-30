@@ -67,10 +67,9 @@ class MCPToolExecutor:
         
         try:
             import os
-            from pipedream.facade import PipedreamManager
+            from pipedream import connection_service
             
-            pipedream_manager = PipedreamManager()
-            http_client = pipedream_manager._http_client
+            http_client = connection_service._http_client
             
             access_token = await http_client._ensure_access_token()
             

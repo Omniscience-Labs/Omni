@@ -142,12 +142,10 @@ class MCPManager:
                         profile_id = custom_mcp['config'].get('profile_id')
                         if profile_id:
                             try:
-                                from pipedream.facade import get_profile_manager
-                                from services.supabase import DBConnection
-                                profile_db = DBConnection()
-                                profile_manager = get_profile_manager(profile_db)
+                                from pipedream import profile_service
+                                from uuid import UUID
                                 
-                                profile = await profile_manager.get_profile(self.account_id, profile_id)
+                                profile = await profile_service.get_profile(UUID(self.account_id), UUID(profile_id))
                                 if profile:
                                     custom_mcp['config']['external_user_id'] = profile.external_user_id
                             except Exception as e:
