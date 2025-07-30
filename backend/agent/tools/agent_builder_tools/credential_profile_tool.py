@@ -1,6 +1,6 @@
 import json
 from typing import Optional, List
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
 from pipedream import profile_service, connection_service, app_service, mcp_service, connection_token_service
@@ -30,19 +30,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="get-credential-profiles",
-        mappings=[
-            {"param_name": "app_slug", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="get_credential_profiles">
         <parameter name="app_slug">github</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def get_credential_profiles(self, app_slug: Optional[str] = None) -> ToolResult:
         try:
             from uuid import UUID
@@ -100,14 +94,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="create-credential-profile",
-        mappings=[
-            {"param_name": "app_slug", "node_type": "attribute", "path": ".", "required": True},
-            {"param_name": "profile_name", "node_type": "attribute", "path": ".", "required": True},
-            {"param_name": "display_name", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="create_credential_profile">
         <parameter name="app_slug">github</parameter>
@@ -115,8 +102,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         <parameter name="display_name">My Personal GitHub Account</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def create_credential_profile(
         self,
         app_slug: str,
@@ -174,19 +160,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="connect-credential-profile",
-        mappings=[
-            {"param_name": "profile_id", "node_type": "attribute", "path": ".", "required": True}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="connect_credential_profile">
         <parameter name="profile_id">profile-uuid-123</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def connect_credential_profile(self, profile_id: str) -> ToolResult:
         try:
             from uuid import UUID
@@ -232,19 +212,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="check-profile-connection",
-        mappings=[
-            {"param_name": "profile_id", "node_type": "attribute", "path": ".", "required": True}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="check_profile_connection">
         <parameter name="profile_id">profile-uuid-123</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def check_profile_connection(self, profile_id: str) -> ToolResult:
         try:
             from uuid import UUID
@@ -330,14 +304,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="configure-profile-for-agent",
-        mappings=[
-            {"param_name": "profile_id", "node_type": "attribute", "path": ".", "required": True},
-            {"param_name": "enabled_tools", "node_type": "element", "path": "enabled_tools", "required": True},
-            {"param_name": "display_name", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="configure_profile_for_agent">
         <parameter name="profile_id">profile-uuid-123</parameter>
@@ -345,8 +312,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         <parameter name="display_name">Personal GitHub Integration</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def configure_profile_for_agent(
         self, 
         profile_id: str, 
@@ -402,19 +368,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="delete-credential-profile",
-        mappings=[
-            {"param_name": "profile_id", "node_type": "attribute", "path": ".", "required": True}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="delete_credential_profile">
         <parameter name="profile_id">profile-uuid-123</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def delete_credential_profile(self, profile_id: str) -> ToolResult:
         try:
             from uuid import UUID

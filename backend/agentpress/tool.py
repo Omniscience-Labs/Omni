@@ -134,9 +134,9 @@ def usage_example(example: str):
         ))
     return decorator
 
-def xml_schema(**kwargs):
-    """Deprecated decorator - does nothing, kept for compatibility."""
-    def decorator(func):
-        logger.debug(f"xml_schema decorator called on {func.__name__} - ignoring (deprecated)")
-        return func
-    return decorator
+# def xml_schema(**kwargs):
+#     """Deprecated decorator - does nothing, kept for compatibility."""
+#     def decorator(func):
+#         logger.debug(f"xml_schema decorator called on {func.__name__} - ignoring (deprecated)")
+#         return func
+#     return decorator

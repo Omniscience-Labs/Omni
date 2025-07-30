@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 import time
 import asyncio
 from uuid import uuid4
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 
@@ -73,16 +73,7 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="execute-command",
-        mappings=[
-            {"param_name": "command", "node_type": "content", "path": "."},
-            {"param_name": "folder", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "session_name", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "blocking", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "timeout", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="execute_command">
         <parameter name="command">npm run dev</parameter>
@@ -107,8 +98,7 @@ class SandboxShellTool(SandboxToolsBase):
         <parameter name="timeout">300</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def execute_command(
         self, 
         command: str, 
@@ -259,13 +249,7 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="check-command-output",
-        mappings=[
-            {"param_name": "session_name", "node_type": "attribute", "path": ".", "required": True},
-            {"param_name": "kill_session", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="check_command_output">
         <parameter name="session_name">dev_server</parameter>
@@ -279,8 +263,7 @@ class SandboxShellTool(SandboxToolsBase):
         <parameter name="kill_session">true</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def check_command_output(
         self,
         session_name: str,
@@ -332,19 +315,13 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="terminate-command",
-        mappings=[
-            {"param_name": "session_name", "node_type": "attribute", "path": ".", "required": True}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="terminate_command">
         <parameter name="session_name">dev_server</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def terminate_command(
         self,
         session_name: str
@@ -379,16 +356,12 @@ class SandboxShellTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="list-commands",
-        mappings=[],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="list_commands">
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def list_commands(self) -> ToolResult:
         try:
             # Ensure sandbox is initialized
