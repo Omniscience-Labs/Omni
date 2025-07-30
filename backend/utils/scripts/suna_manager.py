@@ -12,7 +12,7 @@ import sys
 import json
 from pathlib import Path
 
-backend_dir = Path(__file__).parent.parent
+backend_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from agent.suna import SunaSyncService
