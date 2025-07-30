@@ -153,11 +153,6 @@ export const getToolIcon = (toolName: string): ElementType => {
     case 'complete':
       return CheckCircle2;
 
-    // MCP tools
-    case 'call-mcp-tool':
-      return PlugIcon;
-
-    // Default case
     default:
       if (toolName?.startsWith('mcp_')) {
         const parts = toolName.split('_');
@@ -246,9 +241,9 @@ export const extractPrimaryParam = (
         return match ? match[1].split('/').pop() || match[1] : null;
       case 'edit-file':
         // Try to match target_file attribute for edit-file
-        match = content.match(/target_file=(?:"|')([^"|']+)(?:"|')/);
+        match = content.match(/target_file=(?:"|')([^"|']+)(?:"|')/) || content.match(/<parameter\s+name=["']target_file["']>([^<]+)/i);
         // Return just the filename part
-        return match ? match[1].split('/').pop() || match[1] : null;
+        return match ? (match[1].split('/').pop() || match[1]).trim() : null;
 
       // Shell commands
       case 'execute-command':
@@ -304,6 +299,7 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['str-replace', 'Editing Text'],
   ['str_replace', 'Editing Text'],
   ['edit_file', 'AI File Edit'],
+  ['edit-file', 'AI File Edit'],
   
   ['browser-click-element', 'Clicking Element'],
   ['browser-close-tab', 'Closing Tab'],
@@ -334,7 +330,6 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['web-search', 'Searching Web'],
   ['see-image', 'Viewing Image'],
   
-  ['call-mcp-tool', 'External Tool'],
 
   ['update-agent', 'Updating Agent'],
   ['get-current-agent-config', 'Getting Agent Config'],
@@ -386,8 +381,6 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['web_search', 'Searching Web'],
   ['see_image', 'Viewing Image'],
   
-  ['call_mcp_tool', 'External Tool'],
-
   ['update_agent', 'Updating Agent'],
   ['get_current_agent_config', 'Getting Agent Config'],
   ['search_mcp_servers', 'Searching MCP Servers'],

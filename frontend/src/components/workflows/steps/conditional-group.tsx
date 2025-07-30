@@ -10,7 +10,18 @@ import { StepCard } from './step-card';
 import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent
+} from '@dnd-kit/core';
 
 interface ConditionalGroupProps {
     conditionSteps: ConditionalStep[];
@@ -23,9 +34,18 @@ interface ConditionalGroupProps {
     onAddStep: (index: number, parentStepId?: string) => void;
     agentTools?: any;
     isLoadingTools?: boolean;
+    sortableId?: string; // When provided, this group is sortable within a parent context
 }
 
 const MAX_ELSE_IF_CONDITIONS = 5; // Limit the number of else-if conditions
+
+// Sortable wrapper for ConditionalGroup when used as a nested item
+function SortableConditionalGroup({
+    sortableId,
+    ...props
+}: ConditionalGroupProps & { sortableId: string }) {
+    return <ConditionalGroup {...props} sortableId={sortableId} />;
+}
 
 export function ConditionalGroup({
     conditionSteps,
@@ -37,14 +57,27 @@ export function ConditionalGroup({
     onEdit,
     onAddStep,
     agentTools,
-    isLoadingTools
+    isLoadingTools,
+    sortableId
 }: ConditionalGroupProps) {
     const [activeConditionTab, setActiveConditionTab] = useState<string>(conditionSteps[0]?.id || '');
+    const [activeDragId, setActiveDragId] = useState<string | null>(null);
+    const [pendingElseStepAdd, setPendingElseStepAdd] = useState<boolean>(false);
+
+    // Set up sensors for drag and drop within this conditional group
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Require 8px movement to start drag
+            },
+        }),
+        useSensor(KeyboardSensor)
+    );
 
     // Ensure we always have an "else" step at the end
     const hasElse = conditionSteps.some(step => step.conditions?.type === 'else');
     const elseIfCount = conditionSteps.filter(step => step.conditions?.type === 'elseif').length;
-    const canAddElseIf = !hasElse && elseIfCount < MAX_ELSE_IF_CONDITIONS;
+    const canAddElseIf = elseIfCount < MAX_ELSE_IF_CONDITIONS; // Can add else-if as long as under limit
 
     // Create a virtual else step if none exists to show the tab
     const displaySteps = React.useMemo(() => {
@@ -71,7 +104,9 @@ export function ConditionalGroup({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: `condition-group-${conditionSteps[0]?.id}` });
+    } = useSortable({
+        id: sortableId || `condition-group-${conditionSteps[0]?.id}`
+    });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -85,17 +120,77 @@ export function ConditionalGroup({
     // Ensure we have a valid active tab when steps change
     React.useEffect(() => {
         if (!displaySteps.find(s => s.id === activeConditionTab)) {
+            // If we were on virtual-else and it's now gone, switch to the real else step
+            if (activeConditionTab === 'virtual-else' && hasElse) {
+                const elseStep = conditionSteps.find(step => step.conditions?.type === 'else');
+                if (elseStep) {
+                    setActiveConditionTab(elseStep.id);
+                    return;
+                }
+            }
+            // Otherwise default to first step
             setActiveConditionTab(displaySteps[0]?.id || '');
         }
-    }, [displaySteps, activeConditionTab]);
+    }, [displaySteps, activeConditionTab, hasElse, conditionSteps]);
+
+    // Handle pending step addition after else step creation
+    React.useEffect(() => {
+        if (pendingElseStepAdd && hasElse) {
+            const elseStep = conditionSteps.find(step => step.conditions?.type === 'else');
+            if (elseStep) {
+                onAddStep(-1, elseStep.id);
+                setPendingElseStepAdd(false);
+            }
+        }
+    }, [pendingElseStepAdd, hasElse, conditionSteps, onAddStep]);
 
     const activeStep = displaySteps.find(s => s.id === activeConditionTab) || displaySteps[0];
+
+    // Handle drag start to track active item for preview
+    const handleDragStart = React.useCallback((event: DragStartEvent) => {
+        setActiveDragId(event.active.id.toString());
+    }, []);
+
+    // Handle reordering children within this conditional group
+    const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id && activeStep?.children) {
+            // Remove the prefix to get the actual child ID
+            const activeId = active.id.toString().replace(`${groupKey}-`, '');
+            const overId = over.id.toString().replace(`${groupKey}-`, '');
+
+            const oldIndex = activeStep.children.findIndex(child => child.id === activeId);
+            const newIndex = activeStep.children.findIndex(child => child.id === overId);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newChildren = arrayMove(activeStep.children, oldIndex, newIndex);
+
+                // Find the real step to update (not virtual else)
+                const realStep = activeStep.id === 'virtual-else' ? null :
+                    conditionSteps.find(step => step.id === activeStep.id);
+
+                if (realStep) {
+                    // Update the specific conditional step with new children order
+                    onUpdateStep({
+                        id: realStep.id,
+                        children: newChildren
+                    });
+                }
+            }
+        }
+
+        // Clear active drag state
+        setActiveDragId(null);
+    }, [activeStep, onUpdateStep, groupKey, conditionSteps]);
 
     // Handle clicking add step button
     const handleAddStepClick = React.useCallback(() => {
         if (activeStep?.id === 'virtual-else') {
-            // If clicking on virtual else, create a real else step first
+            // If clicking on virtual else, create a real else step first, then add a step to it
+            setPendingElseStepAdd(true);
             onAddElse(conditionSteps[conditionSteps.length - 1].id);
+            // The useEffect above will handle switching to the real else tab and adding the step
         } else {
             // Call onAddStep with index and parent step ID
             onAddStep(-1, activeStep?.id);
@@ -158,11 +253,20 @@ export function ConditionalGroup({
                         );
                     })}
 
-                    {/* Plus button to add Else If - always show next to Else if we can add more */}
+                    {/* Plus button to add Else If - always show if we can add more */}
                     {canAddElseIf && (
                         <Button
-                            onClick={() => onAddElseIf(conditionSteps[conditionSteps.length - 1].id)}
-                            className="h-6 w-6 p-0 border border-dashed rounded-md border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+                            onClick={() => {
+                                // Insert else-if before the else step if it exists, otherwise at the end
+                                if (hasElse) {
+                                    const elseStepIndex = conditionSteps.findIndex(step => step.conditions?.type === 'else');
+                                    const beforeElseStep = elseStepIndex > 0 ? conditionSteps[elseStepIndex - 1] : conditionSteps[0];
+                                    onAddElseIf(beforeElseStep.id);
+                                } else {
+                                    onAddElseIf(conditionSteps[conditionSteps.length - 1].id);
+                                }
+                            }}
+                            className="h-6 w-6 !p-0 border border-dashed rounded-md border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
                         >
                             <Plus className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
                         </Button>
@@ -175,22 +279,210 @@ export function ConditionalGroup({
                         {/* Steps within this condition */}
                         <div className="space-y-3">
                             {activeStep.children && activeStep.children.length > 0 ? (
-                                <SortableContext items={activeStep.children.map(child => child.id)} strategy={verticalListSortingStrategy}>
-                                    <div className="space-y-2">
-                                        {activeStep.children.map((child, index) => (
-                                            <StepCard
-                                                key={child.id}
-                                                step={child}
-                                                stepNumber={index + 1}
-                                                isNested={true}
-                                                onEdit={onEdit}
-                                                onUpdateStep={onUpdateStep}
-                                                agentTools={agentTools}
-                                                isLoadingTools={isLoadingTools}
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragStart={handleDragStart}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    <SortableContext items={activeStep.children.map(child => `${groupKey}-${child.id}`)} strategy={verticalListSortingStrategy}>
+                                        <div className="space-y-2">
+                                            {activeStep.children.map((child, index) => {
+                                                // Skip if this step is already rendered as part of another conditional group
+                                                if (child.type === 'condition' && child.parentConditionalId) {
+                                                    return null;
+                                                }
+
+                                                // If this child is a conditional step, render as ConditionalGroup for infinite nesting
+                                                if (child.type === 'condition') {
+                                                    // Find existing else-if and else siblings for this conditional
+                                                    const conditionalGroup = activeStep.children?.filter(sibling =>
+                                                        sibling.parentConditionalId === child.id || sibling.id === child.id
+                                                    ) || [child];
+
+                                                    // Sort by order or type to ensure proper if/else-if/else sequence
+                                                    const sortedGroup = conditionalGroup.sort((a, b) => {
+                                                        const getTypeOrder = (type: string) => {
+                                                            if (type === 'if') return 0;
+                                                            if (type === 'elseif') return 1;
+                                                            if (type === 'else') return 2;
+                                                            return 0;
+                                                        };
+                                                        return getTypeOrder(a.conditions?.type || 'if') - getTypeOrder(b.conditions?.type || 'if');
+                                                    });
+
+                                                    // Convert to proper conditional steps format
+                                                    const conditionalSteps = sortedGroup.map(step => ({
+                                                        ...step,
+                                                        conditions: step.conditions || { type: 'if' as const }
+                                                    }));
+
+                                                    // Create wrapped callbacks for nested conditional operations
+                                                    const handleNestedAddElse = (afterStepId: string) => {
+                                                        if (!activeStep?.id) return;
+
+                                                        // Create new else step as sibling of the conditional
+                                                        const newElseStep = {
+                                                            id: `${child.id}-else-${Date.now()}`,
+                                                            name: 'Else',
+                                                            description: '',
+                                                            type: 'condition' as const,
+                                                            config: {},
+                                                            conditions: { type: 'else' as const },
+                                                            children: [],
+                                                            order: activeStep.children?.length || 0,
+                                                            parentConditionalId: child.id
+                                                        };
+
+                                                        // Add to parent's children
+                                                        const updatedChildren = [...(activeStep.children || []), newElseStep];
+                                                        onUpdateStep({
+                                                            id: activeStep.id,
+                                                            children: updatedChildren
+                                                        });
+                                                    };
+
+                                                    const handleNestedAddElseIf = (afterStepId: string) => {
+                                                        if (!activeStep?.id) return;
+
+                                                        // Create new else-if step as sibling of the conditional
+                                                        const newElseIfStep = {
+                                                            id: `${child.id}-elseif-${Date.now()}`,
+                                                            name: 'Else If',
+                                                            description: '',
+                                                            type: 'condition' as const,
+                                                            config: {},
+                                                            conditions: { type: 'elseif' as const },
+                                                            children: [],
+                                                            order: activeStep.children?.length || 0,
+                                                            parentConditionalId: child.id
+                                                        };
+
+                                                        // Insert before any existing else step
+                                                        const elseIndex = activeStep.children?.findIndex(c =>
+                                                            c.parentConditionalId === child.id && c.conditions?.type === 'else'
+                                                        );
+
+                                                        let updatedChildren;
+                                                        if (elseIndex !== undefined && elseIndex !== -1) {
+                                                            // Insert before else
+                                                            updatedChildren = [...(activeStep.children || [])];
+                                                            updatedChildren.splice(elseIndex, 0, newElseIfStep);
+                                                        } else {
+                                                            // Add at end
+                                                            updatedChildren = [...(activeStep.children || []), newElseIfStep];
+                                                        }
+
+                                                        onUpdateStep({
+                                                            id: activeStep.id,
+                                                            children: updatedChildren
+                                                        });
+                                                    };
+
+                                                    const handleNestedAddStep = (index: number, parentStepId?: string) => {
+                                                        onAddStep(index, parentStepId);
+                                                    };
+
+                                                    return (
+                                                        <SortableConditionalGroup
+                                                            key={child.id}
+                                                            sortableId={`${groupKey}-${child.id}`}
+                                                            conditionSteps={conditionalSteps}
+                                                            groupKey={`${groupKey}-${child.id}`}
+                                                            onUpdateStep={onUpdateStep}
+                                                            onAddElse={handleNestedAddElse}
+                                                            onAddElseIf={handleNestedAddElseIf}
+                                                            onRemove={onRemove}
+                                                            onEdit={onEdit}
+                                                            onAddStep={handleNestedAddStep}
+                                                            agentTools={agentTools}
+                                                            isLoadingTools={isLoadingTools}
+                                                        />
+                                                    );
+                                                }
+
+                                                // Otherwise render as regular step card
+                                                return (
+                                                    <StepCard
+                                                        key={child.id}
+                                                        step={child}
+                                                        stepNumber={index + 1}
+                                                        isNested={true}
+                                                        onEdit={onEdit}
+                                                        onUpdateStep={onUpdateStep}
+                                                        agentTools={agentTools}
+                                                        isLoadingTools={isLoadingTools}
+                                                        sortableId={`${groupKey}-${child.id}`}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    </SortableContext>
+
+                                    <DragOverlay>
+                                        {activeDragId ? (
+                                            <div className="opacity-75">
+                                                {(() => {
+                                                    // Remove prefix to get actual child ID
+                                                    const childId = activeDragId.replace(`${groupKey}-`, '');
+                                                    const draggedChild = activeStep.children?.find(child => child.id === childId);
+
+                                                    if (!draggedChild) return null;
+
+                                                    // Render appropriate preview based on child type
+                                                    if (draggedChild.type === 'condition') {
+                                                        // Find all related conditional steps for preview
+                                                        const conditionalGroup = activeStep.children?.filter(sibling =>
+                                                            sibling.parentConditionalId === draggedChild.id || sibling.id === draggedChild.id
+                                                        ) || [draggedChild];
+
+                                                        // Sort by type to ensure proper if/else-if/else sequence
+                                                        const sortedGroup = conditionalGroup.sort((a, b) => {
+                                                            const getTypeOrder = (type: string) => {
+                                                                if (type === 'if') return 0;
+                                                                if (type === 'elseif') return 1;
+                                                                if (type === 'else') return 2;
+                                                                return 0;
+                                                            };
+                                                            return getTypeOrder(a.conditions?.type || 'if') - getTypeOrder(b.conditions?.type || 'if');
+                                                        });
+
+                                                        const conditionalSteps = sortedGroup.map(step => ({
+                                                            ...step,
+                                                            conditions: step.conditions || { type: 'if' as const }
+                                                        }));
+
+                                                        return (
+                                                            <ConditionalGroup
+                                                                conditionSteps={conditionalSteps}
+                                                                groupKey={`preview-${draggedChild.id}`}
+                                                                onUpdateStep={() => { }}
+                                                                onAddElse={() => { }}
+                                                                onAddElseIf={() => { }}
+                                                                onRemove={() => { }}
+                                                                onEdit={() => { }}
+                                                                onAddStep={() => { }}
+                                                                agentTools={agentTools}
+                                                                isLoadingTools={isLoadingTools}
+                                                            />
+                                                        );
+                                                    } else {
+                                                        return (
+                                                            <StepCard
+                                                                step={draggedChild}
+                                                                stepNumber={1}
+                                                                onEdit={() => { }}
+                                                                onUpdateStep={() => { }}
+                                                                agentTools={agentTools}
+                                                                isLoadingTools={isLoadingTools}
+                                                            />
+                                                        );
+                                                    }
+                                                })()}
+                                            </div>
+                                        ) : null}
+                                    </DragOverlay>
+                                </DndContext>
                             ) : (
                                 <div className="text-center py-8 text-zinc-400 dark:text-zinc-500 text-sm">
                                     No steps in this condition

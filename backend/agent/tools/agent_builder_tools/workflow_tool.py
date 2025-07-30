@@ -23,14 +23,15 @@ class WorkflowTool(AgentBuilderBaseTool):
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     account_id = await self._get_current_account_id()
-                    version_dict = await version_manager.get_version(
+                    version_service = await get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=self.agent_id,
                         version_id=agent_data['current_version_id'],
                         user_id=account_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                 except Exception as e:
                     logger.warning(f"Failed to get version data for workflow tool: {e}")
             
@@ -40,7 +41,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             tool_mapping = {
                 'sb_shell_tool': ['execute_command'],
-                'sb_files_tool': ['create_file', 'str_replace', 'full_file_rewrite', 'delete_file', 'edit_file'],
+                'sb_files_tool': ['create_file', 'edit_file', 'str_replace', 'full_file_rewrite', 'delete_file'],
                 'sb_browser_tool': ['browser_navigate_to', 'browser_take_screenshot'],
                 'sb_vision_tool': ['see_image'],
                 'sb_deploy_tool': ['deploy'],

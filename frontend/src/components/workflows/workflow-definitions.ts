@@ -58,14 +58,14 @@ export const BASE_STEP_DEFINITIONS: StepDefinition[] = [
         category: 'actions',
         color: 'from-gray-500/20 to-gray-600/10 border-gray-500/20 text-gray-500'
     },
-    {
-        id: 'sequence',
-        name: 'Sequence',
-        description: 'Group multiple steps together',
-        icon: GitBranch,
-        category: 'actions',
-        color: 'from-gray-500/20 to-gray-600/10 border-gray-500/20 text-gray-500'
-    },
+    // {
+    //     id: 'sequence',
+    //     name: 'Sequence',
+    //     description: 'Group multiple steps together',
+    //     icon: GitBranch,
+    //     category: 'actions',
+    //     color: 'from-gray-500/20 to-gray-600/10 border-gray-500/20 text-gray-500'
+    // },
     {
         id: 'condition',
         name: 'If/Then',

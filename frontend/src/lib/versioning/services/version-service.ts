@@ -33,10 +33,6 @@ export class VersionService implements IVersionService {
     agentId: string,
     request: CreateVersionRequest
   ): Promise<AgentVersion> {
-    if (!request.system_prompt?.trim()) {
-      throw new Error('System prompt cannot be empty');
-    }
-
     const newVersion = await this.repository.createVersion(agentId, request);
     console.log(`Created version ${newVersion.versionName} for agent ${agentId}`);
     return newVersion;

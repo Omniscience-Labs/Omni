@@ -18,6 +18,7 @@ interface StepCardProps {
     onUpdateStep: (updates: Partial<ConditionalStep>) => void;
     agentTools?: any;
     isLoadingTools?: boolean;
+    sortableId?: string; // Override the sortable ID for nested contexts
 }
 
 export function StepCard({
@@ -27,7 +28,8 @@ export function StepCard({
     onEdit,
     onUpdateStep,
     agentTools,
-    isLoadingTools
+    isLoadingTools,
+    sortableId
 }: StepCardProps) {
     const {
         attributes,
@@ -36,7 +38,7 @@ export function StepCard({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: step?.id || 'unknown' });
+    } = useSortable({ id: sortableId || step?.id || 'unknown' });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -103,14 +105,14 @@ export function StepCard({
     if (!step) return null;
 
     return (
-        <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50")}>
-            <div className="bg-card border rounded-2xl hover:shadow-sm transition-all group">
+        <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50 z-50")}>
+            <div className="bg-card border rounded-2xl hover:shadow-sm transition-all group relative">
                 <div className="flex items-center gap-3 p-4">
                     {/* Drag handle */}
                     <div
                         {...attributes}
                         {...listeners}
-                        className="cursor-grab active:cursor-grabbing"
+                        className="cursor-grab active:cursor-grabbing hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                     >
                         <GripVertical className="h-4 w-4 text-zinc-400" />
                     </div>

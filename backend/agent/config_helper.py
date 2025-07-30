@@ -83,8 +83,30 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         
         return config
     
-    logger.error(f"No config found for agent {agent_id} - this should not happen after migration")
-    raise ValueError(f"No configuration found for agent {agent_id}")
+    # Fallback: Create default configuration for agents without version or config data
+    logger.warning(f"No config found for agent {agent_id}, creating default configuration")
+    
+    # Create minimal default configuration
+    config = {
+        'agent_id': agent_data['agent_id'],
+        'name': agent_data.get('name', 'Unnamed Agent'),
+        'description': agent_data.get('description', ''),
+        'is_default': agent_data.get('is_default', False),
+        'account_id': agent_data.get('account_id'),
+        'current_version_id': agent_data.get('current_version_id'),
+        'version_name': 'v1',
+        'system_prompt': 'You are a helpful AI assistant.',
+        'configured_mcps': [],
+        'custom_mcps': [],
+        'agentpress_tools': {},
+        'avatar': agent_data.get('avatar'),
+        'avatar_color': agent_data.get('avatar_color'),
+        'is_suna_default': is_suna_default,
+        'centrally_managed': centrally_managed,
+        'restrictions': restrictions
+    }
+    
+    return config
 
 
 def build_unified_config(

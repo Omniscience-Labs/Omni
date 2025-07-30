@@ -278,13 +278,11 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             if profile.is_connected and connections:
                 try:
-                    # directly discover MCP servers via the facade
                     from pipedream.domain.entities import ConnectionStatus
                     servers = await self.pipedream_manager.discover_mcp_servers(
                         external_user_id=profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                         app_slug=profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
                     )
-                    # filter connected servers
                     connected_servers = [s for s in servers if s.status == ConnectionStatus.CONNECTED]
                     if connected_servers:
                         tools = [t.name for t in connected_servers[0].available_tools]
@@ -422,21 +420,40 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             if not profile:
                 return self.fail_response("Credential profile not found")
             
-            agent_result = await client.table('agents').select('config').eq('agent_id', self.agent_id).execute()
-            if agent_result.data:
-                current_config = agent_result.data[0].get('config', {})
-                current_tools = current_config.get('tools', {})
-                current_custom_mcps = current_tools.get('custom_mcp', [])
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).execute()
+            if agent_result.data and agent_result.data[0].get('current_version_id'):
+                version_result = await client.table('agent_versions')\
+                    .select('config')\
+                    .eq('version_id', agent_result.data[0]['current_version_id'])\
+                    .maybe_single()\
+                    .execute()
                 
-                updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != str(profile.profile_id)]
-                
-                if len(updated_mcps) != len(current_custom_mcps):
-                    current_tools['custom_mcp'] = updated_mcps
-                    current_config['tools'] = current_tools
+                if version_result.data and version_result.data.get('config'):
+                    current_config = version_result.data['config']
+                    current_tools = current_config.get('tools', {})
+                    current_custom_mcps = current_tools.get('custom_mcp', [])
                     
-                    await client.table('agents').update({
-                        'config': current_config
-                    }).eq('agent_id', self.agent_id).execute()
+                    updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != str(profile.profile_id)]
+                    
+                    if len(updated_mcps) != len(current_custom_mcps):
+                        from agent.versioning.version_service import get_version_service
+                        try:
+                            current_tools['custom_mcp'] = updated_mcps
+                            current_config['tools'] = current_tools
+                            
+                            version_service = await get_version_service()
+                            await version_service.create_version(
+                                agent_id=self.agent_id,
+                                user_id=self.account_id,
+                                system_prompt=current_config.get('system_prompt', ''),
+                                configured_mcps=current_config.get('tools', {}).get('mcp', []),
+                                custom_mcps=updated_mcps,
+                                agentpress_tools=current_config.get('tools', {}).get('agentpress', {}),
+                                version_name="Removed credential profile",
+                                change_description=f"Deleted credential profile {profile.display_name}"
+                            )
+                        except Exception as e:
+                            return self.fail_response(f"Failed to update agent config: {str(e)}")
             
             await self.pipedream_manager.delete_profile(account_id, profile_id)
             

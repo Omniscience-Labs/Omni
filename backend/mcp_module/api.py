@@ -1,19 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, validator, HttpUrl
+from pydantic import BaseModel
 
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
-from .infrastructure.dependencies import get_mcp_dependencies
-from .domain.exceptions import MCPException, MCPServerNotFoundError, MCPToolNotFoundError
-
+from .mcp_service import mcp_service, MCPException, MCPServerNotFoundError
 
 router = APIRouter()
-
-def get_mcp_manager():
-    dependencies = get_mcp_dependencies()
-    return dependencies.mcp_manager
-
 
 class MCPServerResponse(BaseModel):
     qualified_name: str
@@ -72,15 +65,13 @@ class CustomMCPDiscoverRequest(BaseModel):
     config: Dict[str, Any]
 
 
-
 @router.get("/mcp/servers/{qualified_name:path}", response_model=MCPServerDetailResponse)
 async def get_mcp_server_details(
     qualified_name: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     try:
-        manager = get_mcp_manager()
-        server_detail = await manager.get_server_details(qualified_name)
+        server_detail = await mcp_service.get_server_details(qualified_name)
         
         return MCPServerDetailResponse(
             qualified_name=server_detail.qualified_name,
@@ -98,11 +89,11 @@ async def get_mcp_server_details(
         logger.error(f"Error getting MCP server details: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/mcp/discover-custom-tools")
 async def discover_custom_mcp_tools(request: CustomMCPDiscoverRequest):
     try:
-        manager = get_mcp_manager()
-        result = await manager.discover_custom_tools(request.type, request.config)
+        result = await mcp_service.discover_custom_tools(request.type, request.config)
         
         return CustomMCPConnectionResponse(
             success=result.success,

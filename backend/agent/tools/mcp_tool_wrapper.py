@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema, ToolSchema, SchemaType
-from mcp_module import mcp_manager
+from agentpress.tool import Tool, ToolResult, ToolSchema, SchemaType
+from mcp_module import mcp_service
 from utils.logger import logger
 import inspect
 from agent.tools.utils.mcp_connection_manager import MCPConnectionManager
@@ -11,7 +11,7 @@ from agent.tools.utils.mcp_tool_executor import MCPToolExecutor
 
 class MCPToolWrapper(Tool):
     def __init__(self, mcp_configs: Optional[List[Dict[str, Any]]] = None):
-        self.mcp_manager = mcp_manager
+        self.mcp_manager = mcp_service
         self.mcp_configs = mcp_configs or []
         self._initialized = False
         self._schemas: Dict[str, List[ToolSchema]] = {}
@@ -77,33 +77,55 @@ class MCPToolWrapper(Tool):
             
             logger.info(f"Created {len(self._dynamic_tools)} dynamic MCP tool methods")
             
+            # Re-register schemas to pick up the dynamic methods
+            self._register_schemas()
+            logger.info(f"Re-registered schemas after creating dynamic tools - total: {len(self._schemas)}")
+            
         except Exception as e:
             logger.error(f"Error creating dynamic MCP tools: {e}")
     
     def _register_schemas(self):
+        self._schemas.clear()
+
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if hasattr(method, 'tool_schemas'):
                 self._schemas[name] = method.tool_schemas
                 logger.debug(f"Registered schemas for method '{name}' in {self.__class__.__name__}")
         
-        logger.debug(f"Initial registration complete for MCPToolWrapper")
+        if hasattr(self, '_dynamic_tools') and self._dynamic_tools:
+            for tool_name, tool_data in self._dynamic_tools.items():
+                method_name = tool_data.get('method_name')
+                if method_name and method_name in self._schemas:
+                    continue
+                
+                method = tool_data.get('method')
+                if method and hasattr(method, 'tool_schemas'):
+                    self._schemas[method_name] = method.tool_schemas
+                    logger.debug(f"Registered dynamic method schemas for '{method_name}'")
+        
+        logger.debug(f"Registration complete for MCPToolWrapper - total schemas: {len(self._schemas)}")
     
     def get_schemas(self) -> Dict[str, List[ToolSchema]]:
+        logger.debug(f"get_schemas called - returning {len(self._schemas)} schemas")
+        for method_name in self._schemas:
+            logger.debug(f"  - Schema available for: {method_name}")
         return self._schemas
     
     def __getattr__(self, name: str):
-        method = self.tool_builder.find_method_by_name(name)
-        if method:
-            return method
+        if hasattr(self, 'tool_builder') and self.tool_builder:
+            method = self.tool_builder.find_method_by_name(name)
+            if method:
+                return method
         
-        for tool_data in self._dynamic_tools.values():
-            if tool_data.get('method_name') == name:
-                return tool_data.get('method')
-        
-        name_with_hyphens = name.replace('_', '-')
-        for tool_name, tool_data in self._dynamic_tools.items():
-            if tool_data.get('method_name') == name or tool_name == name_with_hyphens:
-                return tool_data.get('method')
+        if hasattr(self, '_dynamic_tools') and self._dynamic_tools:
+            for tool_data in self._dynamic_tools.values():
+                if tool_data.get('method_name') == name:
+                    return tool_data.get('method')
+            
+            name_with_hyphens = name.replace('_', '-')
+            for tool_name, tool_data in self._dynamic_tools.items():
+                if tool_data.get('method_name') == name or tool_name == name_with_hyphens:
+                    return tool_data.get('method')
         
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
     
@@ -111,10 +133,7 @@ class MCPToolWrapper(Tool):
         await self._ensure_initialized()
         if tool_registry and self._dynamic_tools:
             logger.info(f"Updating tool registry with {len(self._dynamic_tools)} MCP tools")
-            for method_name, schemas in self._schemas.items():
-                if method_name not in ['call_mcp_tool']:
-                    pass
-             
+            
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         await self._ensure_initialized()
         return self.mcp_manager.get_all_tools_openapi()
@@ -123,46 +142,6 @@ class MCPToolWrapper(Tool):
         await self._ensure_initialized()
         return await self.tool_executor.execute_tool(tool_name, arguments)
     
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "call_mcp_tool",
-            "description": "Execute a tool from any connected MCP server. This is a fallback wrapper that forwards calls to MCP tools. The tool_name should be in the format 'mcp_{server}_{tool}' where {server} is the MCP server's qualified name and {tool} is the specific tool name.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "tool_name": {
-                        "type": "string",
-                        "description": "The full MCP tool name in format 'mcp_{server}_{tool}', e.g., 'mcp_exa_web_search_exa'"
-                    },
-                    "arguments": {
-                        "type": "object",
-                        "description": "The arguments to pass to the MCP tool, as a JSON object. The required arguments depend on the specific tool being called.",
-                        "additionalProperties": True
-                    }
-                },
-                "required": ["tool_name", "arguments"]
-            }
-        }
-    })
-    @xml_schema(
-        tag_name="call-mcp-tool",
-        mappings=[
-            {"param_name": "tool_name", "node_type": "attribute", "path": "."},
-            {"param_name": "arguments", "node_type": "content", "path": "."}
-        ],
-        example='''
-        <function_calls>
-        <invoke name="call_mcp_tool">
-        <parameter name="tool_name">mcp_exa_web_search_exa</parameter>
-        <parameter name="arguments">{"query": "latest developments in AI", "num_results": 10}</parameter>
-        </invoke>
-        </function_calls>
-        '''
-    )
-    async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
-        return await self._execute_mcp_tool(tool_name, arguments)
-            
     async def cleanup(self):
         if self._initialized:
             try:
