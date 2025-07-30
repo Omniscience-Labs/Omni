@@ -83,7 +83,10 @@ export function GetCurrentAgentConfigToolView({
   };
 
   const getTotalMcpToolsCount = (mcps: CustomMcp[]) => {
-    return mcps.reduce((total, mcp) => total + mcp.enabled_tools.length, 0);
+    return mcps.reduce((total, mcp) => {
+      const enabledTools = mcp.enabledTools || [];
+      return total + (Array.isArray(enabledTools) ? enabledTools.length : 0);
+    }, 0);
   };
 
   return (
@@ -268,12 +271,12 @@ export function GetCurrentAgentConfigToolView({
                               </div>
                             </div>
                             <Badge variant="outline" className="text-xs">
-                              {mcp.enabled_tools.length} tools
+                              {mcp.enabledTools.length} tools
                             </Badge>
                           </div>
 
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {mcp.enabled_tools.map((tool, toolIndex) => (
+                            {mcp.enabledTools.map((tool, toolIndex) => (
                               <div key={toolIndex} className="flex items-center gap-1 p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded text-xs">
                                 <Zap className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                                 <span className="text-zinc-700 dark:text-zinc-300 truncate">

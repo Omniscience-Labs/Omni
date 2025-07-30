@@ -49,8 +49,6 @@ const HIDE_STREAMING_XML_TAGS = new Set([
     'crawl-webpage',
     'web-search',
     'see-image',
-    'call-mcp-tool',
-
     'execute_data_provider_call',
     'execute_data_provider_endpoint',
 

@@ -278,13 +278,11 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             if profile.is_connected and connections:
                 try:
-                    # directly discover MCP servers via the facade
                     from pipedream.domain.entities import ConnectionStatus
                     servers = await self.pipedream_manager.discover_mcp_servers(
                         external_user_id=profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
                         app_slug=profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
                     )
-                    # filter connected servers
                     connected_servers = [s for s in servers if s.status == ConnectionStatus.CONNECTED]
                     if connected_servers:
                         tools = [t.name for t in connected_servers[0].available_tools]
@@ -422,7 +420,6 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             if not profile:
                 return self.fail_response("Credential profile not found")
             
-            # Get current version config
             agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).execute()
             if agent_result.data and agent_result.data[0].get('current_version_id'):
                 version_result = await client.table('agent_versions')\

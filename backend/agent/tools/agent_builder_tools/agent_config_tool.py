@@ -194,16 +194,40 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         if isinstance(configured_mcps, str):
                             configured_mcps = json.loads(configured_mcps)
                         
-                        existing_mcps_by_name = {mcp.get('qualifiedName', ''): mcp for mcp in current_configured_mcps}
+                        def get_mcp_identifier(mcp):
+                            if not isinstance(mcp, dict):
+                                return None
+                            return (
+                                mcp.get('qualifiedName') or 
+                                mcp.get('name') or 
+                                f"{mcp.get('type', 'unknown')}_{mcp.get('config', {}).get('url', 'nourl')}" or
+                                str(hash(json.dumps(mcp, sort_keys=True)))
+                            )
+                        
+                        merged_mcps = []
+                        existing_identifiers = set()
+                        
+                        for existing_mcp in current_configured_mcps:
+                            identifier = get_mcp_identifier(existing_mcp)
+                            if identifier:
+                                existing_identifiers.add(identifier)
+                            merged_mcps.append(existing_mcp)
                         
                         for new_mcp in configured_mcps:
-                            qualified_name = new_mcp.get('qualifiedName', '')
-                            if qualified_name:
-                                existing_mcps_by_name[qualified_name] = new_mcp
+                            identifier = get_mcp_identifier(new_mcp)
+                            
+                            if identifier and identifier in existing_identifiers:
+                                for i, existing_mcp in enumerate(merged_mcps):
+                                    if get_mcp_identifier(existing_mcp) == identifier:
+                                        merged_mcps[i] = new_mcp
+                                        break
                             else:
-                                current_configured_mcps.append(new_mcp)
+                                merged_mcps.append(new_mcp)
+                                if identifier:
+                                    existing_identifiers.add(identifier)
                         
-                        current_configured_mcps = list(existing_mcps_by_name.values())
+                        current_configured_mcps = merged_mcps
+                        logger.info(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
