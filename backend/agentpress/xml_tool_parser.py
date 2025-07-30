@@ -2,7 +2,7 @@
 XML Tool Call Parser Module
 
 This module provides a reliable XML tool call parsing system that supports
-the Cursor-style format with structured function_calls blocks.
+the XML format with structured function_calls blocks.
 """
 
 import re
@@ -26,7 +26,7 @@ class XMLToolCall:
 
 class XMLToolParser:
     """
-    Parser for XML tool calls using the Cursor-style format:
+    Parser for XML tool calls format:
     
     <function_calls>
     <invoke name="function_name">
@@ -168,7 +168,7 @@ class XMLToolParser:
     
     def format_tool_call(self, function_name: str, parameters: Dict[str, Any]) -> str:
         """
-        Format a tool call in the Cursor-style XML format.
+        Format a tool call in the XML format.
         
         Args:
             function_name: Name of the function to call
