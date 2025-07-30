@@ -211,8 +211,8 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
     message: string,
     options?: {
       model_name?: string;
-      llm_enable_thinking?: boolean;
-      llm_reasoning_effort?: string;
+      enable_thinking?: boolean;
+      reasoning_effort?: string;
       stream?: boolean;
       enable_context_manager?: boolean;
     },
@@ -237,8 +237,8 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       });
 
       if (options?.model_name) agentFormData.append('model_name', options.model_name);
-      agentFormData.append('llm_enable_thinking', String(options?.llm_enable_thinking ?? false));
-      agentFormData.append('llm_reasoning_effort', options?.llm_reasoning_effort ?? 'low');
+      agentFormData.append('enable_thinking', String(options?.enable_thinking ?? false));
+      agentFormData.append('reasoning_effort', options?.reasoning_effort ?? 'low');
       agentFormData.append('stream', String(options?.stream ?? true));
       agentFormData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 
@@ -283,7 +283,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const handleSubmitMessage = useCallback(
     async (
       message: string,
-      options?: { model_name?: string; llm_enable_thinking?: boolean; llm_reasoning_effort?: string; enable_context_manager?: boolean },
+      options?: { model_name?: string; enable_thinking?: boolean; reasoning_effort?: string; enable_context_manager?: boolean },
     ) => {
       if (!message.trim() || !threadId) return;
       setIsSubmitting(true);

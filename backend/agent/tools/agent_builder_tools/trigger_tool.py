@@ -2,7 +2,6 @@ import json
 from typing import Optional, Dict, Any, List
 from agentpress.tool import ToolResult, openapi_schema, xml_schema
 from agentpress.thread_manager import ThreadManager
-from triggers.core import TriggerManager
 from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
 from datetime import datetime

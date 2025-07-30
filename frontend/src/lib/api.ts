@@ -624,8 +624,8 @@ export const startAgent = async (
   threadId: string,
   options?: {
     model_name?: string;
-    llm_enable_thinking?: boolean;
-    llm_reasoning_effort?: string;
+    enable_thinking?: boolean;
+    reasoning_effort?: string;
     stream?: boolean;
     agent_id?: string; // Optional again
   },
@@ -653,8 +653,8 @@ export const startAgent = async (
 
     const defaultOptions = {
       model_name: 'claude-3-7-sonnet-latest',
-      llm_enable_thinking: false,
-      llm_reasoning_effort: 'low',
+      enable_thinking: false,
+      reasoning_effort: 'low',
       stream: true,
     };
 
@@ -662,8 +662,8 @@ export const startAgent = async (
 
     const body: any = {
       model_name: finalOptions.model_name,
-      llm_enable_thinking: finalOptions.llm_enable_thinking,
-      llm_reasoning_effort: finalOptions.llm_reasoning_effort,
+      enable_thinking: finalOptions.enable_thinking,
+      reasoning_effort: finalOptions.reasoning_effort,
       stream: finalOptions.stream,
     };
     

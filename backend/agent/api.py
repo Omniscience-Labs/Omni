@@ -46,8 +46,8 @@ REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
 class AgentStartRequest(BaseModel):
     model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
-    llm_enable_thinking: Optional[bool] = False
-    llm_reasoning_effort: Optional[str] = 'low'
+    enable_thinking: Optional[bool] = False
+    reasoning_effort: Optional[str] = 'low'
     stream: Optional[bool] = True
     enable_context_manager: Optional[bool] = False
     agent_id: Optional[str] = None  # Custom agent to use
@@ -285,7 +285,7 @@ async def start_agent(
     # Update model_name to use the resolved version
     model_name = resolved_model
 
-    logger.info(f"Starting new agent for thread: {thread_id} with config: model={model_name}, thinking={body.llm_enable_thinking}, effort={body.llm_reasoning_effort}, stream={body.stream}, context_manager={body.enable_context_manager} (Instance: {instance_id})")
+    logger.info(f"Starting new agent for thread: {thread_id} with config: model={model_name}, thinking={body.enable_thinking}, effort={body.reasoning_effort}, stream={body.stream}, context_manager={body.enable_context_manager} (Instance: {instance_id})")
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
@@ -430,8 +430,8 @@ async def start_agent(
         "agent_version_id": agent_config.get('current_version_id') if agent_config else None,
         "metadata": {
             "model_name": model_name,
-            "llm_enable_thinking": body.llm_enable_thinking,
-            "llm_reasoning_effort": body.llm_reasoning_effort,
+            "enable_thinking": body.enable_thinking,
+            "reasoning_effort": body.reasoning_effort,
             "enable_context_manager": body.enable_context_manager
         }
     }).execute()
@@ -455,7 +455,7 @@ async def start_agent(
         agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
         project_id=project_id,
         model_name=model_name,  # Already resolved above
-        llm_enable_thinking=body.llm_enable_thinking, llm_reasoning_effort=body.llm_reasoning_effort,
+        enable_thinking=body.enable_thinking, reasoning_effort=body.reasoning_effort,
         stream=body.stream, enable_context_manager=body.enable_context_manager,
         agent_config=agent_config,  # Pass agent configuration
         is_agent_builder=is_agent_builder,
@@ -875,8 +875,8 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
 async def initiate_agent_with_files(
     prompt: str = Form(...),
     model_name: Optional[str] = Form(None),  # Default to None to use config.MODEL_TO_USE
-    llm_enable_thinking: Optional[bool] = Form(False),
-    llm_reasoning_effort: Optional[str] = Form("low"),
+    enable_thinking: Optional[bool] = Form(False),
+    reasoning_effort: Optional[str] = Form("low"),
     stream: Optional[bool] = Form(True),
     enable_context_manager: Optional[bool] = Form(False),
     agent_id: Optional[str] = Form(None),  # Add agent_id parameter
@@ -906,7 +906,7 @@ async def initiate_agent_with_files(
 
     logger.info(f"Starting new agent in agent builder mode: {is_agent_builder}, target_agent_id: {target_agent_id}")
 
-    logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, llm_enable_thinking: {llm_enable_thinking}")
+    logger.info(f"[\033[91mDEBUG\033[0m] Initiating new agent with prompt and {len(files)} files (Instance: {instance_id}), model: {model_name}, enable_thinking: {enable_thinking}")
     client = await db.client
     account_id = user_id # In Basejump, personal account_id is the same as user_id
     
@@ -1160,8 +1160,8 @@ async def initiate_agent_with_files(
             "agent_version_id": agent_config.get('current_version_id') if agent_config else None,
             "metadata": {
                 "model_name": model_name,
-                "llm_enable_thinking": llm_enable_thinking,
-                "llm_reasoning_effort": llm_reasoning_effort,
+                "enable_thinking": enable_thinking,
+                "reasoning_effort": reasoning_effort,
                 "enable_context_manager": enable_context_manager
             }
         }).execute()
@@ -1185,7 +1185,7 @@ async def initiate_agent_with_files(
             agent_run_id=agent_run_id, thread_id=thread_id, instance_id=instance_id,
             project_id=project_id,
             model_name=model_name,  # Already resolved above
-            llm_enable_thinking=llm_enable_thinking, llm_reasoning_effort=llm_reasoning_effort,
+            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             stream=stream, enable_context_manager=enable_context_manager,
             agent_config=agent_config,  # Pass agent configuration
             is_agent_builder=is_agent_builder,

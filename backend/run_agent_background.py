@@ -58,8 +58,8 @@ async def run_agent_background(
     instance_id: str, # Use the global instance ID passed during initialization
     project_id: str,
     model_name: str,
-    llm_enable_thinking: Optional[bool],
-    llm_reasoning_effort: Optional[str],
+    enable_thinking: Optional[bool],
+    reasoning_effort: Optional[str],
     stream: bool,
     enable_context_manager: bool,
     agent_config: Optional[dict] = None,
@@ -105,15 +105,15 @@ async def run_agent_background(
     logger.info(f"Starting background agent run: {agent_run_id} for thread: {thread_id} (Instance: {instance_id})")
     logger.info({
         "model_name": model_name,
-        "llm_enable_thinking": llm_enable_thinking,
-        "llm_reasoning_effort": llm_reasoning_effort,
+        "enable_thinking": enable_thinking,
+        "reasoning_effort": reasoning_effort,
         "stream": stream,
         "enable_context_manager": enable_context_manager,
         "agent_config": agent_config,
         "is_agent_builder": is_agent_builder,
         "target_agent_id": target_agent_id,
     })
-    logger.info(f"🚀 Using model: {model_name} (thinking: {llm_enable_thinking}, llm_reasoning_effort: {llm_reasoning_effort})")
+    logger.info(f"🚀 Using model: {model_name} (thinking: {enable_thinking}, reasoning_effort: {reasoning_effort})")
     if agent_config:
         logger.info(f"Using custom agent: {agent_config.get('name', 'Unknown')}")
 
@@ -176,7 +176,7 @@ async def run_agent_background(
         agent_gen = run_agent(
             thread_id=thread_id, project_id=project_id, stream=stream,
             model_name=model_name,
-            llm_enable_thinking=llm_enable_thinking, llm_reasoning_effort=llm_reasoning_effort,
+            enable_thinking=enable_thinking, reasoning_effort=reasoning_effort,
             enable_context_manager=enable_context_manager,
             agent_config=agent_config,
             trace=trace,

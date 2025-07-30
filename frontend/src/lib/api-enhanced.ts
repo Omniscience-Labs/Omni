@@ -318,8 +318,8 @@ export const agentApi = {
     threadId: string,
     options?: {
       model_name?: string;
-      llm_enable_thinking?: boolean;
-      llm_reasoning_effort?: string;
+      enable_thinking?: boolean;
+      reasoning_effort?: string;
       stream?: boolean;
     }
   ): Promise<{ agent_run_id: string } | null> {
