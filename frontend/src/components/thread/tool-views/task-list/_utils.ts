@@ -1,17 +1,21 @@
-export interface TaskListData {
-  tasks: Task[]
-  filter?: string
-  total?: number
-  message?: string
-}
-
 export interface Task {
   id: string
   content: string
   status: "pending" | "completed" | "cancelled"
-  created_at: string
-  updated_at: string
-  completed_at?: string
+  section: string  // Fixed: should be section, not section_id
+}
+
+export interface Section {
+  id: string
+  title: string
+  tasks: Task[]
+}
+
+export interface TaskListData {
+  sections: Section[]
+  total?: number
+  message?: string
+  filter?: string
 }
 
 export function extractTaskListData(
@@ -41,14 +45,15 @@ export function extractTaskListData(
         const output = parsedContent.tool_execution.result.output;
         const outputData = parseContent(output);
         
-        if (outputData?.tasks && Array.isArray(outputData.tasks)) {
-          return outputData;
+        // Nested sections format
+        if (outputData?.sections && Array.isArray(outputData.sections)) {
+          return { sections: outputData.sections };
         }
       }
   
-      // Check for direct tasks array
-      if (parsedContent.tasks && Array.isArray(parsedContent.tasks)) {
-        return parsedContent;
+      // Check for direct sections array
+      if (parsedContent.sections && Array.isArray(parsedContent.sections)) {
+        return { sections: parsedContent.sections };
       }
   
       // Check for nested content
@@ -58,6 +63,8 @@ export function extractTaskListData(
   
       return null;
     };
+
+
   
     // Try tool content first, then assistant content
     return extractFromNewFormat(toolContent) || extractFromNewFormat(assistantContent);

@@ -1,40 +1,35 @@
 import type React from "react"
-import { Check, Circle, X, Clock, AlertTriangle, CircleCheck, CircleX } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Check, Clock, Pause, ChevronDown, CircleX, CheckCircle, AlertTriangle, ListTodo, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { extractTaskListData, type Task, type TaskListData } from "./_utils"
+import { extractTaskListData, type Task, type Section } from "./_utils"
+import { getToolTitle } from "../utils"
 import type { ToolViewProps } from "../types"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 const TaskItem: React.FC<{ task: Task; index: number }> = ({ task, index }) => {
   const isCompleted = task.status === "completed"
-  const isCancelled = task.status === "cancelled"
+  const isCancelled  = task.status === "cancelled"
+  const isPending = !isCompleted && !isCancelled
 
   return (
-    <div
-      className={cn(
-        "flex items-start gap-3 p-3 rounded-lg border transition-colors",
-        isCompleted && "bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700",
-        isCancelled && "bg-gray-50 border-gray-200 dark:bg-gray-900/50 dark:border-gray-700",
-        !isCompleted && !isCancelled && "bg-white border-gray-200 dark:bg-gray-900/50 dark:border-gray-800",
-      )}
-    >
+    <div className="flex items-center gap-3 py-3 px-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
       {/* Status Icon */}
-      <div className="flex-shrink-0 self-center mt-0">
-        {isCompleted && <CircleCheck className="h-4 w-4 text-green-600" />}
-        {isCancelled && <CircleX className="h-4 w-4 text-red-600" />}
-        {!isCompleted && !isCancelled && <Circle className="h-4 w-4 text-gray-400" />}
+      <div className="flex-shrink-0">
+        {isCompleted && <Check className="h-4 w-4 text-green-500 dark:text-green-400" />}
+        {isCancelled && <X className="h-4 w-4 text-red-500 dark:text-red-400" />}
+        {isPending && <Clock className="h-4 w-4 text-zinc-400 dark:text-zinc-600" />}
       </div>
 
-      {/* Content */}
+      {/* Task Content */}
       <div className="flex-1 min-w-0">
         <p
           className={cn(
             "text-sm leading-relaxed",
-            isCompleted && "text-gray-800 dark:text-gray-200",
-            isCancelled && "text-gray-500 line-through dark:text-gray-400",
-            !isCompleted && !isCancelled && "text-gray-900 dark:text-gray-100",
+            isCompleted && "text-zinc-900 dark:text-zinc-100",
+            isCancelled && "text-zinc-500 dark:text-zinc-400 line-through",
+            isPending && "text-zinc-600 dark:text-zinc-300",
           )}
         >
           {task.content}
@@ -44,128 +39,166 @@ const TaskItem: React.FC<{ task: Task; index: number }> = ({ task, index }) => {
   )
 }
 
-const EmptyState: React.FC = () => (
-  <div className="flex flex-col items-center justify-center py-12 text-center">
-    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">No tasks yet</h3>
-    <p className="text-sm text-gray-500 dark:text-gray-400">Tasks will appear here as they are created</p>
-  </div>
-)
+const SectionHeader: React.FC<{ section: Section }> = ({ section }) => {
+  const totalTasks = section.tasks.length
+  const completedTasks = section.tasks.filter((t) => t.status === "completed").length
 
-export const TaskListToolView: React.FC<ToolViewProps> = ({
-  assistantContent,
-  toolContent,
-  isStreaming = false,
+  return (
+    <div className="flex items-center justify-between py-3 px-4 bg-zinc-50/80 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-700">
+      <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{section.title}</h3>
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-xs h-5 px-2 py-0 font-normal bg-white dark:bg-zinc-800">
+          {completedTasks}/{totalTasks}
+        </Badge>
+        {completedTasks === totalTasks && totalTasks > 0 && (
+          <Badge variant="outline" className="text-xs h-5 px-2 py-0 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+            <Check className="h-3 w-3" />
+          </Badge>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const SectionView: React.FC<{ section: Section }> = ({ section }) => {
+  return (
+    <div className="border-b border-zinc-200 dark:border-zinc-800 last:border-b-0">
+      <SectionHeader section={section} />
+      <div className="bg-card">
+        {section.tasks.map((task, index) => (
+          <TaskItem key={task.id} task={task} index={index} />
+        ))}
+        {section.tasks.length === 0 && (
+          <div className="py-6 px-4 text-center">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">No tasks in this section</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+
+
+export const TaskListToolView: React.FC<ToolViewProps> = ({ 
+  name = 'task-list',
+  assistantContent, 
+  toolContent, 
+  assistantTimestamp,
+  toolTimestamp,
+  isSuccess = true,
+  isStreaming = false 
 }) => {
   const taskData = extractTaskListData(assistantContent, toolContent)
+  const toolTitle = getToolTitle(name)
 
-  // Show loading state while streaming and no data
-  if (isStreaming && !taskData) {
-    return (
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center space-y-0 pb-4">
-          <div className="flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-blue-500 animate-spin" />
-            <CardTitle className="text-base font-medium">Task List</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500">Processing tasks...</p>
-        </CardContent>
-      </Card>
-    )
-  }
-  console.log('taskData', taskData)
-  // Show no data state if no task data
-  if (!taskData) {
-    return (
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center space-y-0 pb-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <CardTitle className="text-base font-medium">Task List</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500">No task data available</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Show task data
-  const tasks = taskData.tasks || []
-  const totalTasks = tasks.length
-  const completedTasks = tasks.filter((t) => t.status === "completed").length
-  const cancelledTasks = tasks.filter((t) => t.status === "cancelled").length
-  const completionPercentage = totalTasks > 0 ? ((completedTasks + cancelledTasks) / totalTasks) * 100 : 0
+  // Process task data
+  const sections = taskData?.sections || []
+  const allTasks = sections.flatMap((section) => section.tasks)
+  const totalTasks = allTasks.length
+  const completedTasks = allTasks.filter((t) => t.status === "completed").length
+  const hasData = sections.length > 0
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
-  <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
-    <div className="flex flex-row items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="relative p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20">
-          <Clock className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-        </div>
-        <div>
-          <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-            Task List
-          </CardTitle>
-        </div>
-      </div>
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
+        <div className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/20">
+              <ListTodo className="w-5 h-5 text-green-500 dark:text-green-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                {toolTitle}
+              </CardTitle>
+            </div>
+          </div>
 
-      <Badge
-        variant="secondary"
-        className="bg-gradient-to-b from-zinc-200 to-zinc-100 text-zinc-700 dark:from-zinc-800/50 dark:to-zinc-900/60 dark:text-zinc-300"
-      >
-        {completedTasks}/{totalTasks} completed
-      </Badge>
-    </div>
-  </CardHeader>
-
-  <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
-    <ScrollArea className="h-full w-full">
-      <div className="p-4 py-0 my-4">
-        <div className="space-y-3">
-          {tasks.length > 0 ? (
-            tasks.map((task, index) => (
-              <TaskItem key={task.id} task={task} index={index} />
-            )
-          )
-          ) : (
-            <EmptyState />
+          {!isStreaming && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-normal">
+                {completedTasks} / {totalTasks} tasks
+              </Badge>
+              <Badge
+                variant="secondary"
+                className={
+                  isSuccess
+                    ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
+                    : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
+                }
+              >
+                {isSuccess ? (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                )}
+                {isSuccess ? 'Tasks loaded' : 'Failed to load'}
+              </Badge>
+            </div>
           )}
-          {/* Progress Bar */}
-          {tasks.length > 0 && <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700 overflow-hidden mt-4">
-            <div
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-300",
-                completionPercentage === 0 && "bg-yellow-300",
-                completionPercentage > 0 && completionPercentage <= 25 && "bg-yellow-400",
-                completionPercentage > 25 && completionPercentage <= 50 && "bg-yellow-500",
-                completionPercentage > 50 && completionPercentage <= 75 && "bg-green-300",
-                completionPercentage > 75 && completionPercentage < 100 && "bg-green-400",
-                completionPercentage === 100 && "bg-green-600"
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
+        {isStreaming && !hasData ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-green-100 to-green-50 shadow-inner dark:from-green-800/40 dark:to-green-900/60">
+              <Clock className="h-10 w-10 text-green-500 dark:text-green-400 animate-spin" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
+              Loading Tasks
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Preparing your task list...
+            </p>
+          </div>
+        ) : hasData ? (
+          <ScrollArea className="h-full w-full">
+            <div className="py-0">
+              {sections.map((section) => <SectionView key={section.id} section={section} />)}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-6 bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-zinc-100 to-zinc-50 shadow-inner dark:from-zinc-800/40 dark:to-zinc-900/60">
+              <ListTodo className="h-10 w-10 text-zinc-400 dark:text-zinc-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
+              No Tasks Yet
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Your task list will appear here once created
+            </p>
+          </div>
+        )}
+      </CardContent>
+
+      <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
+        <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+          {!isStreaming && hasData && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="h-6 py-0.5">
+                <ListTodo className="h-3 w-3" />
+                {sections.length} sections
+              </Badge>
+              {completedTasks === totalTasks && totalTasks > 0 && (
+                <Badge variant="outline" className="h-6 py-0.5 bg-green-50 text-green-700 border-green-200">
+                  <Check className="h-3 w-3" />
+                  All complete
+                </Badge>
               )}
-              style={{ width: `${completionPercentage}%` }}
-            />
-          </div>}
-          
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+          {toolTimestamp && !isStreaming
+            ? new Date(toolTimestamp).toLocaleTimeString()
+            : assistantTimestamp
+              ? new Date(assistantTimestamp).toLocaleTimeString()
+              : ''}
         </div>
       </div>
-    </ScrollArea>
-  </CardContent>
-
-  <div className="px-4 py-2 h-10 bg-gradient-to-r from-zinc-50/90 to-zinc-100/90 dark:from-zinc-900/90 dark:to-zinc-800/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center gap-4">
-    <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-      {tasks.length > 0 && (
-        <Badge variant="outline" className="h-6 py-0.5">
-          <Clock className="h-3 w-3" />
-          {tasks.length} tasks
-        </Badge>
-      )}
-    </div>
-  </div>
-</Card>
+    </Card>
   )
 }
