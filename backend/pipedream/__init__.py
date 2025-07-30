@@ -9,11 +9,11 @@ from .connection_token_service import ConnectionTokenService
 
 db = DBConnection()
 
-profile_service = ProfileService(db=db, logger=logger)
-connection_service = ConnectionService(logger=logger)
+profile_service = ProfileService()
+connection_service = ConnectionService()
 app_service = AppService(logger=logger)
-mcp_service = MCPService(logger=logger)
-connection_token_service = ConnectionTokenService(logger=logger)
+mcp_service = MCPService()
+connection_token_service = ConnectionTokenService()
 
 from . import api
 api.profile_service = profile_service

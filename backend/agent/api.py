@@ -2206,15 +2206,15 @@ async def get_pipedream_tools_for_agent(
         
         try:
             from pipedream.mcp_service import ExternalUserId, AppSlug
-            external_user_id = ExternalUserId(profile.external_user_id.value)
-            app_slug_obj = AppSlug(profile.app_slug.value)
+            external_user_id = ExternalUserId(profile.external_user_id)
+            app_slug_obj = AppSlug(profile.app_slug)
             
             logger.info(f"Discovering servers for user {external_user_id.value} and app {app_slug_obj.value}")
             servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug_obj)
-            logger.info(f"Found {len(servers)} servers: {[s.app_slug.value for s in servers]}")
+            logger.info(f"Found {len(servers)} servers: {[s.app_slug for s in servers]}")
             
             server = servers[0] if servers else None
-            logger.info(f"Selected server: {server.app_slug.value if server else 'None'} with {len(server.available_tools) if server else 0} tools")
+            logger.info(f"Selected server: {server.app_slug if server else 'None'} with {len(server.available_tools) if server else 0} tools")
             
             if not server:
                 return {
