@@ -13,7 +13,7 @@ export function AnimatedFlowLine({ isAnimating = false, className = '' }: Animat
         <div className={`relative flex items-center justify-center h-4 ${className}`}>
             {/* Simple dashed line */}
             <motion.div
-                className="w-0.5 h-full rounded-full border-l border-dashed border-zinc-300 dark:border-zinc-600"
+                className="w-0.5 h-full rounded-full border-l border-dashed border-primary/50"
                 style={{
                     background: isAnimating
                         ? 'repeating-linear-gradient(to bottom, #4461FF 0px, #4461FF 2px, transparent 2px, transparent 4px)'
