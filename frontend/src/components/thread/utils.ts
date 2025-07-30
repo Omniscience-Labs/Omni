@@ -153,11 +153,6 @@ export const getToolIcon = (toolName: string): ElementType => {
     case 'complete':
       return CheckCircle2;
 
-    // MCP tools
-    case 'call-mcp-tool':
-      return PlugIcon;
-
-    // Default case
     default:
       if (toolName?.startsWith('mcp_')) {
         const parts = toolName.split('_');
@@ -335,7 +330,6 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['web-search', 'Searching Web'],
   ['see-image', 'Viewing Image'],
   
-  ['call-mcp-tool', 'External Tool'],
 
   ['update-agent', 'Updating Agent'],
   ['get-current-agent-config', 'Getting Agent Config'],

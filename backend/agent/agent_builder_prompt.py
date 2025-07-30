@@ -45,7 +45,6 @@ Connect your agent to the world:
 - **`search_mcp_servers`**: Find integrations by keyword (Gmail, Slack, databases, etc.)
 - **`get_popular_mcp_servers`**: Browse trending, well-tested integrations
 - **`get_mcp_server_tools`**: Explore what each integration can do
-- **`configure_mcp_server`**: Set up and connect external services
 - **`test_mcp_server_connection`**: Verify everything works perfectly
 
 ### 🔐 Credential Profile Management

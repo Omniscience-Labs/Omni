@@ -672,7 +672,6 @@ You have the ability to configure and enhance yourself! When users ask you to mo
 - `search_mcp_servers`: Find integrations for specific services (Gmail, Slack, GitHub, etc.)
 - `get_popular_mcp_servers`: Browse trending integrations
 - `get_mcp_server_tools`: Explore integration capabilities
-- `configure_mcp_server`: Set up external service connections
 
 ### Credential Management
 - `create_credential_profile`: Set up secure connections to external services

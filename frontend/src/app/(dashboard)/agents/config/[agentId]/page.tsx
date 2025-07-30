@@ -113,12 +113,7 @@ export default function AgentConfigurationPage() {
         });
         return;
       }
-      if (restrictions.system_prompt_editable === false && formData.system_prompt !== originalData.system_prompt) {
-        toast.error("Cannot save changes", {
-          description: "Suna's system prompt cannot be modified.",
-        });
-        return;
-      }
+
       if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
         toast.error("Cannot save changes", {
           description: "Suna's default tools cannot be modified.",
@@ -138,7 +133,7 @@ export default function AgentConfigurationPage() {
       const newVersion = await createVersionMutation.mutateAsync({
         agentId,
         data: {
-          system_prompt: formData.system_prompt,
+          system_prompt: isSunaAgent ? '' : formData.system_prompt,
           configured_mcps: formData.configured_mcps,
           custom_mcps: normalizedCustomMcps,
           agentpress_tools: formData.agentpress_tools,
