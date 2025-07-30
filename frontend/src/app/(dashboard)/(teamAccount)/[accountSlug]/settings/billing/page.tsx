@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { createClient } from '@/lib/supabase/server';
 import AccountBillingStatus from '@/components/billing/account-billing-status';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAccountBySlug } from '@/hooks/react-query';
 
 const returnUrl = process.env.NEXT_PUBLIC_URL as string;
 
@@ -19,26 +20,11 @@ export default function TeamBillingPage({
   const unwrappedParams = React.use(params);
   const { accountSlug } = unwrappedParams;
 
-  // Use an effect to load team account data
-  const [teamAccount, setTeamAccount] = React.useState<any>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    async function loadData() {
-      try {
-        const supabaseClient = await createClient();
-        const { data } = await supabaseClient.rpc('get_account_by_slug', {
-          slug: accountSlug,
-        });
-        setTeamAccount(data);
-      } catch (err) {
-        setError('Failed to load account data');
-        console.error(err);
-      }
-    }
-
-    loadData();
-  }, [accountSlug]);
+  const { 
+    data: teamAccount, 
+    isLoading, 
+    error 
+  } = useAccountBySlug(accountSlug);
 
   if (error) {
     return (
@@ -47,16 +33,37 @@ export default function TeamBillingPage({
         className="border-red-300 dark:border-red-800 rounded-xl"
       >
         <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>
+          {error instanceof Error ? error.message : 'Failed to load account data'}
+        </AlertDescription>
       </Alert>
     );
   }
 
-  if (!teamAccount) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
-  if (teamAccount.account_role !== 'owner') {
+  if (!teamAccount) {
+    return (
+      <Alert
+        variant="destructive"
+        className="border-red-300 dark:border-red-800 rounded-xl"
+      >
+        <AlertTitle>Account Not Found</AlertTitle>
+        <AlertDescription>
+          The requested team account could not be found.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (teamAccount.role !== 'owner') {
     return (
       <Alert
         variant="destructive"

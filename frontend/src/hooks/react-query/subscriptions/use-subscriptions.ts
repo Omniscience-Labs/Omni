@@ -3,8 +3,10 @@
 import { createMutationHook, createQueryHook } from '@/hooks/use-query';
 import {
   getSubscription,
+  getSubscriptionCommitment,
   createPortalSession,
   SubscriptionStatus,
+  CommitmentInfo,
 } from '@/lib/api';
 import { subscriptionKeys } from './keys';
 import { useQuery } from '@tanstack/react-query';
@@ -62,6 +64,16 @@ export const useCreatePortalSession = createMutationHook(
     },
   },
 );
+
+export const useSubscriptionCommitment = (subscriptionId?: string) => {
+  return useQuery({
+    queryKey: subscriptionKeys.commitment(subscriptionId || ''),
+    queryFn: () => getSubscriptionCommitment(subscriptionId!),
+    enabled: !!subscriptionId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+};
 
 export const isPlan = (
   subscriptionData: SubscriptionStatus | null | undefined,
