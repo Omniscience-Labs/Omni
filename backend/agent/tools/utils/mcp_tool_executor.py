@@ -6,13 +6,13 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from mcp_module import mcp_manager
+from mcp_module import mcp_service
 from utils.logger import logger
 
 
 class MCPToolExecutor:
     def __init__(self, custom_tools: Dict[str, Dict[str, Any]], tool_wrapper=None):
-        self.mcp_manager = mcp_manager
+        self.mcp_manager = mcp_service
         self.custom_tools = custom_tools
         self.tool_wrapper = tool_wrapper
     
