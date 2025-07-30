@@ -59,8 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(newSession?.user ?? null);
 
         if (isLoading) setIsLoading(false);
-        
-        // Handle specific auth events
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
