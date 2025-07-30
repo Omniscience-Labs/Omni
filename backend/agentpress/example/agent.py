@@ -56,13 +56,70 @@ This will add 15 and 27 to get 42.""")
         
         return self.success_response({"result": result})
 
-class SimpleAgent:
-    def __init__(self):
-        self.thread_manager = ThreadManager()
-        self.thread_manager.add_tool(CalculatorTool)
-        self.system_prompt = {
-            "role": "system",
-            "content": """You are a helpful mathematical assistant agent. You can:
+def render_conversation(messages):
+    print("\n" + "="*60)
+    print("📜 CONVERSATION HISTORY")
+    print("="*60)
+    
+    for i, message in enumerate(messages, 1):
+        role = message.get('role', 'unknown')
+        content = message.get('content', '')
+        
+        if role == 'user':
+            role_display = "👤 USER"
+            color = '\033[94m'
+        elif role == 'assistant':
+            role_display = "🤖 ASSISTANT"
+            color = '\033[92m'
+        elif role == 'system':
+            role_display = "⚙️  SYSTEM"
+            color = '\033[93m'
+        else:
+            role_display = f"📝 {role.upper()}"
+            color = '\033[96m'
+        
+        reset = '\033[0m'
+        print(f"\n{color}{role_display} (Message {i}){reset}")
+        print("-" * 40)
+        
+        if isinstance(content, str):
+            print(content)
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get('type') == 'text':
+                        print(item.get('text', ''))
+                    elif item.get('type') == 'tool_use':
+                        tool_name = item.get('name', 'unknown_tool')
+                        tool_input = item.get('input', {})
+                        print(f"🔧 Tool Call: {tool_name}")
+                        print(f"   Input: {tool_input}")
+                    else:
+                        print(f"   {item}")
+                else:
+                    print(f"   {item}")
+        elif isinstance(content, dict):
+            if 'tool_calls' in content:
+                for tool_call in content['tool_calls']:
+                    function = tool_call.get('function', {})
+                    print(f"🔧 Tool Call: {function.get('name', 'unknown')}")
+                    print(f"   Arguments: {function.get('arguments', {})}")
+            else:
+                print(content)
+        else:
+            print(f"[{type(content).__name__}]: {content}")
+    
+    print("\n" + "="*60)
+
+async def main():
+    # Initialize thread manager and add tools
+    thread_manager = ThreadManager()
+    thread_manager.add_tool(CalculatorTool)
+    
+    # Define system prompt
+    system_prompt = {
+        "role": "system",
+        "content": """You are a helpful mathematical assistant agent. You can:
 
 1. Perform basic mathematical calculations (addition, subtraction, multiplication, division)
 2. Provide help information about available operations
@@ -75,90 +132,10 @@ Available tools:
 - calculate: Perform mathematical operations
 
 """
-        }
-
-    async def chat(self, thread_id: str, user_message: str, stream: bool = True):
-        await self.thread_manager.add_message(
-            thread_id=thread_id,
-            type="user",
-            content={"role": "user", "content": user_message},
-            is_llm_message=True
-        )
-        
-        processor_config = ProcessorConfig(
-            xml_tool_calling=True,
-            execute_tools=True,
-            tool_execution_strategy="sequential"
-        )
-        
-        return await self.thread_manager.run_thread(
-            thread_id=thread_id,
-            system_prompt=self.system_prompt,
-            temporary_message={"role": "user", "content": user_message},
-            stream=stream,
-            llm_model="gpt-4o",
-            processor_config=processor_config,
-            include_xml_examples=True
-        )
-
-    def render_conversation(self, messages):
-        print("\n" + "="*60)
-        print("📜 CONVERSATION HISTORY")
-        print("="*60)
-        
-        for i, message in enumerate(messages, 1):
-            role = message.get('role', 'unknown')
-            content = message.get('content', '')
-            
-            if role == 'user':
-                role_display = "👤 USER"
-                color = '\033[94m'
-            elif role == 'assistant':
-                role_display = "🤖 ASSISTANT"
-                color = '\033[92m'
-            elif role == 'system':
-                role_display = "⚙️  SYSTEM"
-                color = '\033[93m'
-            else:
-                role_display = f"📝 {role.upper()}"
-                color = '\033[96m'
-            
-            reset = '\033[0m'
-            print(f"\n{color}{role_display} (Message {i}){reset}")
-            print("-" * 40)
-            
-            if isinstance(content, str):
-                print(content)
-            elif isinstance(content, list):
-                for item in content:
-                    if isinstance(item, dict):
-                        if item.get('type') == 'text':
-                            print(item.get('text', ''))
-                        elif item.get('type') == 'tool_use':
-                            tool_name = item.get('name', 'unknown_tool')
-                            tool_input = item.get('input', {})
-                            print(f"🔧 Tool Call: {tool_name}")
-                            print(f"   Input: {tool_input}")
-                        else:
-                            print(f"   {item}")
-                    else:
-                        print(f"   {item}")
-            elif isinstance(content, dict):
-                if 'tool_calls' in content:
-                    for tool_call in content['tool_calls']:
-                        function = tool_call.get('function', {})
-                        print(f"🔧 Tool Call: {function.get('name', 'unknown')}")
-                        print(f"   Arguments: {function.get('arguments', {})}")
-                else:
-                    print(content)
-            else:
-                print(f"[{type(content).__name__}]: {content}")
-        
-        print("\n" + "="*60)
-
-async def main():
-    agent = SimpleAgent()
-    thread_id = await agent.thread_manager.create_thread()
+    }
+    
+    # Create thread
+    thread_id = await thread_manager.create_thread()
     
     messages = [
         "What's 15 + 27?",
@@ -167,19 +144,34 @@ async def main():
     ]
     
     for message in messages:
-        print(f"User: {message}")
-        print("Agent: ", end="", flush=True)
+        await thread_manager.add_message(
+            thread_id=thread_id,
+            type="user",
+            content={"role": "user", "content": message},
+            is_llm_message=True
+        )
         
-        response_stream = await agent.chat(thread_id, message, stream=True)
-        
+        response_stream = await thread_manager.run_thread(
+            thread_id=thread_id,
+            system_prompt=system_prompt,
+            stream=True,
+            llm_model="gpt-4o",
+            processor_config=ProcessorConfig(
+                xml_tool_calling=True,
+                execute_tools=True,
+                tool_execution_strategy="sequential"
+            ),
+            include_xml_examples=True
+        )        
+
         async for chunk in response_stream:
             if isinstance(chunk, dict) and chunk.get('type') == 'content':
                 print(chunk.get('content', ''), end='', flush=True)
         print()
     
     try:
-        conversation_history = await agent.thread_manager.get_llm_messages(thread_id)
-        agent.render_conversation(conversation_history)
+        conversation_history = await thread_manager.get_llm_messages(thread_id)
+        render_conversation(conversation_history)
     except Exception as e:
         print(f"Failed to fetch conversation history: {e}")
 
