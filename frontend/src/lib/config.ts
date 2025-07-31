@@ -243,12 +243,24 @@ export const isLocalMode = (): boolean => {
   return config.IS_LOCAL;
 };
 
-// Yearly commitment plan mappings with tier levels (higher number = higher tier)
-const YEARLY_COMMITMENT_PLANS = {
-  'price_1RqYGaG6l1KZGqIrIzcdPzeQ': { tier: 1, name: '2h/$17/month (yearly)' },    // TIER_2_17_YEARLY_COMMITMENT
-  'price_1RqYH1G6l1KZGqIrWDKh8xIU': { tier: 2, name: '6h/$42.50/month (yearly)' }, // TIER_6_42_YEARLY_COMMITMENT  
-  'price_1RqYHbG6l1KZGqIrAUVf8KpG': { tier: 3, name: '25h/$170/month (yearly)' },  // TIER_25_170_YEARLY_COMMITMENT
+// Production yearly commitment plan mappings
+const PROD_YEARLY_COMMITMENT_PLANS = {
+  [PROD_TIERS.TIER_2_17_YEARLY_COMMITMENT.priceId]: { tier: 1, name: '2h/$17/month (yearly)' },
+  [PROD_TIERS.TIER_6_42_YEARLY_COMMITMENT.priceId]: { tier: 2, name: '6h/$42.50/month (yearly)' },
+  [PROD_TIERS.TIER_25_170_YEARLY_COMMITMENT.priceId]: { tier: 3, name: '25h/$170/month (yearly)' },
 } as const;
+
+// Staging yearly commitment plan mappings
+const STAGING_YEARLY_COMMITMENT_PLANS = {
+  [STAGING_TIERS.TIER_2_17_YEARLY_COMMITMENT.priceId]: { tier: 1, name: '2h/$17/month (yearly)' },
+  [STAGING_TIERS.TIER_6_42_YEARLY_COMMITMENT.priceId]: { tier: 2, name: '6h/$42.50/month (yearly)' },
+  [STAGING_TIERS.TIER_25_170_YEARLY_COMMITMENT.priceId]: { tier: 3, name: '25h/$170/month (yearly)' },
+} as const;
+
+// Environment-aware yearly commitment plan mappings
+const YEARLY_COMMITMENT_PLANS = currentEnvMode === EnvMode.STAGING 
+  ? STAGING_YEARLY_COMMITMENT_PLANS 
+  : PROD_YEARLY_COMMITMENT_PLANS;
 
 // Helper functions for yearly commitment plans
 export const isYearlyCommitmentPlan = (priceId: string): boolean => {
