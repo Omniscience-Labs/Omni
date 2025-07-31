@@ -14,6 +14,7 @@ import { BillingError } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
+import { useAgentRunsQuery } from '@/hooks/react-query/threads/use-agent-run';
 
 interface AgentBuilderChatProps {
   agentId: string;
@@ -44,6 +45,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const previousMessageCountRef = useRef(0);
   const hasInitiallyLoadedRef = useRef(false);
   const previousAgentIdRef = useRef<string | null>(null);
+  const agentRunsCheckedRef = useRef(false);
 
   // Debug mount/unmount
   useEffect(() => {
@@ -63,6 +65,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       setAgentRunId(null);
       setHasStartedConversation(false);
       previousMessageCountRef.current = 0;
+      agentRunsCheckedRef.current = false;
     }
     previousAgentIdRef.current = agentId;
   }, [agentId]);
@@ -72,6 +75,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const startAgentMutation = useStartAgentMutation();
   const stopAgentMutation = useStopAgentMutation();
   const chatHistoryQuery = useAgentBuilderChatHistory(agentId);
+  const agentRunsQuery = useAgentRunsQuery(threadId || '');
   const queryClient = useQueryClient();
 
   const scrollToBottom = () => {
@@ -117,6 +121,23 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       hasInitiallyLoadedRef.current = true;
     }
   }, [chatHistoryQuery.data, chatHistoryQuery.status, chatHistoryQuery.error, agentId]);
+
+  useEffect(() => {
+    if (threadId && agentRunsQuery.data && !agentRunsCheckedRef.current) {
+      console.log('[AgentBuilderChat] Checking for active agent runs...');
+      agentRunsCheckedRef.current = true;
+
+      const activeRun = agentRunsQuery.data.find((run) => run.status === 'running');
+      if (activeRun) {
+        console.log('[AgentBuilderChat] Found active run on load:', activeRun.id);
+        setAgentRunId(activeRun.id);
+        setAgentStatus('connecting');
+      } else {
+        console.log('[AgentBuilderChat] No active agent runs found');
+        setAgentStatus('idle');
+      }
+    }
+  }, [threadId, agentRunsQuery.data]);
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
     setMessages((prev) => {
@@ -169,7 +190,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
         setAgentStatus('running');
         break;
     }
-  }, []);
+  }, [queryClient, agentId]);
 
   const handleStreamError = useCallback((errorMessage: string) => {
     if (!errorMessage.toLowerCase().includes('not found') &&
@@ -202,10 +223,11 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   );
 
   useEffect(() => {
-    if (agentRunId && agentRunId !== currentHookRunId && threadId) {
+    if (agentRunId && agentRunId !== currentHookRunId) {
+      console.log(`[AgentBuilderChat] Target agentRunId set to ${agentRunId}, initiating stream...`);
       startStreaming(agentRunId);
     }
-  }, [agentRunId, startStreaming, currentHookRunId, threadId]);
+  }, [agentRunId, startStreaming, currentHookRunId]);
 
   const handleSubmitFirstMessage = async (
     message: string,

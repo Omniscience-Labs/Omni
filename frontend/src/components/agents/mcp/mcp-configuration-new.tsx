@@ -85,10 +85,8 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   const handleToolsSelected = async (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
-    // If we have an agent ID and we're in direct save mode, use the backend API to preserve existing tools
     if (selectedAgentId && saveMode === 'direct') {
       try {
-        // Use the robust backend API that preserves all existing tools
         const response = await fetch(`/api/agents/${selectedAgentId}/pipedream-tools/${profileId}`, {
           method: 'PUT',
           headers: {
@@ -100,12 +98,7 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
         if (!response.ok) {
           throw new Error('Failed to update tools');
         }
-        
-        // The backend now handles preserving all existing tools and creating a new version
         setShowRegistryDialog(false);
-        
-        // Invalidate queries to refresh the UI
-        // Note: We'll need to import queryClient for this to work
         toast.success(`Added ${selectedTools.length} tools from ${appName}!`);
         return;
       } catch (error) {
@@ -115,7 +108,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
       }
     }
     
-    // Fallback to frontend-only mode for callback mode or when no agent is selected
     const pipedreamMCP: MCPConfigurationType = {
       name: appName,
       qualifiedName: `pipedream_${appSlug}_${profileId}`,

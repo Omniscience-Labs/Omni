@@ -6,7 +6,6 @@ import { Settings, X, Sparkles, Key, AlertTriangle } from 'lucide-react';
 import { MCPConfiguration } from './types';
 import { useCredentialProfilesForMcp } from '@/hooks/react-query/mcp/use-credential-profiles';
 import { usePipedreamAppIcon } from '@/hooks/react-query/pipedream/use-pipedream';
-import { Skeleton } from '@/components/ui/skeleton';
 
 interface ConfiguredMcpListProps {
   configuredMCPs: MCPConfiguration[];
@@ -35,6 +34,7 @@ const MCPLogo: React.FC<{ mcp: MCPConfiguration }> = ({ mcp }) => {
   });
 
   const logoUrl = iconData?.icon_url;
+  const firstLetter = mcp.name.charAt(0).toUpperCase();
 
   return (
     <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -50,8 +50,8 @@ const MCPLogo: React.FC<{ mcp: MCPConfiguration }> = ({ mcp }) => {
           }}
         />
       ) : null}
-      <div className={logoUrl ? "hidden" : "block"}>
-        <Skeleton className="h-6 w-6" />
+      <div className={logoUrl ? "hidden" : "flex w-full h-full items-center justify-center bg-muted rounded-md text-xs font-medium text-muted-foreground"}>
+        {firstLetter}
       </div>
     </div>
   );
