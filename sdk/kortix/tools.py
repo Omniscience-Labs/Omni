@@ -5,22 +5,26 @@ from fastmcp import Client as FastMCPClient
 
 class KortixMCP:
     def __init__(
-        self, mcp_client: FastMCPClient, endpoint: str, allowed_tools: list[str]
+        self, endpoint: str, name: str, allowed_tools: list[str] | None = None
     ):
-        self._mcp_client = mcp_client
+        self._mcp_client = FastMCPClient(endpoint)
         self.url = endpoint
+        self.name = name
+        self.type = "http"
         self._initialized = False
         self._allowed_tools = allowed_tools
-        self._enabled_tools: list[str] = []
+        self.enabled_tools: list[str] = []
 
     async def initialize(self):
         async with self._mcp_client:
             tools = await self._mcp_client.list_tools()
 
-        self.enabled_tools: list[str] = []
-        for tool in tools:
-            if tool.name in self._allowed_tools:
-                self._enabled_tools.append(tool.name)
+        if self._allowed_tools:
+            for tool in tools:
+                if tool.name in self._allowed_tools:
+                    self.enabled_tools.append(tool.name)
+        else:
+            self.enabled_tools = [tool.name for tool in tools]
         self._initialized = True
         return self
 
