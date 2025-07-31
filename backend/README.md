@@ -111,7 +111,6 @@ MCP_CREDENTIAL_ENCRYPTION_KEY=your-generated-encryption-key
 
 # Optional APIs
 RAPID_API_KEY=your-rapidapi-key
-SMITHERY_API_KEY=your-smithery-key
 
 NEXT_PUBLIC_URL=http://localhost:3000
 ```
