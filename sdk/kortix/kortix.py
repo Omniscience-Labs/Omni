@@ -1,7 +1,7 @@
 from .api import agents, threads
 from .agent import KortixAgent
 from .thread import KortixThread
-from .tools import AgentPressTools, KortixMCP
+from .tools import AgentPressTools, KortixMCPTools
 
 
 class Kortix:

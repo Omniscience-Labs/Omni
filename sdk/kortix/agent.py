@@ -1,6 +1,6 @@
 from .api.threads import AgentStartRequest
 from .thread import Thread, AgentRun
-from .tools import AgentPressTools, KortixMCP, KortixTools
+from .tools import AgentPressTools, KortixMCPTools, KortixTools
 from .api.agents import (
     AgentCreateRequest,
     AgentPress_ToolConfig,
@@ -37,16 +37,16 @@ class KortixAgent:
         self._client = client
 
     async def create(
-        self, name: str, system_prompt: str, model: str, tools: list[KortixTools] = []
+        self, name: str, system_prompt: str, model: str, mcp_tools: list[KortixTools] = []
     ) -> Agent:
         agentpress_tools = {}
         custom_mcps: list[CustomMCP] = []
-        for tool in tools:
+        for tool in mcp_tools:
             if isinstance(tool, AgentPressTools):
                 agentpress_tools[tool] = AgentPress_ToolConfig(
                     enabled=True, description=tool.get_description()
                 )
-            elif isinstance(tool, KortixMCP):
+            elif isinstance(tool, KortixMCPTools):
                 mcp = tool
                 custom_mcps.append(
                     CustomMCP(

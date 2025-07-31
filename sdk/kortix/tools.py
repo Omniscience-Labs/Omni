@@ -3,7 +3,7 @@ from enum import Enum
 from fastmcp import Client as FastMCPClient
 
 
-class KortixMCP:
+class KortixMCPTools:
     def __init__(
         self, endpoint: str, name: str, allowed_tools: list[str] | None = None
     ):
@@ -60,4 +60,4 @@ class AgentPressTools(str, Enum):
         return desc
 
 
-KortixTools = Union[AgentPressTools, KortixMCP]
+KortixTools = Union[AgentPressTools, KortixMCPTools]
