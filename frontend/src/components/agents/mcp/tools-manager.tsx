@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { usePipedreamToolsData, useUpdatePipedreamToolsForAgent } from '@/hooks/react-query/agents/use-pipedream-tools';
 import { useCustomMCPToolsData } from '@/hooks/react-query/agents/use-custom-mcp-tools';
+import { ToolsLoader } from './tools-loader';
 
 interface BaseToolsManagerProps {
   agentId: string;
@@ -229,16 +230,16 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2 rounded-xl bg-muted p-2">
+              <Zap className="h-5 w-5 text-primary" />
+            </div>
             Configure {displayName} Tools
           </DialogTitle>
           <DialogDescription>
             {versionData ? (
-              <div className="flex items-center gap-2 text-amber-600">
-                <span>
-                  Changes will make a new version of the agent.
-                </span>
-              </div>
+              <span className="flex items-center gap-2 text-amber-600">
+                Changes will make a new version of the agent.
+              </span>
             ) : saveMode === 'callback' ? (
               <span>Choose which {displayName} tools are available to your agent. Changes will be saved when you save the agent configuration.</span>
             ) : (
@@ -249,12 +250,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading available tools...</span>
-              </div>
-            </div>
+            <ToolsLoader toolCount={5} />
           ) : !data?.tools?.length ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -301,7 +297,7 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
                     key={tool.name}
                     className={cn(
                       "transition-colors cursor-pointer",
-                      localTools[tool.name] ? "bg-muted/50 border-primary/40" : "hover:bg-muted/20"
+                      localTools[tool.name] ? "bg-muted/50" : "hover:bg-muted/20"
                     )}
                     onClick={() => handleToolToggle(tool.name)}
                   >
