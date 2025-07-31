@@ -46,7 +46,7 @@ Before contributing, ensure you have access to:
 **Optional:**
 
 - RapidAPI key (for additional tools)
-- Smithery API key (for custom agents)
+- Custom MCP server configurations
 
 ## Code Style Guidelines
 

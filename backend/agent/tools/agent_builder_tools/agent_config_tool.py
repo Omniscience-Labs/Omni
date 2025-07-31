@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
@@ -72,18 +72,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="update-agent",
-        mappings=[
-            {"param_name": "name", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "description", "node_type": "element", "path": "description", "required": False},
-            {"param_name": "system_prompt", "node_type": "element", "path": "system_prompt", "required": False},
-            {"param_name": "agentpress_tools", "node_type": "element", "path": "agentpress_tools", "required": False},
-            {"param_name": "configured_mcps", "node_type": "element", "path": "configured_mcps", "required": False},
-            {"param_name": "avatar", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "avatar_color", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="update_agent">
         <parameter name="name">Research Assistant</parameter>
@@ -94,8 +83,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         <parameter name="avatar_color">#4F46E5</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def update_agent(
         self,
         name: Optional[str] = None,
@@ -281,16 +269,12 @@ class AgentConfigTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="get-current-agent-config",
-        mappings=[],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="get_current_agent_config">
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def get_current_agent_config(self) -> ToolResult:
         try:
             agent_data = await self._get_agent_data()

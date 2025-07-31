@@ -67,12 +67,9 @@ class MCPToolExecutor:
         
         try:
             import os
-            from pipedream.facade import PipedreamManager
+            from pipedream import connection_service
             
-            pipedream_manager = PipedreamManager()
-            http_client = pipedream_manager._http_client
-            
-            access_token = await http_client._ensure_access_token()
+            access_token = await connection_service._ensure_access_token()
             
             project_id = os.getenv("PIPEDREAM_PROJECT_ID")
             environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
@@ -85,8 +82,8 @@ class MCPToolExecutor:
                 "x-pd-app-slug": app_slug,
             }
             
-            if http_client.rate_limit_token:
-                headers["x-pd-rate-limit"] = http_client.rate_limit_token
+            if hasattr(connection_service, 'rate_limit_token') and connection_service.rate_limit_token:
+                headers["x-pd-rate-limit"] = connection_service.rate_limit_token
             
             if oauth_app_id:
                 headers["x-pd-oauth-app-id"] = oauth_app_id

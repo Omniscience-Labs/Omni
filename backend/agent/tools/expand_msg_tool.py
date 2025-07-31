@@ -1,4 +1,4 @@
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 import json
 
@@ -27,12 +27,7 @@ class ExpandMessageTool(Tool):
             }
         }
     })
-    @xml_schema(
-        tag_name="expand-message",
-        mappings=[
-            {"param_name": "message_id", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <!-- Example 1: Expand a message that was truncated in the previous conversation -->
         <function_calls>
         <invoke name="expand_message">
@@ -53,8 +48,7 @@ class ExpandMessageTool(Tool):
         <parameter name="message_id">550e8400-e29b-41d4-a716-446655440000</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def expand_message(self, message_id: str) -> ToolResult:
         """Expand a message from the previous conversation with the user.
 

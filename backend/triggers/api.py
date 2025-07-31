@@ -161,36 +161,11 @@ async def get_providers():
         logger.error(f"Error getting providers: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
-@router.get("/providers/{provider_id}/schema")
-async def get_provider_schema(provider_id: str):
-    """Get provider configuration schema"""
-    if not await is_enabled("agent_triggers"):
-        raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
-    
-    try:
-        provider_service = get_provider_service(db)
-        providers = await provider_service.get_available_providers()
-        
-        provider = next((p for p in providers if p["provider_id"] == provider_id), None)
-        if not provider:
-            raise HTTPException(status_code=404, detail="Provider not found")
-        
-        return {"schema": provider["config_schema"]}
-        
-    except Exception as e:
-        logger.error(f"Error getting provider schema: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-# ===== TRIGGER ENDPOINTS =====
-
 @router.get("/agents/{agent_id}/triggers", response_model=List[TriggerResponse])
 async def get_agent_triggers(
     agent_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Get all triggers for an agent"""
     if not await is_enabled("agent_triggers"):
         raise HTTPException(status_code=403, detail="Agent triggers are not enabled")
     

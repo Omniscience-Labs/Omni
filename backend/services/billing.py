@@ -7,7 +7,7 @@ stripe listen --forward-to localhost:8000/api/billing/webhook
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional, Dict, Tuple
 import stripe
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from utils.logger import logger
 from utils.config import config, EnvMode
 from services.supabase import DBConnection
@@ -25,6 +25,72 @@ TOKEN_PRICE_MULTIPLIER = 1.5
 
 # Initialize router
 router = APIRouter(prefix="/billing", tags=["billing"])
+
+# Plan validation functions
+def get_plan_info(price_id: str) -> dict:
+    """Get plan information including tier level and type."""
+    # Production plans mapping
+    PLAN_TIERS = {
+        # Monthly plans
+        config.STRIPE_TIER_2_20_ID: {'tier': 1, 'type': 'monthly', 'name': '2h/$20'},
+        config.STRIPE_TIER_6_50_ID: {'tier': 2, 'type': 'monthly', 'name': '6h/$50'},
+        config.STRIPE_TIER_12_100_ID: {'tier': 3, 'type': 'monthly', 'name': '12h/$100'},
+        config.STRIPE_TIER_25_200_ID: {'tier': 4, 'type': 'monthly', 'name': '25h/$200'},
+        config.STRIPE_TIER_50_400_ID: {'tier': 5, 'type': 'monthly', 'name': '50h/$400'},
+        config.STRIPE_TIER_125_800_ID: {'tier': 6, 'type': 'monthly', 'name': '125h/$800'},
+        config.STRIPE_TIER_200_1000_ID: {'tier': 7, 'type': 'monthly', 'name': '200h/$1000'},
+        
+        # Yearly plans
+        config.STRIPE_TIER_2_20_YEARLY_ID: {'tier': 1, 'type': 'yearly', 'name': '2h/$204/year'},
+        config.STRIPE_TIER_6_50_YEARLY_ID: {'tier': 2, 'type': 'yearly', 'name': '6h/$510/year'},
+        config.STRIPE_TIER_12_100_YEARLY_ID: {'tier': 3, 'type': 'yearly', 'name': '12h/$1020/year'},
+        config.STRIPE_TIER_25_200_YEARLY_ID: {'tier': 4, 'type': 'yearly', 'name': '25h/$2040/year'},
+        config.STRIPE_TIER_50_400_YEARLY_ID: {'tier': 5, 'type': 'yearly', 'name': '50h/$4080/year'},
+        config.STRIPE_TIER_125_800_YEARLY_ID: {'tier': 6, 'type': 'yearly', 'name': '125h/$8160/year'},
+        config.STRIPE_TIER_200_1000_YEARLY_ID: {'tier': 7, 'type': 'yearly', 'name': '200h/$10200/year'},
+        
+        # Yearly commitment plans
+        config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID: {'tier': 1, 'type': 'yearly_commitment', 'name': '2h/$17/month'},
+        config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID: {'tier': 2, 'type': 'yearly_commitment', 'name': '6h/$42.50/month'},
+        config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID: {'tier': 4, 'type': 'yearly_commitment', 'name': '25h/$170/month'},
+    }
+    
+    return PLAN_TIERS.get(price_id, {'tier': 0, 'type': 'unknown', 'name': 'Unknown'})
+
+def is_plan_change_allowed(current_price_id: str, new_price_id: str) -> tuple[bool, str]:
+    """
+    Validate if a plan change is allowed based on business rules.
+    
+    Returns:
+        Tuple of (is_allowed, reason_if_not_allowed)
+    """
+    current_plan = get_plan_info(current_price_id)
+    new_plan = get_plan_info(new_price_id)
+    
+    # Allow if same plan
+    if current_price_id == new_price_id:
+        return True, ""
+    
+    # Restriction 1: Don't allow downgrade from monthly to lower monthly
+    if current_plan['type'] == 'monthly' and new_plan['type'] == 'monthly' and new_plan['tier'] < current_plan['tier']:
+        return False, "Downgrading to a lower monthly plan is not allowed. You can only upgrade to a higher tier or switch to yearly billing."
+    
+    # Restriction 2: Don't allow downgrade from yearly commitment to monthly
+    if current_plan['type'] == 'yearly_commitment' and new_plan['type'] == 'monthly':
+        return False, "Downgrading from yearly commitment to monthly is not allowed. You can only upgrade within yearly commitment plans."
+    
+    # Restriction 2b: Don't allow downgrade within yearly commitment plans
+    if current_plan['type'] == 'yearly_commitment' and new_plan['type'] == 'yearly_commitment' and new_plan['tier'] < current_plan['tier']:
+        return False, "Downgrading to a lower yearly commitment plan is not allowed. You can only upgrade to higher commitment tiers."
+    
+    # Restriction 3: Only allow upgrade from monthly to yearly commitment on same level or above
+    if current_plan['type'] == 'monthly' and new_plan['type'] == 'yearly_commitment' and new_plan['tier'] < current_plan['tier']:
+        return False, "You can only upgrade to yearly commitment plans at the same tier level or higher."
+    
+    # Allow all other changes (upgrades, yearly to yearly, yearly commitment upgrades, etc.)
+    return True, ""
+
+# Simplified yearly commitment logic - no subscription schedules needed
 
 def get_model_pricing(model: str) -> tuple[float, float] | None:
     """
@@ -59,6 +125,10 @@ SUBSCRIPTION_TIERS = {
     config.STRIPE_TIER_50_400_YEARLY_ID: {'name': 'tier_50_400', 'minutes': 3000, 'cost': 400 + 5},  # 50 hours/month, $4080/year
     config.STRIPE_TIER_125_800_YEARLY_ID: {'name': 'tier_125_800', 'minutes': 7500, 'cost': 800 + 5},  # 125 hours/month, $8160/year
     config.STRIPE_TIER_200_1000_YEARLY_ID: {'name': 'tier_200_1000', 'minutes': 12000, 'cost': 1000 + 5},  # 200 hours/month, $10200/year
+    # Yearly commitment tiers (15% discount, monthly payments with 12-month commitment via schedules)
+    config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID: {'name': 'tier_2_17_yearly_commitment', 'minutes': 120, 'cost': 20 + 5},  # 2 hours/month, $17/month (12-month commitment)
+    config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID: {'name': 'tier_6_42_yearly_commitment', 'minutes': 360, 'cost': 50 + 5},  # 6 hours/month, $42.50/month (12-month commitment)
+    config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID: {'name': 'tier_25_170_yearly_commitment', 'minutes': 1500, 'cost': 200 + 5},  # 25 hours/month, $170/month (12-month commitment)
 }
 
 # Pydantic models for request/response validation
@@ -67,6 +137,7 @@ class CreateCheckoutSessionRequest(BaseModel):
     success_url: str
     cancel_url: str
     tolt_referral: Optional[str] = None
+    commitment_type: Optional[str] = "monthly"  # "monthly", "yearly", or "yearly_commitment"
 
 class CreatePortalSessionRequest(BaseModel):
     return_url: str
@@ -86,6 +157,9 @@ class SubscriptionStatus(BaseModel):
     scheduled_plan_name: Optional[str] = None
     scheduled_price_id: Optional[str] = None # Added scheduled price ID
     scheduled_change_date: Optional[datetime] = None
+    # Subscription data for frontend components
+    subscription_id: Optional[str] = None
+    subscription: Optional[Dict] = None
 
 # Helper functions
 async def get_stripe_customer_id(client, user_id: str) -> Optional[str]:
@@ -102,7 +176,7 @@ async def get_stripe_customer_id(client, user_id: str) -> Optional[str]:
 async def create_stripe_customer(client, user_id: str, email: str) -> str:
     """Create a new Stripe customer for a user."""
     # Create customer in Stripe
-    customer = stripe.Customer.create(
+    customer = await stripe.Customer.create_async(
         email=email,
         metadata={"user_id": user_id}
     )
@@ -129,7 +203,7 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
             return None
             
         # Get all active subscriptions for the customer
-        subscriptions = stripe.Subscription.list(
+        subscriptions = await stripe.Subscription.list_async(
             customer=customer_id,
             status='active'
         )
@@ -142,26 +216,23 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
         # Filter subscriptions to only include our product's subscriptions
         our_subscriptions = []
         for sub in subscriptions['data']:
-            # Get the first subscription item
-            if sub.get('items') and sub['items'].get('data') and len(sub['items']['data']) > 0:
-                item = sub['items']['data'][0]
-                if item.get('price') and item['price'].get('id') in [
+            # Check if subscription items contain any of our price IDs
+            for item in sub.get('items', {}).get('data', []):
+                price_id = item.get('price', {}).get('id')
+                if price_id in [
                     config.STRIPE_FREE_TIER_ID,
-                    config.STRIPE_TIER_2_20_ID,
-                    config.STRIPE_TIER_6_50_ID,
-                    config.STRIPE_TIER_12_100_ID,
-                    config.STRIPE_TIER_25_200_ID,
-                    config.STRIPE_TIER_50_400_ID,
-                    config.STRIPE_TIER_125_800_ID,
+                    config.STRIPE_TIER_2_20_ID, config.STRIPE_TIER_6_50_ID, config.STRIPE_TIER_12_100_ID,
+                    config.STRIPE_TIER_25_200_ID, config.STRIPE_TIER_50_400_ID, config.STRIPE_TIER_125_800_ID,
                     config.STRIPE_TIER_200_1000_ID,
                     # Yearly tiers
-                    config.STRIPE_TIER_2_20_YEARLY_ID,
-                    config.STRIPE_TIER_6_50_YEARLY_ID,
-                    config.STRIPE_TIER_12_100_YEARLY_ID,
-                    config.STRIPE_TIER_25_200_YEARLY_ID,
-                    config.STRIPE_TIER_50_400_YEARLY_ID,
-                    config.STRIPE_TIER_125_800_YEARLY_ID,
-                    config.STRIPE_TIER_200_1000_YEARLY_ID
+                    config.STRIPE_TIER_2_20_YEARLY_ID, config.STRIPE_TIER_6_50_YEARLY_ID,
+                    config.STRIPE_TIER_12_100_YEARLY_ID, config.STRIPE_TIER_25_200_YEARLY_ID,
+                    config.STRIPE_TIER_50_400_YEARLY_ID, config.STRIPE_TIER_125_800_YEARLY_ID,
+                    config.STRIPE_TIER_200_1000_YEARLY_ID,
+                    # Yearly commitment tiers (monthly payments with 12-month commitment)
+                    config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID,
+                    config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID,
+                    config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID
                 ]:
                     our_subscriptions.append(sub)
         
@@ -179,7 +250,7 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
             for sub in our_subscriptions:
                 if sub['id'] != most_recent['id']:
                     try:
-                        stripe.Subscription.modify(
+                        await stripe.Subscription.modify_async(
                             sub['id'],
                             cancel_at_period_end=True
                         )
@@ -504,6 +575,87 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     
     return True, "OK", subscription
 
+async def check_subscription_commitment(subscription_id: str) -> dict:
+    """
+    Check if a subscription has an active yearly commitment that prevents cancellation.
+    Simple logic: commitment lasts 1 year from subscription creation date.
+    """
+    try:
+        subscription = await stripe.Subscription.retrieve_async(subscription_id)
+        
+        # Get the price ID from subscription items
+        price_id = None
+        if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
+            price_id = subscription['items']['data'][0]['price']['id']
+        
+        # Check if subscription has commitment metadata OR uses a yearly commitment price ID
+        commitment_type = subscription.metadata.get('commitment_type')
+        
+        # Yearly commitment price IDs
+        yearly_commitment_price_ids = [
+            config.STRIPE_TIER_2_17_YEARLY_COMMITMENT_ID,
+            config.STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID,
+            config.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID
+        ]
+        
+        is_yearly_commitment = (
+            commitment_type == 'yearly_commitment' or 
+            price_id in yearly_commitment_price_ids
+        )
+        
+        if is_yearly_commitment:
+            # Calculate commitment period: 1 year from subscription creation
+            subscription_start = subscription.created
+            current_time = int(time.time())
+            start_date = datetime.fromtimestamp(subscription_start, tz=timezone.utc)
+            commitment_end_date = start_date.replace(year=start_date.year + 1)
+            commitment_end_timestamp = int(commitment_end_date.timestamp())
+            
+            if current_time < commitment_end_timestamp:
+                # Still in commitment period
+                current_date = datetime.fromtimestamp(current_time, tz=timezone.utc)
+                months_remaining = (commitment_end_date.year - current_date.year) * 12 + (commitment_end_date.month - current_date.month)
+                if current_date.day > commitment_end_date.day:
+                    months_remaining -= 1
+                months_remaining = max(0, months_remaining)
+                
+                logger.info(f"Subscription {subscription_id} has active yearly commitment: {months_remaining} months remaining")
+                
+                return {
+                    'has_commitment': True,
+                    'commitment_type': 'yearly_commitment',
+                    'months_remaining': months_remaining,
+                    'can_cancel': False,
+                    'commitment_end_date': commitment_end_date.isoformat(),
+                    'subscription_start_date': start_date.isoformat(),
+                    'price_id': price_id
+                }
+            else:
+                # Commitment period has ended
+                logger.info(f"Subscription {subscription_id} yearly commitment period has ended")
+                return {
+                    'has_commitment': False,
+                    'commitment_type': 'yearly_commitment',
+                    'commitment_completed': True,
+                    'can_cancel': True,
+                    'subscription_start_date': start_date.isoformat(),
+                    'price_id': price_id
+                }
+        
+        # No commitment
+        return {
+            'has_commitment': False,
+            'can_cancel': True,
+            'price_id': price_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking subscription commitment: {str(e)}", exc_info=True)
+        return {
+            'has_commitment': False,
+            'can_cancel': True
+        }
+
 # API endpoints
 @router.post("/create-checkout-session")
 async def create_checkout_session(
@@ -527,7 +679,7 @@ async def create_checkout_session(
          
         # Get the target price and product ID
         try:
-            price = stripe.Price.retrieve(request.price_id, expand=['product'])
+            price = await stripe.Price.retrieve_async(request.price_id, expand=['product'])
             product_id = price['product']['id']
         except stripe.error.InvalidRequestError:
             raise HTTPException(status_code=400, detail=f"Invalid price ID: {request.price_id}")
@@ -561,14 +713,134 @@ async def create_checkout_session(
                         }
                     }
                 
+                # Validate plan change restrictions
+                is_allowed, restriction_reason = is_plan_change_allowed(current_price_id, request.price_id)
+                if not is_allowed:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Plan change not allowed: {restriction_reason}"
+                    )
+                
+                # Check current subscription's commitment status
+                commitment_info = await check_subscription_commitment(subscription_id)
+                
                 # Get current and new price details
-                current_price = stripe.Price.retrieve(current_price_id)
+                current_price = await stripe.Price.retrieve_async(current_price_id)
                 new_price = price # Already retrieved
-                is_upgrade = new_price['unit_amount'] > current_price['unit_amount']
+                
+                # Determine if this is an upgrade
+                # Consider yearly plans as upgrades regardless of unit price (due to discounts)
+                current_interval = current_price.get('recurring', {}).get('interval', 'month')
+                new_interval = new_price.get('recurring', {}).get('interval', 'month')
+                
+                is_upgrade = (
+                    new_price['unit_amount'] > current_price['unit_amount'] or  # Traditional price upgrade
+                    (current_interval == 'month' and new_interval == 'year')    # Monthly to yearly upgrade
+                )
+                
+                logger.info(f"Price comparison: current={current_price['unit_amount']}, new={new_price['unit_amount']}, "
+                           f"intervals: {current_interval}->{new_interval}, is_upgrade={is_upgrade}")
+
+                # For commitment subscriptions, handle differently
+                if commitment_info.get('has_commitment'):
+                    if is_upgrade:
+                        # Allow upgrades for commitment subscriptions immediately
+                        logger.info(f"Upgrading commitment subscription {subscription_id}")
+                        
+                        # Regular subscription modification for upgrades
+                        updated_subscription = await stripe.Subscription.modify_async(
+                            subscription_id,
+                            items=[{
+                                'id': subscription_item['id'],
+                                'price': request.price_id,
+                            }],
+                            proration_behavior='always_invoice',  # Prorate and charge immediately
+                            billing_cycle_anchor='now',          # Reset billing cycle
+                            metadata={
+                                **existing_subscription.get('metadata', {}),
+                                'commitment_type': request.commitment_type or 'monthly'
+                            }
+                        )
+                        
+                        # Update active status in database
+                        await client.schema('basejump').from_('billing_customers').update(
+                            {'active': True}
+                        ).eq('id', customer_id).execute()
+                        logger.info(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
+                        
+                        # Force immediate payment for upgrades
+                        latest_invoice = None
+                        if updated_subscription.latest_invoice:
+                            latest_invoice_id = updated_subscription.latest_invoice
+                            latest_invoice = await stripe.Invoice.retrieve_async(latest_invoice_id)
+                            
+                            try:
+                                logger.info(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
+                                
+                                # If invoice is in draft status, finalize it to trigger immediate payment
+                                if latest_invoice.status == 'draft':
+                                    finalized_invoice = stripe.Invoice.finalize_invoice(latest_invoice_id)
+                                    logger.info(f"Finalized invoice {latest_invoice_id} for immediate payment")
+                                    latest_invoice = finalized_invoice
+                                    
+                                    # Pay the invoice immediately if it's still open
+                                    if finalized_invoice.status == 'open':
+                                        paid_invoice = stripe.Invoice.pay(latest_invoice_id)
+                                        logger.info(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
+                                        latest_invoice = paid_invoice
+                                elif latest_invoice.status == 'open':
+                                    # Invoice is already finalized but not paid, pay it
+                                    paid_invoice = stripe.Invoice.pay(latest_invoice_id)
+                                    logger.info(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
+                                    latest_invoice = paid_invoice
+                                else:
+                                    logger.info(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
+                                    
+                            except Exception as invoice_error:
+                                logger.error(f"Error processing invoice for immediate payment: {str(invoice_error)}")
+                                # Don't fail the entire operation if invoice processing fails
+                        
+                        return {
+                            "subscription_id": updated_subscription.id,
+                            "status": "updated",
+                            "message": f"Subscription upgraded successfully",
+                            "details": {
+                                "is_upgrade": True,
+                                "effective_date": "immediate",
+                                "current_price": round(current_price['unit_amount'] / 100, 2) if current_price.get('unit_amount') else 0,
+                                "new_price": round(new_price['unit_amount'] / 100, 2) if new_price.get('unit_amount') else 0,
+                                "invoice": {
+                                    "id": latest_invoice['id'] if latest_invoice else None,
+                                    "status": latest_invoice['status'] if latest_invoice else None,
+                                    "amount_due": round(latest_invoice['amount_due'] / 100, 2) if latest_invoice else 0,
+                                    "amount_paid": round(latest_invoice['amount_paid'] / 100, 2) if latest_invoice else 0
+                                } if latest_invoice else None
+                            }
+                        }
+                    else:
+                        # Downgrade for commitment subscription - must wait until commitment ends
+                        if not commitment_info.get('can_cancel'):
+                            return {
+                                "subscription_id": subscription_id,
+                                "status": "commitment_blocks_downgrade",
+                                "message": f"Cannot downgrade during commitment period. {commitment_info.get('months_remaining', 0)} months remaining.",
+                                "details": {
+                                    "is_upgrade": False,
+                                    "effective_date": commitment_info.get('commitment_end_date'),
+                                    "current_price": round(current_price['unit_amount'] / 100, 2) if current_price.get('unit_amount') else 0,
+                                    "new_price": round(new_price['unit_amount'] / 100, 2) if new_price.get('unit_amount') else 0,
+                                    "commitment_end_date": commitment_info.get('commitment_end_date'),
+                                    "months_remaining": commitment_info.get('months_remaining', 0)
+                                }
+                            }
+                        # If commitment allows cancellation, proceed with normal downgrade logic
+                else:
+                    # Regular subscription without commitment - use existing logic
+                    pass
 
                 if is_upgrade:
                     # --- Handle Upgrade --- Immediate modification
-                    updated_subscription = stripe.Subscription.modify(
+                    updated_subscription = await stripe.Subscription.modify_async(
                         subscription_id,
                         items=[{
                             'id': subscription_item['id'],
@@ -585,11 +857,39 @@ async def create_checkout_session(
                     logger.info(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
                     
                     latest_invoice = None
-                    if updated_subscription.get('latest_invoice'):
-                       latest_invoice = stripe.Invoice.retrieve(updated_subscription['latest_invoice']) 
+                    if updated_subscription.latest_invoice:
+                        latest_invoice_id = updated_subscription.latest_invoice
+                        latest_invoice = await stripe.Invoice.retrieve_async(latest_invoice_id)
+                        
+                        # Force immediate payment for upgrades
+                        try:
+                            logger.info(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
+                            
+                            # If invoice is in draft status, finalize it to trigger immediate payment
+                            if latest_invoice.status == 'draft':
+                                finalized_invoice = stripe.Invoice.finalize_invoice(latest_invoice_id)
+                                logger.info(f"Finalized invoice {latest_invoice_id} for immediate payment")
+                                latest_invoice = finalized_invoice  # Update reference
+                                
+                                # Pay the invoice immediately if it's still open
+                                if finalized_invoice.status == 'open':
+                                    paid_invoice = stripe.Invoice.pay(latest_invoice_id)
+                                    logger.info(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
+                                    latest_invoice = paid_invoice  # Update reference
+                            elif latest_invoice.status == 'open':
+                                # Invoice is already finalized but not paid, pay it
+                                paid_invoice = stripe.Invoice.pay(latest_invoice_id)
+                                logger.info(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
+                                latest_invoice = paid_invoice  # Update reference
+                            else:
+                                logger.info(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
+                                
+                        except Exception as invoice_error:
+                            logger.error(f"Error processing invoice for immediate payment: {str(invoice_error)}")
+                            # Don't fail the entire operation if invoice processing fails
                     
                     return {
-                        "subscription_id": updated_subscription['id'],
+                        "subscription_id": updated_subscription.id,
                         "status": "updated",
                         "message": "Subscription upgraded successfully",
                         "details": {
@@ -606,174 +906,62 @@ async def create_checkout_session(
                         }
                     }
                 else:
-                    # --- Handle Downgrade --- Use Subscription Schedule
-                    try:
-                        current_period_end_ts = subscription_item['current_period_end']
-                        
-                        # Retrieve the subscription again to get the schedule ID if it exists
-                        # This ensures we have the latest state before creating/modifying schedule
-                        sub_with_schedule = stripe.Subscription.retrieve(subscription_id)
-                        schedule_id = sub_with_schedule.get('schedule')
-
-                        # Get the current phase configuration from the schedule or subscription
-                        if schedule_id:
-                            schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
-                            # Find the current phase in the schedule
-                            # This logic assumes simple schedules; might need refinement for complex ones
-                            current_phase = None
-                            for phase in reversed(schedule['phases']):
-                                if phase['start_date'] <= datetime.now(timezone.utc).timestamp():
-                                    current_phase = phase
-                                    break
-                            if not current_phase: # Fallback if logic fails
-                                current_phase = schedule['phases'][-1]
-                        else:
-                             # If no schedule, the current subscription state defines the current phase
-                            current_phase = {
-                                'items': existing_subscription['items']['data'], # Use original items data
-                                'start_date': existing_subscription['current_period_start'], # Use sub start if no schedule
-                                # Add other relevant fields if needed for create/modify
-                            }
-
-                        # Prepare the current phase data for the update/create
-                        # Ensure items is formatted correctly for the API
-                        current_phase_items_for_api = []
-                        for item in current_phase.get('items', []):
-                            price_data = item.get('price')
-                            quantity = item.get('quantity')
-                            price_id = None
-                            
-                            # Safely extract price ID whether it's an object or just the ID string
-                            if isinstance(price_data, dict):
-                                price_id = price_data.get('id')
-                            elif isinstance(price_data, str):
-                                price_id = price_data
-                            
-                            if price_id and quantity is not None:
-                                current_phase_items_for_api.append({'price': price_id, 'quantity': quantity})
-                            else:
-                                logger.warning(f"Skipping item in current phase due to missing price ID or quantity: {item}")
-                                
-                        if not current_phase_items_for_api:
-                             raise ValueError("Could not determine valid items for the current phase.")
-
-                        current_phase_update_data = {
-                            'items': current_phase_items_for_api,
-                            'start_date': current_phase['start_date'], # Preserve original start date
-                            'end_date': current_period_end_ts, # End this phase at period end
-                            'proration_behavior': 'none'
-                            # Include other necessary fields from current_phase if modifying?
-                            # e.g., 'billing_cycle_anchor', 'collection_method'? Usually inherited.
+                    # --- Handle Downgrade --- Simple downgrade at period end
+                    updated_subscription = await stripe.Subscription.modify_async(
+                        subscription_id,
+                        items=[{
+                            'id': subscription_item['id'],
+                            'price': request.price_id,
+                        }],
+                        proration_behavior='none',  # No proration for downgrades
+                        billing_cycle_anchor='unchanged'  # Keep current billing cycle
+                    )
+                    
+                    # Update active status in database
+                    await client.schema('basejump').from_('billing_customers').update(
+                        {'active': True}
+                    ).eq('id', customer_id).execute()
+                    logger.info(f"Updated customer {customer_id} active status to TRUE after subscription downgrade")
+                    
+                    return {
+                        "subscription_id": updated_subscription.id,
+                        "status": "updated",
+                        "message": "Subscription downgraded successfully",
+                        "details": {
+                            "is_upgrade": False,
+                            "effective_date": "immediate",
+                            "current_price": round(current_price['unit_amount'] / 100, 2) if current_price.get('unit_amount') else 0,
+                            "new_price": round(new_price['unit_amount'] / 100, 2) if new_price.get('unit_amount') else 0,
                         }
-                        
-                        # Define the new (downgrade) phase
-                        new_downgrade_phase_data = {
-                            'items': [{'price': request.price_id, 'quantity': 1}],
-                            'start_date': current_period_end_ts, # Start immediately after current phase ends
-                            'proration_behavior': 'none'
-                            # iterations defaults to 1, meaning it runs for one billing cycle
-                            # then schedule ends based on end_behavior
-                        }
-                        
-                        # Update or Create Schedule
-                        if schedule_id:
-                             # Update existing schedule, replacing all future phases
-                            # print(f"Updating existing schedule {schedule_id}")
-                            logger.info(f"Updating existing schedule {schedule_id} for subscription {subscription_id}")
-                            logger.debug(f"Current phase data: {current_phase_update_data}")
-                            logger.debug(f"New phase data: {new_downgrade_phase_data}")
-                            updated_schedule = stripe.SubscriptionSchedule.modify(
-                                schedule_id,
-                                phases=[current_phase_update_data, new_downgrade_phase_data],
-                                end_behavior='release' 
-                            )
-                            logger.info(f"Successfully updated schedule {updated_schedule['id']}")
-                        else:
-                             # Create a new schedule using the defined phases
-                            print(f"Creating new schedule for subscription {subscription_id}")
-                            logger.info(f"Creating new schedule for subscription {subscription_id}")
-                            # Deep debug logging - write subscription details to help diagnose issues
-                            logger.debug(f"Subscription details: {subscription_id}, current_period_end_ts: {current_period_end_ts}")
-                            logger.debug(f"Current price: {current_price_id}, New price: {request.price_id}")
-                            
-                            try:
-                                updated_schedule = stripe.SubscriptionSchedule.create(
-                                    from_subscription=subscription_id,
-                                    phases=[
-                                        {
-                                            'start_date': current_phase['start_date'],
-                                            'end_date': current_period_end_ts,
-                                            'proration_behavior': 'none',
-                                            'items': [
-                                                {
-                                                    'price': current_price_id,
-                                                    'quantity': 1
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'start_date': current_period_end_ts,
-                                            'proration_behavior': 'none',
-                                            'items': [
-                                                {
-                                                    'price': request.price_id,
-                                                    'quantity': 1
-                                                }
-                                            ]
-                                        }
-                                    ],
-                                    end_behavior='release'
-                                )
-                                # Don't try to link the schedule - that's handled by from_subscription
-                                logger.info(f"Created new schedule {updated_schedule['id']} from subscription {subscription_id}")
-                                # print(f"Created new schedule {updated_schedule['id']} from subscription {subscription_id}")
-                                
-                                # Verify the schedule was created correctly
-                                fetched_schedule = stripe.SubscriptionSchedule.retrieve(updated_schedule['id'])
-                                logger.info(f"Schedule verification - Status: {fetched_schedule.get('status')}, Phase Count: {len(fetched_schedule.get('phases', []))}")
-                                logger.debug(f"Schedule details: {fetched_schedule}")
-                            except Exception as schedule_error:
-                                logger.exception(f"Failed to create schedule: {str(schedule_error)}")
-                                raise schedule_error  # Re-raise to be caught by the outer try-except
-                        
-                        return {
-                            "subscription_id": subscription_id,
-                            "schedule_id": updated_schedule['id'],
-                            "status": "scheduled",
-                            "message": "Subscription downgrade scheduled",
-                            "details": {
-                                "is_upgrade": False,
-                                "effective_date": "end_of_period",
-                                "current_price": round(current_price['unit_amount'] / 100, 2) if current_price.get('unit_amount') else 0,
-                                "new_price": round(new_price['unit_amount'] / 100, 2) if new_price.get('unit_amount') else 0,
-                                "effective_at": datetime.fromtimestamp(current_period_end_ts, tz=timezone.utc).isoformat()
-                            }
-                        }
-                    except Exception as e:
-                         logger.exception(f"Error handling subscription schedule for sub {subscription_id}: {str(e)}")
-                         raise HTTPException(status_code=500, detail=f"Error handling subscription schedule: {str(e)}")
+                    }
             except Exception as e:
                 logger.exception(f"Error updating subscription {existing_subscription.get('id') if existing_subscription else 'N/A'}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error updating subscription: {str(e)}")
         else:
-            
-            session = stripe.checkout.Session.create(
+            # Create regular subscription with commitment metadata if specified
+            session = await stripe.checkout.Session.create_async(
                 customer=customer_id,
                 payment_method_types=['card'],
-                    line_items=[{'price': request.price_id, 'quantity': 1}],
+                line_items=[{'price': request.price_id, 'quantity': 1}],
                 mode='subscription',
+                subscription_data={
+                    'metadata': {
+                        'commitment_type': request.commitment_type or 'monthly',
+                        'user_id': current_user_id
+                    }
+                },
                 success_url=request.success_url,
                 cancel_url=request.cancel_url,
                 metadata={
-                        'user_id': current_user_id,
-                        'product_id': product_id,
-                        'tolt_referral': request.tolt_referral
+                    'user_id': current_user_id,
+                    'product_id': product_id,
+                    'tolt_referral': request.tolt_referral,
+                    'commitment_type': request.commitment_type or 'monthly'
                 },
                 allow_promotion_codes=True
             )
             
             # Update customer status to potentially active (will be confirmed by webhook)
-            # This ensures customer is marked as active once payment is completed
             await client.schema('basejump').from_('billing_customers').update(
                 {'active': True}
             ).eq('id', customer_id).execute()
@@ -809,7 +997,7 @@ async def create_portal_session(
         # Ensure the portal configuration has subscription_update enabled
         try:
             # First, check if we have a configuration that already enables subscription update
-            configurations = stripe.billing_portal.Configuration.list(limit=100)
+            configurations = await stripe.billing_portal.Configuration.list_async(limit=100)
             active_config = None
             
             # Look for a configuration with subscription_update enabled
@@ -828,7 +1016,7 @@ async def create_portal_session(
                     default_config = configurations['data'][0]
                     logger.info(f"Updating default portal configuration: {default_config['id']} to enable subscription_update")
                     
-                    active_config = stripe.billing_portal.Configuration.update(
+                    active_config = await stripe.billing_portal.Configuration.update_async(
                         default_config['id'],
                         features={
                             'subscription_update': {
@@ -845,7 +1033,7 @@ async def create_portal_session(
                 else:
                     # Create a new configuration with subscription_update enabled
                     logger.info("Creating new portal configuration with subscription_update enabled")
-                    active_config = stripe.billing_portal.Configuration.create(
+                    active_config = await stripe.billing_portal.Configuration.create_async(
                         business_profile={
                             'headline': 'Subscription Management',
                             'privacy_policy_url': config.FRONTEND_URL + '/privacy',
@@ -883,7 +1071,7 @@ async def create_portal_session(
             portal_params["configuration"] = active_config['id']
         
         # Create the session
-        session = stripe.billing_portal.Session.create(**portal_params)
+        session = await stripe.billing_portal.Session.create_async(**portal_params)
         
         return {"url": session.url}
         
@@ -925,8 +1113,8 @@ async def get_subscription(
         current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
         if not current_tier_info:
             # Fallback if somehow subscribed to an unknown price within our product
-             logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
-             current_tier_info = {'name': 'unknown', 'minutes': 0}
+            logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
+            current_tier_info = {'name': 'unknown', 'minutes': 0}
         
         status_response = SubscriptionStatus(
             status=subscription['status'], # 'active', 'trialing', etc.
@@ -938,14 +1126,22 @@ async def get_subscription(
             minutes_limit=current_tier_info['minutes'],
             cost_limit=current_tier_info['cost'],
             current_usage=current_usage,
-            has_schedule=False # Default
+            has_schedule=False, # Default
+            subscription_id=subscription['id'],
+            subscription={
+                'id': subscription['id'],
+                'status': subscription['status'],
+                'cancel_at_period_end': subscription['cancel_at_period_end'],
+                'cancel_at': subscription.get('cancel_at'),
+                'current_period_end': current_item['current_period_end']
+            }
         )
 
         # Check for an attached schedule (indicates pending downgrade)
         schedule_id = subscription.get('schedule')
         if schedule_id:
             try:
-                schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
+                schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
                 # Find the *next* phase after the current one
                 next_phase = None
                 current_phase_end = current_item['current_period_end']
@@ -1015,9 +1211,12 @@ async def stripe_webhook(request: Request):
             event = stripe.Webhook.construct_event(
                 payload, sig_header, webhook_secret
             )
+            logger.info(f"Received Stripe webhook: {event.type} - Event ID: {event.id}")
         except ValueError as e:
+            logger.error(f"Invalid webhook payload: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError as e:
+            logger.error(f"Invalid webhook signature: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid signature")
         
         # Handle the event
@@ -1034,7 +1233,15 @@ async def stripe_webhook(request: Request):
             db = DBConnection()
             client = await db.client
             
-            if event.type == 'customer.subscription.created' or event.type == 'customer.subscription.updated':
+            if event.type == 'customer.subscription.created':
+                # Update customer active status for new subscriptions
+                if subscription.get('status') in ['active', 'trialing']:
+                    await client.schema('basejump').from_('billing_customers').update(
+                        {'active': True}
+                    ).eq('id', customer_id).execute()
+                    logger.info(f"Webhook: Updated customer {customer_id} active status to TRUE based on {event.type}")
+                    
+            elif event.type == 'customer.subscription.updated':
                 # Check if subscription is active
                 if subscription.get('status') in ['active', 'trialing']:
                     # Update customer's active status to true
@@ -1045,7 +1252,7 @@ async def stripe_webhook(request: Request):
                 else:
                     # Subscription is not active (e.g., past_due, canceled, etc.)
                     # Check if customer has any other active subscriptions before updating status
-                    has_active = len(stripe.Subscription.list(
+                    has_active = len(await stripe.Subscription.list_async(
                         customer=customer_id,
                         status='active',
                         limit=1
@@ -1059,11 +1266,11 @@ async def stripe_webhook(request: Request):
             
             elif event.type == 'customer.subscription.deleted':
                 # Check if customer has any other active subscriptions
-                has_active = len(stripe.Subscription.list(
+                has_active = len((await stripe.Subscription.list_async(
                     customer=customer_id,
                     status='active',
                     limit=1
-                ).get('data', [])) > 0
+                )).get('data', [])) > 0
                 
                 if not has_active:
                     # If no active subscriptions left, set active to false
@@ -1225,7 +1432,7 @@ async def get_available_models(
                     if input_cost_per_token is not None and output_cost_per_token is not None:
                         pricing_info = {
                             "input_cost_per_million_tokens": input_cost_per_token * TOKEN_PRICE_MULTIPLIER,
-                            "output_cost_per_million_tokens": output_cost_per_token * TOKEN_PRICE_MULTIPLIER,
+                            "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
                             "max_tokens": None  # cost_per_token doesn't provide max_tokens info
                         }
                     else:
@@ -1299,3 +1506,241 @@ async def get_usage_logs_endpoint(
     except Exception as e:
         logger.error(f"Error getting usage logs: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting usage logs: {str(e)}")
+
+@router.get("/subscription-commitment/{subscription_id}")
+async def get_subscription_commitment(
+    subscription_id: str,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get commitment status for a subscription."""
+    try:
+        # Verify the subscription belongs to the current user
+        db = DBConnection()
+        client = await db.client
+        
+        # Get user's subscription to verify ownership
+        user_subscription = await get_user_subscription(current_user_id)
+        if not user_subscription or user_subscription.get('id') != subscription_id:
+            raise HTTPException(status_code=404, detail="Subscription not found or access denied")
+        
+        commitment_info = await check_subscription_commitment(subscription_id)
+        return commitment_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting subscription commitment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving commitment information")
+
+@router.get("/subscription-details")
+async def get_subscription_details(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Get detailed subscription information including commitment status."""
+    try:
+        subscription = await get_user_subscription(current_user_id)
+        if not subscription:
+            return {
+                "subscription": None,
+                "commitment": {"has_commitment": False, "can_cancel": True}
+            }
+        
+        # Get commitment information
+        commitment_info = await check_subscription_commitment(subscription['id'])
+        
+        # Enhanced subscription details
+        subscription_details = {
+            "id": subscription.get('id'),
+            "status": subscription.get('status'),
+            "current_period_end": subscription.get('current_period_end'),
+            "current_period_start": subscription.get('current_period_start'),
+            "cancel_at_period_end": subscription.get('cancel_at_period_end'),
+            "items": subscription.get('items', {}).get('data', []),
+            "metadata": subscription.get('metadata', {})
+        }
+        
+        return {
+            "subscription": subscription_details,
+            "commitment": commitment_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting subscription details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving subscription details")
+
+@router.post("/cancel-subscription")
+async def cancel_subscription(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Cancel subscription with yearly commitment handling."""
+    try:
+        # Get user's current subscription
+        subscription = await get_user_subscription(current_user_id)
+        if not subscription:
+            raise HTTPException(status_code=404, detail="No active subscription found")
+        
+        subscription_id = subscription['id']
+        
+        # Check commitment status
+        commitment_info = await check_subscription_commitment(subscription_id)
+        
+        # If subscription has yearly commitment and still in commitment period
+        if commitment_info.get('has_commitment') and not commitment_info.get('can_cancel'):
+            # Schedule cancellation at the end of the commitment period (1 year anniversary)
+            commitment_end_date = datetime.fromisoformat(commitment_info.get('commitment_end_date').replace('Z', '+00:00'))
+            cancel_at_timestamp = int(commitment_end_date.timestamp())
+            
+            # Update subscription to cancel at the commitment end date
+            updated_subscription = await stripe.Subscription.modify_async(
+                subscription_id,
+                cancel_at=cancel_at_timestamp,
+                metadata={
+                    **subscription.get('metadata', {}),
+                    'cancelled_by_user': 'true',
+                    'cancellation_date': str(int(datetime.now(timezone.utc).timestamp())),
+                    'scheduled_cancel_at_commitment_end': 'true'
+                }
+            )
+            
+            logger.info(f"Subscription {subscription_id} scheduled for cancellation at commitment end: {commitment_end_date}")
+            
+            return {
+                "success": True,
+                "status": "scheduled_for_commitment_end",
+                "message": f"Subscription will be cancelled at the end of your yearly commitment period. {commitment_info.get('months_remaining', 0)} months remaining.",
+                "details": {
+                    "subscription_id": subscription_id,
+                    "cancellation_effective_date": commitment_end_date.isoformat(),
+                    "months_remaining": commitment_info.get('months_remaining', 0),
+                    "access_until": commitment_end_date.strftime("%B %d, %Y"),
+                    "commitment_end_date": commitment_info.get('commitment_end_date')
+                }
+            }
+        
+        # For non-commitment subscriptions or commitment period has ended, cancel at period end
+        updated_subscription = await stripe.Subscription.modify_async(
+            subscription_id,
+            cancel_at_period_end=True,
+            metadata={
+                **subscription.get('metadata', {}),
+                'cancelled_by_user': 'true',
+                'cancellation_date': str(int(datetime.now(timezone.utc).timestamp()))
+            }
+        )
+
+        logger.info(f"Subscription {subscription_id} marked for cancellation at period end")
+        
+        # Calculate when the subscription will actually end
+        current_period_end = updated_subscription.current_period_end or subscription.get('current_period_end')
+        
+        # If still no period end, fetch fresh subscription data from Stripe
+        if not current_period_end:
+            logger.warning(f"No current_period_end found in cached data for subscription {subscription_id}, fetching fresh data from Stripe")
+            try:
+                fresh_subscription = await stripe.Subscription.retrieve_async(subscription_id)
+                current_period_end = fresh_subscription.current_period_end
+            except Exception as fetch_error:
+                logger.error(f"Failed to fetch fresh subscription data: {fetch_error}")
+        
+        if not current_period_end:
+            logger.error(f"No current_period_end found in subscription {subscription_id} even after fresh fetch")
+            raise HTTPException(status_code=500, detail="Unable to determine subscription period end")
+        
+        period_end_date = datetime.fromtimestamp(current_period_end, timezone.utc)
+        
+        return {
+            "success": True,
+            "status": "cancelled_at_period_end",
+            "message": "Subscription will be cancelled at the end of your current billing period.",
+            "details": {
+                "subscription_id": subscription_id,
+                "cancellation_effective_date": period_end_date.isoformat(),
+                "current_period_end": current_period_end,
+                "access_until": period_end_date.strftime("%B %d, %Y")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing cancellation request")
+
+@router.post("/reactivate-subscription")
+async def reactivate_subscription(
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Reactivate a subscription that was marked for cancellation."""
+    try:
+        # Get user's current subscription
+        subscription = await get_user_subscription(current_user_id)
+        if not subscription:
+            raise HTTPException(status_code=404, detail="No subscription found")
+        
+        subscription_id = subscription['id']
+        
+        # Check if subscription is marked for cancellation (either cancel_at_period_end or cancel_at)
+        is_cancelled = subscription.get('cancel_at_period_end') or subscription.get('cancel_at')
+        if not is_cancelled:
+            return {
+                "success": False,
+                "status": "not_cancelled",
+                "message": "Subscription is not marked for cancellation."
+            }
+        
+        # Prepare the modification parameters
+        modify_params = {
+            'cancel_at_period_end': False,
+            'metadata': {
+                **subscription.get('metadata', {}),
+                'reactivated_by_user': 'true',
+                'reactivation_date': str(int(datetime.now(timezone.utc).timestamp()))
+            }
+        }
+        
+        # If subscription has cancel_at set (yearly commitment), clear it
+        if subscription.get('cancel_at'):
+            modify_params['cancel_at'] = None
+        
+        # Reactivate the subscription
+        updated_subscription = await stripe.Subscription.modify_async(
+            subscription_id,
+            **modify_params
+        )
+        
+        logger.info(f"Subscription {subscription_id} reactivated by user")
+        
+        # Get the current period end safely
+        current_period_end = updated_subscription.current_period_end or subscription.get('current_period_end')
+        
+        # If still no period end, fetch fresh subscription data from Stripe
+        if not current_period_end:
+            logger.warning(f"No current_period_end found in cached data for subscription {subscription_id}, fetching fresh data from Stripe")
+            try:
+                fresh_subscription = await stripe.Subscription.retrieve_async(subscription_id)
+                current_period_end = fresh_subscription.current_period_end
+            except Exception as fetch_error:
+                logger.error(f"Failed to fetch fresh subscription data: {fetch_error}")
+        
+        if not current_period_end:
+            logger.error(f"No current_period_end found in subscription {subscription_id} even after fresh fetch")
+            raise HTTPException(status_code=500, detail="Unable to determine subscription period end")
+        
+        return {
+            "success": True,
+            "status": "reactivated",
+            "message": "Subscription has been reactivated and will continue billing normally.",
+            "details": {
+                "subscription_id": subscription_id,
+                "next_billing_date": datetime.fromtimestamp(
+                    current_period_end, 
+                    timezone.utc
+                ).strftime("%B %d, %Y")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reactivating subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing reactivation request")

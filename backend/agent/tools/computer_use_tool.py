@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Dict
 import os
 
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from daytona_sdk import AsyncSandbox
 
@@ -105,21 +105,14 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="move-to",
-        mappings=[
-            {"param_name": "x", "node_type": "attribute", "path": "."},
-            {"param_name": "y", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="move_to">
         <parameter name="x">100</parameter>
         <parameter name="y">200</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def move_to(self, x: float, y: float) -> ToolResult:
         """Move cursor to specified position."""
         try:
@@ -173,15 +166,7 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="click",
-        mappings=[
-            {"param_name": "x", "node_type": "attribute", "path": "x"},
-            {"param_name": "y", "node_type": "attribute", "path": "y"},
-            {"param_name": "button", "node_type": "attribute", "path": "button"},
-            {"param_name": "num_clicks", "node_type": "attribute", "path": "num_clicks"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="click">
         <parameter name="x">100</parameter>
@@ -190,8 +175,7 @@ class ComputerUseTool(SandboxToolsBase):
         <parameter name="num_clicks">1</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def click(self, x: Optional[float] = None, y: Optional[float] = None, 
                    button: str = "left", num_clicks: int = 1) -> ToolResult:
         """Click at current or specified position."""
@@ -239,19 +223,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="scroll",
-        mappings=[
-            {"param_name": "amount", "node_type": "attribute", "path": "amount"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="scroll">
         <parameter name="amount">-3</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def scroll(self, amount: int) -> ToolResult:
         """
         Scroll the mouse wheel at current position.
@@ -294,19 +272,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="typing",
-        mappings=[
-            {"param_name": "text", "node_type": "content", "path": "text"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="typing">
         <parameter name="text">Hello World!</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def typing(self, text: str) -> ToolResult:
         """Type specified text."""
         try:
@@ -342,19 +314,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="press",
-        mappings=[
-            {"param_name": "key", "node_type": "attribute", "path": "key"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="press">
         <parameter name="key">enter</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def press(self, key: str) -> ToolResult:
         """Press and release a key."""
         try:
@@ -389,19 +355,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="wait",
-        mappings=[
-            {"param_name": "duration", "node_type": "attribute", "path": "duration"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="wait">
         <parameter name="duration">1.5</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def wait(self, duration: float = 0.5) -> ToolResult:
         """Wait for specified duration."""
         try:
@@ -430,19 +390,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="mouse-down",
-        mappings=[
-            {"param_name": "button", "node_type": "attribute", "path": "button"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="mouse_down">
         <parameter name="button">left</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def mouse_down(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
         """Press a mouse button at current or specified position."""
         try:
@@ -485,19 +439,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="mouse-up",
-        mappings=[
-            {"param_name": "button", "node_type": "attribute", "path": "button"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="mouse_up">
         <parameter name="button">left</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def mouse_up(self, button: str = "left", x: Optional[float] = None, y: Optional[float] = None) -> ToolResult:
         """Release a mouse button at current or specified position."""
         try:
@@ -543,21 +491,14 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="drag-to",
-        mappings=[
-            {"param_name": "x", "node_type": "attribute", "path": "x"},
-            {"param_name": "y", "node_type": "attribute", "path": "y"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="drag_to">
         <parameter name="x">500</parameter>
         <parameter name="y">50</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def drag_to(self, x: float, y: float) -> ToolResult:
         """Click and drag from current position to target position."""
         try:
@@ -640,19 +581,13 @@ class ComputerUseTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="hotkey",
-        mappings=[
-            {"param_name": "keys", "node_type": "attribute", "path": "keys"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="hotkey">
         <parameter name="keys">ctrl+a</parameter>
         </invoke>
         </function_calls>
-        '''
-    )    
+        ''')    
     async def hotkey(self, keys: str) -> ToolResult:
         """Press a key combination."""
         try:

@@ -47,10 +47,10 @@ export const MarketplaceTab = ({
           <SelectTrigger className="w-[180px] h-12 rounded-xl">
             <SelectValue placeholder="Filter agents" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Agents</SelectItem>
-            <SelectItem value="kortix">Kortix Verified</SelectItem>
-            <SelectItem value="community">Community</SelectItem>
+          <SelectContent className='rounded-xl'>
+            <SelectItem className='rounded-xl' value="all">All Agents</SelectItem>
+            <SelectItem className='rounded-xl' value="kortix">Kortix Verified</SelectItem>
+            <SelectItem className='rounded-xl' value="community">Community</SelectItem>
           </SelectContent>
         </Select>
       </div>

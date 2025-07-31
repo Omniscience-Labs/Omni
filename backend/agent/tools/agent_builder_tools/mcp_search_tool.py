@@ -1,17 +1,15 @@
 import json
 from typing import Optional
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
-from pipedream.facade import PipedreamManager
-from pipedream.domain.value_objects import ExternalUserId, AppSlug
+from pipedream import app_service, mcp_service
 from utils.logger import logger
 
 
 class MCPSearchTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
-        self.pipedream_manager = PipedreamManager()
 
     @openapi_schema({
         "type": "function",
@@ -35,21 +33,14 @@ class MCPSearchTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="search-mcp-servers",
-        mappings=[
-            {"param_name": "query", "node_type": "attribute", "path": "."},
-            {"param_name": "limit", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="search_mcp_servers">
         <parameter name="query">linear</parameter>
         <parameter name="limit">5</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def search_mcp_servers(
         self,
         query: str,
@@ -57,7 +48,7 @@ class MCPSearchTool(AgentBuilderBaseTool):
         limit: int = 10
     ) -> ToolResult:
         try:
-            search_result = await self.pipedream_manager.search_apps(
+            search_result = await app_service.search_apps(
                 query=query,
                 category=category,
                 page=1,
@@ -110,22 +101,16 @@ class MCPSearchTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="get-app-details",
-        mappings=[
-            {"param_name": "app_slug", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="get_app_details">
         <parameter name="app_slug">github</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def get_app_details(self, app_slug: str) -> ToolResult:
         try:
-            app_data = await self.pipedream_manager.get_app_by_slug(app_slug)
+            app_data = await app_service.get_app_by_slug(app_slug)
             
             if not app_data:
                 return self.fail_response(f"Could not find app details for '{app_slug}'")
@@ -218,27 +203,20 @@ class MCPSearchTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="discover-user-mcp-servers",
-        mappings=[
-            {"param_name": "user_id", "node_type": "attribute", "path": "."},
-            {"param_name": "app_slug", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="discover_user_mcp_servers">
         <parameter name="user_id">user_123456</parameter>
         <parameter name="app_slug">github</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def discover_user_mcp_servers(self, user_id: str, app_slug: str) -> ToolResult:
         try:
-            servers = await self.pipedream_manager.discover_mcp_servers(
-                external_user_id=user_id,
-                app_slug=app_slug
-            )
+            from pipedream.mcp_service import ExternalUserId, AppSlug
+            external_user_id = ExternalUserId(user_id)
+            app_slug_obj = AppSlug(app_slug)
+            servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug_obj)
             
             formatted_servers = []
             for server in servers:

@@ -7,6 +7,7 @@ const usageKeysBase = ['usage'] as const;
 export const subscriptionKeys = createQueryKeys({
   all: subscriptionKeysBase,
   details: () => [...subscriptionKeysBase, 'details'] as const,
+  commitment: (subscriptionId: string) => [...subscriptionKeysBase, 'commitment', subscriptionId] as const,
 });
 
 export const modelKeys = createQueryKeys({

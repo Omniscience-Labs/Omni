@@ -69,6 +69,58 @@ class ThreadManager:
         """Add a tool to the ThreadManager."""
         self.tool_registry.register_tool(tool_class, function_names, **kwargs)
 
+    async def create_thread(
+        self,
+        account_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        is_public: bool = False,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Create a new thread in the database.
+
+        Args:
+            account_id: Optional account ID for the thread. If None, creates an orphaned thread.
+            project_id: Optional project ID for the thread. If None, creates an orphaned thread.
+            is_public: Whether the thread should be public (defaults to False).
+            metadata: Optional metadata dictionary for additional thread context.
+
+        Returns:
+            The thread_id of the newly created thread.
+
+        Raises:
+            Exception: If thread creation fails.
+        """
+        logger.debug(f"Creating new thread (account_id: {account_id}, project_id: {project_id}, is_public: {is_public})")
+        client = await self.db.client
+
+        # Prepare data for thread creation
+        thread_data = {
+            'is_public': is_public,
+            'metadata': metadata or {}
+        }
+
+        # Add optional fields only if provided
+        if account_id:
+            thread_data['account_id'] = account_id
+        if project_id:
+            thread_data['project_id'] = project_id
+
+        try:
+            # Insert the thread and get the thread_id
+            result = await client.table('threads').insert(thread_data).execute()
+            
+            if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'thread_id' in result.data[0]:
+                thread_id = result.data[0]['thread_id']
+                logger.info(f"Successfully created thread: {thread_id}")
+                return thread_id
+            else:
+                logger.error(f"Thread creation failed or did not return expected data structure. Result data: {result.data}")
+                raise Exception("Failed to create thread: no thread_id returned")
+
+        except Exception as e:
+            logger.error(f"Failed to create thread: {str(e)}", exc_info=True)
+            raise Exception(f"Thread creation failed: {str(e)}")
+
     async def add_message(
         self,
         thread_id: str,
@@ -190,6 +242,7 @@ class ThreadManager:
             logger.error(f"Failed to get messages for thread {thread_id}: {str(e)}", exc_info=True)
             return []
 
+
     async def run_thread(
         self,
         thread_id: str,
@@ -235,7 +288,6 @@ class ThreadManager:
 
         logger.info(f"Starting thread execution for thread {thread_id}")
         logger.info(f"Using model: {llm_model}")
-        # Log parameters
         logger.info(f"Parameters: model={llm_model}, temperature={llm_temperature}, max_tokens={llm_max_tokens}")
         logger.info(f"Auto-continue: max={native_max_auto_continues}, XML tool limit={max_xml_tool_calls}")
 
@@ -252,22 +304,48 @@ class ThreadManager:
         # Create a working copy of the system prompt to potentially modify
         working_system_prompt = system_prompt.copy()
 
-        # Add XML examples to system prompt if requested, do this only ONCE before the loop
+        # Add XML tool calling instructions to system prompt if requested
         if include_xml_examples and config.xml_tool_calling:
-            xml_examples = self.tool_registry.get_xml_examples()
-            if xml_examples:
-                examples_content = """
---- XML TOOL CALLING ---
+            openapi_schemas = self.tool_registry.get_openapi_schemas()
+            usage_examples = self.tool_registry.get_usage_examples()
+            
+            if openapi_schemas:
+                # Convert schemas to JSON string
+                schemas_json = json.dumps(openapi_schemas, indent=2)
+                
+                # Build usage examples section if any exist
+                usage_examples_section = ""
+                if usage_examples:
+                    usage_examples_section = "\n\nUsage Examples:\n"
+                    for func_name, example in usage_examples.items():
+                        usage_examples_section += f"\n{func_name}:\n{example}\n"
+                
+                examples_content = f"""
+In this environment you have access to a set of tools you can use to answer the user's question.
 
-In this environment you have access to a set of tools you can use to answer the user's question. The tools are specified in XML format.
-Format your tool calls using the specified XML tags. Place parameters marked as 'attribute' within the opening tag (e.g., `<tag attribute='value'>`). Place parameters marked as 'content' between the opening and closing tags. Place parameters marked as 'element' within their own child tags (e.g., `<tag><element>value</element></tag>`). Refer to the examples provided below for the exact structure of each tool.
-String and scalar parameters should be specified as attributes, while content goes between tags.
-Note that spaces for string values are not stripped. The output is parsed with regular expressions.
+You can invoke functions by writing a <function_calls> block like the following as part of your reply to the user:
 
-Here are the XML tools available with examples:
-"""
-                for tag_name, example in xml_examples.items():
-                    examples_content += f"<{tag_name}> Example: {example}\\n"
+<function_calls>
+<invoke name="function_name">
+<parameter name="param_name">param_value</parameter>
+...
+</invoke>
+</function_calls>
+
+String and scalar parameters should be specified as-is, while lists and objects should use JSON format.
+
+Here are the functions available in JSON Schema format:
+
+```json
+{schemas_json}
+```
+
+When using the tools:
+- Use the exact function names from the JSON schema above
+- Include all required parameters as specified in the schema
+- Format complex data (objects, arrays) as JSON strings within the parameter tags
+- Boolean values should be "true" or "false" (lowercase)
+{usage_examples_section}"""
 
                 # # Save examples content to a file
                 # try:
@@ -294,6 +372,7 @@ Here are the XML tools available with examples:
                         logger.warning("System prompt content is a list but no text block found to append XML examples.")
                 else:
                     logger.warning(f"System prompt content is of unexpected type ({type(system_content)}), cannot add XML examples.")
+        
         # Control whether we need to auto-continue due to tool_calls finish reason
         auto_continue = True
         auto_continue_count = 0
@@ -332,7 +411,7 @@ Here are the XML tools available with examples:
                 # Find the last user message index
                 last_user_index = -1
                 for i, msg in enumerate(messages):
-                    if msg.get('role') == 'user':
+                    if isinstance(msg, dict) and msg.get('role') == 'user':
                         last_user_index = i
 
                 # Insert temporary message before the last user message if it exists
@@ -366,6 +445,8 @@ Here are the XML tools available with examples:
                     openapi_tool_schemas = self.tool_registry.get_openapi_schemas()
                     logger.debug(f"Retrieved {len(openapi_tool_schemas) if openapi_tool_schemas else 0} OpenAPI tool schemas")
 
+                # print(f"\n\n\n\n prepared_messages: {prepared_messages}\n\n\n\n")
+
                 prepared_messages = self.context_manager.compress_messages(prepared_messages, llm_model)
 
                 # 5. Make LLM API call
@@ -385,6 +466,7 @@ Here are the XML tools available with examples:
                               "tools": openapi_tool_schemas,
                             }
                         )
+
                     llm_response = await make_llm_api_call(
                         prepared_messages, # Pass the potentially modified messages
                         llm_model,

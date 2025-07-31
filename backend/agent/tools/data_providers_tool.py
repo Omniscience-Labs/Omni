@@ -1,7 +1,7 @@
 import json
 from typing import Union, Dict, Any
 
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from agent.tools.data_providers.LinkedinProvider import LinkedinProvider
 from agent.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from agent.tools.data_providers.AmazonProvider import AmazonProvider
@@ -39,12 +39,7 @@ class DataProvidersTool(Tool):
             }
         }
     })
-    @xml_schema(
-        tag_name="get-data-provider-endpoints",
-        mappings=[
-            {"param_name": "service_name", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
 <!-- 
 The get-data-provider-endpoints tool returns available endpoints for a specific data provider.
 Use this tool when you need to discover what endpoints are available.
@@ -56,8 +51,7 @@ Use this tool when you need to discover what endpoints are available.
 <parameter name="service_name">linkedin</parameter>
 </invoke>
 </function_calls>
-        '''
-    )
+        ''')
     async def get_data_provider_endpoints(
         self,
         service_name: str
@@ -110,14 +104,7 @@ Use this tool when you need to discover what endpoints are available.
             }
         }
     })
-    @xml_schema(
-        tag_name="execute-data-provider-call",
-        mappings=[
-            {"param_name": "service_name", "node_type": "attribute", "path": "service_name"},
-            {"param_name": "route", "node_type": "attribute", "path": "route"},
-            {"param_name": "payload", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <!-- 
         The execute-data-provider-call tool makes a request to a specific data provider endpoint.
         Use this tool when you need to call an data provider endpoint with specific parameters.
@@ -132,8 +119,7 @@ Use this tool when you need to discover what endpoints are available.
         <parameter name="payload">{"link": "https://www.linkedin.com/in/johndoe/"}</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def execute_data_provider_call(
         self,
         service_name: str,

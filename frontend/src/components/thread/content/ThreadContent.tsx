@@ -87,7 +87,6 @@ export function renderMarkdownContent(
         );
     }
 
-    // Check if content contains the new Cursor-style format
     if (isNewXmlFormat(content)) {
         const contentParts: React.ReactNode[] = [];
         let lastIndex = 0;

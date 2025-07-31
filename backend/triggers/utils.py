@@ -400,19 +400,3 @@ def get_human_readable_schedule(cron_expression: str, user_timezone: str) -> str
         
     except Exception:
         return f"Custom schedule: {cron_expression}"
-
-
-def validate_cron_expression(cron_expression: str) -> bool:
-    try:
-        croniter.croniter(cron_expression)
-        return True
-    except Exception:
-        return False
-
-
-def validate_timezone(timezone_str: str) -> bool:
-    try:
-        pytz.timezone(timezone_str)
-        return True
-    except pytz.UnknownTimeZoneError:
-        return False 

@@ -6,25 +6,25 @@ from datetime import datetime
 
 from utils.logger import logger
 from utils.auth_utils import get_current_user_id_from_jwt
-from .facade import PipedreamManager
-from .domain.entities import Profile, ConnectionStatus
-from .domain.exceptions import (
-    ProfileNotFoundError, ProfileAlreadyExistsError, 
-    ConnectionNotFoundError, AppNotFoundError, MCPConnectionError,
-    ValidationException, PipedreamException
-)
-# Add HTTPX and JSON for tools listing endpoint
+from .profile_service import ProfileService, Profile, ProfileServiceError, ProfileNotFoundError, ProfileAlreadyExistsError, InvalidConfigError, EncryptionError
+from .connection_service import ConnectionService
+from .app_service import get_app_service
+from .mcp_service import MCPService, ConnectionStatus, MCPConnectionError, MCPServiceError
+from .connection_token_service import ConnectionTokenService
+
 import httpx
 import json
 
 router = APIRouter(prefix="/pipedream", tags=["pipedream"])
-pipedream_manager: Optional[PipedreamManager] = None
 
+profile_service: Optional[ProfileService] = None
+connection_service: Optional[ConnectionService] = None
+app_service = None
+mcp_service: Optional[MCPService] = None
+connection_token_service: Optional[ConnectionTokenService] = None
 
 def initialize(database):
-    global pipedream_manager
-    if pipedream_manager is None:
-        pipedream_manager = PipedreamManager(db=database, logger=logger)
+    pass
 
 
 class CreateConnectionTokenRequest(BaseModel):
@@ -119,11 +119,11 @@ class ProfileResponse(BaseModel):
             profile_id=profile.profile_id,
             account_id=profile.account_id,
             mcp_qualified_name=profile.mcp_qualified_name,
-            profile_name=profile.profile_name.value,
+            profile_name=profile.profile_name,
             display_name=profile.display_name,
-            app_slug=profile.app_slug.value,
+            app_slug=profile.app_slug,
             app_name=profile.app_name,
-            external_user_id=profile.external_user_id.value,
+            external_user_id=profile.external_user_id,
             enabled_tools=profile.enabled_tools,
             is_active=profile.is_active,
             is_default=profile.is_default,
@@ -145,15 +145,15 @@ def _handle_pipedream_exception(e: Exception) -> HTTPException:
         return HTTPException(status_code=404, detail=str(e))
     elif isinstance(e, ProfileAlreadyExistsError):
         return HTTPException(status_code=409, detail=str(e))
-    elif isinstance(e, ValidationException):
+    elif isinstance(e, InvalidConfigError):
         return HTTPException(status_code=400, detail=str(e))
-    elif isinstance(e, ConnectionNotFoundError):
-        return HTTPException(status_code=404, detail=str(e))
-    elif isinstance(e, AppNotFoundError):
-        return HTTPException(status_code=404, detail=str(e))
+    elif isinstance(e, EncryptionError):
+        return HTTPException(status_code=500, detail=str(e))
     elif isinstance(e, MCPConnectionError):
         return HTTPException(status_code=502, detail=str(e))
-    elif isinstance(e, PipedreamException):
+    elif isinstance(e, MCPServiceError):
+        return HTTPException(status_code=500, detail=str(e))
+    elif isinstance(e, ProfileServiceError):
         return HTTPException(status_code=500, detail=str(e))
     else:
         return HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -169,7 +169,10 @@ async def create_connection_token(
     actual_app = _strip_pipedream_prefix(request.app)
     
     try:
-        result = await pipedream_manager.create_connection_token(user_id, actual_app)
+        from .connection_token_service import ExternalUserId, AppSlug
+        external_user_id = ExternalUserId(user_id)
+        app_slug = AppSlug(actual_app) if actual_app else None
+        result = await connection_token_service.create(external_user_id, app_slug)
         
         return ConnectionTokenResponse(
             success=True,
@@ -192,13 +195,15 @@ async def get_user_connections(
     logger.info(f"Getting connections for user: {user_id}")
     
     try:
-        connections = await pipedream_manager.get_connections(user_id)
+        from .connection_service import ExternalUserId
+        external_user_id = ExternalUserId(user_id)
+        connections = await connection_service.get_connections_for_user(external_user_id)
         
         connection_data = []
         for connection in connections:
             connection_data.append({
                 "name": connection.app.name,
-                "name_slug": connection.app.slug.value,
+                "name_slug": connection.app.slug,
                 "description": connection.app.description,
                 "category": connection.app.category,
                 "img_src": connection.app.logo_url,
@@ -230,7 +235,10 @@ async def discover_mcp_servers(
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        servers = await pipedream_manager.discover_mcp_servers(user_id, actual_app_slug)
+        from .mcp_service import ExternalUserId, AppSlug
+        external_user_id = ExternalUserId(user_id)
+        app_slug_obj = AppSlug(actual_app_slug) if actual_app_slug else None
+        servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug_obj)
         
         server_data = []
         for server in servers:
@@ -243,12 +251,12 @@ async def discover_mcp_servers(
                 })
             
             server_data.append({
-                "app_slug": server.app_slug.value,
+                "app_slug": server.app_slug,
                 "app_name": server.app_name,
-                "server_url": server.server_url.value,
+                "server_url": server.server_url,
                 "project_id": server.project_id,
                 "environment": server.environment,
-                "external_user_id": server.external_user_id.value,
+                "external_user_id": server.external_user_id,
                 "oauth_app_id": server.oauth_app_id,
                 "status": server.status.value,
                 "available_tools": tools_data,
@@ -276,7 +284,10 @@ async def discover_mcp_servers_for_profile(
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        servers = await pipedream_manager.discover_mcp_servers(request.external_user_id, actual_app_slug)
+        from .mcp_service import ExternalUserId, AppSlug
+        external_user_id = ExternalUserId(request.external_user_id)
+        app_slug_obj = AppSlug(actual_app_slug) if actual_app_slug else None
+        servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug_obj)
         
         server_data = []
         for server in servers:
@@ -289,12 +300,12 @@ async def discover_mcp_servers_for_profile(
                 })
             
             server_data.append({
-                "app_slug": server.app_slug.value,
+                "app_slug": server.app_slug,
                 "app_name": server.app_name,
-                "server_url": server.server_url.value,
+                "server_url": server.server_url,
                 "project_id": server.project_id,
                 "environment": server.environment,
-                "external_user_id": server.external_user_id.value,
+                "external_user_id": server.external_user_id,
                 "oauth_app_id": server.oauth_app_id,
                 "status": server.status.value,
                 "available_tools": tools_data,
@@ -322,9 +333,12 @@ async def create_mcp_connection(
     actual_app_slug = _strip_pipedream_prefix(request.app_slug)
     
     try:
-        server = await pipedream_manager.create_mcp_connection(
-            user_id, 
-            actual_app_slug, 
+        from .mcp_service import ExternalUserId, AppSlug
+        external_user_id = ExternalUserId(user_id)
+        app_slug_obj = AppSlug(actual_app_slug)
+        server = await mcp_service.create_connection(
+            external_user_id,
+            app_slug_obj,
             request.oauth_app_id
         )
         
@@ -337,12 +351,12 @@ async def create_mcp_connection(
             })
         
         mcp_config = {
-            "app_slug": server.app_slug.value,
+            "app_slug": server.app_slug,
             "app_name": server.app_name,
-            "server_url": server.server_url.value,
+            "server_url": server.server_url,
             "project_id": server.project_id,
             "environment": server.environment,
-            "external_user_id": server.external_user_id.value,
+            "external_user_id": server.external_user_id,
             "oauth_app_id": server.oauth_app_id,
             "status": server.status.value,
             "available_tools": tools_data
@@ -367,7 +381,7 @@ async def get_pipedream_apps(
     logger.info(f"Fetching Pipedream apps: query='{q}', category='{category}'")
     
     try:
-        result = await pipedream_manager.search_apps(
+        result = await app_service.search_apps(
             query=q,
             category=category,
             cursor=after
@@ -387,7 +401,7 @@ async def get_pipedream_apps(
                 
             apps_data.append({
                 "name": app.name,
-                "name_slug": app.slug.value,
+                "name_slug": app.slug,
                 "description": app.description,
                 "category": app.category,
                 "categories": categories,
@@ -416,7 +430,7 @@ async def get_popular_pipedream_apps():
     logger.info("Fetching popular Pipedream apps")
     
     try:
-        apps = await pipedream_manager.get_popular_apps(limit=100)
+        apps = await app_service.get_popular_apps(limit=100)
         
         apps_data = []
         for app in apps:
@@ -433,7 +447,7 @@ async def get_popular_pipedream_apps():
                 
             apps_data.append({
                 "name": app.name,
-                "name_slug": app.slug.value,
+                "name_slug": app.slug,
                 "description": app.description,
                 "category": app.category,
                 "categories": categories,
@@ -464,7 +478,8 @@ async def get_popular_pipedream_apps():
 async def get_app_icon(app_slug: str):
     logger.info(f"Fetching icon for app: {app_slug}")
     try:
-        icon_url = await pipedream_manager.get_app_icon(app_slug)
+        app = await app_service.get_app_by_slug(app_slug)
+        icon_url = app.logo_url if app else None
         if icon_url:
             return {
                 "success": True,
@@ -525,11 +540,11 @@ async def create_credential_profile(
     logger.info(f"Creating credential profile for user: {user_id}, app: {request.app_slug}")
     
     try:
-        profile = await pipedream_manager.create_profile(
-            account_id=user_id,
-            profile_name=request.profile_name,
-            app_slug=request.app_slug,
-            app_name=request.app_name,
+        profile = await profile_service.create_profile(
+            user_id,
+            request.profile_name,
+            request.app_slug,
+            request.app_name,
             description=request.description,
             is_default=request.is_default,
             oauth_app_id=request.oauth_app_id,
@@ -555,8 +570,7 @@ async def get_credential_profiles(
     actual_app_slug = _strip_pipedream_prefix(app_slug)
     
     try:
-        profiles = await pipedream_manager.get_profiles(user_id, actual_app_slug, is_active)
-        
+        profiles = await profile_service.get_profiles(user_id, actual_app_slug, is_active)
         return [ProfileResponse.from_domain(profile) for profile in profiles]
         
     except Exception as e:
@@ -572,9 +586,10 @@ async def get_credential_profile(
     logger.info(f"Getting credential profile: {profile_id} for user: {user_id}")
     
     try:
-        profile = await pipedream_manager.get_profile(user_id, profile_id)
+        profile = await profile_service.get_profile(user_id, profile_id)
         
         if not profile:
+            from .profile_service import ProfileNotFoundError
             raise ProfileNotFoundError(profile_id)
         
         return ProfileResponse.from_domain(profile)
@@ -593,9 +608,9 @@ async def update_credential_profile(
     logger.info(f"Updating credential profile: {profile_id} for user: {user_id}")
     
     try:
-        profile = await pipedream_manager.update_profile(
-            account_id=user_id,
-            profile_id=profile_id,
+        profile = await profile_service.update_profile(
+            user_id,
+            profile_id,
             profile_name=request.profile_name,
             display_name=request.display_name,
             is_active=request.is_active,
@@ -618,7 +633,7 @@ async def delete_credential_profile(
     logger.info(f"Deleting credential profile: {profile_id} for user: {user_id}")
     
     try:
-        success = await pipedream_manager.delete_profile(user_id, profile_id)
+        success = await profile_service.delete_profile(user_id, profile_id)
         
         if not success:
             raise ProfileNotFoundError(profile_id)
@@ -641,14 +656,17 @@ async def connect_credential_profile(
     actual_app = _strip_pipedream_prefix(app)
     
     try:
-        profile = await pipedream_manager.get_profile(user_id, profile_id)
+        from uuid import UUID
+        from .profile_service import ProfileNotFoundError
+        from .connection_token_service import ExternalUserId, AppSlug
+        
+        profile = await profile_service.get_profile(user_id, profile_id)
         if not profile:
             raise ProfileNotFoundError(profile_id)
         
-        result = await pipedream_manager.create_connection_token(
-            profile.external_user_id.value,
-            actual_app or profile.app_slug.value
-        )
+        external_user_id = ExternalUserId(profile.external_user_id)
+        app_slug = AppSlug(actual_app or profile.app_slug)
+        result = await connection_token_service.create(external_user_id, app_slug)
         
         return {
             "success": True,
@@ -656,8 +674,8 @@ async def connect_credential_profile(
             "token": result.get("token"),
             "expires_at": result.get("expires_at"),
             "profile_id": profile_id,
-            "external_user_id": profile.external_user_id.value,
-            "app": actual_app or profile.app_slug.value
+            "external_user_id": profile.external_user_id,
+            "app": actual_app or profile.app_slug
         }
         
     except Exception as e:
@@ -673,17 +691,22 @@ async def get_profile_connections(
     logger.info(f"Getting connections for profile: {profile_id}, user: {user_id}")
     
     try:
-        profile = await pipedream_manager.get_profile(user_id, profile_id)
+        from uuid import UUID
+        from .profile_service import ProfileNotFoundError
+        from .connection_service import ExternalUserId
+        
+        profile = await profile_service.get_profile(user_id, profile_id)
         if not profile:
             raise ProfileNotFoundError(profile_id)
         
-        connections = await pipedream_manager.get_connections(profile.external_user_id.value)
+        external_user_id = ExternalUserId(profile.external_user_id)
+        connections = await connection_service.get_connections_for_user(external_user_id)
         
         connection_data = []
         for connection in connections:
             connection_data.append({
                 "name": connection.app.name,
-                "name_slug": connection.app.slug.value,
+                "name_slug": connection.app.slug,
                 "description": connection.app.description,
                 "category": connection.app.category,
                 "img_src": connection.app.logo_url,
