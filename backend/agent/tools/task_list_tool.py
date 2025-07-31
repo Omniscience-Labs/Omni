@@ -1,4 +1,4 @@
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from utils.logger import logger
 from typing import List, Dict, Any, Optional
@@ -144,12 +144,8 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="view-tasks",
-        mappings=[
-            {"param_name": "status_filter", "node_type": "element", "path": "status_filter", "required": False}
-        ],
-        example='''
+    @usage_example(
+        '''
         <function_calls>
         <invoke name="view_tasks">
         <parameter name="status_filter">pending</parameter>
@@ -225,12 +221,8 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="create-tasks",
-        mappings=[
-            {"param_name": "sections", "node_type": "element", "path": "sections", "required": True}
-        ],
-        example='''
+    @usage_example(
+        '''
         <function_calls>
         <invoke name="create_tasks">
         <parameter name="sections">[
@@ -323,12 +315,8 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="update-tasks",
-        mappings=[
-            {"param_name": "updates", "node_type": "element", "path": "updates", "required": True}
-        ],
-        example='''
+    @usage_example(
+        '''
         <function_calls>
         <invoke name="update_tasks">
         <parameter name="updates">[
@@ -390,12 +378,8 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="delete-tasks",
-        mappings=[
-            {"param_name": "task_ids", "node_type": "element", "path": "task_ids", "required": True}
-        ],
-        example='''
+    @usage_example(
+        '''
         <function_calls>
         <invoke name="delete_tasks">
         <parameter name="task_ids">["task-id-1", "task-id-2"]</parameter>
@@ -444,13 +428,7 @@ class TaskListTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="clear-tasks",
-        mappings=[
-            {"param_name": "confirm", "node_type": "element", "path": "confirm", "required": True},
-            {"param_name": "sections", "node_type": "element", "path": "sections", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="clear_tasks">
         <parameter name="confirm">true</parameter>
