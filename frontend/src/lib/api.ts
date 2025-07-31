@@ -1675,14 +1675,19 @@ export interface UserSubscriptionResponse {
 
 // Usage log entry interface
 export interface UsageLogEntry {
-  id: string;
-  user_id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost_usd: number;
-  timestamp: string;
-  session_type?: string;
+  message_id: string;
+  thread_id: string;
+  created_at: string;
+  content: {
+    usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+    };
+    model: string;
+  };
+  total_tokens: number;
+  estimated_cost: number;
+  project_id: string;
 }
 
 // Usage logs response interface
