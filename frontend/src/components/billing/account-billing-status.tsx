@@ -7,9 +7,10 @@ import { isLocalMode } from '@/lib/config';
 import { createPortalSession } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSubscription } from '@/hooks/react-query';
+import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
 import Link from 'next/link';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
+import SubscriptionManagementModal from './subscription-management-modal';
 
 type Props = {
   accountId: string;
@@ -20,11 +21,17 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
   const { session, isLoading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isManaging, setIsManaging] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const {
     data: subscriptionData,
     isLoading,
     error: subscriptionQueryError,
   } = useSubscription();
+
+  const {
+    data: commitmentInfo,
+    isLoading: commitmentLoading,
+  } = useSubscriptionCommitment(subscriptionData?.subscription_id);
 
   const handleManageSubscription = async () => {
     try {
@@ -127,7 +134,7 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
           {/* Plans Comparison */}
           <PricingSection returnUrl={returnUrl} showTitleAndTabs={false} insideDialog={true} />
 
-          <div className="mt-20"></div>
+          <div className="mt-8"></div>
           {/* Manage Subscription Button */}
           <div className='flex justify-center items-center gap-4'>
             <Button
@@ -139,11 +146,10 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
               </Link>
             </Button>
             <Button
-              onClick={handleManageSubscription}
-              disabled={isManaging}
+              onClick={() => setShowModal(true)}
               className="bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
             >
-              {isManaging ? 'Loading...' : 'Manage Subscription'}
+              Manage Subscription
             </Button>
           </div>
         </>
@@ -185,15 +191,21 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
               View Model Pricing
             </Button>
             <Button
-              onClick={handleManageSubscription}
-              disabled={isManaging}
+              onClick={() => setShowModal(true)}
               className="w-full bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
             >
-              {isManaging ? 'Loading...' : 'Manage Subscription'}
+              Manage Subscription
             </Button>
           </div>
         </>
       )}
+      
+      <SubscriptionManagementModal
+        open={showModal}
+        onOpenChange={setShowModal}
+        accountId={accountId}
+        returnUrl={returnUrl}
+      />
     </div>
   );
 }
