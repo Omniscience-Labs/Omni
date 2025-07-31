@@ -18,12 +18,12 @@ class Agent:
 
     async def update(
         self,
-        name: str,
-        system_prompt: str,
-        mcp_tools: list[KortixTools] = [],
+        name: str | None = None,
+        system_prompt: str | None = None,
+        mcp_tools: list[KortixTools] | None = None,
     ):
-        agentpress_tools = {}
-        custom_mcps: list[CustomMCP] = []
+        agentpress_tools = {} if mcp_tools else None
+        custom_mcps: list[CustomMCP] = [] if mcp_tools else None
         for tool in mcp_tools:
             if isinstance(tool, AgentPressTools):
                 agentpress_tools[tool] = AgentPress_ToolConfig(
