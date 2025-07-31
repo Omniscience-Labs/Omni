@@ -222,9 +222,17 @@ def from_dict(cls, data: Dict[str, Any]):
         if data.get("current_version"):
             current_version = from_dict(AgentVersionResponse, data["current_version"])
 
-        # Create a copy of data without current_version for the main object
-        agent_data = {k: v for k, v in data.items() if k != "current_version"}
+        # Handle custom_mcps conversion
+        custom_mcps = []
+        if data.get("custom_mcps"):
+            custom_mcps = [from_dict(CustomMCP, mcp) for mcp in data["custom_mcps"]]
+
+        # Create a copy of data without nested objects for the main object
+        agent_data = {
+            k: v for k, v in data.items() if k not in ["current_version", "custom_mcps"]
+        }
         agent_data["current_version"] = current_version
+        agent_data["custom_mcps"] = custom_mcps
         agent_data["tags"] = agent_data.get("tags", [])
 
         return cls(
@@ -263,6 +271,27 @@ def from_dict(cls, data: Dict[str, Any]):
             from_dict(AgentBuilderChatMessage, msg) for msg in data.get("messages", [])
         ]
         return cls(messages=messages, thread_id=data.get("thread_id"))
+
+    elif cls == CustomMCP:
+        # Handle nested MCPConfig conversion
+        config_data = data.get("config", {})
+        # Ensure we always have a valid MCPConfig object
+        if isinstance(config_data, dict):
+            # Provide default url if missing
+            if "url" not in config_data:
+                config_data["url"] = ""
+            config = from_dict(MCPConfig, config_data)
+        else:
+            # Fallback to empty MCPConfig if config is not a dict
+            config = MCPConfig(url="")
+
+        # Create a copy without config for the main object
+        mcp_data = {k: v for k, v in data.items() if k != "config"}
+        mcp_data["config"] = config
+
+        return cls(
+            **{k: v for k, v in mcp_data.items() if k in cls.__dataclass_fields__}
+        )
 
     # For simple dataclasses, filter fields that exist in the class
     if hasattr(cls, "__dataclass_fields__"):
