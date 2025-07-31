@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Filter, Globe, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchBar } from './search-bar';
 import { EmptyState } from '../empty-state';
 import { AgentsGrid } from '../agents-grid';
 import { LoadingState } from '../loading-state';
 import { Pagination } from '../pagination';
-import { Badge } from '@/components/ui/badge';
 import { AgentCard } from './agent-card';
 
 type AgentFilter = 'all' | 'templates';
