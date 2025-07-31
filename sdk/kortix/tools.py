@@ -1,22 +1,26 @@
 from typing import Union
 from enum import Enum
-from fastmcp import FastMCP
+from fastmcp import Client as FastMCPClient
 
 
 class KortixMCP:
-    def __init__(self, mcp: FastMCP, endpoint: str):
-        self._fastmcp = mcp
+    def __init__(
+        self, mcp_client: FastMCPClient, endpoint: str, allowed_tools: list[str]
+    ):
+        self._mcp_client = mcp_client
         self.url = endpoint
         self._initialized = False
+        self._allowed_tools = allowed_tools
+        self._enabled_tools: list[str] = []
 
     async def initialize(self):
-        self.name = self._fastmcp.name
-        self.type = "http"
+        async with self._mcp_client:
+            tools = await self._mcp_client.list_tools()
+
         self.enabled_tools: list[str] = []
-        tools = await self._fastmcp.get_tools()
-        for tool in tools.values():
-            if tool.enabled:
-                self.enabled_tools.append(tool.name)
+        for tool in tools:
+            if tool.name in self._allowed_tools:
+                self._enabled_tools.append(tool.name)
         self._initialized = True
         return self
 
