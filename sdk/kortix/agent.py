@@ -4,6 +4,7 @@ from .tools import AgentPressTools, MCPTools, KortixTools
 from .api.agents import (
     AgentCreateRequest,
     AgentPress_ToolConfig,
+    AgentUpdateRequest,
     AgentsClient,
     CustomMCP,
     MCPConfig,
@@ -14,6 +15,39 @@ class Agent:
     def __init__(self, client: AgentsClient, agent_id: str):
         self._client = client
         self._agent_id = agent_id
+
+    async def update(
+        self,
+        name: str,
+        system_prompt: str,
+        mcp_tools: list[KortixTools] = [],
+    ):
+        agentpress_tools = {}
+        custom_mcps: list[CustomMCP] = []
+        for tool in mcp_tools:
+            if isinstance(tool, AgentPressTools):
+                agentpress_tools[tool] = AgentPress_ToolConfig(
+                    enabled=True, description=tool.get_description()
+                )
+            elif isinstance(tool, MCPTools):
+                mcp = tool
+                custom_mcps.append(
+                    CustomMCP(
+                        name=mcp.name,
+                        type=mcp.type,
+                        config=MCPConfig(url=mcp.url),
+                        enabled_tools=mcp.enabled_tools,
+                    )
+                )
+        await self._client.update_agent(
+            self._agent_id,
+            AgentUpdateRequest(
+                name=name,
+                system_prompt=system_prompt,
+                custom_mcps=custom_mcps,
+                agentpress_tools=agentpress_tools,
+            ),
+        )
 
     async def run(
         self,
@@ -37,7 +71,11 @@ class KortixAgent:
         self._client = client
 
     async def create(
-        self, name: str, system_prompt: str, model: str, mcp_tools: list[KortixTools] = []
+        self,
+        name: str,
+        system_prompt: str,
+        model: str,
+        mcp_tools: list[KortixTools] = [],
     ) -> Agent:
         agentpress_tools = {}
         custom_mcps: list[CustomMCP] = []
