@@ -12,9 +12,15 @@ from .api.agents import (
 
 
 class Agent:
-    def __init__(self, client: AgentsClient, agent_id: str):
+    def __init__(
+        self,
+        client: AgentsClient,
+        agent_id: str,
+        model: str = "anthropic/claude-sonnet-4-20250514",
+    ):
         self._client = client
         self._agent_id = agent_id
+        self._model = model
 
     async def update(
         self,
@@ -49,18 +55,22 @@ class Agent:
             ),
         )
 
+    async def tool_details(self):
+        response = await self._client.get_agent(self._agent_id)
+        return response
+
     async def run(
         self,
         prompt: str,
         thread: Thread,
-        model: str = "anthropic/claude-sonnet-4-20250514",
+        model: str | None = None,
     ):
         await thread.add_message(prompt)
         response = await thread._client.start_agent(
             thread._thread_id,
             AgentStartRequest(
                 agent_id=self._agent_id,
-                model_name=model,
+                model_name=model or self._model,
             ),
         )
         return AgentRun(thread, response.agent_run_id)
@@ -74,7 +84,6 @@ class KortixAgent:
         self,
         name: str,
         system_prompt: str,
-        model: str,
         mcp_tools: list[KortixTools] = [],
     ) -> Agent:
         agentpress_tools = {}

@@ -1933,9 +1933,9 @@ async def update_agent(
                 
                 new_version_id = new_version.version_id
                 update_data['current_version_id'] = new_version_id
-                update_data['version_count'] = new_version['version_number']
+                update_data['version_count'] = new_version.version_number
                 
-                logger.info(f"Created new version {new_version['version_name']} for agent {agent_id}")
+                logger.info(f"Created new version {new_version.version_name} for agent {agent_id}")
                 
             except HTTPException:
                 raise
