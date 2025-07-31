@@ -141,10 +141,10 @@ export function WorkflowSidePanel({
                     ...nonPipedreamMCPs,
                     {
                         name: appName,
-                        type: 'json',
+                        type: 'pipedream',
                         config: pipedreamMCP.config,
                         enabledTools: selectedTools
-                    }
+                    } as any
                 ]
             });
 
@@ -156,7 +156,7 @@ export function WorkflowSidePanel({
                 type: 'instruction',
                 config: {
                     step_type: 'credentials_profile',
-                    tool_name: `${appName} Profile`,
+                    tool_name: selectedTools[0] || `${appName} Profile`,
                     profile_id: profileId,
                     app_name: appName,
                     app_slug: appSlug
@@ -216,7 +216,7 @@ export function WorkflowSidePanel({
                 type: 'instruction',
                 config: {
                     step_type: 'mcp_configuration',
-                    tool_name: `${customConfig.name} MCP`,
+                    tool_name: customConfig.enabledTools[0] || `${customConfig.name} MCP`,
                     mcp_name: customConfig.name,
                     mcp_type: customConfig.type,
                     enabled_tools: customConfig.enabledTools

@@ -227,24 +227,7 @@ class WorkflowParser:
         # Parse the workflow to see the actual output
         parsed_steps = self.parse_workflow_steps(steps)
         
-        # Large debug print to show inputs and parsed output
-        print("=" * 80)
-        print("WORKFLOW PARSER DEBUG - get_workflow_summary")
-        print("=" * 80)
-        print(f"INPUT STEPS:")
-        print(f"Type: {type(steps)}")
-        print(f"Length: {len(steps) if isinstance(steps, list) else 'N/A'}")
-        print(f"Raw steps: {steps}")
-        print("-" * 40)
-        print(f"PARSED STEPS:")
-        print(f"Parsed: {parsed_steps}")
-        print("-" * 40)
-        print(f"SUMMARY:")
-        print(f"Total steps: {total_steps}")
-        print(f"Total conditions: {total_conditions}")
-        print(f"Max nesting depth: {max_nesting_depth}")
-        print(f"Has conditional logic: {total_conditions > 0}")
-        print("=" * 80)
+   
         
         return {
             "total_steps": total_steps,
@@ -277,13 +260,7 @@ def format_workflow_for_llm(
     workflow_json = json.dumps(llm_workflow, indent=2)
     tools_list = ', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'
     input_json = json.dumps(input_data, indent=2) if input_data else 'None provided'
-    print("=" * 80)
-    print("WORKFLOW PARSER DEBUG - format_workflow_for_llm")
-    print("=" * 80)
-    print(f"WORKFLOW JSON:")
-    print(workflow_json)
-    print("-" * 40)
-    print(f"TOOLS LIST:")
+   
     return f"""You are executing a structured workflow. Follow the steps exactly as specified in the JSON below.
 
 WORKFLOW STRUCTURE:
