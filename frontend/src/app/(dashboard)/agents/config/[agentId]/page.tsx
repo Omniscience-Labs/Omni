@@ -332,18 +332,8 @@ export default function AgentConfigurationPage() {
                 </div>
               </div>
               <div className="flex-1 overflow-hidden">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                  <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
-                    <AgentBuilderTab
-                      agentId={agentId}
-                      displayData={displayData}
-                      currentStyle={currentStyle}
-                      isViewingOldVersion={isViewingOldVersion}
-                      onFieldChange={handleFieldChange}
-                      onStyleChange={handleStyleChange}
-                    />
-                  </TabsContent>
-                  <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
+                {agent?.metadata?.is_suna_default ? (
+                  <div className="flex-1 h-full">
                     <ConfigurationTab
                       agentId={agentId}
                       displayData={displayData}
@@ -354,8 +344,33 @@ export default function AgentConfigurationPage() {
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                ) : (
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+                    <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
+                      <AgentBuilderTab
+                        agentId={agentId}
+                        displayData={displayData}
+                        currentStyle={currentStyle}
+                        isViewingOldVersion={isViewingOldVersion}
+                        onFieldChange={handleFieldChange}
+                        onStyleChange={handleStyleChange}
+                      />
+                    </TabsContent>
+                    <TabsContent value="configuration" className="flex-1 h-0 m-0">
+                      <ConfigurationTab
+                        agentId={agentId}
+                        displayData={displayData}
+                        versionData={versionData}
+                        isViewingOldVersion={isViewingOldVersion}
+                        onFieldChange={handleFieldChange}
+                        onMCPChange={handleMCPChange}
+                        initialAccordion={initialAccordion}
+                        agentMetadata={agent?.metadata}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                )}
               </div>
             </div>
           </div>
@@ -429,18 +444,8 @@ export default function AgentConfigurationPage() {
             </div>
 
             <div className="flex-1 overflow-hidden">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
-                  <AgentBuilderTab
-                    agentId={agentId}
-                    displayData={displayData}
-                    currentStyle={currentStyle}
-                    isViewingOldVersion={isViewingOldVersion}
-                    onFieldChange={handleFieldChange}
-                    onStyleChange={handleStyleChange}
-                  />
-                </TabsContent>
-                <TabsContent value="configuration" className="flex-1 h-0 m-0 overflow-y-auto">
+              {agent?.metadata?.is_suna_default ? (
+                <div className="flex-1 h-full">
                   <ConfigurationTab
                     agentId={agentId}
                     displayData={displayData}
@@ -451,8 +456,33 @@ export default function AgentConfigurationPage() {
                     initialAccordion={initialAccordion}
                     agentMetadata={agent?.metadata}
                   />
-                </TabsContent>
-              </Tabs>
+                </div>
+              ) : (
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+                  <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
+                    <AgentBuilderTab
+                      agentId={agentId}
+                      displayData={displayData}
+                      currentStyle={currentStyle}
+                      isViewingOldVersion={isViewingOldVersion}
+                      onFieldChange={handleFieldChange}
+                      onStyleChange={handleStyleChange}
+                    />
+                  </TabsContent>
+                  <TabsContent value="configuration" className="flex-1 h-0 m-0">
+                    <ConfigurationTab
+                      agentId={agentId}
+                      displayData={displayData}
+                      versionData={versionData}
+                      isViewingOldVersion={isViewingOldVersion}
+                      onFieldChange={handleFieldChange}
+                      onMCPChange={handleMCPChange}
+                      initialAccordion={initialAccordion}
+                      agentMetadata={agent?.metadata}
+                    />
+                  </TabsContent>
+                </Tabs>
+              )}
             </div>
           </div>
 
