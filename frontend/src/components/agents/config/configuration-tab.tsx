@@ -1,6 +1,5 @@
 import React from 'react';
-import { Settings, Wrench, Server, BookOpen, Workflow, Zap } from 'lucide-react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Settings, Wrench, Server, BookOpen, Workflow, Zap, ChevronDown } from 'lucide-react';
 import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
 import { AgentToolsConfiguration } from '../agent-tools-configuration';
 import { AgentMCPConfiguration } from '../agent-mcp-configuration';
@@ -80,7 +79,6 @@ export function ConfigurationTab({
   
   const isSystemPromptEditable = !isViewingOldVersion && (restrictions.system_prompt_editable !== false);
   const areToolsEditable = !isViewingOldVersion && (restrictions.tools_editable !== false);
-  const areMCPsEditable = !isViewingOldVersion && (restrictions.mcps_editable !== false);
   
   const handleSystemPromptChange = (value: string) => {
     if (!isSystemPromptEditable && isSunaAgent) {
@@ -93,174 +91,260 @@ export function ConfigurationTab({
   };
 
   return (
-    <div className="p-4">
-      {isSunaAgent && (
-        <div className="mb-4 p-4 bg-primary/10 border border-primary-200 rounded-xl">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="text-primary-600">
-              <KortixLogo size={20} />
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 pb-8">
+        {isSunaAgent && (
+          <div className="mb-4 p-4 bg-primary/10 border border-primary-200 rounded-xl">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="text-primary-600">
+                <KortixLogo size={20} />
+              </div>
+              <span className="font-semibold text-primary-800">Suna Default Agent</span>
             </div>
-            <span className="font-semibold text-primary-800">Suna Default Agent</span>
+            <p className="text-sm text-primary-700">
+              This is Suna's default agent with centrally managed system prompt and tools. 
+              You can customize integrations, knowledge base, workflows, and triggers to personalize your experience.
+            </p>
           </div>
-          <p className="text-sm text-primary-700">
-            This is Suna's default agent with centrally managed system prompt and tools. 
-            You can customize integrations, knowledge base, workflows, and triggers to personalize your experience.
-          </p>
+        )}
+        
+        <div className="space-y-3">
+        {!isSunaAgent && (
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+            <button
+              className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+              onClick={() => setOpenAccordion(openAccordion === 'system' ? '' : 'system')}
+            >
+              <div className="flex items-center gap-4 w-full">
+                <div className="relative">
+                  <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+                <div className="text-left flex-1">
+                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">System Prompt</h4>
+                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Define agent behavior and goals</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'system' ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+            <div 
+              className={`overflow-hidden transition-all duration-300 ease-out ${
+                openAccordion === 'system' 
+                  ? 'max-h-96 opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="px-6 pb-6 pt-2">
+                <div className="border-t border-border/30 pt-4">
+                  <ExpandableMarkdownEditor
+                    value={displayData.system_prompt}
+                    onSave={handleSystemPromptChange}
+                    placeholder="Click to set system instructions..."
+                    title="System Instructions"
+                    disabled={!isSystemPromptEditable}
+                    autosave={true}
+                    autosaveDelay={1500}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {!isSunaAgent && (
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+            <button
+              className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+              onClick={() => setOpenAccordion(openAccordion === 'tools' ? '' : 'tools')}
+            >
+              <div className="flex items-center gap-4 w-full">
+                <div className="relative">
+                  <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                    <Wrench className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+                <div className="text-left flex-1">
+                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Default Tools</h4>
+                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Configure default agentpress tools</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'tools' ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+            <div 
+              className={`overflow-hidden transition-all duration-300 ease-out ${
+                openAccordion === 'tools' 
+                  ? 'max-h-96 opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="px-6 pb-6 pt-2">
+                <div className="border-t border-border/30 pt-4">
+                  <AgentToolsConfiguration
+                    tools={displayData.agentpress_tools}
+                    onToolsChange={areToolsEditable ? (tools) => onFieldChange('agentpress_tools', tools) : () => {}}
+                    disabled={!areToolsEditable}
+                    isSunaAgent={isSunaAgent}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <button
+            className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+            onClick={() => setOpenAccordion(openAccordion === 'integrations' ? '' : 'integrations')}
+          >
+            <div className="flex items-center gap-4 w-full">
+              <div className="relative">
+                <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                  <Server className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+              <div className="text-left flex-1">
+                <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Integrations</h4>
+                <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Connect external services via MCPs</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'integrations' ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              openAccordion === 'integrations' 
+                ? 'max-h-[600px] opacity-100' 
+                : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-6 pb-6 pt-2">
+              <div className="border-t border-border/30 pt-4">
+                <AgentMCPConfiguration
+                  configuredMCPs={displayData.configured_mcps}
+                  customMCPs={displayData.custom_mcps}
+                  onMCPChange={onMCPChange}
+                  agentId={agentId}
+                  versionData={{
+                    configured_mcps: displayData.configured_mcps,
+                    custom_mcps: displayData.custom_mcps,
+                    system_prompt: displayData.system_prompt,
+                    agentpress_tools: displayData.agentpress_tools
+                  }}
+                  saveMode="callback"
+                  versionId={versionData?.version_id}
+                />
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-      
-      <Accordion type="single" collapsible value={openAccordion} onValueChange={setOpenAccordion} className="space-y-2">
-        {!isSunaAgent && (
-          <AccordionItem 
-            value="system" 
-            className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
+        <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <button
+            className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+            onClick={() => setOpenAccordion(openAccordion === 'knowledge' ? '' : 'knowledge')}
           >
-            <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                  <Settings className="h-4 w-4" />
+            <div className="flex items-center gap-4 w-full">
+              <div className="relative">
+                <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                  <BookOpen className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="text-left">
-                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">System Prompt</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Define agent behavior and goals</p>
-                </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <ExpandableMarkdownEditor
-                value={displayData.system_prompt}
-                onSave={handleSystemPromptChange}
-                placeholder="Click to set system instructions..."
-                title="System Instructions"
-                disabled={!isSystemPromptEditable}
-                autosave={true}
-                autosaveDelay={1500}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        )}
-        {!isSunaAgent && (
-          <AccordionItem 
-            value="tools" 
-            className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
+              <div className="text-left flex-1">
+                <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Knowledge Base</h4>
+                <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Upload and manage knowledge for the agent</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'knowledge' ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              openAccordion === 'knowledge' 
+                ? 'max-h-[600px] opacity-100' 
+                : 'max-h-0 opacity-0'
+            }`}
           >
-            <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                  <Wrench className="h-4 w-4" />
+            <div className="px-6 pb-6 pt-2">
+              <div className="border-t border-border/30 pt-4">
+                <AgentKnowledgeBaseManager
+                  agentId={agentId}
+                  agentName={displayData.name || 'Agent'}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <button
+            className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+            onClick={() => setOpenAccordion(openAccordion === 'workflows' ? '' : 'workflows')}
+          >
+            <div className="flex items-center gap-4 w-full">
+              <div className="relative">
+                <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                  <Workflow className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="text-left">
-                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Default Tools</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Configure default agentpress tools</p>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+              <div className="text-left flex-1">
+                <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Workflows</h4>
+                <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Automate complex processes</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'workflows' ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              openAccordion === 'workflows' 
+                ? 'max-h-[600px] opacity-100' 
+                : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-6 pb-6 pt-2">
+              <div className="border-t border-border/30 pt-4">
+                <AgentWorkflowsConfiguration
+                  agentId={agentId}
+                  agentName={displayData.name || 'Agent'}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <button
+            className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+            onClick={() => setOpenAccordion(openAccordion === 'triggers' ? '' : 'triggers')}
+          >
+            <div className="flex items-center gap-4 w-full">
+              <div className="relative">
+                <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                  <Zap className="h-5 w-5 text-muted-foreground" />
                 </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <AgentToolsConfiguration
-                tools={displayData.agentpress_tools}
-                onToolsChange={areToolsEditable ? (tools) => onFieldChange('agentpress_tools', tools) : () => {}}
-                disabled={!areToolsEditable}
-                isSunaAgent={isSunaAgent}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        )}
-        <AccordionItem 
-          value="integrations" 
-          className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
-        >
-          <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-            <div className="flex items-center gap-3">
-              <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                <Server className="h-4 w-4" />
+              <div className="text-left flex-1">
+                <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
+                <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Set up automated agent runs</p>
               </div>
-              <div className="text-left">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Integrations</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Connect external services via MCPs</p>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'triggers' ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              openAccordion === 'triggers' 
+                ? 'max-h-[600px] opacity-100' 
+                : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-6 pb-6 pt-2">
+              <div className="border-t border-border/30 pt-4">
+                <AgentTriggersConfiguration agentId={agentId} />
               </div>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <AgentMCPConfiguration
-              configuredMCPs={displayData.configured_mcps}
-              customMCPs={displayData.custom_mcps}
-              onMCPChange={onMCPChange}
-              agentId={agentId}
-              versionData={{
-                configured_mcps: displayData.configured_mcps,
-                custom_mcps: displayData.custom_mcps,
-                system_prompt: displayData.system_prompt,
-                agentpress_tools: displayData.agentpress_tools
-              }}
-              saveMode="callback"
-              versionId={versionData?.version_id}
-            />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem 
-          value="knowledge" 
-          className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
-        >
-          <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-            <div className="flex items-center gap-3">
-              <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                <BookOpen className="h-4 w-4" />
-              </div>
-              <div className="text-left">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Knowledge Base</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Upload and manage knowledge for the agent</p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <AgentKnowledgeBaseManager
-              agentId={agentId}
-              agentName={displayData.name || 'Agent'}
-            />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem 
-          value="workflows" 
-          className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
-        >
-          <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-            <div className="flex items-center gap-3">
-              <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                <Workflow className="h-4 w-4" />
-              </div>
-              <div className="text-left">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Workflows</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Automate complex processes</p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <AgentWorkflowsConfiguration
-              agentId={agentId}
-              agentName={displayData.name || 'Agent'}
-            />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem 
-          value="triggers" 
-          className="rounded-xl hover:bg-muted/30 border transition-colors duration-200"
-        >
-          <AccordionTrigger className="hover:no-underline py-4 px-4 [&[data-state=open]]:pb-3">
-            <div className="flex items-center gap-3">
-              <div className="bg-muted rounded-lg h-9 w-9 flex items-center justify-center">
-                <Zap className="h-4 w-4" />
-              </div>
-              <div className="text-left">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Triggers</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Set up automated agent runs</p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <AgentTriggersConfiguration agentId={agentId} />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+          </div>
+        </div>
+        </div>
+      </div>
     </div>
   );
 }

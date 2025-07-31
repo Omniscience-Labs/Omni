@@ -114,7 +114,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
 
   const getAgentDisplay = () => {
     const selectedAgent = allAgents.find(agent => agent.id === selectedAgentId);
-    
     if (selectedAgent) {
       console.log('Selected agent found:', selectedAgent.name, 'with ID:', selectedAgent.id);
       const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || false;

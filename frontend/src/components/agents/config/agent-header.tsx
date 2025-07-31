@@ -93,28 +93,30 @@ export function AgentHeader({
         </div>
       </div>
       
-      <Tabs value={activeTab} onValueChange={onTabChange}>
-        <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
-          <TabsTrigger 
-            value="agent-builder"
-            disabled={isViewingOldVersion}
-            className={cn(
-              "flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm",
-              isViewingOldVersion && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            <Sparkles className="h-3 w-3" />
-            Prompt to Build
-          </TabsTrigger>
-          <TabsTrigger 
-            value="configuration"
-            className="flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-          >
-            <Settings className="h-3 w-3" />
-            Manual Config
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+{!isSunaAgent && (
+        <Tabs value={activeTab} onValueChange={onTabChange}>
+          <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
+            <TabsTrigger 
+              value="agent-builder"
+              disabled={isViewingOldVersion}
+              className={cn(
+                "flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm",
+                isViewingOldVersion && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <Sparkles className="h-3 w-3" />
+              Prompt to Build
+            </TabsTrigger>
+            <TabsTrigger 
+              value="configuration"
+              className="flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Settings className="h-3 w-3" />
+              Manual Config
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
     </div>
   );
 } 
