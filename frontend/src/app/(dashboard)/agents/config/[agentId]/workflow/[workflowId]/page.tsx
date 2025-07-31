@@ -15,21 +15,32 @@ import { ConditionalStep } from '@/components/agents/workflows/conditional-workf
 import { WorkflowBuilder } from '@/components/workflows/workflow-builder';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
-  // Since we're using the old structure directly, just pass it through
+  // Clean, simple conversion - preserve the exact structure with order field for validation
   let globalOrder = 1;
+
   const convertStepsWithNesting = (stepList: ConditionalStep[]): any[] => {
     return stepList.map((step) => {
+      // Build clean step object with required fields for backend validation
       const jsonStep: any = {
-        id: step.id,
+        id: step.id, // CRITICAL: Always include ID
         name: step.name,
         description: step.description,
         type: step.type,
-        config: step.config,
-        order: globalOrder++
+        config: step.config || {},
+        order: globalOrder++ // Required by backend validation
       };
+
+      // Add conditional metadata if present
       if (step.type === 'condition' && step.conditions) {
         jsonStep.conditions = step.conditions;
       }
+
+      // Add parent relationship if present
+      if (step.parentConditionalId) {
+        jsonStep.parentConditionalId = step.parentConditionalId;
+      }
+
+      // Add children if present
       if (step.children && step.children.length > 0) {
         jsonStep.children = convertStepsWithNesting(step.children);
       }
@@ -37,6 +48,7 @@ const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
       return jsonStep;
     });
   };
+
   return convertStepsWithNesting(steps);
 };
 
@@ -57,12 +69,12 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
   const convertStepsFromNested = (stepList: any[]): ConditionalStep[] => {
     return stepList.map((step) => {
       const conditionalStep: ConditionalStep = {
-        id: step.id || Math.random().toString(36).substr(2, 9),
+        id: step.id, // Always use the existing ID - never regenerate
         name: step.name,
         description: step.description || '',
         type: step.type || 'instruction',
         config: step.config || {},
-        order: step.order || step.step_order || 0,
+        order: step.order || 0, // Preserve order from backend
         enabled: step.enabled !== false,
         hasIssues: step.hasIssues || false,
         children: [] // Initialize children array
@@ -71,6 +83,11 @@ const reconstructFromNestedJSON = (nestedSteps: any[]): ConditionalStep[] => {
       // Handle condition metadata
       if (step.type === 'condition' && step.conditions) {
         conditionalStep.conditions = step.conditions;
+      }
+
+      // Handle parentConditionalId for conditional grouping
+      if (step.parentConditionalId) {
+        conditionalStep.parentConditionalId = step.parentConditionalId;
       }
 
       // Handle children - this is crucial for nested conditions
@@ -110,7 +127,7 @@ const reconstructFromFlatJSON = (flatSteps: any[]): ConditionalStep[] => {
   for (const flatStep of flatSteps) {
     if (flatStep.type === 'condition') {
       const conditionStep: ConditionalStep = {
-        id: flatStep.id || Math.random().toString(36).substr(2, 9),
+        id: flatStep.id, // Always preserve existing ID
         name: flatStep.name,
         description: flatStep.description || '',
         type: 'condition',
@@ -127,7 +144,7 @@ const reconstructFromFlatJSON = (flatSteps: any[]): ConditionalStep[] => {
       for (const [conditionId, conditionStep] of conditionSteps) {
         if (JSON.stringify(conditionStep.conditions) === JSON.stringify(flatStep.conditions)) {
           const childStep: ConditionalStep = {
-            id: flatStep.id || Math.random().toString(36).substr(2, 9),
+            id: flatStep.id, // Always preserve existing ID
             name: flatStep.name,
             description: flatStep.description || '',
             type: flatStep.type || 'instruction',
@@ -165,7 +182,7 @@ const reconstructFromFlatJSON = (flatSteps: any[]): ConditionalStep[] => {
       result.push(...conditionGroup);
     } else if (!flatStep.conditions) {
       const step: ConditionalStep = {
-        id: flatStep.id || Math.random().toString(36).substr(2, 9),
+        id: flatStep.id, // Always preserve existing ID
         name: flatStep.name,
         description: flatStep.description || '',
         type: flatStep.type || 'instruction',

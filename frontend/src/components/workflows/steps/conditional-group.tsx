@@ -1,10 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, AlertTriangle, GripVertical, Settings } from 'lucide-react';
+import { Plus, AlertTriangle, GripVertical, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 import { StepCard } from './step-card';
 import { cn } from '@/lib/utils';
@@ -63,6 +71,7 @@ export function ConditionalGroup({
     const [activeConditionTab, setActiveConditionTab] = useState<string>(conditionSteps[0]?.id || '');
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [pendingElseStepAdd, setPendingElseStepAdd] = useState<boolean>(false);
+    const [deleteConfirmStep, setDeleteConfirmStep] = useState<ConditionalStep | null>(null);
 
     // Set up sensors for drag and drop within this conditional group
     const sensors = useSensors(
@@ -197,6 +206,25 @@ export function ConditionalGroup({
         }
     }, [activeStep, onAddElse, conditionSteps, onAddStep]);
 
+    // Handle delete confirmation
+    const handleDeleteConfirm = React.useCallback(() => {
+        if (deleteConfirmStep) {
+            // Switch to another tab before deleting if we're on the tab being deleted
+            if (activeConditionTab === deleteConfirmStep.id) {
+                const remainingSteps = conditionSteps.filter(s => s.id !== deleteConfirmStep.id);
+                if (remainingSteps.length > 0) {
+                    setActiveConditionTab(remainingSteps[0].id);
+                }
+            }
+            onRemove(deleteConfirmStep.id);
+            setDeleteConfirmStep(null);
+        }
+    }, [deleteConfirmStep, activeConditionTab, conditionSteps, onRemove]);
+
+    const handleDeleteCancel = React.useCallback(() => {
+        setDeleteConfirmStep(null);
+    }, []);
+
     return (
         <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50")}>
             <div className="space-y-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 relative group">
@@ -232,24 +260,39 @@ export function ConditionalGroup({
                                 step.conditions?.type === 'else' ? 'Else' : 'If';
 
                         return (
-                            <Button
-                                key={step.id}
-                                onClick={() => setActiveConditionTab(step.id)}
-                                className={cn(
-                                    "h-9 px-3 border border-dashed text-xs",
-                                    isActive
-                                        ? "bg-blue-500 hover:bg-blue-600 "
-                                        : "bg-white dark:bg-zinc-800 border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                                )}
-                            >
+                            <div key={step.id} className="relative group/tab">
+                                <Button
+                                    onClick={() => setActiveConditionTab(step.id)}
+                                    className={cn(
+                                        "h-9 px-3 border border-dashed text-xs",
+                                        isActive
+                                            ? "bg-blue-500 hover:bg-blue-600 "
+                                            : "bg-white dark:bg-zinc-800 border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                                    )}
+                                >
+                                    <span className="font-mono text-xs font-bold">{letter}</span>
+                                    <span>•</span>
+                                    <span>{conditionType}</span>
+                                    {step.hasIssues && (
+                                        <AlertTriangle className="h-3 w-3 text-red-500" />
+                                    )}
+                                </Button>
 
-                                <span className="font-mono text-xs font-bold">{letter}</span>
-                                <span>•</span>
-                                <span>{conditionType}</span>
-                                {step.hasIssues && (
-                                    <AlertTriangle className="h-3 w-3 text-red-500" />
+                                {/* Delete button - only for else-if tabs */}
+                                {step.conditions?.type === 'elseif' && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteConfirmStep(step);
+                                        }}
+                                        className="absolute -top-1 -right-1 h-4.5 w-4.5 !p-0  bg-primary hover:bg-primary hover:text-white hover:dark:text-black text-white dark:text-black rounded-full opacity-0 group-hover/tab:opacity-100 transition-opacity z-10 cursor-pointer"
+                                    >
+                                        <X className="!h-3 !w-3" />
+                                    </Button>
                                 )}
-                            </Button>
+                            </div>
                         );
                     })}
 
@@ -380,6 +423,8 @@ export function ConditionalGroup({
                                                     };
 
                                                     const handleNestedAddStep = (index: number, parentStepId?: string) => {
+                                                        // Call the parent's onAddStep which will open the side panel
+                                                        // Pass the parentStepId correctly for nested context
                                                         onAddStep(index, parentStepId);
                                                     };
 
@@ -505,6 +550,26 @@ export function ConditionalGroup({
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteConfirmStep} onOpenChange={(open) => !open && handleDeleteCancel()}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete Condition</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this "Else If" condition? This action cannot be undone and will remove all steps within this condition.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={handleDeleteCancel}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteConfirm}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 } 

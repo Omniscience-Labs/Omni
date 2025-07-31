@@ -97,33 +97,46 @@ export function ConditionalWorkflowBuilder({
       order: 0,
       enabled: true,
     };
-    const updateSteps = (items: ConditionalStep[]): ConditionalStep[] => {
+
+    const updateSteps = (items: ConditionalStep[]): { updatedItems: ConditionalStep[], found: boolean } => {
       if (!parentId) {
         if (afterStepId) {
           const index = items.findIndex(s => s.id === afterStepId);
-          return [...items.slice(0, index + 1), newStep, ...items.slice(index + 1)];
+          return {
+            updatedItems: [...items.slice(0, index + 1), newStep, ...items.slice(index + 1)],
+            found: true
+          };
         }
-        return [...items, newStep];
+        return { updatedItems: [...items, newStep], found: true };
       }
 
-      return items.map(step => {
+      let found = false;
+      const updatedItems = items.map(step => {
         if (step.id === parentId) {
+          found = true;
           return {
             ...step,
             children: [...(step.children || []), newStep]
           };
         }
-        if (step.children) {
-          return {
-            ...step,
-            children: updateSteps(step.children)
-          };
+        if (step.children && !found) {
+          const result = updateSteps(step.children);
+          if (result.found) {
+            found = true;
+            return {
+              ...step,
+              children: result.updatedItems
+            };
+          }
         }
         return step;
       });
+
+      return { updatedItems, found };
     };
 
-    onStepsChange(updateSteps(steps));
+    const result = updateSteps(steps);
+    onStepsChange(result.updatedItems);
   }, [steps, onStepsChange]);
 
   const addCondition = useCallback((afterStepId: string) => {
