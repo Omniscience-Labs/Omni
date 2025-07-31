@@ -145,6 +145,9 @@ export function WorkflowBuilder({
             onUpdateStep={handleUpdateStep}
             onDeleteStep={handleDeleteStep}
             isLoadingTools={isLoadingTools}
+            agentId={agentId}
+            versionData={versionData}
+            onToolsUpdate={onToolsUpdate}
         >
             <div className="min-h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="mx-auto max-w-3xl md:px-8 min-w-0 py-8">

@@ -243,7 +243,14 @@ export function ConditionalGroup({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onEdit(activeStep)}
+                        onClick={() => {
+                            // For conditional groups, we want to edit the first step (the "if" step)
+                            // which represents the entire conditional group
+                            const firstStep = conditionSteps[0];
+                            if (firstStep) {
+                                onEdit(firstStep);
+                            }
+                        }}
                         className="h-8 w-8 p-0"
                     >
                         <Settings className="h-4 w-4" />

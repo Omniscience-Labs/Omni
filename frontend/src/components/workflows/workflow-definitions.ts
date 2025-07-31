@@ -46,6 +46,8 @@ export const ACTION_ICONS: Record<string, any> = {
     'GitBranch': GitBranch,
     'Cog': Cog,
     'Key': Key,
+    'Globe': Globe,
+    'Settings': Settings,
 };
 
 // Base step definitions
@@ -76,7 +78,7 @@ export const BASE_STEP_DEFINITIONS: StepDefinition[] = [
     },
     {
         id: 'mcp_configuration',
-        name: 'MCP Configuration',
+        name: 'Add Custom MCP',
         description: 'Configure MCP server connections and settings',
         icon: Cog,
         category: 'configuration',
@@ -85,9 +87,9 @@ export const BASE_STEP_DEFINITIONS: StepDefinition[] = [
     },
     {
         id: 'credentials_profile',
-        name: 'Credentials Profile',
+        name: 'Browse App Registry',
         description: 'Select and configure credential profiles for authentication',
-        icon: Key,
+        icon: Globe,
         category: 'configuration',
         color: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/20 text-emerald-500',
         config: { step_type: 'credentials_profile' }
@@ -110,6 +112,11 @@ export const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
         id: 'configuration',
         name: 'Configuration',
         description: 'Setup and configure services'
+    },
+    {
+        id: 'integrations',
+        name: 'Integrations',
+        description: 'Connect to external services and APIs'
     },
     {
         id: 'tools',
@@ -154,6 +161,17 @@ export function getStepIconAndColor(stepType: any): { icon: any; color: string }
         const icon = TOOL_ICONS[toolName] || FileText;
         const color = TOOL_COLORS[toolName] || 'from-blue-500/20 to-blue-600/10 border-blue-500/20 text-blue-500';
         return { icon, color };
+    } else if (stepType.category === 'integrations') {
+        const toolName = stepType.config?.tool_name;
+        // Use more appropriate icons for different integration types
+        let icon = FileText; // Default icon for integrations
+        if (toolName?.includes('pipedream')) {
+            icon = Globe;
+        } else if (toolName?.includes('mcp')) {
+            icon = Cog;
+        }
+        const color = 'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-500';
+        return { icon, color };
     } else if (stepType.category === 'conditions') {
         return { icon: Settings, color: 'from-orange-500/20 to-orange-600/10 border-orange-500/20 text-orange-500' };
     } else if (stepType.category === 'configuration') {
@@ -192,15 +210,15 @@ export function generateAvailableStepTypes(agentTools?: {
         });
     }
 
-    // Add MCP tools
+    // Add MCP tools to integrations category
     if (agentTools?.mcp_tools) {
         agentTools.mcp_tools.forEach(tool => {
             allSteps.push({
                 id: `mcp_${tool.name}`,
                 name: tool.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 description: tool.description,
-                icon: FileText, // Default icon for MCP tools
-                category: 'tools',
+                icon: Cog, // Better icon for MCP tools
+                category: 'integrations',
                 color: 'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-500',
                 config: { tool_name: tool.name, tool_type: 'mcp', server: tool.server }
             });

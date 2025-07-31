@@ -23,6 +23,9 @@ interface WorkflowLayoutProps {
     searchQuery?: string;
     onSearchChange?: (query: string) => void;
     categories?: any[];
+    agentId?: string;
+    versionData?: any;
+    onToolsUpdate?: () => void;
 }
 
 export function WorkflowLayout({
@@ -42,7 +45,10 @@ export function WorkflowLayout({
     isLoadingTools = false,
     searchQuery = '',
     onSearchChange,
-    categories = []
+    categories = [],
+    agentId,
+    versionData,
+    onToolsUpdate
 }: WorkflowLayoutProps) {
     return (
         <div className="flex h-screen">
@@ -79,6 +85,9 @@ export function WorkflowLayout({
                 onUpdateStep={onUpdateStep}
                 onDeleteStep={onDeleteStep}
                 isLoadingTools={isLoadingTools}
+                agentId={agentId}
+                versionData={versionData}
+                onToolsUpdate={onToolsUpdate}
             />
         </div>
     );

@@ -55,11 +55,17 @@ export function StepCard({
                 config: step.config,
                 icon: 'Settings'
             };
-        } else if (step.config?.tool_type === 'agentpress' || step.config?.tool_type === 'mcp') {
+        } else if (step.config?.tool_type === 'agentpress') {
             stepType = {
                 category: 'tools',
                 config: step.config,
                 icon: 'FileText'
+            };
+        } else if (step.config?.tool_type === 'mcp') {
+            stepType = {
+                category: 'integrations',
+                config: step.config,
+                icon: 'Cog'
             };
         } else if (step.config?.step_type === 'mcp_configuration') {
             stepType = {
@@ -71,7 +77,7 @@ export function StepCard({
             stepType = {
                 category: 'configuration',
                 config: { step_type: 'credentials_profile' },
-                icon: 'Key'
+                icon: 'Globe'
             };
         } else if (step.type === 'instruction') {
             stepType = {
@@ -127,7 +133,7 @@ export function StepCard({
                         <div className="font-medium text-sm truncate text-zinc-900 dark:text-zinc-100">
                             {step.name}
                         </div>
-                        {step.description && (
+                        {(step.description && !step.config?.tool_name) && (
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                                 {step.description}
                             </div>

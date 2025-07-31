@@ -277,7 +277,13 @@ def format_workflow_for_llm(
     workflow_json = json.dumps(llm_workflow, indent=2)
     tools_list = ', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'
     input_json = json.dumps(input_data, indent=2) if input_data else 'None provided'
-    
+    print("=" * 80)
+    print("WORKFLOW PARSER DEBUG - format_workflow_for_llm")
+    print("=" * 80)
+    print(f"WORKFLOW JSON:")
+    print(workflow_json)
+    print("-" * 40)
+    print(f"TOOLS LIST:")
     return f"""You are executing a structured workflow. Follow the steps exactly as specified in the JSON below.
 
 WORKFLOW STRUCTURE:

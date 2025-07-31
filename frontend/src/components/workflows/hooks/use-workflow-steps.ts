@@ -199,7 +199,43 @@ export function useWorkflowSteps({
     }, [steps, onStepsChange, selectedStep, setSelectedStep]);
 
     const handleDeleteStep = useCallback((stepId: string) => {
-        // Recursive function to delete steps at any level
+        // Find the step to delete
+        const stepToDelete = steps.find(step => step.id === stepId);
+        
+        // If this is a conditional step (if/else-if/else), we need to delete the entire group
+        if (stepToDelete?.type === 'condition') {
+            // Find all related conditional steps (if, else-if, else) that should be deleted together
+            const stepIndex = steps.findIndex(step => step.id === stepId);
+            if (stepIndex === -1) return;
+            
+            // Find the start and end of the conditional group
+            let startIndex = stepIndex;
+            let endIndex = stepIndex;
+            
+            // Look backwards to find the start of the group (the "if" step)
+            while (startIndex > 0 && steps[startIndex - 1].type === 'condition') {
+                startIndex--;
+            }
+            
+            // Look forwards to find the end of the group (all consecutive conditional steps)
+            while (endIndex < steps.length - 1 && steps[endIndex + 1].type === 'condition') {
+                endIndex++;
+            }
+            
+            // Delete the entire group
+            const newSteps = steps.filter((_, index) => index < startIndex || index > endIndex);
+            
+            // Update order values
+            newSteps.forEach((step, idx) => {
+                step.order = idx;
+            });
+            
+            onStepsChange(newSteps);
+            setIsPanelOpen(false);
+            return;
+        }
+        
+        // For non-conditional steps, use the original recursive deletion
         const deleteStepRecursive = (stepsArray: ConditionalStep[]): ConditionalStep[] => {
             const filtered = stepsArray.filter(step => step.id !== stepId);
             return filtered.map(step => {
