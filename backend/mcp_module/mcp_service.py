@@ -7,8 +7,6 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections import OrderedDict
-import httpx
-from urllib.parse import quote
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -24,9 +22,6 @@ class MCPException(Exception):
 class MCPConnectionError(MCPException):
     pass
 
-class MCPServerNotFoundError(MCPException):
-    pass
-
 class MCPToolNotFoundError(MCPException):
     pass
 
@@ -39,9 +34,6 @@ class MCPProviderError(MCPException):
 class MCPConfigurationError(MCPException):
     pass
 
-class MCPRegistryError(MCPException):
-    pass
-
 class MCPAuthenticationError(MCPException):
     pass
 
@@ -50,56 +42,15 @@ class CustomMCPError(MCPException):
 
 
 @dataclass(frozen=True)
-class MCPServer:
-    qualified_name: str
-    display_name: str
-    description: str
-    created_at: str
-    use_count: int
-    homepage: str
-    icon_url: Optional[str] = None
-    is_deployed: Optional[bool] = None
-    tools: Optional[List[Dict[str, Any]]] = None
-    security: Optional[Dict[str, Any]] = None
-
-
-@dataclass(frozen=True)
 class MCPConnection:
     qualified_name: str
     name: str
     config: Dict[str, Any]
     enabled_tools: List[str]
-    provider: str = 'smithery'
+    provider: str = 'custom'
     external_user_id: Optional[str] = None
     session: Optional[ClientSession] = field(default=None, compare=False)
     tools: Optional[List[Any]] = field(default=None, compare=False)
-
-
-@dataclass(frozen=True)
-class MCPServerDetail:
-    qualified_name: str
-    display_name: str
-    icon_url: Optional[str] = None
-    deployment_url: Optional[str] = None
-    connections: List[Dict[str, Any]] = field(default_factory=list)
-    security: Optional[Dict[str, Any]] = None
-    tools: Optional[List[Dict[str, Any]]] = None
-
-
-@dataclass(frozen=True)
-class MCPServerListResult:
-    servers: List[MCPServer]
-    pagination: Dict[str, int]
-
-
-@dataclass(frozen=True)
-class PopularServersResult:
-    success: bool
-    servers: List[Dict[str, Any]]
-    categorized: Dict[str, List[Dict[str, Any]]]
-    total: int
-    category_count: int
-    pagination: Dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -126,7 +77,7 @@ class MCPConnectionRequest:
     name: str
     config: Dict[str, Any]
     enabled_tools: List[str]
-    provider: str = 'smithery'
+    provider: str = 'custom'
     external_user_id: Optional[str] = None
 
 
@@ -149,106 +100,6 @@ class MCPService:
         self._logger = logger
         self._connections: Dict[str, MCPConnection] = {}
         self._encryption_service = EncryptionService()
-        
-        self._registry_base_url = "https://registry.smithery.ai"
-        self._server_base_url = "https://server.smithery.ai"
-        self._api_key = os.getenv("SMITHERY_API_KEY")
-
-    async def list_servers(
-        self, 
-        query: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 20
-    ) -> MCPServerListResult:
-        self._logger.info(f"Listing MCP servers (page {page}, size {page_size})")
-        if query:
-            self._logger.info(f"Search query: {query}")
-        
-        try:
-            params = {
-                "page": page,
-                "pageSize": page_size
-            }
-            if query:
-                params["q"] = query
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self._registry_base_url}/api/v1/packages", params=params)
-                response.raise_for_status()
-                data = response.json()
-            
-            servers = []
-            for item in data.get("packages", []):
-                servers.append(MCPServer(
-                    qualified_name=item["qualifiedName"],
-                    display_name=item["displayName"],
-                    description=item["description"],
-                    created_at=item["createdAt"],
-                    use_count=item["useCount"],
-                    homepage=item["homepage"]
-                ))
-            
-            return MCPServerListResult(
-                servers=servers,
-                pagination=data.get("pagination", {})
-            )
-            
-        except httpx.HTTPError as e:
-            self._logger.error(f"Error fetching MCP servers: {str(e)}")
-            raise MCPRegistryError(f"Failed to fetch MCP servers: {str(e)}")
-    
-    async def get_server_details(self, qualified_name: str) -> MCPServerDetail:
-        self._logger.info(f"Getting details for MCP server: {qualified_name}")
-        
-        try:
-            encoded_name = quote(qualified_name, safe='')
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self._registry_base_url}/api/v1/packages/{encoded_name}")
-                
-                if response.status_code == 404:
-                    raise MCPServerNotFoundError(f"MCP server not found: {qualified_name}")
-                
-                response.raise_for_status()
-                data = response.json()
-            
-            return MCPServerDetail(
-                qualified_name=data["qualifiedName"],
-                display_name=data["displayName"],
-                icon_url=data.get("iconUrl"),
-                deployment_url=data.get("deploymentUrl"),
-                connections=data.get("connections", []),
-                security=data.get("security"),
-                tools=data.get("tools")
-            )
-            
-        except httpx.HTTPError as e:
-            if e.response and e.response.status_code == 404:
-                raise MCPServerNotFoundError(f"MCP server not found: {qualified_name}")
-            self._logger.error(f"Error fetching MCP server details: {str(e)}")
-            raise MCPRegistryError(f"Failed to fetch MCP server details: {str(e)}")
-    
-    async def get_popular_servers(self) -> PopularServersResult:
-        self._logger.info("Getting popular MCP servers")
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self._registry_base_url}/api/v1/packages/popular")
-                response.raise_for_status()
-                data = response.json()
-            
-            return PopularServersResult(
-                success=data.get("success", True),
-                servers=data.get("servers", []),
-                categorized=data.get("categorized", {}),
-                total=data.get("total", 0),
-                category_count=data.get("categoryCount", 0),
-                pagination=data.get("pagination", {})
-            )
-            
-        except httpx.HTTPError as e:
-            self._logger.error(f"Error fetching popular MCP servers: {str(e)}")
-            raise MCPRegistryError(f"Failed to fetch popular MCP servers: {str(e)}")
 
     async def connect_server(self, mcp_config: Dict[str, Any], external_user_id: Optional[str] = None) -> MCPConnection:
         request = MCPConnectionRequest(
@@ -256,7 +107,7 @@ class MCPService:
             name=mcp_config.get('name', ''),
             config=mcp_config.get('config', {}),
             enabled_tools=mcp_config.get('enabledTools', mcp_config.get('enabled_tools', [])),
-            provider=mcp_config.get('provider', 'smithery'),
+            provider=mcp_config.get('provider', 'custom'),
             external_user_id=external_user_id
         )
         return await self._connect_server_internal(request)
@@ -305,7 +156,7 @@ class MCPService:
                 name=config.get('name', ''),
                 config=config.get('config', {}),
                 enabled_tools=config.get('enabledTools', config.get('enabled_tools', [])),
-                provider=config.get('provider', 'smithery'),
+                provider=config.get('provider', 'custom'),
                 external_user_id=config.get('external_user_id')
             )
             requests.append(request)
@@ -416,47 +267,6 @@ class MCPService:
                 error=error_msg
             )
     
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
-        connection = self._find_tool_connection(tool_name)
-        if not connection or not connection.tools:
-            return None
-        
-        for tool in connection.tools:
-            if tool.name == tool_name:
-                return {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "inputSchema": tool.inputSchema,
-                    "server": connection.qualified_name,
-                    "enabled": tool_name in connection.enabled_tools
-                }
-        
-        return None
-    
-    def get_tools_by_server(self, qualified_name: str) -> List[Dict[str, Any]]:
-        connection = self.get_connection(qualified_name)
-        if not connection or not connection.tools:
-            return []
-        
-        tools = []
-        for tool in connection.tools:
-            tools.append({
-                "name": tool.name,
-                "description": tool.description,
-                "inputSchema": tool.inputSchema,
-                "enabled": tool.name in connection.enabled_tools
-            })
-        
-        return tools
-    
-    def get_enabled_tools(self) -> List[str]:
-        enabled_tools = []
-        
-        for connection in self.get_all_connections():
-            enabled_tools.extend(connection.enabled_tools)
-        
-        return enabled_tools
-    
     def _find_tool_connection(self, tool_name: str) -> Optional[MCPConnection]:
         for connection in self.get_all_connections():
             if not connection.tools:
@@ -559,35 +369,16 @@ class MCPService:
             )
 
     def _get_server_url(self, qualified_name: str, config: Dict[str, Any], provider: str) -> str:
-        if provider == 'smithery':
-            return self._get_smithery_server_url(qualified_name, config)
-        elif provider in ['custom', 'http', 'sse']:
+        if provider in ['custom', 'http', 'sse']:
             return self._get_custom_server_url(qualified_name, config)
         else:
             raise MCPProviderError(f"Unknown provider type: {provider}")
     
     def _get_headers(self, qualified_name: str, config: Dict[str, Any], provider: str, external_user_id: Optional[str] = None) -> Dict[str, str]:
-        if provider == 'smithery':
-            return self._get_smithery_headers(qualified_name, config, external_user_id)
-        elif provider in ['custom', 'http', 'sse']:
+        if provider in ['custom', 'http', 'sse']:
             return self._get_custom_headers(qualified_name, config, external_user_id)
         else:
             raise MCPProviderError(f"Unknown provider type: {provider}")
-    
-    def _get_smithery_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
-        if not self._api_key:
-            raise MCPAuthenticationError("SMITHERY_API_KEY environment variable is not set")
-        
-        config_json = json.dumps(config)
-        config_b64 = base64.b64encode(config_json.encode()).decode()
-        
-        return f"{self._server_base_url}/{qualified_name}/mcp?config={config_b64}&api_key={self._api_key}"
-    
-    def _get_smithery_headers(self, qualified_name: str, config: Dict[str, Any], external_user_id: Optional[str] = None) -> Dict[str, str]:
-        headers = {"Content-Type": "application/json"}
-        if external_user_id:
-            headers["X-External-User-Id"] = external_user_id
-        return headers
     
     def _get_custom_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
         url = config.get("url")

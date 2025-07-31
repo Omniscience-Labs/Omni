@@ -194,17 +194,6 @@ class TriggerService:
         
         return result
     
-    async def get_trigger_logs(self, trigger_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        client = await self._db.client
-        result = await client.table('trigger_event_logs')\
-            .select('*')\
-            .eq('trigger_id', trigger_id)\
-            .order('logged_at', desc=True)\
-            .limit(limit)\
-            .execute()
-        
-        return result.data
-    
     async def _save_trigger(self, trigger: Trigger) -> None:
         client = await self._db.client
         

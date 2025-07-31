@@ -64,7 +64,7 @@ Obtain the following API keys:
 #### Optional
 
 - **RapidAPI** - For accessing additional API services (enables LinkedIn scraping and other tools)
-- **Smithery** - For custom agents and workflows ([Get API key](https://smithery.ai/))
+- **Custom MCP Servers** - For extending functionality with custom tools
 
 ### 3. Required Software
 
@@ -200,7 +200,7 @@ MCP_CREDENTIAL_ENCRYPTION_KEY=your-generated-encryption-key
 
 # Optional APIs
 RAPID_API_KEY=your-rapidapi-key
-SMITHERY_API_KEY=your-smithery-key
+# MCP server configurations in database
 
 NEXT_PUBLIC_URL=http://localhost:3000
 ```
