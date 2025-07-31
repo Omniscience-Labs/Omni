@@ -204,11 +204,12 @@ async def stop_agent_run(agent_run_id: str, error_message: Optional[str] = None)
 
     # Update the agent run status in the database
     update_success = await update_agent_run_status(
-        client, agent_run_id, final_status, error=error_message, responses=all_responses
+        client, agent_run_id, final_status, error=error_message
     )
 
     if not update_success:
         logger.error(f"Failed to update database status for stopped/failed run {agent_run_id}")
+        raise HTTPException(status_code=500, detail="Failed to update agent run status in database")
 
     # Send STOP signal to the global control channel
     global_control_channel = f"agent_run:{agent_run_id}:control"
