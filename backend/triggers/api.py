@@ -90,12 +90,14 @@ class UpcomingRunsResponse(BaseModel):
 
 # Workflow models
 class WorkflowStepRequest(BaseModel):
+    id: Optional[str] = None  # CRITICAL: Accept ID from frontend
     name: str
     description: Optional[str] = None
     type: Optional[str] = "instruction"
     config: Dict[str, Any] = {}
     conditions: Optional[Dict[str, Any]] = None
     order: int
+    parentConditionalId: Optional[str] = None  # CRITICAL: Accept parentConditionalId
     children: Optional[List['WorkflowStepRequest']] = None
 
 
@@ -538,6 +540,13 @@ def convert_steps_to_json(steps: List[WorkflowStepRequest]) -> List[Dict[str, An
             'conditions': step.conditions,
             'order': step.order
         }
+        
+        # CRITICAL: Preserve ID and parentConditionalId if they exist
+        if hasattr(step, 'id') and step.id:
+            step_dict['id'] = step.id
+        if hasattr(step, 'parentConditionalId') and step.parentConditionalId:
+            step_dict['parentConditionalId'] = step.parentConditionalId
+            
         if step.children:
             step_dict['children'] = convert_steps_to_json(step.children)
         result.append(step_dict)
