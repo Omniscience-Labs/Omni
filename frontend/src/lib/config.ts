@@ -107,15 +107,15 @@ const PROD_TIERS: SubscriptionTiers = {
   },
   // Yearly commitment plans (15% discount, monthly payments with 12-month commitment)
   TIER_2_17_YEARLY_COMMITMENT: {
-    priceId: 'price_1RqYGaG6l1KZGqIrIzcdPzeQ',
+    priceId: 'price_1RqtqiG6l1KZGqIrhjVPtE1s',
     name: '2h/$17/month (yearly)',
   },
   TIER_6_42_YEARLY_COMMITMENT: {
-    priceId: 'price_1RqYH1G6l1KZGqIrWDKh8xIU',
+    priceId: 'price_1Rqtr8G6l1KZGqIrQ0ql0qHi',
     name: '6h/$42.50/month (yearly)',
   },
   TIER_25_170_YEARLY_COMMITMENT: {
-    priceId: 'price_1RqYHbG6l1KZGqIrAUVf8KpG',
+    priceId: 'price_1RqtrUG6l1KZGqIrEb8hLsk3',
     name: '25h/$170/month (yearly)',
   },
 } as const;
