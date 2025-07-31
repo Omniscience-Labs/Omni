@@ -408,9 +408,9 @@ function PricingTier({
         if (targetAmount > currentAmount || isSameTierUpgradeToLongerTerm) {
           // Allow upgrade to higher tier OR upgrade to longer term on same tier
           if (currentIsMonthly && targetIsYearlyCommitment && targetAmount <= currentAmount) {
-            buttonText = 'Subscribe for one year';
-            buttonVariant = 'default';
-            buttonClassName = 'bg-green-600 hover:bg-green-700 text-white';
+            buttonText = 'Upgrade';
+            buttonVariant = tier.buttonColor as ButtonVariant;
+            buttonClassName = 'bg-primary hover:bg-primary/90 text-primary-foreground';
           } else if (currentIsMonthly && targetIsYearly && targetAmount <= currentAmount) {
             buttonText = 'Switch to Legacy Yearly';
             buttonVariant = 'default';
