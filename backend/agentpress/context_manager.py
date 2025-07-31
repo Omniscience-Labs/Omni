@@ -28,7 +28,7 @@ class ContextManager:
 
     def is_tool_result_message(self, msg: Dict[str, Any]) -> bool:
         """Check if a message is a tool result message."""
-        if not ("content" in msg and msg['content']):
+        if not isinstance(msg, dict) or not ("content" in msg and msg['content']):
             return False
         content = msg['content']
         if isinstance(content, str) and "ToolResult" in content: 
@@ -57,7 +57,22 @@ class ContextManager:
                 return msg_content
         elif isinstance(msg_content, dict):
             if len(json.dumps(msg_content)) > max_length:
-                return json.dumps(msg_content)[:max_length] + "... (truncated)" + f"\n\nmessage_id \"{message_id}\"\nUse expand-message tool to see contents"
+                # Special handling for edit_file tool result to preserve JSON structure
+                tool_execution = msg_content.get("tool_execution", {})
+                if tool_execution.get("function_name") == "edit_file":
+                    output = tool_execution.get("result", {}).get("output", {})
+                    if isinstance(output, dict):
+                        # Truncate file contents within the JSON
+                        for key in ["original_content", "updated_content"]:
+                            if isinstance(output.get(key), str) and len(output[key]) > max_length // 4:
+                                output[key] = output[key][:max_length // 4] + "\n... (truncated)"
+                
+                # After potential truncation, check size again
+                if len(json.dumps(msg_content)) > max_length:
+                    # If still too large, fall back to string truncation
+                    return json.dumps(msg_content)[:max_length] + "... (truncated)" + f"\n\nmessage_id \"{message_id}\"\nUse expand-message tool to see contents"
+                else:
+                    return msg_content
             else:
                 return msg_content
         
@@ -100,6 +115,8 @@ class ContextManager:
         if uncompressed_total_token_count > max_tokens_value:
             _i = 0  # Count the number of ToolResult messages
             for msg in reversed(messages):  # Start from the end and work backwards
+                if not isinstance(msg, dict):
+                    continue  # Skip non-dict messages
                 if self.is_tool_result_message(msg):  # Only compress ToolResult messages
                     _i += 1  # Count the number of ToolResult messages
                     msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
@@ -122,6 +139,8 @@ class ContextManager:
         if uncompressed_total_token_count > max_tokens_value:
             _i = 0  # Count the number of User messages
             for msg in reversed(messages):  # Start from the end and work backwards
+                if not isinstance(msg, dict):
+                    continue  # Skip non-dict messages
                 if msg.get('role') == 'user':  # Only compress User messages
                     _i += 1  # Count the number of User messages
                     msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
@@ -144,6 +163,8 @@ class ContextManager:
         if uncompressed_total_token_count > max_tokens_value:
             _i = 0  # Count the number of Assistant messages
             for msg in reversed(messages):  # Start from the end and work backwards
+                if not isinstance(msg, dict):
+                    continue  # Skip non-dict messages
                 if msg.get('role') == 'assistant':  # Only compress Assistant messages
                     _i += 1  # Count the number of Assistant messages
                     msg_token_count = token_counter(messages=[msg])  # Count the number of tokens in the message
@@ -263,7 +284,7 @@ class ContextManager:
             return result
 
         # Separate system message (assumed to be first) from conversation messages
-        system_message = messages[0] if messages and messages[0].get('role') == 'system' else None
+        system_message = messages[0] if messages and isinstance(messages[0], dict) and messages[0].get('role') == 'system' else None
         conversation_messages = result[1:] if system_message else result
         
         safety_limit = 500

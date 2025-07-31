@@ -312,14 +312,14 @@ class InstallationService:
         system_prompt: str
     ) -> None:
         try:
-            from agent.versioning.facade import version_manager
-            
             tools = agent_config.get('tools', {})
             configured_mcps = tools.get('mcp', [])
             custom_mcps = tools.get('custom_mcp', [])
             agentpress_tools = tools.get('agentpress', {})
             
-            await version_manager.create_version(
+            from agent.versioning.version_service import get_version_service
+            version_service = await get_version_service()
+            await version_service.create_version(
                 agent_id=agent_id,
                 user_id=user_id,
                 system_prompt=system_prompt,

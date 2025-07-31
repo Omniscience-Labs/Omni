@@ -395,18 +395,31 @@ export default function ThreadPage({
 
           const unifiedMessages = (messagesData || [])
             .filter((msg) => msg.type !== 'status')
-            .map((msg: ApiMessageType) => ({
-              message_id: msg.message_id || null,
-              thread_id: msg.thread_id || threadId,
-              type: (msg.type || 'system') as UnifiedMessage['type'],
-              is_llm_message: Boolean(msg.is_llm_message),
-              content: msg.content || '',
-              metadata: msg.metadata || '{}',
-              created_at: msg.created_at || new Date().toISOString(),
-              updated_at: msg.updated_at || new Date().toISOString(),
-              agent_id: (msg as any).agent_id,
-              agents: (msg as any).agents,
-            }));
+            .map((msg: ApiMessageType) => {
+              let finalContent: string | object = msg.content || '';
+              if (msg.metadata) {
+                try {
+                  const metadata = JSON.parse(msg.metadata);
+                  if (metadata.frontend_content) {
+                    finalContent = metadata.frontend_content;
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              }
+              return {
+                message_id: msg.message_id || null,
+                thread_id: msg.thread_id || threadId,
+                type: (msg.type || 'system') as UnifiedMessage['type'],
+                is_llm_message: Boolean(msg.is_llm_message),
+                content: typeof finalContent === 'string' ? finalContent : JSON.stringify(finalContent),
+                metadata: msg.metadata || '{}',
+                created_at: msg.created_at || new Date().toISOString(),
+                updated_at: msg.updated_at || new Date().toISOString(),
+                agent_id: (msg as any).agent_id,
+                agents: (msg as any).agents,
+              };
+            });
 
           setMessages(unifiedMessages);
           const historicalToolPairs: ToolCallInput[] = [];

@@ -1,7 +1,7 @@
 from tavily import AsyncTavilyClient
 import httpx
 from dotenv import load_dotenv
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from utils.config import config
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
@@ -55,13 +55,7 @@ class SandboxWebSearchTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="web-search",
-        mappings=[
-            {"param_name": "query", "node_type": "attribute", "path": "."},
-            {"param_name": "num_results", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="web_search">
         <parameter name="query">what is Kortix AI and what are they building?</parameter>
@@ -76,8 +70,7 @@ class SandboxWebSearchTool(SandboxToolsBase):
         <parameter name="num_results">20</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def web_search(
         self, 
         query: str,
@@ -161,19 +154,13 @@ class SandboxWebSearchTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="scrape-webpage",
-        mappings=[
-            {"param_name": "urls", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="scrape_webpage">
         <parameter name="urls">https://www.kortix.ai/,https://github.com/kortix-ai/suna</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def scrape_webpage(
         self,
         urls: str

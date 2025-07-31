@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CircleDashed } from 'lucide-react';
 import { extractToolNameFromStream } from '@/components/thread/tool-views/xml-parser';
 import { getToolIcon, getUserFriendlyToolName, extractPrimaryParam } from '@/components/thread/utils';
+import { CodeBlockCode } from '@/components/ui/code-block';
+import { getLanguageFromFileName } from '../tool-views/file-operation/_utils';
 
 // Only show streaming for file operation tools
 const FILE_OPERATION_TOOLS = new Set([
-    'Create File',
-    'Delete File',
-    'Full File Rewrite',
-    'Read File',
+    'Creating File',
+    'Rewriting File',
+    'AI File Edit',
 ]);
 
 interface ShowToolStreamProps {
@@ -37,30 +38,40 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
         stableStartTimeRef.current = Date.now();
     }
 
-    const toolName = extractToolNameFromStream(content);
+    const rawToolName = extractToolNameFromStream(content);
+    const toolName = getUserFriendlyToolName(rawToolName || '');
+    const isEditFile = toolName === 'AI File Edit';
+    const isCreateFile = toolName === 'Creating File';
+    const isFullFileRewrite = toolName === 'Rewriting File';
 
-    // Time-based logic - show streaming content after 1500ms
-    useEffect(() => {
-        const effectiveStartTime = stableStartTimeRef.current;
+    const streamingFileContent = React.useMemo(() => {
+        if (!content) return '';
+        let paramName: string | null = null;
+        if (isEditFile) paramName = 'code_edit';
+        else if (isCreateFile || isFullFileRewrite) paramName = 'file_contents';
 
-        // Only show expanded content for file operation tools
-        if (!effectiveStartTime || !showExpanded || !FILE_OPERATION_TOOLS.has(toolName || '')) {
-            setShouldShowContent(false);
-            return;
+        if (paramName) {
+            const newMatch = content.match(new RegExp(`<parameter\\s+name=["']${paramName}["']>([\\s\\S]*)`, 'i'));
+            if (newMatch && newMatch[1]) {
+                return newMatch[1].replace(/<\/parameter>[\s\S]*$/, '');
+            }
+            // Fallback for old formats
+            if (isEditFile) {
+                const oldMatch = content.match(/<code_edit>([\s\S]*)/i);
+                if (oldMatch && oldMatch[1]) {
+                    return oldMatch[1].replace(/<\/code_edit>[\s\S]*$/, '');
+                }
+            }
         }
+        return content; // fallback to full content
+    }, [content, isEditFile, isCreateFile, isFullFileRewrite]);
 
-        const elapsed = Date.now() - effectiveStartTime;
-        if (elapsed >= 2000) {
+    // Show streaming content immediately for file operations
+    useEffect(() => {
+        if (showExpanded && FILE_OPERATION_TOOLS.has(toolName || '')) {
             setShouldShowContent(true);
         } else {
-            const delay = 2000 - elapsed;
-            const timer = setTimeout(() => {
-                setShouldShowContent(true);
-            }, delay);
-
-            return () => {
-                clearTimeout(timer);
-            };
+            setShouldShowContent(false);
         }
     }, [showExpanded, toolName]);
 
@@ -92,12 +103,12 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     // Check if this is a file operation tool
     const isFileOperationTool = FILE_OPERATION_TOOLS.has(toolName);
 
-    const IconComponent = getToolIcon(toolName);
-    const displayName = getUserFriendlyToolName(toolName);
-    const paramDisplay = extractPrimaryParam(toolName, content);
+    const IconComponent = getToolIcon(rawToolName || '');
+    const displayName = toolName;
+    const paramDisplay = extractPrimaryParam(rawToolName || '', content);
 
     // Always show tool button, conditionally show content below for file operations only
-    if (showExpanded && isFileOperationTool) {
+    if (showExpanded && (isFileOperationTool || isEditFile)) {
         return (
             <div className="my-1">
                 {shouldShowContent ? (
@@ -126,7 +137,7 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
                                     WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)'
                                 }}
                             >
-                                {content}
+                                {isEditFile || isCreateFile || isFullFileRewrite ? streamingFileContent : content}
                             </div>
                             {/* Top gradient */}
                             <div className={`absolute top-0 left-0 right-0 h-8 pointer-events-none transition-all duration-500 ease-in-out ${shouldShowContent

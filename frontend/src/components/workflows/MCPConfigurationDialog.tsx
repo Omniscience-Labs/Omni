@@ -109,7 +109,7 @@ const mockMCPServers: MCPServer[] = [
     name: "Slack",
     description: "Send messages and interact with Slack workspaces",
     icon: MessageSquare,
-    qualifiedName: "@smithery-ai/slack",
+    qualifiedName: "slack-mcp-server",
     configSchema: {
       properties: {
         slackBotToken: {

@@ -14,18 +14,6 @@ async def admin_install_suna_for_user(
     replace_existing: bool = False,
     _: bool = Depends(verify_admin_api_key)
 ):
-    """Install Suna agent for a specific user account.
-    
-    Args:
-        account_id: The account ID to install Suna agent for
-        replace_existing: Whether to replace existing Suna agent if found
-        
-    Returns:
-        Success message with agent_id if successful
-        
-    Raises:
-        HTTPException: If installation fails
-    """
     logger.info(f"Admin installing Suna agent for user: {account_id}")
     
     service = SunaDefaultAgentService()

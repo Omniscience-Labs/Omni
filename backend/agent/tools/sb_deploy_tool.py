@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from utils.files_utils import clean_path
 from agentpress.thread_manager import ThreadManager
@@ -41,13 +41,7 @@ class SandboxDeployTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="deploy",
-        mappings=[
-            {"param_name": "name", "node_type": "attribute", "path": "name"},
-            {"param_name": "directory_path", "node_type": "attribute", "path": "directory_path"}
-        ],
-        example='''
+    @usage_example('''
         <!-- 
         IMPORTANT: Only use this tool when:
         1. The user explicitly requests permanent deployment to production
@@ -62,8 +56,7 @@ class SandboxDeployTool(SandboxToolsBase):
         <parameter name="directory_path">website</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def deploy(self, name: str, directory_path: str) -> ToolResult:
         """
         Deploy a static website (HTML+CSS+JS) from the sandbox to Cloudflare Pages.

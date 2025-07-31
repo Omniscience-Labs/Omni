@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-from agentpress.tool import Tool, ToolResult, openapi_schema, xml_schema
+from agentpress.tool import Tool, ToolResult, openapi_schema, usage_example
 from utils.logger import logger
 
 class MessageTool(Tool):
@@ -38,13 +38,7 @@ class MessageTool(Tool):
             }
         }
     })
-    @xml_schema(
-        tag_name="ask",
-        mappings=[
-            {"param_name": "text", "node_type": "content", "path": "."},
-            {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="ask">
         <parameter name="text">I'm planning to bake the chocolate cake for your birthday party. The recipe mentions "rich frosting" but doesn't specify what type. Could you clarify your preferences? For example:
@@ -57,8 +51,7 @@ This information will help me make sure the cake meets your expectations for the
         <parameter name="attachments">recipes/chocolate_cake.txt,photos/cake_examples.jpg</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def ask(self, text: str, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
         """Ask the user a question and wait for a response.
 
@@ -102,13 +95,7 @@ This information will help me make sure the cake meets your expectations for the
             }
         }
     })
-    @xml_schema(
-        tag_name="web-browser-takeover",
-        mappings=[
-            {"param_name": "text", "node_type": "content", "path": "."},
-            {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="web_browser_takeover">
         <parameter name="text">I've encountered a CAPTCHA verification on the page. Please:
@@ -119,8 +106,7 @@ This information will help me make sure the cake meets your expectations for the
 If you encounter any issues or need to take additional steps, please let me know.</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def web_browser_takeover(self, text: str, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
         """Request user takeover of browser interaction.
 
@@ -237,13 +223,7 @@ If you encounter any issues or need to take additional steps, please let me know
             }
         }
     })
-    @xml_schema(
-        tag_name="complete",
-        mappings=[
-            {"param_name": "text", "node_type": "content", "path": ".", "required": False},
-            {"param_name": "attachments", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="complete">
         <parameter name="text">I have successfully completed all tasks for your project. Here's what was accomplished:
@@ -256,8 +236,7 @@ All deliverables are attached for your review.</parameter>
         <parameter name="attachments">app/src/main.js,docs/README.md,deployment-config.yaml</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def complete(self, text: Optional[str] = None, attachments: Optional[Union[str, List[str]]] = None) -> ToolResult:
         """Indicate that the agent has completed all tasks and is entering complete state.
 

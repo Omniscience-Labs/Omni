@@ -93,44 +93,6 @@ export const usePipedreamAppIcon = (appSlug: string, options?: { enabled?: boole
   });
 };
 
-export const usePipedreamAvailableTools = createQueryHook(
-  pipedreamKeys.availableTools(),
-  async (forceRefresh: boolean = false): Promise<PipedreamToolsResponse> => {
-    const params = new URLSearchParams();
-    if (forceRefresh) {
-      params.append('force_refresh', 'true');
-    }
-    
-    const url = `/pipedream/mcp/available-tools${params.toString() ? `?${params.toString()}` : ''}`;
-    const result = await backendApi.get<PipedreamToolsResponse>(url, {
-      errorContext: { operation: 'load available tools', resource: 'Pipedream tools' },
-    });
-    if (result.success && result.data) {
-      if (result.data.success) {
-        return result.data;
-      } else {
-        throw new Error(result.data.error || 'Failed to get available tools');
-      }
-    } else {
-      throw new Error(result.error?.message || 'Failed to get available tools');
-    }
-  },
-  {
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    retry: (failureCount, error) => {
-      if (failureCount < 2) {
-        const errorMessage = error?.message?.toLowerCase() || '';
-        return !errorMessage.includes('unauthorized') && !errorMessage.includes('forbidden');
-      }
-      return false;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  }
-); 
-
 export const usePipedreamAppTools = (appSlug: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['pipedream', 'app-tools', appSlug],

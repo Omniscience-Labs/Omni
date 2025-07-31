@@ -2375,15 +2375,15 @@ wheels = [
 
 [[package]]
 name = "stripe"
-version = "12.0.1"
+version = "11.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/33/73/b047ad181b17933fabac11eb16d910ae732e84a98a2385f5d613563c9579/stripe-12.0.1.tar.gz", hash = "sha256:3fc7cc190946d8ebcc5b637e7e04f387d61b9c5156a89619a3ba90704ac09d4a", size = 1370176 }
+sdist = { url = "https://files.pythonhosted.org/packages/30/a4/7e16668d7adfb45229f4b67c04c79f53fe78335a6d0625303b32024d831c/stripe-11.6.0.tar.gz", hash = "sha256:0ced7cce23a6cb1a393c86a1f7f9435c9d83ae7cbd556362868caf62cb44a92c", size = 1390405 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8b/f6/bd95469c8bd10458a4273db30e962ec7965f07e017c47c2906ef849cfb78/stripe-12.0.1-py2.py3-none-any.whl", hash = "sha256:b10b19dbd0622868b98a7c6e879ebde704be96ad75c780944bca4069bb427988", size = 1613622 },
+    { url = "https://files.pythonhosted.org/packages/d8/67/e320a11da2049dfd50fd1726952093b173332563f32d1a94cc3758932147/stripe-11.6.0-py2.py3-none-any.whl", hash = "sha256:6e6cf09ebb6d5fc2d708401cb8868fd7bff987a6d09a0433caaa92c62f97dbc5", size = 1636766 },
 ]
 
 [[package]]
@@ -2507,7 +2507,7 @@ requires-dist = [
     { name = "requests", specifier = "==2.32.3" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = "==2.29.1" },
     { name = "setuptools", specifier = "==75.3.0" },
-    { name = "stripe", specifier = "==12.0.1" },
+    { name = "stripe", specifier = "==11.6.0" },
     { name = "structlog", specifier = "==25.4.0" },
     { name = "supabase", specifier = "==2.17.0" },
     { name = "tavily-python", specifier = "==0.5.4" },

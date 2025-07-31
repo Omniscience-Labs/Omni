@@ -33,6 +33,7 @@ export const AppCard: React.FC<AppCardProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const { data: appToolsData, isLoading: isToolsLoading } = usePipedreamAppTools(app.name_slug, { enabled: isDialogOpen });
   const tools = appToolsData?.tools ?? [];
 
@@ -60,13 +61,25 @@ export const AppCard: React.FC<AppCardProps> = ({
     handleCategorySelect?.(category);
   };
 
-  const handleConnectClick = () => {
-    // Open the preview dialog instead of directly connecting
+  const handleConnectClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Prevent opening if dialog is in the process of closing
+    if (isClosing) return;
     setIsDialogOpen(true);
   };
 
+  const handleDialogChange = (open: boolean) => {
+    if (!open) {
+      setIsClosing(true);
+      setIsDialogOpen(false);
+      // Reset closing state after a short delay to prevent rapid reopening
+      setTimeout(() => setIsClosing(false), 300);
+    } else {
+      setIsDialogOpen(open);
+    }
+  };
+
   const handleActualConnect = () => {
-    // Close the dialog and proceed with actual connection
     setIsDialogOpen(false);
     
     if (mode === 'simple' && onAppSelected) {
@@ -76,7 +89,8 @@ export const AppCard: React.FC<AppCardProps> = ({
     }
   };
 
-  const handleConfigureClick = (profile: any) => {
+  const handleConfigureClick = (e: React.MouseEvent, profile: any) => {
+    e.stopPropagation();
     if (onConfigureTools) {
       onConfigureTools(profile);
     }
@@ -88,10 +102,9 @@ export const AppCard: React.FC<AppCardProps> = ({
   return (
     <Card 
       className={cn(
-        "group relative overflow-hidden transition-all p-0 duration-300",
+        "group relative overflow-hidden transition-all p-0 duration-300 hover:cursor-pointer hover:bg-muted",
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onClick={handleConnectClick}
     >
       <CardContent className="p-4 h-full flex flex-col">
         <div className="flex items-start gap-3 mb-3">
@@ -138,7 +151,7 @@ export const AppCard: React.FC<AppCardProps> = ({
 
         {hasAgentTools && (
           <div className="mb-3">
-            <div className="rounded-xl bg-muted py-2 border border">
+            <div className="rounded-xl bg-muted py-2 border border" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="ghost" className="h-auto w-full justify-between p-0 hover:bg-transparent">
@@ -160,7 +173,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                   {agentProfiles.map((profile) => (
                     <DropdownMenuItem 
                       key={profile.profile_id} 
-                      onClick={() => handleConfigureClick(profile)}
+                      onClick={(e) => handleConfigureClick(e, profile)}
                       className="cursor-pointer"
                     >
                       <div className="flex items-center justify-between w-full">
@@ -179,47 +192,11 @@ export const AppCard: React.FC<AppCardProps> = ({
             </div>
           </div>
         )}
-
         <div className="flex-1" />
-        
-        <div className="mt-auto">
-          <Button
-            size="sm"
-            onClick={handleConnectClick}
-            variant={isConnected && !hasAgentTools ? "outline" : "default"}
-            className={cn("w-full font-medium transition-all duration-200")}
-          >
-            {mode === 'simple' ? (
-              <>
-                <Plus className="h-4 w-4" />
-                Connect
-              </>
-            ) : mode === 'profile-only' ? (
-              <>
-                <Plus className="h-4 w-4" />
-                {isConnected ? 'Add Profile' : 'Connect'}
-              </>
-            ) : (
-              <>
-                {isConnected ? (
-                  <>
-                    <Zap className="h-4 w-4" />
-                    Add Tools
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4" />
-                    Connect
-                  </>
-                )}
-              </>
-            )}
-          </Button>
-        </div>
       </CardContent>
 
       {/* Preview Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="overflow-hidden max-w-4xl p-0 h-[600px]">
           <DialogTitle className='sr-only'>{app.name} Tools</DialogTitle>
           <div className="grid grid-cols-2 h-full">
