@@ -58,16 +58,18 @@ class ToolManager:
         self.thread_id = thread_id
     
     def register_all_tools(self):
+        self.thread_manager.add_tool(ExpandMessageTool, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        self.thread_manager.add_tool(MessageTool)
+        
         self.thread_manager.add_tool(SandboxShellTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxFilesTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxBrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxDeployTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxExposeTool, project_id=self.project_id, thread_manager=self.thread_manager)
-        self.thread_manager.add_tool(ExpandMessageTool, thread_id=self.thread_id, thread_manager=self.thread_manager)
-        self.thread_manager.add_tool(MessageTool)
         self.thread_manager.add_tool(SandboxWebSearchTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxVisionTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxImageEditTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        
         if config.RAPID_API_KEY:
             self.thread_manager.add_tool(DataProvidersTool)
     
@@ -203,10 +205,10 @@ class PromptManager:
                 sample_response = file.read()
             default_system_content = default_system_content + "\n\n <sample_assistant_response>" + sample_response + "</sample_assistant_response>"
         
-        if agent_config and agent_config.get('system_prompt'):
-            system_content = agent_config['system_prompt'].strip()
-        elif is_agent_builder:
+        if is_agent_builder:
             system_content = get_agent_builder_prompt()
+        elif agent_config and agent_config.get('system_prompt'):
+            system_content = agent_config['system_prompt'].strip()
         else:
             system_content = default_system_content
         

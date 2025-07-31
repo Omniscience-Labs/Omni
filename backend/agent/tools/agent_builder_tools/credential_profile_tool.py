@@ -322,6 +322,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         try:
             from uuid import UUID
             account_id = await self._get_current_account_id()
+            client = await self.db.client
 
             profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
             if not profile:
@@ -329,26 +330,69 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             if not profile.is_connected:
                 return self.fail_response("Profile is not connected yet. Please connect the profile first.")
 
-            # Simplified implementation - agent profile tools are now handled elsewhere
-            result = {
-                'success': True,
-                'enabled_tools': enabled_tools,
-                'total_tools': len(enabled_tools),
-                'version_name': 'simplified'
-            }
-            if not result.get("success", False):
-                return self.fail_response("Failed to update agent profile tools")
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).execute()
+            if not agent_result.data or not agent_result.data[0].get('current_version_id'):
+                return self.fail_response("Agent configuration not found")
 
-            version_msg = f"Profile '{profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name)}' updated with {len(enabled_tools)} tools"
+            version_result = await client.table('agent_versions')\
+                .select('config')\
+                .eq('version_id', agent_result.data[0]['current_version_id'])\
+                .maybe_single()\
+                .execute()
+            
+            if not version_result.data or not version_result.data.get('config'):
+                return self.fail_response("Agent version configuration not found")
+
+            current_config = version_result.data['config']
+            current_tools = current_config.get('tools', {})
+            current_custom_mcps = current_tools.get('custom_mcp', [])
+
+            app_slug = profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
+            
+            new_mcp_config = {
+                'name': display_name or profile.display_name,
+                'type': 'pipedream',
+                'config': {
+                    'url': 'https://remote.mcp.pipedream.net',
+                    'headers': {
+                        'x-pd-app-slug': app_slug
+                    },
+                    'profile_id': profile_id
+                },
+                'enabledTools': enabled_tools
+            }
+            
+            updated_mcps = [mcp for mcp in current_custom_mcps 
+                          if mcp.get('config', {}).get('profile_id') != profile_id]
+            
+            updated_mcps.append(new_mcp_config)
+            
+            current_tools['custom_mcp'] = updated_mcps
+            current_config['tools'] = current_tools
+            
+            from agent.versioning.version_service import get_version_service
+            version_service = await get_version_service()
+            new_version = await version_service.create_version(
+                agent_id=self.agent_id,
+                user_id=account_id,
+                system_prompt=current_config.get('system_prompt', ''),
+                configured_mcps=current_config.get('tools', {}).get('mcp', []),
+                custom_mcps=updated_mcps,
+                agentpress_tools=current_config.get('tools', {}).get('agentpress', {}),
+                change_description=f"Configured {display_name or profile.display_name} with {len(enabled_tools)} tools"
+            )
+
+            profile_name = profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name)
             return self.success_response({
-                "message": version_msg,
-                "enabled_tools": result.get("enabled_tools", []),
-                "total_tools": result.get("total_tools", 0),
-                "version_id": result.get("version_id"),
-                "version_name": result.get("version_name")
+                "message": f"Profile '{profile_name}' updated with {len(enabled_tools)} tools",
+                "enabled_tools": enabled_tools,
+                "total_tools": len(enabled_tools),
+                "version_id": new_version.version_id,
+                "version_name": new_version.version_name
             })
             
         except Exception as e:
+            logger.error(f"Error configuring profile for agent: {e}", exc_info=True)
             return self.fail_response(f"Error configuring profile for agent: {str(e)}")
 
     @openapi_schema({
@@ -409,12 +453,11 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                             version_service = await get_version_service()
                             await version_service.create_version(
                                 agent_id=self.agent_id,
-                                user_id=self.account_id,
+                                user_id=account_id,
                                 system_prompt=current_config.get('system_prompt', ''),
                                 configured_mcps=current_config.get('tools', {}).get('mcp', []),
                                 custom_mcps=updated_mcps,
                                 agentpress_tools=current_config.get('tools', {}).get('agentpress', {}),
-                                version_name="Removed credential profile",
                                 change_description=f"Deleted credential profile {profile.display_name}"
                             )
                         except Exception as e:
