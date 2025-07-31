@@ -85,22 +85,25 @@ class KortixAgent:
         name: str,
         system_prompt: str,
         mcp_tools: list[KortixTools] = [],
+        allowed_tools: list[str] | None = None,
     ) -> Agent:
         agentpress_tools = {}
         custom_mcps: list[CustomMCP] = []
         for tool in mcp_tools:
             if isinstance(tool, AgentPressTools):
+                is_enabled = tool.name in allowed_tools if allowed_tools else True
                 agentpress_tools[tool] = AgentPress_ToolConfig(
-                    enabled=True, description=tool.get_description()
+                    enabled=is_enabled, description=tool.get_description()
                 )
             elif isinstance(tool, MCPTools):
                 mcp = tool
+                is_enabled = tool.name in allowed_tools if allowed_tools else True
                 custom_mcps.append(
                     CustomMCP(
                         name=mcp.name,
                         type=mcp.type,
                         config=MCPConfig(url=mcp.url),
-                        enabled_tools=mcp.enabled_tools,
+                        enabled_tools=mcp.enabled_tools if is_enabled else [],
                     )
                 )
             else:
