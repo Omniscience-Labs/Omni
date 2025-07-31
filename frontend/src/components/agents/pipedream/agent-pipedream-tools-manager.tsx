@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { usePipedreamToolsData } from '@/hooks/react-query/agents/use-pipedream-tools';
 import type { PipedreamTool } from '@/hooks/react-query/agents/use-pipedream-tools';
+import { ToolsLoader } from '../mcp/tools-loader';
 
 interface AgentPipedreamToolsManagerProps {
   agentId: string;
@@ -172,12 +173,7 @@ export const AgentPipedreamToolsManager: React.FC<AgentPipedreamToolsManagerProp
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading available tools...</span>
-              </div>
-            </div>
+            <ToolsLoader toolCount={5} />
           ) : !data?.tools?.length ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">

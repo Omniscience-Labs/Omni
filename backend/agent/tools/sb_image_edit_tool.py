@@ -1,5 +1,5 @@
 from typing import Optional
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 import httpx
@@ -45,22 +45,14 @@ class SandboxImageEditTool(SandboxToolsBase):
             },
         }
     )
-    @xml_schema(
-        tag_name="image-edit-or-generate",
-        mappings=[
-            {"param_name": "mode", "node_type": "attribute", "path": "."},
-            {"param_name": "prompt", "node_type": "attribute", "path": "."},
-            {"param_name": "image_path", "node_type": "attribute", "path": "."},
-        ],
-        example="""
+    @usage_example("""
         <function_calls>
         <invoke name="image_edit_or_generate">
         <parameter name="mode">generate</parameter>
         <parameter name="prompt">A futuristic cityscape at sunset</parameter>
         </invoke>
         </function_calls>
-        """,
-    )
+        """)
     async def image_edit_or_generate(
         self,
         mode: str,

@@ -1,4 +1,4 @@
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from utils.files_utils import should_exclude_file, clean_path
 from agentpress.thread_manager import ThreadManager
@@ -103,13 +103,7 @@ class SandboxFilesTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="create-file",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "file_contents", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="create_file">
         <parameter name="file_path">src/main.py</parameter>
@@ -123,8 +117,7 @@ class SandboxFilesTool(SandboxToolsBase):
         </parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def create_file(self, file_path: str, file_contents: str, permissions: str = "644") -> ToolResult:
         try:
             # Ensure sandbox is initialized
@@ -189,14 +182,7 @@ class SandboxFilesTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="str-replace",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "old_str", "node_type": "element", "path": "old_str"},
-            {"param_name": "new_str", "node_type": "element", "path": "new_str"}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="str_replace">
         <parameter name="file_path">src/main.py</parameter>
@@ -204,8 +190,7 @@ class SandboxFilesTool(SandboxToolsBase):
         <parameter name="new_str">replacement text that will be inserted instead</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def str_replace(self, file_path: str, old_str: str, new_str: str) -> ToolResult:
         try:
             # Ensure sandbox is initialized
@@ -274,13 +259,7 @@ class SandboxFilesTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="full-file-rewrite",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."},
-            {"param_name": "file_contents", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="full_file_rewrite">
         <parameter name="file_path">src/main.py</parameter>
@@ -292,8 +271,7 @@ class SandboxFilesTool(SandboxToolsBase):
         </parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def full_file_rewrite(self, file_path: str, file_contents: str, permissions: str = "644") -> ToolResult:
         try:
             # Ensure sandbox is initialized
@@ -340,19 +318,13 @@ class SandboxFilesTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="delete-file",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="delete_file">
         <parameter name="file_path">src/main.py</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def delete_file(self, file_path: str) -> ToolResult:
         try:
             # Ensure sandbox is initialized
@@ -462,14 +434,7 @@ class SandboxFilesTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="edit-file",
-        mappings=[
-            {"param_name": "target_file", "node_type": "attribute", "path": "."},
-            {"param_name": "instructions", "node_type": "element", "path": "instructions"},
-            {"param_name": "code_edit", "node_type": "element", "path": "code_edit"}
-        ],
-        example='''
+    @usage_example('''
         <!-- Example: Mark multiple scattered tasks as complete in a todo list -->
         <function_calls>
         <invoke name="edit_file">
@@ -514,8 +479,7 @@ def authenticate_user(username, password):
         </parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def edit_file(self, target_file: str, instructions: str, code_edit: str) -> ToolResult:
         """Edit a file using AI-powered intelligent editing with fallback to string replacement"""
         try:

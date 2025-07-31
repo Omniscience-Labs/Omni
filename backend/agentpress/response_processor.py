@@ -21,7 +21,7 @@ from agentpress.tool_registry import ToolRegistry
 from agentpress.xml_tool_parser import XMLToolParser
 from langfuse.client import StatefulTraceClient
 from services.langfuse import langfuse
-from agentpress.utils.json_helpers import (
+from utils.json_helpers import (
     ensure_dict, ensure_list, safe_json_parse, 
     to_json_string, format_for_yield
 )
@@ -98,8 +98,8 @@ class ResponseProcessor:
         self.tool_registry = tool_registry
         self.add_message = add_message_callback
         self.trace = trace or langfuse.trace(name="anonymous:response_processor")
-        # Initialize the XML parser with backwards compatibility
-        self.xml_parser = XMLToolParser(strict_mode=False)
+        # Initialize the XML parser
+        self.xml_parser = XMLToolParser()
         self.is_agent_builder = is_agent_builder
         self.target_agent_id = target_agent_id
         self.agent_config = agent_config
@@ -1047,80 +1047,6 @@ class ResponseProcessor:
             )
             if end_msg_obj: yield format_for_yield(end_msg_obj)
 
-    # XML parsing methods
-    def _extract_tag_content(self, xml_chunk: str, tag_name: str) -> Tuple[Optional[str], Optional[str]]:
-        """Extract content between opening and closing tags, handling nested tags."""
-        start_tag = f'<{tag_name}'
-        end_tag = f'</{tag_name}>'
-        
-        try:
-            # Find start tag position
-            start_pos = xml_chunk.find(start_tag)
-            if start_pos == -1:
-                return None, xml_chunk
-                
-            # Find end of opening tag
-            tag_end = xml_chunk.find('>', start_pos)
-            if tag_end == -1:
-                return None, xml_chunk
-                
-            # Find matching closing tag
-            content_start = tag_end + 1
-            nesting_level = 1
-            pos = content_start
-            
-            while nesting_level > 0 and pos < len(xml_chunk):
-                next_start = xml_chunk.find(start_tag, pos)
-                next_end = xml_chunk.find(end_tag, pos)
-                
-                if next_end == -1:
-                    return None, xml_chunk
-                    
-                if next_start != -1 and next_start < next_end:
-                    nesting_level += 1
-                    pos = next_start + len(start_tag)
-                else:
-                    nesting_level -= 1
-                    if nesting_level == 0:
-                        content = xml_chunk[content_start:next_end]
-                        remaining = xml_chunk[next_end + len(end_tag):]
-                        return content, remaining
-                    else:
-                        pos = next_end + len(end_tag)
-            
-            return None, xml_chunk
-            
-        except Exception as e:
-            logger.error(f"Error extracting tag content: {e}")
-            self.trace.event(name="error_extracting_tag_content", level="ERROR", status_message=(f"Error extracting tag content: {e}"))
-            return None, xml_chunk
-
-    def _extract_attribute(self, opening_tag: str, attr_name: str) -> Optional[str]:
-        """Extract attribute value from opening tag."""
-        try:
-            # Handle both single and double quotes with raw strings
-            patterns = [
-                fr'{attr_name}="([^"]*)"',  # Double quotes
-                fr"{attr_name}='([^']*)'",  # Single quotes
-                fr'{attr_name}=([^\s/>;]+)'  # No quotes - fixed escape sequence
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, opening_tag)
-                if match:
-                    value = match.group(1)
-                    # Unescape common XML entities
-                    value = value.replace('&quot;', '"').replace('&apos;', "'")
-                    value = value.replace('&lt;', '<').replace('&gt;', '>')
-                    value = value.replace('&amp;', '&')
-                    return value
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error extracting attribute: {e}")
-            self.trace.event(name="error_extracting_attribute", level="ERROR", status_message=(f"Error extracting attribute: {e}"))
-            return None
 
     def _extract_xml_chunks(self, content: str) -> List[str]:
         """Extract complete XML chunks using start and end pattern matching."""
@@ -1159,8 +1085,12 @@ class ResponseProcessor:
                     next_tag_start = -1
                     current_tag = None
                     
-                    # Find the earliest occurrence of any registered tag
-                    for tag_name in self.tool_registry.xml_tools.keys():
+                    # Find the earliest occurrence of any registered tool function name
+                    # Check for available function names
+                    available_functions = self.tool_registry.get_available_functions()
+                    for func_name in available_functions.keys():
+                        # Convert function name to potential tag name (underscore to dash)
+                        tag_name = func_name.replace('_', '-')
                         start_pattern = f'<{tag_name}'
                         tag_pos = content.find(start_pattern, pos)
                         
@@ -1249,95 +1179,9 @@ class ResponseProcessor:
                 logger.debug(f"Parsed new format tool call: {tool_call}")
                 return tool_call, parsing_details
             
-            # Fall back to old format parsing
-            # Extract tag name and validate
-            tag_match = re.match(r'<([^\s>]+)', xml_chunk)
-            if not tag_match:
-                logger.error(f"No tag found in XML chunk: {xml_chunk}")
-                self.trace.event(name="no_tag_found_in_xml_chunk", level="ERROR", status_message=(f"No tag found in XML chunk: {xml_chunk}"))
-                return None
-            
-            # This is the XML tag as it appears in the text (e.g., "create-file")
-            xml_tag_name = tag_match.group(1)
-            logger.info(f"Found XML tag: {xml_tag_name}")
-            self.trace.event(name="found_xml_tag", level="DEFAULT", status_message=(f"Found XML tag: {xml_tag_name}"))
-            
-            # Get tool info and schema from registry
-            tool_info = self.tool_registry.get_xml_tool(xml_tag_name)
-            if not tool_info or not tool_info['schema'].xml_schema:
-                logger.error(f"No tool or schema found for tag: {xml_tag_name}")
-                self.trace.event(name="no_tool_or_schema_found_for_tag", level="ERROR", status_message=(f"No tool or schema found for tag: {xml_tag_name}"))
-                return None
-            
-            # This is the actual function name to call (e.g., "create_file")
-            function_name = tool_info['method']
-            
-            schema = tool_info['schema'].xml_schema
-            params = {}
-            remaining_chunk: str = xml_chunk
-            
-            # --- Store detailed parsing info ---
-            parsing_details = {
-                "attributes": {},
-                "elements": {},
-                "text_content": None,
-                "root_content": None,
-                "raw_chunk": xml_chunk # Store the original chunk for reference
-            }
-            # ---
-            
-            # Process each mapping
-            for mapping in schema.mappings:
-                try:
-                    if mapping.node_type == "attribute":
-                        # Extract attribute from opening tag
-                        opening_tag = remaining_chunk.split('>', 1)[0]
-                        value = self._extract_attribute(opening_tag, mapping.param_name)
-                        if value is not None:
-                            params[mapping.param_name] = value
-                            parsing_details["attributes"][mapping.param_name] = value # Store raw attribute
-                            # logger.info(f"Found attribute {mapping.param_name}: {value}")
-                
-                    elif mapping.node_type == "element":
-                        # Extract element content
-                        content, new_remaining_chunk = self._extract_tag_content(remaining_chunk, mapping.path)
-                        if new_remaining_chunk is not None:
-                            remaining_chunk = new_remaining_chunk
-                        if content is not None:
-                            params[mapping.param_name] = content.strip()
-                            parsing_details["elements"][mapping.param_name] = content.strip() # Store raw element content
-                            # logger.info(f"Found element {mapping.param_name}: {content.strip()}")
-                
-                    elif mapping.node_type == "text":
-                        # Extract text content
-                        content, _ = self._extract_tag_content(remaining_chunk, xml_tag_name)
-                        if content is not None:
-                            params[mapping.param_name] = content.strip()
-                            parsing_details["text_content"] = content.strip() # Store raw text content
-                            # logger.info(f"Found text content for {mapping.param_name}: {content.strip()}")
-                
-                    elif mapping.node_type == "content":
-                        # Extract root content
-                        content, _ = self._extract_tag_content(remaining_chunk, xml_tag_name)
-                        if content is not None:
-                            params[mapping.param_name] = content.strip()
-                            parsing_details["root_content"] = content.strip() # Store raw root content
-                            # logger.info(f"Found root content for {mapping.param_name}")
-                
-                except Exception as e:
-                    logger.error(f"Error processing mapping {mapping}: {e}")
-                    self.trace.event(name="error_processing_mapping", level="ERROR", status_message=(f"Error processing mapping {mapping}: {e}"))
-                    continue
-
-            # Create tool call with clear separation between function_name and xml_tag_name
-            tool_call = {
-                "function_name": function_name,  # The actual method to call (e.g., create_file)
-                "xml_tag_name": xml_tag_name,    # The original XML tag (e.g., create-file)
-                "arguments": params              # The extracted parameters
-            }
-            
-            # logger.debug(f"Parsed old format tool call: {tool_call["function_name"]}")
-            return tool_call, parsing_details # Return both dicts
+            # If not the expected <function_calls><invoke> format, return None
+            logger.error(f"XML chunk does not contain expected <function_calls><invoke> format: {xml_chunk}")
+            return None
             
         except Exception as e:
             logger.error(f"Error parsing XML chunk: {e}")

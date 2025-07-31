@@ -10,42 +10,14 @@ class SunaConfig:
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
     DEFAULT_TOOLS = {
-        "sb_shell_tool": {
-            "enabled": True, 
-            "description": "Execute shell commands"
-        },
-        "sb_files_tool": {
-            "enabled": True, 
-            "description": "Read, write, and edit files"
-        },
-        "sb_browser_tool": {
-            "enabled": True, 
-            "description": "Browse websites and interact with web pages"
-        },
-        "sb_deploy_tool": {
-            "enabled": True, 
-            "description": "Deploy web applications"
-        },
-        "sb_expose_tool": {
-            "enabled": True, 
-            "description": "Expose local services to the internet"
-        },
-        "web_search_tool": {
-            "enabled": True, 
-            "description": "Search the web for information"
-        },
-        "sb_vision_tool": {
-            "enabled": True, 
-            "description": "Analyze and understand images"
-        },
-        "sb_image_edit_tool": {
-            "enabled": True, 
-            "description": "Edit and manipulate images"
-        },
-        "data_providers_tool": {
-            "enabled": True, 
-            "description": "Access structured data from various providers"
-        }
+        "sb_shell_tool": True,
+        "sb_browser_tool": True,
+        "sb_deploy_tool": True,
+        "sb_expose_tool": True,
+        "web_search_tool": True,
+        "sb_vision_tool": True,
+        "sb_image_edit_tool": True,
+        "data_providers_tool": True
     }
     
     DEFAULT_MCPS = []

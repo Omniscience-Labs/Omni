@@ -4,7 +4,7 @@ import base64
 import io
 from PIL import Image
 
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from sandbox.tool_base import SandboxToolsBase
 from utils.logger import logger
@@ -236,19 +236,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-navigate-to",
-        mappings=[
-            {"param_name": "url", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_navigate_to">
         <parameter name="url">https://example.com</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_navigate_to(self, url: str) -> ToolResult:
         """Navigate to a specific url
         
@@ -311,16 +305,12 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-go-back",
-        mappings=[],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_go_back">
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_go_back(self) -> ToolResult:
         """Navigate back in browser history
         
@@ -346,19 +336,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-wait",
-        mappings=[
-            {"param_name": "seconds", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_wait">
         <parameter name="seconds">5</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_wait(self, seconds: int = 3) -> ToolResult:
         """Wait for the specified number of seconds
         
@@ -388,19 +372,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-click-element",
-        mappings=[
-            {"param_name": "index", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_click_element">
         <parameter name="index">2</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_click_element(self, index: int) -> ToolResult:
         """Click on an element by index
         
@@ -434,21 +412,14 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-input-text",
-        mappings=[
-            {"param_name": "index", "node_type": "attribute", "path": "."},
-            {"param_name": "text", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_input_text">
         <parameter name="index">2</parameter>
         <parameter name="text">Hello, world!</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_input_text(self, index: int, text: str) -> ToolResult:
         """Input text into an element
         
@@ -479,19 +450,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-send-keys",
-        mappings=[
-            {"param_name": "keys", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_send_keys">
         <parameter name="keys">Enter</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_send_keys(self, keys: str) -> ToolResult:
         """Send keyboard keys
         
@@ -521,19 +486,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-switch-tab",
-        mappings=[
-            {"param_name": "page_id", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_switch_tab">
         <parameter name="page_id">1</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_switch_tab(self, page_id: int) -> ToolResult:
         """Switch to a different browser tab
         
@@ -603,19 +562,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-close-tab",
-        mappings=[
-            {"param_name": "page_id", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_close_tab">
         <parameter name="page_id">1</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_close_tab(self, page_id: int) -> ToolResult:
         """Close a browser tab
         
@@ -703,19 +656,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-scroll-down",
-        mappings=[
-            {"param_name": "amount", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_scroll_down">
         <parameter name="amount">500</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_scroll_down(self, amount: int = None) -> ToolResult:
         """Scroll down the page
         
@@ -750,19 +697,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-scroll-up",
-        mappings=[
-            {"param_name": "amount", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_scroll_up">
         <parameter name="amount">500</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_scroll_up(self, amount: int = None) -> ToolResult:
         """Scroll up the page
         
@@ -798,19 +739,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-scroll-to-text",
-        mappings=[
-            {"param_name": "text", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_scroll_to_text">
         <parameter name="text">Contact Us</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_scroll_to_text(self, text: str) -> ToolResult:
         """Scroll to specific text on the page
         
@@ -840,19 +775,13 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-get-dropdown-options",
-        mappings=[
-            {"param_name": "index", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_get_dropdown_options">
         <parameter name="index">2</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_get_dropdown_options(self, index: int) -> ToolResult:
         """Get all options from a dropdown element
         
@@ -886,21 +815,14 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-select-dropdown-option",
-        mappings=[
-            {"param_name": "index", "node_type": "attribute", "path": "."},
-            {"param_name": "text", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_select_dropdown_option">
         <parameter name="index">2</parameter>
         <parameter name="text">Option 1</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_select_dropdown_option(self, index: int, text: str) -> ToolResult:
         """Select an option from a dropdown by text
         
@@ -950,25 +872,14 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-drag-drop",
-        mappings=[
-            {"param_name": "element_source", "node_type": "attribute", "path": "."},
-            {"param_name": "element_target", "node_type": "attribute", "path": "."},
-            {"param_name": "coord_source_x", "node_type": "attribute", "path": "."},
-            {"param_name": "coord_source_y", "node_type": "attribute", "path": "."},
-            {"param_name": "coord_target_x", "node_type": "attribute", "path": "."},
-            {"param_name": "coord_target_y", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_drag_drop">
         <parameter name="element_source">#draggable</parameter>
         <parameter name="element_target">#droppable</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_drag_drop(self, element_source: str = None, element_target: str = None, 
                                coord_source_x: int = None, coord_source_y: int = None,
                                coord_target_x: int = None, coord_target_y: int = None) -> ToolResult:
@@ -1023,21 +934,14 @@ class SandboxBrowserTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="browser-click-coordinates",
-        mappings=[
-            {"param_name": "x", "node_type": "attribute", "path": "."},
-            {"param_name": "y", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="browser_click_coordinates">
         <parameter name="x">100</parameter>
         <parameter name="y">200</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def browser_click_coordinates(self, x: int, y: int) -> ToolResult:
         """Click at specific X,Y coordinates on the page
         

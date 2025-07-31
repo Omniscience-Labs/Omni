@@ -7,6 +7,7 @@ import { Loader2, Zap, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react
 import { type PipedreamTool, type PipedreamAppWithTools, pipedreamApi } from '@/hooks/react-query/pipedream/utils';
 import { toast } from 'sonner';
 import type { PipedreamProfile } from '@/components/agents/pipedream/pipedream-types';
+import { ToolsLoader } from '../mcp/tools-loader';
 
 interface PipedreamToolSelectorProps {
   appSlug: string;
@@ -107,17 +108,7 @@ export const PipedreamToolSelector: React.FC<PipedreamToolSelectorProps> = ({
 
   if (isLoading || isRetrying) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <div className="text-center">
-            <p className="font-medium">Loading available tools...</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Fetching tools for {profile?.profile_name || appSlug}
-            </p>
-          </div>
-        </div>
-      </div>
+      <ToolsLoader toolCount={5} />
     );
   }
 

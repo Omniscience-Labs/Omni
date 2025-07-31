@@ -144,13 +144,6 @@ class ExampleTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="example-action",
-        mappings=[
-            {"param_name": "param1", "node_type": "attribute", "path": "."},
-            {"param_name": "param2", "node_type": "attribute", "path": "."}
-        ]
-    )
     async def example_action(self, param1: str, param2: int = 0) -> ToolResult:
         try:
             logger.info(f"Executing example_action with params: {param1}, {param2}")

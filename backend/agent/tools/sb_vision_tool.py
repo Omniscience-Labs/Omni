@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 from io import BytesIO
 from PIL import Image
 from urllib.parse import urlparse
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 import json
@@ -156,12 +156,7 @@ class SandboxVisionTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="see-image",
-        mappings=[
-            {"param_name": "file_path", "node_type": "attribute", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <!-- Example: Request to see a local image named 'diagram.png' inside the 'docs' folder -->
         <function_calls>
         <invoke name="see_image">
@@ -175,8 +170,7 @@ class SandboxVisionTool(SandboxToolsBase):
         <parameter name="file_path">https://example.com/image.jpg</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def see_image(self, file_path: str) -> ToolResult:
         """Reads an image file from local file system or from a URL, compresses it, converts it to base64, and adds it as a temporary message."""
         try:

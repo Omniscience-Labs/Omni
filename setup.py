@@ -141,9 +141,6 @@ def load_existing_env_vars():
         "rapidapi": {
             "RAPID_API_KEY": backend_env.get("RAPID_API_KEY", ""),
         },
-        "smithery": {
-            "SMITHERY_API_KEY": backend_env.get("SMITHERY_API_KEY", ""),
-        },
         "qstash": {
             "QSTASH_URL": backend_env.get("QSTASH_URL", ""),
             "QSTASH_TOKEN": backend_env.get("QSTASH_TOKEN", ""),
@@ -261,7 +258,6 @@ class SetupWizard:
             "llm": existing_env_vars["llm"],
             "search": existing_env_vars["search"],
             "rapidapi": existing_env_vars["rapidapi"],
-            "smithery": existing_env_vars["smithery"],
             "qstash": existing_env_vars["qstash"],
             "slack": existing_env_vars["slack"],
             "webhook": existing_env_vars["webhook"],
@@ -324,12 +320,6 @@ class SetupWizard:
             config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} RapidAPI (optional)")
         else:
             config_items.append(f"{Colors.CYAN}○{Colors.ENDC} RapidAPI (optional)")
-
-        # Check Smithery (optional)
-        if self.env_vars["smithery"]["SMITHERY_API_KEY"]:
-            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Smithery (optional)")
-        else:
-            config_items.append(f"{Colors.CYAN}○{Colors.ENDC} Smithery (optional)")
 
         # Check QStash (required)
         if self.env_vars["qstash"]["QSTASH_TOKEN"]:
@@ -394,7 +384,6 @@ class SetupWizard:
             self.run_step(6, self.collect_morph_api_key)
             self.run_step(7, self.collect_search_api_keys)
             self.run_step(8, self.collect_rapidapi_keys)
-            self.run_step(9, self.collect_smithery_keys)
             self.run_step(10, self.collect_qstash_keys)
             self.run_step(11, self.collect_mcp_keys)
             self.run_step(12, self.collect_pipedream_keys)
@@ -904,38 +893,6 @@ class SetupWizard:
         else:
             print_info("Skipping RapidAPI key.")
 
-    def collect_smithery_keys(self):
-        """Collects the optional Smithery API key."""
-        print_step(9, self.total_steps, "Collecting Smithery API Key (Optional)")
-
-        # Check if we already have a value configured
-        existing_key = self.env_vars["smithery"]["SMITHERY_API_KEY"]
-        if existing_key:
-            print_info(
-                f"Found existing Smithery API key: {mask_sensitive_value(existing_key)}"
-            )
-            print_info("Press Enter to keep current value or type a new one.")
-        else:
-            print_info(
-                "A Smithery API key is only required for custom agents and workflows."
-            )
-            print_info(
-                "Get a key at https://smithery.ai/. You can skip this and add it later."
-            )
-
-        smithery_api_key = self._get_input(
-            "Enter your Smithery API key (or press Enter to skip): ",
-            validate_api_key,
-            "The key seems invalid, but continuing. You can edit it later in backend/.env",
-            allow_empty=True,
-            default_value=existing_key,
-        )
-        self.env_vars["smithery"]["SMITHERY_API_KEY"] = smithery_api_key
-        if smithery_api_key:
-            print_success("Smithery API key saved.")
-        else:
-            print_info("Skipping Smithery API key.")
-
     def collect_qstash_keys(self):
         """Collects the required QStash configuration."""
         print_step(
@@ -1169,7 +1126,6 @@ class SetupWizard:
             **self.env_vars["llm"],
             **self.env_vars["search"],
             **self.env_vars["rapidapi"],
-            **self.env_vars["smithery"],
             **self.env_vars["qstash"],
             **self.env_vars["slack"],
             **self.env_vars["webhook"],

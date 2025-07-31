@@ -36,9 +36,6 @@ class TriggerProvider(ABC):
     @abstractmethod
     async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
         pass
-    
-    async def health_check(self, trigger: Trigger) -> bool:
-        return trigger.is_active
 
 
 class ScheduleProvider(TriggerProvider):
@@ -390,13 +387,6 @@ class ProviderService:
             )
         
         return await provider.process_event(trigger, event)
-    
-    async def health_check_trigger(self, trigger: Trigger) -> bool:
-        provider = self._providers.get(trigger.provider_id)
-        if not provider:
-            return False
-        
-        return await provider.health_check(trigger)
 
 
 def get_provider_service(db_connection: DBConnection) -> ProviderService:

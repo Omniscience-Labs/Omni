@@ -199,14 +199,12 @@ export function AgentVersionSwitcher({
             })}
           </div>
           {versions.length === 1 && (
-            <div className="p-2">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  This is the first version. Make changes to create a new version.
-                </AlertDescription>
-              </Alert>
-            </div>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                This is the first version. Make changes to create a new version.
+              </AlertDescription>
+            </Alert>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

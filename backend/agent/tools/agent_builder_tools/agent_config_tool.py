@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
@@ -72,18 +72,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="update-agent",
-        mappings=[
-            {"param_name": "name", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "description", "node_type": "element", "path": "description", "required": False},
-            {"param_name": "system_prompt", "node_type": "element", "path": "system_prompt", "required": False},
-            {"param_name": "agentpress_tools", "node_type": "element", "path": "agentpress_tools", "required": False},
-            {"param_name": "configured_mcps", "node_type": "element", "path": "configured_mcps", "required": False},
-            {"param_name": "avatar", "node_type": "attribute", "path": ".", "required": False},
-            {"param_name": "avatar_color", "node_type": "attribute", "path": ".", "required": False}
-        ],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="update_agent">
         <parameter name="name">Research Assistant</parameter>
@@ -94,8 +83,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         <parameter name="avatar_color">#4F46E5</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def update_agent(
         self,
         name: Optional[str] = None,
@@ -159,15 +147,17 @@ class AgentConfigTool(AgentBuilderBaseTool):
             version_created = False
             if config_changed:
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     current_version = None
                     if current_agent.get('current_version_id'):
                         try:
-                            current_version = await version_manager.get_version(
+                            version_service = await get_version_service()
+                            current_version_obj = await version_service.get_version(
                                 agent_id=self.agent_id,
                                 version_id=current_agent['current_version_id'],
                                 user_id=self.account_id
                             )
+                            current_version = current_version_obj.to_dict()
                         except Exception as e:
                             logger.warning(f"Failed to get current version: {e}")
                     
@@ -192,20 +182,47 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         if isinstance(configured_mcps, str):
                             configured_mcps = json.loads(configured_mcps)
                         
-                        existing_mcps_by_name = {mcp.get('qualifiedName', ''): mcp for mcp in current_configured_mcps}
+                        def get_mcp_identifier(mcp):
+                            if not isinstance(mcp, dict):
+                                return None
+                            return (
+                                mcp.get('qualifiedName') or 
+                                mcp.get('name') or 
+                                f"{mcp.get('type', 'unknown')}_{mcp.get('config', {}).get('url', 'nourl')}" or
+                                str(hash(json.dumps(mcp, sort_keys=True)))
+                            )
+                        
+                        merged_mcps = []
+                        existing_identifiers = set()
+                        
+                        for existing_mcp in current_configured_mcps:
+                            identifier = get_mcp_identifier(existing_mcp)
+                            if identifier:
+                                existing_identifiers.add(identifier)
+                            merged_mcps.append(existing_mcp)
                         
                         for new_mcp in configured_mcps:
-                            qualified_name = new_mcp.get('qualifiedName', '')
-                            if qualified_name:
-                                existing_mcps_by_name[qualified_name] = new_mcp
+                            identifier = get_mcp_identifier(new_mcp)
+                            
+                            if identifier and identifier in existing_identifiers:
+                                for i, existing_mcp in enumerate(merged_mcps):
+                                    if get_mcp_identifier(existing_mcp) == identifier:
+                                        merged_mcps[i] = new_mcp
+                                        break
                             else:
-                                current_configured_mcps.append(new_mcp)
+                                merged_mcps.append(new_mcp)
+                                if identifier:
+                                    existing_identifiers.add(identifier)
                         
-                        current_configured_mcps = list(existing_mcps_by_name.values())
+                        current_configured_mcps = merged_mcps
+                        logger.info(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
-                    new_version = await version_manager.create_version(
+                    version_service = await get_version_service()
+
+                    
+                    new_version = await version_service.create_version(
                         agent_id=self.agent_id,
                         user_id=self.account_id,
                         system_prompt=current_system_prompt,
@@ -217,7 +234,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     )
                     
                     version_created = True
-                    logger.info(f"Created new version {new_version['version_id']} for agent {self.agent_id}")
+                    logger.info(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to create new version: {e}")
@@ -252,16 +269,12 @@ class AgentConfigTool(AgentBuilderBaseTool):
             }
         }
     })
-    @xml_schema(
-        tag_name="get-current-agent-config",
-        mappings=[],
-        example='''
+    @usage_example('''
         <function_calls>
         <invoke name="get_current_agent_config">
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def get_current_agent_config(self) -> ToolResult:
         try:
             agent_data = await self._get_agent_data()
@@ -272,14 +285,15 @@ class AgentConfigTool(AgentBuilderBaseTool):
             version_data = None
             if agent_data.get('current_version_id'):
                 try:
-                    from agent.versioning.facade import version_manager
+                    from agent.versioning.version_service import get_version_service
                     account_id = await self._get_current_account_id()
-                    version_dict = await version_manager.get_version(
+                    version_service = await get_version_service()
+                    version_obj = await version_service.get_version(
                         agent_id=self.agent_id,
                         version_id=agent_data['current_version_id'],
                         user_id=account_id
                     )
-                    version_data = version_dict
+                    version_data = version_obj.to_dict()
                 except Exception as e:
                     logger.warning(f"Failed to get version data for agent config tool: {e}")
 

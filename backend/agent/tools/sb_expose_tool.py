@@ -1,4 +1,4 @@
-from agentpress.tool import ToolResult, openapi_schema, xml_schema
+from agentpress.tool import ToolResult, openapi_schema, usage_example
 from sandbox.tool_base import SandboxToolsBase
 from agentpress.thread_manager import ThreadManager
 import asyncio
@@ -29,12 +29,7 @@ class SandboxExposeTool(SandboxToolsBase):
             }
         }
     })
-    @xml_schema(
-        tag_name="expose-port",
-        mappings=[
-            {"param_name": "port", "node_type": "content", "path": "."}
-        ],
-        example='''
+    @usage_example('''
         <!-- Example 1: Expose a web server running on port 8000 -->
         <function_calls>
         <invoke name="expose_port">
@@ -55,8 +50,7 @@ class SandboxExposeTool(SandboxToolsBase):
         <parameter name="port">5173</parameter>
         </invoke>
         </function_calls>
-        '''
-    )
+        ''')
     async def expose_port(self, port: int) -> ToolResult:
         try:
             # Ensure sandbox is initialized
