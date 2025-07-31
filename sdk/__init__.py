@@ -7,6 +7,6 @@ A Python SDK for creating and managing AI agents with thread execution capabilit
 __version__ = "0.1.0"
 
 from .kortix.kortix import Kortix
-from .kortix.tools import AgentPressTools, KortixMCPTools
+from .kortix.tools import AgentPressTools, MCPTools
 
-__all__ = ["Kortix", "AgentPressTools", "KortixMCPTools"]
+__all__ = ["Kortix", "AgentPressTools", "MCPTools"]
