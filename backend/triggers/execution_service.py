@@ -173,7 +173,6 @@ class SessionManager:
 
 
 class AgentExecutor:
-
     def __init__(self, db_connection: DBConnection, session_manager: SessionManager):
         self._db = db_connection
         self._session_manager = session_manager

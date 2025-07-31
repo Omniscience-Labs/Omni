@@ -267,47 +267,6 @@ class MCPService:
                 error=error_msg
             )
     
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
-        connection = self._find_tool_connection(tool_name)
-        if not connection or not connection.tools:
-            return None
-        
-        for tool in connection.tools:
-            if tool.name == tool_name:
-                return {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "inputSchema": tool.inputSchema,
-                    "server": connection.qualified_name,
-                    "enabled": tool_name in connection.enabled_tools
-                }
-        
-        return None
-    
-    def get_tools_by_server(self, qualified_name: str) -> List[Dict[str, Any]]:
-        connection = self.get_connection(qualified_name)
-        if not connection or not connection.tools:
-            return []
-        
-        tools = []
-        for tool in connection.tools:
-            tools.append({
-                "name": tool.name,
-                "description": tool.description,
-                "inputSchema": tool.inputSchema,
-                "enabled": tool.name in connection.enabled_tools
-            })
-        
-        return tools
-    
-    def get_enabled_tools(self) -> List[str]:
-        enabled_tools = []
-        
-        for connection in self.get_all_connections():
-            enabled_tools.extend(connection.enabled_tools)
-        
-        return enabled_tools
-    
     def _find_tool_connection(self, tool_name: str) -> Optional[MCPConnection]:
         for connection in self.get_all_connections():
             if not connection.tools:

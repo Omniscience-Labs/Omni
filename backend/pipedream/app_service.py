@@ -400,14 +400,6 @@ class AppService:
         logger.info(f"Found {len(apps)} popular apps")
         return apps
 
-    async def get_apps_by_category(self, category: str, limit: int = 20) -> List[App]:
-        logger.info(f"Getting apps by category: {category}, limit={limit}")
-        
-        apps = await self._get_by_category(category, limit)
-        
-        logger.info(f"Found {len(apps)} apps in category {category}")
-        return apps
-    
     async def close(self):
         if self.session and not self.session.is_closed:
             await self.session.aclose()
