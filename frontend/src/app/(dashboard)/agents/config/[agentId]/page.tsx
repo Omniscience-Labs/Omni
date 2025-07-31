@@ -18,6 +18,8 @@ import { CreateVersionButton } from '@/components/agents/create-version-button';
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
 import { useSearchParams } from 'next/navigation';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
+import { useAutosave } from '@/hooks/use-autosave';
+import { AutosaveIndicator } from '@/components/ui/autosave-indicator';
 import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
@@ -44,7 +46,7 @@ export default function AgentConfigurationPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const initialAccordion = searchParams.get('accordion');
-  const { hasUnsavedChanges, setHasUnsavedChanges } = useAgentVersionStore();
+  const { setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
   const createVersionMutation = useCreateAgentVersion();
@@ -63,7 +65,6 @@ export default function AgentConfigurationPage() {
   });
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
-  const [isSaving, setIsSaving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   // Initialize active tab from URL param, default to 'agent-builder'
   const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
@@ -95,74 +96,73 @@ export default function AgentConfigurationPage() {
     setOriginalData(initialData);
   }, [agent, versionData]);
 
-  useEffect(() => {
-    const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalData);
-    setHasUnsavedChanges(hasChanges);
-  }, [formData, originalData, setHasUnsavedChanges]);
-
-  const handleSave = useCallback(async () => {
+  // Autosave callback function
+  const handleAutosave = useCallback(async (data: FormData) => {
     if (!agent || isViewingOldVersion) return;
     
     const isSunaAgent = agent?.metadata?.is_suna_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent) {
-      if (restrictions.name_editable === false && formData.name !== originalData.name) {
-        toast.error("Cannot save changes", {
-          description: "Suna's name cannot be modified.",
-        });
-        return;
+      if (restrictions.name_editable === false && data.name !== originalData.name) {
+        throw new Error("Suna's name cannot be modified.");
       }
 
-      if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
-        toast.error("Cannot save changes", {
-          description: "Suna's default tools cannot be modified.",
-        });
-        return;
+      if (restrictions.tools_editable === false && JSON.stringify(data.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
+        throw new Error("Suna's default tools cannot be modified.");
       }
     }
     
-    setIsSaving(true);
-    try {
-      const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
-        name: mcp.name || 'Unnamed MCP',
-        type: mcp.type || mcp.customType || 'sse',
-        config: mcp.config || {},
-        enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
-      }));
-      const newVersion = await createVersionMutation.mutateAsync({
-        agentId,
-        data: {
-          system_prompt: isSunaAgent ? '' : formData.system_prompt,
-          configured_mcps: formData.configured_mcps,
-          custom_mcps: normalizedCustomMcps,
-          agentpress_tools: formData.agentpress_tools,
-          description: 'Manual save'
-        }
-      });
-      const updatedAgent = await updateAgentMutation.mutateAsync({
-        agentId,
-        name: formData.name,
-        description: formData.description,
-        is_default: formData.is_default,
-        avatar: formData.avatar,
-        avatar_color: formData.avatar_color
-      });
-      queryClient.setQueryData(['agent', agentId], {
-        ...updatedAgent,
-        current_version: newVersion,
-        current_version_id: newVersion.versionId
-      });
-      
-      setOriginalData(formData);
-      toast.success('Changes saved successfully');
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error('Failed to save changes');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [agent, formData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation, queryClient]);
+    const normalizedCustomMcps = (data.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const newVersion = await createVersionMutation.mutateAsync({
+      agentId,
+      data: {
+        system_prompt: isSunaAgent ? '' : data.system_prompt,
+        configured_mcps: data.configured_mcps,
+        custom_mcps: normalizedCustomMcps,
+        agentpress_tools: data.agentpress_tools,
+        description: 'Autosave'
+      }
+    });
+    
+    const updatedAgent = await updateAgentMutation.mutateAsync({
+      agentId,
+      name: data.name,
+      description: data.description,
+      is_default: data.is_default,
+      avatar: data.avatar,
+      avatar_color: data.avatar_color
+    });
+    
+    queryClient.setQueryData(['agent', agentId], {
+      ...updatedAgent,
+      current_version: newVersion,
+      current_version_id: newVersion.versionId
+    });
+    
+    // Update original data to reflect successful save
+    setOriginalData(data);
+  }, [agent, originalData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation, queryClient]);
+
+  // Use autosave hook
+  const { status: autosaveStatus, hasUnsavedChanges, lastSaveTime, saveNow } = useAutosave({
+    data: formData,
+    originalData,
+    onSave: handleAutosave,
+    delay: 2000, // 2 seconds delay
+    enabled: !isViewingOldVersion && !!agent
+  });
+
+  // Update the version store with unsaved changes status
+  useEffect(() => {
+    setHasUnsavedChanges(hasUnsavedChanges);
+  }, [hasUnsavedChanges, setHasUnsavedChanges]);
 
   const handleFieldChange = useCallback((field: keyof FormData, value: any) => {
     if (isViewingOldVersion) {
@@ -303,20 +303,11 @@ export default function AgentConfigurationPage() {
                       <UpcomingRunsDropdown agentId={agentId} />
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasUnsavedChanges && !isViewingOldVersion && (
-                        <Button
-                          size="sm"
-                          onClick={handleSave}
-                          disabled={isSaving}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3" />
-                          )}
-                          Save
-                        </Button>
+                      {!isViewingOldVersion && (
+                        <AutosaveIndicator
+                          status={autosaveStatus}
+                          lastSaveTime={lastSaveTime}
+                        />
                       )}
                     </div>
                   </div>
@@ -406,20 +397,11 @@ export default function AgentConfigurationPage() {
                     <UpcomingRunsDropdown agentId={agentId} />
                   </div>
                   <div className="flex items-center gap-2">
-                    {hasUnsavedChanges && !isViewingOldVersion && (
-                      <Button
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                      >
-                        {isSaving ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Save className="h-3 w-3" />
-                        )}
-                        Save
-                      </Button>
+                    {!isViewingOldVersion && (
+                      <AutosaveIndicator
+                        status={autosaveStatus}
+                        lastSaveTime={lastSaveTime}
+                      />
                     )}
                   </div>
                 </div>
