@@ -47,7 +47,7 @@ async def print_stream(stream: AsyncGenerator[str, None]):
             elif event_type == "assistant":
                 # Handle assistant messages - print at end of message
                 content = data.get("content", "")
-                if content:
+                if content and data.get("message_id"):
                     parsed_content = try_parse_json(content)
                     if parsed_content:
                         role = parsed_content.get("role", "unknown")
@@ -58,10 +58,10 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                             else message_content
                         )
                         print()  # New line
-                        print(f"[MESSAGE] {role}: {preview}")
+                        print(f"[ASSISTANT] {preview}")
                     else:
                         print()  # New line
-                        print(f"[MESSAGE] Failed to parse message content")
+                        print(f"[ASSISTANT] Failed to parse message content")
                         
             elif event_type == "tool":
                 # Handle tool results
