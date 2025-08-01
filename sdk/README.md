@@ -9,13 +9,13 @@ A Python SDK that enables you to create, manage, and interact with AI agents on 
 Install directly from the GitHub repository:
 
 ```bash
-pip install "kortix @ git+https://github.com/kortix/suna.git@main#subdirectory=sdk"
+pip install "kortix @ git+https://github.com/kortix-ai/suna.git@main#subdirectory=sdk"
 ```
 
 Or using uv:
 
 ```bash
-uv add "kortix @ git+https://github.com/kortix/suna.git@main#subdirectory=sdk"
+uv add "kortix @ git+https://github.com/kortix-ai/suna.git@main#subdirectory=sdk"
 ```
 
 ## 🔧 Quick Start
