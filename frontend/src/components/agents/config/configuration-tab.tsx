@@ -175,7 +175,7 @@ export function ConfigurationTab({
             <div 
               className={`overflow-hidden transition-all duration-300 ease-out ${
                 openAccordion === 'tools' 
-                  ? 'max-h-96 opacity-100' 
+                  ? 'max-h-auto opacity-100' 
                   : 'max-h-0 opacity-0'
               }`}
             >
@@ -214,7 +214,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'integrations' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -260,7 +260,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'knowledge' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -296,7 +296,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'workflows' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -332,7 +332,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'triggers' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
