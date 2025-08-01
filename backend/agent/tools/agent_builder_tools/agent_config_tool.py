@@ -95,6 +95,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         avatar_color: Optional[str] = None
     ) -> ToolResult:
         try:
+            account_id = await self._get_current_account_id()
             client = await self.db.client
             
             agent_result = await client.table('agents').select('*').eq('agent_id', self.agent_id).execute()
@@ -155,7 +156,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                             current_version_obj = await version_service.get_version(
                                 agent_id=self.agent_id,
                                 version_id=current_agent['current_version_id'],
-                                user_id=self.account_id
+                                user_id=account_id
                             )
                             current_version = current_version_obj.to_dict()
                         except Exception as e:
@@ -224,7 +225,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     
                     new_version = await version_service.create_version(
                         agent_id=self.agent_id,
-                        user_id=self.account_id,
+                        user_id=account_id,
                         system_prompt=current_system_prompt,
                         configured_mcps=current_configured_mcps,
                         custom_mcps=current_custom_mcps,

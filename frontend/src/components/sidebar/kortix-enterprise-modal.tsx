@@ -59,47 +59,6 @@ export function KortixProcessModal() {
                 employees data.
               </p>
 
-              <div className="space-y-8 mb-auto flex-shrink-0">
-                <div className="transition-all duration-300 hover:translate-x-1 group">
-                  <h3 className="text-base md:text-lg font-medium mb-3 flex items-center">
-                    <span className="bg-primary text-primary-foreground w-7 h-7 rounded-full inline-flex items-center justify-center mr-3 text-sm group-hover:shadow-md transition-all duration-300">
-                      1
-                    </span>
-                    <span>Record</span>
-                  </h3>
-                  <p className="text-base text-muted-foreground ml-10">
-                    We record what employees do to understand their workflows
-                    and tasks.
-                  </p>
-                </div>
-
-                <div className="transition-all duration-300 hover:translate-x-1 group">
-                  <h3 className="text-base md:text-lg font-medium mb-3 flex items-center">
-                    <span className="bg-primary text-primary-foreground w-7 h-7 rounded-full inline-flex items-center justify-center mr-3 text-sm group-hover:shadow-md transition-all duration-300">
-                      2
-                    </span>
-                    <span>Train</span>
-                  </h3>
-                  <p className="text-base text-muted-foreground ml-10">
-                    AI is trained on the captured data to learn the tasks and
-                    decision-making.
-                  </p>
-                </div>
-
-                <div className="transition-all duration-300 hover:translate-x-1 group">
-                  <h3 className="text-base md:text-lg font-medium mb-3 flex items-center">
-                    <span className="bg-primary text-primary-foreground w-7 h-7 rounded-full inline-flex items-center justify-center mr-3 text-sm group-hover:shadow-md transition-all duration-300">
-                      3
-                    </span>
-                    <span>Automate</span>
-                  </h3>
-                  <p className="text-base text-muted-foreground ml-10">
-                    AI agents automate tasks previously done by humans, with
-                    continuous learning and improvement.
-                  </p>
-                </div>
-              </div>
-
               <div className="border-t border-gray-200 dark:border-gray-800 pt-6 mt-6 flex-shrink-0">
                 <p className="text-base font-medium mb-3">Key Benefits</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4">
