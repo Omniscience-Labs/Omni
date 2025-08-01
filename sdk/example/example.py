@@ -7,8 +7,8 @@ from kortix import kortix
 from kortix.utils import print_stream
 
 
-from .kv import kv
-from .mcp_server import mcp
+from kv import kv
+from mcp_server import mcp
 
 
 async def main():

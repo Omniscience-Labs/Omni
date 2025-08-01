@@ -1,6 +1,20 @@
 import json
 import re
+import xml.dom.minidom
 from typing import AsyncGenerator, Optional, Any
+
+
+# --- ANSI Colors ---
+class Colors:
+    HEADER = "\033[95m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def try_parse_json(json_str: str) -> Optional[Any]:
@@ -9,6 +23,126 @@ def try_parse_json(json_str: str) -> Optional[Any]:
         return json.loads(json_str)
     except (json.JSONDecodeError, TypeError):
         return None
+
+
+def format_xml_if_valid(content: str) -> str:
+    """
+    Check if content is XML and format it prettily if so.
+    Returns the original content if it's not valid XML.
+    """
+    if not content or not content.strip():
+        return content
+
+    # Quick check if it looks like XML
+    stripped_content = content.strip()
+    if not (stripped_content.startswith("<") and stripped_content.endswith(">")):
+        return content
+
+    try:
+        # Parse and pretty-print the XML
+        dom = xml.dom.minidom.parseString(stripped_content)
+        pretty_xml = dom.toprettyxml(indent="  ")
+
+        # Remove empty lines and the XML declaration for cleaner output
+        lines = [line for line in pretty_xml.split("\n") if line.strip()]
+        if lines and lines[0].startswith("<?xml"):
+            lines = lines[1:]  # Remove XML declaration
+
+        # Apply syntax highlighting
+        highlighted_lines = []
+        for line in lines:
+            highlighted_line = _highlight_xml_line(line)
+            highlighted_lines.append(highlighted_line)
+
+        return "\n" + "\n".join(highlighted_lines)
+    except Exception:
+        # If XML parsing fails, return original content
+        return content
+
+
+def _highlight_xml_line(line: str) -> str:
+    """
+    Apply simple syntax highlighting to an XML line.
+    """
+    if not line.strip():
+        return line
+
+    # Process the line character by character to avoid regex conflicts
+    result = []
+    i = 0
+    while i < len(line):
+        char = line[i]
+
+        if char == "<":
+            # Find the end of the tag
+            tag_end = line.find(">", i)
+            if tag_end == -1:
+                result.append(char)
+                i += 1
+                continue
+
+            # Extract the full tag
+            tag_content = line[i : tag_end + 1]
+            highlighted_tag = _highlight_xml_tag(tag_content)
+            result.append(highlighted_tag)
+            i = tag_end + 1
+        else:
+            result.append(char)
+            i += 1
+
+    return "".join(result)
+
+
+def _highlight_xml_tag(tag: str) -> str:
+    """
+    Highlight a complete XML tag (from < to >).
+    """
+    if not tag.startswith("<") or not tag.endswith(">"):
+        return tag
+
+    # Check if it's a closing tag
+    is_closing = tag.startswith("</")
+
+    # Extract tag name and attributes
+    if is_closing:
+        # For closing tags like </function_calls>
+        tag_name = tag[2:-1].strip()
+        return f"{Colors.YELLOW}</{Colors.BLUE}{Colors.BOLD}{tag_name}{Colors.ENDC}{Colors.YELLOW}>{Colors.ENDC}"
+    else:
+        # For opening tags with possible attributes
+        inner = tag[1:-1]  # Remove < and >
+
+        # Split on first space to separate tag name from attributes
+        parts = inner.split(" ", 1)
+        tag_name = parts[0]
+
+        result = f"{Colors.YELLOW}<{Colors.BLUE}{Colors.BOLD}{tag_name}{Colors.ENDC}"
+
+        if len(parts) > 1:
+            # Process attributes
+            attrs = parts[1]
+            highlighted_attrs = _highlight_attributes(attrs)
+            result += " " + highlighted_attrs
+
+        result += f"{Colors.YELLOW}>{Colors.ENDC}"
+        return result
+
+
+def _highlight_attributes(attrs: str) -> str:
+    """
+    Highlight XML attributes.
+    """
+    # Use regex to find attribute="value" patterns
+    pattern = r'([a-zA-Z_][a-zA-Z0-9_-]*)(=)(["\'])([^"\']*)\3'
+
+    def replace_attr(match):
+        attr_name = match.group(1)
+        equals = match.group(2)
+        quote = match.group(3)
+        value = match.group(4)
+        return f"{Colors.CYAN}{attr_name}{Colors.ENDC}{equals}{quote}{Colors.GREEN}{value}{Colors.ENDC}{quote}"
+
+    return re.sub(pattern, replace_attr, attrs)
 
 
 async def print_stream(stream: AsyncGenerator[str, None]):
@@ -56,7 +190,7 @@ async def print_stream(stream: AsyncGenerator[str, None]):
 
             # Print stream start on first event
             if not stream_started:
-                print("[STREAM START]")
+                print(f"{Colors.BLUE}{Colors.BOLD}🚀 [STREAM START]{Colors.ENDC}")
                 stream_started = True
 
             if event_type == "status":
@@ -72,7 +206,9 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                 status_type = full_status.get(
                     "status_type", full_status.get("status", "unknown")
                 )
-                print(f"[STATUS] {status_type} {finish_reason}")
+                print(
+                    f"{Colors.CYAN}ℹ️  [STATUS] {Colors.BOLD}{status_type}{Colors.ENDC}{Colors.CYAN} {finish_reason}{Colors.ENDC}"
+                )
 
             elif event_type == "assistant":
                 message_id = data.get("message_id")
@@ -91,7 +227,9 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                     if parsing_state == "text":
                         if "<function_calls>" in full_text:
                             parsing_state = "in_function_call"
-                            print("\n[TOOL USE DETECTED]")
+                            print(
+                                f"\n{Colors.YELLOW}🔧 [TOOL USE DETECTED]{Colors.ENDC}"
+                            )
 
                     elif parsing_state == "in_function_call":
                         if current_function_name is None:
@@ -99,12 +237,12 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                             if match:
                                 current_function_name = match.group(1)
                                 print(
-                                    f'[TOOL UPDATE] Calling function: "{current_function_name}"'
+                                    f'{Colors.BLUE}⚡ [TOOL UPDATE] Calling function: {Colors.BOLD}"{current_function_name}"{Colors.ENDC}'
                                 )
 
                         if "</function_calls>" in full_text:
                             parsing_state = "function_call_ended"
-                            print("[TOOL USE WAITING]")
+                            print(f"{Colors.YELLOW}⏳ [TOOL USE WAITING]{Colors.ENDC}")
                             current_function_name = None
 
                 # Complete assistant messages (message_id is not null) - print final message
@@ -114,16 +252,17 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                         if parsed_content:
                             role = parsed_content.get("role", "unknown")
                             message_content = parsed_content.get("content", "")
-                            preview = (
-                                message_content[:100] + "..."
-                                if len(message_content) > 100
-                                else message_content
-                            )
+                            # Format XML content prettily if it's XML
+                            formatted_content = format_xml_if_valid(message_content)
                             print()  # New line
-                            print(f"[MESSAGE] {role}: {preview}")
+                            print(
+                                f"{Colors.GREEN}💬 [MESSAGE] {Colors.ENDC}{formatted_content}"
+                            )
                         else:
                             print()  # New line
-                            print(f"[MESSAGE] Failed to parse message content")
+                            print(
+                                f"{Colors.RED}❌ [MESSAGE] Failed to parse message content{Colors.ENDC}"
+                            )
 
                     # Reset state for next message
                     chunks = []
@@ -136,17 +275,23 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                 content = data.get("content", "")
 
                 if not content:
-                    print(f"[TOOL RESULT] No content in message")
+                    print(
+                        f"{Colors.RED}❌ [TOOL RESULT] No content in message{Colors.ENDC}"
+                    )
                     continue
 
                 parsed_content = try_parse_json(content)
                 if not parsed_content:
-                    print(f"[TOOL RESULT] Failed to parse message content")
+                    print(
+                        f"{Colors.RED}❌ [TOOL RESULT] Failed to parse message content{Colors.ENDC}"
+                    )
                     continue
 
                 execution_result = parsed_content
                 if not execution_result:
-                    print(f"[TOOL RESULT] Failed to parse execution result")
+                    print(
+                        f"{Colors.RED}❌ [TOOL RESULT] Failed to parse execution result{Colors.ENDC}"
+                    )
                     continue
 
                 tool_execution = execution_result.get("tool_execution", {})
@@ -156,12 +301,29 @@ async def print_stream(stream: AsyncGenerator[str, None]):
                 output = json.dumps(result.get("output", {}))
                 error = json.dumps(result.get("error", {}))
 
-                msg = f'[TOOL RESULT] Message ID: {message_id} | Tool: "{tool_name}" | '
                 if was_success:
-                    output_preview = output[:80] + "..." if len(output) > 80 else output
-                    if output_preview == "{}":
-                        output_preview = "No answer found."
-                    msg += f"Success! Output: {output_preview}"
+                    # Check if output is long enough to truncate or format as XML
+                    if len(output) > 80:
+                        # Check if it's XML first, if so format it nicely
+                        formatted_output = format_xml_if_valid(output)
+                        if formatted_output != output:
+                            # It was XML, show it formatted
+                            output_preview = formatted_output
+                        else:
+                            # Not XML, truncate normally
+                            output_preview = output[:80] + "..."
+                    else:
+                        # Short output, check if it's XML and format if so
+                        output_preview = format_xml_if_valid(output)
+                        if output_preview == "{}":
+                            output_preview = "No answer found."
+
+                    print(
+                        f'{Colors.GREEN}✅ [TOOL RESULT] {Colors.BOLD}"{tool_name}"{Colors.ENDC}{Colors.GREEN} | Success! Output: {Colors.ENDC}{output_preview}'
+                    )
                 else:
-                    msg += f"Failure! Error: {error}"
-                print(msg)
+                    # Format error output as XML if it's XML
+                    formatted_error = format_xml_if_valid(error)
+                    print(
+                        f'{Colors.RED}❌ [TOOL RESULT] {Colors.BOLD}"{tool_name}"{Colors.ENDC}{Colors.RED} | Failure! Error: {Colors.ENDC}{formatted_error}'
+                    )
