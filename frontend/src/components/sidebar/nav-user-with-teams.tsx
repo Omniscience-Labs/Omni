@@ -10,6 +10,7 @@ import {
   ChevronsUpDown,
   Command,
   CreditCard,
+  Key,
   LogOut,
   Plus,
   Settings,
@@ -50,6 +51,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
 import { isLocalMode } from '@/lib/config';
+import { useFeatureFlag } from '@/lib/feature-flags';
 
 export function NavUserWithTeams({
   user,
@@ -65,6 +67,7 @@ export function NavUserWithTeams({
   const { data: accounts } = useAccounts();
   const [showNewTeamDialog, setShowNewTeamDialog] = React.useState(false);
   const { theme, setTheme } = useTheme();
+  const { enabled: customAgentsEnabled, loading: flagLoading } = useFeatureFlag("custom_agents");
 
   // Prepare personal account and team accounts
   const personalAccount = React.useMemo(
@@ -288,6 +291,14 @@ export function NavUserWithTeams({
                     Billing
                   </Link>
                 </DropdownMenuItem>
+                {!flagLoading && customAgentsEnabled && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/api-keys">
+                      <Key className="h-4 w-4" />
+                      API Keys
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {isLocalMode() && <DropdownMenuItem asChild>
                   <Link href="/settings/env-manager">
                     <KeyRound className="h-4 w-4" />

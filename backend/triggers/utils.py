@@ -20,35 +20,117 @@ class ProviderError(TriggerError):
 class WorkflowParser:
     def __init__(self):
         self.step_counter = 0
-        self.parsed_steps = []
     
     def parse_workflow_steps(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         self.step_counter = 0
-        self.parsed_steps = []
         
-        filtered_steps = [step for step in steps if step.get('name') != 'Start' or step.get('description') != 'Click to add steps or use the Add Node button']
+        start_node = next(
+            (step for step in steps if step.get('name') == 'Start' and step.get('description') == 'Click to add steps or use the Add Node button'),
+            None
+        )
+
+        if start_node and "children" in start_node:
+            filtered_steps = start_node["children"]
+        else:
+            # fallback: use top-level list (for backward compat)
+            filtered_steps = steps
         
         return self._parse_steps_recursive(filtered_steps)
     
     def _parse_steps_recursive(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         result = []
+        processed_ids = set()
         
         for step in steps:
-            parsed_step = self._parse_single_step(step)
-            if parsed_step:
-                result.append(parsed_step)
+            step_id = step.get('id')
+            
+            # Skip if already processed as part of a conditional group
+            if step_id in processed_ids:
+                continue
+            
+            step_type = step.get('type')
+            parent_conditional_id = step.get('parentConditionalId')
+            
+            if step_type == 'condition' and not parent_conditional_id:
+                # This is a root conditional step - find all its siblings
+                conditional_group = [step]
+                
+                # Find all siblings (steps with parentConditionalId pointing to this step)
+                for other_step in steps:
+                    if other_step.get('parentConditionalId') == step_id:
+                        conditional_group.append(other_step)
+                
+                # Sort by condition type (if, elseif, else)
+                conditional_group.sort(key=lambda s: self._get_condition_order(s))
+                
+                # Parse the conditional group as an instruction step with conditions
+                parsed_group = self._parse_conditional_group(conditional_group)
+                if parsed_group:
+                    result.append(parsed_group)
+                
+                # Mark all steps in group as processed
+                for group_step in conditional_group:
+                    processed_ids.add(group_step.get('id'))
+                    
+            elif step_type == 'condition' and parent_conditional_id:
+                # This step belongs to a parent conditional - skip it
+                # It will be processed when we encounter the parent
+                continue
+                
+            else:
+                # Regular instruction step
+                parsed_step = self._parse_single_step(step)
+                if parsed_step:
+                    result.append(parsed_step)
+                processed_ids.add(step_id)
         
         return result
     
+    def _get_condition_order(self, step: Dict[str, Any]) -> int:
+        """Sort order for conditions: if=0, elseif=1, else=2"""
+        condition_type = step.get('conditions', {}).get('type', 'if')
+        return {'if': 0, 'elseif': 1, 'else': 2}.get(condition_type, 0)
+    
+    def _parse_conditional_group(self, conditional_group: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Parse a group of related conditional steps (if/elseif/else) as one instruction step"""
+        if not conditional_group:
+            return None
+            
+        self.step_counter += 1
+        
+        # Use first step's name or generate one
+        first_step = conditional_group[0]
+        step_name = first_step.get('name', f'Conditional Step {self.step_counter}')
+        
+        parsed_step = {
+            "step": step_name,
+            "step_number": self.step_counter
+        }
+        
+        # Add description if meaningful
+        description = first_step.get('description', '').strip()
+        if description and description not in ['Add conditional logic', 'If/Then']:
+            parsed_step["description"] = description
+        
+        # Parse all conditions in the group
+        conditions = []
+        for condition_step in conditional_group:
+            parsed_condition = self._parse_condition_step(condition_step)
+            if parsed_condition:
+                conditions.append(parsed_condition)
+        
+        if conditions:
+            parsed_step["conditions"] = conditions
+        
+        return parsed_step
+    
     def _parse_single_step(self, step: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         step_type = step.get('type')
-        step_name = step.get('name', '')
         
         if step_type == 'instruction':
             return self._parse_instruction_step(step)
-        elif step_type == 'condition':
-            return self._parse_condition_step(step)
         else:
+            # For non-instruction steps, treat as instruction by default
             return self._parse_instruction_step(step)
     
     def _parse_instruction_step(self, step: Dict[str, Any]) -> Dict[str, Any]:
@@ -60,7 +142,7 @@ class WorkflowParser:
         }
         
         description = step.get('description', '').strip()
-        if description:
+        if description and description not in ['Click to add steps or use the Add Node button', 'Add conditional logic', 'Add a custom instruction step']:
             parsed_step["description"] = description
         
         tool_name = step.get('config', {}).get('tool_name')
@@ -73,14 +155,23 @@ class WorkflowParser:
         
         children = step.get('children', [])
         if children:
-            condition_children = [child for child in children if child.get('type') == 'condition']
-            instruction_children = [child for child in children if child.get('type') == 'instruction']
+            parsed_children = self._parse_steps_recursive(children)
+            
+            # Group children by type - conditions vs regular steps
+            condition_children = []
+            instruction_children = []
+            
+            for child in parsed_children:
+                if child.get('condition'):  # This is a condition
+                    condition_children.append(child)
+                else:  # This is a regular step
+                    instruction_children.append(child)
             
             if condition_children:
-                parsed_step["conditions"] = self._parse_condition_branches(condition_children)
+                parsed_step["conditions"] = condition_children
             
             if instruction_children:
-                parsed_step["then"] = self._parse_steps_recursive(instruction_children)
+                parsed_step["then"] = instruction_children
         
         return parsed_step
     
@@ -103,16 +194,6 @@ class WorkflowParser:
             parsed_condition["then"] = self._parse_steps_recursive(children)
         
         return parsed_condition
-    
-    def _parse_condition_branches(self, condition_steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        branches = []
-        
-        for condition_step in condition_steps:
-            branch = self._parse_condition_step(condition_step)
-            if branch:
-                branches.append(branch)
-        
-        return branches
     
     def get_workflow_summary(self, steps: List[Dict[str, Any]]) -> Dict[str, Any]:
         def count_steps_recursive(steps_list):
@@ -142,6 +223,11 @@ class WorkflowParser:
             return count, conditions_count, max_depth
         
         total_steps, total_conditions, max_nesting_depth = count_steps_recursive(steps)
+        
+        # Parse the workflow to see the actual output
+        parsed_steps = self.parse_workflow_steps(steps)
+        
+   
         
         return {
             "total_steps": total_steps,
@@ -174,7 +260,7 @@ def format_workflow_for_llm(
     workflow_json = json.dumps(llm_workflow, indent=2)
     tools_list = ', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'
     input_json = json.dumps(input_data, indent=2) if input_data else 'None provided'
-    
+   
     return f"""You are executing a structured workflow. Follow the steps exactly as specified in the JSON below.
 
 WORKFLOW STRUCTURE:

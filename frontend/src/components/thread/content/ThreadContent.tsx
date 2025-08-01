@@ -311,6 +311,7 @@ export interface ThreadContentProps {
     agentName?: string;
     agentAvatar?: React.ReactNode;
     emptyStateComponent?: React.ReactNode; // Add custom empty state component prop
+    threadMetadata?: any; // Add thread metadata prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -333,6 +334,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     agentName = 'Suna',
     agentAvatar = <KortixLogo size={16} />,
     emptyStateComponent,
+    threadMetadata,
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -350,6 +352,66 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
+
+    // Helper function to get agent info robustly
+    const getAgentInfo = useCallback(() => {
+        // First check thread metadata for is_agent_builder flag
+        if (threadMetadata?.is_agent_builder) {
+            return {
+                name: 'Agent Builder',
+                avatar: (
+                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                        <span className="text-lg">🤖</span>
+                    </div>
+                )
+            };
+        }
+
+        // Then check recent messages for agent info
+        const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
+            msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color || msg.agents?.name)
+        );
+
+        if (recentAssistantWithAgent?.agents?.name === 'Agent Builder') {
+            return {
+                name: 'Agent Builder',
+                avatar: (
+                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                        <span className="text-lg">🤖</span>
+                    </div>
+                )
+            };
+        }
+
+        if (recentAssistantWithAgent?.agents?.name) {
+            const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna';
+            const avatar = recentAssistantWithAgent.agents.avatar ? (
+                <>
+                    {isSunaAgent ? (
+                        <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                            <KortixLogo size={16} />
+                        </div>
+                    ) : (
+                        <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                            <span className="text-lg">{recentAssistantWithAgent.agents.avatar}</span>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                    <KortixLogo size={16} />
+                </div>
+            );
+            return {
+                name: recentAssistantWithAgent.agents.name,
+                avatar
+            };
+        }
+        return {
+            name: agentName || 'Suna',
+            avatar: agentAvatar
+        };
+    }, [threadMetadata, displayMessages, agentName, agentAvatar]);
 
     const handleScroll = () => {
         if (!messagesContainerRef.current) return;
@@ -624,44 +686,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center relative">
-                                                            {(() => {
-                                                                const firstAssistantWithAgent = group.messages.find(msg =>
-                                                                    msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color)
-                                                                );
-
-                                                                const isSunaAgent = firstAssistantWithAgent?.agents?.name === 'Suna';
-
-                                                                if (firstAssistantWithAgent?.agents?.avatar) {
-                                                                    const avatar = firstAssistantWithAgent.agents.avatar;
-                                                                    return (
-                                                                        <>
-                                                                            {isSunaAgent ? (
-                                                                                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                                                                                    <KortixLogo size={16} />
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div
-                                                                                    className="h-5 w-5 flex items-center justify-center rounded text-xs"
-                                                                                >
-                                                                                    <span className="text-lg">{avatar}</span>
-                                                                                </div>
-                                                                            )}
-                                                                        </>
-                                                                    );
-                                                                }
-                                                                return <KortixLogo size={16} />;
-                                                            })()}
+                                                            {getAgentInfo().avatar}
                                                         </div>
                                                         <p className='ml-2 text-sm text-muted-foreground'>
-                                                            {(() => {
-                                                                const firstAssistantWithAgent = group.messages.find(msg =>
-                                                                    msg.type === 'assistant' && msg.agents?.name
-                                                                );
-                                                                if (firstAssistantWithAgent?.agents?.name) {
-                                                                    return firstAssistantWithAgent.agents.name;
-                                                                }
-                                                                return 'Suna';
-                                                            })()}
+                                                            {getAgentInfo().name}
                                                         </p>
                                                     </div>
 
@@ -887,9 +915,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             {/* Logo positioned above the loader */}
                                             <div className="flex items-center">
                                                 <div className="rounded-md flex items-center justify-center">
-                                                    {agentAvatar}
+                                                    {getAgentInfo().avatar}
                                                 </div>
-                                                <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
+                                                <p className='ml-2 text-sm text-muted-foreground'>
+                                                    {getAgentInfo().name}
+                                                </p>
                                             </div>
 
                                             {/* Loader content */}
@@ -899,17 +929,17 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         </div>
                                     </div>
                                 )}
-
-                            {/* For playback mode - Show tool call animation if active */}
                             {readOnly && currentToolCall && (
                                 <div ref={latestMessageRef}>
                                     <div className="flex flex-col gap-2">
                                         {/* Logo positioned above the tool call */}
                                         <div className="flex justify-start">
                                             <div className="rounded-md flex items-center justify-center">
-                                                {agentAvatar}
+                                                {getAgentInfo().avatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>
+                                                {getAgentInfo().name}
+                                            </p>
                                         </div>
 
                                         {/* Tool call content */}
@@ -932,9 +962,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         {/* Logo positioned above the streaming indicator */}
                                         <div className="flex justify-start">
                                             <div className="rounded-md flex items-center justify-center">
-                                                {agentAvatar}
+                                                {getAgentInfo().avatar}
                                             </div>
-                                            <p className='ml-2 text-sm text-muted-foreground'>{agentName || 'Suna'}</p>
+                                            <p className='ml-2 text-sm text-muted-foreground'>
+                                                {getAgentInfo().name}
+                                            </p>
                                         </div>
 
                                         {/* Streaming indicator content */}

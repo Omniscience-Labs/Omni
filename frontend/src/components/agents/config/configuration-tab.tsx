@@ -120,7 +120,7 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Settings className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                 
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">System Prompt</h4>
@@ -163,7 +163,7 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Wrench className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                 
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Default Tools</h4>
@@ -175,7 +175,7 @@ export function ConfigurationTab({
             <div 
               className={`overflow-hidden transition-all duration-300 ease-out ${
                 openAccordion === 'tools' 
-                  ? 'max-h-96 opacity-100' 
+                  ? 'max-h-auto opacity-100' 
                   : 'max-h-0 opacity-0'
               }`}
             >
@@ -202,7 +202,7 @@ export function ConfigurationTab({
                 <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                   <Server className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+               
               </div>
               <div className="text-left flex-1">
                 <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Integrations</h4>
@@ -214,7 +214,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'integrations' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -248,7 +248,7 @@ export function ConfigurationTab({
                 <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                   <BookOpen className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+               
               </div>
               <div className="text-left flex-1">
                 <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Knowledge Base</h4>
@@ -260,7 +260,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'knowledge' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -284,7 +284,7 @@ export function ConfigurationTab({
                 <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                   <Workflow className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+               
               </div>
               <div className="text-left flex-1">
                 <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Workflows</h4>
@@ -296,7 +296,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'workflows' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
@@ -320,7 +320,7 @@ export function ConfigurationTab({
                 <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                   <Zap className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+               
               </div>
               <div className="text-left flex-1">
                 <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
@@ -332,7 +332,7 @@ export function ConfigurationTab({
           <div 
             className={`overflow-hidden transition-all duration-300 ease-out ${
               openAccordion === 'triggers' 
-                ? 'max-h-[600px] opacity-100' 
+                ? 'max-h-auto opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >

@@ -227,7 +227,7 @@ async def run_agent_background(
         all_responses = [json.loads(r) for r in all_responses_json]
 
         # Update DB status
-        await update_agent_run_status(client, agent_run_id, final_status, error=error_message, responses=all_responses)
+        await update_agent_run_status(client, agent_run_id, final_status, error=error_message)
 
         # Publish final control signal (END_STREAM or ERROR)
         control_signal = "END_STREAM" if final_status == "completed" else "ERROR" if final_status == "failed" else "STOP"
@@ -264,7 +264,7 @@ async def run_agent_background(
              all_responses = [error_response] # Use the error message we tried to push
 
         # Update DB status
-        await update_agent_run_status(client, agent_run_id, "failed", error=f"{error_message}\n{traceback_str}", responses=all_responses)
+        await update_agent_run_status(client, agent_run_id, "failed", error=f"{error_message}\n{traceback_str}")
 
         # Publish ERROR signal
         try:
@@ -347,7 +347,6 @@ async def update_agent_run_status(
     agent_run_id: str,
     status: str,
     error: Optional[str] = None,
-    responses: Optional[list[any]] = None # Expects parsed list of dicts
 ) -> bool:
     """
     Centralized function to update agent run status.
@@ -362,9 +361,7 @@ async def update_agent_run_status(
         if error:
             update_data["error"] = error
 
-        if responses:
-            # Ensure responses are stored correctly as JSONB
-            update_data["responses"] = responses
+
 
         # Retry up to 3 times
         for retry in range(3):
