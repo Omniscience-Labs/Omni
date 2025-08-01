@@ -13,6 +13,13 @@ class Thread:
         response = await self._client.add_message_to_thread(self._thread_id, message)
         return response.message_id
 
+    async def del_message(self, message_id: str):
+        await self._client.delete_message_from_thread(self._thread_id, message_id)
+
+    async def get_messages(self):
+        response = await self._client.get_thread_messages(self._thread_id)
+        return response.messages
+
     async def get_agent_runs(self):
         response = await self._client.get_thread(self._thread_id)
         if not response.recent_agent_runs:
@@ -41,3 +48,6 @@ class KortixThread:
 
     async def get(self, thread_id: str) -> Thread:
         return Thread(self._client, thread_id)
+
+    async def delete(self, thread_id: str) -> None:
+        await self._client.delete_thread(thread_id)

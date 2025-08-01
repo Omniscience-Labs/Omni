@@ -2986,3 +2986,22 @@ async def create_message(
     except Exception as e:
         logger.error(f"Error creating message in thread {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create message: {str(e)}")
+
+
+@router.delete("/threads/{thread_id}/messages/{message_id}")
+async def delete_message(
+    thread_id: str,
+    message_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Delete a message from a thread."""
+    logger.info(f"Deleting message from thread: {thread_id}")
+    client = await db.client
+    await verify_thread_access(client, thread_id, user_id)
+    try:
+        # Don't allow users to delete the "status" messages
+        await client.table('messages').delete().eq('message_id', message_id).eq('is_llm_message', True).eq('thread_id', thread_id).execute()
+        return {"message": "Message deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting message {message_id} from thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete message: {str(e)}")

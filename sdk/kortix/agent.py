@@ -50,7 +50,7 @@ class Agent:
                         )
                     )
         else:
-            agent_details = await self.tool_details()
+            agent_details = await self.details()
             agentpress_tools = agent_details.agentpress_tools
             custom_mcps = agent_details.custom_mcps
             if allowed_tools:
@@ -70,7 +70,7 @@ class Agent:
             ),
         )
 
-    async def tool_details(self):
+    async def details(self):
         response = await self._client.get_agent(self._agent_id)
         return response
 

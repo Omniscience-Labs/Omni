@@ -402,7 +402,7 @@ class ThreadsClient:
     async def get_thread_messages(
         self, thread_id: str, order: str = "desc"
     ) -> MessagesResponse:
-        """Get all messages for a thread.
+        """Get ALL messages for a thread.
 
         Args:
             thread_id: The thread ID
@@ -439,6 +439,21 @@ class ThreadsClient:
         data = self._handle_response(response)
         return from_dict(Message, data)
 
+    async def delete_message_from_thread(self, thread_id: str, message_id: str) -> None:
+        """Delete a message from a thread.
+
+        Args:
+            thread_id: The thread ID
+            message_id: The message ID
+
+        Returns:
+            None
+        """
+        response = await self.client.delete(
+            f"/threads/{thread_id}/messages/{message_id}"
+        )
+        self._handle_response(response)
+
     async def create_message(
         self, thread_id: str, request: MessageCreateRequest
     ) -> Message:
@@ -474,6 +489,9 @@ class ThreadsClient:
         )
         data = self._handle_response(response)
         return from_dict(CreateThreadResponse, data)
+
+    async def delete_thread(self, thread_id: str) -> None:
+        raise NotImplementedError("Not implemented")
 
     async def get_thread_agent(self, thread_id: str) -> ThreadAgentResponse:
         """Get the agent details for a specific thread.
