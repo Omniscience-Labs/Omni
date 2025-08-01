@@ -15,7 +15,6 @@ import asyncio
 from utils.logger import logger, structlog
 import time
 from collections import OrderedDict
-from typing import Dict, Any
 
 from pydantic import BaseModel
 import uuid
@@ -29,6 +28,7 @@ from services import transcription as transcription_api
 import sys
 from services import email_api
 from triggers import api as triggers_api
+from services import api_keys_api
 
 
 if sys.platform == "win32":
@@ -148,8 +148,8 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Project-Id", "X-MCP-URL", "X-MCP-Type", "X-MCP-Headers", "X-Refresh-Token"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Project-Id", "X-MCP-URL", "X-MCP-Type", "X-MCP-Headers", "X-Refresh-Token", "X-API-Key"],
 )
 
 # Create a main API router
@@ -160,6 +160,7 @@ api_router.include_router(agent_api.router)
 api_router.include_router(sandbox_api.router)
 api_router.include_router(billing_api.router)
 api_router.include_router(feature_flags_api.router)
+api_router.include_router(api_keys_api.router)
 
 from mcp_module import api as mcp_api
 from credentials import api as credentials_api
