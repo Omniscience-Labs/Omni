@@ -59,7 +59,6 @@ export default function ThreadPage({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const latestMessageRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const hasInitiallyScrolled = useRef<boolean>(false);
   const initialLayoutAppliedRef = useRef(false);
 
@@ -174,6 +173,20 @@ export default function ThreadPage({
           m.message_id === message.message_id ? message : m,
         );
       } else {
+        // If this is a user message, replace any optimistic user message with temp ID
+        if (message.type === 'user') {
+          const optimisticIndex = prev.findIndex(m => 
+            m.type === 'user' && 
+            m.message_id?.startsWith('temp-') &&
+            m.content === message.content
+          );
+          if (optimisticIndex !== -1) {
+            // Replace the optimistic message with the real one
+            return prev.map((m, index) => 
+              index === optimisticIndex ? message : m
+            );
+          }
+        }
         return [...prev, message];
       }
     });
@@ -320,9 +333,6 @@ export default function ThreadPage({
         const agentResult = results[1].value;
         setAgentRunId(agentResult.agent_run_id);
 
-        messagesQuery.refetch();
-        agentRunsQuery.refetch();
-
       } catch (err) {
         console.error('Error sending message or starting agent:', err);
         if (!(err instanceof BillingError)) {
@@ -335,7 +345,7 @@ export default function ThreadPage({
         setIsSending(false);
       }
     },
-    [threadId, project?.account_id, addUserMessageMutation, startAgentMutation, messagesQuery, agentRunsQuery, setMessages, setBillingData, setShowBillingAlert, setAgentRunId],
+    [threadId, project?.account_id, addUserMessageMutation, startAgentMutation, setMessages, setBillingData, setShowBillingAlert, setAgentRunId],
   );
 
   const handleStopAgent = useCallback(async () => {
@@ -347,12 +357,11 @@ export default function ThreadPage({
     if (agentRunId) {
       try {
         await stopAgentMutation.mutateAsync(agentRunId);
-        agentRunsQuery.refetch();
       } catch (error) {
         console.error('Error stopping agent:', error);
       }
     }
-  }, [stopStreaming, agentRunId, stopAgentMutation, agentRunsQuery, setAgentStatus]);
+  }, [stopStreaming, agentRunId, stopAgentMutation, setAgentStatus]);
 
   const handleOpenFileViewer = useCallback((filePath?: string, filePathList?: string[]) => {
     if (filePath) {
@@ -442,13 +451,7 @@ export default function ThreadPage({
     }
   }, [agentRunId, startStreaming, currentHookRunId]);
 
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    const isNewUserMessage = lastMsg?.type === 'user';
-    if ((isNewUserMessage || agentStatus === 'running') && !userHasScrolled) {
-      scrollToBottom('smooth');
-    }
-  }, [messages, agentStatus, userHasScrolled]);
+  // Auto-scroll logic moved to ThreadContent component for better streaming experience
 
   useEffect(() => {
     if (!latestMessageRef.current || messages.length === 0) return;

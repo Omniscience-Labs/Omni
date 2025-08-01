@@ -340,7 +340,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
-    const [, setUserHasScrolled] = useState(false);
+    const [isAtBottom, setIsAtBottom] = useState(true);
     const { session } = useAuth();
 
     // React Query file preloader
@@ -413,17 +413,48 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         };
     }, [threadMetadata, displayMessages, agentName, agentAvatar]);
 
-    const handleScroll = () => {
+    const handleScroll = useCallback(() => {
         if (!messagesContainerRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-        const isScrolledUp = scrollHeight - scrollTop - clientHeight > 100;
-        setShowScrollButton(isScrolledUp);
-        setUserHasScrolled(isScrolledUp);
-    };
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        const atBottom = distanceFromBottom < 50; // Within 50px is considered "at bottom"
+        
+        setIsAtBottom(atBottom);
+        setShowScrollButton(!atBottom);
+    }, []);
 
     const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
         messagesEndRef.current?.scrollIntoView({ behavior });
+        setIsAtBottom(true); // Reset to bottom state when manually scrolling
     }, []);
+
+    // Auto-scroll effect for streaming content - only scroll if user is at bottom
+    React.useEffect(() => {
+        if (isAtBottom && !readOnly) {
+            // Auto-scroll during streaming or for new messages
+            const shouldAutoScroll = 
+                streamingTextContent || // There's streaming text
+                (displayMessages.length > 0 && displayMessages[displayMessages.length - 1]?.type === 'user') || // New user message
+                agentStatus === 'running' || agentStatus === 'connecting'; // Agent is active
+
+            if (shouldAutoScroll) {
+                // Use a small delay to ensure DOM has updated
+                const timeoutId = setTimeout(() => {
+                    if (isAtBottom) { // Check again in case user scrolled during timeout
+                        scrollToBottom('smooth');
+                    }
+                }, 100);
+                return () => clearTimeout(timeoutId);
+            }
+        }
+    }, [
+        displayMessages.length, 
+        streamingTextContent, 
+        agentStatus, 
+        isAtBottom, 
+        readOnly, 
+        scrollToBottom
+    ]);
 
     // Preload all message attachments when messages change or sandboxId is provided
     React.useEffect(() => {
@@ -992,7 +1023,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     variant="outline"
                     size="icon"
                     className="fixed bottom-20 right-6 z-10 h-8 w-8 rounded-full shadow-md"
-                    onClick={() => scrollToBottom('smooth')}
+                    onClick={() => {
+                        scrollToBottom('smooth');
+                        setIsAtBottom(true); // Ensure we resume auto-scrolling
+                    }}
                 >
                     <ArrowDown className="h-4 w-4" />
                 </Button>

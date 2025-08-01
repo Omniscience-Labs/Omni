@@ -142,9 +142,12 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
     agentRunsQuery.data
   ]);
 
+  // Disabled automatic message replacement to prevent optimistic message deletion
+  // Messages are now only loaded on initial page load and updated via streaming
   useEffect(() => {
     if (messagesQuery.data && messagesQuery.status === 'success') {
-      if (!isLoading && agentStatus !== 'running' && agentStatus !== 'connecting') {
+      // Only load messages on initial load, not when agent status changes
+      if (!isLoading && messages.length === 0) {
         const unifiedMessages = (messagesQuery.data || [])
           .filter((msg) => msg.type !== 'status')
           .map((msg: ApiMessageType) => ({
@@ -163,7 +166,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
         setMessages(unifiedMessages);
       }
     }
-  }, [messagesQuery.data, messagesQuery.status, isLoading, agentStatus, threadId]);
+  }, [messagesQuery.data, messagesQuery.status, isLoading, messages.length, threadId]);
 
   return {
     messages,
