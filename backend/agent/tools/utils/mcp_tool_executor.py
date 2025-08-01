@@ -18,7 +18,7 @@ class MCPToolExecutor:
     
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         logger.info(f"Executing MCP tool {tool_name} with arguments {arguments}")
-        
+
         try:
             if tool_name in self.custom_tools:
                 return await self._execute_custom_tool(tool_name, arguments)
@@ -30,7 +30,6 @@ class MCPToolExecutor:
     
     async def _execute_standard_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         result = await self.mcp_manager.execute_tool(tool_name, arguments)
-        
         if isinstance(result, dict):
             if result.get('isError', False):
                 return self._create_error_result(result.get('content', 'Tool execution failed'))
