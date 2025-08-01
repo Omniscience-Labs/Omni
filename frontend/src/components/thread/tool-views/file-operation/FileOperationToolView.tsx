@@ -56,6 +56,7 @@ import {
 import { ToolViewProps } from '../types';
 import { GenericToolView } from '../GenericToolView';
 import { LoadingState } from '../shared/LoadingState';
+import { toast } from 'sonner';
 
 export function FileOperationToolView({
   assistantContent,
@@ -90,9 +91,9 @@ export function FileOperationToolView({
     setIsCopyingContent(true);
     const success = await copyToClipboard(fileContent);
     if (success) {
-      console.log('File content copied to clipboard');
+      toast.success('File content copied to clipboard');
     } else {
-      console.error('Failed to copy file content');
+      toast.error('Failed to copy file content');
     }
     setTimeout(() => setIsCopyingContent(false), 500);
   };
@@ -313,6 +314,14 @@ export function FileOperationToolView({
               </div>
             </div>
             <div className='flex items-center gap-2'>
+              {isHtml && htmlPreviewUrl && !isStreaming && (
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none" asChild>
+                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Open in Browser
+                  </a>
+                </Button>
+              )}
               {/* Copy button - only show when there's file content */}
               {fileContent && !isStreaming && (
                 <Button
@@ -329,14 +338,6 @@ export function FileOperationToolView({
                     <Copy className="h-3.5 w-3.5 mr-1.5" />
                   )}
                   <span className="hidden sm:inline">Copy</span>
-                </Button>
-              )}
-              {isHtml && htmlPreviewUrl && !isStreaming && (
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none" asChild>
-                  <a href={htmlPreviewUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    Open in Browser
-                  </a>
                 </Button>
               )}
               <TabsList className="h-8 bg-muted/50 border border-border/50 p-0.5 gap-1">

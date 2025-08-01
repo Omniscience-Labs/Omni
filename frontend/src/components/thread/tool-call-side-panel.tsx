@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { ToolView } from './tool-views/wrapper';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 export interface ToolCallInput {
   assistantCall: {
@@ -259,10 +260,9 @@ export function ToolCallSidePanel({
     setIsCopyingContent(true);
     const success = await copyToClipboard(fileContent);
     if (success) {
-      // Use toast if available, otherwise just log
-      console.log('File content copied to clipboard');
+      toast.success('File content copied to clipboard');
     } else {
-      console.error('Failed to copy file content');
+      toast.error('Failed to copy file content');
     }
     setTimeout(() => setIsCopyingContent(false), 500);
   }, [displayToolCall?.toolResult?.content, copyToClipboard]);

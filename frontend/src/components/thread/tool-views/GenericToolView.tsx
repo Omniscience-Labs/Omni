@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { LoadingState } from './shared/LoadingState';
+import { toast } from 'sonner';
 
 export function GenericToolView({
   name = 'generic-tool',
@@ -143,9 +144,9 @@ export function GenericToolView({
     setIsCopyingInput(true);
     const success = await copyToClipboard(formattedAssistantContent);
     if (success) {
-      console.log('Tool input copied to clipboard');
+      toast.success('File content copied to clipboard');
     } else {
-      console.error('Failed to copy tool input');
+      toast.error('Failed to copy file content');
     }
     setTimeout(() => setIsCopyingInput(false), 500);
   }, [formattedAssistantContent, copyToClipboard]);
@@ -156,9 +157,9 @@ export function GenericToolView({
     setIsCopyingOutput(true);
     const success = await copyToClipboard(formattedToolContent);
     if (success) {
-      console.log('Tool output copied to clipboard');
+      toast.success('File content copied to clipboard');
     } else {
-      console.error('Failed to copy tool output');
+      toast.error('Failed to copy file content');
     }
     setTimeout(() => setIsCopyingOutput(false), 500);
   }, [formattedToolContent, copyToClipboard]);
@@ -224,7 +225,7 @@ export function GenericToolView({
                       onClick={handleCopyInput}
                       disabled={isCopyingInput}
                       className="h-6 w-6 p-0"
-                      title="Copy input"
+                      title="Copy file content"
                     >
                       {isCopyingInput ? (
                         <Check className="h-3 w-3" />
@@ -256,7 +257,7 @@ export function GenericToolView({
                       onClick={handleCopyOutput}
                       disabled={isCopyingOutput}
                       className="h-6 w-6 p-0"
-                      title="Copy output"
+                      title="Copy file content"
                     >
                       {isCopyingOutput ? (
                         <Check className="h-3 w-3" />
