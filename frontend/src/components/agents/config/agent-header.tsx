@@ -56,7 +56,7 @@ export function AgentHeader({
     onFieldChange('name', value);
   };
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-0">
       <div className="flex items-center gap-3">
         <div className="relative">
           {isSunaAgent ? (
