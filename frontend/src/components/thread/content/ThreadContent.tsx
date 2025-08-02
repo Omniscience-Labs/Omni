@@ -1,6 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { ArrowDown, CircleDashed, CheckCircle, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CircleDashed, CheckCircle, AlertTriangle } from 'lucide-react';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
 import { useFilePreloader } from '@/hooks/react-query/files';
@@ -336,11 +335,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     emptyStateComponent,
     threadMetadata,
 }) => {
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
-    const [showScrollButton, setShowScrollButton] = useState(false);
-    const [isAtBottom, setIsAtBottom] = useState(true);
     const { session } = useAuth();
 
     // React Query file preloader
@@ -413,48 +409,14 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         };
     }, [threadMetadata, displayMessages, agentName, agentAvatar]);
 
+    // Simplified scroll handler - flex-column-reverse handles positioning
     const handleScroll = useCallback(() => {
-        if (!messagesContainerRef.current) return;
-        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-        const atBottom = distanceFromBottom < 50; // Within 50px is considered "at bottom"
-        
-        setIsAtBottom(atBottom);
-        setShowScrollButton(!atBottom);
+        // No scroll logic needed with flex-column-reverse
     }, []);
 
-    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-        messagesEndRef.current?.scrollIntoView({ behavior });
-        setIsAtBottom(true); // Reset to bottom state when manually scrolling
-    }, []);
+    // No scroll-to-bottom needed with flex-column-reverse
 
-    // Auto-scroll effect for streaming content - only scroll if user is at bottom
-    React.useEffect(() => {
-        if (isAtBottom && !readOnly) {
-            // Auto-scroll during streaming or for new messages
-            const shouldAutoScroll = 
-                streamingTextContent || // There's streaming text
-                (displayMessages.length > 0 && displayMessages[displayMessages.length - 1]?.type === 'user') || // New user message
-                agentStatus === 'running' || agentStatus === 'connecting'; // Agent is active
-
-            if (shouldAutoScroll) {
-                // Use a small delay to ensure DOM has updated
-                const timeoutId = setTimeout(() => {
-                    if (isAtBottom) { // Check again in case user scrolled during timeout
-                        scrollToBottom('smooth');
-                    }
-                }, 100);
-                return () => clearTimeout(timeoutId);
-            }
-        }
-    }, [
-        displayMessages.length, 
-        streamingTextContent, 
-        agentStatus, 
-        isAtBottom, 
-        readOnly, 
-        scrollToBottom
-    ]);
+    // No auto-scroll needed with flex-column-reverse - CSS handles it
 
     // Preload all message attachments when messages change or sandboxId is provided
     React.useEffect(() => {
@@ -504,10 +466,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     )}
                 </div>
             ) : (
-                // Render scrollable content container
+                // Render scrollable content container with column-reverse
                 <div
                     ref={messagesContainerRef}
-                    className={containerClassName}
+                    className={`${containerClassName} flex flex-col-reverse`}
                     onScroll={handleScroll}
                 >
                     <div className="mx-auto max-w-3xl md:px-8 min-w-0">
@@ -1013,24 +975,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                             )}
                         </div>
                     </div>
-                    <div ref={messagesEndRef} className="h-1" />
+                    <div className="h-32" />
                 </div>
             )}
 
-            {/* Scroll to bottom button */}
-            {showScrollButton && (
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="fixed bottom-20 right-6 z-10 h-8 w-8 rounded-full shadow-md"
-                    onClick={() => {
-                        scrollToBottom('smooth');
-                        setIsAtBottom(true); // Ensure we resume auto-scrolling
-                    }}
-                >
-                    <ArrowDown className="h-4 w-4" />
-                </Button>
-            )}
+            {/* No scroll button needed with flex-column-reverse */}
         </>
     );
 };

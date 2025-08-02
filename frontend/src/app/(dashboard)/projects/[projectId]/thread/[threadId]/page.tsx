@@ -54,12 +54,8 @@ export default function ThreadPage({
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [isSidePanelAnimating, setIsSidePanelAnimating] = useState(false);
 
-  // Refs
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // Refs - simplified for flex-column-reverse
   const latestMessageRef = useRef<HTMLDivElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const hasInitiallyScrolled = useRef<boolean>(false);
   const initialLayoutAppliedRef = useRef(false);
 
   // Sidebar
@@ -149,9 +145,7 @@ export default function ThreadPage({
   const handleProjectRenamed = useCallback((newName: string) => {
   }, []);
 
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  };
+  // scrollToBottom removed - flex-column-reverse handles scroll positioning
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
     console.log(
@@ -209,17 +203,7 @@ export default function ThreadPage({
         setAgentRunId(null);
         setAutoOpenedPanel(false);
 
-        if (
-          [
-            'completed',
-            'stopped',
-            'agent_not_running',
-            'error',
-            'failed',
-          ].includes(hookStatus)
-        ) {
-          scrollToBottom('smooth');
-        }
+        // No scroll needed with flex-column-reverse
         break;
       case 'connecting':
         setAgentStatus('connecting');
@@ -285,7 +269,7 @@ export default function ThreadPage({
 
       setMessages((prev) => [...prev, optimisticUserMessage]);
       setNewMessage('');
-      scrollToBottom('smooth');
+      // No scroll needed - flex-column-reverse handles positioning
 
       try {
         const messagePromise = addUserMessageMutation.mutateAsync({
@@ -451,17 +435,9 @@ export default function ThreadPage({
     }
   }, [agentRunId, startStreaming, currentHookRunId]);
 
-  // Auto-scroll logic moved to ThreadContent component for better streaming experience
+  // No auto-scroll needed with flex-column-reverse
 
-  useEffect(() => {
-    if (!latestMessageRef.current || messages.length === 0) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowScrollButton(!entry?.isIntersecting),
-      { root: messagesContainerRef.current, threshold: 0.1 },
-    );
-    observer.observe(latestMessageRef.current);
-    return () => observer.disconnect();
-  }, [messages, streamingTextContent, streamingToolCall]);
+  // No intersection observer needed with flex-column-reverse
 
   useEffect(() => {
     console.log(`[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`);

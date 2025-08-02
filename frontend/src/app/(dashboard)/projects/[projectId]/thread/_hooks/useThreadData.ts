@@ -102,15 +102,28 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           if (activeRun && isMounted) {
             console.log('[PAGE] Found active run on load:', activeRun.id);
             setAgentRunId(activeRun.id);
+            setAgentStatus('running'); // Set status to running when active run is found
           } else {
             console.log('[PAGE] No active agent runs found');
-            if (isMounted) setAgentStatus('idle');
+            if (isMounted) {
+              setAgentStatus('idle');
+              setAgentRunId(null); // Ensure no lingering run ID
+            }
           }
         }
 
         if (threadQuery.data && messagesQuery.data && agentRunsQuery.data) {
           initialLoadCompleted.current = true;
           setIsLoading(false);
+          
+          // Final safety check: if no active runs found, ensure status is idle
+          if (agentRunsCheckedRef.current && !agentRunsQuery.data.find((run) => run.status === 'running')) {
+            console.log('[PAGE] Final check: No active runs, ensuring idle status');
+            if (isMounted) {
+              setAgentStatus('idle');
+              setAgentRunId(null);
+            }
+          }
         }
 
       } catch (err) {
