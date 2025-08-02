@@ -1,9 +1,26 @@
 'use client';
 
 import React from 'react';
-import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch } from 'lucide-react';
+import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch, Trash2, MoreVertical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
@@ -20,6 +37,7 @@ interface BaseAgentData {
 }
 
 interface MarketplaceData extends BaseAgentData {
+  creator_id: string;
   is_kortix_team?: boolean;
   download_count: number;
   creator_name?: string;
@@ -68,19 +86,30 @@ interface AgentCardProps {
   isActioning?: boolean;
   onPrimaryAction?: (data: any, e?: React.MouseEvent) => void;
   onSecondaryAction?: (data: any, e?: React.MouseEvent) => void;
+  onDeleteAction?: (data: any, e?: React.MouseEvent) => void;
   onClick?: (data: any) => void;
+  currentUserId?: string;
 }
 
-const MarketplaceBadge: React.FC<{ isKortixTeam?: boolean }> = ({ isKortixTeam }) => {
-  if (isKortixTeam) {
-    return (
-      <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-0 dark:bg-blue-950 dark:text-blue-300">
-        <CheckCircle className="h-3 w-3" />
-        Kortix
-      </Badge>
-    );
-  }
-  return null;
+const MarketplaceBadge: React.FC<{ 
+  isKortixTeam?: boolean; 
+  isOwner?: boolean;
+}> = ({ isKortixTeam, isOwner }) => {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {isKortixTeam && (
+        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-0 dark:bg-blue-950 dark:text-blue-300">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Kortix
+        </Badge>
+      )}
+      {isOwner && (
+        <Badge variant="secondary" className="bg-green-100 text-green-700 border-0 dark:bg-green-950 dark:text-green-300">
+          Owner
+        </Badge>
+      )}
+    </div>
+  );
 };
 
 const TemplateBadge: React.FC<{ isPublic?: boolean }> = ({ isPublic }) => {
@@ -150,28 +179,108 @@ const AgentMetadata: React.FC<{ data: AgentData }> = ({ data }) => (
 
 const MarketplaceActions: React.FC<{ 
   onAction?: (data: any, e?: React.MouseEvent) => void;
+  onDeleteAction?: (data: any, e?: React.MouseEvent) => void;
   isActioning?: boolean;
   data: any;
-}> = ({ onAction, isActioning, data }) => (
-  <Button 
-    onClick={(e) => onAction?.(data, e)}
-    disabled={isActioning}
-    className="w-full"
-    size="sm"
-  >
-    {isActioning ? (
-      <>
-        <Loader2 className="h-4 w-4 animate-spin " />
-        Installing...
-      </>
-    ) : (
-      <>
-        <Download className="h-4 w-4 " />
-        Install Agent
-      </>
-    )}
-  </Button>
-);
+  currentUserId?: string;
+}> = ({ onAction, onDeleteAction, isActioning, data, currentUserId }) => {
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const isOwner = currentUserId && data.creator_id === currentUserId;
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteDialog(false);
+    onDeleteAction?.(data);
+  };
+
+  return (
+    <>
+      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+        <Button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onAction?.(data, e);
+          }}
+          disabled={isActioning}
+          className="flex-1"
+          size="sm"
+        >
+          {isActioning ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Installing...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Install
+            </>
+          )}
+        </Button>
+        
+        {isOwner && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="px-2"
+                disabled={isActioning}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={handleDeleteClick}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Template
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "<strong>{data.name}</strong>"? This will permanently remove it from the marketplace and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConfirmDelete();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
+              {isActioning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Template'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
 
 const TemplateActions: React.FC<{ 
   data: TemplateData;
@@ -283,18 +392,24 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   isActioning = false,
   onPrimaryAction,
   onSecondaryAction,
-  onClick
+  onDeleteAction,
+  onClick,
+  currentUserId
 }) => {
   const { avatar, color } = styling;
   
   const isSunaAgent = mode === 'agent' && (data as AgentData).metadata?.is_suna_default === true;
+  const isOwner = currentUserId && mode === 'marketplace' && (data as MarketplaceData).creator_id === currentUserId;
   
-  const cardClassName = "group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-border/50 hover:border-primary/20 cursor-pointer flex flex-col min-h-[280px] max-h-[320px]";
+  const cardClassName = `group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border cursor-pointer flex flex-col min-h-[280px] max-h-[320px] border-border/50 hover:border-primary/20`;
   
   const renderBadge = () => {
     switch (mode) {
       case 'marketplace':
-        return <MarketplaceBadge isKortixTeam={(data as MarketplaceData).is_kortix_team} />;
+        return <MarketplaceBadge 
+          isKortixTeam={(data as MarketplaceData).is_kortix_team} 
+          isOwner={isOwner}
+        />;
       case 'template':
         return <TemplateBadge isPublic={(data as TemplateData).is_public} />;
       case 'agent':
@@ -320,7 +435,13 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   const renderActions = () => {
     switch (mode) {
       case 'marketplace':
-        return <MarketplaceActions onAction={onPrimaryAction} isActioning={isActioning} data={data} />;
+        return <MarketplaceActions 
+          onAction={onPrimaryAction} 
+          onDeleteAction={onDeleteAction}
+          isActioning={isActioning} 
+          data={data} 
+          currentUserId={currentUserId}
+        />;
       case 'template':
         return <TemplateActions 
           data={data as TemplateData} 

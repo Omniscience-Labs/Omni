@@ -47,8 +47,10 @@ class PublishTemplateRequest(BaseModel):
 
 class TemplateResponse(BaseModel):
     template_id: str
+    creator_id: str
     name: str
     description: Optional[str]
+    system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     tags: List[str]
@@ -56,9 +58,11 @@ class TemplateResponse(BaseModel):
     download_count: int
     marketplace_published_at: Optional[str]
     created_at: str
+    updated_at: str
     creator_name: Optional[str] = None
     avatar: Optional[str]
     avatar_color: Optional[str]
+    metadata: Dict[str, Any] = {}
 
 
 class InstallationResponse(BaseModel):
@@ -144,6 +148,26 @@ async def unpublish_template(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        template_service = get_template_service(db)
+        
+        success = await template_service.delete_template(template_id, user_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Template not found or access denied")
+        
+        return {"message": "Template deleted successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error deleting template: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("/install", response_model=InstallationResponse)
 async def install_template(
     request: InstallTemplateRequest,
@@ -188,10 +212,7 @@ async def get_marketplace_templates():
         templates = await template_service.get_public_templates()
         
         return [
-            TemplateResponse(
-                **format_template_for_response(template),
-                creator_name=None 
-            )
+            TemplateResponse(**format_template_for_response(template))
             for template in templates
         ]
         

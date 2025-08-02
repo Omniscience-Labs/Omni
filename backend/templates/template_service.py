@@ -234,6 +234,39 @@ class TemplateService:
         
         return success
     
+    async def delete_template(self, template_id: str, creator_id: str) -> bool:
+        """Delete a template. Only the creator can delete their templates."""
+        logger.info(f"Deleting template {template_id} for user {creator_id}")
+        
+        client = await self._db.client
+        
+        # First check if template exists and user owns it
+        template_result = await client.table('agent_templates').select('*')\
+            .eq('template_id', template_id)\
+            .maybe_single()\
+            .execute()
+        
+        if not template_result.data:
+            logger.warning(f"Template {template_id} not found")
+            return False
+        
+        template = template_result.data
+        if template['creator_id'] != creator_id:
+            logger.warning(f"User {creator_id} cannot delete template {template_id} (owned by {template['creator_id']})")
+            return False
+        
+        # Delete the template
+        result = await client.table('agent_templates').delete()\
+            .eq('template_id', template_id)\
+            .eq('creator_id', creator_id)\
+            .execute()
+        
+        success = len(result.data) > 0
+        if success:
+            logger.info(f"Successfully deleted template {template_id}")
+        
+        return success
+    
     async def increment_download_count(self, template_id: str) -> None:
         client = await self._db.client
         await client.rpc('increment_template_download_count', {
