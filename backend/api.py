@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
         pipedream_api.initialize(db)
         credentials_api.initialize(db)
         template_api.initialize(db)
+        composio_api.initialize(db)
         
         yield
         

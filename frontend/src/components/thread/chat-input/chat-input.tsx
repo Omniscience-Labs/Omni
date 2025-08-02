@@ -22,7 +22,7 @@ import { Brain, Zap, Workflow, Database } from 'lucide-react';
 import { FaGoogle, FaDiscord } from 'react-icons/fa';
 import { SiNotion } from 'react-icons/si';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
-import { PipedreamRegistry } from '@/components/agents/pipedream/pipedream-registry';
+import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { isLocalMode } from '@/lib/config';
@@ -524,7 +524,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               <DialogHeader className="sr-only">
                 <DialogTitle>Integrations</DialogTitle>
               </DialogHeader>
-              <PipedreamRegistry
+              <IntegrationsRegistry
                 showAgentSelector={true}
                 selectedAgentId={selectedAgentId}
                 onAgentChange={onAgentSelect}

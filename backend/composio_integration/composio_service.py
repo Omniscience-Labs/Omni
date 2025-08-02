@@ -1,93 +1,130 @@
-from typing import Optional
-from composio import Composio
-from composio.types import auth_scheme
 import os
-import threading
+from typing import Optional, List, Dict, Any
+from composio_client import Composio
 from utils.logger import logger
-from utils.config import config
+from pydantic import BaseModel
+from services.supabase import DBConnection
+from credentials.profile_service import ProfileService
 
-class ComposioServiceError(Exception):
-    pass
+from .client import ComposioClient, get_composio_client
+from .toolkit_service import ToolkitService, ToolkitInfo
+from .auth_config_service import AuthConfigService, AuthConfig
+from .connected_account_service import ConnectedAccountService, ConnectedAccount
+from .mcp_server_service import MCPServerService, MCPServer, MCPUrlResponse
 
-class ComposioService:
-    _instance: Optional['ComposioService'] = None
-    _lock = threading.Lock()
 
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-                    cls._instance._client = None
-        return cls._instance
+class ComposioIntegrationResult(BaseModel):
+    toolkit: ToolkitInfo
+    auth_config: AuthConfig
+    connected_account: ConnectedAccount
+    mcp_server: MCPServer
+    mcp_url_response: MCPUrlResponse
+    final_mcp_url: str
+    profile_id: Optional[str] = None
 
-    def __init__(self):
-        pass
 
-    def initialize(self) -> None:
-        if self._initialized:
-            return
-                
+class ComposioIntegrationService:
+    def __init__(self, api_key: Optional[str] = None, db_connection: Optional[DBConnection] = None):
+        self.api_key = api_key
+        self.toolkit_service = ToolkitService(api_key)
+        self.auth_config_service = AuthConfigService(api_key)
+        self.connected_account_service = ConnectedAccountService(api_key)
+        self.mcp_server_service = MCPServerService(api_key)
+        self.profile_service = ProfileService(db_connection) if db_connection else None
+    
+    async def integrate_toolkit(
+        self, 
+        toolkit_slug: str, 
+        account_id: str,
+        profile_name: Optional[str] = None,
+        display_name: Optional[str] = None,
+        user_id: str = "default",
+        mcp_server_name: Optional[str] = None,
+        save_as_profile: bool = True
+    ) -> ComposioIntegrationResult:
         try:
-            composio_api_key = self._get_api_key()
+            logger.info(f"Starting Composio integration for toolkit: {toolkit_slug}")
             
-            if not composio_api_key:
-                logger.error("Missing COMPOSIO_API_KEY environment variable")
-                raise ComposioServiceError("COMPOSIO_API_KEY environment variable must be set")
-
-            logger.debug("Initializing Composio client")
+            toolkit = await self.toolkit_service.get_toolkit_by_slug(toolkit_slug)
+            if not toolkit:
+                raise ValueError(f"Toolkit '{toolkit_slug}' not found")
             
-            self._client = Composio(api_key=composio_api_key)
+            logger.info(f"Step 1 complete: Verified toolkit {toolkit_slug}")
             
-            self._initialized = True
-            logger.debug("Composio client initialized successfully")
+            auth_config = await self.auth_config_service.create_auth_config(toolkit_slug)
+            logger.info(f"Step 2 complete: Created auth config {auth_config.id}")
+            
+            connected_account = await self.connected_account_service.create_connected_account(
+                auth_config_id=auth_config.id,
+                user_id=user_id
+            )
+            logger.info(f"Step 3 complete: Connected account {connected_account.id}")
+            
+            mcp_server = await self.mcp_server_service.create_mcp_server(
+                auth_config_ids=[auth_config.id],
+                name=mcp_server_name
+            )
+            logger.info(f"Step 4 complete: Created MCP server {mcp_server.id}")
+            
+            mcp_url_response = await self.mcp_server_service.generate_mcp_url(
+                mcp_server_id=mcp_server.id,
+                connected_account_ids=[connected_account.id],
+                user_ids=[user_id]
+            )
+            logger.info(f"Step 5 complete: Generated MCP URLs")
+            
+            final_mcp_url = mcp_url_response.user_ids_url[0] if mcp_url_response.user_ids_url else mcp_url_response.mcp_url
+            
+            profile_id = None
+            if save_as_profile and self.profile_service:
+                profile_config = {
+                    "toolkit_slug": toolkit_slug,
+                    "auth_config_id": auth_config.id,
+                    "connected_account_id": connected_account.id,
+                    "mcp_server_id": mcp_server.id,
+                    "final_mcp_url": final_mcp_url,
+                    "redirect_url": connected_account.redirect_url,
+                    "user_id": user_id
+                }
+                
+                profile_id = await self.profile_service.store_profile(
+                    account_id=account_id,
+                    mcp_qualified_name=f"composio.{toolkit_slug}",
+                    profile_name=profile_name or f"{toolkit.name} Integration",
+                    display_name=display_name or f"{toolkit.name} via Composio",
+                    config=profile_config,
+                    is_default=False
+                )
+                logger.info(f"Step 6 complete: Saved credential profile {profile_id}")
+            
+            result = ComposioIntegrationResult(
+                toolkit=toolkit,
+                auth_config=auth_config,
+                connected_account=connected_account,
+                mcp_server=mcp_server,
+                mcp_url_response=mcp_url_response,
+                final_mcp_url=final_mcp_url,
+                profile_id=profile_id
+            )
+            
+            logger.info(f"Successfully completed Composio integration for {toolkit_slug}")
+            logger.info(f"Final MCP URL: {final_mcp_url}")
+            
+            return result
             
         except Exception as e:
-            logger.error(f"Composio service initialization error: {e}")
-            raise ComposioServiceError(f"Failed to initialize Composio service: {str(e)}")
-
-    def _get_api_key(self) -> Optional[str]:
-        api_key = os.getenv("COMPOSIO_API_KEY")
-        
-        if not api_key and hasattr(config, 'COMPOSIO_API_KEY'):
-            api_key = config.COMPOSIO_API_KEY
-            
-        return api_key
-
-    @property
-    def client(self) -> Composio:
-        if not self._initialized:
-            logger.debug("Composio client not initialized, initializing now")
-            self.initialize()
-        
-        if not self._client:
-            logger.error("Composio client is None after initialization")
-            raise ComposioServiceError("Composio client not initialized")
-            
-        return self._client
-
-    @classmethod
-    def get_instance(cls) -> 'ComposioService':
-        return cls()
-
-    @classmethod
-    def reset(cls):
-        with cls._lock:
-            if cls._instance:
-                cls._instance._initialized = False
-                cls._instance._client = None
-            cls._instance = None
-
-    def is_initialized(self) -> bool:
-        return self._initialized
+            logger.error(f"Failed to integrate toolkit {toolkit_slug}: {e}", exc_info=True)
+            raise
     
-def get_composio_service() -> ComposioService:
-    return ComposioService.get_instance()
+    async def list_available_toolkits(self, limit: int = 100) -> List[ToolkitInfo]:
+        return await self.toolkit_service.list_toolkits(limit=limit)
+    
+    async def search_toolkits(self, query: str) -> List[ToolkitInfo]:
+        return await self.toolkit_service.search_toolkits(query)
+    
+    async def get_integration_status(self, connected_account_id: str) -> Dict[str, Any]:
+        return await self.connected_account_service.get_auth_status(connected_account_id)
 
 
-def get_composio_client() -> Composio:
-    return get_composio_service().client
-
-composio_service = get_composio_service()
-composio = get_composio_client()
+def get_integration_service(api_key: Optional[str] = None, db_connection: Optional[DBConnection] = None) -> ComposioIntegrationService:
+    return ComposioIntegrationService(api_key, db_connection)
