@@ -81,7 +81,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'view-tasks': TaskListToolView,
   'update-tasks': TaskListToolView,
   'delete-tasks': TaskListToolView,
-  'clear-tasks': TaskListToolView,
+  'clear-all': TaskListToolView,
+
 
   'expose-port': ExposePortToolView,
 
