@@ -2,7 +2,7 @@ export interface Task {
   id: string
   content: string
   status: "pending" | "completed" | "cancelled"
-  section: string  // Fixed: should be section, not section_id
+  section_id: string
 }
 
 export interface Section {
@@ -13,9 +13,9 @@ export interface Section {
 
 export interface TaskListData {
   sections: Section[]
-  total?: number
+  total_tasks?: number
+  total_sections?: number
   message?: string
-  filter?: string
 }
 
 export function extractTaskListData(
@@ -47,7 +47,7 @@ export function extractTaskListData(
         
         // Nested sections format
         if (outputData?.sections && Array.isArray(outputData.sections)) {
-          return { sections: outputData.sections };
+          return { sections: outputData.sections, total_tasks: outputData.total_tasks, total_sections: outputData.total_sections };
         }
       }
   

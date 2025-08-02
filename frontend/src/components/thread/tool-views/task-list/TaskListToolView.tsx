@@ -1,5 +1,5 @@
 import type React from "react"
-import { Check, Clock, Pause, ChevronDown, CircleX, CheckCircle, AlertTriangle, ListTodo, X } from "lucide-react"
+import { Check, Clock, CheckCircle, AlertTriangle, ListTodo, X, Circle, CircleCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { extractTaskListData, type Task, type Section } from "./_utils"
 import { getToolTitle } from "../utils"
@@ -17,9 +17,9 @@ const TaskItem: React.FC<{ task: Task; index: number }> = ({ task, index }) => {
     <div className="flex items-center gap-3 py-3 px-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
       {/* Status Icon */}
       <div className="flex-shrink-0">
-        {isCompleted && <Check className="h-4 w-4 text-green-500 dark:text-green-400" />}
+        {isCompleted && <CircleCheck className="h-4 w-4 text-green-500 dark:text-green-400" />}
         {isCancelled && <X className="h-4 w-4 text-red-500 dark:text-red-400" />}
-        {isPending && <Clock className="h-4 w-4 text-zinc-400 dark:text-zinc-600" />}
+        {isPending && <Circle className="h-4 w-4 text-zinc-400 dark:text-zinc-600" />}
       </div>
 
       {/* Task Content */}
@@ -95,9 +95,10 @@ export const TaskListToolView: React.FC<ToolViewProps> = ({
   // Process task data
   const sections = taskData?.sections || []
   const allTasks = sections.flatMap((section) => section.tasks)
-  const totalTasks = allTasks.length
+  const totalTasks = taskData?.total_tasks || 0
+  // console.log("Tasks", taskData)
   const completedTasks = allTasks.filter((t) => t.status === "completed").length
-  const hasData = sections.length > 0
+  const hasData = taskData?.total_tasks && taskData?.total_tasks > 0
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">

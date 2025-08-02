@@ -12,23 +12,33 @@ class TaskStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+class Section(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    
 class Task(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     content: str
     status: TaskStatus = TaskStatus.PENDING
-    section: str = "General"  # Simplified: just a string
+    section_id: str  # Reference to section ID instead of section name
 
 class TaskListTool(SandboxToolsBase):
-    """Simplified task management tool with same external interface"""
+    """Task management system for organizing and tracking tasks. It contains the action plan for the agent to follow.
+    
+    Features:
+    - Create, update, and delete tasks organized by sections
+    - Support for batch operations across multiple sections
+    - Organize tasks into logical sections and workflows
+    - Track completion status and progress
+    """
     
     def __init__(self, project_id: str, thread_manager, thread_id: str):
         super().__init__(project_id, thread_manager)
         self.thread_id = thread_id
         self.task_list_message_type = "task_list"
     
-    async def _load_tasks(self) -> List[Task]:
-        """Load tasks from storage"""
-            
+    async def _load_data(self) -> tuple[List[Section], List[Task]]:
+        """Load sections and tasks from storage"""
         try:
             client = await self.thread_manager.db.client
             result = await client.table('messages').select('*')\
@@ -41,34 +51,43 @@ class TaskListTool(SandboxToolsBase):
                 if isinstance(content, str):
                     content = json.loads(content)
                 
-                # Handle both old nested format and new simple format
-                tasks = []
-                if 'tasks' in content:
-                    # New simple format
-                    tasks = [Task(**task_data) for task_data in content['tasks']]
-                elif 'sections' in content:
-                    # Old nested format - convert to simple
-                    for section_data in content['sections']:
-                        section_name = section_data.get('title', 'General')
-                        for task_data in section_data.get('tasks', []):
-                            task_data['section'] = section_name
-                            tasks.append(Task(**task_data))
+                sections = [Section(**s) for s in content.get('sections', [])]
+                tasks = [Task(**t) for t in content.get('tasks', [])]
                 
-                return tasks
+                # Handle migration from old format
+                if not sections and 'sections' in content:
+                    # Create sections from old nested format
+                    for old_section in content['sections']:
+                        section = Section(title=old_section['title'])
+                        sections.append(section)
+                        
+                        # Update tasks to reference section ID
+                        for old_task in old_section.get('tasks', []):
+                            task = Task(
+                                content=old_task['content'],
+                                status=TaskStatus(old_task.get('status', 'pending')),
+                                section_id=section.id
+                            )
+                            if 'id' in old_task:
+                                task.id = old_task['id']
+                            tasks.append(task)
+                
+                return sections, tasks
             
-            return []
+            # Return empty lists - no default section
+            return [], []
             
         except Exception as e:
-            logger.error(f"Error loading tasks: {e}")
-            return []
+            logger.error(f"Error loading data: {e}")
+            return [], []
     
-    async def _save_tasks(self, tasks: List[Task]):
-        """Save tasks to storage (simplified)"""
+    async def _save_data(self, sections: List[Section], tasks: List[Task]):
+        """Save sections and tasks to storage"""
         try:
             client = await self.thread_manager.db.client
             
-            # Simple storage format
             content = {
+                'sections': [section.model_dump() for section in sections],
                 'tasks': [task.model_dump() for task in tasks]
             }
             
@@ -93,53 +112,48 @@ class TaskListTool(SandboxToolsBase):
                 }).execute()
             
         except Exception as e:
-            logger.error(f"Error saving tasks: {e}")
+            logger.error(f"Error saving data: {e}")
             raise
     
-    def _format_response(self, tasks: List[Task], message: str = "") -> Dict[str, Any]:
-        """Format tasks for response (maintains expected nested structure)"""
-        # Group by section for backward compatibility
-        sections_map = {}
-        for task in tasks:
-            section = task.section
-            if section not in sections_map:
-                sections_map[section] = []
-            sections_map[section].append(task.model_dump())
+    def _format_response(self, sections: List[Section], tasks: List[Task]) -> Dict[str, Any]:
+        """Format data for response"""
+        # Group display tasks by section
+        section_map = {s.id: s for s in sections}
+        grouped_tasks = {}
         
-        sections = [
-            {
-                "id": section_name.lower().replace(" ", "_"),
-                "title": section_name,
-                "tasks": task_list
-            }
-            for section_name, task_list in sections_map.items()
-        ]
+        for task in tasks:
+            section_id = task.section_id
+            if section_id not in grouped_tasks:
+                grouped_tasks[section_id] = []
+            grouped_tasks[section_id].append(task.model_dump())
+        
+        formatted_sections = []
+        for section in sections:
+            section_tasks = grouped_tasks.get(section.id, [])
+            # Only include sections that have tasks to display (unless showing all sections)
+            if section_tasks:
+                formatted_sections.append({
+                    "id": section.id,
+                    "title": section.title,
+                    "tasks": section_tasks
+                })
         
         response = {
-            "sections": sections,
-            "total": len(tasks)
+            "sections": formatted_sections,
+            "total_tasks": len(tasks),  # Always use original task count
+            "total_sections": len(sections)
         }
         
-        if message:
-            response["message"] = message
-            
         return response
 
     @openapi_schema({
         "type": "function",
         "function": {
             "name": "view_tasks",
-            "description": "View all tasks. Use this to see current tasks, check progress, or review completed work.",
+            "description": "View all tasks and sections. Use this to see current tasks, check progress, or review completed work. IMPORTANT: This tool helps you identify the next task to execute in the sequential workflow. Always execute tasks in the exact order they appear, completing one task fully before moving to the next. Use this to determine which task is currently pending and should be tackled next.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "status_filter": {
-                        "type": "string",
-                        "enum": ["all", "pending", "completed", "cancelled"],
-                        "default": "all",
-                        "description": "Filter tasks by status"
-                    }
-                },
+                "properties": {},
                 "required": []
             }
         }
@@ -148,23 +162,16 @@ class TaskListTool(SandboxToolsBase):
         '''
         <function_calls>
         <invoke name="view_tasks">
-        <parameter name="status_filter">pending</parameter>
         </invoke>
         </function_calls>
         '''
     )
-    async def view_tasks(self, status_filter: str = "all") -> ToolResult:
-        """View tasks with optional status filter"""
+    async def view_tasks(self) -> ToolResult:
+        """View all tasks and sections"""
         try:
-            tasks = await self._load_tasks()
+            sections, tasks = await self._load_data()
             
-            # Apply filter
-            if status_filter != "all":
-                tasks = [t for t in tasks if t.status.value == status_filter]
-            
-            message = f"No {status_filter} tasks found." if not tasks else ""
-            response_data = self._format_response(tasks, message)
-            response_data["filter"] = status_filter
+            response_data = self._format_response(sections, tasks)
             
             return ToolResult(success=True, output=json.dumps(response_data, indent=2))
             
@@ -176,97 +183,157 @@ class TaskListTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_tasks",
-            "description": "Create tasks organized by sections. Supports batch creation for efficiency.",
+            "description": "Create tasks organized by sections. Supports both single section and multi-section batch creation. Creates sections automatically if they don't exist. IMPORTANT: Create tasks in the exact order they will be executed. Each task should represent a single, specific operation that can be completed independently. Break down complex operations into individual, sequential tasks to maintain the one-task-at-a-time execution principle. You MUST specify either 'sections' array OR both 'task_contents' and ('section_title' OR 'section_id').",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "sections": {
                         "type": "array",
-                        "description": "List of sections with their tasks",
+                        "description": "List of sections with their tasks for batch creation",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "title": {
                                     "type": "string",
-                                    "description": "Section title"
+                                    "description": "Section title (creates if doesn't exist)"
                                 },
                                 "tasks": {
                                     "type": "array",
-                                    "description": "Tasks in this section",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "content": {
-                                                "type": "string",
-                                                "description": "Task description"
-                                            },
-                                            "status": {
-                                                "type": "string",
-                                                "enum": ["pending", "completed", "cancelled"],
-                                                "default": "pending",
-                                                "description": "Initial task status"
-                                            }
-                                        },
-                                        "required": ["content"]
-                                    },
+                                    "description": "Task contents for this section",
+                                    "items": {"type": "string"},
                                     "minItems": 1
                                 }
                             },
                             "required": ["title", "tasks"]
-                        },
-                        "minItems": 1
+                        }
+                    },
+                    "section_title": {
+                        "type": "string",
+                        "description": "Single section title (creates if doesn't exist - use this OR sections array)"
+                    },
+                    "section_id": {
+                        "type": "string",
+                        "description": "Existing section ID (use this OR sections array OR section_title)"
+                    },
+                    "task_contents": {
+                        "type": "array",
+                        "description": "Task contents for single section creation (use with section_title or section_id)",
+                        "items": {"type": "string"}
                     }
                 },
-                "required": ["sections"]
+                "anyOf": [
+                    {"required": ["sections"]},
+                    {
+                        "required": ["task_contents"],
+                        "anyOf": [
+                            {"required": ["section_title"]},
+                            {"required": ["section_id"]}
+                        ]
+                    }
+                ]
             }
         }
     })
     @usage_example(
         '''
+        # Batch creation across multiple sections:
         <function_calls>
         <invoke name="create_tasks">
         <parameter name="sections">[
             {
-                "title": "Setup & Planning",
-                "tasks": [
-                    {"content": "Research API documentation"},
-                    {"content": "Setup development environment"}
-                ]
+                "title": "Setup & Planning", 
+                "tasks": ["Research requirements", "Create project plan"]
             },
             {
-                "title": "Development",
-                "tasks": [
-                    {"content": "Create API client"},
-                    {"content": "Implement API integration"}
-                ]
+                "title": "Development", 
+                "tasks": ["Setup environment", "Write code", "Add tests"]
+            },
+            {
+                "title": "Deployment", 
+                "tasks": ["Deploy to staging", "Run tests", "Deploy to production"]
             }
         ]</parameter>
         </invoke>
         </function_calls>
+        
+        # Simple single section creation:
+        <function_calls>
+        <invoke name="create_tasks">
+        <parameter name="section_title">Bug Fixes</parameter>
+        <parameter name="task_contents">["Fix login issue", "Update error handling"]</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
-    async def create_tasks(self, sections: List[Dict[str, Any]]) -> ToolResult:
-        """Create tasks organized by sections"""
+    async def create_tasks(self, sections: Optional[List[Dict[str, Any]]] = None,
+                          section_title: Optional[str] = None, section_id: Optional[str] = None,
+                          task_contents: Optional[List[str]] = None) -> ToolResult:
+        """Create tasks - supports both batch multi-section and single section creation"""
         try:
-            existing_tasks = await self._load_tasks()
-            created_count = 0
+            existing_sections, existing_tasks = await self._load_data()
+            section_map = {s.id: s for s in existing_sections}
+            title_map = {s.title.lower(): s for s in existing_sections}
             
-            for section_data in sections:
-                section_title = section_data["title"]
+            created_tasks = 0
+            created_sections = 0
+            
+            if sections:
+                # Batch creation across multiple sections
+                for section_data in sections:
+                    section_title_input = section_data["title"]
+                    task_list = section_data["tasks"]
+                    
+                    # Find or create section
+                    title_lower = section_title_input.lower()
+                    if title_lower in title_map:
+                        target_section = title_map[title_lower]
+                    else:
+                        target_section = Section(title=section_title_input)
+                        existing_sections.append(target_section)
+                        title_map[title_lower] = target_section
+                        created_sections += 1
+                    
+                    # Create tasks in this section
+                    for task_content in task_list:
+                        new_task = Task(content=task_content, section_id=target_section.id)
+                        existing_tasks.append(new_task)
+                        created_tasks += 1
+                        
+            else:
+                # Single section creation - require explicit section specification
+                if not task_contents:
+                    return ToolResult(success=False, output="❌ Must provide either 'sections' array or 'task_contents' with section info")
                 
-                for task_data in section_data["tasks"]:
-                    new_task = Task(
-                        content=task_data["content"],
-                        status=TaskStatus(task_data.get("status", "pending")),
-                        section=section_title
-                    )
+                if not section_id and not section_title:
+                    return ToolResult(success=False, output="❌ Must specify either 'section_id' or 'section_title' when using 'task_contents'")
+                
+                target_section = None
+                
+                if section_id:
+                    # Use existing section ID
+                    if section_id not in section_map:
+                        return ToolResult(success=False, output=f"❌ Section ID '{section_id}' not found")
+                    target_section = section_map[section_id]
+                    
+                elif section_title:
+                    # Find or create section by title
+                    title_lower = section_title.lower()
+                    if title_lower in title_map:
+                        target_section = title_map[title_lower]
+                    else:
+                        target_section = Section(title=section_title)
+                        existing_sections.append(target_section)
+                        created_sections += 1
+                
+                # Create tasks
+                for content in task_contents:
+                    new_task = Task(content=content, section_id=target_section.id)
                     existing_tasks.append(new_task)
-                    created_count += 1
+                    created_tasks += 1
             
-            await self._save_tasks(existing_tasks)
+            await self._save_data(existing_sections, existing_tasks)
             
-            message = f"Created {created_count} tasks"
-            response_data = self._format_response(existing_tasks, message)
+            response_data = self._format_response(existing_sections, existing_tasks)
             
             return ToolResult(success=True, output=json.dumps(response_data, indent=2))
             
@@ -278,80 +345,94 @@ class TaskListTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "update_tasks",
-        "description": "Update tasks by their IDs. Can change content, status, or move between sections.",
+            "description": "Update one or more tasks. Can update content, status, or move tasks between sections. IMPORTANT: Follow the one-task-at-a-time execution principle. After completing each individual task, immediately update it to 'completed' status before proceeding to the next task. This ensures proper progress tracking and prevents bulk operations that violate the sequential execution workflow.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "updates": {
-                        "type": "array",
-                        "description": "List of task updates",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string",
-                                    "description": "Task ID to update"
-                                },
-                                "content": {
-                                    "type": "string",
-                                    "description": "New task description (optional)"
-                                },
-                                "status": {
-                                    "type": "string",
-                                    "enum": ["pending", "completed", "cancelled"],
-                                    "description": "New task status (optional)"
-                                },
-                                "section": {
-                                    "type": "string",
-                                    "description": "New section name (optional)"
-                                }
-                            },
-                            "required": ["id"]
-                        },
-                        "minItems": 1
+                    "task_ids": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
+                        ],
+                        "description": "Task ID (string) or array of task IDs to update. For optimal workflow, prefer updating single tasks to 'completed' status immediately after completion rather than bulk updates."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content for the task(s) (optional)"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["pending", "completed", "cancelled"],
+                        "description": "New status for the task(s) (optional). Use 'completed' immediately after finishing each individual task to maintain proper execution flow."
+                    },
+                    "section_id": {
+                        "type": "string",
+                        "description": "Section ID to move task(s) to (optional)"
                     }
                 },
-                "required": ["updates"]
+                "required": ["task_ids"]
             }
         }
     })
     @usage_example(
         '''
+        # Update single task:
         <function_calls>
         <invoke name="update_tasks">
-        <parameter name="updates">[
-            {"id": "task-id-1", "status": "completed"},
-            {"id": "task-id-2", "content": "Updated description", "section": "New Section"}
-        ]</parameter>
+        <parameter name="task_ids">task-uuid-here</parameter>
+        <parameter name="status">completed</parameter>
+        </invoke>
+        </function_calls>
+        
+        # Update multiple tasks:
+        <function_calls>
+        <invoke name="update_tasks">
+        <parameter name="task_ids">["task-id-1", "task-id-2", "task-id-3"]</parameter>
+        <parameter name="status">completed</parameter>
         </invoke>
         </function_calls>
         '''
     )
-    async def update_tasks(self, updates: List[Dict[str, Any]]) -> ToolResult:
-        """Update multiple tasks"""
+    async def update_tasks(self, task_ids, content: Optional[str] = None,
+                          status: Optional[str] = None, section_id: Optional[str] = None) -> ToolResult:
+        """Update one or more tasks"""
         try:
-            tasks = await self._load_tasks()
-            task_map = {task.id: task for task in tasks}
+            # Normalize task_ids to always be a list
+            if isinstance(task_ids, str):
+                target_task_ids = [task_ids]
+            else:
+                target_task_ids = task_ids
+            
+            sections, tasks = await self._load_data()
+            section_map = {s.id: s for s in sections}
+            task_map = {t.id: t for t in tasks}
+            
+            # Validate all task IDs exist
+            missing_tasks = [tid for tid in target_task_ids if tid not in task_map]
+            if missing_tasks:
+                return ToolResult(success=False, output=f"❌ Task IDs not found: {missing_tasks}")
+            
+            # Validate section ID if provided
+            if section_id and section_id not in section_map:
+                return ToolResult(success=False, output=f"❌ Section ID '{section_id}' not found")
+            
+            # Apply updates
             updated_count = 0
+            for tid in target_task_ids:
+                task = task_map[tid]
+                
+                if content is not None:
+                    task.content = content
+                if status is not None:
+                    task.status = TaskStatus(status)
+                if section_id is not None:
+                    task.section_id = section_id
+                
+                updated_count += 1
             
-            for update_data in updates:
-                task_id = update_data["id"]
-                if task_id in task_map:
-                    task = task_map[task_id]
-                    
-                    if "content" in update_data:
-                        task.content = update_data["content"]
-                    if "status" in update_data:
-                        task.status = TaskStatus(update_data["status"])
-                    if "section" in update_data:
-                        task.section = update_data["section"]
-                    
-                    updated_count += 1
+            await self._save_data(sections, tasks)
             
-            await self._save_tasks(tasks)
-            
-            message = f"Updated {updated_count} tasks"
-            response_data = self._format_response(tasks, message)
+            response_data = self._format_response(sections, tasks)
             
             return ToolResult(success=True, output=json.dumps(response_data, indent=2))
             
@@ -363,104 +444,186 @@ class TaskListTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "delete_tasks",
-            "description": "Delete one or more tasks by their IDs.",
+            "description": "Delete one or more tasks and/or sections. Can delete tasks by their IDs or sections by their IDs (which will also delete all tasks in those sections).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "task_ids": {
-                        "type": "array",
-                        "description": "List of task IDs to delete",
-                        "items": {"type": "string"},
-                        "minItems": 1
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
+                        ],
+                        "description": "Task ID (string) or array of task IDs to delete (optional)"
+                    },
+                    "section_ids": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "array", "items": {"type": "string"}, "minItems": 1}
+                        ],
+                        "description": "Section ID (string) or array of section IDs to delete (will also delete all tasks in these sections) (optional)"
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "Must be true to confirm deletion of sections (required when deleting sections)"
                     }
                 },
-                "required": ["task_ids"]
+                "anyOf": [
+                    {"required": ["task_ids"]},
+                    {"required": ["section_ids", "confirm"]}
+                ]
             }
         }
     })
     @usage_example(
         '''
+        # Delete single task:
+        <function_calls>
+        <invoke name="delete_tasks">
+        <parameter name="task_ids">task-uuid-here</parameter>
+        </invoke>
+        </function_calls>
+        
+        # Delete multiple tasks:
         <function_calls>
         <invoke name="delete_tasks">
         <parameter name="task_ids">["task-id-1", "task-id-2"]</parameter>
         </invoke>
         </function_calls>
+        
+        # Delete single section (and all its tasks):
+        <function_calls>
+        <invoke name="delete_tasks">
+        <parameter name="section_ids">section-uuid-here</parameter>
+        <parameter name="confirm">true</parameter>
+        </invoke>
+        </function_calls>
+        
+        # Delete multiple sections (and all their tasks):
+        <function_calls>
+        <invoke name="delete_tasks">
+        <parameter name="section_ids">["section-id-1", "section-id-2"]</parameter>
+        <parameter name="confirm">true</parameter>
+        </invoke>
+        </function_calls>
+        
+        # Delete both tasks and sections:
+        <function_calls>
+        <invoke name="delete_tasks">
+        <parameter name="task_ids">["task-id-1", "task-id-2"]</parameter>
+        <parameter name="section_ids">["section-id-1"]</parameter>
+        <parameter name="confirm">true</parameter>
+        </invoke>
+        </function_calls>
         '''
     )
-    async def delete_tasks(self, task_ids: List[str]) -> ToolResult:
-        """Delete multiple tasks"""
+    async def delete_tasks(self, task_ids=None, section_ids=None, confirm: bool = False) -> ToolResult:
+        """Delete one or more tasks and/or sections"""
         try:
-            tasks = await self._load_tasks()
-            task_id_set = set(task_ids)
-            remaining_tasks = [task for task in tasks if task.id not in task_id_set]
-            deleted_count = len(tasks) - len(remaining_tasks)
+            # Validate that at least one of task_ids or section_ids is provided
+            if not task_ids and not section_ids:
+                return ToolResult(success=False, output="❌ Must provide either task_ids or section_ids")
             
-            await self._save_tasks(remaining_tasks)
+            # Validate confirm parameter for section deletion
+            if section_ids and not confirm:
+                return ToolResult(success=False, output="❌ Must set confirm=true to delete sections")
             
-            message = f"Deleted {deleted_count} tasks"
-            response_data = self._format_response(remaining_tasks, message)
+            sections, tasks = await self._load_data()
+            section_map = {s.id: s for s in sections}
+            task_map = {t.id: t for t in tasks}
+            
+            # Process task deletions
+            deleted_tasks = 0
+            remaining_tasks = tasks.copy()
+            if task_ids:
+                # Normalize task_ids to always be a list
+                if isinstance(task_ids, str):
+                    target_task_ids = [task_ids]
+                else:
+                    target_task_ids = task_ids
+                
+                # Validate all task IDs exist
+                missing_tasks = [tid for tid in target_task_ids if tid not in task_map]
+                if missing_tasks:
+                    return ToolResult(success=False, output=f"❌ Task IDs not found: {missing_tasks}")
+                
+                # Remove tasks
+                task_id_set = set(target_task_ids)
+                remaining_tasks = [task for task in tasks if task.id not in task_id_set]
+                deleted_tasks = len(tasks) - len(remaining_tasks)
+            
+            # Process section deletions
+            deleted_sections = 0
+            remaining_sections = sections.copy()
+            if section_ids:
+                # Normalize section_ids to always be a list
+                if isinstance(section_ids, str):
+                    target_section_ids = [section_ids]
+                else:
+                    target_section_ids = section_ids
+                
+                # Validate all section IDs exist
+                missing_sections = [sid for sid in target_section_ids if sid not in section_map]
+                if missing_sections:
+                    return ToolResult(success=False, output=f"❌ Section IDs not found: {missing_sections}")
+                
+                # Remove sections and their tasks
+                section_id_set = set(target_section_ids)
+                remaining_sections = [s for s in sections if s.id not in section_id_set]
+                remaining_tasks = [t for t in remaining_tasks if t.section_id not in section_id_set]
+                deleted_sections = len(sections) - len(remaining_sections)
+            
+            await self._save_data(remaining_sections, remaining_tasks)
+            
+            response_data = self._format_response(remaining_sections, remaining_tasks)
             
             return ToolResult(success=True, output=json.dumps(response_data, indent=2))
             
         except Exception as e:
-            logger.error(f"Error deleting tasks: {e}")
-            return ToolResult(success=False, output=f"❌ Error deleting tasks: {str(e)}")
+            logger.error(f"Error deleting tasks/sections: {e}")
+            return ToolResult(success=False, output=f"❌ Error deleting tasks/sections: {str(e)}")
 
     @openapi_schema({
         "type": "function",
         "function": {
-            "name": "clear_tasks",
-            "description": "Clear all tasks or tasks in specific sections.",
+            "name": "clear_all",
+            "description": "Clear all tasks and sections (creates completely empty state).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "confirm": {
                         "type": "boolean",
-                        "description": "Must be true to confirm clearing tasks"
-                    },
-                    "sections": {
-                        "type": "array",
-                        "description": "Section names to clear (optional - if not provided, all tasks will be cleared)",
-                        "items": {"type": "string"}
+                        "description": "Must be true to confirm clearing everything"
                     }
                 },
                 "required": ["confirm"]
             }
         }
     })
-    @usage_example('''
+    @usage_example(
+        '''
         <function_calls>
-        <invoke name="clear_tasks">
+        <invoke name="clear_all">
         <parameter name="confirm">true</parameter>
-        <parameter name="sections">["Setup & Planning", "Development"]</parameter>
         </invoke>
         </function_calls>
         '''
     )
-    async def clear_tasks(self, confirm: bool, sections: Optional[List[str]] = None) -> ToolResult:
-        """Clear all tasks or tasks in specific sections"""
+    async def clear_all(self, confirm: bool) -> ToolResult:
+        """Clear everything and start fresh"""
         try:
             if not confirm:
-                return ToolResult(success=False, output="❌ Must confirm=true to clear tasks")
+                return ToolResult(success=False, output="❌ Must set confirm=true to clear all data")
             
-            tasks = await self._load_tasks()
+            # Create completely empty state - no default section
+            sections = []
+            tasks = []
             
-            if sections:
-                section_set = set(sections)
-                remaining_tasks = [task for task in tasks if task.section not in section_set]
-                deleted_count = len(tasks) - len(remaining_tasks)
-                message = f"Deleted {deleted_count} tasks from {len(sections)} sections"
-            else:
-                remaining_tasks = []
-                deleted_count = len(tasks)
-                message = f"Deleted all {deleted_count} tasks"
+            await self._save_data(sections, tasks)
             
-            await self._save_tasks(remaining_tasks)
-            
-            response_data = self._format_response(remaining_tasks, message)
+            response_data = self._format_response(sections, tasks)
             
             return ToolResult(success=True, output=json.dumps(response_data, indent=2))
             
         except Exception as e:
-            logger.error(f"Error clearing tasks: {e}")
-            return ToolResult(success=False, output=f"❌ Error clearing tasks: {str(e)}")
+            logger.error(f"Error clearing all data: {e}")
+            return ToolResult(success=False, output=f"❌ Error clearing all data: {str(e)}")
