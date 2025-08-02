@@ -192,6 +192,133 @@ export default function AgentConfigurationPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, [isViewingOldVersion]);
 
+  // Immediate save handler for system prompt changes
+  const handleSystemPromptSave = useCallback(async (value: string) => {
+    console.log('🔥 System prompt save triggered with value:', { value, length: value.length });
+    
+    if (!agent || isViewingOldVersion || isSaving) {
+      console.log('❌ Save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
+      return;
+    }
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    
+    if (isSunaAgent) {
+      console.log('❌ Suna agent system prompt edit blocked');
+      toast.error("System prompt cannot be edited", {
+        description: "Suna's system prompt is managed centrally and cannot be changed.",
+      });
+      return;
+    }
+    
+    // Update form data first
+    setFormData(prev => ({ ...prev, system_prompt: value }));
+    
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const saveData = {
+      system_prompt: value,
+      configured_mcps: formData.configured_mcps,
+      custom_mcps: normalizedCustomMcps,
+      agentpress_tools: formData.agentpress_tools,
+      description: 'System prompt update'
+    };
+    
+    console.log('💾 Saving system prompt with data:', saveData);
+    setIsSaving(true);
+    
+    try {
+      const result = await createVersionMutation.mutateAsync({
+        agentId,
+        data: saveData
+      });
+      
+      console.log('✅ Version created successfully:', result);
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      // Update original data to reflect the save
+      setOriginalData(prev => ({ ...prev, system_prompt: value }));
+      
+      console.log('✅ System prompt saved and state updated');
+      toast.success('System prompt saved');
+    } catch (error) {
+      console.error('❌ Save error:', error);
+      toast.error('Failed to save system prompt');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+
+  // Immediate save handler for tools changes
+  const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
+    console.log('🔧 Tools save triggered with:', { tools, toolsCount: Object.keys(tools).length });
+    
+    if (!agent || isViewingOldVersion || isSaving) {
+      console.log('❌ Tools save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
+      return;
+    }
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const restrictions = agent?.metadata?.restrictions || {};
+    
+    if (isSunaAgent && restrictions.tools_editable === false) {
+      console.log('❌ Suna agent tools edit blocked');
+      toast.error("Suna's default tools cannot be modified.");
+      return;
+    }
+    
+    // Update form data first
+    setFormData(prev => ({ ...prev, agentpress_tools: tools }));
+    
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const saveData = {
+      system_prompt: isSunaAgent ? '' : formData.system_prompt,
+      configured_mcps: formData.configured_mcps,
+      custom_mcps: normalizedCustomMcps,
+      agentpress_tools: tools,
+      description: 'Tools configuration update'
+    };
+    
+    console.log('💾 Saving tools with data:', saveData);
+    setIsSaving(true);
+    
+    try {
+      const result = await createVersionMutation.mutateAsync({
+        agentId,
+        data: saveData
+      });
+      
+      console.log('✅ Tools version created successfully:', result);
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      // Update original data to reflect the save
+      setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
+      
+      console.log('✅ Tools saved and state updated');
+      toast.success('Tools configuration saved');
+    } catch (error) {
+      console.error('❌ Tools save error:', error);
+      toast.error('Failed to save tools configuration');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+
   const handleMCPChange = useCallback(async (updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
     if (isViewingOldVersion) {
       toast.error('Cannot edit old versions. Please activate this version first to make changes.');
@@ -413,6 +540,8 @@ export default function AgentConfigurationPage() {
                       isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
+                      onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
@@ -437,6 +566,8 @@ export default function AgentConfigurationPage() {
                         isViewingOldVersion={isViewingOldVersion}
                         onFieldChange={handleFieldChange}
                         onMCPChange={handleMCPChange}
+                        onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                         initialAccordion={initialAccordion}
                         agentMetadata={agent?.metadata}
                       />
@@ -539,6 +670,7 @@ export default function AgentConfigurationPage() {
                     isViewingOldVersion={isViewingOldVersion}
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
+                    onSystemPromptSave={handleSystemPromptSave}
                     initialAccordion={initialAccordion}
                     agentMetadata={agent?.metadata}
                   />
@@ -563,6 +695,8 @@ export default function AgentConfigurationPage() {
                       isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
+                      onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
