@@ -15,8 +15,6 @@ interface ExpandableMarkdownEditorProps {
   placeholder?: string;
   title?: string;
   disabled?: boolean;
-  autosave?: boolean;
-  autosaveDelay?: number;
 }
 
 export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> = ({ 
@@ -25,39 +23,15 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
   className = '', 
   placeholder = 'Click to edit...',
   title = 'Edit Instructions',
-  disabled = false,
-  autosave = false,
-  autosaveDelay = 1000
+  disabled = false
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
-  const autosaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     setEditValue(value);
   }, [value]);
-
-  // Autosave effect
-  useEffect(() => {
-    if (!autosave || !isEditing || editValue === value) return;
-
-    // Clear existing timeout
-    if (autosaveTimeoutRef.current) {
-      clearTimeout(autosaveTimeoutRef.current);
-    }
-
-    // Set new timeout for autosave
-    autosaveTimeoutRef.current = setTimeout(() => {
-      onSave(editValue);
-    }, autosaveDelay);
-
-    return () => {
-      if (autosaveTimeoutRef.current) {
-        clearTimeout(autosaveTimeoutRef.current);
-      }
-    };
-  }, [editValue, value, onSave, autosave, autosaveDelay, isEditing]);
 
   const handleSave = () => {
     onSave(editValue);

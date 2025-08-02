@@ -144,8 +144,6 @@ export function ConfigurationTab({
                     placeholder="Click to set system instructions..."
                     title="System Instructions"
                     disabled={!isSystemPromptEditable}
-                    autosave={true}
-                    autosaveDelay={1500}
                   />
                 </div>
               </div>
