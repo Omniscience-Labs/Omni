@@ -1,38 +1,56 @@
-import { useQuery } from '@tanstack/react-query';
-import { backendApi } from '@/lib/api-client';
+'use client';
 
-export interface ComposioToolkit {
-  slug: string;
-  name: string;
-  description?: string;
-  logo?: string;
-  tags: string[];
-  auth_schemes: string[];
-}
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { 
+  composioApi, 
+  type ComposioToolkitsResponse,
+  type CreateComposioProfileRequest,
+  type CreateComposioProfileResponse,
+} from './utils';
+import { composioKeys } from './keys';
+import { toast } from 'sonner';
 
 export const useComposioToolkits = (search?: string) => {
   return useQuery({
-    queryKey: ['composio', 'toolkits', search],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (search) {
-        params.append('search', search);
-      }
-      
-      const result = await backendApi.get<ComposioToolkit[]>(
-        `/composio/toolkits?${params.toString()}`,
-        {
-          errorContext: { operation: 'get toolkits', resource: 'Composio toolkits' },
-        }
-      );
-      
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch Composio toolkits');
-      }
-      
-      return result.data!;
+    queryKey: composioKeys.toolkits(search),
+    queryFn: async (): Promise<ComposioToolkitsResponse> => {
+      const result = await composioApi.getToolkits(search);
+      console.log('🔍 Composio Toolkits:', result);
+      return result;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, 
     retry: 2,
   });
+};
+
+export const useCreateComposioProfile = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (request: CreateComposioProfileRequest): Promise<CreateComposioProfileResponse> => {
+      return await composioApi.createProfile(request);
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: composioKeys.profiles.all() });
+      toast.success(`Connected to ${variables.profile_name}!`);
+      
+      // If there's a redirect URL, open it automatically
+      if (data.redirect_url) {
+        console.log('🔗 Opening OAuth URL:', data.redirect_url);
+        window.open(data.redirect_url, '_blank', 'width=600,height=700,resizable=yes,scrollbars=yes');
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to create Composio profile:', error);
+      toast.error(error.message || 'Failed to create profile');
+    },
+  });
+};
+
+export const useInvalidateComposioQueries = () => {
+  const queryClient = useQueryClient();
+  
+  return () => {
+    queryClient.invalidateQueries({ queryKey: composioKeys.all });
+  };
 }; 

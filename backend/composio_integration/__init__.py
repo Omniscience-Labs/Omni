@@ -1,46 +1,30 @@
-# Main integration service and client
-from .client import ComposioClient, get_composio_client
+from .toolkit_service import ToolkitService, ToolkitInfo
+from .auth_config_service import AuthConfigService, AuthConfig
+from .connected_account_service import ConnectedAccountService, ConnectedAccount
+from .mcp_server_service import MCPServerService, MCPServer, MCPUrlResponse
 from .composio_service import (
     ComposioIntegrationService,
     ComposioIntegrationResult,
-    get_integration_service,
+    get_integration_service
 )
-
-# Individual services
-from .toolkit_service import ToolkitService, ToolkitInfo
-from .auth_config_service import AuthConfigService, AuthConfig
-from .connected_account_service import (
-    ConnectedAccountService, 
-    ConnectedAccount, 
-    ConnectionState
-)
-from .mcp_server_service import (
-    MCPServerService, 
-    MCPServer, 
-    MCPUrlResponse, 
-    MCPCommands
-)
+from .composio_profile_service import ComposioProfileService, ComposioProfile
+from .client import ComposioClient, get_composio_client
 
 __all__ = [
-    # Main services
-    "ComposioClient",
-    "ComposioIntegrationService", 
-    "ComposioIntegrationResult",
-    "get_composio_client",
-    "get_integration_service",
-    
-    # Individual services
     "ToolkitService",
-    "AuthConfigService", 
-    "ConnectedAccountService",
-    "MCPServerService",
-    
-    # Models
     "ToolkitInfo",
+    "AuthConfigService", 
     "AuthConfig",
+    "ConnectedAccountService",
     "ConnectedAccount",
-    "ConnectionState", 
+    "MCPServerService",
     "MCPServer",
     "MCPUrlResponse",
-    "MCPCommands",
+    "ComposioIntegrationService",
+    "ComposioIntegrationResult",
+    "get_integration_service",
+    "ComposioProfileService",
+    "ComposioProfile",
+    "ComposioClient",
+    "get_composio_client"
 ] 

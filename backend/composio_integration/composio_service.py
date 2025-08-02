@@ -4,13 +4,13 @@ from composio_client import Composio
 from utils.logger import logger
 from pydantic import BaseModel
 from services.supabase import DBConnection
-from credentials.profile_service import ProfileService
 
 from .client import ComposioClient, get_composio_client
 from .toolkit_service import ToolkitService, ToolkitInfo
 from .auth_config_service import AuthConfigService, AuthConfig
 from .connected_account_service import ConnectedAccountService, ConnectedAccount
 from .mcp_server_service import MCPServerService, MCPServer, MCPUrlResponse
+from .composio_profile_service import ComposioProfileService
 
 
 class ComposioIntegrationResult(BaseModel):
@@ -30,7 +30,7 @@ class ComposioIntegrationService:
         self.auth_config_service = AuthConfigService(api_key)
         self.connected_account_service = ConnectedAccountService(api_key)
         self.mcp_server_service = MCPServerService(api_key)
-        self.profile_service = ProfileService(db_connection) if db_connection else None
+        self.profile_service = ComposioProfileService(db_connection) if db_connection else None
     
     async def integrate_toolkit(
         self, 
@@ -62,7 +62,8 @@ class ComposioIntegrationService:
             
             mcp_server = await self.mcp_server_service.create_mcp_server(
                 auth_config_ids=[auth_config.id],
-                name=mcp_server_name
+                name=mcp_server_name,
+                toolkit_name=toolkit.name
             )
             logger.info(f"Step 4 complete: Created MCP server {mcp_server.id}")
             
@@ -77,25 +78,21 @@ class ComposioIntegrationService:
             
             profile_id = None
             if save_as_profile and self.profile_service:
-                profile_config = {
-                    "toolkit_slug": toolkit_slug,
-                    "auth_config_id": auth_config.id,
-                    "connected_account_id": connected_account.id,
-                    "mcp_server_id": mcp_server.id,
-                    "final_mcp_url": final_mcp_url,
-                    "redirect_url": connected_account.redirect_url,
-                    "user_id": user_id
-                }
+                profile_name = profile_name or f"{toolkit.name} Integration"
+                display_name = display_name or f"{toolkit.name} via Composio"
                 
-                profile_id = await self.profile_service.store_profile(
+                composio_profile = await self.profile_service.create_profile(
                     account_id=account_id,
-                    mcp_qualified_name=f"composio.{toolkit_slug}",
-                    profile_name=profile_name or f"{toolkit.name} Integration",
-                    display_name=display_name or f"{toolkit.name} via Composio",
-                    config=profile_config,
+                    profile_name=profile_name,
+                    toolkit_slug=toolkit_slug,
+                    toolkit_name=toolkit.name,
+                    mcp_url=final_mcp_url,  # Pass the complete MCP URL
+                    redirect_url=connected_account.redirect_url,
+                    user_id=user_id,
                     is_default=False
                 )
-                logger.info(f"Step 6 complete: Saved credential profile {profile_id}")
+                profile_id = composio_profile.profile_id
+                logger.info(f"Step 6 complete: Saved Composio credential profile {profile_id}")
             
             result = ComposioIntegrationResult(
                 toolkit=toolkit,

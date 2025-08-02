@@ -48,9 +48,6 @@ export const IntegrationsRegistry: React.FC<IntegrationsRegistryProps> = ({
             >
               <Zap className="h-4 w-4" />
               <span>Composio</span>
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full dark:bg-green-900/20 dark:text-green-400">
-                500+
-              </span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -68,6 +65,10 @@ export const IntegrationsRegistry: React.FC<IntegrationsRegistryProps> = ({
           
           <TabsContent value="composio" className="h-full m-0">
             <ComposioRegistry
+              showAgentSelector={showAgentSelector}
+              selectedAgentId={selectedAgentId}
+              onAgentChange={onAgentChange}
+              onToolsSelected={onToolsSelected}
               onClose={onClose}
             />
           </TabsContent>

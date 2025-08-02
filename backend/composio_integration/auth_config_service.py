@@ -1,13 +1,15 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
+from typing import Optional, List
+from composio_client import Composio
 from utils.logger import logger
+from pydantic import BaseModel
+
 from .client import ComposioClient
 
 
 class AuthConfig(BaseModel):
     id: str
     auth_scheme: str
-    is_composio_managed: bool
+    is_composio_managed: bool = True
     restrict_to_following_tools: List[str] = []
     toolkit_slug: str
 
@@ -24,13 +26,14 @@ class AuthConfigService:
                 toolkit={"slug": toolkit_slug}
             )
             
-            auth_config_data = response.get("auth_config", {})
+            # Access Pydantic model attributes directly
+            auth_config_obj = response.auth_config
             
             auth_config = AuthConfig(
-                id=auth_config_data.get("id"),
-                auth_scheme=auth_config_data.get("auth_scheme"),
-                is_composio_managed=auth_config_data.get("is_composio_managed", True),
-                restrict_to_following_tools=auth_config_data.get("restrict_to_following_tools", []),
+                id=auth_config_obj.id,
+                auth_scheme=auth_config_obj.auth_scheme,
+                is_composio_managed=getattr(auth_config_obj, 'is_composio_managed', True),
+                restrict_to_following_tools=getattr(auth_config_obj, 'restrict_to_following_tools', []),
                 toolkit_slug=toolkit_slug
             )
             
@@ -45,31 +48,49 @@ class AuthConfigService:
         try:
             logger.info(f"Fetching auth config: {auth_config_id}")
             
-            logger.warning(f"Get auth config not implemented in SDK for ID: {auth_config_id}")
-            return None
+            response = self.client.auth_configs.get(auth_config_id)
+            
+            if not response:
+                return None
+            
+            # Access Pydantic model attributes directly
+            return AuthConfig(
+                id=response.id,
+                auth_scheme=response.auth_scheme,
+                is_composio_managed=getattr(response, 'is_composio_managed', True),
+                restrict_to_following_tools=getattr(response, 'restrict_to_following_tools', []),
+                toolkit_slug=getattr(response, 'toolkit_slug', '')
+            )
             
         except Exception as e:
             logger.error(f"Failed to get auth config {auth_config_id}: {e}", exc_info=True)
             raise
     
-    async def list_auth_configs(self) -> List[AuthConfig]:
+    async def list_auth_configs(self, toolkit_slug: Optional[str] = None) -> List[AuthConfig]:
         try:
-            logger.info("Listing auth configs")
+            logger.info(f"Listing auth configs for toolkit: {toolkit_slug}")
             
-            logger.warning("List auth configs not implemented in SDK")
-            return []
+            if toolkit_slug:
+                response = self.client.auth_configs.list(toolkit=toolkit_slug)
+            else:
+                response = self.client.auth_configs.list()
+            
+            auth_configs = []
+            items = getattr(response, 'items', [])
+            
+            for item in items:
+                auth_config = AuthConfig(
+                    id=item.id,
+                    auth_scheme=item.auth_scheme,
+                    is_composio_managed=getattr(item, 'is_composio_managed', True),
+                    restrict_to_following_tools=getattr(item, 'restrict_to_following_tools', []),
+                    toolkit_slug=getattr(item, 'toolkit_slug', toolkit_slug or '')
+                )
+                auth_configs.append(auth_config)
+            
+            logger.info(f"Successfully listed {len(auth_configs)} auth configs")
+            return auth_configs
             
         except Exception as e:
             logger.error(f"Failed to list auth configs: {e}", exc_info=True)
-            raise
-    
-    async def delete_auth_config(self, auth_config_id: str) -> bool:
-        try:
-            logger.info(f"Deleting auth config: {auth_config_id}")
-            
-            logger.warning(f"Delete auth config not implemented in SDK for ID: {auth_config_id}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Failed to delete auth config {auth_config_id}: {e}", exc_info=True)
             raise 
