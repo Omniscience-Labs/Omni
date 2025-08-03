@@ -197,20 +197,29 @@ async def create_profile(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/profiles", response_model=List[ProfileResponse])
+@router.get("/profiles")
 async def get_profiles(
     toolkit_slug: Optional[str] = Query(None),
     current_user_id: str = Depends(get_current_user_id_from_jwt)
-) -> List[ProfileResponse]:
+) -> Dict[str, Any]:
     try:
         profile_service = ComposioProfileService(db)
         profiles = await profile_service.get_profiles(current_user_id, toolkit_slug)
         
-        return [ProfileResponse.from_composio_profile(profile) for profile in profiles]
+        profile_responses = [ProfileResponse.from_composio_profile(profile) for profile in profiles]
+        
+        return {
+            "success": True,
+            "profiles": profile_responses
+        }
         
     except Exception as e:
-        logger.error(f"Failed to get profiles: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get profiles: {e}", exc_info=True)
+        return {
+            "success": False,
+            "profiles": [],
+            "error": str(e)
+        }
 
 
 @router.get("/profiles/{profile_id}/mcp-config")
@@ -252,9 +261,7 @@ async def discover_composio_tools(
     profile_id: str,
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
-    """Discover available tools from a Composio profile's MCP URL"""
     try:
-        # Get the profile and its MCP URL
         profile_service = ComposioProfileService(db)
         config = await profile_service.get_profile_config(profile_id)
         
@@ -265,12 +272,10 @@ async def discover_composio_tools(
         if not mcp_url:
             raise HTTPException(status_code=400, detail="Profile has no MCP URL")
         
-        # Use the MCP service to discover tools from the URL
         from mcp_module.mcp_service import mcp_service
         
-        # Composio uses HTTP-based MCP servers
         result = await mcp_service.discover_custom_tools(
-            request_type="http",  # or "sse" depending on Composio's implementation
+            request_type="http",
             config={"url": mcp_url}
         )
         
@@ -292,6 +297,14 @@ async def discover_composio_tools(
     except Exception as e:
         logger.error(f"Failed to discover tools for profile {profile_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/discover-tools/{profile_id}")
+async def discover_tools_post(
+    profile_id: str,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+) -> Dict[str, Any]:
+    return await discover_composio_tools(profile_id, current_user_id)
 
 
 @router.get("/health")

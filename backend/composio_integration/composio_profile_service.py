@@ -190,24 +190,56 @@ class ComposioProfileService:
             
             profile_data = result.data[0]
             
+            # Decrypt the config to get toolkit info
+            config = self._decrypt_config(profile_data['encrypted_config'])
+            
+            if config.get('type') != 'composio':
+                raise ValueError(f"Profile {profile_id} is not a Composio profile")
+            
+            # Return the MCP configuration for the agent - with ONLY profile_id
+            return {
+                "name": config['toolkit_name'],  # Just the toolkit name, cleaner
+                "type": "composio",
+                "config": {
+                    "profile_id": profile_id  # Only store profile_id reference
+                },
+                "enabledTools": []  # Will be populated by tool selection
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get MCP config for profile {profile_id}: {e}", exc_info=True)
+            raise
+    
+    async def get_mcp_url_for_runtime(self, profile_id: str) -> str:
+        """Get the actual MCP URL for runtime connection (used internally by MCP service)"""
+        try:
+            client = await self.db.client
+            
+            # Get the profile
+            result = await client.table('user_mcp_credential_profiles').select('*').eq(
+                'profile_id', profile_id
+            ).execute()
+            
+            if not result.data:
+                raise ValueError(f"Profile {profile_id} not found")
+            
+            profile_data = result.data[0]
+            
             # Decrypt the config to get the MCP URL
             config = self._decrypt_config(profile_data['encrypted_config'])
             
             if config.get('type') != 'composio':
                 raise ValueError(f"Profile {profile_id} is not a Composio profile")
             
-            # Return the MCP configuration for the agent
-            return {
-                "name": f"{config['toolkit_name']} (Composio)",
-                "type": "composio",
-                "config": {
-                    "url": config['mcp_url']
-                },
-                "enabledTools": []
-            }
+            mcp_url = config.get('mcp_url')
+            if not mcp_url:
+                raise ValueError(f"Profile {profile_id} has no MCP URL")
+            
+            logger.info(f"Retrieved MCP URL for profile {profile_id}")
+            return mcp_url
             
         except Exception as e:
-            logger.error(f"Failed to get MCP config for profile {profile_id}: {e}", exc_info=True)
+            logger.error(f"Failed to get MCP URL for profile {profile_id}: {e}", exc_info=True)
             raise
 
     async def get_profile_config(self, profile_id: str) -> Dict[str, Any]:

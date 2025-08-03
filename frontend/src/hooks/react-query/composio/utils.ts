@@ -148,7 +148,7 @@ export const composioApi = {
 
   async discoverTools(profileId: string): Promise<{ success: boolean; tools: any[]; toolkit_name: string; total_tools: number }> {
     const result = await backendApi.post<{ success: boolean; tools: any[]; toolkit_name: string; total_tools: number }>(
-      `/composio/profiles/${profileId}/discover-tools`,
+      `/composio/discover-tools/${profileId}`,
       {},
       {
         errorContext: { operation: 'discover tools', resource: 'Composio profile tools' },

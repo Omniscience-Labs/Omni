@@ -2475,30 +2475,53 @@ async def update_custom_mcp_tools_for_agent(
         
         updated = False
         for i, mcp in enumerate(custom_mcps):
-            if (mcp.get('customType') == mcp_type and 
-                mcp.get('config', {}).get('url') == mcp_url):
-                custom_mcps[i]['enabledTools'] = enabled_tools
-                updated = True
-                break
+            if mcp_type == 'composio':
+                # For Composio, match by profile_id
+                if (mcp.get('type') == 'composio' and 
+                    mcp.get('config', {}).get('profile_id') == mcp_url):
+                    custom_mcps[i]['enabledTools'] = enabled_tools
+                    updated = True
+                    break
+            else:
+                # For other types, match by URL
+                if (mcp.get('customType') == mcp_type and 
+                    mcp.get('config', {}).get('url') == mcp_url):
+                    custom_mcps[i]['enabledTools'] = enabled_tools
+                    updated = True
+                    break
         
         if not updated:
-            new_mcp_config = {
-                "name": f"Custom MCP ({mcp_type.upper()})",
-                "customType": mcp_type,
-                "type": mcp_type,
-                "config": {
-                    "url": mcp_url
-                },
-                "enabledTools": enabled_tools
-            }
-            custom_mcps.append(new_mcp_config)
+            if mcp_type == 'composio':
+                try:
+                    from composio_integration.composio_profile_service import ComposioProfileService
+                    from services.supabase import DBConnection
+                    profile_service = ComposioProfileService(DBConnection())
+ 
+                    profile_id = mcp_url
+                    mcp_config = await profile_service.get_mcp_config_for_agent(profile_id)
+                    mcp_config['enabledTools'] = enabled_tools
+                    custom_mcps.append(mcp_config)
+                except Exception as e:
+                    logger.error(f"Failed to get Composio profile config: {e}")
+                    raise HTTPException(status_code=400, detail=f"Failed to get Composio profile: {str(e)}")
+            else:
+                new_mcp_config = {
+                    "name": f"Custom MCP ({mcp_type.upper()})",
+                    "customType": mcp_type,
+                    "type": mcp_type,
+                    "config": {
+                        "url": mcp_url
+                    },
+                    "enabledTools": enabled_tools
+                }
+                custom_mcps.append(new_mcp_config)
         
         tools['custom_mcp'] = custom_mcps
         agent_config['tools'] = tools
         
         from agent.versioning.version_service import get_version_service
         try:
-            version_service = await get_version_service()
+            version_service = await get_version_service() 
             new_version = await version_service.create_version(
                 agent_id=agent_id,
                 user_id=user_id,
@@ -2506,8 +2529,7 @@ async def update_custom_mcp_tools_for_agent(
                 configured_mcps=agent_config.get('tools', {}).get('mcp', []),
                 custom_mcps=custom_mcps,
                 agentpress_tools=agent_config.get('tools', {}).get('agentpress', {}),
-                version_name="Auto-updated MCP tools",
-                change_description=f"Updated custom MCP tools for {mcp_url}"
+                change_description=f"Updated custom MCP tools for {mcp_type}"
             )
             logger.info(f"Created version {new_version.version_id} for custom MCP tools update on agent {agent_id}")
         except Exception as e:
