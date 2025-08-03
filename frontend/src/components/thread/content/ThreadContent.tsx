@@ -824,9 +824,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
                                                                         const showCursor =
-                                                                          isStreamingText &&
-                                                                          !detectedTag &&
-                                                                          !readOnly;
+                                                                          (streamHookStatus ===
+                                                                            'streaming' ||
+                                                                            streamHookStatus ===
+                                                                              'connecting') &&
+                                                                          !detectedTag;
 
                                                                         return (
                                                                             <>
@@ -882,7 +884,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         const textToRender = streamingText || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                        const showCursor = isStreamingText && !detectedTag && !readOnly;
+                                                                        const showCursor = isStreamingText && !detectedTag;
 
                                                                         return (
                                                                             <>

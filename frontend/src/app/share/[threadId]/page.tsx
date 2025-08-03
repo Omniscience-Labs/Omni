@@ -636,8 +636,6 @@ export default function ThreadPage({
     skipToEnd,
   } = playbackController;
 
-  console.log('streamingText', playbackState.streamingText);
-
   useEffect(() => {
     setIsPlaying(playbackState.isPlaying);
     setCurrentMessageIndex(playbackState.currentMessageIndex);
