@@ -54,10 +54,13 @@ export default function ThreadPage({
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [isSidePanelAnimating, setIsSidePanelAnimating] = useState(false);
   const [userInitiatedRun, setUserInitiatedRun] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  
 
   // Refs - simplified for flex-column-reverse
   const latestMessageRef = useRef<HTMLDivElement>(null);
   const initialLayoutAppliedRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Sidebar
   const { state: leftSidebarState, setOpen: setLeftSidebarOpen } = useSidebar();
@@ -146,7 +149,12 @@ export default function ThreadPage({
   const handleProjectRenamed = useCallback((newName: string) => {
   }, []);
 
-  // scrollToBottom removed - flex-column-reverse handles scroll positioning
+  // scrollToBottom for flex-column-reverse layout
+  const scrollToBottom = useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
     console.log(
@@ -542,6 +550,34 @@ export default function ThreadPage({
     return () => clearTimeout(timer);
   }, [isSidePanelOpen]);
 
+  // Scroll detection for show/hide scroll-to-bottom button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollContainerRef.current) return;
+      
+      const scrollTop = scrollContainerRef.current.scrollTop;
+      const scrollHeight = scrollContainerRef.current.scrollHeight;
+      const clientHeight = scrollContainerRef.current.clientHeight;
+      const threshold = 100;
+      
+      // With flex-column-reverse, scrollTop becomes NEGATIVE when scrolling up
+      // Show button when scrollTop < -threshold (scrolled up enough from bottom)
+      const shouldShow = scrollTop < -threshold && scrollHeight > clientHeight;
+      setShowScrollToBottom(shouldShow);
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      // Check initial state
+      setTimeout(() => handleScroll(), 100);
+      
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [messages, initialLoadCompleted]);
+
   if (!initialLoadCompleted || isLoading) {
     return <ThreadSkeleton isSidePanelOpen={isSidePanelOpen} />;
   }
@@ -647,7 +683,9 @@ export default function ThreadPage({
           debugMode={debugMode}
           agentName={agent && agent.name}
           agentAvatar={agent && agent.avatar}
+          scrollContainerRef={scrollContainerRef}
         />
+
 
         <div
           className={cn(
@@ -685,6 +723,8 @@ export default function ThreadPage({
                 userClosedPanelRef.current = false;
               }}
               defaultShowSnackbar="tokens"
+              showScrollToBottomIndicator={showScrollToBottom}
+              onScrollToBottom={scrollToBottom}
             />
           </div>
         </div>

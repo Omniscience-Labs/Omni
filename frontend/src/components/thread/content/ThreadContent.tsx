@@ -311,6 +311,7 @@ export interface ThreadContentProps {
     agentAvatar?: React.ReactNode;
     emptyStateComponent?: React.ReactNode; // Add custom empty state component prop
     threadMetadata?: any; // Add thread metadata prop
+    scrollContainerRef?: React.RefObject<HTMLDivElement>; // Add scroll container ref prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -334,6 +335,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     agentAvatar = <KortixLogo size={16} />,
     emptyStateComponent,
     threadMetadata,
+    scrollContainerRef,
 }) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -423,7 +425,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     // Smart justify-content based on content height
     useEffect(() => {
         const checkContentHeight = () => {
-            const container = messagesContainerRef.current;
+            const container = (scrollContainerRef || messagesContainerRef).current;
             const content = contentRef.current;
             if (!container || !content) return;
 
@@ -435,10 +437,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         checkContentHeight();
         const resizeObserver = new ResizeObserver(checkContentHeight);
         if (contentRef.current) resizeObserver.observe(contentRef.current);
-        if (messagesContainerRef.current) resizeObserver.observe(messagesContainerRef.current);
+        const containerRef = (scrollContainerRef || messagesContainerRef).current;
+        if (containerRef) resizeObserver.observe(containerRef);
 
         return () => resizeObserver.disconnect();
-    }, [displayMessages, streamingTextContent, agentStatus]);
+    }, [displayMessages, streamingTextContent, agentStatus, scrollContainerRef]);
 
     // Preload all message attachments when messages change or sandboxId is provided
     React.useEffect(() => {
@@ -490,7 +493,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             ) : (
                 // Render scrollable content container with column-reverse
                 <div
-                    ref={messagesContainerRef}
+                    ref={scrollContainerRef || messagesContainerRef}
                     className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
                     onScroll={handleScroll}
                 >
