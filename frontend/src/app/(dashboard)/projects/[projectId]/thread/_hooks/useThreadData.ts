@@ -101,7 +101,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           // Only check for very recent agent runs (last 30 seconds) to avoid false positives
           const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
           const recentActiveRun = agentRunsQuery.data.find((run) => {
-            const runCreatedAt = new Date(run.created_at || 0);
+            const runCreatedAt = new Date(run.started_at || 0);
             return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
           });
           
@@ -126,7 +126,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           if (agentRunsCheckedRef.current) {
             const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
             const hasRecentActiveRun = agentRunsQuery.data.find((run) => {
-              const runCreatedAt = new Date(run.created_at || 0);
+              const runCreatedAt = new Date(run.started_at || 0);
               return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
             });
             
