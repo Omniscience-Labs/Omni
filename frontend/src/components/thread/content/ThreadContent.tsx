@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { CircleDashed, CheckCircle, AlertTriangle } from 'lucide-react';
 import { UnifiedMessage, ParsedContent, ParsedMetadata } from '@/components/thread/types';
 import { FileAttachmentGrid } from '@/components/thread/file-attachment';
@@ -337,14 +337,16 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 }) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [shouldJustifyToTop, setShouldJustifyToTop] = useState(false);
     const { session } = useAuth();
 
     // React Query file preloader
     const { preloadFiles } = useFilePreloader();
 
     const containerClassName = isPreviewMode
-        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72"
-        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-72 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
+        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0"
+        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
@@ -418,6 +420,26 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
     // No auto-scroll needed with flex-column-reverse - CSS handles it
 
+    // Smart justify-content based on content height
+    useEffect(() => {
+        const checkContentHeight = () => {
+            const container = messagesContainerRef.current;
+            const content = contentRef.current;
+            if (!container || !content) return;
+
+            const containerHeight = container.clientHeight;
+            const contentHeight = content.scrollHeight;
+            setShouldJustifyToTop(contentHeight <= containerHeight);
+        };
+
+        checkContentHeight();
+        const resizeObserver = new ResizeObserver(checkContentHeight);
+        if (contentRef.current) resizeObserver.observe(contentRef.current);
+        if (messagesContainerRef.current) resizeObserver.observe(messagesContainerRef.current);
+
+        return () => resizeObserver.disconnect();
+    }, [displayMessages, streamingTextContent, agentStatus]);
+
     // Preload all message attachments when messages change or sandboxId is provided
     React.useEffect(() => {
         if (!sandboxId) return;
@@ -469,10 +491,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 // Render scrollable content container with column-reverse
                 <div
                     ref={messagesContainerRef}
-                    className={`${containerClassName} flex flex-col-reverse`}
+                    className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
                     onScroll={handleScroll}
                 >
-                    <div className="mx-auto max-w-3xl md:px-8 min-w-0">
+                    <div ref={contentRef} className="mx-auto max-w-3xl md:px-8 min-w-0 w-full">
                         <div className="space-y-8 min-w-0">
                             {(() => {
 
@@ -663,9 +685,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             <div key={group.key} className="flex justify-end">
                                                 <div className="flex max-w-[85%] rounded-3xl rounded-br-lg bg-card border px-4 py-3 break-words overflow-hidden">
                                                     <div className="space-y-3 min-w-0 flex-1">
-                                                                                                {cleanContent && (
-                                            <PipedreamUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
-                                        )}
+                                                        {cleanContent && (
+                                                            <PipedreamUrlDetector content={cleanContent} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none [&>:first-child]:mt-0 prose-headings:mt-3 break-words overflow-wrap-anywhere" />
+                                                        )}
 
                                                         {/* Use the helper function to render user attachments */}
                                                         {renderAttachments(attachments as string[], handleOpenFileViewer, sandboxId, project)}
@@ -973,9 +995,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                     </div>
                                 </div>
                             )}
+                            <div className="!h-48" />
                         </div>
                     </div>
-                    <div className="h-32" />
                 </div>
             )}
 

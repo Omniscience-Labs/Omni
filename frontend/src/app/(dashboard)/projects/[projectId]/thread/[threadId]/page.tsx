@@ -53,6 +53,7 @@ export default function ThreadPage({
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [isSidePanelAnimating, setIsSidePanelAnimating] = useState(false);
+  const [userInitiatedRun, setUserInitiatedRun] = useState(false);
 
   // Refs - simplified for flex-column-reverse
   const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -315,6 +316,9 @@ export default function ThreadPage({
         }
 
         const agentResult = results[1].value;
+        console.log('[STREAM STUFF] User submitted message, setting userInitiatedRun to true');
+        setUserInitiatedRun(true);
+        console.log('[STREAM STUFF] Setting agentRunId to:', agentResult.agent_run_id);
         setAgentRunId(agentResult.agent_run_id);
 
       } catch (err) {
@@ -427,13 +431,32 @@ export default function ThreadPage({
   }, [initialPanelOpenAttempted, messages, toolCalls, initialLoadCompleted, setIsSidePanelOpen, setCurrentToolIndex]);
 
   useEffect(() => {
-    if (agentRunId && agentRunId !== currentHookRunId) {
-      console.log(
-        `[PAGE] Target agentRunId set to ${agentRunId}, initiating stream...`,
-      );
+    console.log('[STREAM STUFF] Stream effect triggered:', { 
+      agentRunId, 
+      currentHookRunId, 
+      initialLoadCompleted, 
+      userInitiatedRun 
+    });
+    
+    // Start streaming if user initiated a run (don't wait for initialLoadCompleted for first-time users)
+    if (agentRunId && agentRunId !== currentHookRunId && userInitiatedRun) {
+      console.log('[STREAM STUFF] User-initiated stream starting for agentRunId:', agentRunId);
       startStreaming(agentRunId);
+      setUserInitiatedRun(false); // Reset flag after starting
     }
-  }, [agentRunId, startStreaming, currentHookRunId]);
+    // Also start streaming if this is from page load with recent active runs
+    else if (agentRunId && agentRunId !== currentHookRunId && initialLoadCompleted && !userInitiatedRun) {
+      console.log('[STREAM STUFF] Page load stream starting for agentRunId:', agentRunId);
+      startStreaming(agentRunId);
+    } else {
+      console.log('[STREAM STUFF] Not starting stream, conditions not met:', {
+        hasAgentRunId: !!agentRunId,
+        differentFromCurrent: agentRunId !== currentHookRunId,
+        loadCompleted: initialLoadCompleted,
+        userInitiated: userInitiatedRun
+      });
+    }
+  }, [agentRunId, startStreaming, currentHookRunId, initialLoadCompleted, userInitiatedRun]);
 
   // No auto-scroll needed with flex-column-reverse
 

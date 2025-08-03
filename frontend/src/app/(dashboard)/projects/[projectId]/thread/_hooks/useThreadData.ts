@@ -98,16 +98,22 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           console.log('[PAGE] Checking for active agent runs...');
           agentRunsCheckedRef.current = true;
 
-          const activeRun = agentRunsQuery.data.find((run) => run.status === 'running');
-          if (activeRun && isMounted) {
-            console.log('[PAGE] Found active run on load:', activeRun.id);
-            setAgentRunId(activeRun.id);
-            setAgentStatus('running'); // Set status to running when active run is found
+          // Only check for very recent agent runs (last 30 seconds) to avoid false positives
+          const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+          const recentActiveRun = agentRunsQuery.data.find((run) => {
+            const runCreatedAt = new Date(run.created_at || 0);
+            return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
+          });
+          
+          if (recentActiveRun && isMounted) {
+            console.log('[PAGE] Found recent active run on load:', recentActiveRun.id);
+            setAgentRunId(recentActiveRun.id);
+            setAgentStatus('running');
           } else {
-            console.log('[PAGE] No active agent runs found');
+            console.log('[PAGE] No recent active agent runs found');
             if (isMounted) {
               setAgentStatus('idle');
-              setAgentRunId(null); // Ensure no lingering run ID
+              setAgentRunId(null);
             }
           }
         }
@@ -116,12 +122,20 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           initialLoadCompleted.current = true;
           setIsLoading(false);
           
-          // Final safety check: if no active runs found, ensure status is idle
-          if (agentRunsCheckedRef.current && !agentRunsQuery.data.find((run) => run.status === 'running')) {
-            console.log('[PAGE] Final check: No active runs, ensuring idle status');
-            if (isMounted) {
-              setAgentStatus('idle');
-              setAgentRunId(null);
+          // Final safety check: if no recent active runs found, ensure status is idle
+          if (agentRunsCheckedRef.current) {
+            const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+            const hasRecentActiveRun = agentRunsQuery.data.find((run) => {
+              const runCreatedAt = new Date(run.created_at || 0);
+              return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
+            });
+            
+            if (!hasRecentActiveRun) {
+              console.log('[PAGE] Final check: No recent active runs, ensuring idle status');
+              if (isMounted) {
+                setAgentStatus('idle');
+                setAgentRunId(null);
+              }
             }
           }
         }
