@@ -383,7 +383,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           {showScrollToBottomIndicator && onScrollToBottom && (
             <button
               onClick={onScrollToBottom}
-              className={`absolute right-3 z-50 w-8 h-8 rounded-full bg-card border border-border transition-all duration-200 hover:scale-105 flex items-center justify-center ${showToolPreview || !!showSnackbar ? '-top-12' : '-top-5'
+              className={`absolute cursor-pointer right-3 z-50 w-8 h-8 rounded-full bg-card border border-border transition-all duration-200 hover:scale-105 flex items-center justify-center ${showToolPreview || !!showSnackbar ? '-top-12' : '-top-5'
                 }`}
               title="Scroll to bottom"
             >
