@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, ArrowDown, FileText, Info, ArrowUp } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  ArrowDown,
+  FileText,
+  PanelLeft,
+  ArrowUp,
+} from 'lucide-react';
 import { UnifiedMessage } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import Link from 'next/link';
@@ -140,6 +147,10 @@ export const PlaybackControls = ({
         messages.length,
       );
 
+      if (!isSidePanelOpen) {
+        onToggleSidePanel();
+      }
+
       // If we're moving to a new message, update the visible messages
       if (newMessageIndex > currentMessageIndex) {
         const newVisibleMessages = messages.slice(0, newMessageIndex);
@@ -156,7 +167,13 @@ export const PlaybackControls = ({
         updatePlaybackState({ isPlaying: false });
       }
     },
-    [currentMessageIndex, messages, updatePlaybackState],
+    [
+      currentMessageIndex,
+      messages,
+      isSidePanelOpen,
+      onToggleSidePanel,
+      updatePlaybackState,
+    ],
   );
 
   const skipToEnd = useCallback(() => {
@@ -537,7 +554,7 @@ export const PlaybackControls = ({
               className={`h-8 w-8 ${isSidePanelOpen ? 'text-primary' : ''}`}
               aria-label="Toggle Tool Panel"
             >
-              <Info className="h-4 w-4" />
+              <PanelLeft className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -588,8 +605,7 @@ export const PlaybackControls = ({
       currentMessageIndex,
       messages.length,
       skipToEnd,
-      togglePlayback,
-      isPlaying,
+      PlayButton,
       ResetButton,
       ForwardButton,
     ],
