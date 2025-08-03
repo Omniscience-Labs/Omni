@@ -318,9 +318,9 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     
     while True:
         threads_batch = await client.table('threads') \
-            .select('thread_id') \
+            .select('thread_id, agent_runs(thread_id)') \
             .eq('account_id', user_id) \
-            .gte('created_at', start_of_month.isoformat()) \
+            .gte('agent_runs.created_at', start_of_month.isoformat()) \
             .range(offset, offset + batch_size - 1) \
             .execute()
         
