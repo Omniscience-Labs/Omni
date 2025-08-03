@@ -24,7 +24,8 @@ interface MyAgentsTabProps {
   onDeleteAgent: (agentId: string) => void;
   onToggleDefault: (agentId: string, currentDefault: boolean) => void;
   onClearFilters: () => void;
-  deleteAgentMutation: any;
+  deleteAgentMutation?: any; // Made optional
+  isDeletingAgent?: (agentId: string) => boolean;
   setAgentsPage: (page: number) => void;
 
   myTemplates: any[];
@@ -57,6 +58,7 @@ export const MyAgentsTab = ({
   onToggleDefault,
   onClearFilters,
   deleteAgentMutation,
+  isDeletingAgent,
   setAgentsPage,
   myTemplates,
   templatesLoading,
@@ -189,6 +191,7 @@ export const MyAgentsTab = ({
                 onDeleteAgent={onDeleteAgent}
                 onToggleDefault={onToggleDefault}
                 deleteAgentMutation={deleteAgentMutation}
+                isDeletingAgent={isDeletingAgent}
                 onPublish={onPublishAgent}
                 publishingId={publishingAgentId}
               />

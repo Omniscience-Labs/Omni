@@ -4,15 +4,6 @@ from .template_service import AgentTemplate, MCPRequirementValue, ConfigType, Pr
 from .installation_service import TemplateInstallationError
 
 
-def validate_template_ownership(template: AgentTemplate, user_id: str) -> None:
-    if template.creator_id != user_id:
-        raise TemplateInstallationError("You can only modify your own templates")
-
-
-def validate_template_access(template: AgentTemplate, user_id: str) -> None:
-    if not template.is_public and template.creator_id != user_id:
-        raise TemplateInstallationError("Access denied to private template")
-
 
 def validate_installation_requirements(
     requirements: List[MCPRequirementValue],

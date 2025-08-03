@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, CheckCircle2, Zap, ChevronRight, Sparkles, Wifi, Server } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Zap, ChevronRight, Sparkles, Server } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -21,7 +20,7 @@ interface CustomMCPDialogProps {
 
 interface CustomMCPConfiguration {
   name: string;
-  type: 'http' | 'sse';
+  type: 'http';
   config: any;
   enabledTools: string[];
   selectedProfileId?: string;
@@ -39,7 +38,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
   onSave
 }) => {
   const [step, setStep] = useState<'setup' | 'tools'>('setup');
-  const [serverType, setServerType] = useState<'http' | 'sse'>('sse');
+  const [serverType, setServerType] = useState<'http'>('http');
   const [configText, setConfigText] = useState('');
   const [serverName, setServerName] = useState('');
   const [manualServerName, setManualServerName] = useState('');
@@ -57,13 +56,13 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     try {
       let parsedConfig: any;
       
-      if (serverType === 'sse' || serverType === 'http') {
+      if (serverType === 'http') {
         const url = configText.trim();
         if (!url) {
-          throw new Error('Please enter the connection URL.');
+          throw new Error('Please enter the MCP server URL.');
         }
         if (!manualServerName.trim()) {
-          throw new Error('Please enter a name for this connection.');
+          throw new Error('Please enter a name for this MCP server.');
         }
         
         parsedConfig = { url };
@@ -91,7 +90,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to connect to the service. Please check your configuration.');
+        throw new Error(error.message || 'Failed to connect to the MCP server. Please check your configuration.');
       }
 
       const data = await response.json();
@@ -125,7 +124,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
       return;
     }
     setValidationError(null);
-    // Custom MCPs don't need credentials, so save directly
+    // Custom MCP servers don't need credentials, so save directly
     handleSave();
   };
 
@@ -136,7 +135,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     }
 
     if (!serverName.trim()) {
-      setValidationError('Please provide a name for this connection.');
+      setValidationError('Please provide a name for this MCP server.');
       return;
     }
 
@@ -148,7 +147,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
         type: serverType,
         config: configToSave,
         enabledTools: Array.from(selectedTools),
-        // Custom MCPs don't need credential profiles since they're just URLs
+        // Custom MCP servers don't need credential profiles since they're just URLs
         selectedProfileId: undefined
       });
       
@@ -197,8 +196,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
   };
 
   const exampleConfigs = {
-    http: `https://server.example.com/mcp`,
-    sse: `https://mcp.composio.dev/partner/composio/gmail/sse?customerId=YOUR_CUSTOMER_ID`
+    http: `https://server.example.com/mcp`
   };
 
   return (
@@ -212,12 +210,12 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Zap className="h-4 w-4 text-primary" />
             </div>
-            <DialogTitle>Connect New Service</DialogTitle>
+            <DialogTitle>Add MCP Server</DialogTitle>
           </div>
           <DialogDescription>
             {step === 'setup' 
-              ? 'Connect to external services to expand your capabilities with new tools and integrations.'
-              : 'Choose which tools you\'d like to enable from this service connection.'
+              ? 'Connect to a Model Context Protocol (MCP) server to expand your agent\'s capabilities with new tools and integrations.'
+              : 'Choose which tools you\'d like to enable from this MCP server.'
             }
           </DialogDescription>
           <div className="flex items-center gap-2 pt-2">
@@ -231,7 +229,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
               )}>
                 1
               </div>
-              Setup Connection
+              Setup MCP Server
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
             <div className={cn(
@@ -253,75 +251,57 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
             <div className="space-y-6 p-1 flex-1">
               <div className="space-y-4">
                 <div className="space-y-3">
-                  <Label className="text-base font-medium">How would you like to connect?</Label>
-                  <RadioGroup 
-                    value={serverType} 
-                    onValueChange={(value: 'http' | 'sse') => setServerType(value)}
-                    className="grid grid-cols-2 gap-3"
-                  >
-                    <div className={cn(
-                      "flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-all hover:bg-muted/50",
-                      serverType === 'http' ? "border-primary bg-primary/5" : "border-border"
-                    )}>
-                      <RadioGroupItem value="http" id="http" className="mt-1" />
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Server className="h-4 w-4 text-primary" />
-                          <Label htmlFor="http" className="text-base font-medium cursor-pointer">
-                            Streamable HTTP
-                          </Label>
-                        </div>
+                  <Label className="text-base font-medium">Connection Type</Label>
+                  <div className={cn(
+                    "flex items-start space-x-3 p-4 rounded-lg border bg-primary/5",
+                    "border-primary"
+                  )}>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Server className="h-4 w-4 text-primary" />
+                        <Label className="text-base font-medium">
+                          Streamable HTTP MCP Server
+                        </Label>
                       </div>
+                      <p className="text-sm text-muted-foreground">
+                        Connect to any Model Context Protocol server via HTTP. MCP provides a standardized way for AI applications to securely connect to external tools and data sources.
+                      </p>
                     </div>
-                    <div className={cn(
-                      "flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-all hover:bg-muted/50",
-                      serverType === 'sse' ? "border-primary bg-primary/5" : "border-border"
-                    )}>
-                      <RadioGroupItem value="sse" id="sse" className="mt-1" />
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Wifi className="h-4 w-4 text-primary" />
-                          <Label htmlFor="sse" className="text-base font-medium cursor-pointer">
-                            SSE (Server-Sent Events)
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-                  </RadioGroup>
+                  </div>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="serverName" className="text-base font-medium">
-                    Connection Name
+                    MCP Server Name
                   </Label>
                   <input
                     id="serverName"
                     type="text"
-                    placeholder="e.g., Gmail, Slack, Customer Support Tools"
+                    placeholder="e.g., Gmail MCP Server, Slack Integration, File System Tools"
                     value={manualServerName}
                     onChange={(e) => setManualServerName(e.target.value)}
                     className="w-full px-4 py-3 border border-input bg-background rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                   <p className="text-sm text-muted-foreground">
-                    Give this connection a memorable name
+                    Give this MCP server a memorable name
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="config" className="text-base font-medium">
-                    Connection URL
+                    MCP Server URL
                   </Label>
                   <Input
                       id="config"
                       type="url"
-                      placeholder={exampleConfigs[serverType]}
+                      placeholder={exampleConfigs.http}
                       value={configText}
                       onChange={(e) => setConfigText(e.target.value)}
                       className="w-full px-4 py-3 border border-input bg-muted rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent font-mono"
                     />
                   <p className="text-sm text-muted-foreground">
-                    Paste the complete connection URL provided by your service
+                    Enter the complete URL to your MCP server endpoint
                   </p>
                 </div>
               </div>
@@ -339,10 +319,10 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 <div className="ml-2">
                   <h3 className="font-medium text-green-900 mb-1">
-                    Connection Successful!
+                    MCP Server Connected!
                   </h3>
                   <p className="text-sm text-green-700">
-                    Found {discoveredTools.length} available tools from <strong>{serverName}</strong>
+                    Found {discoveredTools.length} available tools from <strong>{serverName}</strong> MCP server
                   </p>
                 </div>
               </Alert>
@@ -433,7 +413,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 onClick={handleToolsNext}
                 disabled={selectedTools.size === 0}
               >
-                Add Connection ({selectedTools.size} tools)
+                Add MCP Server ({selectedTools.size} tools)
               </Button>
             </>
           ) : (
@@ -448,12 +428,12 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
                 {isValidating ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Discovering tools...
+                    Connecting to MCP server...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-5 w-5" />
-                    Connect
+                    Connect to MCP Server
                   </>
                 )}
               </Button>

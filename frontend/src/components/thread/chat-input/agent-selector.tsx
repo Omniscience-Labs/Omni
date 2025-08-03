@@ -17,7 +17,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAgents, useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
+import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 
 import { useRouter } from 'next/navigation';
 import { cn, truncateString } from '@/lib/utils';
@@ -64,13 +65,12 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
-  const [isCreatingAgent, setIsCreatingAgent] = useState(false);
+  const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const { data: agentsResponse, isLoading: agentsLoading } = useAgents();
   const agents = agentsResponse?.agents || [];
-  const createNewAgentMutation = useCreateNewAgent();
 
   const allAgents = [
     ...PREDEFINED_AGENTS.map(agent => ({
@@ -174,20 +174,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   };
 
   const handleCreateAgent = useCallback(() => {
-    if (isCreatingAgent || createNewAgentMutation.isPending) {
-      return; // Prevent multiple clicks
-    }
-    
-    setIsCreatingAgent(true);
     setIsOpen(false);
-    
-    createNewAgentMutation.mutate(undefined, {
-      onSettled: () => {
-        // Reset the debounce state after mutation completes (success or error)
-        setTimeout(() => setIsCreatingAgent(false), 1000);
-      }
-    });
-  }, [isCreatingAgent, createNewAgentMutation]);
+    setShowNewAgentDialog(true);
+  }, []);
 
   const renderAgentItem = (agent: any, index: number) => {
     const isSelected = agent.id === selectedAgentId;
@@ -359,17 +348,20 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={handleCreateAgent}
-                disabled={isCreatingAgent || createNewAgentMutation.isPending}
-                className="text-xs flex items-center gap-2 rounded-xl hover:bg-accent/40 transition-all duration-200 text-muted-foreground hover:text-foreground px-4 py-2 disabled:opacity-50"
+                className="text-xs flex items-center gap-2 rounded-xl hover:bg-accent/40 transition-all duration-200 text-muted-foreground hover:text-foreground px-4 py-2"
               >
                 <Plus className="h-3.5 w-3.5" />
-                {isCreatingAgent || createNewAgentMutation.isPending ? 'Creating...' : 'Create Agent'}
+                Create Agent
               </Button>
             </div>
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-
+      
+      <NewAgentDialog 
+        open={showNewAgentDialog} 
+        onOpenChange={setShowNewAgentDialog}
+      />
     </>
   );
 }; 

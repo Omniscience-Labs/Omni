@@ -1,5 +1,6 @@
 export interface MarketplaceTemplate {
   id: string;
+  creator_id: string;
   name: string;
   description: string;
   tags: string[];

@@ -47,8 +47,10 @@ class PublishTemplateRequest(BaseModel):
 
 class TemplateResponse(BaseModel):
     template_id: str
+    creator_id: str
     name: str
     description: Optional[str]
+    system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     tags: List[str]
@@ -56,9 +58,11 @@ class TemplateResponse(BaseModel):
     download_count: int
     marketplace_published_at: Optional[str]
     created_at: str
+    updated_at: str
     creator_name: Optional[str] = None
     avatar: Optional[str]
     avatar_color: Optional[str]
+    metadata: Dict[str, Any] = {}
 
 
 class InstallationResponse(BaseModel):
@@ -75,12 +79,109 @@ def initialize(database: DBConnection):
     db = database
 
 
+async def validate_template_ownership_and_get(template_id: str, user_id: str) -> AgentTemplate:
+    """
+    Validates that the user owns the template and returns it.
+    
+    Args:
+        template_id: The template ID to validate
+        user_id: The user ID to check ownership for
+        
+    Returns:
+        AgentTemplate: The template if the user owns it
+        
+    Raises:
+        HTTPException: If template not found or user doesn't own it
+    """
+    template_service = get_template_service(db)
+    template = await template_service.get_template(template_id)
+    
+    if not template:
+        logger.warning(f"Template {template_id} not found")
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    if template.creator_id != user_id:
+        logger.warning(f"User {user_id} attempted to access template {template_id} owned by {template.creator_id}")
+        raise HTTPException(status_code=403, detail="You don't have permission to access this template")
+    
+    return template
+
+
+async def validate_template_access_and_get(template_id: str, user_id: str) -> AgentTemplate:
+    """
+    Validates that the user can access the template (either owns it or it's public) and returns it.
+    
+    Args:
+        template_id: The template ID to validate
+        user_id: The user ID to check access for
+        
+    Returns:
+        AgentTemplate: The template if the user can access it
+        
+    Raises:
+        HTTPException: If template not found or user can't access it
+    """
+    template_service = get_template_service(db)
+    template = await template_service.get_template(template_id)
+    
+    if not template:
+        logger.warning(f"Template {template_id} not found")
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Check if user can access the template (owner or public)
+    if template.creator_id != user_id and not template.is_public:
+        logger.warning(f"User {user_id} attempted to access private template {template_id} owned by {template.creator_id}")
+        raise HTTPException(status_code=403, detail="Access denied to private template")
+    
+    return template
+
+
+async def validate_agent_ownership(agent_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Validates that the user owns the agent and returns it.
+    
+    Args:
+        agent_id: The agent ID to validate
+        user_id: The user ID to check ownership for
+        
+    Returns:
+        Dict[str, Any]: The agent data if the user owns it
+        
+    Raises:
+        HTTPException: If agent not found or user doesn't own it
+    """
+    template_service = get_template_service(db)
+    agent = await template_service._get_agent_by_id(agent_id)
+    
+    if not agent:
+        logger.warning(f"Agent {agent_id} not found")
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if agent['account_id'] != user_id:
+        logger.warning(f"User {user_id} attempted to access agent {agent_id} owned by {agent['account_id']}")
+        raise HTTPException(status_code=403, detail="You don't have permission to access this agent")
+    
+    return agent
+
+
 @router.post("", response_model=Dict[str, str])
 async def create_template_from_agent(
     request: CreateTemplateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Create a template from an existing agent.
+    
+    Requires:
+    - User must own the agent
+    - Agent cannot be a Suna default agent
+    """
     try:
+        # Validate agent ownership first
+        await validate_agent_ownership(request.agent_id, user_id)
+        
+        logger.info(f"User {user_id} creating template from agent {request.agent_id}")
+        
         template_service = get_template_service(db)
         
         template_id = await template_service.create_from_agent(
@@ -90,16 +191,23 @@ async def create_template_from_agent(
             tags=request.tags
         )
         
+        logger.info(f"Successfully created template {template_id} from agent {request.agent_id}")
         return {"template_id": template_id}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
     except TemplateNotFoundError as e:
+        logger.warning(f"Template creation failed - not found: {e}")
         raise HTTPException(status_code=404, detail=str(e))
     except TemplateAccessDeniedError as e:
+        logger.warning(f"Template creation failed - access denied: {e}")
         raise HTTPException(status_code=403, detail=str(e))
     except SunaDefaultAgentTemplateError as e:
+        logger.warning(f"Template creation failed - Suna default agent: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error creating template: {e}")
+        logger.error(f"Error creating template from agent {request.agent_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -109,18 +217,34 @@ async def publish_template(
     request: PublishTemplateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Publish a template to the marketplace.
+    
+    Requires:
+    - User must own the template
+    """
     try:
+        # Validate template ownership first
+        template = await validate_template_ownership_and_get(template_id, user_id)
+        
+        logger.info(f"User {user_id} publishing template {template_id}")
+        
         template_service = get_template_service(db)
         
         success = await template_service.publish_template(template_id, user_id)
         
         if not success:
-            raise HTTPException(status_code=404, detail="Template not found or access denied")
+            logger.warning(f"Failed to publish template {template_id} for user {user_id}")
+            raise HTTPException(status_code=500, detail="Failed to publish template")
         
+        logger.info(f"Successfully published template {template_id}")
         return {"message": "Template published successfully"}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
     except Exception as e:
-        logger.error(f"Error publishing template: {e}")
+        logger.error(f"Error publishing template {template_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -129,18 +253,70 @@ async def unpublish_template(
     template_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Unpublish a template from the marketplace.
+    
+    Requires:
+    - User must own the template
+    """
     try:
+        # Validate template ownership first
+        template = await validate_template_ownership_and_get(template_id, user_id)
+        
+        logger.info(f"User {user_id} unpublishing template {template_id}")
+        
         template_service = get_template_service(db)
         
         success = await template_service.unpublish_template(template_id, user_id)
         
         if not success:
-            raise HTTPException(status_code=404, detail="Template not found or access denied")
+            logger.warning(f"Failed to unpublish template {template_id} for user {user_id}")
+            raise HTTPException(status_code=500, detail="Failed to unpublish template")
         
+        logger.info(f"Successfully unpublished template {template_id}")
         return {"message": "Template unpublished successfully"}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
     except Exception as e:
-        logger.error(f"Error unpublishing template: {e}")
+        logger.error(f"Error unpublishing template {template_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """
+    Delete a template.
+    
+    Requires:
+    - User must own the template
+    """
+    try:
+        # Validate template ownership first
+        template = await validate_template_ownership_and_get(template_id, user_id)
+        
+        logger.info(f"User {user_id} deleting template {template_id}")
+        
+        template_service = get_template_service(db)
+        
+        success = await template_service.delete_template(template_id, user_id)
+        
+        if not success:
+            logger.warning(f"Failed to delete template {template_id} for user {user_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete template")
+        
+        logger.info(f"Successfully deleted template {template_id}")
+        return {"message": "Template deleted successfully"}
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting template {template_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -149,7 +325,18 @@ async def install_template(
     request: InstallTemplateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Install a template as a new agent instance.
+    
+    Requires:
+    - User must have access to the template (own it or it's public)
+    """
     try:
+        # Validate template access first
+        template = await validate_template_access_and_get(request.template_id, user_id)
+        
+        logger.info(f"User {user_id} installing template {request.template_id}")
+        
         installation_service = get_installation_service(db)
         
         install_request = TemplateInstallationRequest(
@@ -163,6 +350,8 @@ async def install_template(
         
         result = await installation_service.install_template(install_request)
         
+        logger.info(f"Successfully installed template {request.template_id} as instance {result.instance_id}")
+        
         return InstallationResponse(
             status=result.status,
             instance_id=result.instance_id,
@@ -172,31 +361,42 @@ async def install_template(
             template_info=result.template_info
         )
         
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
     except TemplateInstallationError as e:
+        logger.warning(f"Template installation failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except InvalidCredentialError as e:
+        logger.warning(f"Template installation failed - invalid credentials: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error installing template: {e}")
+        logger.error(f"Error installing template {request.template_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/marketplace", response_model=List[TemplateResponse])
 async def get_marketplace_templates():
+    """
+    Get all public templates from the marketplace.
+    
+    This endpoint is public and doesn't require authentication.
+    """
     try:
+        logger.info("Fetching marketplace templates")
+        
         template_service = get_template_service(db)
         templates = await template_service.get_public_templates()
         
+        logger.info(f"Retrieved {len(templates)} marketplace templates")
+        
         return [
-            TemplateResponse(
-                **format_template_for_response(template),
-                creator_name=None 
-            )
+            TemplateResponse(**format_template_for_response(template))
             for template in templates
         ]
         
     except Exception as e:
-        logger.error(f"Error getting marketplace templates: {e}")
+        logger.error(f"Error getting marketplace templates: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -204,9 +404,19 @@ async def get_marketplace_templates():
 async def get_my_templates(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Get all templates owned by the current user.
+    
+    Requires:
+    - Valid authentication
+    """
     try:
+        logger.info(f"User {user_id} fetching their templates")
+        
         template_service = get_template_service(db)
         templates = await template_service.get_user_templates(user_id)
+        
+        logger.info(f"Retrieved {len(templates)} templates for user {user_id}")
         
         return [
             TemplateResponse(
@@ -217,7 +427,7 @@ async def get_my_templates(
         ]
         
     except Exception as e:
-        logger.error(f"Error getting user templates: {e}")
+        logger.error(f"Error getting templates for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -226,22 +436,29 @@ async def get_template(
     template_id: str,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
+    """
+    Get a specific template by ID.
+    
+    Requires:
+    - User must have access to the template (own it or it's public)
+    """
     try:
-        template_service = get_template_service(db)
-        template = await template_service.get_template(template_id)
+        # Validate template access first
+        template = await validate_template_access_and_get(template_id, user_id)
         
-        if not template:
-            raise HTTPException(status_code=404, detail="Template not found")
-        
-        await template_service.validate_access(template, user_id)
+        logger.info(f"User {user_id} accessing template {template_id}")
         
         return TemplateResponse(
             **format_template_for_response(template),
             creator_name=None
         )
         
-    except TemplateAccessDeniedError:
+    except HTTPException:
+        # Re-raise HTTP exceptions from our validation functions
+        raise
+    except TemplateAccessDeniedError as e:
+        logger.warning(f"Access denied to template {template_id} for user {user_id}: {e}")
         raise HTTPException(status_code=403, detail="Access denied to template")
     except Exception as e:
-        logger.error(f"Error getting template: {e}")
+        logger.error(f"Error getting template {template_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") 

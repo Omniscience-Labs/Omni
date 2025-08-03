@@ -20,8 +20,6 @@ from .installation_service import (
 )
 
 from .utils import (
-    validate_template_ownership,
-    validate_template_access,
     validate_installation_requirements,
     build_unified_config,
     build_mcp_config,

@@ -1,11 +1,18 @@
 import React from 'react';
-import { Sparkles, Settings } from 'lucide-react';
+import { Sparkles, Settings, MoreHorizontal, Download } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditableText } from '@/components/ui/editable';
 import { StylePicker } from '../style-picker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 interface AgentHeaderProps {
   agentId: string;
@@ -22,6 +29,8 @@ interface AgentHeaderProps {
   onFieldChange: (field: string, value: any) => void;
   onStyleChange: (emoji: string, color: string) => void;
   onTabChange: (value: string) => void;
+  onExport?: () => void;
+  isExporting?: boolean;
   agentMetadata?: {
     is_suna_default?: boolean;
     restrictions?: {
@@ -39,6 +48,8 @@ export function AgentHeader({
   onFieldChange,
   onStyleChange,
   onTabChange,
+  onExport,
+  isExporting = false,
   agentMetadata,
 }: AgentHeaderProps) {
   const isSunaAgent = agentMetadata?.is_suna_default || false;
@@ -56,11 +67,11 @@ export function AgentHeader({
     onFieldChange('name', value);
   };
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-0">
       <div className="flex items-center gap-3">
         <div className="relative">
           {isSunaAgent ? (
-            <div className="h-9 w-9 bg-background rounded-lg bg-muted border border flex items-center justify-center">
+            <div className="h-9 w-9 rounded-lg bg-muted border flex items-center justify-center">
               <KortixLogo size={16} />
             </div>
           ) : (
@@ -93,30 +104,59 @@ export function AgentHeader({
         </div>
       </div>
       
-{!isSunaAgent && (
-        <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
-            <TabsTrigger 
-              value="agent-builder"
-              disabled={isViewingOldVersion}
-              className={cn(
-                "flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm",
-                isViewingOldVersion && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <Sparkles className="h-3 w-3" />
-              Prompt to Build
-            </TabsTrigger>
-            <TabsTrigger 
-              value="configuration"
-              className="flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              <Settings className="h-3 w-3" />
-              Manual Config
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      <div className="flex items-center gap-2">
+        {/* 3-dots menu for actions - always show if onExport is available */}
+        {onExport && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                disabled={isExporting}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuItem 
+                onClick={onExport}
+                disabled={isExporting}
+                className="flex items-center gap-2 text-xs"
+              >
+                <Download className="h-3 w-3" />
+                Export agent
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        
+        {/* Only show tabs for non-Suna agents */}
+        {!isSunaAgent && (
+          <Tabs value={activeTab} onValueChange={onTabChange}>
+            <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
+              <TabsTrigger 
+                value="agent-builder"
+                disabled={isViewingOldVersion}
+                className={cn(
+                  "flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm",
+                  isViewingOldVersion && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Sparkles className="h-3 w-3" />
+                Prompt to Build
+              </TabsTrigger>
+              <TabsTrigger 
+                value="configuration"
+                className="flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <Settings className="h-3 w-3" />
+                Manual Config
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 } 
