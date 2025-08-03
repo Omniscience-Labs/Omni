@@ -39,7 +39,6 @@ interface FilterOptions {
 interface PublishDialogData {
   templateId: string;
   templateName: string;
-  currentTags: string[];
 }
 
 export default function AgentsPage() {
@@ -83,7 +82,7 @@ export default function AgentsPage() {
 
   const [templatesActioningId, setTemplatesActioningId] = useState<string | null>(null);
   const [publishDialog, setPublishDialog] = useState<PublishDialogData | null>(null);
-  const [publishTags, setPublishTags] = useState<string[]>([]);
+
   const [publishingAgentId, setPublishingAgentId] = useState<string | null>(null);
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
 
@@ -417,26 +416,21 @@ export default function AgentsPage() {
   const openPublishDialog = (template: any) => {
     setPublishDialog({
       templateId: template.template_id,
-      templateName: template.name,
-      currentTags: template.tags || []
+      templateName: template.name
     });
-    setPublishTags(template.tags || []);
   };
 
   const handleAgentPublish = (agent: any) => {
     setPublishDialog({
       templateId: agent.agent_id,
-      templateName: agent.name,
-      currentTags: agent.tags || []
+      templateName: agent.name
     });
-    setPublishTags(agent.tags || []);
   };
 
   const handlePublish = async () => {
     if (!publishDialog) return;
 
     try {
-      const tags = publishTags.filter(tag => tag.trim().length > 0);
       const isAgent = publishDialog.templateId.length > 20;
       
       if (isAgent) {
@@ -444,8 +438,7 @@ export default function AgentsPage() {
         
         const result = await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
-          make_public: true,
-          tags: tags.length > 0 ? tags : undefined
+          make_public: true
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -454,15 +447,13 @@ export default function AgentsPage() {
         setTemplatesActioningId(publishDialog.templateId);
         
         await publishMutation.mutateAsync({
-          template_id: publishDialog.templateId,
-          tags: tags.length > 0 ? tags : undefined
+          template_id: publishDialog.templateId
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
       }
       
       setPublishDialog(null);
-      setPublishTags([]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to publish template');
     } finally {
@@ -573,10 +564,8 @@ export default function AgentsPage() {
 
         <PublishDialog
           publishDialog={publishDialog}
-          publishTags={publishTags}
           templatesActioningId={templatesActioningId}
           onClose={() => setPublishDialog(null)}
-          onPublishTagsChange={setPublishTags}
           onPublish={handlePublish}
         />
 
