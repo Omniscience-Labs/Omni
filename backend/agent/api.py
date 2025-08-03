@@ -146,6 +146,27 @@ class ThreadAgentResponse(BaseModel):
     source: str  # "thread", "default", "none", "missing"
     message: str
 
+class AgentExportData(BaseModel):
+    """Exportable agent configuration data"""
+    name: str
+    description: Optional[str] = None
+    system_prompt: str
+    agentpress_tools: Dict[str, Any]
+    configured_mcps: List[Dict[str, Any]]
+    custom_mcps: List[Dict[str, Any]]
+    avatar: Optional[str] = None
+    avatar_color: Optional[str] = None
+    tags: Optional[List[str]] = []
+    metadata: Optional[Dict[str, Any]] = None
+    export_version: str = "1.0"
+    exported_at: str
+    exported_by: Optional[str] = None
+
+class AgentImportRequest(BaseModel):
+    """Request to import an agent from JSON"""
+    import_data: AgentExportData
+    import_as_new: bool = True  # Always true, only creating new agents is supported
+
 def initialize(
     _db: DBConnection,
     _instance_id: Optional[str] = None
@@ -1588,6 +1609,140 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
     except Exception as e:
         logger.error(f"Error fetching agent {agent_id} for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch agent: {str(e)}")
+
+@router.get("/agents/{agent_id}/export", response_model=AgentExportData)
+async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id_from_jwt)):
+    """Export an agent configuration as JSON"""
+    logger.info(f"Exporting agent {agent_id} for user: {user_id}")
+    
+    try:
+        client = await db.client
+        
+        # Get agent data
+        agent_result = await client.table('agents').select('*').eq('agent_id', agent_id).eq('account_id', user_id).execute()
+        if not agent_result.data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent = agent_result.data[0]
+        
+        # Get current version data if available
+        current_version = None
+        if agent.get('current_version_id'):
+            version_result = await client.table('agent_versions').select('*').eq('version_id', agent['current_version_id']).execute()
+            if version_result.data:
+                current_version = version_result.data[0]
+        
+        # Extract configuration using existing helper
+        from agent.config_helper import extract_agent_config
+        config = extract_agent_config(agent, current_version)
+        
+        # Clean metadata for export (remove instance-specific data)
+        export_metadata = {}
+        if agent.get('metadata'):
+            export_metadata = {k: v for k, v in agent['metadata'].items() 
+                             if k not in ['is_suna_default', 'centrally_managed', 'installation_date', 'last_central_update']}
+        
+        # Create export data
+        export_data = AgentExportData(
+            name=config.get('name', ''),
+            description=config.get('description', ''),
+            system_prompt=config.get('system_prompt', ''),
+            agentpress_tools=config.get('agentpress_tools', {}),
+            configured_mcps=config.get('configured_mcps', []),
+            custom_mcps=config.get('custom_mcps', []),
+            avatar=config.get('avatar'),
+            avatar_color=config.get('avatar_color'),
+            tags=agent.get('tags', []),
+            metadata=export_metadata,
+            exported_at=datetime.utcnow().isoformat(),
+            exported_by=user_id
+        )
+        
+        logger.info(f"Successfully exported agent {agent_id}")
+        return export_data
+        
+    except Exception as e:
+        logger.error(f"Error exporting agent {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export agent: {str(e)}")
+
+@router.post("/agents/import", response_model=AgentResponse)
+async def import_agent(
+    import_request: AgentImportRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Import an agent from JSON configuration"""
+    logger.info(f"Importing agent for user: {user_id}")
+    
+    if not await is_enabled("custom_agents"):
+        raise HTTPException(
+            status_code=403, 
+            detail="Custom agents currently disabled. This feature is not available at the moment."
+        )
+    
+    try:
+        client = await db.client
+        import_data = import_request.import_data
+        
+        # Validate import data
+        if not import_data.name or not import_data.system_prompt:
+            raise HTTPException(status_code=400, detail="Agent name and system prompt are required")
+        
+        # Create new agent
+        logger.info(f"Creating new agent from import: {import_data.name}")
+        
+        # Check if user wants to set as default, and if so, unset other defaults
+        is_default = False  # Imported agents are not default by default
+        
+        insert_data = {
+            "account_id": user_id,
+            "name": import_data.name,
+            "description": import_data.description,
+            "avatar": import_data.avatar,
+            "avatar_color": import_data.avatar_color,
+            "is_default": is_default,
+            "tags": import_data.tags or [],
+            "version_count": 1,
+            "metadata": import_data.metadata or {}
+        }
+        
+        new_agent = await client.table('agents').insert(insert_data).execute()
+        
+        if not new_agent.data:
+            raise HTTPException(status_code=500, detail="Failed to create agent from import")
+        
+        agent = new_agent.data[0]
+        agent_id = agent['agent_id']
+        
+        # Create initial version
+        try:
+            version_service = await _get_version_service()
+            
+            version = await version_service.create_version(
+                agent_id=agent_id,
+                user_id=user_id,
+                system_prompt=import_data.system_prompt,
+                configured_mcps=import_data.configured_mcps,
+                custom_mcps=import_data.custom_mcps,
+                agentpress_tools=import_data.agentpress_tools,
+                version_name="v1",
+                change_description="Initial version from import"
+            )
+            
+            logger.info(f"Successfully imported agent {agent_id}")
+            return await get_agent(agent_id, user_id)
+                
+        except Exception as e:
+            # Clean up agent if anything goes wrong
+            await client.table('agents').delete().eq('agent_id', agent_id).execute()
+            raise e
+                
+
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error importing agent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to import agent: {str(e)}")
 
 @router.post("/agents", response_model=AgentResponse)
 async def create_agent(

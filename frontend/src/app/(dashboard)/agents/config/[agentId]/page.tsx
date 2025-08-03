@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
 import { UpcomingRunsDropdown } from '@/components/agents/upcoming-runs-dropdown';
+import { useExportAgent } from '@/hooks/react-query/agents/use-agent-export-import';
 
 interface FormData {
   name: string;
@@ -50,6 +51,7 @@ export default function AgentConfigurationPage() {
   const updateAgentMutation = useUpdateAgent();
   const createVersionMutation = useCreateAgentVersion();
   const activateVersionMutation = useActivateAgentVersion();
+  const exportMutation = useExportAgent();
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -389,6 +391,11 @@ export default function AgentConfigurationPage() {
     }
   }, [agentId, activateVersionMutation]);
 
+  const handleExport = useCallback(() => {
+    if (!agentId) return;
+    exportMutation.mutate(agentId);
+  }, [agentId, exportMutation]);
+
   useEffect(() => {
     if (isViewingOldVersion && activeTab === 'agent-builder') {
       setActiveTab('configuration');
@@ -526,6 +533,8 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onStyleChange={handleStyleChange}
                     onTabChange={setActiveTab}
+                    onExport={handleExport}
+                    isExporting={exportMutation.isPending}
                     agentMetadata={agent?.metadata}
                   />
                 </div>
@@ -655,6 +664,8 @@ export default function AgentConfigurationPage() {
                   onFieldChange={handleFieldChange}
                   onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
+                  onExport={handleExport}
+                  isExporting={exportMutation.isPending}
                   agentMetadata={agent?.metadata}
                 />
               </div>
@@ -724,6 +735,8 @@ export default function AgentConfigurationPage() {
               </div>
             </DrawerContent>
           </Drawer>
+
+
         </div>
       </div>
     </div>
