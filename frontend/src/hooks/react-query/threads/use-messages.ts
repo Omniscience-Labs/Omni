@@ -9,6 +9,9 @@ export const useMessagesQuery = (threadId: string) =>
     {
       enabled: !!threadId,
       retry: 1,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }
   )();
 
