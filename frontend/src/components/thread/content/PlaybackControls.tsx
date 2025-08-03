@@ -102,6 +102,8 @@ export const PlaybackControls = ({
     toolPlaybackIndex,
   } = playbackState;
 
+  const playbackTimeout = useRef<NodeJS.Timeout | null>(null);
+
   // Helper function to update playback state
   const updatePlaybackState = useCallback((updates: Partial<PlaybackState>) => {
     setPlaybackState((prev) => ({ ...prev, ...updates }));
@@ -130,6 +132,12 @@ export const PlaybackControls = ({
       toolPlaybackIndex: -1,
     });
     setCurrentToolIndex(-1);
+
+    if (playbackTimeout.current) {
+      clearTimeout(playbackTimeout.current);
+    }
+
+    // If the side panel is open, close it
     if (isSidePanelOpen) {
       onToggleSidePanel();
     }
@@ -392,7 +400,6 @@ export const PlaybackControls = ({
   useEffect(() => {
     if (!isPlaying || messages.length === 0) return;
 
-    let playbackTimeout: NodeJS.Timeout;
     let cleanupStreaming: (() => void) | undefined;
 
     const playbackNextMessage = async () => {
@@ -447,10 +454,10 @@ export const PlaybackControls = ({
     };
 
     // Start playback with a small delay
-    playbackTimeout = setTimeout(playbackNextMessage, 500);
+    playbackTimeout.current = setTimeout(playbackNextMessage, 500);
 
     return () => {
-      clearTimeout(playbackTimeout);
+      clearTimeout(playbackTimeout.current);
       if (cleanupStreaming) cleanupStreaming();
     };
   }, [
