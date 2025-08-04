@@ -32,7 +32,7 @@ export function GetCredentialProfilesToolView({
 }: ToolViewProps) {
 
   const {
-    app_slug,
+    toolkit_slug,
     message,
     profiles,
     total_count,
@@ -59,14 +59,7 @@ export function GetCredentialProfilesToolView({
     };
   };
 
-  const getActiveStatus = (isActive: boolean) => {
-    return {
-      color: isActive 
-        ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800'
-        : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-900/20 dark:text-gray-300 dark:border-gray-800',
-      text: isActive ? 'Active' : 'Inactive'
-    };
-  };
+
 
   return (
     <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
@@ -80,9 +73,9 @@ export function GetCredentialProfilesToolView({
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
                 {toolTitle}
               </CardTitle>
-              {app_slug && (
+              {toolkit_slug && (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  App: {app_slug}
+                  Toolkit: {toolkit_slug}
                 </p>
               )}
             </div>
@@ -116,7 +109,7 @@ export function GetCredentialProfilesToolView({
             iconColor="text-blue-500 dark:text-blue-400"
             bgColor="bg-gradient-to-b from-blue-100 to-blue-50 shadow-inner dark:from-blue-800/40 dark:to-blue-900/60 dark:shadow-blue-950/20"
             title="Loading credential profiles"
-            filePath={app_slug ? `"${app_slug}"` : undefined}
+            filePath={toolkit_slug ? `"${toolkit_slug}"` : undefined}
             showProgress={true}
           />
         ) : profiles.length > 0 ? (
@@ -156,7 +149,7 @@ export function GetCredentialProfilesToolView({
                             )}
                           </div>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                            {profile.app_name}
+                            {profile.toolkit_name}
                           </p>
                           {profile.profile_name !== profile.display_name && (
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
@@ -169,7 +162,6 @@ export function GetCredentialProfilesToolView({
                       <div className="flex items-center gap-2">
                         {(() => {
                           const connectionStatus = getConnectionStatus(profile.is_connected);
-                          const activeStatus = getActiveStatus(profile.is_active);
                           const ConnectionIcon = connectionStatus.icon;
                           
                           return (
@@ -180,12 +172,6 @@ export function GetCredentialProfilesToolView({
                               >
                                 <ConnectionIcon className="w-3 h-3" />
                                 {connectionStatus.text}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={cn("text-xs font-medium", activeStatus.color)}
-                              >
-                                {activeStatus.text}
                               </Badge>
                             </>
                           );
@@ -207,7 +193,7 @@ export function GetCredentialProfilesToolView({
                 No profiles found
               </h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {app_slug ? `No credential profiles found for "${app_slug}"` : 'No credential profiles available'}
+                {toolkit_slug ? `No credential profiles found for "${toolkit_slug}"` : 'No credential profiles available'}
               </p>
             </div>
           </div>
