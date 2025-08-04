@@ -21,14 +21,14 @@ interface ComposioToolsManagerProps {
   agentId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  profileId?: string; // Optional: pre-select a profile
-  profileInfo?: { // Pass profile info directly
+  profileId?: string;
+  profileInfo?: {
     profile_id: string;
     profile_name: string;
     toolkit_name: string;
     toolkit_slug: string;
   };
-  appLogo?: string; // Add app logo
+  appLogo?: string;
   onToolsUpdate?: () => void;
 }
 
@@ -83,8 +83,8 @@ const ToolCard = ({ tool, isSelected, onToggle, searchTerm }: {
           <div className="flex-shrink-0 ml-2">
             <Switch
               checked={isSelected}
-              onCheckedChange={() => {}} // Handled by card click
-              onClick={(e) => e.stopPropagation()} // Prevent double toggle
+              onCheckedChange={() => {}}
+              onClick={(e) => e.stopPropagation()}
               className="data-[state=checked]:bg-primary"
             />
           </div>
@@ -130,7 +130,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
 
   const currentProfile = profileInfo || profiles?.find(p => p.profile_id === profileId);
 
-  // Filtered tools based on search
   const filteredTools = useMemo(() => {
     if (!searchTerm) return availableTools;
     const term = searchTerm.toLowerCase();
@@ -140,7 +139,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
     );
   }, [availableTools, searchTerm]);
 
-  // Load tools when dialog opens
   useEffect(() => {
     if (open && currentProfile) {
       loadTools();
@@ -173,8 +171,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
       const response = await backendApi.get(`/agents/${agentId}`);
       if (response.success && response.data) {
         const agent = response.data;
-        
-        // Find Composio tools in custom_mcps
         const composioMcps = agent.custom_mcps?.filter((mcp: any) => 
           mcp.type === 'composio' && mcp.config?.profile_id === currentProfile?.profile_id
         ) || [];
@@ -200,10 +196,8 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
     setSelectedTools(prev => {
       const hasAll = allToolNames.every(name => prev.includes(name));
       if (hasAll) {
-        // Remove all filtered tools
         return prev.filter(name => !allToolNames.includes(name));
       } else {
-        // Add all filtered tools
         const newSelected = [...prev];
         allToolNames.forEach(name => {
           if (!newSelected.includes(name)) {
@@ -218,20 +212,15 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      
-      // Get the MCP config for this profile
-      const mcpConfigResponse = await composioApi.getMcpConfigForProfile(profileInfo.profile_id);
-      
-      // Update the agent's custom_mcps with the Composio configuration
+      const mcpConfigResponse = await composioApi.getMcpConfigForProfile(currentProfile.profile_id);
       const response = await backendApi.put(`/agents/${agentId}/custom-mcp-tools`, {
         custom_mcps: [{
           ...mcpConfigResponse.mcp_config,
           enabledTools: selectedTools
         }]
       });
-
       if (response.data.success) {
-        toast.success(`Added ${selectedTools.length} ${profileInfo.toolkit_name} tools to your agent!`);
+        toast.success(`Added ${selectedTools.length} ${currentProfile.toolkit_name} tools to your agent!`);
         onToolsUpdate?.();
         onOpenChange(false);
       }
@@ -273,8 +262,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
             </div>
           </div>
         </DialogHeader>
-
-        {/* Search and Stats */}
         <div className="px-6 py-3 border-b bg-muted/20 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
@@ -311,8 +298,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Tools List with ScrollArea */}
         <ScrollArea className="flex-1 min-h-0">
           <div className="p-6">
             {error && (
@@ -352,8 +337,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
             )}
           </div>
         </ScrollArea>
-
-        {/* Footer */}
         <div className="p-6 pt-4 border-t bg-muted/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
@@ -363,7 +346,6 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
                 'No tools selected'
               )}
             </div>
-            
             <div className="flex gap-3">
               <Button
                 variant="outline"

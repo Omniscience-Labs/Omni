@@ -5,7 +5,7 @@ export interface MCPConfiguration {
   enabledTools: string[];
   selectedProfileId?: string;
   isCustom?: boolean;
-  customType?: 'http' | 'sse' | 'pipedream';
+  customType?: 'http' | 'sse' | 'composio';
 }
   
 export interface MCPConfigurationProps {

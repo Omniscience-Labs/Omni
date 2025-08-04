@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Zap, Plus, CheckCircle2, Settings2 } from 'lucide-react';
-import { useComposioToolkits } from '@/hooks/react-query/composio/use-composio';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Zap, X } from 'lucide-react';
+import { useComposioToolkits, useComposioCategories } from '@/hooks/react-query/composio/use-composio';
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { ComposioConnector } from './composio-connector';
@@ -13,6 +14,30 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { AgentSelector } from '../../thread/chat-input/agent-selector';
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  'popular': '🔥',
+  'productivity': '📊',
+  'ai': '🤖',
+  'crm': '👥',
+  'marketing': '📢',
+  'email': '📧',
+  'analytics': '📈',
+  'automation': '⚡',
+  'communication': '💬',
+  'project-management': '📋',
+  'e-commerce': '🛒',
+  'social-media': '📱',
+  'payments': '💳',
+  'finance': '💰',
+  'developer-tools': '🛠️',
+  'api': '🔌',
+  'notifications': '🔔',
+  'scheduling': '📅',
+  'data-analytics': '📊',
+  'customer-support': '🎧'
+};
+
 
 interface ComposioRegistryProps {
   onToolsSelected?: (profileId: string, selectedTools: string[], appName: string, appSlug: string) => void;
@@ -25,82 +50,76 @@ interface ComposioRegistryProps {
 }
 
 const AppCardSkeleton = () => (
-  <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 transition-all">
-    <div className="flex items-center gap-4 mb-4">
-      <Skeleton className="h-12 w-12 rounded-lg flex-shrink-0" />
+  <div className="border border-border/50 rounded-xl p-4 animate-pulse">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 bg-muted rounded-lg" />
       <div className="flex-1">
-        <Skeleton className="h-5 w-32 mb-2" />
-        <Skeleton className="h-4 w-full" />
+        <div className="w-3/4 h-4 bg-muted rounded mb-2" />
+        <div className="w-full h-3 bg-muted rounded" />
       </div>
     </div>
-    <Skeleton className="h-10 w-full rounded-lg" />
+    <div className="flex flex-wrap gap-1 mb-3">
+      <div className="w-16 h-5 bg-muted rounded" />
+      <div className="w-20 h-5 bg-muted rounded" />
+    </div>
+    <div className="flex justify-between items-center">
+      <div className="w-24 h-6 bg-muted rounded" />
+      <div className="w-20 h-8 bg-muted rounded" />
+    </div>
   </div>
 );
 
-const AppCard = ({ app, onConnect, onConfigure, connectedProfiles }: {
+const AppCard = ({ app, profiles, onConnect, onConfigure }: {
   app: ComposioToolkit;
+  profiles: ComposioProfile[];
   onConnect: () => void;
-  onConfigure?: (profile: ComposioProfile) => void;
-  connectedProfiles: ComposioProfile[];
+  onConfigure: (profile: ComposioProfile) => void;
 }) => {
-  const isConnected = connectedProfiles.length > 0;
+  const connectedProfiles = profiles.filter(p => p.is_connected);
   
   return (
-    <div 
-      className={cn(
-        "group relative overflow-hidden rounded-2xl bg-card border transition-all cursor-pointer transform hover:bg-muted/60",
-      )}
-      onClick={onConnect}
-    >
-      <div className="p-6">
-        <div className="flex items-start gap-4 mb-4">
-          {app.logo ? (
-            <img 
-              src={app.logo} 
-              alt={app.name} 
-              className="h-12 w-12 rounded-xl object-contain border flex-shrink-0 bg-muted p-2"
-            />
-          ) : (
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
-              {app.name.charAt(0)}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base truncate">{app.name}</h3>
-              {isConnected && (
-                <Badge variant="default" className="text-xs bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20">
-                  Connected
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {app.description || `Connect your ${app.name} account`}
-            </p>
+    <div onClick={connectedProfiles.length > 0 ? () => onConfigure(connectedProfiles[0]) : onConnect} className="group border bg-card hover:bg-muted rounded-2xl p-4 transition-all duration-200">
+      <div className="flex items-start gap-3 mb-3">
+        {app.logo ? (
+          <img src={app.logo} alt={app.name} className="w-10 h-10 rounded-lg object-cover p-2 bg-muted rounded-xl border" />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span className="text-primary text-sm font-medium">{app.name.charAt(0)}</span>
           </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-sm leading-tight truncate mb-1">{app.name}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+            {app.description || `Connect your ${app.name} account to access its features.`}
+          </p>
         </div>
-        
+      </div>
+      
+      {app.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {app.tags.slice(0, 2).map((tag, index) => (
+            <Badge key={index} variant="secondary" className="text-xs px-1.5 py-0.5 h-auto">
+              {tag}
+            </Badge>
+          ))}
+          {app.tags.length > 2 && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0.5 h-auto">
+              +{app.tags.length - 2}
+            </Badge>
+          )}
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center">
         {connectedProfiles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {connectedProfiles.map((profile) => (
-              <Badge 
-                key={profile.profile_id} 
-                variant="default"
-                className="text-xs bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onConfigure?.(profile);
-                }}
-              >
-                {profile.profile_name}
-              </Badge>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Connected ({connectedProfiles.length})
+            </div>
           </div>
         )}
       </div>
-      
-      {/* Subtle gradient overlay for better visual appeal */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </div>
   );
 };
@@ -115,13 +134,15 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
   onAgentChange,
 }) => {
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedApp, setSelectedApp] = useState<ComposioToolkit | null>(null);
   const [showConnector, setShowConnector] = useState(false);
   
   const [internalSelectedAgentId, setInternalSelectedAgentId] = useState<string | undefined>(selectedAgentId);
   const queryClient = useQueryClient();
   
-  const { data: toolkits, isLoading } = useComposioToolkits(search);
+  const { data: categoriesData, isLoading: isLoadingCategories } = useComposioCategories();
+  const { data: toolkits, isLoading } = useComposioToolkits(search, selectedCategory);
   const { data: profiles } = useComposioProfiles();
   
   const currentAgentId = selectedAgentId ?? internalSelectedAgentId;
@@ -135,7 +156,6 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
     }
   };
 
-  // Group profiles by toolkit
   const profilesByToolkit = useMemo(() => {
     const grouped: Record<string, ComposioProfile[]> = {};
     profiles?.forEach(profile => {
@@ -149,17 +169,10 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
     return grouped;
   }, [profiles]);
 
-  // Filter toolkits based on search
   const filteredToolkits = useMemo(() => {
     if (!toolkits?.toolkits) return [];
-    if (!search) return toolkits.toolkits;
-    
-    const searchLower = search.toLowerCase();
-    return toolkits.toolkits.filter(toolkit =>
-      toolkit.name.toLowerCase().includes(searchLower) ||
-      toolkit.description?.toLowerCase().includes(searchLower)
-    );
-  }, [toolkits, search]);
+    return toolkits.toolkits;
+  }, [toolkits]);
 
   const handleConnect = (app: ComposioToolkit) => {
     if (!currentAgentId && showAgentSelector) {
@@ -175,7 +188,6 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
       toast.error('Please select an agent first');
       return;
     }
-    // Open connector in tools mode with selected profile
     setSelectedApp(app);
     setShowConnector(true);
   };
@@ -188,108 +200,162 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
     }
   };
 
-  if (!currentAgentId && showAgentSelector) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-          <Zap className="h-8 w-8 text-primary" />
-        </div>
-        <div className="max-w-sm space-y-2">
-          <h3 className="text-lg font-medium">Select an Agent</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Choose an agent to connect and manage Composio integrations
-          </p>
-        </div>
-        <AgentSelector
-          selectedAgentId={currentAgentId}
-          onAgentSelect={handleAgentSelect}
-          isSunaAgent={agent?.metadata?.is_suna_default}
-        />
-      </div>
-    );
-  }
+  const categories = categoriesData?.categories || [];
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 border rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold">Integrations</h1>
-              <p className="text-sm text-muted-foreground">
-                Add external tools to your agent
-              </p>
-            </div>
+    <div className="h-full w-full overflow-hidden flex">
+      <div className="w-64 h-full overflow-hidden border-r bg-muted/20">
+        <div className="h-full flex flex-col">
+          <div className="flex-shrink-0 p-4 border-b">
+            <h3 className="text-sm font-medium text-muted-foreground">Categories</h3>
           </div>
           
-          {showAgentSelector && (
-            <AgentSelector
-              selectedAgentId={currentAgentId}
-              onAgentSelect={handleAgentSelect}
-              isSunaAgent={agent?.metadata?.is_suna_default}
-            />
-          )}
-        </div>
-        
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search integrations..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10"
-          />
-        </div>
-      </div>
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-1">
+                <button
+                  onClick={() => setSelectedCategory('')}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors text-left",
+                    selectedCategory === '' 
+                      ? "bg-muted-foreground/20 text-muted-foreground" 
+                      : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="text-base">📁</span>
+                  <span>All Apps</span>
+                </button>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <AppCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : filteredToolkits.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredToolkits.map((app) => (
-                <AppCard
-                  key={app.slug}
-                  app={app}
-                  onConnect={() => handleConnect(app)}
-                  onConfigure={(profile) => handleConfigure(app, profile)}
-                  connectedProfiles={profilesByToolkit[app.slug] || []}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-muted-foreground" />
+                {isLoadingCategories ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2">
+                        <div className="w-4 h-4 bg-muted rounded" />
+                        <div className="flex-1 h-4 bg-muted rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors text-left",
+                        selectedCategory === category.id 
+                          ? "bg-muted-foreground/20 text-muted-foreground" 
+                          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="text-base">{CATEGORY_EMOJIS[category.id] || '📁'}</span>
+                      <span className="truncate">{category.name}</span>
+                    </button>
+                  ))
+                )}
               </div>
-              <h3 className="text-lg font-medium mb-2">No integrations found</h3>
-              <p className="text-sm text-muted-foreground">
-                {search ? `No results for "${search}"` : 'No integrations available'}
-              </p>
-            </div>
-          )}
+            </ScrollArea>
+          </div>
         </div>
       </div>
 
-      {/* Connector Modal */}
+      <div className="flex-1 h-full overflow-hidden">
+        <div className="h-full flex flex-col">
+          <div className="flex-shrink-0 border-b p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">App Integrations</h2>
+                <p className="text-sm text-muted-foreground">
+                  Connect your favorite apps powered by Composio
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {showAgentSelector && (
+                  <AgentSelector
+                    selectedAgentId={currentAgentId}
+                    onAgentSelect={handleAgentSelect}
+                    isSunaAgent={agent?.metadata?.is_suna_default}
+                  />
+                )}
+                {onClose && (
+                  <Button variant="ghost" size="sm" onClick={onClose}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search apps..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {selectedCategory && (
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-xs text-muted-foreground">Filtered by:</span>
+                <Badge variant="outline" className="gap-1 bg-muted-foreground/20 text-muted-foreground">
+                  <span>{CATEGORY_EMOJIS[selectedCategory] || '📁'}</span>
+                  <span>{categories.find(c => c.id === selectedCategory)?.name}</span>
+                  <button
+                    onClick={() => setSelectedCategory('')}
+                    className="ml-1 hover:bg-muted rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-6">
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <AppCardSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : filteredToolkits.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                      <Search className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">No apps found</h3>
+                    <p className="text-muted-foreground">
+                      {search ? `No apps match "${search}"` : 'No apps available in this category'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredToolkits.map((app) => (
+                      <AppCard
+                        key={app.slug}
+                        app={app}
+                        profiles={profilesByToolkit[app.slug] || []}
+                        onConnect={() => handleConnect(app)}
+                        onConfigure={(profile) => handleConfigure(app, profile)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      </div>
+
       {selectedApp && (
         <ComposioConnector
           app={selectedApp}
+          agentId={currentAgentId}
           open={showConnector}
           onOpenChange={setShowConnector}
           onComplete={handleConnectionComplete}
-          mode={mode}
-          agentId={currentAgentId}
         />
       )}
     </div>

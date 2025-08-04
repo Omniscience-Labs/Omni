@@ -1,6 +1,7 @@
 export const composioKeys = {
   all: ['composio'] as const,
-  toolkits: (search?: string) => [...composioKeys.all, 'toolkits', search || ''] as const,
+  categories: () => [...composioKeys.all, 'categories'] as const,
+  toolkits: (search?: string, category?: string) => [...composioKeys.all, 'toolkits', search || '', category || ''] as const,
   toolkit: (slug: string) => [...composioKeys.all, 'toolkit', slug] as const,
   authConfigs: () => [...composioKeys.all, 'auth-configs'] as const,
   authConfig: (id: string) => [...composioKeys.all, 'auth-config', id] as const,
@@ -15,5 +16,7 @@ export const composioKeys = {
       [...composioKeys.profiles.all(), 'list', params?.toolkit_slug || '', params?.is_active ?? ''] as const,
     detail: (profileId: string) => [...composioKeys.profiles.all(), 'detail', profileId] as const,
     mcpConfig: (profileId: string) => [...composioKeys.profiles.all(), 'mcp-config', profileId] as const,
+    credentials: () => [...composioKeys.profiles.all(), 'credentials'] as const,
+    mcpUrl: (profileId: string) => [...composioKeys.profiles.all(), 'mcpUrl', profileId] as const,
   }
 }; 

@@ -11,7 +11,7 @@ from .composio_service import (
     ComposioIntegrationService,
     ComposioIntegrationResult
 )
-from .toolkit_service import ToolkitInfo
+from .toolkit_service import ToolkitInfo, ToolkitService, CategoryInfo
 from .composio_profile_service import ComposioProfileService, ComposioProfile
 
 router = APIRouter(prefix="/composio", tags=["composio"])
@@ -82,23 +82,43 @@ class ProfileResponse(BaseModel):
         )
 
 
+@router.get("/categories")
+async def list_categories(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+) -> Dict[str, Any]:
+    try:
+        logger.info("Fetching Composio categories")
+        
+        toolkit_service = ToolkitService()
+        categories = await toolkit_service.list_categories()
+        
+        return {
+            "success": True,
+            "categories": [cat.dict() for cat in categories],
+            "total": len(categories)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch categories: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch categories: {str(e)}")
+
+
 @router.get("/toolkits")
 async def list_toolkits(
     limit: int = Query(100, le=500),
     search: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
-        logger.info(f"Fetching Composio toolkits with limit: {limit}, search: {search}")
+        logger.info(f"Fetching Composio toolkits with limit: {limit}, search: {search}, category: {category}")
         
         service = get_integration_service()
         
         if search:
-            toolkits = await service.search_toolkits(search)
+            toolkits = await service.search_toolkits(search, category=category)
         else:
-            toolkits = await service.list_available_toolkits(limit)
-        
-        logger.info(f"Successfully fetched {len(toolkits)} Composio toolkits")
+            toolkits = await service.list_available_toolkits(limit, category=category)
         
         return {
             "success": True,
@@ -106,16 +126,9 @@ async def list_toolkits(
             "total": len(toolkits)
         }
         
-    except ValueError as e:
-        logger.error(f"Configuration error fetching toolkits: {e}")
-        raise HTTPException(status_code=400, detail=f"Configuration error: {str(e)}")
     except Exception as e:
-        logger.error(f"Failed to list toolkits: {e}", exc_info=True)
-        return {
-            "success": False,
-            "toolkits": [],
-            "error": str(e)
-        }
+        logger.error(f"Failed to fetch toolkits: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch toolkits: {str(e)}")
 
 
 @router.post("/integrate", response_model=IntegrationStatusResponse)
@@ -158,7 +171,6 @@ async def create_profile(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> ProfileResponse:
     try:
-        # First, perform the Composio integration
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
             toolkit_slug=request.toolkit_slug,
@@ -171,12 +183,9 @@ async def create_profile(
         )
         
         logger.info(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
-        
-        # Get the created profile
         profile_service = ComposioProfileService(db)
         profiles = await profile_service.get_profiles(current_user_id, request.toolkit_slug)
-        
-        # Find the profile we just created
+
         created_profile = None
         for profile in profiles:
             if profile.profile_name == request.profile_name:
@@ -238,8 +247,37 @@ async def get_profile_mcp_config(
         }
         
     except Exception as e:
-        logger.error(f"Failed to get MCP config for profile {profile_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get MCP config for profile {profile_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get MCP config: {str(e)}")
+
+
+@router.get("/profiles/{profile_id}")
+async def get_profile_info(
+    profile_id: str,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+) -> Dict[str, Any]:
+    try:
+        profile_service = ComposioProfileService(db)
+        profile = await profile_service.get_profile(profile_id, current_user_id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        return {
+            "success": True,
+            "profile": {
+                "profile_id": profile.profile_id,
+                "profile_name": profile.profile_name,
+                "toolkit_name": profile.toolkit_name,
+                "toolkit_slug": profile.toolkit_slug,
+                "created_at": profile.created_at.isoformat() if profile.created_at else None
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get profile info for {profile_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get profile info: {str(e)}")
 
 
 @router.get("/integration/{connected_account_id}/status")
@@ -305,6 +343,33 @@ async def discover_tools_post(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     return await discover_composio_tools(profile_id, current_user_id)
+
+@router.get("/toolkits/{toolkit_slug}/icon")
+async def get_toolkit_icon(
+    toolkit_slug: str,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        toolkit_service = ToolkitService()
+        icon_url = await toolkit_service.get_toolkit_icon(toolkit_slug)
+        
+        if icon_url:
+            return {
+                "success": True,
+                "toolkit_slug": toolkit_slug,
+                "icon_url": icon_url
+            }
+        else:
+            return {
+                "success": False,
+                "toolkit_slug": toolkit_slug,
+                "icon_url": None,
+                "message": "Icon not found"
+            }
+    
+    except Exception as e:
+        logger.error(f"Error getting toolkit icon: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/health")

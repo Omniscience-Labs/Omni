@@ -4,6 +4,11 @@ from utils.logger import logger
 from .client import ComposioClient
 
 
+class CategoryInfo(BaseModel):
+    id: str
+    name: str
+
+
 class ToolkitInfo(BaseModel):
     slug: str
     name: str
@@ -11,17 +16,54 @@ class ToolkitInfo(BaseModel):
     logo: Optional[str] = None
     tags: List[str] = []
     auth_schemes: List[str] = []
+    categories: List[str] = []
 
 
 class ToolkitService:
     def __init__(self, api_key: Optional[str] = None):
         self.client = ComposioClient.get_client(api_key)
     
-    async def list_toolkits(self, limit: int = 100) -> List[ToolkitInfo]:
+    async def list_categories(self) -> List[CategoryInfo]:
         try:
-            logger.info(f"Fetching toolkits with limit: {limit}")
+            logger.info("Fetching Composio categories")
+            popular_categories = [
+                {"id": "popular", "name": "Popular"},
+                {"id": "productivity", "name": "Productivity"},
+                {"id": "ai", "name": "AI"},
+                {"id": "crm", "name": "CRM"},
+                {"id": "marketing", "name": "Marketing"},
+                {"id": "email", "name": "Email"},
+                {"id": "analytics", "name": "Analytics"},
+                {"id": "automation", "name": "Automation"},
+                {"id": "communication", "name": "Communication"},
+                {"id": "project-management", "name": "Project Management"},
+                {"id": "e-commerce", "name": "E-commerce"},
+                {"id": "social-media", "name": "Social Media"},
+                {"id": "payments", "name": "Payments"},
+                {"id": "finance", "name": "Finance"},
+                {"id": "developer-tools", "name": "Developer Tools"},
+                {"id": "api", "name": "API"},
+                {"id": "notifications", "name": "Notifications"},
+                {"id": "scheduling", "name": "Scheduling"},
+                {"id": "data-analytics", "name": "Data Analytics"},
+                {"id": "customer-support", "name": "Customer Support"}
+            ]
             
-            toolkits_response = self.client.toolkits.list(limit=limit)
+            categories = [CategoryInfo(**cat) for cat in popular_categories]
+            logger.info(f"Successfully fetched {len(categories)} categories")
+            return categories
+            
+        except Exception as e:
+            logger.error(f"Failed to list categories: {e}", exc_info=True)
+            raise
+    
+    async def list_toolkits(self, limit: int = 100, category: Optional[str] = None) -> List[ToolkitInfo]:
+        try:
+            logger.info(f"Fetching toolkits with limit: {limit}, category: {category}")
+            if category:
+                toolkits_response = self.client.toolkits.list(limit=limit, category=category)
+            else:
+                toolkits_response = self.client.toolkits.list(limit=limit)
             
             items = getattr(toolkits_response, 'items', [])
             if hasattr(toolkits_response, '__dict__'):
@@ -52,13 +94,20 @@ class ToolkitService:
                     logo_url = toolkit_data.get("logo")
                 
                 tags = []
+                categories = []
                 if isinstance(meta, dict) and "categories" in meta:
-                    categories = meta.get("categories", [])
-                    for category in categories:
-                        if isinstance(category, dict):
-                            tags.append(category.get("name", ""))
-                        elif hasattr(category, '__dict__'):
-                            tags.append(category.__dict__.get("name", ""))
+                    category_list = meta.get("categories", [])
+                    for cat in category_list:
+                        if isinstance(cat, dict):
+                            cat_name = cat.get("name", "")
+                            cat_id = cat.get("id", "")
+                            tags.append(cat_name)
+                            categories.append(cat_id)
+                        elif hasattr(cat, '__dict__'):
+                            cat_name = cat.__dict__.get("name", "")
+                            cat_id = cat.__dict__.get("id", "")
+                            tags.append(cat_name)
+                            categories.append(cat_id)
                 
                 description = None
                 if isinstance(meta, dict):
@@ -75,11 +124,12 @@ class ToolkitService:
                     description=description,
                     logo=logo_url,
                     tags=tags,
-                    auth_schemes=auth_schemes
+                    auth_schemes=auth_schemes,
+                    categories=categories
                 )
                 toolkits.append(toolkit)
             
-            logger.info(f"Successfully fetched {len(toolkits)} OAUTH2-enabled toolkits")
+            logger.info(f"Successfully fetched {len(toolkits)} OAUTH2-enabled toolkits" + (f" for category {category}" if category else ""))
             return toolkits
             
         except Exception as e:
@@ -97,9 +147,9 @@ class ToolkitService:
             logger.error(f"Failed to get toolkit {slug}: {e}", exc_info=True)
             raise
     
-    async def search_toolkits(self, query: str) -> List[ToolkitInfo]:
+    async def search_toolkits(self, query: str, category: Optional[str] = None) -> List[ToolkitInfo]:
         try:
-            toolkits = await self.list_toolkits()
+            toolkits = await self.list_toolkits(category=category)
             query_lower = query.lower()
             
             filtered_toolkits = [
@@ -109,9 +159,36 @@ class ToolkitService:
                 or any(query_lower in tag.lower() for tag in toolkit.tags)
             ]
             
-            logger.info(f"Found {len(filtered_toolkits)} OAUTH2-enabled toolkits matching query: {query}")
+            logger.info(f"Found {len(filtered_toolkits)} OAUTH2-enabled toolkits matching query: {query}" + (f" in category {category}" if category else ""))
             return filtered_toolkits
             
         except Exception as e:
             logger.error(f"Failed to search toolkits: {e}", exc_info=True)
-            raise 
+            raise
+    
+    async def get_toolkit_icon(self, toolkit_slug: str) -> Optional[str]:
+        try:
+            logger.info(f"Fetching toolkit icon for: {toolkit_slug}")
+            toolkit_response = self.client.toolkits.retrieve(toolkit_slug)
+            
+            if hasattr(toolkit_response, 'model_dump'):
+                toolkit_dict = toolkit_response.model_dump()
+            elif hasattr(toolkit_response, '__dict__'):
+                toolkit_dict = toolkit_response.__dict__
+            else:
+                toolkit_dict = dict(toolkit_response)
+            
+            meta = toolkit_dict.get('meta', {})
+            if isinstance(meta, dict):
+                logo = meta.get('logo')
+            elif hasattr(meta, '__dict__'):
+                logo = meta.__dict__.get('logo')
+            else:
+                logo = None
+            
+            logger.info(f"Successfully fetched icon for {toolkit_slug}: {logo}")
+            return logo
+            
+        except Exception as e:
+            logger.error(f"Failed to get toolkit icon for {toolkit_slug}: {e}")
+            return None 

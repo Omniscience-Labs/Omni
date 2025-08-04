@@ -1,6 +1,17 @@
 import { backendApi } from '@/lib/api-client';
 
-// Composio Toolkit Interface
+export interface ComposioCategory {
+  id: string;
+  name: string;
+}
+
+export interface CompositoCategoriesResponse {
+  success: boolean;
+  categories: ComposioCategory[];
+  total: number;
+  error?: string;
+}
+
 export interface ComposioToolkit {
   slug: string;
   name: string;
@@ -8,6 +19,7 @@ export interface ComposioToolkit {
   logo?: string;
   tags: string[];
   auth_schemes: string[];
+  categories: string[];
 }
 
 export interface ComposioToolkitsResponse {
@@ -16,7 +28,6 @@ export interface ComposioToolkitsResponse {
   error?: string;
 }
 
-// Composio Profile Interface
 export interface ComposioProfile {
   profile_id: string;
   profile_name: string;
@@ -49,7 +60,7 @@ export interface CreateComposioProfileResponse {
   success: boolean;
   profile_id: string;
   redirect_url?: string;
-  mcp_url: string;  // The complete MCP URL
+  mcp_url: string;
   error?: string;
 }
 
@@ -67,13 +78,64 @@ export interface ComposioMcpConfigResponse {
   error?: string;
 }
 
-// Composio API Client
+export interface ComposioProfileSummary {
+  profile_id: string;
+  profile_name: string;
+  display_name: string;
+  toolkit_slug: string;
+  toolkit_name: string;
+  is_connected: boolean;
+  is_default: boolean;
+  created_at: string;
+  has_mcp_url: boolean;
+}
+
+export interface ComposioToolkitGroup {
+  toolkit_slug: string;
+  toolkit_name: string;
+  icon_url?: string;
+  profiles: ComposioProfileSummary[];
+}
+
+export interface ComposioCredentialsResponse {
+  success: boolean;
+  toolkits: ComposioToolkitGroup[];
+  total_profiles: number;
+}
+
+export interface ComposioMcpUrlResponse {
+  success: boolean;
+  mcp_url: string;
+  profile_name: string;
+  toolkit_name: string;
+  warning: string;
+}
+
 export const composioApi = {
-  async getToolkits(search?: string): Promise<ComposioToolkitsResponse> {
+  async getCategories(): Promise<CompositoCategoriesResponse> {
+    const result = await backendApi.get<CompositoCategoriesResponse>(
+      '/composio/categories',
+      {
+        errorContext: { operation: 'load categories', resource: 'Composio categories' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get categories');
+    }
+
+    return result.data!;
+  },
+
+  async getToolkits(search?: string, category?: string): Promise<ComposioToolkitsResponse> {
     const params = new URLSearchParams();
     
     if (search) {
       params.append('search', search);
+    }
+    
+    if (category) {
+      params.append('category', category);
     }
     
     const result = await backendApi.get<ComposioToolkitsResponse>(
@@ -160,5 +222,23 @@ export const composioApi = {
     }
 
     return result.data!;
+  },
+
+  async getCredentialsProfiles(): Promise<ComposioToolkitGroup[]> {
+    const response = await backendApi.get<ComposioCredentialsResponse>('/secure-mcp/composio-profiles');
+    return response.data.toolkits;
+  },
+
+  async getMcpUrl(profileId: string): Promise<ComposioMcpUrlResponse> {
+    const response = await backendApi.get<ComposioMcpUrlResponse>(`/secure-mcp/composio-profiles/${profileId}/mcp-url`);
+    return response.data;
+  },
+
+  async getToolkitIcon(toolkitSlug: string): Promise<{ success: boolean; icon_url?: string }> {
+    const response = await backendApi.get<{ success: boolean; toolkit_slug: string; icon_url?: string; message?: string }>(`/composio/toolkits/${toolkitSlug}/icon`);
+    return {
+      success: response.data.success,
+      icon_url: response.data.icon_url
+    };
   },
 }; 

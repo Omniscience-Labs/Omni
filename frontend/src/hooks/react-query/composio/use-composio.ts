@@ -4,17 +4,31 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { 
   composioApi, 
   type ComposioToolkitsResponse,
+  type CompositoCategoriesResponse,
   type CreateComposioProfileRequest,
   type CreateComposioProfileResponse,
 } from './utils';
 import { composioKeys } from './keys';
 import { toast } from 'sonner';
 
-export const useComposioToolkits = (search?: string) => {
+export const useComposioCategories = () => {
   return useQuery({
-    queryKey: composioKeys.toolkits(search),
+    queryKey: composioKeys.categories(),
+    queryFn: async (): Promise<CompositoCategoriesResponse> => {
+      const result = await composioApi.getCategories();
+      console.log('📂 Composio Categories:', result);
+      return result;
+    },
+    staleTime: 10 * 60 * 1000,
+    retry: 2,
+  });
+};
+
+export const useComposioToolkits = (search?: string, category?: string) => {
+  return useQuery({
+    queryKey: composioKeys.toolkits(search, category),
     queryFn: async (): Promise<ComposioToolkitsResponse> => {
-      const result = await composioApi.getToolkits(search);
+      const result = await composioApi.getToolkits(search, category);
       console.log('🔍 Composio Toolkits:', result);
       return result;
     },

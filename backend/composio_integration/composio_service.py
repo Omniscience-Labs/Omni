@@ -113,11 +113,11 @@ class ComposioIntegrationService:
             logger.error(f"Failed to integrate toolkit {toolkit_slug}: {e}", exc_info=True)
             raise
     
-    async def list_available_toolkits(self, limit: int = 100) -> List[ToolkitInfo]:
-        return await self.toolkit_service.list_toolkits(limit=limit)
+    async def list_available_toolkits(self, limit: int = 100, category: Optional[str] = None) -> List[ToolkitInfo]:
+        return await self.toolkit_service.list_toolkits(limit=limit, category=category)
     
-    async def search_toolkits(self, query: str) -> List[ToolkitInfo]:
-        return await self.toolkit_service.search_toolkits(query)
+    async def search_toolkits(self, query: str, category: Optional[str] = None) -> List[ToolkitInfo]:
+        return await self.toolkit_service.search_toolkits(query, category=category)
     
     async def get_integration_status(self, connected_account_id: str) -> Dict[str, Any]:
         return await self.connected_account_service.get_auth_status(connected_account_id)

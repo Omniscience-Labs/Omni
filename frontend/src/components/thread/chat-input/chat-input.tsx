@@ -520,7 +520,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             initialTab={configModalTab}
           />
           <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
-            <DialogContent className="p-0 max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
               <DialogHeader className="sr-only">
                 <DialogTitle>Integrations</DialogTitle>
               </DialogHeader>
