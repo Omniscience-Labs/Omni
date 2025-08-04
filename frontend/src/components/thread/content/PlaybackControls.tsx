@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, ArrowDown, FileText, Info } from 'lucide-react';
+import { Play, Pause, ArrowDown, FileText, Info, ArrowUp } from 'lucide-react';
 import { UnifiedMessage } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import Link from 'next/link';
@@ -110,7 +110,7 @@ export const PlaybackControls = ({
     if (!isPlaying && !isSidePanelOpen) {
       onToggleSidePanel();
     }
-  }, [isPlaying, isSidePanelOpen, onToggleSidePanel]);
+  }, [isPlaying, isSidePanelOpen, onToggleSidePanel, updatePlaybackState]);
 
   const resetPlayback = useCallback(() => {
     updatePlaybackState({
@@ -122,7 +122,42 @@ export const PlaybackControls = ({
       currentToolCall: null,
       toolPlaybackIndex: -1,
     });
-  }, [updatePlaybackState]);
+    setCurrentToolIndex(-1);
+    if (isSidePanelOpen) {
+      onToggleSidePanel();
+    }
+  }, [
+    updatePlaybackState,
+    setCurrentToolIndex,
+    isSidePanelOpen,
+    onToggleSidePanel,
+  ]);
+
+  const forward = useCallback(
+    (step: number = 1) => {
+      const newMessageIndex = Math.min(
+        currentMessageIndex + step,
+        messages.length,
+      );
+
+      // If we're moving to a new message, update the visible messages
+      if (newMessageIndex > currentMessageIndex) {
+        const newVisibleMessages = messages.slice(0, newMessageIndex);
+        updatePlaybackState({
+          currentMessageIndex: newMessageIndex,
+          visibleMessages: newVisibleMessages,
+          streamingText: '',
+          isStreamingText: false,
+        });
+      }
+
+      // If we're at the end, stop playback
+      if (newMessageIndex >= messages.length) {
+        updatePlaybackState({ isPlaying: false });
+      }
+    },
+    [currentMessageIndex, messages, updatePlaybackState],
+  );
 
   const skipToEnd = useCallback(() => {
     updatePlaybackState({
@@ -415,6 +450,57 @@ export const PlaybackControls = ({
     ? 'left-1/2 -translate-x-1/4 sm:left-[calc(50%-225px)] md:left-[calc(50%-250px)] lg:left-[calc(50%-275px)] xl:left-[calc(50%-325px)]'
     : 'left-1/2 -translate-x-1/2';
 
+  const PlayButton = useCallback(
+    () => (
+      <Button
+        variant="ghost"
+        disabled={currentMessageIndex === messages.length}
+        size="icon"
+        onClick={togglePlayback}
+        className="h-8 w-8"
+        aria-label={isPlaying ? 'Pause Replay' : 'Play Replay'}
+      >
+        {isPlaying ? (
+          <Pause className="h-4 w-4" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
+      </Button>
+    ),
+    [isPlaying, togglePlayback, currentMessageIndex, messages],
+  );
+
+  const ForwardButton = useCallback(
+    () => (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => forward(1)}
+        disabled={currentMessageIndex === messages.length}
+        className="h-8 w-8"
+      >
+        <ArrowUp className="h-4 w-4 rotate-90" />
+      </Button>
+    ),
+    [currentMessageIndex, messages, forward],
+  );
+
+  const ResetButton = useCallback(
+    () => (
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={currentMessageIndex === 0}
+        onClick={resetPlayback}
+        className="h-8 w-8"
+        aria-label="Restart Replay"
+      >
+        <ArrowDown className="h-4 w-4 rotate-90" />
+      </Button>
+    ),
+    [currentMessageIndex, resetPlayback],
+  );
+
   // Header with playback controls
   const renderHeader = useCallback(
     () => (
@@ -441,37 +527,9 @@ export const PlaybackControls = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onFileViewerOpen}
-              className="h-8 w-8"
-              aria-label="View Files"
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={togglePlayback}
-              className="h-8 w-8"
-              aria-label={isPlaying ? 'Pause Replay' : 'Play Replay'}
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={resetPlayback}
-              className="h-8 w-8"
-              aria-label="Restart Replay"
-            >
-              <ArrowDown className="h-4 w-4 rotate-90" />
-            </Button>
+            <PlayButton />
+            <ResetButton />
+            <ForwardButton />
             <Button
               variant="ghost"
               size="icon"
@@ -486,13 +544,12 @@ export const PlaybackControls = ({
       </div>
     ),
     [
-      isPlaying,
       isSidePanelOpen,
-      onFileViewerOpen,
       onToggleSidePanel,
       projectName,
-      resetPlayback,
-      togglePlayback,
+      PlayButton,
+      ResetButton,
+      ForwardButton,
     ],
   );
 
@@ -504,38 +561,15 @@ export const PlaybackControls = ({
             className={`fixed bottom-4 z-10 transform bg-background/90 backdrop-blur rounded-full border shadow-md px-3 py-1.5 transition-all duration-200 ${controlsPositionClass}`}
           >
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={togglePlayback}
-                className="h-8 w-8"
-              >
-                {isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
-
+              <PlayButton />
               <div className="flex items-center text-xs text-muted-foreground">
                 <span>
-                  {Math.min(
-                    currentMessageIndex + (isStreamingText ? 0 : 1),
-                    messages.length,
-                  )}
-                  /{messages.length}
+                  {Math.max(1, Math.min(currentMessageIndex, messages.length))}/
+                  {messages.length}
                 </span>
               </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={resetPlayback}
-                className="h-8 w-8"
-              >
-                <ArrowDown className="h-4 w-4 rotate-90" />
-              </Button>
-
+              <ResetButton />
+              <ForwardButton />
               <Button
                 variant="ghost"
                 size="sm"
@@ -552,12 +586,12 @@ export const PlaybackControls = ({
     [
       controlsPositionClass,
       currentMessageIndex,
-      isPlaying,
-      isStreamingText,
       messages.length,
-      resetPlayback,
       skipToEnd,
       togglePlayback,
+      isPlaying,
+      ResetButton,
+      ForwardButton,
     ],
   );
 

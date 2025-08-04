@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
 import { Agent, AgentUpdateRequest, AgentsParams, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat, getAgentBuilderChatHistory } from './utils';
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { generateRandomAvatar } from '@/lib/utils/_avatar-generator';
 import { DEFAULT_AGENTPRESS_TOOLS } from '@/components/agents/tools';
@@ -93,14 +93,10 @@ export const useUpdateAgent = () => {
       updateAgent(agentId, data),
     {
       onSuccess: (data, variables) => {
+        // Update the cache directly 
         queryClient.setQueryData(agentKeys.detail(variables.agentId), data);
+        // Invalidate lists view to update agent lists
         queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
-        if (variables.configured_mcps !== undefined || variables.custom_mcps !== undefined) {
-          queryClient.invalidateQueries({ queryKey: ['agent-tools', variables.agentId] });
-          queryClient.invalidateQueries({ queryKey: ['pipedream-tools', variables.agentId] });
-          queryClient.invalidateQueries({ queryKey: ['custom-mcp-tools', variables.agentId] });
-          queryClient.invalidateQueries({ queryKey: ['pipedream', 'available-tools'] });
-        }
       },
     }
   )();
@@ -112,10 +108,46 @@ export const useDeleteAgent = () => {
   return createMutationHook(
     deleteAgent,
     {
+      onMutate: async (agentId) => {
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({ queryKey: agentKeys.lists() });
+        
+        // Snapshot the previous value
+        const previousAgents = queryClient.getQueriesData({ queryKey: agentKeys.lists() });
+        
+        // Optimistically update to remove the agent
+        queryClient.setQueriesData({ queryKey: agentKeys.lists() }, (old: any) => {
+          if (!old || !old.agents) return old;
+          
+          return {
+            ...old,
+            agents: old.agents.filter((agent: any) => agent.agent_id !== agentId),
+            pagination: old.pagination ? {
+              ...old.pagination,
+              total: Math.max(0, old.pagination.total - 1)
+            } : undefined
+          };
+        });
+        
+        return { previousAgents };
+      },
+      onError: (err, agentId, context) => {
+        // Revert the optimistic update on error
+        if (context?.previousAgents) {
+          context.previousAgents.forEach(([queryKey, data]) => {
+            queryClient.setQueryData(queryKey, data);
+          });
+        }
+        toast.error('Failed to delete agent. Please try again.');
+      },
       onSuccess: (_, agentId) => {
+        // Remove the individual agent query
         queryClient.removeQueries({ queryKey: agentKeys.detail(agentId) });
-        queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
         toast.success('Agent deleted successfully');
+      },
+      onSettled: () => {
+        // Always invalidate to ensure consistency
+        queryClient.invalidateQueries({ queryKey: agentKeys.lists() });
       },
     }
   )();
@@ -138,6 +170,33 @@ export const useOptimisticAgentUpdate = () => {
     revertOptimisticUpdate: (agentId: string) => {
       queryClient.invalidateQueries({ queryKey: agentKeys.detail(agentId) });
     },
+  };
+};
+
+export const useAgentDeletionState = () => {
+  const [deletingAgents, setDeletingAgents] = useState<Set<string>>(new Set());
+  const deleteAgentMutation = useDeleteAgent();
+
+  const deleteAgent = useCallback(async (agentId: string) => {
+    // Add to deleting set immediately for UI feedback
+    setDeletingAgents(prev => new Set(prev).add(agentId));
+    
+    try {
+      await deleteAgentMutation.mutateAsync(agentId);
+    } finally {
+      // Remove from deleting set regardless of success/failure
+      setDeletingAgents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(agentId);
+        return newSet;
+      });
+    }
+  }, [deleteAgentMutation]);
+
+  return {
+    deleteAgent,
+    isDeletingAgent: (agentId: string) => deletingAgents.has(agentId),
+    isDeleting: deleteAgentMutation.isPending,
   };
 };
 

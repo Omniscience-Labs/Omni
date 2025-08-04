@@ -20,6 +20,7 @@ from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompt import get_system_prompt
+from agent.custom_prompt import render_prompt_template
 from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
 from services.billing import check_billing_status
@@ -29,6 +30,7 @@ from services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
 from agent.gemini_prompt import get_gemini_system_prompt
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
+from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
 
 load_dotenv()
@@ -69,7 +71,7 @@ class ToolManager:
         self.thread_manager.add_tool(SandboxWebSearchTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxVisionTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxImageEditTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
-        
+        self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
         if config.RAPID_API_KEY:
             self.thread_manager.add_tool(DataProvidersTool)
     
@@ -91,6 +93,7 @@ class ToolManager:
     def register_custom_tools(self, enabled_tools: Dict[str, Any]):
         self.thread_manager.add_tool(ExpandMessageTool, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(MessageTool)
+        self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
 
         def safe_tool_check(tool_name: str) -> bool:
             try:
@@ -221,7 +224,7 @@ class PromptManager:
         if is_agent_builder:
             system_content = get_agent_builder_prompt()
         elif agent_config and agent_config.get('system_prompt'):
-            system_content = agent_config['system_prompt'].strip()
+            system_content = render_prompt_template(agent_config['system_prompt'].strip())
         else:
             system_content = default_system_content
         

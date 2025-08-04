@@ -172,49 +172,7 @@ export function useAgentStream(
       setAgentRunId(null);
       currentRunIdRef.current = null;
 
-      // --- Reliable Message Refetch on Finalization ---
-      // Only refetch if the stream ended with a terminal status indicating the run is likely over
-      const terminalStatuses = [
-        'completed',
-        'stopped',
-        'failed',
-        'error',
-        'agent_not_running',
-      ];
-      if (currentThreadId && terminalStatuses.includes(finalStatus)) {
-        console.log(
-          `[useAgentStream] Refetching messages for thread ${currentThreadId} after finalization with status ${finalStatus}.`,
-        );
-        getMessages(currentThreadId)
-          .then((messagesData: ApiMessageType[]) => {
-            if (isMountedRef.current && messagesData) {
-              console.log(
-                `[useAgentStream] Refetched ${messagesData.length} messages for thread ${currentThreadId}.`,
-              );
-              const unifiedMessages = mapApiMessagesToUnified(
-                messagesData,
-                currentThreadId,
-              );
-              currentSetMessages(unifiedMessages); // Use the ref'd setMessages
-            } else if (!isMountedRef.current) {
-              console.log(
-                `[useAgentStream] Component unmounted before messages could be set after refetch for thread ${currentThreadId}.`,
-              );
-            }
-          })
-          .catch((err) => {
-            console.error(
-              `[useAgentStream] Error refetching messages for thread ${currentThreadId} after finalization:`,
-              err,
-            );
-            // Optionally notify the user via toast or callback
-            toast.error(`Failed to refresh messages: ${err.message}`);
-          });
-      } else {
-        console.log(
-          `[useAgentStream] Skipping message refetch for thread ${currentThreadId}. Final status: ${finalStatus}`,
-        );
-      }
+      // Message refetch disabled - optimistic messages will handle updates
 
       // If the run was stopped or completed, try to get final status to update nonRunning set (keep this)
       if (

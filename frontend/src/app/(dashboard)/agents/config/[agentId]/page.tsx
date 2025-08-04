@@ -18,12 +18,12 @@ import { CreateVersionButton } from '@/components/agents/create-version-button';
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
 import { useSearchParams } from 'next/navigation';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
-import { useAutosave } from '@/hooks/use-autosave';
-import { AutosaveIndicator } from '@/components/ui/autosave-indicator';
+
 import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
 import { UpcomingRunsDropdown } from '@/components/agents/upcoming-runs-dropdown';
+import { useExportAgent } from '@/hooks/react-query/agents/use-agent-export-import';
 
 interface FormData {
   name: string;
@@ -51,6 +51,7 @@ export default function AgentConfigurationPage() {
   const updateAgentMutation = useUpdateAgent();
   const createVersionMutation = useCreateAgentVersion();
   const activateVersionMutation = useActivateAgentVersion();
+  const exportMutation = useExportAgent();
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -72,6 +73,7 @@ export default function AgentConfigurationPage() {
 
   useEffect(() => {
     if (!agent) return;
+    
     let configSource = agent;
     if (versionData) {
       configSource = versionData;
@@ -96,73 +98,93 @@ export default function AgentConfigurationPage() {
     setOriginalData(initialData);
   }, [agent, versionData]);
 
-  // Autosave callback function
-  const handleAutosave = useCallback(async (data: FormData) => {
-    if (!agent || isViewingOldVersion) return;
+  // Save handler for manual saves
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const handleSave = useCallback(async () => {
+    if (!agent || isViewingOldVersion || isSaving) return;
     
     const isSunaAgent = agent?.metadata?.is_suna_default || false;
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent) {
-      if (restrictions.name_editable === false && data.name !== originalData.name) {
-        throw new Error("Suna's name cannot be modified.");
+      if (restrictions.name_editable === false && formData.name !== originalData.name) {
+        toast.error("Suna's name cannot be modified.");
+        return;
       }
 
-      if (restrictions.tools_editable === false && JSON.stringify(data.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
-        throw new Error("Suna's default tools cannot be modified.");
+      if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
+        toast.error("Suna's default tools cannot be modified.");
+        return;
       }
     }
     
-    const normalizedCustomMcps = (data.custom_mcps || []).map(mcp => ({
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
       name: mcp.name || 'Unnamed MCP',
       type: mcp.type || mcp.customType || 'sse',
       config: mcp.config || {},
       enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
     }));
     
-    const newVersion = await createVersionMutation.mutateAsync({
-      agentId,
-      data: {
-        system_prompt: isSunaAgent ? '' : data.system_prompt,
-        configured_mcps: data.configured_mcps,
-        custom_mcps: normalizedCustomMcps,
-        agentpress_tools: data.agentpress_tools,
-        description: 'Autosave'
-      }
-    });
+    setIsSaving(true);
     
-    const updatedAgent = await updateAgentMutation.mutateAsync({
-      agentId,
-      name: data.name,
-      description: data.description,
-      is_default: data.is_default,
-      avatar: data.avatar,
-      avatar_color: data.avatar_color
-    });
-    
-    queryClient.setQueryData(['agent', agentId], {
-      ...updatedAgent,
-      current_version: newVersion,
-      current_version_id: newVersion.versionId
-    });
-    
-    // Update original data to reflect successful save
-    setOriginalData(data);
-  }, [agent, originalData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation, queryClient]);
+    try {
+      // Create new version and update agent
+      await Promise.all([
+        createVersionMutation.mutateAsync({
+          agentId,
+          data: {
+            system_prompt: isSunaAgent ? '' : formData.system_prompt,
+            configured_mcps: formData.configured_mcps,
+            custom_mcps: normalizedCustomMcps,
+            agentpress_tools: formData.agentpress_tools,
+            description: 'Manual save'
+          }
+        }),
+        updateAgentMutation.mutateAsync({
+          agentId,
+          name: formData.name,
+          description: formData.description,
+          is_default: formData.is_default,
+          avatar: formData.avatar,
+          avatar_color: formData.avatar_color
+        })
+      ]);
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      toast.success('Agent saved successfully');
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save agent');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [agent, formData, originalData, isViewingOldVersion, agentId, createVersionMutation, updateAgentMutation, isSaving, queryClient]);
 
-  // Use autosave hook
-  const { status: autosaveStatus, hasUnsavedChanges, lastSaveTime, saveNow } = useAutosave({
-    data: formData,
-    originalData,
-    onSave: handleAutosave,
-    delay: 2000, // 2 seconds delay
-    enabled: !isViewingOldVersion && !!agent
-  });
-
+  // Check for unsaved changes
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(originalData);
+  
   // Update the version store with unsaved changes status
   useEffect(() => {
     setHasUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, setHasUnsavedChanges]);
+
+  // Add keyboard shortcut for save (Cmd/Ctrl + S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasUnsavedChanges && !isViewingOldVersion && !isSaving) {
+          handleSave();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [hasUnsavedChanges, isViewingOldVersion, isSaving, handleSave]);
 
   const handleFieldChange = useCallback((field: keyof FormData, value: any) => {
     if (isViewingOldVersion) {
@@ -172,17 +194,182 @@ export default function AgentConfigurationPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, [isViewingOldVersion]);
 
-  const handleMCPChange = useCallback((updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
+  // Immediate save handler for system prompt changes
+  const handleSystemPromptSave = useCallback(async (value: string) => {
+    console.log('🔥 System prompt save triggered with value:', { value, length: value.length });
+    
+    if (!agent || isViewingOldVersion || isSaving) {
+      console.log('❌ Save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
+      return;
+    }
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    
+    if (isSunaAgent) {
+      console.log('❌ Suna agent system prompt edit blocked');
+      toast.error("System prompt cannot be edited", {
+        description: "Suna's system prompt is managed centrally and cannot be changed.",
+      });
+      return;
+    }
+    
+    // Update form data first
+    setFormData(prev => ({ ...prev, system_prompt: value }));
+    
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const saveData = {
+      system_prompt: value,
+      configured_mcps: formData.configured_mcps,
+      custom_mcps: normalizedCustomMcps,
+      agentpress_tools: formData.agentpress_tools,
+      description: 'System prompt update'
+    };
+    
+    console.log('💾 Saving system prompt with data:', saveData);
+    setIsSaving(true);
+    
+    try {
+      const result = await createVersionMutation.mutateAsync({
+        agentId,
+        data: saveData
+      });
+      
+      console.log('✅ Version created successfully:', result);
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      // Update original data to reflect the save
+      setOriginalData(prev => ({ ...prev, system_prompt: value }));
+      
+      console.log('✅ System prompt saved and state updated');
+      toast.success('System prompt saved');
+    } catch (error) {
+      console.error('❌ Save error:', error);
+      toast.error('Failed to save system prompt');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+
+  // Immediate save handler for tools changes
+  const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
+    console.log('🔧 Tools save triggered with:', { tools, toolsCount: Object.keys(tools).length });
+    
+    if (!agent || isViewingOldVersion || isSaving) {
+      console.log('❌ Tools save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
+      return;
+    }
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const restrictions = agent?.metadata?.restrictions || {};
+    
+    if (isSunaAgent && restrictions.tools_editable === false) {
+      console.log('❌ Suna agent tools edit blocked');
+      toast.error("Suna's default tools cannot be modified.");
+      return;
+    }
+    
+    // Update form data first
+    setFormData(prev => ({ ...prev, agentpress_tools: tools }));
+    
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const saveData = {
+      system_prompt: isSunaAgent ? '' : formData.system_prompt,
+      configured_mcps: formData.configured_mcps,
+      custom_mcps: normalizedCustomMcps,
+      agentpress_tools: tools,
+      description: 'Tools configuration update'
+    };
+    
+    console.log('💾 Saving tools with data:', saveData);
+    setIsSaving(true);
+    
+    try {
+      const result = await createVersionMutation.mutateAsync({
+        agentId,
+        data: saveData
+      });
+      
+      console.log('✅ Tools version created successfully:', result);
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      // Update original data to reflect the save
+      setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
+      
+      console.log('✅ Tools saved and state updated');
+      toast.success('Tools configuration saved');
+    } catch (error) {
+      console.error('❌ Tools save error:', error);
+      toast.error('Failed to save tools configuration');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+
+  const handleMCPChange = useCallback(async (updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
     if (isViewingOldVersion) {
       toast.error('Cannot edit old versions. Please activate this version first to make changes.');
       return;
     }
-    setFormData(prev => ({
-      ...prev,
+    
+    const newFormData = {
+      ...formData,
       configured_mcps: updates.configured_mcps,
       custom_mcps: updates.custom_mcps
+    };
+    
+    setFormData(newFormData);
+    
+    // Save immediately on integration changes
+    if (!agent || isViewingOldVersion || isSaving) return;
+    
+    const normalizedCustomMcps = (newFormData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
     }));
-  }, [isViewingOldVersion]);
+    
+    setIsSaving(true);
+    
+    try {
+      await createVersionMutation.mutateAsync({
+        agentId,
+        data: {
+          system_prompt: agent?.metadata?.is_suna_default ? '' : newFormData.system_prompt,
+          configured_mcps: newFormData.configured_mcps,
+          custom_mcps: normalizedCustomMcps,
+          agentpress_tools: newFormData.agentpress_tools,
+          description: 'Integration change'
+        }
+      });
+      
+      // Force refetch latest data from server
+      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      
+      toast.success('Integration saved');
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save integration');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
 
   const handleStyleChange = useCallback((emoji: string, color: string) => {
     if (isViewingOldVersion) {
@@ -203,6 +390,11 @@ export default function AgentConfigurationPage() {
       toast.error('Failed to activate version');
     }
   }, [agentId, activateVersionMutation]);
+
+  const handleExport = useCallback(() => {
+    if (!agentId) return;
+    exportMutation.mutate(agentId);
+  }, [agentId, exportMutation]);
 
   useEffect(() => {
     if (isViewingOldVersion && activeTab === 'agent-builder') {
@@ -272,7 +464,7 @@ export default function AgentConfigurationPage() {
           <div className="w-1/2 border-r border-border/40 bg-background h-full flex flex-col">
             <div className="h-full flex flex-col">
               <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="p-4">
+                <div className="px-4 pt-4 pb-1">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       {!agent?.metadata?.is_suna_default && (
@@ -303,11 +495,25 @@ export default function AgentConfigurationPage() {
                       <UpcomingRunsDropdown agentId={agentId} />
                     </div>
                     <div className="flex items-center gap-2">
-                      {!isViewingOldVersion && (
-                        <AutosaveIndicator
-                          status={autosaveStatus}
-                          lastSaveTime={lastSaveTime}
-                        />
+                      {!isViewingOldVersion && hasUnsavedChanges && (
+                        <Button 
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          size="sm"
+                          className="h-8"
+                        >
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-3 w-3 mr-2" />
+                              Save
+                            </>
+                          )}
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -327,6 +533,8 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onStyleChange={handleStyleChange}
                     onTabChange={setActiveTab}
+                    onExport={handleExport}
+                    isExporting={exportMutation.isPending}
                     agentMetadata={agent?.metadata}
                   />
                 </div>
@@ -341,6 +549,8 @@ export default function AgentConfigurationPage() {
                       isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
+                      onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
@@ -365,6 +575,8 @@ export default function AgentConfigurationPage() {
                         isViewingOldVersion={isViewingOldVersion}
                         onFieldChange={handleFieldChange}
                         onMCPChange={handleMCPChange}
+                        onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                         initialAccordion={initialAccordion}
                         agentMetadata={agent?.metadata}
                       />
@@ -383,7 +595,7 @@ export default function AgentConfigurationPage() {
         <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="p-4">
+              <div className="px-4 pt-4 pb-1">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <AgentVersionSwitcher
@@ -412,11 +624,25 @@ export default function AgentConfigurationPage() {
                     <UpcomingRunsDropdown agentId={agentId} />
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isViewingOldVersion && (
-                      <AutosaveIndicator
-                        status={autosaveStatus}
-                        lastSaveTime={lastSaveTime}
-                      />
+                    {!isViewingOldVersion && hasUnsavedChanges && (
+                      <Button 
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        size="sm"
+                        className="h-8"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-3 w-3 mr-2" />
+                            Save
+                          </>
+                        )}
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -438,6 +664,8 @@ export default function AgentConfigurationPage() {
                   onFieldChange={handleFieldChange}
                   onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
+                  onExport={handleExport}
+                  isExporting={exportMutation.isPending}
                   agentMetadata={agent?.metadata}
                 />
               </div>
@@ -453,6 +681,7 @@ export default function AgentConfigurationPage() {
                     isViewingOldVersion={isViewingOldVersion}
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
+                    onSystemPromptSave={handleSystemPromptSave}
                     initialAccordion={initialAccordion}
                     agentMetadata={agent?.metadata}
                   />
@@ -477,6 +706,8 @@ export default function AgentConfigurationPage() {
                       isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
+                      onSystemPromptSave={handleSystemPromptSave}
+                      onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
@@ -504,6 +735,8 @@ export default function AgentConfigurationPage() {
               </div>
             </DrawerContent>
           </Drawer>
+
+
         </div>
       </div>
     </div>

@@ -7,6 +7,8 @@ import {
   Code,
   Eye,
   File,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   extractFilePath,
@@ -54,6 +56,7 @@ import {
 import { ToolViewProps } from '../types';
 import { GenericToolView } from '../GenericToolView';
 import { LoadingState } from '../shared/LoadingState';
+import { toast } from 'sonner';
 
 export function FileOperationToolView({
   assistantContent,
@@ -67,6 +70,33 @@ export function FileOperationToolView({
 }: ToolViewProps) {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === 'dark';
+
+  // Add copy functionality state
+  const [isCopyingContent, setIsCopyingContent] = useState(false);
+
+  // Copy functions
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      return false;
+    }
+  };
+
+  const handleCopyContent = async () => {
+    if (!fileContent) return;
+    
+    setIsCopyingContent(true);
+    const success = await copyToClipboard(fileContent);
+    if (success) {
+      toast.success('File content copied to clipboard');
+    } else {
+      toast.error('Failed to copy file content');
+    }
+    setTimeout(() => setIsCopyingContent(false), 500);
+  };
 
   const operation = getOperationType(name, assistantContent);
   const configs = getOperationConfigs();
@@ -270,7 +300,7 @@ export function FileOperationToolView({
 
   return (
     <Card className="flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
-      <Tabs defaultValue={'preview'} className="w-full h-full">
+      <Tabs defaultValue={isMarkdown || isHtml ? 'preview' : 'code'} className="w-full h-full">
         <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2 mb-0">
           <div className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
@@ -290,6 +320,24 @@ export function FileOperationToolView({
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Open in Browser
                   </a>
+                </Button>
+              )}
+              {/* Copy button - only show when there's file content */}
+              {fileContent && !isStreaming && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyContent}
+                  disabled={isCopyingContent}
+                  className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none"
+                  title="Copy file content"
+                >
+                  {isCopyingContent ? (
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  <span className="hidden sm:inline">Copy</span>
                 </Button>
               )}
               <TabsList className="h-8 bg-muted/50 border border-border/50 p-0.5 gap-1">

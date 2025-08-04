@@ -4,9 +4,10 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
-import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
-import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate, useCreateTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
+import { useAgents, useUpdateAgent, useDeleteAgent, useOptimisticAgentUpdate, useAgentDeletionState } from '@/hooks/react-query/agents/use-agents';
+import { useMarketplaceTemplates, useInstallTemplate, useMyTemplates, useUnpublishTemplate, usePublishTemplate, useCreateTemplate, useDeleteTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { useFeatureFlag } from '@/lib/feature-flags';
+import { useAuth } from '@/components/AuthProvider';
 
 import { StreamlinedInstallDialog } from '@/components/agents/installation/streamlined-install-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
@@ -20,6 +21,7 @@ import { MyAgentsTab } from '@/components/agents/custom-agents-page/my-agents-ta
 import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketplace-tab';
 import { PublishDialog } from '@/components/agents/custom-agents-page/publish-dialog';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
+import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 
 
 type ViewMode = 'grid' | 'list';
@@ -37,10 +39,10 @@ interface FilterOptions {
 interface PublishDialogData {
   templateId: string;
   templateName: string;
-  currentTags: string[];
 }
 
 export default function AgentsPage() {
+  const { user } = useAuth();
   const { enabled: customAgentsEnabled, loading: agentsFlagLoading } = useFeatureFlag("custom_agents");
   const { enabled: agentMarketplaceEnabled, loading: marketplaceFlagLoading } = useFeatureFlag("agent_marketplace");
   const router = useRouter();
@@ -76,13 +78,13 @@ export default function AgentsPage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [marketplaceFilter, setMarketplaceFilter] = useState<'all' | 'kortix' | 'community'>('all');
+  const [marketplaceFilter, setMarketplaceFilter] = useState<'all' | 'kortix' | 'community' | 'mine'>('all');
 
   const [templatesActioningId, setTemplatesActioningId] = useState<string | null>(null);
   const [publishDialog, setPublishDialog] = useState<PublishDialogData | null>(null);
-  const [publishTags, setPublishTags] = useState<string[]>([]);
+
   const [publishingAgentId, setPublishingAgentId] = useState<string | null>(null);
-  const [isCreatingNewAgent, setIsCreatingNewAgent] = useState(false);
+  const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
 
   const activeTab = useMemo(() => {
     return searchParams.get('tab') || 'my-agents';
@@ -125,25 +127,28 @@ export default function AgentsPage() {
   const { data: myTemplates, isLoading: templatesLoading, error: templatesError } = useMyTemplates();
   
   const updateAgentMutation = useUpdateAgent();
-  const deleteAgentMutation = useDeleteAgent();
-  const createNewAgentMutation = useCreateNewAgent();
   const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
+  const { deleteAgent, isDeletingAgent, isDeleting } = useAgentDeletionState();
   const installTemplateMutation = useInstallTemplate();
   const unpublishMutation = useUnpublishTemplate();
   const publishMutation = usePublishTemplate();
   const createTemplateMutation = useCreateTemplate();
+  const deleteTemplateMutation = useDeleteTemplate();
 
   const agents = agentsResponse?.agents || [];
   const agentsPagination = agentsResponse?.pagination;
 
-  const { kortixTeamItems, communityItems } = useMemo(() => {
+  const { kortixTeamItems, communityItems, mineItems } = useMemo(() => {
     const kortixItems: MarketplaceTemplate[] = [];
     const communityItems: MarketplaceTemplate[] = [];
+    const mineItems: MarketplaceTemplate[] = [];
 
     if (marketplaceTemplates) {
       marketplaceTemplates.forEach(template => {
+
         const item: MarketplaceTemplate = {
           id: template.template_id,
+          creator_id: template.creator_id,
           name: template.name,
           description: template.description,
           tags: template.tags || [],
@@ -159,6 +164,12 @@ export default function AgentsPage() {
           metadata: template.metadata,
         };
 
+        // Always add user's own templates to mineItems for the "mine" filter
+        if (user?.id === template.creator_id) {
+          mineItems.push(item);
+        }
+        
+        // Categorize all templates (including user's own) for the "all" view
         if (template.is_kortix_team) {
           kortixItems.push(item);
         } else {
@@ -186,18 +197,21 @@ export default function AgentsPage() {
 
     return {
       kortixTeamItems: sortItems(kortixItems),
-      communityItems: sortItems(communityItems)
+      communityItems: sortItems(communityItems),
+      mineItems: sortItems(mineItems)
     };
-  }, [marketplaceTemplates, marketplaceSortBy]);
+  }, [marketplaceTemplates, marketplaceSortBy, user?.id]);
 
   const allMarketplaceItems = useMemo(() => {
     if (marketplaceFilter === 'kortix') {
       return kortixTeamItems;
     } else if (marketplaceFilter === 'community') {
       return communityItems;
+    } else if (marketplaceFilter === 'mine') {
+      return mineItems;
     }
     return [...kortixTeamItems, ...communityItems];
-  }, [kortixTeamItems, communityItems, marketplaceFilter]);
+  }, [kortixTeamItems, communityItems, mineItems, marketplaceFilter]);
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -227,7 +241,7 @@ export default function AgentsPage() {
 
   const handleDeleteAgent = async (agentId: string) => {
     try {
-      await deleteAgentMutation.mutateAsync(agentId);
+      await deleteAgent(agentId);
     } catch (error) {
       console.error('Error deleting agent:', error);
     }
@@ -252,19 +266,8 @@ export default function AgentsPage() {
   };
 
   const handleCreateNewAgent = useCallback(() => {
-    if (isCreatingNewAgent || createNewAgentMutation.isPending) {
-      return; // Prevent multiple clicks
-    }
-    
-    setIsCreatingNewAgent(true);
-    
-    createNewAgentMutation.mutate(undefined, {
-      onSettled: () => {
-        // Reset the debounce state after mutation completes (success or error)
-        setTimeout(() => setIsCreatingNewAgent(false), 1000);
-      }
-    });
-  }, [isCreatingNewAgent, createNewAgentMutation]);
+    setShowNewAgentDialog(true);
+  }, []);
 
   const handleInstallClick = (item: MarketplaceTemplate, e?: React.MouseEvent) => {
     if (e) {
@@ -394,29 +397,40 @@ export default function AgentsPage() {
     }
   };
 
+  const handleDeleteTemplate = async (item: MarketplaceTemplate, e?: React.MouseEvent) => {
+    try {
+      setTemplatesActioningId(item.template_id);
+      await deleteTemplateMutation.mutateAsync(item.template_id);
+      toast.success(`"${item.name}" has been permanently deleted from the marketplace`, {
+        description: 'The template is no longer available for installation.'
+      });
+    } catch (error: any) {
+      toast.error('Failed to delete template', {
+        description: error.message || 'Please try again later.'
+      });
+    } finally {
+      setTemplatesActioningId(null);
+    }
+  };
+
   const openPublishDialog = (template: any) => {
     setPublishDialog({
       templateId: template.template_id,
-      templateName: template.name,
-      currentTags: template.tags || []
+      templateName: template.name
     });
-    setPublishTags(template.tags || []);
   };
 
   const handleAgentPublish = (agent: any) => {
     setPublishDialog({
       templateId: agent.agent_id,
-      templateName: agent.name,
-      currentTags: agent.tags || []
+      templateName: agent.name
     });
-    setPublishTags(agent.tags || []);
   };
 
   const handlePublish = async () => {
     if (!publishDialog) return;
 
     try {
-      const tags = publishTags.filter(tag => tag.trim().length > 0);
       const isAgent = publishDialog.templateId.length > 20;
       
       if (isAgent) {
@@ -424,8 +438,7 @@ export default function AgentsPage() {
         
         const result = await createTemplateMutation.mutateAsync({
           agent_id: publishDialog.templateId,
-          make_public: true,
-          tags: tags.length > 0 ? tags : undefined
+          make_public: true
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
@@ -434,15 +447,13 @@ export default function AgentsPage() {
         setTemplatesActioningId(publishDialog.templateId);
         
         await publishMutation.mutateAsync({
-          template_id: publishDialog.templateId,
-          tags: tags.length > 0 ? tags : undefined
+          template_id: publishDialog.templateId
         });
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
       }
       
       setPublishDialog(null);
-      setPublishTags([]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to publish template');
     } finally {
@@ -517,7 +528,7 @@ export default function AgentsPage() {
               onDeleteAgent={handleDeleteAgent}
               onToggleDefault={handleToggleDefault}
               onClearFilters={clearAgentsFilters}
-              deleteAgentMutation={deleteAgentMutation}
+              isDeletingAgent={isDeletingAgent}
               setAgentsPage={setAgentsPage}
               myTemplates={myTemplates}
               templatesLoading={templatesLoading}
@@ -541,19 +552,20 @@ export default function AgentsPage() {
               allMarketplaceItems={allMarketplaceItems}
               kortixTeamItems={kortixTeamItems}
               communityItems={communityItems}
+              mineItems={mineItems}
               installingItemId={installingItemId}
               onInstallClick={handleInstallClick}
+              onDeleteTemplate={handleDeleteTemplate}
               getItemStyling={getItemStyling}
+              currentUserId={user?.id}
             />
           )}
         </div>
 
         <PublishDialog
           publishDialog={publishDialog}
-          publishTags={publishTags}
           templatesActioningId={templatesActioningId}
           onClose={() => setPublishDialog(null)}
-          onPublishTagsChange={setPublishTags}
           onPublish={handlePublish}
         />
 
@@ -563,6 +575,11 @@ export default function AgentsPage() {
           onOpenChange={setShowInstallDialog}
           onInstall={handleInstall}
           isInstalling={installingItemId === selectedItem?.id}
+        />
+
+        <NewAgentDialog 
+          open={showNewAgentDialog} 
+          onOpenChange={setShowNewAgentDialog}
         />
       </div>
     </div>

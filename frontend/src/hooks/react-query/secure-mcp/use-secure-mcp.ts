@@ -32,6 +32,7 @@ export interface TestCredentialResponse {
 
 export interface AgentTemplate {
   template_id: string;
+  creator_id: string;
   name: string;
   description?: string;
   mcp_requirements: MCPRequirement[];
@@ -371,6 +372,40 @@ export function useUnpublishTemplate() {
 
       const response = await fetch(`${API_URL}/templates/${template_id}/unpublish`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'marketplace-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'my-templates'] });
+    },
+  });
+}
+
+export function useDeleteTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (template_id: string): Promise<{ message: string }> => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('You must be logged in to delete templates');
+      }
+
+      const response = await fetch(`${API_URL}/templates/${template_id}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
