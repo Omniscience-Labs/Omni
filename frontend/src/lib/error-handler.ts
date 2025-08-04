@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { BillingError } from './api';
+import { BillingError, AgentRunLimitError } from './api';
 
 export interface ApiError extends Error {
   status?: number;
@@ -50,6 +50,10 @@ const extractErrorMessage = (error: any): string => {
     return error.detail?.message || error.message || 'Billing issue detected';
   }
 
+  if (error instanceof AgentRunLimitError) {
+    return error.detail?.message || error.message || 'Agent run limit exceeded';
+  }
+
   if (error instanceof Error) {
     return error.message;
   }
@@ -83,6 +87,9 @@ const shouldShowError = (error: any, context?: ErrorContext): boolean => {
     return false;
   }
   if (error instanceof BillingError) {
+    return false;
+  }
+  if (error instanceof AgentRunLimitError) {
     return false;
   }
 
