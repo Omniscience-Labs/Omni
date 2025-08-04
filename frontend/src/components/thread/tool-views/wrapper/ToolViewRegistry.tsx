@@ -3,6 +3,7 @@ import { ToolViewProps } from '../types';
 import { GenericToolView } from '../GenericToolView';
 import { BrowserToolView } from '../BrowserToolView';
 import { CommandToolView } from '../command-tool/CommandToolView';
+import { CheckCommandOutputToolView } from '../command-tool/CheckCommandOutputToolView';
 import { ExposePortToolView } from '../expose-port-tool/ExposePortToolView';
 import { FileOperationToolView } from '../file-operation/FileOperationToolView';
 import { FileEditToolView } from '../file-operation/FileEditToolView';
@@ -50,7 +51,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'browser-click-coordinates': BrowserToolView,
 
   'execute-command': CommandToolView,
-  'check-command-output': GenericToolView,
+  'check-command-output': CheckCommandOutputToolView,
   'terminate-command': TerminateCommandToolView,
   'list-commands': GenericToolView,
 
@@ -101,7 +102,7 @@ class ToolViewRegistry {
 
   constructor(initialRegistry: Partial<ToolViewRegistryType> = {}) {
     this.registry = { ...defaultRegistry };
-    
+
     // Only add non-undefined values from initialRegistry
     Object.entries(initialRegistry).forEach(([key, value]) => {
       if (value !== undefined) {
