@@ -233,10 +233,10 @@ export function ToolCallSidePanel({
   const handleCopyContent = React.useCallback(async () => {
     const toolContent = displayToolCall?.toolResult?.content;
     if (!toolContent || toolContent === 'STREAMING') return;
-    
+
     // Try to extract file content from tool result
     let fileContent = '';
-    
+
     // If the tool result is JSON, try to extract file content
     try {
       const parsed = JSON.parse(toolContent);
@@ -256,7 +256,7 @@ export function ToolCallSidePanel({
       // If it's not JSON, use the content as is
       fileContent = typeof toolContent === 'string' ? toolContent : JSON.stringify(toolContent, null, 2);
     }
-    
+
     setIsCopyingContent(true);
     const success = await copyToClipboard(fileContent);
     if (success) {
