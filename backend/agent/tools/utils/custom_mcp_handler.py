@@ -32,7 +32,9 @@ class CustomMCPHandler:
         
         logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")
         
-        if custom_type == 'pipedream':
+        if custom_type == 'composio':
+            await self._initialize_composio_mcp(server_name, server_config, enabled_tools)
+        elif custom_type == 'pipedream':
             await self._initialize_pipedream_mcp(server_name, server_config, enabled_tools)
         elif custom_type == 'sse':
             await self._initialize_sse_mcp(server_name, server_config, enabled_tools)
@@ -42,6 +44,34 @@ class CustomMCPHandler:
             await self._initialize_json_mcp(server_name, server_config, enabled_tools)
         else:
             logger.error(f"Custom MCP {server_name}: Unsupported type '{custom_type}'")
+    
+    async def _initialize_composio_mcp(self, server_name: str, server_config: Dict[str, Any], enabled_tools: List[str]):
+        profile_id = server_config.get('profile_id')
+        if not profile_id:
+            logger.error(f"Composio MCP {server_name}: Missing profile_id in config")
+            return
+        
+        try:
+            from composio_integration.composio_profile_service import ComposioProfileService
+            from services.supabase import DBConnection
+            
+            db = DBConnection()
+            profile_service = ComposioProfileService(db)
+            mcp_url = await profile_service.get_mcp_url_for_runtime(profile_id)
+            
+            logger.info(f"Resolved Composio profile {profile_id} to MCP URL")
+
+            async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    tools_result = await session.list_tools()
+                    tools = tools_result.tools if hasattr(tools_result, 'tools') else tools_result
+                    
+                    self._register_custom_tools(tools, server_name, enabled_tools, 'composio', server_config)
+                    logger.info(f"Registered {len(tools)} tools from Composio MCP {server_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Composio MCP {server_name}: {str(e)}")
     
     async def _initialize_pipedream_mcp(self, server_name: str, server_config: Dict[str, Any], enabled_tools: List[str]):
         app_slug = server_config.get('app_slug')

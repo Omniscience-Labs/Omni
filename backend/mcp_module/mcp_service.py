@@ -102,12 +102,15 @@ class MCPService:
         self._encryption_service = EncryptionService()
 
     async def connect_server(self, mcp_config: Dict[str, Any], external_user_id: Optional[str] = None) -> MCPConnection:
+        # Determine provider from type field
+        provider = mcp_config.get('type', mcp_config.get('provider', 'custom'))
+        
         request = MCPConnectionRequest(
             qualified_name=mcp_config.get('qualifiedName', mcp_config.get('name', '')),
             name=mcp_config.get('name', ''),
             config=mcp_config.get('config', {}),
             enabled_tools=mcp_config.get('enabledTools', mcp_config.get('enabled_tools', [])),
-            provider=mcp_config.get('provider', 'custom'),
+            provider=provider,  # Use the determined provider
             external_user_id=external_user_id
         )
         return await self._connect_server_internal(request)
@@ -116,34 +119,43 @@ class MCPService:
         self._logger.info(f"Connecting to MCP server: {request.qualified_name}")
         
         try:
-            server_url = self._get_server_url(request.qualified_name, request.config, request.provider)
+            server_url = await self._get_server_url(request.qualified_name, request.config, request.provider)
             headers = self._get_headers(request.qualified_name, request.config, request.provider, request.external_user_id)
             
-            async with streamablehttp_client(server_url, headers=headers) as (
-                read_stream, write_stream, _
-            ):
-                session = ClientSession(read_stream, write_stream)
-                await session.initialize()
-                
-                tool_result = await session.list_tools()
-                tools = tool_result.tools if tool_result else []
-                
-                connection = MCPConnection(
-                    qualified_name=request.qualified_name,
-                    name=request.name,
-                    config=request.config,
-                    enabled_tools=request.enabled_tools,
-                    provider=request.provider,
-                    external_user_id=request.external_user_id,
-                    session=session,
-                    tools=tools
-                )
-                
-                self._connections[request.qualified_name] = connection
-                self._logger.info(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
-                
-                return connection
-                
+            # Add debugging
+            self._logger.info(f"MCP connection details - Provider: {request.provider}, URL: {server_url}, Headers: {headers}")
+            
+            # Add timeout to prevent hanging
+            async with asyncio.timeout(30):
+                async with streamablehttp_client(server_url, headers=headers) as (
+                    read_stream, write_stream, _
+                ):
+                    session = ClientSession(read_stream, write_stream)
+                    await session.initialize()
+                    
+                    tool_result = await session.list_tools()
+                    tools = tool_result.tools if tool_result else []
+                    
+                    connection = MCPConnection(
+                        qualified_name=request.qualified_name,
+                        name=request.name,
+                        config=request.config,
+                        enabled_tools=request.enabled_tools,
+                        provider=request.provider,
+                        external_user_id=request.external_user_id,
+                        session=session,
+                        tools=tools
+                    )
+                    
+                    self._connections[request.qualified_name] = connection
+                    self._logger.info(f"Connected to {request.qualified_name} ({len(tools)} tools available)")
+                    
+                    return connection
+                    
+        except asyncio.TimeoutError:
+            error_msg = f"Connection timeout for {request.qualified_name} after 30 seconds"
+            self._logger.error(error_msg)
+            raise MCPConnectionError(error_msg)
         except Exception as e:
             self._logger.error(f"Failed to connect to {request.qualified_name}: {str(e)}")
             raise MCPConnectionError(f"Failed to connect to MCP server: {str(e)}")
@@ -151,12 +163,15 @@ class MCPService:
     async def connect_all(self, mcp_configs: List[Dict[str, Any]]) -> None:
         requests = []
         for config in mcp_configs:
+            # Determine provider from type field
+            provider = config.get('type', config.get('provider', 'custom'))
+            
             request = MCPConnectionRequest(
                 qualified_name=config.get('qualifiedName', config.get('name', '')),
                 name=config.get('name', ''),
                 config=config.get('config', {}),
                 enabled_tools=config.get('enabledTools', config.get('enabled_tools', [])),
-                provider=config.get('provider', 'custom'),
+                provider=provider,  # Use the determined provider
                 external_user_id=config.get('external_user_id')
             )
             requests.append(request)
@@ -368,19 +383,27 @@ class MCPService:
                 message=f"Failed to connect: {str(e)}"
             )
 
-    def _get_server_url(self, qualified_name: str, config: Dict[str, Any], provider: str) -> str:
+    async def _get_server_url(self, qualified_name: str, config: Dict[str, Any], provider: str) -> str:
         if provider in ['custom', 'http', 'sse']:
-            return self._get_custom_server_url(qualified_name, config)
+            return await self._get_custom_server_url(qualified_name, config)
+        elif provider == 'composio':
+            return await self._get_composio_server_url(qualified_name, config)
+        elif provider == 'pipedream':
+            return self._get_pipedream_server_url(qualified_name, config)
         else:
             raise MCPProviderError(f"Unknown provider type: {provider}")
     
     def _get_headers(self, qualified_name: str, config: Dict[str, Any], provider: str, external_user_id: Optional[str] = None) -> Dict[str, str]:
         if provider in ['custom', 'http', 'sse']:
             return self._get_custom_headers(qualified_name, config, external_user_id)
+        elif provider == 'composio':
+            return self._get_composio_headers(qualified_name, config, external_user_id)
+        elif provider == 'pipedream':
+            return self._get_pipedream_headers(qualified_name, config, external_user_id)
         else:
             raise MCPProviderError(f"Unknown provider type: {provider}")
     
-    def _get_custom_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
+    async def _get_custom_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
         url = config.get("url")
         if not url:
             raise MCPProviderError(f"URL not provided for custom MCP server: {qualified_name}")
@@ -395,6 +418,51 @@ class MCPService:
         if external_user_id:
             headers["X-External-User-Id"] = external_user_id
         
+        return headers
+    
+    async def _get_composio_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
+        """Resolve Composio profile_id to actual MCP URL"""
+        profile_id = config.get("profile_id")
+        if not profile_id:
+            raise MCPProviderError(f"profile_id not provided for Composio MCP server: {qualified_name}")
+        
+        # Import here to avoid circular dependency
+        from composio_integration.composio_profile_service import ComposioProfileService
+        from services.supabase import DBConnection
+        
+        try:
+            db = DBConnection()
+            profile_service = ComposioProfileService(db)
+            mcp_url = await profile_service.get_mcp_url_for_runtime(profile_id)
+            
+            self._logger.info(f"Resolved Composio profile {profile_id} to MCP URL {mcp_url}")
+            return mcp_url
+            
+        except Exception as e:
+            self._logger.error(f"Failed to resolve Composio profile {profile_id}: {str(e)}")
+            raise MCPProviderError(f"Failed to resolve Composio profile: {str(e)}")
+    
+    def _get_composio_headers(self, qualified_name: str, config: Dict[str, Any], external_user_id: Optional[str] = None) -> Dict[str, str]:
+        """Get headers for Composio MCP connection"""
+        headers = {"Content-Type": "application/json"}
+        # Composio handles auth through the URL itself
+        return headers
+    
+    def _get_pipedream_server_url(self, qualified_name: str, config: Dict[str, Any]) -> str:
+        """Get Pipedream server URL"""
+        return config.get("url", "https://remote.mcp.pipedream.net")
+    
+    def _get_pipedream_headers(self, qualified_name: str, config: Dict[str, Any], external_user_id: Optional[str] = None) -> Dict[str, str]:
+        """Get headers for Pipedream MCP connection"""
+        headers = {"Content-Type": "application/json"}
+        
+        if "headers" in config:
+            headers.update(config["headers"])
+        
+        # For Pipedream, external_user_id is used differently
+        if external_user_id:
+            headers["X-External-User-Id"] = external_user_id
+            
         return headers
 
 

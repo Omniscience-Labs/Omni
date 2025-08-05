@@ -61,12 +61,7 @@ export const useCreateNewAgent = () => {
         avatar,
         avatar_color,
         configured_mcps: [],
-        agentpress_tools: Object.fromEntries(
-          Object.entries(DEFAULT_AGENTPRESS_TOOLS).map(([key, value]) => [
-            key, 
-            { enabled: value.enabled, description: value.description }
-          ])
-        ),
+        agentpress_tools: DEFAULT_AGENTPRESS_TOOLS,
         is_default: false,
       };
 

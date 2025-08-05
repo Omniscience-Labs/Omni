@@ -181,7 +181,9 @@ class InstallationService:
                         'display_name': req.display_name,
                         'required_config': req.required_config,
                         'custom_type': req.custom_type,
-                        'field_descriptions': field_descriptions
+                        'field_descriptions': field_descriptions,
+                        'toolkit_slug': req.toolkit_slug,
+                        'app_slug': req.app_slug
                     })
             else:
                 if req.qualified_name not in profile_mappings:
@@ -189,7 +191,10 @@ class InstallationService:
                         'qualified_name': req.qualified_name,
                         'display_name': req.display_name,
                         'enabled_tools': req.enabled_tools,
-                        'required_config': req.required_config
+                        'required_config': req.required_config,
+                        'custom_type': req.custom_type,
+                        'toolkit_slug': req.toolkit_slug,
+                        'app_slug': req.app_slug
                     })
         
         return missing_profiles, missing_configs
@@ -244,7 +249,9 @@ class InstallationService:
                     profile = await profile_service.get_profile(request.account_id, profile_id)
                     if profile:
                         if req.qualified_name.startswith('pipedream:'):
-                            app_slug = profile.config.get('app_slug', req.qualified_name.split(':')[1])
+                            app_slug = req.app_slug or profile.config.get('app_slug')
+                            if not app_slug:
+                                app_slug = req.qualified_name.split(':')[1] if ':' in req.qualified_name else req.display_name.lower()
                             
                             pipedream_config = {
                                 'url': 'https://remote.mcp.pipedream.net',
@@ -261,6 +268,28 @@ class InstallationService:
                                 'enabledTools': req.enabled_tools
                             }
                             agent_config['tools']['custom_mcp'].append(mcp_config)
+                            
+                        elif req.qualified_name.startswith('composio.') or 'composio' in req.qualified_name:
+                            toolkit_slug = req.toolkit_slug
+                            if not toolkit_slug:
+                                toolkit_slug = req.qualified_name
+                                if toolkit_slug.startswith('composio.'):
+                                    toolkit_slug = toolkit_slug[9:]
+                                elif 'composio_' in toolkit_slug:
+                                    parts = toolkit_slug.split('composio_')
+                                    toolkit_slug = parts[-1]
+                            
+                            composio_config = {
+                                'name': req.display_name,
+                                'type': 'composio',
+                                'qualifiedName': req.qualified_name,
+                                'toolkit_slug': toolkit_slug,
+                                'config': {
+                                    'profile_id': profile_id
+                                },
+                                'enabledTools': req.enabled_tools
+                            }
+                            agent_config['tools']['custom_mcp'].append(composio_config)
                         else:
                             mcp_config = {
                                 'name': req.display_name or req.qualified_name,

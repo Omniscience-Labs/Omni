@@ -159,6 +159,23 @@ class MCPManager:
                     if 'headers' in custom_mcp['config'] and 'x-pd-app-slug' in custom_mcp['config']['headers']:
                         custom_mcp['config']['app_slug'] = custom_mcp['config']['headers']['x-pd-app-slug']
                 
+                elif custom_type == 'composio':
+                    qualified_name = custom_mcp.get('qualifiedName')
+                    if not qualified_name:
+                        qualified_name = f"composio.{custom_mcp['name'].replace(' ', '_').lower()}"
+                    
+                    mcp_config = {
+                        'name': custom_mcp['name'],
+                        'qualifiedName': qualified_name,
+                        'config': custom_mcp.get('config', {}),
+                        'enabledTools': custom_mcp.get('enabledTools', []),
+                        'instructions': custom_mcp.get('instructions', ''),
+                        'isCustom': True,
+                        'customType': 'composio'
+                    }
+                    all_mcps.append(mcp_config)
+                    continue
+                
                 mcp_config = {
                     'name': custom_mcp['name'],
                     'qualifiedName': f"custom_{custom_type}_{custom_mcp['name'].replace(' ', '_').lower()}",

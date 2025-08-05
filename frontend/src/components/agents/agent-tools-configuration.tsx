@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Settings2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DEFAULT_AGENTPRESS_TOOLS, getToolDisplayName } from './tools';
+import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface AgentToolsConfigurationProps {
   tools: Record<string, boolean | { enabled: boolean; description: string }>;
@@ -50,7 +46,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
   };
 
   const getFilteredTools = (): Array<[string, any]> => {
-    let toolEntries = Object.entries(DEFAULT_AGENTPRESS_TOOLS);
+    let toolEntries = Object.entries(AGENTPRESS_TOOL_DEFINITIONS);
     
     if (searchQuery) {
       toolEntries = toolEntries.filter(([toolName, toolInfo]) => 
