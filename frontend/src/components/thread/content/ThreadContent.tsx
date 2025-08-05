@@ -55,11 +55,12 @@ const HIDE_STREAMING_XML_TAGS = new Set([
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
     if (!attachments || attachments.length === 0) return null;
 
-    // Note: Preloading is now handled by React Query in the main ThreadContent component
-    // to avoid duplicate requests with different content types
+    // Filter out empty strings and check if we have any valid attachments
+    const validAttachments = attachments.filter(attachment => attachment && attachment.trim() !== '');
+    if (validAttachments.length === 0) return null;
 
     return <FileAttachmentGrid
-        attachments={attachments}
+        attachments={validAttachments}
         onFileClick={fileViewerHandler}
         showPreviews={true}
         sandboxId={sandboxId}

@@ -140,7 +140,7 @@ export function GenericToolView({
 
   const handleCopyInput = React.useCallback(async () => {
     if (!formattedAssistantContent) return;
-    
+
     setIsCopyingInput(true);
     const success = await copyToClipboard(formattedAssistantContent);
     if (success) {
@@ -153,7 +153,7 @@ export function GenericToolView({
 
   const handleCopyOutput = React.useCallback(async () => {
     if (!formattedToolContent) return;
-    
+
     setIsCopyingOutput(true);
     const success = await copyToClipboard(formattedToolContent);
     if (success) {

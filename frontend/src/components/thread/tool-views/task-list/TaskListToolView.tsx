@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 const TaskItem: React.FC<{ task: Task; index: number }> = ({ task, index }) => {
   const isCompleted = task.status === "completed"
-  const isCancelled  = task.status === "cancelled"
+  const isCancelled = task.status === "cancelled"
   const isPending = !isCompleted && !isCancelled
 
   return (
@@ -80,14 +80,14 @@ const SectionView: React.FC<{ section: Section }> = ({ section }) => {
 
 
 
-export const TaskListToolView: React.FC<ToolViewProps> = ({ 
+export const TaskListToolView: React.FC<ToolViewProps> = ({
   name = 'task-list',
-  assistantContent, 
-  toolContent, 
+  assistantContent,
+  toolContent,
   assistantTimestamp,
   toolTimestamp,
   isSuccess = true,
-  isStreaming = false 
+  isStreaming = false
 }) => {
   const taskData = extractTaskListData(assistantContent, toolContent)
   const toolTitle = getToolTitle(name)

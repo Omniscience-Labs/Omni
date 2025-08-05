@@ -13,7 +13,6 @@ import {
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -143,7 +142,7 @@ export function FileEditToolView({
   const shouldShowError = !isStreaming && (!actualIsSuccess || (actualIsSuccess && (originalContent === null || updatedContent === null)));
 
   return (
-    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
+    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full bg-card">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -175,7 +174,7 @@ export function FileEditToolView({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 h-full flex-1 overflow-hidden relative">
+      <CardContent className="p-0 flex-1 flex flex-col min-h-0">
         {isStreaming ? (
           <LoadingState
             icon={FileDiff}
@@ -189,8 +188,8 @@ export function FileEditToolView({
         ) : shouldShowError ? (
           <ErrorState message={errorMessage} />
         ) : (
-          <div className="h-full flex flex-col">
-            <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-accent flex items-center justify-between">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="shrink-0 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-accent flex items-center justify-between">
               <div className="flex items-center">
                 <File className="h-4 w-4 mr-2 text-zinc-500 dark:text-zinc-400" />
                 <code className="text-sm font-mono text-zinc-700 dark:text-zinc-300">
@@ -223,13 +222,13 @@ export function FileEditToolView({
                 </Tabs>
               </div>
             </div>
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-auto min-h-0">
               {viewMode === 'unified' ? (
                 <UnifiedDiffView oldCode={originalContent!} newCode={updatedContent!} />
               ) : (
                 <SplitDiffView oldCode={originalContent!} newCode={updatedContent!} />
               )}
-            </ScrollArea>
+            </div>
           </div>
         )}
       </CardContent>

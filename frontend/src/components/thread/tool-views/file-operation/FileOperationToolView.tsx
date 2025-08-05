@@ -87,7 +87,7 @@ export function FileOperationToolView({
 
   const handleCopyContent = async () => {
     if (!fileContent) return;
-    
+
     setIsCopyingContent(true);
     const success = await copyToClipboard(fileContent);
     if (success) {
