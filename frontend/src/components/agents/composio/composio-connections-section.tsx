@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -452,10 +453,10 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
                 You haven't connected any Composio applications yet.
               </p>
               <Button variant="outline" asChild>
-                <a href="/agents" className="inline-flex items-center gap-2">
+                <Link href="/agents" className="inline-flex items-center gap-2">
                   <ExternalLink className="h-4 w-4" />
                   Connect Apps
-                </a>
+                </Link>
               </Button>
             </div>
           </CardContent>
