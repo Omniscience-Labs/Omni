@@ -1,6 +1,6 @@
 'use client';
 
-import { initiateAgent, InitiateAgentResponse } from "@/lib/api";
+import { initiateAgent, InitiateAgentResponse, BillingError, AgentRunLimitError } from "@/lib/api";
 import { createMutationHook } from "@/hooks/use-query";
 import { handleApiSuccess, handleApiError } from "@/lib/error-handler";
 import { dashboardKeys } from "./keys";
@@ -19,6 +19,10 @@ export const useInitiateAgentMutation = createMutationHook<
       handleApiSuccess("Agent initiated successfully", "Your AI assistant is ready to help");
     },
     onError: (error) => {
+      // Let BillingError and AgentRunLimitError bubble up to be handled by components
+      if (error instanceof BillingError || error instanceof AgentRunLimitError) {
+        throw error;
+      }
       if (error instanceof Error && error.message.toLowerCase().includes("payment required")) {
         return;
       }
@@ -38,6 +42,12 @@ export const useInitiateAgentWithInvalidation = () => {
     },
     onError: (error) => {
       console.log('Mutation error:', error);
+      
+      // Let AgentRunLimitError bubble up to be handled by components
+      if (error instanceof AgentRunLimitError) {
+        throw error;
+      }
+      
       if (error instanceof Error) {
         const errorMessage = error.message;
         if (errorMessage.toLowerCase().includes("payment required")) {

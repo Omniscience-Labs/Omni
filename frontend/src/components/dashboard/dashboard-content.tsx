@@ -10,6 +10,7 @@ import {
 } from '@/components/thread/chat-input/chat-input';
 import {
   BillingError,
+  AgentRunLimitError,
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -32,6 +33,7 @@ import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { KortixLogo } from '../sidebar/kortix-logo';
+import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -43,6 +45,11 @@ export function DashboardContent() {
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitData, setAgentLimitData] = useState<{
+    runningCount: number;
+    runningThreadIds: string[];
+  } | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -153,6 +160,16 @@ export function DashboardContent() {
       if (error instanceof BillingError) {
         console.log('Handling BillingError:', error.detail);
         onOpen("paymentRequiredDialog");
+      } else if (error instanceof AgentRunLimitError) {
+        console.log('Handling AgentRunLimitError:', error.detail);
+        const { running_thread_ids, running_count } = error.detail;
+        
+        // Show the dialog with limit information
+        setAgentLimitData({
+          runningCount: running_count,
+          runningThreadIds: running_thread_ids,
+        });
+        setShowAgentLimitDialog(true);
       }
       setIsSubmitting(false);
     }
@@ -257,6 +274,16 @@ export function DashboardContent() {
           isOpen={!!billingError}
         />
       </div>
+
+      {agentLimitData && (
+        <AgentRunLimitDialog
+          open={showAgentLimitDialog}
+          onOpenChange={setShowAgentLimitDialog}
+          runningCount={agentLimitData.runningCount}
+          runningThreadIds={agentLimitData.runningThreadIds}
+          projectId={undefined} // Dashboard doesn't have a specific project context
+        />
+      )}
     </>
   );
 }
