@@ -27,6 +27,8 @@ import { ConfigureProfileForAgentToolView } from '../configure-profile-for-agent
 import { GetCredentialProfilesToolView } from '../get-credential-profiles/get-credential-profiles';
 import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-current-agent-config';
 import { TaskListToolView } from '../task-list/TaskListToolView';
+import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
+import { PresentationToolView } from '../PresentationToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -93,6 +95,10 @@ const defaultRegistry: ToolViewRegistryType = {
   'complete': CompleteToolView,
 
   'deploy': DeployToolView,
+
+  'create-presentation-outline': PresentationOutlineToolView,
+  'create-presentation': PresentationToolView,
+  'export-presentation': PresentationToolView,
 
   'default': GenericToolView,
 };
