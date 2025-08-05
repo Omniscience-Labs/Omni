@@ -2,11 +2,9 @@ import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from utils.logger import logger
+from utils.config import config
 from services import redis
 from run_agent_background import update_agent_run_status
-
-# Agent run limits
-MAX_PARALLEL_AGENT_RUNS = 3
 
 
 async def _cleanup_redis_response_list(agent_run_id: str):
@@ -120,7 +118,7 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         logger.info(f"Account {account_id} has {running_count} running agent runs in the past 24 hours")
         
         return {
-            'can_start': running_count < MAX_PARALLEL_AGENT_RUNS,
+            'can_start': running_count < config.MAX_PARALLEL_AGENT_RUNS,
             'running_count': running_count,
             'running_thread_ids': running_thread_ids
         }

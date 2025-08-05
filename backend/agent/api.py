@@ -25,7 +25,7 @@ from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
 from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
-from .utils import check_agent_run_limit, MAX_PARALLEL_AGENT_RUNS
+from .utils import check_agent_run_limit
 from .versioning.version_service import get_version_service
 from .versioning.api import router as version_router, initialize as initialize_versioning
 
@@ -442,10 +442,10 @@ async def start_agent(
     limit_check = await check_agent_run_limit(client, account_id)
     if not limit_check['can_start']:
         error_detail = {
-            "message": f"Maximum of {MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
+            "message": f"Maximum of {config.MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
             "running_thread_ids": limit_check['running_thread_ids'],
             "running_count": limit_check['running_count'],
-            "limit": MAX_PARALLEL_AGENT_RUNS
+            "limit": config.MAX_PARALLEL_AGENT_RUNS
         }
         logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
         raise HTTPException(status_code=429, detail=error_detail)
@@ -1066,10 +1066,10 @@ async def initiate_agent_with_files(
     limit_check = await check_agent_run_limit(client, account_id)
     if not limit_check['can_start']:
         error_detail = {
-            "message": f"Maximum of {MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
+            "message": f"Maximum of {config.MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
             "running_thread_ids": limit_check['running_thread_ids'],
             "running_count": limit_check['running_count'],
-            "limit": MAX_PARALLEL_AGENT_RUNS
+            "limit": config.MAX_PARALLEL_AGENT_RUNS
         }
         logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
         raise HTTPException(status_code=429, detail=error_detail)

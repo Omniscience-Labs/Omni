@@ -48,7 +48,6 @@ export function DashboardContent() {
   const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
   const [agentLimitData, setAgentLimitData] = useState<{
     runningCount: number;
-    limit: number;
     runningThreadIds: string[];
   } | null>(null);
   const router = useRouter();
@@ -163,12 +162,11 @@ export function DashboardContent() {
         onOpen("paymentRequiredDialog");
       } else if (error instanceof AgentRunLimitError) {
         console.log('Handling AgentRunLimitError:', error.detail);
-        const { running_thread_ids, running_count, limit } = error.detail;
+        const { running_thread_ids, running_count } = error.detail;
         
         // Show the dialog with limit information
         setAgentLimitData({
           runningCount: running_count,
-          limit: limit,
           runningThreadIds: running_thread_ids,
         });
         setShowAgentLimitDialog(true);
@@ -282,7 +280,6 @@ export function DashboardContent() {
           open={showAgentLimitDialog}
           onOpenChange={setShowAgentLimitDialog}
           runningCount={agentLimitData.runningCount}
-          limit={agentLimitData.limit}
           runningThreadIds={agentLimitData.runningThreadIds}
           projectId={undefined} // Dashboard doesn't have a specific project context
         />

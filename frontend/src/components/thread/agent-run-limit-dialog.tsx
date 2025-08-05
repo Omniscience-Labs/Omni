@@ -148,7 +148,6 @@ interface AgentRunLimitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   runningCount: number;
-  limit: number;
   runningThreadIds: string[];
   projectId?: string;
 }
@@ -157,7 +156,6 @@ export const AgentRunLimitDialog: React.FC<AgentRunLimitDialogProps> = ({
   open,
   onOpenChange,
   runningCount,
-  limit,
   runningThreadIds,
   projectId,
 }) => {

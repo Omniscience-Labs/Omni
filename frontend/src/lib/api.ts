@@ -4,9 +4,6 @@ import { handleApiError } from './error-handler';
 // Get backend URL from environment variables
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
-// Agent run limits
-const MAX_PARALLEL_AGENT_RUNS = 3;
-
 // Set to keep track of agent runs that are known to be non-running
 const nonRunningAgentRuns = new Set<string>();
 // Map to keep track of active EventSource streams
@@ -39,8 +36,6 @@ export class AgentRunLimitError extends Error {
     message: string;
     running_thread_ids: string[];
     running_count: number;
-    limit: number;
-    [key: string]: any;
   };
 
   constructor(
@@ -49,7 +44,6 @@ export class AgentRunLimitError extends Error {
       message: string;
       running_thread_ids: string[];
       running_count: number;
-      limit: number;
       [key: string]: any;
     },
     message?: string,
@@ -751,7 +745,6 @@ export const startAgent = async (
             message: 'Too many agent runs running',
             running_thread_ids: [],
             running_count: 0,
-            limit: MAX_PARALLEL_AGENT_RUNS
           };
           if (typeof detail.message !== 'string') {
             detail.message = 'Too many agent runs running';
@@ -761,9 +754,6 @@ export const startAgent = async (
           }
           if (typeof detail.running_count !== 'number') {
             detail.running_count = 0;
-          }
-          if (typeof detail.limit !== 'number') {
-            detail.limit = MAX_PARALLEL_AGENT_RUNS;
           }
           throw new AgentRunLimitError(response.status, detail);
       }
@@ -1608,7 +1598,6 @@ export const initiateAgent = async (
             message: 'Too many agent runs running',
             running_thread_ids: [],
             running_count: 0,
-            limit: MAX_PARALLEL_AGENT_RUNS
           };
           if (typeof detail.message !== 'string') {
             detail.message = 'Too many agent runs running';
@@ -1618,9 +1607,6 @@ export const initiateAgent = async (
           }
           if (typeof detail.running_count !== 'number') {
             detail.running_count = 0;
-          }
-          if (typeof detail.limit !== 'number') {
-            detail.limit = MAX_PARALLEL_AGENT_RUNS;
           }
           throw new AgentRunLimitError(response.status, detail);
       }

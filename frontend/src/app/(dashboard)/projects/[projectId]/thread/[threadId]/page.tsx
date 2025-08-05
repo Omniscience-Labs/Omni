@@ -59,7 +59,6 @@ export default function ThreadPage({
   const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
   const [agentLimitData, setAgentLimitData] = useState<{
     runningCount: number;
-    limit: number;
     runningThreadIds: string[];
   } | null>(null);
   
@@ -329,12 +328,11 @@ export default function ThreadPage({
 
           if (error instanceof AgentRunLimitError) {
             console.log("Caught AgentRunLimitError:", error.detail);
-            const { running_thread_ids, running_count, limit } = error.detail;
+            const { running_thread_ids, running_count } = error.detail;
             
             // Show the dialog with limit information
             setAgentLimitData({
               runningCount: running_count,
-              limit: limit,
               runningThreadIds: running_thread_ids,
             });
             setShowAgentLimitDialog(true);
@@ -764,7 +762,6 @@ export default function ThreadPage({
           open={showAgentLimitDialog}
           onOpenChange={setShowAgentLimitDialog}
           runningCount={agentLimitData.runningCount}
-          limit={agentLimitData.limit}
           runningThreadIds={agentLimitData.runningThreadIds}
           projectId={projectId}
         />
