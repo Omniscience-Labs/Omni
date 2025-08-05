@@ -29,24 +29,12 @@ class ToolkitService:
             popular_categories = [
                 {"id": "popular", "name": "Popular"},
                 {"id": "productivity", "name": "Productivity"},
-                {"id": "ai", "name": "AI"},
                 {"id": "crm", "name": "CRM"},
                 {"id": "marketing", "name": "Marketing"},
-                {"id": "email", "name": "Email"},
                 {"id": "analytics", "name": "Analytics"},
-                {"id": "automation", "name": "Automation"},
                 {"id": "communication", "name": "Communication"},
                 {"id": "project-management", "name": "Project Management"},
-                {"id": "e-commerce", "name": "E-commerce"},
-                {"id": "social-media", "name": "Social Media"},
-                {"id": "payments", "name": "Payments"},
-                {"id": "finance", "name": "Finance"},
-                {"id": "developer-tools", "name": "Developer Tools"},
-                {"id": "api", "name": "API"},
-                {"id": "notifications", "name": "Notifications"},
                 {"id": "scheduling", "name": "Scheduling"},
-                {"id": "data-analytics", "name": "Data Analytics"},
-                {"id": "customer-support", "name": "Customer Support"}
             ]
             
             categories = [CategoryInfo(**cat) for cat in popular_categories]

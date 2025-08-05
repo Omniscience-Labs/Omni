@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SearchBar } from './search-bar';
 import { MarketplaceSectionHeader } from './marketplace-section-header';
 import { AgentCard } from './agent-card';
+import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 
 interface MarketplaceTabProps {
@@ -41,6 +42,25 @@ export const MarketplaceTab = ({
   getItemStyling,
   currentUserId
 }: MarketplaceTabProps) => {
+  const [previewAgent, setPreviewAgent] = useState<MarketplaceTemplate | null>(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+
+  const handleAgentClick = (item: MarketplaceTemplate) => {
+    setPreviewAgent(item);
+    setPreviewDialogOpen(true);
+  };
+
+  const handlePreviewClose = () => {
+    setPreviewDialogOpen(false);
+    setPreviewAgent(null);
+  };
+
+  const handleInstallFromPreview = (agent: MarketplaceTemplate) => {
+    onInstallClick(agent);
+    setPreviewDialogOpen(false);
+    setPreviewAgent(null);
+  };
+
   return (
     <div className="space-y-6 mt-8 flex flex-col min-h-full">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -107,7 +127,7 @@ export const MarketplaceTab = ({
                           isActioning={installingItemId === item.id}
                           onPrimaryAction={onInstallClick}
                           onDeleteAction={onDeleteTemplate}
-                          onClick={() => onInstallClick(item)}
+                          onClick={() => handleAgentClick(item)}
                           currentUserId={currentUserId}
                         />
                       ))}
@@ -126,7 +146,7 @@ export const MarketplaceTab = ({
                           isActioning={installingItemId === item.id}
                           onPrimaryAction={onInstallClick}
                           onDeleteAction={onDeleteTemplate}
-                          onClick={() => onInstallClick(item)}
+                          onClick={() => handleAgentClick(item)}
                           currentUserId={currentUserId}
                         />
                       ))}
@@ -145,7 +165,7 @@ export const MarketplaceTab = ({
                     isActioning={installingItemId === item.id}
                     onPrimaryAction={onInstallClick}
                     onDeleteAction={onDeleteTemplate}
-                    onClick={() => onInstallClick(item)}
+                    onClick={() => handleAgentClick(item)}
                     currentUserId={currentUserId}
                   />
                 ))}
@@ -154,6 +174,14 @@ export const MarketplaceTab = ({
           </div>
         )}
       </div>
+
+      <MarketplaceAgentPreviewDialog
+        agent={previewAgent}
+        isOpen={previewDialogOpen}
+        onClose={handlePreviewClose}
+        onInstall={handleInstallFromPreview}
+        isInstalling={installingItemId === previewAgent?.id}
+      />
     </div>
   );
 }; 

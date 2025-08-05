@@ -37,6 +37,20 @@ export const useComposioToolkits = (search?: string, category?: string) => {
   });
 };
 
+export const useComposioToolkitIcon = (toolkitSlug: string, options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: ['composio', 'toolkit-icon', toolkitSlug],
+    queryFn: async (): Promise<{ success: boolean; icon_url?: string }> => {
+      const result = await composioApi.getToolkitIcon(toolkitSlug);
+      console.log(`🎨 Composio Icon for ${toolkitSlug}:`, result);
+      return result;
+    },
+    enabled: options?.enabled !== undefined ? options.enabled : !!toolkitSlug,
+    staleTime: 60 * 60 * 1000,
+    retry: 2,
+  });
+};
+
 export const useCreateComposioProfile = () => {
   const queryClient = useQueryClient();
   

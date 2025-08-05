@@ -18,24 +18,12 @@ import { AgentSelector } from '../../thread/chat-input/agent-selector';
 const CATEGORY_EMOJIS: Record<string, string> = {
   'popular': '🔥',
   'productivity': '📊',
-  'ai': '🤖',
   'crm': '👥',
   'marketing': '📢',
-  'email': '📧',
   'analytics': '📈',
-  'automation': '⚡',
   'communication': '💬',
   'project-management': '📋',
-  'e-commerce': '🛒',
-  'social-media': '📱',
-  'payments': '💳',
-  'finance': '💰',
-  'developer-tools': '🛠️',
-  'api': '🔌',
-  'notifications': '🔔',
   'scheduling': '📅',
-  'data-analytics': '📊',
-  'customer-support': '🎧'
 };
 
 
