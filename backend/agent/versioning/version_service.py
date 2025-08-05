@@ -157,6 +157,35 @@ class VersionService:
             previous_version_id=row.get('previous_version_id')
         )
     
+    def _normalize_custom_mcps(self, custom_mcps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        normalized = []
+        for mcp in custom_mcps:
+            if not isinstance(mcp, dict):
+                continue
+                
+            mcp_copy = mcp.copy()
+            config = mcp_copy.get('config', {})
+            mcp_type = mcp_copy.get('type', 'sse')
+            mcp_name = mcp_copy.get('name', '')
+            
+            if mcp_type == 'composio':
+                if 'mcp_qualified_name' not in mcp_copy:
+                    mcp_copy['mcp_qualified_name'] = config.get('mcp_qualified_name') or config.get('qualifiedName') or f"composio.{mcp_name.lower().replace(' ', '_')}"
+                if 'toolkit_slug' not in mcp_copy:
+                    mcp_copy['toolkit_slug'] = config.get('toolkit_slug') or mcp_name.lower().replace(' ', '_')
+                
+                mcp_copy['config'] = {k: v for k, v in config.items() if k == 'profile_id'}
+                
+            elif mcp_type == 'pipedream':
+                if 'qualifiedName' not in mcp_copy:
+                    app_slug = config.get('headers', {}).get('x-pd-app-slug') or mcp_name.lower().replace(' ', '')
+                    mcp_copy['qualifiedName'] = f"pipedream:{app_slug}"
+                if 'app_slug' not in mcp_copy:
+                    mcp_copy['app_slug'] = config.get('headers', {}).get('x-pd-app-slug') or mcp_name.lower().replace(' ', '')
+            
+            normalized.append(mcp_copy)
+        return normalized
+
     async def create_version(
         self,
         agent_id: str,
@@ -198,6 +227,8 @@ class VersionService:
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }).eq('version_id', previous_version_id).execute()
         
+        normalized_custom_mcps = self._normalize_custom_mcps(custom_mcps)
+        
         version = AgentVersion(
             version_id=str(uuid4()),
             agent_id=agent_id,
@@ -205,7 +236,7 @@ class VersionService:
             version_name=version_name,
             system_prompt=system_prompt,
             configured_mcps=configured_mcps,
-            custom_mcps=custom_mcps,
+            custom_mcps=normalized_custom_mcps,
             agentpress_tools=agentpress_tools,
             is_active=True,
             created_at=datetime.now(timezone.utc),
@@ -231,7 +262,7 @@ class VersionService:
                 'tools': {
                     'agentpress': version.agentpress_tools,
                     'mcp': version.configured_mcps,
-                    'custom_mcp': version.custom_mcps
+                    'custom_mcp': normalized_custom_mcps
                 }
             }
         }

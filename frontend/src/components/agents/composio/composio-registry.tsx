@@ -50,27 +50,27 @@ interface ComposioRegistryProps {
 }
 
 const AppCardSkeleton = () => (
-  <div className="border border-border/50 rounded-xl p-4 animate-pulse">
+  <div className="border border-border/50 rounded-xl p-4">
     <div className="flex items-center gap-3 mb-3">
-      <div className="w-10 h-10 bg-muted rounded-lg" />
+      <Skeleton className="w-10 h-10 rounded-lg" />
       <div className="flex-1">
-        <div className="w-3/4 h-4 bg-muted rounded mb-2" />
-        <div className="w-full h-3 bg-muted rounded" />
+        <Skeleton className="w-3/4 h-4 mb-2" />
+        <Skeleton className="w-full h-3" />
       </div>
     </div>
     <div className="flex flex-wrap gap-1 mb-3">
-      <div className="w-16 h-5 bg-muted rounded" />
-      <div className="w-20 h-5 bg-muted rounded" />
+      <Skeleton className="w-16 h-5" />
+      <Skeleton className="w-20 h-5" />
     </div>
     <div className="flex justify-between items-center">
-      <div className="w-24 h-6 bg-muted rounded" />
-      <div className="w-20 h-8 bg-muted rounded" />
+      <Skeleton className="w-24 h-6" />
+      <Skeleton className="w-20 h-8" />
     </div>
   </div>
 );
 
 const AppCard = ({ app, profiles, onConnect, onConfigure }: {
-  app: ComposioToolkit;
+  app: ComposioToolkit; 
   profiles: ComposioProfile[];
   onConnect: () => void;
   onConfigure: (profile: ComposioProfile) => void;

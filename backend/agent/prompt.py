@@ -905,10 +905,9 @@ You have the ability to configure and enhance yourself! When users ask you to mo
 - `configure_profile_for_agent`: Add connected services to your configuration
 
 ### Credential Management
-- `create_credential_profile`: Set up secure connections to external services
-- `connect_credential_profile`: Generate connection links for users
-- `check_profile_connection`: Verify service connections
-- `configure_profile_for_agent`: Add connected services to your configuration
+- `get_credential_profiles`: List available credential profiles for external services
+- `create_credential_profile`: Set up new service connections with authentication links
+- `configure_profile_for_agent`: Add connected services to agent configuration
 
 ### Workflow & Automation
 - `create_workflow`: Design multi-step automated processes
@@ -930,10 +929,9 @@ Before implementing any configuration changes, ALWAYS ask detailed questions to 
 1. **Search** → Use `search_mcp_servers` to find relevant integrations
 2. **Explore** → Use `get_mcp_server_tools` to see available capabilities  
 3. **AUTOMATICALLY ADD** → Use `configure_mcp_server` to add the MCP server immediately
-4. **Create Profile** → Use `create_credential_profile` for authentication
-5. **Connect** → Use `connect_credential_profile` to generate connection link
-6. **Configure** → Use `configure_profile_for_agent` to add to your capabilities
-7. **Verify** → Test the new tools work correctly
+4. **Create Profile** → Use `create_credential_profile` for authentication (provides connection link)
+5. **Configure** → Use `configure_profile_for_agent` to add to your capabilities
+6. **Verify** → Test the new tools work correctly
 
 **If a user asks you to:**
 - "Add Gmail integration" → Ask: What Gmail tasks? Read/send emails? Manage labels? Then SEARCH → ADD → CONFIGURE

@@ -166,7 +166,7 @@ class ComposioProfileService:
                 redirect_url=redirect_url,
                 is_active=True,
                 is_default=is_default,
-                is_connected=bool(redirect_url),  # Connected if we have OAuth flow
+                is_connected=bool(redirect_url),
                 created_at=now,
                 updated_at=now
             )
@@ -176,11 +176,8 @@ class ComposioProfileService:
             raise
 
     async def get_mcp_config_for_agent(self, profile_id: str) -> Dict[str, Any]:
-        """Get the MCP configuration object for adding to an agent's custom_mcps"""
         try:
             client = await self.db.client
-            
-            # Get the profile
             result = await client.table('user_mcp_credential_profiles').select('*').eq(
                 'profile_id', profile_id
             ).execute()
@@ -189,21 +186,21 @@ class ComposioProfileService:
                 raise ValueError(f"Profile {profile_id} not found")
             
             profile_data = result.data[0]
-            
-            # Decrypt the config to get toolkit info
+
             config = self._decrypt_config(profile_data['encrypted_config'])
             
             if config.get('type') != 'composio':
                 raise ValueError(f"Profile {profile_id} is not a Composio profile")
             
-            # Return the MCP configuration for the agent - with ONLY profile_id
             return {
-                "name": config['toolkit_name'],  # Just the toolkit name, cleaner
+                "name": config['toolkit_name'],
                 "type": "composio",
+                "mcp_qualified_name": profile_data['mcp_qualified_name'],
+                "toolkit_slug": config.get('toolkit_slug', ''),
                 "config": {
-                    "profile_id": profile_id  # Only store profile_id reference
+                    "profile_id": profile_id
                 },
-                "enabledTools": []  # Will be populated by tool selection
+                "enabledTools": []
             }
             
         except Exception as e:
@@ -211,11 +208,9 @@ class ComposioProfileService:
             raise
     
     async def get_mcp_url_for_runtime(self, profile_id: str) -> str:
-        """Get the actual MCP URL for runtime connection (used internally by MCP service)"""
         try:
             client = await self.db.client
             
-            # Get the profile
             result = await client.table('user_mcp_credential_profiles').select('*').eq(
                 'profile_id', profile_id
             ).execute()

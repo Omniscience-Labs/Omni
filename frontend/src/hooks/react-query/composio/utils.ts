@@ -68,10 +68,11 @@ export interface ComposioMcpConfigResponse {
   success: boolean;
   mcp_config: {
     name: string;
-    customType: string;
     type: string;
+    mcp_qualified_name: string;
+    toolkit_slug: string;
     config: {
-      url: string;
+      profile_id: string;
     };
     enabledTools: string[];
   };
