@@ -58,7 +58,7 @@ class ConnectedAccountService:
     async def create_connected_account(
         self, 
         auth_config_id: str, 
-        user_id: str = "default"
+        user_id: str
     ) -> ConnectedAccount:
         try:
             logger.info(f"Creating connected account for auth_config: {auth_config_id}, user: {user_id}")
