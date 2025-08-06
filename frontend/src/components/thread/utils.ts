@@ -323,12 +323,16 @@ const TOOL_DISPLAY_NAMES = new Map([
   
   ['deploy', 'Deploying'],
   ['ask', 'Ask'],
+  ['create-tasks', 'Creating Tasks'],
+  ['update-tasks', 'Updating Tasks'],
   ['complete', 'Completing Task'],
   ['crawl-webpage', 'Crawling Website'],
   ['expose-port', 'Exposing Port'],
   ['scrape-webpage', 'Scraping Website'],
   ['web-search', 'Searching Web'],
   ['see-image', 'Viewing Image'],
+  ['create-presentation-outline', 'Creating Presentation Outline'],
+  ['create-presentation', 'Creating Presentation'],
   
 
   ['update-agent', 'Updating Agent'],

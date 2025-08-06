@@ -13,7 +13,7 @@ class SandboxPresentationOutlineTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_presentation_outline",
-            "description": "Create a structured outline for a presentation with slide titles and descriptions. This tool helps plan the overall structure and flow of a presentation before creating the actual slides.",
+            "description": "Create a structured outline for a presentation with slide titles and descriptions. This tool helps plan the overall structure and flow of a presentation before creating the actual slides with standard PowerPoint dimensions (1920x1080, 16:9 aspect ratio).",
             "parameters": {
                 "type": "object",
                 "properties": {

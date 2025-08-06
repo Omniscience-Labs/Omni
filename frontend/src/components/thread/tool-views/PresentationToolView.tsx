@@ -28,6 +28,9 @@ import { cn } from '@/lib/utils';
 import { constructHtmlPreviewUrl } from '@/lib/utils/url';
 import { CodeBlockCode } from '@/components/ui/code-block';
 import { LoadingState } from './shared/LoadingState';
+import { useMutation } from '@tanstack/react-query';
+import { backendApi } from '@/lib/api-client';
+import { useParams } from 'next/navigation';
 
 interface SlideInfo {
   slide_number: number;
@@ -46,6 +49,23 @@ interface PresentationData {
   total_slides?: number;
 }
 
+interface ExportPresentationRequest {
+  presentation_name: string;
+  format: string;
+  project_id: string;
+}
+
+interface ExportPresentationResponse {
+  success: boolean;
+  message: string;
+  download_url?: string;
+  file_content?: string;
+  filename?: string;
+  export_file: string;
+  format: string;
+  file_size: number;
+}
+
 export function PresentationToolView({
   assistantContent,
   toolContent,
@@ -59,8 +79,60 @@ export function PresentationToolView({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [slideContents, setSlideContents] = useState<Record<string, string>>({});
   const [loadingSlides, setLoadingSlides] = useState<Set<string>>(new Set());
+  const params = useParams();
+  const projectId = params.projectId as string;
+  console.log('Project ID:', projectId);
 
-  // Parse the tool output using existing helper
+  const exportMutation = useMutation<ExportPresentationResponse, Error, ExportPresentationRequest>({
+    mutationFn: async (request) => {
+      const response = await backendApi.post('/tools/export-presentation', request);
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Export failed');
+      }
+      return response.data;
+    },
+    onSuccess: async (data) => {
+      try {
+        let blob: Blob;
+        let filename: string;
+
+        if (data.file_content) {
+          const binaryString = atob(data.file_content);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+          filename = data.filename || `${data.export_file.split('/').pop()}`;
+        } else if (data.download_url) {
+          const response = await fetch(data.download_url);
+          if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+          }
+          blob = await response.blob();
+          filename = `${data.export_file.split('/').pop()}`;
+        } else {
+          throw new Error('No download method available');
+        }
+        
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error('Download error:', error);
+      }
+    },
+    onError: (error) => {
+      console.error('Export error:', error);
+    },
+  });
+
   const { toolResult } = extractToolData(toolContent);
   
   let presentationData: PresentationData | null = null;
@@ -89,30 +161,20 @@ export function PresentationToolView({
     if (slideContents[slidePath] || loadingSlides.has(slidePath)) {
       return;
     }
-    setLoadingSlides(prev => new Set(prev).add(slidePath));
+
+    setLoadingSlides(prev => new Set([...prev, slidePath]));
+
     try {
-      const slideUrl = constructHtmlPreviewUrl(project?.sandbox?.sandbox_url, slidePath);
-      if (!slideUrl) {
-        throw new Error('Unable to construct slide URL - sandbox not available');
-      }
-      const response = await fetch(slideUrl);
+      const fullUrl = constructHtmlPreviewUrl(project?.sandbox?.sandbox_url, slidePath);
+      const response = await fetch(fullUrl);
       if (!response.ok) {
-        throw new Error(`Failed to fetch slide: ${response.statusText}`);
+        throw new Error(`Failed to load slide: ${response.statusText}`);
       }
-      const htmlContent = await response.text();
-      setSlideContents(prev => ({ ...prev, [slidePath]: htmlContent }));
+      
+      const content = await response.text();
+      setSlideContents(prev => ({ ...prev, [slidePath]: content }));
     } catch (error) {
       console.error('Failed to load slide content:', error);
-      const errorContent = `
-        <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: system-ui;">
-          <div style="text-align: center; color: #ef4444;">
-            <h2>Failed to load slide</h2>
-            <p>Could not fetch content from: ${slidePath}</p>
-            <p style="font-size: 0.875rem; color: #666;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-          </div>
-        </div>
-      `;
-      setSlideContents(prev => ({ ...prev, [slidePath]: errorContent }));
     } finally {
       setLoadingSlides(prev => {
         const newSet = new Set(prev);
@@ -123,9 +185,8 @@ export function PresentationToolView({
   };
 
   const currentSlide = presentationData?.slides[currentSlideIndex];
-  const slideContent = slideContents[currentSlide?.file || ''];
+  const slideContent = currentSlide ? slideContents[currentSlide.file] : null;
 
-  // Load current slide content if not loaded
   if (currentSlide && !slideContent && !loadingSlides.has(currentSlide.file)) {
     loadSlideContent(currentSlide.file);
   }
@@ -137,6 +198,17 @@ export function PresentationToolView({
     } else if (direction === 'next' && currentSlideIndex < presentationData.slides.length - 1) {
       setCurrentSlideIndex(currentSlideIndex + 1);
     }
+  };
+
+  const handleExportPPTX = () => {
+    if(!presentationData?.presentation_name || !projectId) {
+      return;
+    }
+    exportMutation.mutate({
+      presentation_name: presentationData.presentation_name,
+      format: 'pptx',
+      project_id: projectId
+    });
   };
 
   const renderSlidePreview = () => {
@@ -151,13 +223,15 @@ export function PresentationToolView({
     }
 
     return (
-      <div className="relative w-full h-full bg-white dark:bg-zinc-900 rounded-lg overflow-hidden">
-        <iframe
-          srcDoc={slideContent}
-          className="w-full h-full border-0"
-          title={`Slide ${currentSlide.slide_number}: ${currentSlide.title}`}
-          sandbox="allow-same-origin"
-        />
+      <div className="w-full h-full aspect-[16/9] flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+        <div className="w-full h-full bg-white dark:bg-zinc-900 rounded-lg overflow-hidden shadow-lg">
+          <iframe
+            srcDoc={slideContent}
+            className="w-full h-full border-0"
+            title={`Slide ${currentSlide.slide_number}: ${currentSlide.title}`}
+            sandbox="allow-same-origin"
+          />
+        </div>
       </div>
     );
   };
@@ -276,10 +350,16 @@ export function PresentationToolView({
                     variant="outline"
                     size="sm"
                     className="gap-2 h-7 text-xs"
-                    disabled
-                    title="Export functionality coming soon"
+                    onClick={handleExportPPTX}
+                    disabled={exportMutation.isPending || !presentationData?.presentation_name}
+                    title={exportMutation.isPending ? "Exporting..." : "Download as PPTX"}
                   >
-                    <Download className="h-3 w-3" />
+                    {exportMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Download className="h-3 w-3" />
+                    )}
+                    {exportMutation.isPending ? "Exporting..." : "PPTX"}
                   </Button>
                   <TabsList className="h-8 bg-muted/50 border border-border/50 p-0.5 gap-1">
                     <TabsTrigger
@@ -326,8 +406,8 @@ export function PresentationToolView({
             </div>
 
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="preview" className="h-full mt-0 p-4">
-                <div className="h-full rounded-lg border bg-muted/20 p-4">
+              <TabsContent value="preview" className="h-full mt-0">
+                <div className="h-full rounded-lg border bg-muted/20">
                   {renderSlidePreview()}
                 </div>
               </TabsContent>
@@ -348,19 +428,15 @@ export function PresentationToolView({
         <div className="h-full flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {!isStreaming && presentationData && (
             <Badge variant="outline" className="h-6 py-0.5 bg-zinc-50 dark:bg-zinc-900">
-              <Presentation className="h-3 w-3 mr-1" />
-              Presentation
+              {presentationData.slides.length} slides
             </Badge>
           )}
         </div>
-
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
-          <Clock className="h-3.5 w-3.5" />
-          {toolTimestamp && !isStreaming
-            ? formatTimestamp(toolTimestamp)
-            : assistantTimestamp
-              ? formatTimestamp(assistantTimestamp)
-              : ''}
+        <div className="h-full flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
+          <Clock className="h-3 w-3" />
+          <span>
+            {formatTimestamp(toolTimestamp)}
+          </span>
         </div>
       </div>
     </Card>

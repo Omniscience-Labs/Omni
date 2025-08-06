@@ -29,6 +29,7 @@ import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-c
 import { TaskListToolView } from '../task-list/TaskListToolView';
 import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
 import { PresentationToolView } from '../PresentationToolView';
+import { ListPresentationTemplatesToolView } from '../ListPresentationTemplatesToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -99,6 +100,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'create-presentation-outline': PresentationOutlineToolView,
   'create-presentation': PresentationToolView,
   'export-presentation': PresentationToolView,
+  'list-presentation-templates': ListPresentationTemplatesToolView,
 
   'default': GenericToolView,
 };

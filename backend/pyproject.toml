@@ -66,6 +66,7 @@ dependencies = [
   "chardet==5.2.0",
   "PyYAML==6.0.1",
   "composio>=0.8.0",
+  "aspose-slides>=25.7.0",
 ]
 
 [project.urls]

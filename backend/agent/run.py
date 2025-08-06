@@ -238,26 +238,6 @@ class PromptManager:
             system_content = render_prompt_template(agent_config['system_prompt'].strip())
         else:
             system_content = default_system_content
-        
-        if await is_enabled("knowledge_base"):
-            try:
-                from services.supabase import DBConnection
-                kb_db = DBConnection()
-                kb_client = await kb_db.client
-                
-                current_agent_id = agent_config.get('agent_id') if agent_config else None
-                
-                kb_result = await kb_client.rpc('get_combined_knowledge_base_context', {
-                    'p_thread_id': thread_id,
-                    'p_agent_id': current_agent_id,
-                    'p_max_tokens': 4000
-                }).execute()
-                
-                if kb_result.data and kb_result.data.strip():
-                    system_content += "\n\n" + kb_result.data
-                        
-            except Exception as e:
-                logger.error(f"Error retrieving knowledge base context for thread {thread_id}: {e}")
 
         if agent_config and (agent_config.get('configured_mcps') or agent_config.get('custom_mcps')) and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
             mcp_info = "\n\n--- MCP Tools Available ---\n"
