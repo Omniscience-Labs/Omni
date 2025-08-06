@@ -468,10 +468,10 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             <div className="w-full max-w-4xl mx-auto -mt-12 relative z-10">
                               <div className="bg-muted/30 border border-border/50 rounded-b-2xl px-4 py-2 pt-8 transition-all duration-300 ease-out">
                 {/* Show all config options in a single horizontal line */}
-                <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none">
+                <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none relative z-20">
                   <button
                     onClick={() => setRegistryDialogOpen(true)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 z-50"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
                   >
                     <div className="flex items-center -space-x-0.5">
                       <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
@@ -491,7 +491,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
                   >
                     <Brain className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Instructions</span>
@@ -501,7 +501,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
                   >
                     <Database className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Knowledge</span>
@@ -511,7 +511,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
                   >
                     <Zap className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Triggers</span>
@@ -521,7 +521,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
                   >
                     <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Workflows</span>
