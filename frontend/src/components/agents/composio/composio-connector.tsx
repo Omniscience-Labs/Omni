@@ -599,7 +599,23 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                         <Label className="text-sm font-medium">Use Existing Profile</Label>
                         <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
                           <SelectTrigger className="w-full h-12 text-base">
-                            <SelectValue placeholder="Select a profile..." />
+                            <SelectValue placeholder="Select a profile...">
+                              {selectedProfileId && (() => {
+                                const selectedProfile = existingProfiles.find(p => p.profile_id === selectedProfileId);
+                                return selectedProfile ? (
+                                  <div className="flex items-center gap-3">
+                                    {app.logo ? (
+                                      <img src={app.logo} alt={app.name} className="h-5 w-5 rounded-lg object-contain flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0">
+                                        {app.name.charAt(0)}
+                                      </div>
+                                    )}
+                                    <span className="text-sm font-medium truncate">{selectedProfile.profile_name}</span>
+                                  </div>
+                                ) : null;
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="w-full">
                             {existingProfiles.map((profile) => (

@@ -424,8 +424,8 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
                   <div className="space-y-2">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="flex items-center gap-3 px-3 py-2">
-                        <div className="w-4 h-4 bg-muted rounded" />
-                        <div className="flex-1 h-4 bg-muted rounded" />
+                        <Skeleton className="w-4 h-4 bg-muted rounded" />
+                        <Skeleton className="flex-1 h-4 bg-muted rounded" />
                       </div>
                     ))}
                   </div>
