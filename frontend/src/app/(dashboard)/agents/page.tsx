@@ -165,6 +165,17 @@ export default function AgentsPage() {
           metadata: template.metadata,
         };
 
+        // Apply search filtering to each item
+        const matchesSearch = !marketplaceSearchQuery.trim() || (() => {
+          const searchLower = marketplaceSearchQuery.toLowerCase();
+          return item.name.toLowerCase().includes(searchLower) ||
+                 item.description?.toLowerCase().includes(searchLower) ||
+                 item.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
+                 item.creator_name?.toLowerCase().includes(searchLower);
+        })();
+
+        if (!matchesSearch) return; // Skip items that don't match search
+
         // Always add user's own templates to mineItems for the "mine" filter
         if (user?.id === template.creator_id) {
           mineItems.push(item);
@@ -201,7 +212,7 @@ export default function AgentsPage() {
       communityItems: sortItems(communityItems),
       mineItems: sortItems(mineItems)
     };
-  }, [marketplaceTemplates, marketplaceSortBy, user?.id]);
+  }, [marketplaceTemplates, marketplaceSortBy, user?.id, marketplaceSearchQuery]);
 
   const allMarketplaceItems = useMemo(() => {
     if (marketplaceFilter === 'kortix') {
