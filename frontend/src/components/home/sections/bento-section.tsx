@@ -4,29 +4,28 @@ import { SectionHeader } from '@/components/home/section-header';
 import { FirstBentoAnimation } from '@/components/home/first-bento-animation';
 import { SecondBentoAnimation } from '@/components/home/second-bento-animation';
 import { ThirdBentoAnimation } from '@/components/home/third-bento-animation';
-
 export function BentoSection() {
   const bentoItems = [
     {
       id: 1,
       content: <FirstBentoAnimation />,
-      title: 'Describe your agent',
+      title: 'Design with conversation',
       description:
-        'Tell Kortix what to do and watch it build your Agent in minutes.',
+        'Simply describe what you need your agent to accomplish, and Suna will build it for you automatically.',
     },
     {
       id: 2,
       content: <SecondBentoAnimation />,
-      title: 'Connect your apps',
+      title: 'Integrate everything',
       description:
-        'Hundreds of integrations available.',
+        'Connect to your favorite tools and services with our extensive library of integrations.',
     },
     {
       id: 3,
       content: <ThirdBentoAnimation />,
-      title: 'Let AI do the work',
+      title: 'Automate intelligently',
       description:
-        'Give custom instructions to your agent, all in natural language.',
+        'Watch your agent handle complex tasks and workflows with advanced AI reasoning.',
     },
   ];
 
