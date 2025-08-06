@@ -68,8 +68,14 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Fix hydration mismatch by ensuring component only renders after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: agentsResponse, isLoading: agentsLoading } = useAgents();
   const agents = agentsResponse?.agents || [];
@@ -243,6 +249,11 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   };
 
   const agentDisplay = getAgentDisplay();
+
+  // Don't render dropdown until after hydration to prevent ID mismatches
+  if (!mounted) {
+    return <div className="h-8 px-2.5 py-1.5" />; // Placeholder with same height
+  }
 
   return (
     <>

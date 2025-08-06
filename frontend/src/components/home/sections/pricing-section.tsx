@@ -671,3 +671,4 @@ export function PricingSection({
     </section>
   );
 }
+

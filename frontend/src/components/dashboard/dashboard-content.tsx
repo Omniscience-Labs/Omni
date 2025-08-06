@@ -253,7 +253,7 @@ export function DashboardContent() {
               ref={chatInputRef}
               onSubmit={handleSubmit}
               loading={isSubmitting}
-              placeholder="Describe what you need help with..."
+              placeholder="Describe a task, ask a question, or describe a a agent you want to create..."
               value={inputValue}
               onChange={setInputValue}
               hideAttachments={false}
