@@ -263,7 +263,7 @@ export function DashboardContent() {
               onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
             />
           </div>
-          <Examples onSelectPrompt={setInputValue} />
+          <Examples onSelectPrompt={setInputValue} count={5} />
         </div>
         <BillingErrorAlert
           message={billingError?.message}

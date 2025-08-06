@@ -9,13 +9,9 @@ export function GrowthSection() {
   return (
     <section
       id="growth"
-      className="flex flex-col items-center justify-center w-full relative px-5 md:px-10"
+      className="flex flex-col items-center justify-center w-full relative px-6"
     >
-      <div className="border-x mx-5 md:mx-10 relative">
-        {/* Decorative borders */}
-        <div className="absolute top-0 -left-4 md:-left-14 h-full w-4 md:w-14 text-gray-950/5 bg-[size:10px_10px] [background-image:repeating-linear-gradient(315deg,currentColor_0_1px,#0000_0_50%)]"></div>
-        <div className="absolute top-0 -right-4 md:-right-14 h-full w-4 md:w-14 text-gray-950/5 bg-[size:10px_10px] [background-image:repeating-linear-gradient(315deg,currentColor_0_1px,#0000_0_50%)]"></div>
-
+      <div className="relative w-full">
         {/* Section Header */}
         <SectionHeader>
           <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
@@ -27,7 +23,7 @@ export function GrowthSection() {
         </SectionHeader>
 
         {/* Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-x md:divide-y-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-x md:divide-y-0 border">
           {items.map((item) => (
             <div
               key={item.id}

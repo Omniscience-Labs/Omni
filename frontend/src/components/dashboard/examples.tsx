@@ -143,27 +143,29 @@ const getRandomPrompts = (count: number = 3): PromptExample[] => {
 
 export const Examples = ({
   onSelectPrompt,
+  count = 3,
 }: {
   onSelectPrompt?: (query: string) => void;
+  count?: number;
 }) => {
   const [displayedPrompts, setDisplayedPrompts] = useState<PromptExample[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Initialize with random prompts on mount
   useEffect(() => {
-    setDisplayedPrompts(getRandomPrompts(3));
-  }, []);
+    setDisplayedPrompts(getRandomPrompts(count));
+  }, [count]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setDisplayedPrompts(getRandomPrompts(3));
+    setDisplayedPrompts(getRandomPrompts(count));
     setTimeout(() => setIsRefreshing(false), 300);
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4">
       <div className="group relative">
-        <div className="flex gap-2 justify-center py-2">
+        <div className="flex gap-2 justify-center py-2 flex-wrap">
           {displayedPrompts.map((prompt, index) => (
             <motion.div
               key={`${prompt.title}-${index}`}
