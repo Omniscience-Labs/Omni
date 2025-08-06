@@ -8,7 +8,7 @@ import { ArrowRight } from 'lucide-react';
 const AgentCard = ({ agent }: { agent: any }) => {
   return (
     <motion.div
-      className="flex flex-col items-start justify-end min-h-[400px] relative group cursor-pointer hover:bg-accent/30 transition-colors duration-300 border-r border-b border-border"
+      className="flex flex-col items-start justify-end min-h-[400px] relative group cursor-pointer hover:bg-accent/30 transition-colors duration-300"
     >
       <div className="relative flex size-full items-center justify-center h-full overflow-hidden">
         <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-full bg-gradient-to-t from-background to-transparent z-20"></div>
@@ -61,7 +61,7 @@ const AgentCard = ({ agent }: { agent: any }) => {
 const CustomAgentCard = () => {
   return (
     <motion.div
-      className="flex flex-col items-start justify-end min-h-[400px] relative group cursor-pointer hover:bg-primary/5 transition-colors duration-300 border-r border-b border-border"
+      className="flex flex-col items-start justify-end min-h-[400px] relative group cursor-pointer hover:bg-primary/5 transition-colors duration-300"
     >
       <div className="relative flex size-full items-center justify-center h-full overflow-hidden">
         <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-full bg-gradient-to-t from-background to-transparent z-20"></div>
@@ -165,7 +165,7 @@ const AgentGrid = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-t border-l border-r border-b border-border">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-t border-border">
       {agents.map((agent) => (
         <AgentCard key={agent.name} agent={agent} />
       ))}
@@ -181,10 +181,10 @@ export function AgentShowcaseSection() {
       className="flex flex-col items-center justify-center w-full relative"
     >
       <div className="relative w-full px-6">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto border-l border-r">
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance pb-1">
-              Meet Your AI Team
+              Build Your AI Team
             </h2>
             <p className="text-muted-foreground text-center text-balance font-medium">
               Specialized AI agents ready to transform your workflow. Choose from our curated team of experts.
