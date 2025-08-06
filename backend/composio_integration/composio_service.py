@@ -36,9 +36,9 @@ class ComposioIntegrationService:
         self, 
         toolkit_slug: str, 
         account_id: str,
+        user_id: str,
         profile_name: Optional[str] = None,
         display_name: Optional[str] = None,
-        user_id: str = "default",
         mcp_server_name: Optional[str] = None,
         save_as_profile: bool = True
     ) -> ComposioIntegrationResult:
