@@ -152,10 +152,9 @@ export function WorkflowBuilder({
             <div className="min-h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="mx-auto max-w-3xl md:px-8 min-w-0 py-8">
                     {editableSteps.length === 0 ? (
-                        // Empty state
                         <div className="flex-1 min-h-[60vh] flex items-center justify-center">
                             <div className="text-center">
-                                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Plus className="h-8 w-8 text-zinc-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold mb-2 text-zinc-900 dark:text-zinc-100">
@@ -165,13 +164,12 @@ export function WorkflowBuilder({
                                     Add steps to create a workflow that guides your agent through tasks.
                                 </p>
                                 <Button onClick={() => handleAddStep(-1)}>
-                                    <Plus className="h-4 w-4 mr-2" />
+                                    <Plus className="h-4 w-4" />
                                     Add first step
                                 </Button>
                             </div>
                         </div>
                     ) : (
-                        // Steps list - uses the children array from root node
                         <div className="space-y-8 min-w-0">
                             <WorkflowSteps
                                 steps={editableSteps}
