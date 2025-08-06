@@ -1284,7 +1284,7 @@ class SetupWizard:
 
             print_warning("IMPORTANT: You must manually expose the 'basejump' schema.")
             print_info(
-                "In your Supabase dashboard, go to: Project Settings -> API -> Exposed schemas"
+                "In your Supabase dashboard, go to: Project Settings -> Data API -> Exposed schemas"
             )
             print_info("Ensure 'basejump' is checked, then save.")
             input("Press Enter once you've completed this step...")
