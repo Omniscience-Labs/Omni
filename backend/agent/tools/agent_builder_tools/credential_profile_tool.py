@@ -1,4 +1,5 @@
 from typing import Optional, List
+from uuid import uuid4
 from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
@@ -110,19 +111,19 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     ) -> ToolResult:
         try:
             account_id = await self._get_current_account_id()
+            integration_user_id = str(uuid4())
+            logger.info(f"Generated integration user_id: {integration_user_id} for account: {account_id}")
 
             integration_service = get_integration_service(db_connection=self.db)
             result = await integration_service.integrate_toolkit(
                 toolkit_slug=toolkit_slug,
                 account_id=account_id,
+                user_id=integration_user_id,
                 profile_name=profile_name,
                 display_name=display_name or profile_name,
-                user_id=account_id,
                 save_as_profile=True
             )
 
-            print("[DEBUG] create_credential_profile result:", result)
-            
             response_data = {
                 "message": f"Successfully created credential profile '{profile_name}' for {result.toolkit.name}",
                 "profile": {
@@ -147,90 +148,6 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
         except Exception as e:
             return self.fail_response(f"Error creating credential profile: {str(e)}")
-
-    # @openapi_schema({
-    #     "type": "function",
-    #     "function": {
-    #         "name": "check_profile_connection",
-    #         "description": "Check the connection status of a credential profile and get available tools if connected.",
-    #         "parameters": {
-    #             "type": "object",
-    #             "properties": {
-    #                 "profile_id": {
-    #                     "type": "string",
-    #                     "description": "The ID of the credential profile to check"
-    #                 }
-    #             },
-    #             "required": ["profile_id"]
-    #         }
-    #     }
-    # })
-    # @usage_example('''
-    #     <function_calls>
-    #     <invoke name="check_profile_connection">
-    #     <parameter name="profile_id">profile-uuid-123</parameter>
-    #     </invoke>
-    #     </function_calls>
-    #     ''')
-    # async def check_profile_connection(self, profile_id: str) -> ToolResult:
-    #     try:
-    #         from uuid import UUID
-    #         from pipedream.connection_service import ExternalUserId
-    #         account_id = await self._get_current_account_id()
-    #         profile_service = ComposioProfileService(self.db)
-
-    #         profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
-    #         if not profile:
-    #             return self.fail_response("Credential profile not found")
-            
-    #         external_user_id = ExternalUserId(profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id))
-    #         connection_service = ConnectionService(self.db)
-    #         raw_connections = await connection_service.get_connections_for_user(external_user_id)
-    #         connections = []
-    #         for conn in raw_connections:
-    #             connections.append({
-    #                 "external_user_id": conn.external_user_id.value if hasattr(conn.external_user_id, 'value') else str(conn.external_user_id),
-    #                 "app_slug": conn.app.slug.value if hasattr(conn.app.slug, 'value') else str(conn.app.slug),
-    #                 "app_name": conn.app.name,
-    #                 "created_at": conn.created_at.isoformat() if conn.created_at else None,
-    #                 "updated_at": conn.updated_at.isoformat() if conn.updated_at else None,
-    #                 "is_active": conn.is_active
-    #             })
-            
-    #         response_data = {
-    #             "profile_name": profile.display_name,
-    #             "app_name": profile.app_name,
-    #             "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
-    #             "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
-    #             "is_connected": profile.is_connected,
-    #             "connections": connections,
-    #             "connection_count": len(connections)
-    #         }
-            
-    #         if profile.is_connected and connections:
-    #             try:
-    #                 from pipedream.mcp_service import ConnectionStatus, ExternalUserId, AppSlug
-    #                 external_user_id = ExternalUserId(profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id))
-    #                 app_slug = AppSlug(profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug))
-    #                 servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug)
-    #                 connected_servers = [s for s in servers if s.status == ConnectionStatus.CONNECTED]
-    #                 if connected_servers:
-    #                     tools = [t.name for t in connected_servers[0].available_tools]
-    #                     response_data["available_tools"] = tools
-    #                     response_data["tool_count"] = len(tools)
-    #                     response_data["message"] = f"Profile '{profile.display_name}' is connected with {len(tools)} available tools"
-    #                 else:
-    #                     response_data["message"] = f"Profile '{profile.display_name}' is connected but no MCP tools are available yet"
-    #             except Exception as mcp_error:
-    #                 logger.error(f"Error getting MCP tools for profile: {mcp_error}")
-    #                 response_data["message"] = f"Profile '{profile.display_name}' is connected but could not retrieve MCP tools"
-    #         else:
-    #             response_data["message"] = f"Profile '{profile.display_name}' is not connected yet"
-            
-    #         return self.success_response(response_data)
-            
-    #     except Exception as e:
-    #         return self.fail_response(f"Error checking profile connection: {str(e)}")
 
     @openapi_schema({
         "type": "function",

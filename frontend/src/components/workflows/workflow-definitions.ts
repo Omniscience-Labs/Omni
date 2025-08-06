@@ -91,7 +91,7 @@ export const BASE_STEP_DEFINITIONS: StepDefinition[] = [
     },
     {
         id: 'credentials_profile',
-        name: 'Browse App Registry',
+        name: 'Browse Apps',
         description: 'Select and configure credential profiles for authentication',
         icon: Globe,
         category: 'configuration',
@@ -129,7 +129,6 @@ export const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
     }
 ];
 
-// Helper function to get tool definition
 export function getToolDefinition(toolName: string): StepDefinition | null {
     if (!TOOL_ICONS[toolName]) return null;
     

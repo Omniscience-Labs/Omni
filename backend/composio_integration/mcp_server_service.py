@@ -142,18 +142,15 @@ class MCPServerService:
             
             if user_ids:
                 request_data["user_ids"] = user_ids
-            
-            # Try different possible API paths
+
             try:
                 response = self.client.mcp.generate_mcp_url(**request_data)
             except AttributeError:
                 try:
                     response = self.client.mcp.generate.url(**request_data)
                 except AttributeError:
-                    # Fallback: try direct method call
                     response = self.client.generate_mcp_url(**request_data)
             
-            # Access Pydantic model attributes directly
             mcp_url_response = MCPUrlResponse(
                 mcp_url=response.mcp_url,
                 connected_account_urls=getattr(response, 'connected_account_urls', []),
@@ -171,17 +168,14 @@ class MCPServerService:
         try:
             logger.info(f"Fetching MCP server: {mcp_server_id}")
             
-            # Try different possible API paths
             try:
                 response = self.client.mcp.get(mcp_server_id)
             except AttributeError:
-                # Fallback: try direct method call
                 response = self.client.get_mcp_server(mcp_server_id)
             
             if not response:
                 return None
             
-            # Access Pydantic model attributes directly
             commands_obj = getattr(response, 'commands', None)
             
             commands = MCPCommands(
@@ -211,11 +205,9 @@ class MCPServerService:
         try:
             logger.info("Listing MCP servers")
             
-            # Try different possible API paths
             try:
                 response = self.client.mcp.list()
             except AttributeError:
-                # Fallback: try direct method call
                 response = self.client.list_mcp_servers()
             
             mcp_servers = []
