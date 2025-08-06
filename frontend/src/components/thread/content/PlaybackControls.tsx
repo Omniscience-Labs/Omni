@@ -5,7 +5,7 @@ import {
   Pause,
   ArrowDown,
   FileText,
-  PanelLeft,
+  PanelRightOpen,
   ArrowUp,
 } from 'lucide-react';
 import { UnifiedMessage } from '@/components/thread/types';
@@ -561,7 +561,7 @@ export const PlaybackControls = ({
               className={`h-8 w-8 ${isSidePanelOpen ? 'text-primary' : ''}`}
               aria-label="Toggle Tool Panel"
             >
-              <PanelLeft className="h-4 w-4" />
+              <PanelRightOpen className="h-4 w-4" />
             </Button>
           </div>
         </div>
