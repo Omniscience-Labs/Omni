@@ -46,7 +46,7 @@ export function BentoSection() {
             </p>
           </SectionHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 overflow-hidden border-t">
           {bentoItems.map((item) => (
             <div
               key={item.id}

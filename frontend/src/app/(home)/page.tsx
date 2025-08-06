@@ -14,7 +14,6 @@ import { BackgroundAALChecker } from '@/components/auth/background-aal-checker';
 import { BentoSection } from '@/components/home/sections/bento-section';
 import { CompanyShowcase } from '@/components/home/sections/company-showcase';
 import { FeatureSection } from '@/components/home/sections/feature-section';
-import { GrowthSection } from '@/components/home/sections/growth-section';
 import { QuoteSection } from '@/components/home/sections/quote-section';
 import { TestimonialSection } from '@/components/home/sections/testimonial-section';
 import { FAQSection } from '@/components/home/sections/faq-section';
@@ -30,9 +29,8 @@ export default function Home() {
             <HeroSection />
             <BentoSection />
             <AgentShowcaseSection />
-            {/* <GrowthSection /> */}
             <OpenSourceSection />
-            {/* <PricingSection /> */}
+            <PricingSection />
             {/* <TestimonialSection /> */}
             {/* <FAQSection /> */}
             <CTASection />
