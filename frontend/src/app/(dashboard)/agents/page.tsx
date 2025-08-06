@@ -22,7 +22,7 @@ import { MarketplaceTab } from '@/components/agents/custom-agents-page/marketpla
 import { PublishDialog } from '@/components/agents/custom-agents-page/publish-dialog';
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
-
+import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
 
 type ViewMode = 'grid' | 'list';
 type AgentSortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -78,6 +78,7 @@ export default function AgentsPage() {
   const [installingItemId, setInstallingItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceTemplate | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [marketplaceFilter, setMarketplaceFilter] = useState<'all' | 'kortix' | 'community' | 'mine'>('all');
 
   const [templatesActioningId, setTemplatesActioningId] = useState<string | null>(null);
@@ -239,6 +240,18 @@ export default function AgentsPage() {
     setMarketplacePage(1);
   }, [marketplaceSearchQuery, marketplaceSelectedTags, marketplaceSortBy]);
 
+  // Handle shared agent URL parameter
+  useEffect(() => {
+    const agentId = searchParams.get('agent');
+    if (agentId && allMarketplaceItems.length > 0) {
+      const sharedAgent = allMarketplaceItems.find(agent => agent.id === agentId);
+      if (sharedAgent) {
+        setSelectedItem(sharedAgent);
+        setShowPreviewDialog(true);
+      }
+    }
+  }, [searchParams, allMarketplaceItems]);
+
   const handleDeleteAgent = async (agentId: string) => {
     try {
       await deleteAgent(agentId);
@@ -275,6 +288,35 @@ export default function AgentsPage() {
     }
     setSelectedItem(item);
     setShowInstallDialog(true);
+  };
+
+  const handlePreviewClose = () => {
+    setShowPreviewDialog(false);
+    setSelectedItem(null);
+    
+    // Remove agent parameter from URL
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.has('agent')) {
+      currentUrl.searchParams.delete('agent');
+      router.replace(currentUrl.pathname + (currentUrl.searchParams.toString() ? '?' + currentUrl.searchParams.toString() : ''), { scroll: false });
+    }
+  };
+
+  const handlePreviewInstall = (agent: MarketplaceTemplate) => {
+    setShowPreviewDialog(false);
+    setSelectedItem(agent);
+    setShowInstallDialog(true);
+  };
+
+  const handleAgentPreview = (agent: MarketplaceTemplate) => {
+    setSelectedItem(agent);
+    setShowPreviewDialog(true);
+    
+    // Update URL with agent parameter for sharing
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('agent', agent.id);
+    currentUrl.searchParams.set('tab', 'marketplace');
+    router.replace(currentUrl.toString(), { scroll: false });
   };
 
   const handleInstall = async (
@@ -501,7 +543,7 @@ export default function AgentsPage() {
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <AgentsPageHeader />
       </div>
-      <div className="sticky top-0 z-50 relative">
+      <div className="sticky top-0 z-50">
         <div className="absolute inset-0 backdrop-blur-md" style={{
           maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%)'
@@ -558,6 +600,7 @@ export default function AgentsPage() {
               onDeleteTemplate={handleDeleteTemplate}
               getItemStyling={getItemStyling}
               currentUserId={user?.id}
+              onAgentPreview={handleAgentPreview}
             />
           )}
         </div>
@@ -580,6 +623,14 @@ export default function AgentsPage() {
         <NewAgentDialog 
           open={showNewAgentDialog} 
           onOpenChange={setShowNewAgentDialog}
+        />
+
+        <MarketplaceAgentPreviewDialog
+          agent={selectedItem}
+          isOpen={showPreviewDialog}
+          onClose={handlePreviewClose}
+          onInstall={handlePreviewInstall}
+          isInstalling={installingItemId === selectedItem?.id}
         />
       </div>
     </div>

@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2 } from 'lucide-react';
+import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share } from 'lucide-react';
+import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { AGENTPRESS_TOOL_DEFINITIONS } from '@/components/agents/tools';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
@@ -109,6 +110,18 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
 
   const handleInstall = () => {
     onInstall(agent);
+  };
+
+  const handleShare = () => {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('agent', agent.id);
+    currentUrl.searchParams.set('tab', 'marketplace');
+    
+    navigator.clipboard.writeText(currentUrl.toString()).then(() => {
+      toast.success('Share link copied to clipboard!');
+    }).catch(() => {
+      toast.error('Failed to copy link to clipboard');
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -269,6 +282,10 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
                     Install Agent
                   </>
                 )}
+              </Button>
+              <Button variant="outline" onClick={handleShare}>
+                <Share className="h-4 w-4" />
+                Share
               </Button>
               <Button variant="outline" onClick={onClose}>
                 Close
