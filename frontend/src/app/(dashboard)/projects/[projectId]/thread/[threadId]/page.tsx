@@ -8,7 +8,7 @@ import React, {
   useMemo,
 } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BillingError } from '@/lib/api';
+import { BillingError, AgentRunLimitError } from '@/lib/api';
 import { toast } from 'sonner';
 import { ChatInput } from '@/components/thread/chat-input/chat-input';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -28,6 +28,7 @@ import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '.
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
 import { useThreadAgent } from '@/hooks/react-query/agents/use-agents';
+import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 
 export default function ThreadPage({
   params,
@@ -55,6 +56,11 @@ export default function ThreadPage({
   const [isSidePanelAnimating, setIsSidePanelAnimating] = useState(false);
   const [userInitiatedRun, setUserInitiatedRun] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitData, setAgentLimitData] = useState<{
+    runningCount: number;
+    runningThreadIds: string[];
+  } | null>(null);
   
 
   // Refs - simplified for flex-column-reverse
@@ -320,6 +326,21 @@ export default function ThreadPage({
             return;
           }
 
+          if (error instanceof AgentRunLimitError) {
+            console.log("Caught AgentRunLimitError:", error.detail);
+            const { running_thread_ids, running_count } = error.detail;
+            
+            // Show the dialog with limit information
+            setAgentLimitData({
+              runningCount: running_count,
+              runningThreadIds: running_thread_ids,
+            });
+            setShowAgentLimitDialog(true);
+
+            setMessages(prev => prev.filter(m => m.message_id !== optimisticUserMessage.message_id));
+            return;
+          }
+
           throw new Error(`Failed to start agent: ${error?.message || error}`);
         }
 
@@ -331,7 +352,7 @@ export default function ThreadPage({
 
       } catch (err) {
         console.error('Error sending message or starting agent:', err);
-        if (!(err instanceof BillingError)) {
+        if (!(err instanceof BillingError) && !(err instanceof AgentRunLimitError)) {
           toast.error(err instanceof Error ? err.message : 'Operation failed');
         }
         setMessages((prev) =>
@@ -735,6 +756,16 @@ export default function ThreadPage({
         onOpenChange={setShowUpgradeDialog}
         onDismiss={handleDismissUpgradeDialog}
       />
+
+      {agentLimitData && (
+        <AgentRunLimitDialog
+          open={showAgentLimitDialog}
+          onOpenChange={setShowAgentLimitDialog}
+          runningCount={agentLimitData.runningCount}
+          runningThreadIds={agentLimitData.runningThreadIds}
+          projectId={projectId}
+        />
+      )}
     </>
   );
 } 

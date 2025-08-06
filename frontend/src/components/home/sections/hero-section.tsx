@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import {
   BillingError,
+  AgentRunLimitError,
 } from '@/lib/api';
 import { useInitiateAgentMutation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
@@ -37,6 +38,7 @@ import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { createQueryHook } from '@/hooks/use-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { getAgents } from '@/hooks/react-query/agents/utils';
+import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -67,6 +69,11 @@ export function HeroSection() {
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const threadQuery = useThreadQuery(initiatedThreadId || '');
   const chatInputRef = useRef<ChatInputHandles>(null);
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitData, setAgentLimitData] = useState<{
+    runningCount: number;
+    runningThreadIds: string[];
+  } | null>(null);
 
   // Fetch agents for selection
   const { data: agentsResponse } = createQueryHook(
@@ -199,6 +206,16 @@ export function HeroSection() {
       if (error instanceof BillingError) {
         console.log('Billing error:', error.detail);
         onOpen("paymentRequiredDialog");
+      } else if (error instanceof AgentRunLimitError) {
+        console.log('Handling AgentRunLimitError:', error.detail);
+        const { running_thread_ids, running_count } = error.detail;
+        
+        // Show the dialog with limit information
+        setAgentLimitData({
+          runningCount: running_count,
+          runningThreadIds: running_thread_ids,
+        });
+        setShowAgentLimitDialog(true);
       } else {
         const isConnectionError =
           error instanceof TypeError &&
@@ -414,6 +431,16 @@ export function HeroSection() {
         onDismiss={clearBillingError}
         isOpen={!!billingError}
       />
+
+      {agentLimitData && (
+        <AgentRunLimitDialog
+          open={showAgentLimitDialog}
+          onOpenChange={setShowAgentLimitDialog}
+          runningCount={agentLimitData.runningCount}
+          runningThreadIds={agentLimitData.runningThreadIds}
+          projectId={undefined} // Hero section doesn't have a specific project context
+        />
+      )}
     </section>
   );
 }
