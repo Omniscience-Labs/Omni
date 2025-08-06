@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Save, AlertCircle, Zap, CheckCircle2, Settings2, Loader2 } from 'lucide-react';
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
+import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 import { backendApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -129,6 +130,9 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
   const { data: profiles } = useComposioProfiles();
 
   const currentProfile = profileInfo || profiles?.find(p => p.profile_id === profileId);
+  const { data: iconData } = useComposioToolkitIcon(currentProfile?.toolkit_slug || '', {
+    enabled: !!currentProfile?.toolkit_slug
+  });
 
   const filteredTools = useMemo(() => {
     if (!searchTerm) return availableTools;
@@ -241,11 +245,11 @@ export const ComposioToolsManager: React.FC<ComposioToolsManagerProps> = ({
       <DialogContent className="max-w-2xl h-[80vh] p-0 gap-0 flex flex-col">
         <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
-            {appLogo ? (
+            {iconData?.icon_url || appLogo ? (
               <img 
-                src={appLogo} 
+                src={iconData?.icon_url || appLogo} 
                 alt={currentProfile?.toolkit_name} 
-                className="w-10 h-10 rounded-lg object-contain bg-muted p-1"
+                className="w-10 h-10 rounded-lg border object-contain bg-muted p-1"
               />
             ) : (
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold">

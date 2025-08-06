@@ -26,42 +26,33 @@ class ConnectedAccountService:
         self.client = ComposioClient.get_client(api_key)
     
     def _extract_deprecated_value(self, deprecated_obj) -> Optional[bool]:
-        """Extract boolean value from Composio SDK's Deprecated object"""
         if deprecated_obj is None:
             return None
         
-        # If it's already a boolean, return it
         if isinstance(deprecated_obj, bool):
             return deprecated_obj
-            
-        # If it's a Composio Deprecated object, try to extract meaningful info
+
         if hasattr(deprecated_obj, '__dict__'):
-            # Check if it has any deprecation info - if so, consider it deprecated
             deprecated_dict = deprecated_obj.__dict__
             if deprecated_dict:
                 return True
         
-        # Default to not deprecated
         return False
     
     def _extract_val_dict(self, val_obj) -> Dict[str, Any]:
-        """Extract dictionary from Composio SDK's val object"""
         if val_obj is None:
             return {}
         
-        # If it's already a dict, return it
         if isinstance(val_obj, dict):
             return val_obj
         
-        # If it's a Pydantic model, convert it to dict
         if hasattr(val_obj, 'model_dump'):
             return val_obj.model_dump()
         elif hasattr(val_obj, 'dict'):
             return val_obj.dict()
         elif hasattr(val_obj, '__dict__'):
             return val_obj.__dict__
-        
-        # Fallback to empty dict
+
         return {}
     
     async def create_connected_account(
@@ -85,16 +76,13 @@ class ConnectedAccountService:
                 }
             )
             
-            # Access Pydantic model attributes directly
             connection_data_obj = getattr(response, 'connection_data', None)
             if not connection_data_obj:
-                # Try alternative attribute names
                 connection_data_obj = getattr(response, 'connectionData', None)
             
             if connection_data_obj and hasattr(connection_data_obj, '__dict__'):
                 connection_data_dict = connection_data_obj.__dict__
                 
-                # Extract val field properly - it might be a Pydantic object
                 val_obj = connection_data_dict.get('val', {})
                 val_dict = self._extract_val_dict(val_obj)
                 
@@ -105,7 +93,6 @@ class ConnectedAccountService:
             else:
                 connection_data = ConnectionState()
             
-            # Handle the deprecated field properly
             deprecated_obj = getattr(response, 'deprecated', None)
             deprecated_value = self._extract_deprecated_value(deprecated_obj)
             
@@ -136,7 +123,6 @@ class ConnectedAccountService:
             if not response:
                 return None
             
-            # Access Pydantic model attributes directly
             connection_data_obj = getattr(response, 'connection_data', None)
             if not connection_data_obj:
                 connection_data_obj = getattr(response, 'connectionData', None)
@@ -144,7 +130,6 @@ class ConnectedAccountService:
             if connection_data_obj and hasattr(connection_data_obj, '__dict__'):
                 connection_data_dict = connection_data_obj.__dict__
                 
-                # Extract val field properly - it might be a Pydantic object
                 val_obj = connection_data_dict.get('val', {})
                 val_dict = self._extract_val_dict(val_obj)
                 
@@ -155,7 +140,6 @@ class ConnectedAccountService:
             else:
                 connection_data = ConnectionState()
             
-            # Handle the deprecated field properly
             deprecated_obj = getattr(response, 'deprecated', None)
             deprecated_value = self._extract_deprecated_value(deprecated_obj)
             
@@ -213,7 +197,6 @@ class ConnectedAccountService:
                 if connection_data_obj and hasattr(connection_data_obj, '__dict__'):
                     connection_data_dict = connection_data_obj.__dict__
                     
-                    # Extract val field properly - it might be a Pydantic object
                     val_obj = connection_data_dict.get('val', {})
                     val_dict = self._extract_val_dict(val_obj)
                     
@@ -224,7 +207,6 @@ class ConnectedAccountService:
                 else:
                     connection_data = ConnectionState()
                 
-                # Handle the deprecated field properly
                 deprecated_obj = getattr(item, 'deprecated', None)
                 deprecated_value = self._extract_deprecated_value(deprecated_obj)
                 

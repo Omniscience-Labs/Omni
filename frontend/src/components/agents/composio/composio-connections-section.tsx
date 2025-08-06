@@ -35,8 +35,10 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useComposioCredentialsProfiles, useComposioMcpUrl } from '@/hooks/react-query/composio/use-composio-profiles';
+import { ComposioRegistry } from './composio-registry';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ComposioProfileSummary, ComposioToolkitGroup } from '@/hooks/react-query/composio/utils';
 
 interface ComposioConnectionsSectionProps {
@@ -367,6 +369,8 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
 }) => {
   const { data: toolkits, isLoading, error } = useComposioCredentialsProfiles();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRegistry, setShowRegistry] = useState(false);
+  const queryClient = useQueryClient();
 
   const filteredToolkits = useMemo(() => {
     if (!toolkits || !searchQuery.trim()) return toolkits || [];
@@ -404,6 +408,12 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
     
     return { filteredProfilesCount, filteredToolkitsCount };
   }, [filteredToolkits]);
+
+  const handleProfileCreated = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
+    setShowRegistry(false);
+    queryClient.invalidateQueries({ queryKey: ['composio', 'profiles'] });
+    toast.success(`Successfully connected ${appName}!`);
+  };
 
   if (isLoading) {
     return (
@@ -448,15 +458,13 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
           <CardContent className="py-12">
             <div className="text-center">
               <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Composio Connections</h3>
+              <h3 className="text-lg font-medium mb-2">No Connections</h3>
               <p className="text-muted-foreground mb-4">
-                You haven't connected any Composio applications yet.
+                You haven't connected any applications yet.
               </p>
-              <Button variant="outline" asChild>
-                <Link href="/agents" className="inline-flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  Connect Apps
-                </Link>
+              <Button variant="outline" onClick={() => setShowRegistry(true)}>
+                <Plus className="h-4 w-4" />
+                Connect Apps
               </Button>
             </div>
           </CardContent>
@@ -477,7 +485,7 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
           </p>
         </div>
         <Button
-          onClick={() => window.open('/agents', '_blank')}
+          onClick={() => setShowRegistry(true)}
           size="sm"
         >
           <Plus className="h-4 w-4" />
@@ -540,6 +548,19 @@ export const ComposioConnectionsSection: React.FC<ComposioConnectionsSectionProp
             ))}
         </div>
       )}
+
+      <Dialog open={showRegistry} onOpenChange={setShowRegistry}>
+        <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Connect New App</DialogTitle>
+          </DialogHeader>
+          <ComposioRegistry
+            mode="profile-only"
+            onClose={() => setShowRegistry(false)}
+            onToolsSelected={handleProfileCreated}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 

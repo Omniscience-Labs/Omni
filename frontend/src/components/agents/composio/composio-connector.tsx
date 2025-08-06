@@ -88,7 +88,7 @@ const getStepIndex = (step: Step): number => {
 const StepIndicator = ({ currentStep, mode }: { currentStep: Step; mode: 'full' | 'profile-only' }) => {
   const currentIndex = getStepIndex(currentStep);
   const visibleSteps = mode === 'profile-only' 
-    ? stepConfigs.filter(step => step.id !== Step.ToolsSelection)
+    ? stepConfigs.filter(step => step.id !== Step.ToolsSelection && step.id !== Step.ProfileSelect)
     : stepConfigs;
     
   const visibleCurrentIndex = visibleSteps.findIndex(step => step.id === currentStep);
@@ -274,7 +274,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
 
   useEffect(() => {
     if (open) {
-      setStep(Step.ProfileSelect);
+      setStep(mode === 'profile-only' ? Step.ProfileCreate : Step.ProfileSelect);
       setProfileName(`${app.name} Profile`);
       setSelectedProfileId('');
       setSelectedProfile(null);
@@ -287,7 +287,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setAvailableTools([]);
       setToolsError(null);
     }
-  }, [open, app.name]);
+  }, [open, app.name, mode]);
 
   useEffect(() => {
     if (step === Step.ToolsSelection && selectedProfile) {
@@ -485,7 +485,11 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   const handleBack = () => {
     switch (step) {
       case Step.ProfileCreate:
-        navigateToStep(Step.ProfileSelect);
+        if (mode === 'profile-only') {
+          onOpenChange(false);
+        } else {
+          navigateToStep(Step.ProfileSelect);
+        }
         break;
       case Step.Connecting:
         navigateToStep(Step.ProfileCreate);
@@ -590,30 +594,61 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                     className="space-y-6"
                   >
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Connection Profile</Label>
-                      <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                        <SelectTrigger className="w-full h-12 text-base">
-                          <SelectValue placeholder="Select a profile..." />
-                        </SelectTrigger>
-                        <SelectContent className="w-full">
-                          {existingProfiles.map((profile) => (
-                            <SelectItem key={profile.profile_id} value={profile.profile_id}>
-                              <div className="flex items-center justify-between w-full">
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium">{profile.profile_name}</div>
+                    {existingProfiles.length > 0 && (
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Use Existing Profile</Label>
+                        <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                          <SelectTrigger className="w-full h-12 text-base">
+                            <SelectValue placeholder="Select a profile..." />
+                          </SelectTrigger>
+                          <SelectContent className="w-full">
+                            {existingProfiles.map((profile) => (
+                              <SelectItem key={profile.profile_id} value={profile.profile_id}>
+                                <div className="flex items-center gap-3 w-full">
+                                  {app.logo ? (
+                                    <img src={app.logo} alt={app.name} className="h-5 w-5 rounded-lg object-contain flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0">
+                                      {app.name.charAt(0)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium truncate">{profile.profile_name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Created {formatDistanceToNow(new Date(profile.created_at), { addSuffix: true })}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="new">
-                            <div className="flex items-center gap-1">
-                              <Plus className="h-4 w-4" />
-                              <span>Create New Profile</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-px bg-border flex-1" />
+                        <span className="text-xs text-muted-foreground px-2">
+                          {existingProfiles.length > 0 ? 'or' : ''}
+                        </span>
+                        <div className="h-px bg-border flex-1" />
+                      </div>
+                      
+                                              <Button
+                          onClick={() => navigateToStep(Step.ProfileCreate)}
+                          variant={existingProfiles.length > 0 ? "outline" : "default"}
+                          className="w-full"
+                        >
+                          {app.logo ? (
+                            <img src={app.logo} alt={app.name} className="h-4 w-4 rounded-lg object-contain" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold mr-2">
+                              {app.name.charAt(0)}
                             </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                          )}
+                          Connect New {app.name} Account
+                          <Plus className="h-4 w-4" />
+                        </Button>
                     </div>
 
                     <div className="flex gap-3 pt-2">
@@ -624,14 +659,16 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       >
                         Cancel
                       </Button>
-                      <Button
-                        onClick={handleProfileSelect}
-                        disabled={!selectedProfileId}
-                        className="flex-1"
-                      >
-                        {selectedProfileId === 'new' ? 'Continue' : mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      {existingProfiles.length > 0 && (
+                        <Button
+                          onClick={handleProfileSelect}
+                          disabled={!selectedProfileId}
+                          className="flex-1"
+                        >
+                          {mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -754,11 +791,11 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     className="text-center py-8"
                   >
                     <div className="space-y-6">
-                      <div className="w-20 h-20 mx-auto rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                        <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+                      <div className="w-18 h-18 mx-auto rounded-full bg-green-400 dark:bg-green-600 flex items-center justify-center">
+                        <Check className="h-10 w-10 text-white" />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <h3 className="font-semibold text-lg">Successfully Connected!</h3>
                         <p className="text-sm text-muted-foreground">
                           Your {app.name} integration is ready.

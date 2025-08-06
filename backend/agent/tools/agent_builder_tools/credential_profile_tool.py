@@ -121,8 +121,6 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                 save_as_profile=True
             )
 
-            print("[DEBUG] create_credential_profile result:", result)
-            
             response_data = {
                 "message": f"Successfully created credential profile '{profile_name}' for {result.toolkit.name}",
                 "profile": {
