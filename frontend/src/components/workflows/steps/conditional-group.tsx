@@ -549,7 +549,7 @@ export function ConditionalGroup({
                                     onClick={handleAddStepClick}
                                     className="border-dashed text-xs"
                                 >
-                                    <Plus className="h-3 w-3 mr-1" />
+                                    <Plus className="h-3 w-3" />
                                     Add step
                                 </Button>
                             </div>

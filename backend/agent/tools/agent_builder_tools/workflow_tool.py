@@ -52,8 +52,13 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             agentpress_tools = agent_config.get('agentpress_tools', {})
             for tool_key, tool_names in tool_mapping.items():
-                if agentpress_tools.get(tool_key, {}).get('enabled', False):
-                    available_tools.extend(tool_names)
+                tool_config = agentpress_tools.get(tool_key, False)
+                if isinstance(tool_config, bool):
+                    if tool_config:
+                        available_tools.extend(tool_names)
+                elif isinstance(tool_config, dict):
+                    if tool_config.get('enabled', False):
+                        available_tools.extend(tool_names)
             
             configured_mcps = agent_config.get('configured_mcps', [])
             for mcp in configured_mcps:
