@@ -140,7 +140,15 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             if result.connected_account.redirect_url:
                 response_data["connection_link"] = result.connected_account.redirect_url
-                response_data["instructions"] = f"🔗 **IMPORTANT: Please visit the connection link to authenticate your {result.toolkit.name} account with this profile. After connecting, you'll be able to use {result.toolkit.name} tools in your agent.**"
+                # Include both the toolkit name and slug in a parseable format
+                # Format: [toolkit:slug:name] to help frontend identify the service accurately
+                response_data["instructions"] = f"""🔗 **{result.toolkit.name} Authentication Required**
+
+Please authenticate your {result.toolkit.name} account by clicking the link below:
+
+[toolkit:{toolkit_slug}:{result.toolkit.name}] Authentication: {result.connected_account.redirect_url}
+
+After connecting, you'll be able to use {result.toolkit.name} tools in your agent."""
             else:
                 response_data["instructions"] = f"This {result.toolkit.name} profile has been created and is ready to use."
             
