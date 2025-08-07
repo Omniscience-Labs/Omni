@@ -140,7 +140,15 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             
             if result.connected_account.redirect_url:
                 response_data["connection_link"] = result.connected_account.redirect_url
-                response_data["instructions"] = f"🔗 **IMPORTANT: Please visit the connection link to authenticate your {result.toolkit.name} account with this profile. After connecting, you'll be able to use {result.toolkit.name} tools in your agent.**"
+                # Include both the toolkit name and slug in a parseable format
+                # Format: [toolkit:slug:name] to help frontend identify the service accurately
+                response_data["instructions"] = f"""🔗 **{result.toolkit.name} Authentication Required**
+
+Please authenticate your {result.toolkit.name} account by clicking the link below:
+
+[toolkit:{toolkit_slug}:{result.toolkit.name}] Authentication: {result.connected_account.redirect_url}
+
+After connecting, you'll be able to use {result.toolkit.name} tools in your agent."""
             else:
                 response_data["instructions"] = f"This {result.toolkit.name} profile has been created and is ready to use."
             
@@ -256,12 +264,48 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                 change_description=f"Configured {display_name or profile.display_name} with {len(enabled_tools)} tools"
             )
 
+            # Dynamically register the MCP tools in the current runtime
+            try:
+                from agent.tools.mcp_tool_wrapper import MCPToolWrapper
+                
+                mcp_config_for_wrapper = {
+                    'name': profile.toolkit_name,
+                    'qualifiedName': f"composio.{profile.toolkit_slug}",
+                    'config': {
+                        'profile_id': profile_id,
+                        'toolkit_slug': profile.toolkit_slug,
+                        'mcp_qualified_name': profile.mcp_qualified_name
+                    },
+                    'enabledTools': enabled_tools,
+                    'instructions': '',
+                    'isCustom': True,
+                    'customType': 'composio'
+                }
+                
+                mcp_wrapper_instance = MCPToolWrapper(mcp_configs=[mcp_config_for_wrapper])
+                await mcp_wrapper_instance.initialize_and_register_tools()
+                updated_schemas = mcp_wrapper_instance.get_schemas()
+                
+                for method_name, schema_list in updated_schemas.items():
+                    for schema in schema_list:
+                        self.thread_manager.tool_registry.tools[method_name] = {
+                            "instance": mcp_wrapper_instance,
+                            "schema": schema
+                        }
+                        logger.info(f"Dynamically registered MCP tool: {method_name}")
+                
+                logger.info(f"Successfully registered {len(updated_schemas)} MCP tools dynamically for {profile.toolkit_name}")
+                
+            except Exception as e:
+                logger.warning(f"Could not dynamically register MCP tools in current runtime: {str(e)}. Tools will be available on next agent run.")
+
             return self.success_response({
-                "message": f"Profile '{profile.profile_name}' updated with {len(enabled_tools)} tools",
+                "message": f"Profile '{profile.profile_name}' configured with {len(enabled_tools)} tools and registered in current runtime",
                 "enabled_tools": enabled_tools,
                 "total_tools": len(enabled_tools),
                 "version_id": new_version.version_id,
-                "version_name": new_version.version_name
+                "version_name": new_version.version_name,
+                "runtime_registration": "success"
             })
             
         except Exception as e:

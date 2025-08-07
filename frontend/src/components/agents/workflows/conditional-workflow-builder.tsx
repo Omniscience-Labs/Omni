@@ -613,7 +613,7 @@ export function ConditionalWorkflowBuilder({
                   onClick={() => removeStep(step.id)}
                   className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-4 w-4" />
                   Delete step
                 </Button>
               </PopoverContent>

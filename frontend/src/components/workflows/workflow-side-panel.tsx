@@ -361,7 +361,7 @@ export function WorkflowSidePanel({
                                 }}
                                 className="w-full"
                             >
-                                <Trash2 className="h-4 w-4 mr-2" />
+                                <Trash2 className="h-4 w-4" />
                                 {selectedStep.conditions?.type === 'if' ? 'Delete Conditional Group' : 'Delete Step'}
                             </Button>
                         </div>

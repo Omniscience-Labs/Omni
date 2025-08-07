@@ -419,10 +419,7 @@ async def get_my_templates(
         logger.info(f"Retrieved {len(templates)} templates for user {user_id}")
         
         return [
-            TemplateResponse(
-                **format_template_for_response(template),
-                creator_name=None
-            )
+            TemplateResponse(**format_template_for_response(template))
             for template in templates
         ]
         
@@ -448,10 +445,7 @@ async def get_template(
         
         logger.info(f"User {user_id} accessing template {template_id}")
         
-        return TemplateResponse(
-            **format_template_for_response(template),
-            creator_name=None
-        )
+        return TemplateResponse(**format_template_for_response(template))
         
     except HTTPException:
         # Re-raise HTTP exceptions from our validation functions

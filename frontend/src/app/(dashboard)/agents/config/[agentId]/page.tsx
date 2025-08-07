@@ -504,12 +504,12 @@ export default function AgentConfigurationPage() {
                         >
                           {isSaving ? (
                             <>
-                              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                               Saving...
                             </>
                           ) : (
                             <>
-                              <Save className="h-3 w-3 mr-2" />
+                              <Save className="h-3 w-3" />
                               Save
                             </>
                           )}
