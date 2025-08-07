@@ -17,6 +17,7 @@ interface WorkflowBuilderProps {
     };
     isLoadingTools?: boolean;
     agentId?: string;
+    workflowId?: string;
     versionData?: {
         version_id: string;
         configured_mcps: any[];
@@ -29,6 +30,8 @@ interface WorkflowBuilderProps {
     workflowDescription?: string;
     onSave?: () => void;
     isSaving?: boolean;
+    onExecute?: () => void;
+    isExecuting?: boolean;
     onNameChange?: (name: string) => void;
     onDescriptionChange?: (description: string) => void;
 }
@@ -56,6 +59,8 @@ export function WorkflowBuilder({
     workflowDescription = '',
     onSave,
     isSaving = false,
+    onExecute,
+    isExecuting,
     onNameChange,
     onDescriptionChange
 }: WorkflowBuilderProps) {
@@ -135,6 +140,10 @@ export function WorkflowBuilder({
             onToggleSidePanel={handleToggleSidePanel}
             onSave={onSave || (() => { })}
             isSaving={isSaving}
+            onExecute={onExecute}
+            isExecuting={isExecuting}
+            onNameChange={onNameChange}
+            onDescriptionChange={onDescriptionChange}
             selectedStep={selectedStep}
             panelMode={panelMode}
             availableStepTypes={getAvailableStepTypes()}
