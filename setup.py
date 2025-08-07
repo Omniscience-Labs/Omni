@@ -168,6 +168,9 @@ def load_existing_env_vars():
             "PIPEDREAM_CLIENT_SECRET": backend_env.get("PIPEDREAM_CLIENT_SECRET", ""),
             "PIPEDREAM_X_PD_ENVIRONMENT": backend_env.get("PIPEDREAM_X_PD_ENVIRONMENT", ""),
         },
+        "kortix": {
+            "KORTIX_ADMIN_API_KEY": backend_env.get("KORTIX_ADMIN_API_KEY", ""),
+        },
         "frontend": {
             "NEXT_PUBLIC_SUPABASE_URL": frontend_env.get(
                 "NEXT_PUBLIC_SUPABASE_URL", ""
@@ -241,6 +244,13 @@ def generate_encryption_key():
     return base64.b64encode(key_bytes).decode("utf-8")
 
 
+def generate_admin_api_key():
+    """Generates a secure admin API key for Kortix."""
+    # Generate 32 random bytes and encode as hex for a readable API key
+    key_bytes = secrets.token_bytes(32)
+    return key_bytes.hex()
+
+
 # --- Main Setup Class ---
 class SetupWizard:
     def __init__(self):
@@ -263,6 +273,7 @@ class SetupWizard:
             "webhook": existing_env_vars["webhook"],
             "mcp": existing_env_vars["mcp"],
             "pipedream": existing_env_vars["pipedream"],
+            "kortix": existing_env_vars["kortix"],
         }
 
         # Override with any progress data (in case user is resuming)
@@ -273,7 +284,7 @@ class SetupWizard:
             else:
                 self.env_vars[key] = value
 
-        self.total_steps = 18
+        self.total_steps = 19
 
     def show_current_config(self):
         """Shows the current configuration status."""
@@ -359,6 +370,12 @@ class SetupWizard:
         else:
             config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Morph (recommended)")
 
+        # Check Kortix configuration
+        if self.env_vars["kortix"]["KORTIX_ADMIN_API_KEY"]:
+            config_items.append(f"{Colors.GREEN}✓{Colors.ENDC} Kortix Admin")
+        else:
+            config_items.append(f"{Colors.YELLOW}○{Colors.ENDC} Kortix Admin")
+
         if any("✓" in item for item in config_items):
             print_info("Current configuration status:")
             for item in config_items:
@@ -384,6 +401,7 @@ class SetupWizard:
             self.run_step(6, self.collect_morph_api_key)
             self.run_step(7, self.collect_search_api_keys)
             self.run_step(8, self.collect_rapidapi_keys)
+            self.run_step(9, self.collect_kortix_keys)
             self.run_step(10, self.collect_qstash_keys)
             self.run_step(11, self.collect_mcp_keys)
             self.run_step(12, self.collect_pipedream_keys)
@@ -464,7 +482,7 @@ class SetupWizard:
                 "uv": "https://github.com/astral-sh/uv#installation",
                 "node": "https://nodejs.org/en/download/",
                 "npm": "https://docs.npmjs.com/downloading-and-installing-node-js-and-npm",
-                "docker": "https://docs.docker.com/get-docker/",  # For Redis/RabbitMQ
+                "docker": "https://docs.docker.com/get-docker/",  # For Redis
             }
 
         missing = []
@@ -893,6 +911,24 @@ class SetupWizard:
         else:
             print_info("Skipping RapidAPI key.")
 
+    def collect_kortix_keys(self):
+        """Generates or configures the Kortix admin API key."""
+        print_step(9, self.total_steps, "Configuring Kortix Admin API Key")
+
+        # Check if we already have a value configured
+        existing_key = self.env_vars["kortix"]["KORTIX_ADMIN_API_KEY"]
+        if existing_key:
+            print_info(
+                f"Found existing Kortix admin API key: {mask_sensitive_value(existing_key)}"
+            )
+            print_info("Using existing admin API key.")
+        else:
+            print_info("Generating a secure admin API key for Kortix administrative functions...")
+            self.env_vars["kortix"]["KORTIX_ADMIN_API_KEY"] = generate_admin_api_key()
+            print_success("Kortix admin API key generated.")
+
+        print_success("Kortix admin configuration saved.")
+
     def collect_qstash_keys(self):
         """Collects the required QStash configuration."""
         print_step(
@@ -1114,15 +1150,12 @@ class SetupWizard:
         # --- Backend .env ---
         is_docker = self.env_vars["setup_method"] == "docker"
         redis_host = "redis" if is_docker else "localhost"
-        rabbitmq_host = "rabbitmq" if is_docker else "localhost"
 
         backend_env = {
             "ENV_MODE": "local",
             **self.env_vars["supabase"],
             "REDIS_HOST": redis_host,
             "REDIS_PORT": "6379",
-            "RABBITMQ_HOST": rabbitmq_host,
-            "RABBITMQ_PORT": "5672",
             **self.env_vars["llm"],
             **self.env_vars["search"],
             **self.env_vars["rapidapi"],
@@ -1132,6 +1165,7 @@ class SetupWizard:
             **self.env_vars["mcp"],
             **self.env_vars["pipedream"],
             **self.env_vars["daytona"],
+            **self.env_vars["kortix"],
             "NEXT_PUBLIC_URL": "http://localhost:3000",
         }
 
@@ -1152,6 +1186,7 @@ class SetupWizard:
             "NEXT_PUBLIC_BACKEND_URL": "http://localhost:8000/api",
             "NEXT_PUBLIC_URL": "http://localhost:3000",
             "NEXT_PUBLIC_ENV_MODE": "LOCAL",
+            "KORTIX_ADMIN_API_KEY": self.env_vars["kortix"]["KORTIX_ADMIN_API_KEY"],
         }
 
         frontend_env_content = "# Generated by Suna install script\n\n"
@@ -1372,7 +1407,7 @@ class SetupWizard:
             print(
                 f"\n{Colors.BOLD}1. Start Infrastructure (in project root):{Colors.ENDC}"
             )
-            print(f"{Colors.CYAN}   docker compose up redis rabbitmq -d{Colors.ENDC}")
+            print(f"{Colors.CYAN}   docker compose up redis -d{Colors.ENDC}")
 
             print(f"\n{Colors.BOLD}2. Start Frontend (in a new terminal):{Colors.ENDC}")
             print(f"{Colors.CYAN}   cd frontend && npm run dev{Colors.ENDC}")

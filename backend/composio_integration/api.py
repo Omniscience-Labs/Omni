@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
+from uuid import uuid4
 from utils.auth_utils import get_current_user_id_from_jwt
 from utils.logger import logger
 from services.supabase import DBConnection
@@ -16,11 +17,9 @@ from .composio_profile_service import ComposioProfileService, ComposioProfile
 
 router = APIRouter(prefix="/composio", tags=["composio"])
 
-# Global database connection
 db: Optional[DBConnection] = None
 
 def initialize(database: DBConnection):
-    """Initialize the composio API with database connection"""
     global db
     db = database
 
@@ -29,7 +28,6 @@ class IntegrateToolkitRequest(BaseModel):
     toolkit_slug: str
     profile_name: Optional[str] = None
     display_name: Optional[str] = None
-    user_id: Optional[str] = "default"
     mcp_server_name: Optional[str] = None
     save_as_profile: bool = True
 
@@ -49,7 +47,6 @@ class CreateProfileRequest(BaseModel):
     toolkit_slug: str
     profile_name: str
     display_name: Optional[str] = None
-    user_id: Optional[str] = "default"
     mcp_server_name: Optional[str] = None
     is_default: bool = False
 
@@ -137,13 +134,16 @@ async def integrate_toolkit(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> IntegrationStatusResponse:
     try:
+        integration_user_id = str(uuid4())
+        logger.info(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
+        
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
             toolkit_slug=request.toolkit_slug,
             account_id=current_user_id,
+            user_id=integration_user_id,
             profile_name=request.profile_name,
             display_name=request.display_name,
-            user_id=request.user_id or current_user_id,
             mcp_server_name=request.mcp_server_name,
             save_as_profile=request.save_as_profile
         )
@@ -171,13 +171,16 @@ async def create_profile(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> ProfileResponse:
     try:
+        integration_user_id = str(uuid4())
+        logger.info(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
+        
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
             toolkit_slug=request.toolkit_slug,
             account_id=current_user_id,
+            user_id=integration_user_id,
             profile_name=request.profile_name,
             display_name=request.display_name,
-            user_id=request.user_id or current_user_id,
             mcp_server_name=request.mcp_server_name,
             save_as_profile=True
         )

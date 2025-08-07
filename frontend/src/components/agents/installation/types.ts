@@ -12,6 +12,7 @@ export interface MarketplaceTemplate {
   avatar_color?: string;
   template_id: string;
   is_kortix_team?: boolean;
+  agentpress_tools?: Record<string, any>;
   mcp_requirements?: Array<{
     qualified_name: string;
     display_name: string;

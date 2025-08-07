@@ -90,8 +90,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   const handleToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
     console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
     setShowRegistryDialog(false);
-    // ComposioRegistry handles all the actual configuration internally
-    // We need to refresh the agent data to show updated configuration
     queryClient.invalidateQueries({ queryKey: ['agents'] });
     queryClient.invalidateQueries({ queryKey: ['agent', selectedAgentId] });
     queryClient.invalidateQueries({ queryKey: ['composio', 'profiles'] });

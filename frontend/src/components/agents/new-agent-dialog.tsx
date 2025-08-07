@@ -84,82 +84,56 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
 
   return (
     <AlertDialog open={open} onOpenChange={handleDialogClose}>
-      <AlertDialogContent className="max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Create New Agent</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will create a new agent that you can customize and configure.
+      <AlertDialogContent className="max-w-lg">
+        <AlertDialogHeader className="space-y-3">
+          <AlertDialogTitle className="text-xl">Create New Agent</AlertDialogTitle>
+          <AlertDialogDescription className="text-base leading-relaxed">
+            Create a new agent with default settings that you can customize later, or{' '}
+            <button
+              onClick={handleFileImport}
+              className="text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isLoading}
+            >
+              import from file
+            </button>
+            {' '}or{' '}
+            <button
+              onClick={() => !isLoading && setShowJsonImport(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isLoading}
+            >
+              import from JSON
+            </button>
+            .
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
-              This will create a new agent with a default name and description that you can customize later.
-            </div>
-            <div className="text-center w-full flex gap-2 items-center">
-              <div
-                onClick={handleFileImport}
-                className="overflow-hidden text-xs gap-2 items-center w-full h-16 border border-input bg-background hover:bg-muted/30 transition-colors rounded-xl cursor-pointer flex disabled:cursor-not-allowed disabled:opacity-50"
-                role="button"
-                tabIndex={isLoading ? -1 : 0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    if (!isLoading) handleFileImport();
-                  }
-                }}
-              >
-                <div className='bg-muted h-full aspect-square flex items-center justify-center'>
-                  <FileJson className="h-6 w-6" />
-                </div>
-                Import from file
-              </div>
-              <div
-                onClick={() => !isLoading && setShowJsonImport(true)}
-                className="overflow-hidden text-xs w-full items-center gap-2 h-16 border border-input bg-background hover:bg-muted/30 transition-colors rounded-xl cursor-pointer flex disabled:cursor-not-allowed disabled:opacity-50"
-                role="button"
-                tabIndex={isLoading ? -1 : 0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    if (!isLoading) setShowJsonImport(true);
-                  }
-                }}
-              >
-                <div className='bg-muted h-full aspect-square flex items-center justify-center'>
-                  <Code className="h-6 w-6" />
-                </div>
-                Import from JSON
-              </div>
-            </div>
-          </div>
-          
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </div>
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileChange}
+          className="hidden"
+        />
 
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+        <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-6">
+          <AlertDialogCancel disabled={isLoading} className="mt-2 sm:mt-0">
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleCreateNewAgent}
             disabled={isLoading}
-            className="min-w-[100px]"
+            className="min-w-[120px]"
           >
             {createNewAgentMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 Creating...
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 mr-2" />
                 Create Agent
               </>
             )}
