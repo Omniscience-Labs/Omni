@@ -13,6 +13,10 @@ interface WorkflowLayoutProps {
     onToggleSidePanel: () => void;
     onSave: () => void;
     isSaving?: boolean;
+    onExecute?: () => void;
+    isExecuting?: boolean;
+    onNameChange?: (name: string) => void;
+    onDescriptionChange?: (description: string) => void;
     selectedStep?: ConditionalStep | null;
     panelMode?: 'add' | 'edit';
     availableStepTypes?: any[];
@@ -36,6 +40,10 @@ export function WorkflowLayout({
     onToggleSidePanel,
     onSave,
     isSaving = false,
+    onExecute,
+    isExecuting = false,
+    onNameChange,
+    onDescriptionChange,
     selectedStep,
     panelMode = 'add',
     availableStepTypes = [],
@@ -64,6 +72,10 @@ export function WorkflowLayout({
                     onToggleSidePanel={onToggleSidePanel}
                     onSave={onSave}
                     isSaving={isSaving}
+                    onExecute={onExecute}
+                    isExecuting={isExecuting}
+                    onNameChange={onNameChange}
+                    onDescriptionChange={onDescriptionChange}
                 />
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden">

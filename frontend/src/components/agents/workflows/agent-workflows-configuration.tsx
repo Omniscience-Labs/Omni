@@ -2,14 +2,13 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertCircle, Workflow, Trash2, Calendar } from 'lucide-react';
+import { Plus, AlertCircle, Workflow, Trash2, Calendar, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { WorkflowExecutionDialog } from '@/components/workflows/workflow-execution-dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -17,8 +16,7 @@ import {
   useAgentWorkflows, 
   useCreateAgentWorkflow,
   useUpdateAgentWorkflow, 
-  useDeleteAgentWorkflow, 
-  useExecuteWorkflow, 
+  useDeleteAgentWorkflow
 } from '@/hooks/react-query/agents/use-agent-workflows';
 import { 
   AgentWorkflow
@@ -36,7 +34,6 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
   const createWorkflowMutation = useCreateAgentWorkflow();
   const updateWorkflowMutation = useUpdateAgentWorkflow();
   const deleteWorkflowMutation = useDeleteAgentWorkflow();
-  const executeWorkflowMutation = useExecuteWorkflow();
 
   const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
   const [workflowToExecute, setWorkflowToExecute] = useState<AgentWorkflow | null>(null);
@@ -44,7 +41,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
   const [workflowToDelete, setWorkflowToDelete] = useState<AgentWorkflow | null>(null);
   const [activeTab, setActiveTab] = useState('workflows');
 
-  const [executionInput, setExecutionInput] = useState<string>('');
+
 
   const handleCreateWorkflow = useCallback(async () => {
     try {
@@ -111,27 +108,10 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
     }
   }, [agentId, workflowToDelete, deleteWorkflowMutation]);
 
-  const handleConfirmExecution = useCallback(async () => {
-    if (!workflowToExecute) return;
-    
-    try {
-      const result = await executeWorkflowMutation.mutateAsync({ 
-        agentId, 
-        workflowId: workflowToExecute.id, 
-        execution: {
-          input_data: executionInput.trim() ? { prompt: executionInput } : undefined
-        } 
-      });
-      
-      setIsExecuteDialogOpen(false);
-      setWorkflowToExecute(null);
-      setExecutionInput('');
-      
-      toast.success(`${result.message}`);
-    } catch (error) {
-      toast.error('Failed to execute workflow');
-    }
-  }, [agentId, workflowToExecute, executionInput, executeWorkflowMutation]);
+  const handleExecutionSuccess = useCallback((result: any) => {
+    setIsExecuteDialogOpen(false);
+    setWorkflowToExecute(null);
+  }, []);
 
 
 
@@ -190,7 +170,7 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
                 {workflows.map((workflow) => (
                   <div key={workflow.id} className="group">
                     <Card
-                      className="p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      className="p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                       onClick={() => handleWorkflowClick(workflow.id)}
                     >
                       <div className="flex items-start justify-between">
@@ -214,9 +194,9 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
                               e.stopPropagation();
                               handleExecuteWorkflow(workflow);
                             }}
-                            disabled={workflow.status !== 'active' || executeWorkflowMutation.isPending}
+                            disabled={workflow.status !== 'active'}
                           >
-                            <Workflow className="h-4 w-4" />
+                            <Play className="h-4 w-4" />
                             Execute
                           </Button>
                           <Button
@@ -241,44 +221,13 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
             </TabsContent>
           </Tabs>
         </div>
-      <Dialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Execute Workflow</DialogTitle>
-            <DialogDescription>
-              Provide input data for "{workflowToExecute?.name}" workflow
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>What would you like the workflow to work on?</Label>
-              <Textarea
-                value={executionInput}
-                onChange={(e) => setExecutionInput(e.target.value)}
-                placeholder="Enter your request..."
-                rows={4}
-                className="resize-none"
-                required={true}
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsExecuteDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleConfirmExecution}
-                disabled={executeWorkflowMutation.isPending}
-              >
-                {executeWorkflowMutation.isPending ? 'Executing...' : 'Execute Workflow'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WorkflowExecutionDialog
+        open={isExecuteDialogOpen}
+        onOpenChange={setIsExecuteDialogOpen}
+        workflow={workflowToExecute}
+        agentId={agentId}
+        onSuccess={handleExecutionSuccess}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
