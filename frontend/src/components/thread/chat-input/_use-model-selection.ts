@@ -78,7 +78,7 @@ export const MODELS = {
   },
   'gpt-4.1': { 
     tier: 'premium', 
-    priority: 96,
+    priority: 92,
     recommended: false,
     lowQuality: false
   },
@@ -91,6 +91,12 @@ export const MODELS = {
   'gpt-4o': { 
     tier: 'premium', 
     priority: 88,
+    recommended: false,
+    lowQuality: false
+  },
+  'gpt-5': { 
+    tier: 'premium', 
+    priority: 99,
     recommended: false,
     lowQuality: false
   },
