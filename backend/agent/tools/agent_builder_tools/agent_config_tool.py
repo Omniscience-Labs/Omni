@@ -314,8 +314,16 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 "updated_at": agent_data.get("updated_at"),
                 "current_version": agent_config.get("version_name", "v1") if version_data else "No version data"
             }
-            
-            tools_count = len([t for t, cfg in config_summary["agentpress_tools"].items() if cfg.get("enabled")])
+
+            enabled_tools = []
+            for tool_name, tool_config in config_summary["agentpress_tools"].items():
+                if isinstance(tool_config, bool):
+                    if tool_config:
+                        enabled_tools.append(tool_name)
+                elif isinstance(tool_config, dict):
+                    if tool_config.get("enabled", False):
+                        enabled_tools.append(tool_name)
+            tools_count = len(enabled_tools)
             mcps_count = len(config_summary["configured_mcps"])
             custom_mcps_count = len(config_summary["custom_mcps"])
             

@@ -468,8 +468,13 @@ class WorkflowExecutor:
         }
         
         for tool_key, tool_names in tool_mapping.items():
-            if agentpress_tools.get(tool_key, {}).get('enabled', False):
-                available_tools.extend(tool_names)
+            tool_config = agentpress_tools.get(tool_key, False)
+            if isinstance(tool_config, bool):
+                if tool_config:
+                    available_tools.extend(tool_names)
+            elif isinstance(tool_config, dict):
+                if tool_config.get('enabled', False):
+                    available_tools.extend(tool_names)
         
         all_mcps = []
         if agent_config.get('configured_mcps'):
