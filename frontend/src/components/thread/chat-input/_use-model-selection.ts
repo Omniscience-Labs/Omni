@@ -100,6 +100,12 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
+  'gpt-5-mini': { 
+    tier: 'premium', 
+    priority: 88,
+    recommended: false,
+    lowQuality: false
+  },
   'gemini-2.5-flash:thinking': { 
     tier: 'premium', 
     priority: 84,
