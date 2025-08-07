@@ -44,6 +44,7 @@ class AgentTemplate:
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
+    creator_name: Optional[str] = None
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -82,10 +83,8 @@ class AgentTemplate:
                 mcp_type = mcp.get('type', 'sse')
                 mcp_name = mcp['name']
                 
-                # Use explicitly stored qualified name (should always be present after sanitization)
-                qualified_name = mcp.get('mcp_qualified_name') or mcp.get('qualifiedName')  # fallback for old format
+                qualified_name = mcp.get('mcp_qualified_name') or mcp.get('qualifiedName')
                 if not qualified_name:
-                    # Fallback for legacy templates (should rarely be needed)
                     if mcp_type == 'pipedream':
                         app_slug = mcp.get('app_slug') or mcp.get('config', {}).get('headers', {}).get('x-pd-app-slug')
                         if not app_slug:
@@ -98,7 +97,6 @@ class AgentTemplate:
                         safe_name = mcp_name.replace(' ', '_').lower()
                         qualified_name = f"custom_{mcp_type}_{safe_name}"
                 
-                # Determine required config based on type
                 if mcp_type in ['pipedream', 'composio']:
                     required_config = []
                 elif mcp_type in ['http', 'sse', 'json']:
@@ -192,6 +190,15 @@ class TemplateService:
         if not result.data:
             return None
         
+        creator_id = result.data['creator_id']
+        creator_result = await client.schema('basejump').from_('accounts').select('id, name, slug').eq('id', creator_id).execute()
+        
+        creator_name = None
+        if creator_result.data:
+            account = creator_result.data[0]
+            creator_name = account.get('name') or account.get('slug')
+        
+        result.data['creator_name'] = creator_name
         return self._map_to_template(result.data)
     
     async def get_user_templates(self, creator_id: str) -> List[AgentTemplate]:
@@ -201,7 +208,22 @@ class TemplateService:
             .order('created_at', desc=True)\
             .execute()
         
-        return [self._map_to_template(data) for data in result.data]
+        if not result.data:
+            return []
+        
+        creator_result = await client.schema('basejump').from_('accounts').select('id, name, slug').eq('id', creator_id).execute()
+        
+        creator_name = None
+        if creator_result.data:
+            account = creator_result.data[0]
+            creator_name = account.get('name') or account.get('slug')
+        
+        templates = []
+        for template_data in result.data:
+            template_data['creator_name'] = creator_name
+            templates.append(self._map_to_template(template_data))
+        
+        return templates
     
     async def get_public_templates(self) -> List[AgentTemplate]:
         client = await self._db.client
@@ -211,7 +233,24 @@ class TemplateService:
             .order('marketplace_published_at', desc=True)\
             .execute()
         
-        return [self._map_to_template(data) for data in result.data]
+        if not result.data:
+            return []
+        
+        creator_ids = list(set(template['creator_id'] for template in result.data))
+        accounts_result = await client.schema('basejump').from_('accounts').select('id, name, slug').in_('id', creator_ids).execute()
+        
+        creator_names = {}
+        if accounts_result.data:
+            for account in accounts_result.data:
+                creator_names[account['id']] = account.get('name') or account.get('slug')
+        
+        templates = []
+        for template_data in result.data:
+            creator_name = creator_names.get(template_data['creator_id'])
+            template_data['creator_name'] = creator_name
+            templates.append(self._map_to_template(template_data))
+        
+        return templates
     
     async def publish_template(self, template_id: str, creator_id: str) -> bool:
         logger.info(f"Publishing template {template_id}")
@@ -450,6 +489,8 @@ class TemplateService:
         await client.table('agent_templates').insert(template_data).execute()
     
     def _map_to_template(self, data: Dict[str, Any]) -> AgentTemplate:
+        creator_name = data.get('creator_name')
+        
         return AgentTemplate(
             template_id=data['template_id'],
             creator_id=data['creator_id'],
@@ -464,7 +505,8 @@ class TemplateService:
             updated_at=datetime.fromisoformat(data['updated_at'].replace('Z', '+00:00')),
             avatar=data.get('avatar'),
             avatar_color=data.get('avatar_color'),
-            metadata=data.get('metadata', {})
+            metadata=data.get('metadata', {}),
+            creator_name=creator_name
         )
 
 def get_template_service(db_connection: DBConnection) -> TemplateService:

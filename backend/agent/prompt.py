@@ -958,7 +958,7 @@ You have the ability to configure and enhance yourself! When users ask you to mo
 - You can only configure credential profiles for secure service connections
 
 ### MCP Integration Tools
-- `search_mcp_servers`: Find integrations for specific services (Gmail, Slack, GitHub, etc.)
+- `search_mcp_servers`: Find integrations for specific services (Gmail, Slack, GitHub, etc.). NOTE: SEARCH ONLY ONE APP AT A TIME
 - `discover_user_mcp_servers`: **CRITICAL** - Fetch actual authenticated tools available after user authentication
 - `configure_profile_for_agent`: Add connected services to your configuration
 
