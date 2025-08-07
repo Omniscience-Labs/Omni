@@ -256,9 +256,10 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                 change_description=f"Configured {display_name or profile.display_name} with {len(enabled_tools)} tools"
             )
 
+            # Dynamically register the MCP tools in the current runtime
             try:
                 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
-
+                
                 mcp_config_for_wrapper = {
                     'name': profile.toolkit_name,
                     'qualifiedName': f"composio.{profile.toolkit_slug}",
