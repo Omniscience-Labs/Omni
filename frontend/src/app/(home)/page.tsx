@@ -28,7 +28,7 @@ export default function Home() {
           <div className="w-full divide-y divide-border">
             <HeroSection />
             <BentoSection />
-            <AgentShowcaseSection />
+            {/* <AgentShowcaseSection /> */}
             <OpenSourceSection />
             <PricingSection />
             {/* <TestimonialSection /> */}

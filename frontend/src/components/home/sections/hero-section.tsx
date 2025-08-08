@@ -319,11 +319,11 @@ export function HeroSection() {
           </Link> */}
           <div className="flex flex-col items-center justify-center gap-4 pt-12 max-w-4xl mx-auto">
             <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center">
-              <span className="text-primary">Employees that never sleep, <br></br>welcome your </span>
-              <span className="text-secondary">AI Agents</span>
+              <span className="text-primary">Build, manage and train your </span>
+              <span className="text-secondary">AI Workforce.</span>
             </h1>
             <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-2xl">
-            Kortix – the simplest way to build, manage and train your AI employees.
+            Kortix – the simplest way to build, manage and train your AI workforce.
             </p>
           </div>
 
