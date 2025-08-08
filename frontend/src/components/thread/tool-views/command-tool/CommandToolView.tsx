@@ -211,32 +211,33 @@ export function CommandToolView({
                     )}
                   </div>
                   <div className="p-4 max-h-96 overflow-auto scrollbar-hide">
-                    <pre className="text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-all overflow-visible">
-                      {/* Show command only */}
+                    {/* Command line */}
+                    <div className="py-0.5 bg-transparent font-mono text-xs">
                       {command && (
-                        <div className="py-0.5 bg-transparent">
+                        <>
                           <span className="text-green-500 dark:text-green-400 font-semibold">{displayPrefix} </span>
                           <span className="text-zinc-700 dark:text-zinc-300">{command}</span>
-                        </div>
-                      )}
-
-                      {/* Show output only if there's actual command output */}
-                      {hasActualOutput && formattedOutput.length > 0 && (
-                        <>
-                          {formattedOutput.map((line, index) => (
-                            <div key={index} className="py-0.5 bg-transparent">
-                              <span className="text-zinc-600 dark:text-zinc-300">{line}</span>
-                            </div>
-                          ))}
                         </>
                       )}
+                    </div>
 
-                      {!showFullOutput && hasMoreLines && (
-                        <div className="text-zinc-500 mt-2 border-t border-zinc-700/30 pt-2">
-                          + {formattedOutput.length - 10} more lines
-                        </div>
-                      )}
-                    </pre>
+                    {/* Terminal output (render as real terminal text, not JSON) */}
+                    {formattedOutput.length > 0 && (
+                      <pre className="mt-2 text-xs text-zinc-600 dark:text-zinc-300 font-mono whitespace-pre-wrap break-words">
+                        {linesToShow.map((line, idx) => (
+                          <span key={idx}>
+                            {line}
+                            {'\n'}
+                          </span>
+                        ))}
+                      </pre>
+                    )}
+
+                    {!showFullOutput && hasMoreLines && (
+                      <div className="text-zinc-500 mt-2 border-t border-zinc-700/30 pt-2 text-xs font-mono">
+                        + {formattedOutput.length - 10} more lines
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -301,4 +302,4 @@ export function CommandToolView({
       </div>
     </Card>
   );
-} 
+}
