@@ -28,6 +28,7 @@ import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -281,6 +282,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         baseModelName = getActualModelId(selectedModel.replace(/-thinking$/, ''));
         thinkingEnabled = true;
       }
+
+      posthog.capture("task_prompt_submitted", { message });
 
       onSubmit(message, {
         model_name: baseModelName,
