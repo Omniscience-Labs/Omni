@@ -45,13 +45,13 @@ class ToolkitService:
             logger.error(f"Failed to list categories: {e}", exc_info=True)
             raise
     
-    async def list_toolkits(self, limit: int = 100, category: Optional[str] = None) -> List[ToolkitInfo]:
+    async def list_toolkits(self, limit: int = 500, category: Optional[str] = None) -> List[ToolkitInfo]:
         try:
             logger.info(f"Fetching toolkits with limit: {limit}, category: {category}")
             if category:
-                toolkits_response = self.client.toolkits.list(limit=limit, category=category)
+                toolkits_response = self.client.toolkits.list(limit=500, category=category, managed_by="composio")
             else:
-                toolkits_response = self.client.toolkits.list(limit=limit)
+                toolkits_response = self.client.toolkits.list(limit=500, managed_by="composio")
             
             items = getattr(toolkits_response, 'items', [])
             if hasattr(toolkits_response, '__dict__'):
