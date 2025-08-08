@@ -99,7 +99,7 @@ export function AITaskExecution({
   }, [showTasks]);
 
   return (
-    <div className="w-full max-w-sm mx-auto space-y-3">
+    <div className="w-full max-w-sm mx-auto px-6 space-y-3">
       {/* AI Brain Icon */}
       <div className="flex justify-center mb-6">
         <motion.div
