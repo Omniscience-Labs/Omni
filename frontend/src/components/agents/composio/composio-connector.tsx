@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Check, AlertCircle, Plus, Clock, ExternalLink, Zap, ChevronRight, Search, Save, Loader2, User, Settings } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Plus, Clock, ExternalLink, Zap, ChevronRight, Search, Save, Loader2, User, Settings, Info } from 'lucide-react';
 import { useCreateComposioProfile } from '@/hooks/react-query/composio/use-composio';
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
+import { useComposioToolkitDetails } from '@/hooks/react-query/composio/use-composio';
 import { ComposioToolsManager } from './composio-tools-manager';
-import type { ComposioToolkit, ComposioProfile } from '@/hooks/react-query/composio/utils';
+import type { ComposioToolkit, ComposioProfile, AuthConfigField } from '@/hooks/react-query/composio/utils';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -232,6 +233,84 @@ const ToolSkeleton = () => (
   </Card>
 );
 
+const InitiationFieldInput = ({ field, value, onChange, error }: {
+  field: AuthConfigField;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) => {
+  const getInputType = (fieldType: string) => {
+    switch (fieldType.toLowerCase()) {
+      case 'password':
+        return 'password';
+      case 'email':
+        return 'email';
+      case 'url':
+        return 'url';
+      case 'number':
+      case 'double':
+        return 'number';
+      case 'boolean':
+        return 'checkbox';
+      default:
+        return 'text';
+    }
+  };
+
+  const inputType = getInputType(field.type);
+  const isBooleanField = field.type.toLowerCase() === 'boolean';
+  const isNumberField = field.type.toLowerCase() === 'number' || field.type.toLowerCase() === 'double';
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Label htmlFor={field.name} className="text-sm font-medium">
+          {field.displayName}
+          {field.required && <span className="text-destructive ml-1">*</span>}
+        </Label>
+      </div>
+      
+      {isBooleanField ? (
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id={field.name}
+            checked={value === 'true'}
+            onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+            className="h-4 w-4"
+          />
+          <Label htmlFor={field.name} className="text-sm text-muted-foreground">
+            {field.description || `Enable ${field.displayName.toLowerCase()}`}
+          </Label>
+        </div>
+      ) : (
+        <Input
+          id={field.name}
+          type={inputType}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.default || `Enter ${field.displayName.toLowerCase()}`}
+          className={cn(error && "border-destructive focus:border-destructive")}
+          step={isNumberField ? "any" : undefined}
+        />
+      )}
+      
+      {field.description && !isBooleanField && (
+        <div className="flex items-start gap-2 text-xs text-muted-foreground">
+          <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+          <span>{field.description}</span>
+        </div>
+      )}
+      {error && (
+        <div className="flex items-start gap-2 text-xs text-destructive">
+          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   app,
   open,
@@ -248,6 +327,10 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [showToolsManager, setShowToolsManager] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
+  
+  // State for initiation fields
+  const [initiationFields, setInitiationFields] = useState<Record<string, string>>({});
+  const [initiationFieldsErrors, setInitiationFieldsErrors] = useState<Record<string, string>>({});
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
@@ -258,6 +341,12 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
 
   const { mutate: createProfile, isPending: isCreating } = useCreateComposioProfile();
   const { data: profiles, isLoading: isLoadingProfiles } = useComposioProfiles();
+  
+  // Fetch toolkit details when in ProfileCreate step
+  const { data: toolkitDetails, isLoading: isLoadingToolkitDetails } = useComposioToolkitDetails(
+    app.slug,
+    { enabled: open && step === Step.ProfileCreate }
+  );
 
   const existingProfiles = profiles?.filter(p => 
     p.toolkit_slug === app.slug && p.is_connected
@@ -286,6 +375,8 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setSelectedTools([]);
       setAvailableTools([]);
       setToolsError(null);
+      setInitiationFields({});
+      setInitiationFieldsErrors({});
     }
   }, [open, app.name, mode]);
 
@@ -341,6 +432,50 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
         ? prev.filter(t => t !== toolName)
         : [...prev, toolName]
     );
+  };
+
+  const handleInitiationFieldChange = (fieldName: string, value: string) => {
+    setInitiationFields(prev => ({ ...prev, [fieldName]: value }));
+    // Clear error when user starts typing
+    if (initiationFieldsErrors[fieldName]) {
+      setInitiationFieldsErrors(prev => ({ ...prev, [fieldName]: '' }));
+    }
+  };
+
+  const validateInitiationFields = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    const initiationRequirements = toolkitDetails?.toolkit.connected_account_initiation_fields;
+    
+    if (initiationRequirements?.required) {
+      for (const field of initiationRequirements.required) {
+        if (field.required) {
+          const value = initiationFields[field.name];
+          const isEmpty = !value || value.trim() === '';
+          
+          // For boolean fields, we consider 'false' as a valid value
+          if (field.type.toLowerCase() === 'boolean') {
+            // Boolean fields are always valid as they have a default state
+            continue;
+          }
+          
+          // For number fields, check if it's a valid number
+          if ((field.type.toLowerCase() === 'number' || field.type.toLowerCase() === 'double') && value) {
+            if (isNaN(Number(value))) {
+              newErrors[field.name] = `${field.displayName} must be a valid number`;
+              continue;
+            }
+          }
+          
+          // Check if required field is empty
+          if (isEmpty) {
+            newErrors[field.name] = `${field.displayName} is required`;
+          }
+        }
+      }
+    }
+    
+    setInitiationFieldsErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSelectAll = () => {
@@ -411,9 +546,22 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   };
 
   const handleCreateProfile = () => {
+    // Validate profile name
+    if (!profileName.trim()) {
+      toast.error('Profile name is required');
+      return;
+    }
+    
+    // Validate initiation fields if they exist
+    if (!validateInitiationFields()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
     createProfile({
       toolkit_slug: app.slug,
       profile_name: profileName,
+      initiation_fields: Object.keys(initiationFields).length > 0 ? initiationFields : undefined,
     }, {
       onSuccess: (response) => {
         setCreatedProfileId(response.profile_id);
@@ -714,6 +862,58 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       </p>
                     </div>
 
+                    {/* Loading toolkit details */}
+                    {isLoadingToolkitDetails && (
+                      <div className="space-y-3">
+                        <div className="text-sm text-muted-foreground">Loading connection requirements...</div>
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-3 w-3/4" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Initiation Fields */}
+                    {!isLoadingToolkitDetails && toolkitDetails?.toolkit.connected_account_initiation_fields && (
+                      <div className="space-y-4">
+                        <div className="text-sm font-medium text-muted-foreground">
+                          Connection Requirements
+                        </div>
+                        
+                        {/* Required Fields */}
+                        {(toolkitDetails.toolkit.connected_account_initiation_fields.required?.length ?? 0) > 0 && (
+                          <div className="space-y-3">
+                            {toolkitDetails.toolkit.connected_account_initiation_fields.required.map((field) => (
+                              <InitiationFieldInput
+                                key={field.name}
+                                field={field}
+                                value={initiationFields[field.name] || ''}
+                                onChange={(value) => handleInitiationFieldChange(field.name, value)}
+                                error={initiationFieldsErrors[field.name]}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Optional Fields */}
+                        {(toolkitDetails.toolkit.connected_account_initiation_fields.optional?.length ?? 0) > 0 && (
+                          <div className="space-y-3">
+                            <div className="text-xs text-muted-foreground">Optional</div>
+                            {toolkitDetails.toolkit.connected_account_initiation_fields.optional.map((field) => (
+                              <InitiationFieldInput
+                                key={field.name}
+                                field={field}
+                                value={initiationFields[field.name] || ''}
+                                onChange={(value) => handleInitiationFieldChange(field.name, value)}
+                                error={initiationFieldsErrors[field.name]}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex gap-3 pt-2">
                       <Button
                         variant="outline"
@@ -726,7 +926,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       </Button>
                       <Button
                         onClick={handleCreateProfile}
-                        disabled={isCreating || !profileName.trim()}
+                        disabled={isCreating || isLoadingToolkitDetails || !profileName.trim()}
                         className="flex-1"
                       >
                         {isCreating ? (

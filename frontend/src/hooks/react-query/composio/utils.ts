@@ -22,9 +22,55 @@ export interface ComposioToolkit {
   categories: string[];
 }
 
+export interface AuthConfigField {
+  name: string;
+  displayName: string;
+  type: string;
+  description?: string;
+  required: boolean;
+  default?: string;
+  legacy_template_name?: string;
+}
+
+export interface AuthConfigDetails {
+  name: string;
+  mode: string;
+  fields: {
+    [fieldType: string]: {
+      [requirementLevel: string]: AuthConfigField[];
+    };
+  };
+}
+
+export interface DetailedComposioToolkit {
+  slug: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  tags: string[];
+  auth_schemes: string[];
+  categories: string[];
+  auth_config_details: AuthConfigDetails[];
+  connected_account_initiation_fields?: {
+    [requirementLevel: string]: AuthConfigField[];
+  };
+  base_url?: string;
+}
+
+export interface DetailedComposioToolkitResponse {
+  success: boolean;
+  toolkit: DetailedComposioToolkit;
+  error?: string;
+}
+
 export interface ComposioToolkitsResponse {
   success: boolean;
   toolkits: ComposioToolkit[];
+  total_items: number;
+  total_pages: number;
+  current_page: number;
+  next_cursor?: string;
+  has_more: boolean;
   error?: string;
 }
 
@@ -54,6 +100,7 @@ export interface CreateComposioProfileRequest {
   user_id?: string;
   mcp_server_name?: string;
   is_default?: boolean;
+  initiation_fields?: Record<string, string>;
 }
 
 export interface CreateComposioProfileResponse {
@@ -128,7 +175,7 @@ export const composioApi = {
     return result.data!;
   },
 
-  async getToolkits(search?: string, category?: string): Promise<ComposioToolkitsResponse> {
+  async getToolkits(search?: string, category?: string, cursor?: string): Promise<ComposioToolkitsResponse> {
     const params = new URLSearchParams();
     
     if (search) {
@@ -137,6 +184,10 @@ export const composioApi = {
     
     if (category) {
       params.append('category', category);
+    }
+    
+    if (cursor) {
+      params.append('cursor', cursor);
     }
     
     const result = await backendApi.get<ComposioToolkitsResponse>(
@@ -241,5 +292,20 @@ export const composioApi = {
       success: response.data.success,
       icon_url: response.data.icon_url
     };
+  },
+
+  async getToolkitDetails(toolkitSlug: string): Promise<DetailedComposioToolkitResponse> {
+    const result = await backendApi.get<DetailedComposioToolkitResponse>(
+      `/composio/toolkits/${toolkitSlug}/details`,
+      {
+        errorContext: { operation: 'get toolkit details', resource: 'Composio toolkit details' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get toolkit details');
+    }
+
+    return result.data!;
   },
 }; 

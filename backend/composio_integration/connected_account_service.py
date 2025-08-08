@@ -58,20 +58,34 @@ class ConnectedAccountService:
     async def create_connected_account(
         self, 
         auth_config_id: str, 
-        user_id: str
+        user_id: str,
+        initiation_fields: Optional[Dict[str, str]] = None
     ) -> ConnectedAccount:
         try:
             logger.info(f"Creating connected account for auth_config: {auth_config_id}, user: {user_id}")
+            logger.info(f"Initiation fields for connected account: {initiation_fields}")
+            
+            state_val = {"status": "INITIALIZING"}
+            
+            if initiation_fields:
+                for field_name, field_value in initiation_fields.items():
+                    if field_value:
+                        if field_name == "suffix.one":
+                            state_val["extension"] = str(field_value)
+                        else:
+                            state_val[field_name] = str(field_value)
+            
+            logger.info(f"Using state.val: {state_val}")
             
             response = self.client.connected_accounts.create(
-                auth_config={"id": auth_config_id},
+                auth_config={
+                    "id": auth_config_id
+                },
                 connection={
                     "user_id": user_id,
                     "state": {
                         "authScheme": "OAUTH2",
-                        "val": {
-                            "status": "INITIALIZING"
-                        }
+                        "val": state_val,
                     }
                 }
             )
