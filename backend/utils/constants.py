@@ -85,7 +85,7 @@ MODELS = {
         "tier_availability": ["paid"]
     },
     "openai/gpt-5": {
-        "aliases": ["gpt-5"],
+        "aliases": ["gpt-5-2025-08-07"],
         "pricing": {
             "input_cost_per_million_tokens": 1.25,
             "output_cost_per_million_tokens": 10.00
@@ -93,7 +93,7 @@ MODELS = {
         "tier_availability": ["paid"]
     },
     "openai/gpt-5-mini": {
-        "aliases": ["gpt-5-mini"],
+        "aliases": ["gpt-5-mini-2025-08-07"],
         "pricing": {
             "input_cost_per_million_tokens": 0.25,
             "output_cost_per_million_tokens": 2.00
