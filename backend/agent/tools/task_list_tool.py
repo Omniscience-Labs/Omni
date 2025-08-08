@@ -345,7 +345,7 @@ class TaskListTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "update_tasks",
-            "description": "Update one or more tasks. Can update content, status, or move tasks between sections. IMPORTANT: Follow the one-task-at-a-time execution principle. After completing each individual task, immediately update it to 'completed' status before proceeding to the next task. This ensures proper progress tracking and prevents bulk operations that violate the sequential execution workflow.",
+                "description": "Update one or more tasks. EFFICIENT BATCHING: Before calling this tool, think about what tasks you have completed and batch them into a single update call. This is more efficient than making multiple consecutive update calls. Always execute tasks in the exact sequence they appear, but batch your updates when possible. Update task status to 'completed' after finishing each task, and consider batching multiple completed tasks into one call rather than updating them individually.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -354,7 +354,7 @@ class TaskListTool(SandboxToolsBase):
                             {"type": "string"},
                             {"type": "array", "items": {"type": "string"}, "minItems": 1}
                         ],
-                        "description": "Task ID (string) or array of task IDs to update. For optimal workflow, prefer updating single tasks to 'completed' status immediately after completion rather than bulk updates."
+                        "description": "Task ID (string) or array of task IDs to update. EFFICIENT APPROACH: Batch multiple completed tasks into a single call rather than making multiple consecutive update calls. Always maintain sequential execution order."
                     },
                     "content": {
                         "type": "string",
@@ -363,7 +363,7 @@ class TaskListTool(SandboxToolsBase):
                     "status": {
                         "type": "string",
                         "enum": ["pending", "completed", "cancelled"],
-                        "description": "New status for the task(s) (optional). Use 'completed' immediately after finishing each individual task to maintain proper execution flow."
+                        "description": "New status for the task(s) (optional). Set to 'completed' for finished tasks. Batch multiple completed tasks when possible."
                     },
                     "section_id": {
                         "type": "string",
@@ -376,7 +376,7 @@ class TaskListTool(SandboxToolsBase):
     })
     @usage_example(
         '''
-        # Update single task:
+        # Update single task (when only one task is completed):
         <function_calls>
         <invoke name="update_tasks">
         <parameter name="task_ids">task-uuid-here</parameter>
@@ -384,7 +384,7 @@ class TaskListTool(SandboxToolsBase):
         </invoke>
         </function_calls>
         
-        # Update multiple tasks:
+        # Update multiple tasks (EFFICIENT: batch multiple completed tasks):
         <function_calls>
         <invoke name="update_tasks">
         <parameter name="task_ids">["task-id-1", "task-id-2", "task-id-3"]</parameter>
