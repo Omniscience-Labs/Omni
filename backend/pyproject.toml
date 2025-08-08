@@ -74,3 +74,8 @@ repository = "https://github.com/kortix-ai/suna"
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "orjson>=3.11.1",
+]
