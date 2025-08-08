@@ -86,7 +86,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
   (
     {
       onSubmit,
-      placeholder = 'Describe a task, ask a question, or describe a a agent you want to create...',
+      placeholder = 'Describe what you need help with...',
       loading = false,
       disabled = false,
       isAgentRunning = false,
