@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Check, Search, AlertTriangle, Crown, ArrowUpRight, Brain, Plus, Edit, Trash, Cpu, KeyRound, ExternalLink, Settings } from 'lucide-react';
+import { Check, Search, AlertTriangle, Crown, ArrowUpRight, Brain, Plus, Edit, Trash, Cpu, KeyRound, ExternalLink } from 'lucide-react';
 import {
   ModelOption,
   SubscriptionStatus,
@@ -144,7 +144,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const { data: agent } = useAgent(selectedAgentId || '');
   const { data: profiles } = useComposioProfiles();
 
-  // Feature flag for custom agents
   const { enabled: customAgentsEnabled } = useFeatureFlag('custom_agents');
 
   const isAppConnectedToAgent = (appSlug: string): boolean => {
@@ -556,191 +555,153 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           className="w-72 p-0 overflow-hidden"
           sideOffset={4}
         >
-          <div className="overflow-y-auto w-full scrollbar-hide relative">
-            {shouldDisplayAll ? (
-              <div>
-                <div className="px-3 py-3 text-xs font-medium text-muted-foreground">
-                  Available Models
-                </div>
-                {uniqueModels
-                  .filter(m =>
-                    !m.requiresSubscription &&
-                    (m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      m.id.toLowerCase().includes(searchQuery.toLowerCase()))
-                  )
-                  .map((model, index) => (
-                    <TooltipProvider key={model.uniqueKey || `model-${model.id}-${index}`}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className='w-full'>
-                            <DropdownMenuItem
-                              className={cn(
-                                "text-sm mx-2 my-0.5 px-3 rounded-lg py-2 flex items-center justify-between cursor-pointer",
-                                selectedModel === model.id && "bg-accent"
-                              )}
-                              onClick={() => onModelChange(model.id)}
-                              onMouseEnter={() => setHighlightedIndex(filteredOptions.indexOf(model))}
-                            >
-                              <div className="flex items-center">
-                                <span className="font-medium">{model.label}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {(MODELS[model.id]?.lowQuality || false) && (
-                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                                )}
-                                {(MODELS[model.id]?.recommended || false) && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
-                                    Recommended
-                                  </span>
-                                )}
-                                {selectedModel === model.id && (
-                                  <Check className="h-4 w-4 text-blue-500" />
-                                )}
-                              </div>
-                            </DropdownMenuItem>
-                          </div>
-                        </TooltipTrigger>
-                        {MODELS[model.id]?.lowQuality && (
-                          <TooltipContent side="left" className="text-xs max-w-xs">
-                            <p>Basic model with limited capabilities</p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))
-                }
-                <div className="mt-4 border-t border-border pt-2">
-                  <div className="px-3 py-1.5 text-xs font-medium text-blue-500 flex items-center">
-                    <Crown className="h-3.5 w-3.5 mr-1.5" />
-                    Additional Models
-                  </div>
-                  <div className="relative h-40 overflow-hidden px-2">
-                    {getPremiumModels()
-                      .filter(m =>
-                        m.requiresSubscription &&
-                        (m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          m.id.toLowerCase().includes(searchQuery.toLowerCase()))
-                      )
-                      .slice(0, 3)
-                      .map((model, index) => (
-                        <TooltipProvider key={model.uniqueKey || `model-${model.id}-${index}`}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className='w-full'>
-                                <DropdownMenuItem
-                                  className="text-sm px-3 rounded-lg py-2 flex items-center justify-between opacity-70 cursor-pointer pointer-events-none"
+          <div className="max-h-[400px] overflow-y-auto w-full">
+            <div className="p-2">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="flex items-center rounded-lg gap-2 px-2 py-2">
+                  <Cpu className="h-4 w-4" />
+                  <span className="font-medium">Models</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="w-72">
+                    <div className="px-3 py-2 flex justify-between items-center">
+                      <span className="text-xs font-medium text-muted-foreground">All Models</span>
+                      {isLocalMode() && (
+                        <div className="flex items-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Link
+                                  href="/settings/env-manager"
+                                  className="h-6 w-6 p-0 flex items-center justify-center"
                                 >
-                                  <div className="flex items-center">
-                                    <span className="font-medium">{model.label}</span>
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                </Link>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-xs">
+                                Local .Env Manager
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openAddCustomModelDialog(e);
+                                  }}
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-xs">
+                                Add a custom model
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2 py-1">
+                      <div className="relative flex items-center">
+                        <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          placeholder="Search models..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={handleSearchInputKeyDown}
+                          className="w-full h-8 px-8 py-1 rounded-lg text-sm focus:outline-none bg-muted"
+                        />
+                      </div>
+                    </div>
+                    
+                    {shouldDisplayAll ? (
+                      <div>
+                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                          Available Models
+                        </div>
+                        {uniqueModels
+                          .filter(m =>
+                            !m.requiresSubscription &&
+                            (m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              m.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                          )
+                          .map((model, index) => renderModelOption(model, index))}
+                        
+                        <div className="mt-4 border-t border-border pt-2">
+                          <div className="px-3 py-1.5 text-xs font-medium text-blue-500 flex items-center">
+                            <Crown className="h-3.5 w-3.5 mr-1.5" />
+                            Additional Models
+                          </div>
+                          <div className="relative h-40 overflow-hidden px-2">
+                            {getPremiumModels()
+                              .filter(m =>
+                                m.requiresSubscription &&
+                                (m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  m.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                              )
+                              .slice(0, 3)
+                              .map((model, index) => (
+                                <TooltipProvider key={model.uniqueKey || `model-${model.id}-${index}`}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className='w-full'>
+                                        <DropdownMenuItem
+                                          className="text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between opacity-70 cursor-pointer pointer-events-none"
+                                        >
+                                          <div className="flex items-center">
+                                            <span className="font-medium">{model.label}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            {MODELS[model.id]?.recommended && (
+                                              <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
+                                                Recommended
+                                              </span>
+                                            )}
+                                            <Crown className="h-3.5 w-3.5 text-blue-500" />
+                                          </div>
+                                        </DropdownMenuItem>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="text-xs max-w-xs">
+                                      <p>Requires subscription to access premium model</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ))
+                            }
+                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
+                              <div className="w-full p-3">
+                                <div className="rounded-xl bg-gradient-to-br from-blue-50/80 to-blue-200/70 dark:from-blue-950/40 dark:to-blue-900/30 shadow-sm border border-blue-200/50 dark:border-blue-800/50 p-3">
+                                  <div className="flex flex-col space-y-2">
+                                    <div className="flex items-center">
+                                      <Crown className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
+                                      <div>
+                                        <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      className="w-full h-8 font-medium"
+                                      onClick={handleUpgradeClick}
+                                    >
+                                      Upgrade now
+                                    </Button>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {MODELS[model.id]?.recommended && (
-                                      <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">
-                                        Recommended
-                                      </span>
-                                    )}
-                                    <Crown className="h-3.5 w-3.5 text-blue-500" />
-                                  </div>
-                                </DropdownMenuItem>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="text-xs max-w-xs">
-                              <p>Requires subscription to access premium model</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ))
-                    }
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
-                      <div className="w-full p-3">
-                        <div className="rounded-xl bg-gradient-to-br from-blue-50/80 to-blue-200/70 dark:from-blue-950/40 dark:to-blue-900/30 shadow-sm border border-blue-200/50 dark:border-blue-800/50 p-3">
-                          <div className="flex flex-col space-y-2">
-                            <div className="flex items-center">
-                              <Crown className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
-                              <div>
-                                <p className="text-sm font-medium">Unlock all models + higher limits</p>
+                                </div>
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              className="w-full h-8 font-medium"
-                              onClick={handleUpgradeClick}
-                            >
-                              Upgrade now
-                            </Button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className='max-h-[400px] overflow-y-auto w-full'>
-                <div className="p-2">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="flex items-center rounded-lg gap-2 px-2 py-2">
-                      <Cpu className="h-4 w-4" />
-                      <span className="font-medium">Models</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="w-72">
-                        <div className="px-3 py-2 flex justify-between items-center">
-                          <span className="text-xs font-medium text-muted-foreground">All Models</span>
-                          {isLocalMode() && (
-                            <div className="flex items-center gap-1">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Link
-                                      href="/settings/env-manager"
-                                      className="h-6 w-6 p-0 flex items-center justify-center"
-                                    >
-                                      <KeyRound className="h-3.5 w-3.5" />
-                                    </Link>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="text-xs">
-                                  Local .Env Manager
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openAddCustomModelDialog(e);
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="text-xs">
-                                  Add a custom model
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            </div>
-                          )}
-                        </div>
-                        <div className="px-2 py-1">
-                          <div className="relative flex items-center">
-                            <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                            <input
-                              ref={searchInputRef}
-                              type="text"
-                              placeholder="Search models..."
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              onKeyDown={handleSearchInputKeyDown}
-                              className="w-full h-8 px-8 py-1 rounded-lg text-sm focus:outline-none bg-muted"
-                            />
-                          </div>
-                        </div>
+                    ) : (
+                      <div>
                         {uniqueModels
                           .filter(m =>
                             m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -752,131 +713,129 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                             No models match your search
                           </div>
                         )}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-
-                  {/* Quick Connect Apps Submenu - only show if custom_agents is enabled */}
-                  {customAgentsEnabled && (
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="flex rounded-lg items-center gap-2 px-2 py-2">
-                        <div className="flex items-center gap-2">
-                          <Brain className="h-4 w-4" />
-                          <span className="font-medium">Quick Connect</span>
-                        </div>
-                        <div className="flex items-center space-x-0.5">
-                          {googleDriveIcon?.icon_url && slackIcon?.icon_url && notionIcon?.icon_url ? (
-                            <>
-                              <img src={googleDriveIcon.icon_url} className="w-5 h-5" alt="Google Drive" />
-                              <img src={slackIcon.icon_url} className="w-4 h-4" alt="Slack" />
-                              <img src={notionIcon.icon_url} className="w-4 h-4" alt="Notion" />
-                            </>
-                          ) : (
-                            <>
-                              <Skeleton className="w-4 h-4 rounded-md" />
-                              <Skeleton className="w-4 h-4 rounded-md" />
-                              <Skeleton className="w-4 h-4 rounded-md" />
-                            </>
-                          )}
-                        </div>
-                      </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="w-64 rounded-xl">
-                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                          Popular Apps
-                        </div>
-                        <div className="px-1 space-y-1">
-                          {!selectedAgentId || !agent || !profiles ? (
-                            <>
-                              {Array.from({ length: 4 }).map((_, index) => (
-                                <div key={index} className="px-3 py-2 mx-0 my-0.5 flex items-center justify-between">
-                                  <div className="flex items-center">
-                                    <Skeleton className="w-4 h-4 mr-2 rounded" />
-                                    <Skeleton className="w-20 h-4 rounded" />
-                                  </div>
-                                  <Skeleton className="w-4 h-4 rounded" />
+                      </div>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              {customAgentsEnabled && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="flex rounded-lg items-center gap-2 px-2 py-2">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4" />
+                      <span className="font-medium">Quick Connect</span>
+                    </div>
+                    <div className="flex items-center space-x-0.5">
+                      {googleDriveIcon?.icon_url && slackIcon?.icon_url && notionIcon?.icon_url ? (
+                        <>
+                          <img src={googleDriveIcon.icon_url} className="w-5 h-5" alt="Google Drive" />
+                          <img src={slackIcon.icon_url} className="w-4 h-4" alt="Slack" />
+                          <img src={notionIcon.icon_url} className="w-4 h-4" alt="Notion" />
+                        </>
+                      ) : (
+                        <>
+                          <Skeleton className="w-4 h-4 rounded-md" />
+                          <Skeleton className="w-4 h-4 rounded-md" />
+                          <Skeleton className="w-4 h-4 rounded-md" />
+                        </>
+                      )}
+                    </div>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent className="w-64 rounded-xl">
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                        Popular Apps
+                      </div>
+                      <div className="px-1 space-y-1">
+                        {!selectedAgentId || !agent || !profiles ? (
+                          <>
+                            {Array.from({ length: 4 }).map((_, index) => (
+                              <div key={index} className="px-3 py-2 mx-0 my-0.5 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <Skeleton className="w-4 h-4 mr-2 rounded" />
+                                  <Skeleton className="w-20 h-4 rounded" />
                                 </div>
-                              ))}
-                            </>
-                          ) : (
-                            PREDEFINED_APPS.map((app) => {
-                              const isConnected = isAppConnectedToAgent(app.slug);
-                              return (
-                                <TooltipProvider key={app.id}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <DropdownMenuItem
-                                        className={cn(
-                                          "text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between",
-                                          isConnected 
-                                            ? "opacity-60 cursor-not-allowed" 
-                                            : "cursor-pointer hover:bg-accent/50"
+                                <Skeleton className="w-4 h-4 rounded" />
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          PREDEFINED_APPS.map((app) => {
+                            const isConnected = isAppConnectedToAgent(app.slug);
+                            return (
+                              <TooltipProvider key={app.id}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <DropdownMenuItem
+                                      className={cn(
+                                        "text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between",
+                                        isConnected 
+                                          ? "opacity-60 cursor-not-allowed" 
+                                          : "cursor-pointer hover:bg-accent/50"
+                                      )}
+                                      onClick={isConnected ? undefined : () => handleAppSelect(app)}
+                                      disabled={isConnected}
+                                    >
+                                      <div className="flex items-center">
+                                        {appIconMap[app.slug] ? (
+                                          <img src={appIconMap[app.slug]} alt={app.name} className="h-4 w-4 mr-2" />
+                                        ) : (
+                                          <div className="w-4 h-4 mr-2 rounded bg-primary/10 flex items-center justify-center">
+                                            <span className="text-xs text-primary font-medium">{app.name.charAt(0)}</span>
+                                          </div>
                                         )}
-                                        onClick={isConnected ? undefined : () => handleAppSelect(app)}
-                                        disabled={isConnected}
-                                      >
-                                        <div className="flex items-center">
-                                          {appIconMap[app.slug] ? (
-                                            <img src={appIconMap[app.slug]} alt={app.name} className="h-4 w-4 mr-2" />
-                                          ) : (
-                                            <div className="w-4 h-4 mr-2 rounded bg-primary/10 flex items-center justify-center">
-                                              <span className="text-xs text-primary font-medium">{app.name.charAt(0)}</span>
-                                            </div>
-                                          )}
-                                          <span className="font-medium">{app.name}</span>
-                                          {isConnected && (
-                                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded-sm bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 font-medium">
-                                              Connected
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          {isConnected ? (
-                                            <Check className="h-3.5 w-3.5 text-green-500" />
-                                          ) : (
-                                            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                                          )}
-                                        </div>
-                                      </DropdownMenuItem>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="text-xs max-w-xs">
-                                      <p>{isConnected ? `Manage ${app.name} tools` : app.description}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              );
-                            })
-                          )}
-                        </div>
-                        
-                        <div className="px-1 pt-2 border-t border-border/50 mt-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <DropdownMenuItem
-                                  className="text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer hover:bg-accent/50"
-                                  onClick={handleOpenIntegrationsManager}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    <span className="font-medium">Discover more apps</span>
-                                  </div>
-                                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                </DropdownMenuItem>
-                              </TooltipTrigger>
-                              <TooltipContent side="left" className="text-xs max-w-xs">
-                                <p>Open full integrations manager</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                  )}
-                </div>
-              </div>
-            )}
+                                        <span className="font-medium">{app.name}</span>
+                                        {isConnected && (
+                                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded-sm bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 font-medium">
+                                            Connected
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {isConnected ? (
+                                          <Check className="h-3.5 w-3.5 text-green-500" />
+                                        ) : (
+                                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                        )}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="text-xs max-w-xs">
+                                    <p>{isConnected ? `Manage ${app.name} tools` : app.description}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })
+                        )}
+                      </div>
+                      
+                      <div className="px-1 pt-2 border-t border-border/50 mt-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <DropdownMenuItem
+                                className="text-sm px-3 rounded-lg py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer hover:bg-accent/50"
+                                onClick={handleOpenIntegrationsManager}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Plus className="h-4 w-4" />
+                                  <span className="font-medium">Discover more apps</span>
+                                </div>
+                                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+                              </DropdownMenuItem>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="text-xs max-w-xs">
+                              <p>Open full integrations manager</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+              )}
+            </div>
           </div>
 
         </DropdownMenuContent>
