@@ -21,7 +21,9 @@ from utils.logger import logger
 from utils.config import config
 
 # litellm.set_verbose=True
-litellm.modify_params=True
+# Let LiteLLM auto-adjust params and drop unsupported ones (e.g., GPT-5 temperature!=1)
+litellm.modify_params = True
+litellm.drop_params = True
 
 # Constants
 MAX_RETRIES = 2
@@ -144,7 +146,9 @@ def prepare_params(
             logger.debug(f"Skipping max_tokens for Claude 3.7 model: {model_name}")
             # Do not add any max_tokens parameter for Claude 3.7
         else:
-            param_name = "max_completion_tokens" if 'o1' in model_name else "max_tokens"
+            is_openai_o_series = 'o1' in model_name
+            is_openai_gpt5 = 'gpt-5' in model_name
+            param_name = "max_completion_tokens" if (is_openai_o_series or is_openai_gpt5) else "max_tokens"
             params[param_name] = max_tokens
 
     # Add tools if provided
@@ -199,6 +203,10 @@ def prepare_params(
     # Apply Anthropic prompt caching (minimal implementation)
     # Check model name *after* potential modifications (like adding bedrock/ prefix)
     effective_model_name = params.get("model", model_name) # Use model from params if set, else original
+
+    # OpenAI GPT-5: drop unsupported temperature param (only default 1 allowed)
+    if "gpt-5" in effective_model_name and "temperature" in params and params["temperature"] != 1:
+        params.pop("temperature", None)
     if "claude" in effective_model_name.lower() or "anthropic" in effective_model_name.lower():
         messages = params["messages"] # Direct reference, modification affects params
 
