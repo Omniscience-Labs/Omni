@@ -294,7 +294,7 @@ async def start_agent(
     body: AgentStartRequest = Body(...),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """Start an agent for a specific thread in the background."""
+    """Start an agent for a specific thread in the background"""
     structlog.contextvars.bind_contextvars(
         thread_id=thread_id,
     )
@@ -321,7 +321,9 @@ async def start_agent(
     client = await db.client
 
     await verify_thread_access(client, thread_id, user_id)
+
     thread_result = await client.table('threads').select('project_id', 'account_id', 'metadata').eq('thread_id', thread_id).execute()
+
     if not thread_result.data:
         raise HTTPException(status_code=404, detail="Thread not found")
     thread_data = thread_result.data[0]
@@ -349,7 +351,7 @@ async def start_agent(
     logger.info(f"[AGENT LOAD] Agent loading flow:")
     logger.info(f"  - body.agent_id: {body.agent_id}")
     logger.info(f"  - effective_agent_id: {effective_agent_id}")
-    
+
     if effective_agent_id:
         logger.info(f"[AGENT LOAD] Querying for agent: {effective_agent_id}")
         # Get agent
@@ -390,7 +392,7 @@ async def start_agent(
             source = "request" if body.agent_id else "fallback"
     else:
         logger.info(f"[AGENT LOAD] No effective_agent_id, will try default agent")
-    
+
     if not agent_config:
         logger.info(f"[AGENT LOAD] No agent config yet, querying for default agent")
         default_agent_result = await client.table('agents').select('*').eq('account_id', account_id).eq('is_default', True).execute()
@@ -424,22 +426,25 @@ async def start_agent(
                 logger.info(f"Using default agent: {agent_config['name']} ({agent_config['agent_id']}) - no version data")
         else:
             logger.warning(f"[AGENT LOAD] No default agent found for account {account_id}")
-    
+
     logger.info(f"[AGENT LOAD] Final agent_config: {agent_config is not None}")
     if agent_config:
         logger.info(f"[AGENT LOAD] Agent config keys: {list(agent_config.keys())}")
         logger.info(f"Using agent {agent_config['agent_id']} for this agent run (thread remains agent-agnostic)")
 
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+
     if not can_use:
         raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
 
     can_run, message, subscription = await check_billing_status(client, account_id)
+
     if not can_run:
         raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
 
     # Check agent run limit (maximum parallel runs in past 24 hours)
     limit_check = await check_agent_run_limit(client, account_id)
+
     if not limit_check['can_start']:
         error_detail = {
             "message": f"Maximum of {config.MAX_PARALLEL_AGENT_RUNS} parallel agent runs allowed within 24 hours. You currently have {limit_check['running_count']} running.",
@@ -449,23 +454,6 @@ async def start_agent(
         }
         logger.warning(f"Agent run limit exceeded for account {account_id}: {limit_check['running_count']} running agents")
         raise HTTPException(status_code=429, detail=error_detail)
-
-    try:
-        project_result = await client.table('projects').select('*').eq('project_id', project_id).execute()
-        if not project_result.data:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        project_data = project_result.data[0]
-        sandbox_info = project_data.get('sandbox', {})
-        if not sandbox_info.get('id'):
-            raise HTTPException(status_code=404, detail="No sandbox found for this project")
-            
-        sandbox_id = sandbox_info['id']
-        sandbox = await get_or_start_sandbox(sandbox_id)
-        logger.info(f"Successfully started sandbox {sandbox_id} for project {project_id}")
-    except Exception as e:
-        logger.error(f"Failed to start sandbox for project {project_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to initialize sandbox: {str(e)}")
 
     agent_run = await client.table('agent_runs').insert({
         "thread_id": thread_id, "status": "running",
@@ -479,6 +467,7 @@ async def start_agent(
             "enable_context_manager": body.enable_context_manager
         }
     }).execute()
+
     agent_run_id = agent_run.data[0]['id']
     structlog.contextvars.bind_contextvars(
         agent_run_id=agent_run_id,
@@ -1084,47 +1073,56 @@ async def initiate_agent_with_files(
         project_id = project.data[0]['project_id']
         logger.info(f"Created new project: {project_id}")
 
-        # 2. Create Sandbox
+        # 2. Create Sandbox (lazy): only create now if files were uploaded and need the
+        # sandbox immediately. Otherwise leave sandbox creation to `_ensure_sandbox()`
+        # which will create it lazily when tools require it.
         sandbox_id = None
-        try:
-          sandbox_pass = str(uuid.uuid4())
-          sandbox = await create_sandbox(sandbox_pass, project_id)
-          sandbox_id = sandbox.id
-          logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
-          
-          # Get preview links
-          vnc_link = await sandbox.get_preview_link(6080)
-          website_link = await sandbox.get_preview_link(8080)
-          vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
-          website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
-          token = None
-          if hasattr(vnc_link, 'token'):
-              token = vnc_link.token
-          elif "token='" in str(vnc_link):
-              token = str(vnc_link).split("token='")[1].split("'")[0]
-        except Exception as e:
-            logger.error(f"Error creating sandbox: {str(e)}")
-            await client.table('projects').delete().eq('project_id', project_id).execute()
-            if sandbox_id:
-              try: await delete_sandbox(sandbox_id)
-              except Exception as e: pass
-            raise Exception("Failed to create sandbox")
+        sandbox = None
+        sandbox_pass = None
+        vnc_url = None
+        website_url = None
+        token = None
 
+        if files:
+            try:
+                sandbox_pass = str(uuid.uuid4())
+                sandbox = await create_sandbox(sandbox_pass, project_id)
+                sandbox_id = sandbox.id
+                logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
 
-        # Update project with sandbox info
-        update_result = await client.table('projects').update({
-            'sandbox': {
-                'id': sandbox_id, 'pass': sandbox_pass, 'vnc_preview': vnc_url,
-                'sandbox_url': website_url, 'token': token
-            }
-        }).eq('project_id', project_id).execute()
+                # Get preview links
+                vnc_link = await sandbox.get_preview_link(6080)
+                website_link = await sandbox.get_preview_link(8080)
+                vnc_url = vnc_link.url if hasattr(vnc_link, 'url') else str(vnc_link).split("url='")[1].split("'")[0]
+                website_url = website_link.url if hasattr(website_link, 'url') else str(website_link).split("url='")[1].split("'")[0]
+                token = None
+                if hasattr(vnc_link, 'token'):
+                    token = vnc_link.token
+                elif "token='" in str(vnc_link):
+                    token = str(vnc_link).split("token='")[1].split("'")[0]
 
-        if not update_result.data:
-            logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
-            if sandbox_id:
-              try: await delete_sandbox(sandbox_id)
-              except Exception as e: logger.error(f"Error deleting sandbox: {str(e)}")
-            raise Exception("Database update failed")
+                # Update project with sandbox info
+                update_result = await client.table('projects').update({
+                    'sandbox': {
+                        'id': sandbox_id, 'pass': sandbox_pass, 'vnc_preview': vnc_url,
+                        'sandbox_url': website_url, 'token': token
+                    }
+                }).eq('project_id', project_id).execute()
+
+                if not update_result.data:
+                    logger.error(f"Failed to update project {project_id} with new sandbox {sandbox_id}")
+                    if sandbox_id:
+                        try: await delete_sandbox(sandbox_id)
+                        except Exception as e: logger.error(f"Error deleting sandbox: {str(e)}")
+                    raise Exception("Database update failed")
+            except Exception as e:
+                logger.error(f"Error creating sandbox: {str(e)}")
+                await client.table('projects').delete().eq('project_id', project_id).execute()
+                if sandbox_id:
+                    try: await delete_sandbox(sandbox_id)
+                    except Exception:
+                        pass
+                raise Exception("Failed to create sandbox")
 
         # 3. Create Thread
         thread_data = {
