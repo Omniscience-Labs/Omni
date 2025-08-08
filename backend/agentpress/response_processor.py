@@ -1009,25 +1009,11 @@ class ResponseProcessor:
             # --- Save and Yield assistant_response_end ---
             if assistant_message_object: # Only save if assistant message was saved
                 try:
-                    # Ensure content is JSON-serializable
-                    serializable_response = None
-                    try:
-                        if hasattr(llm_response, "model_dump_json"):
-                            import json as _json
-                            serializable_response = _json.loads(llm_response.model_dump_json())
-                        elif hasattr(llm_response, "model_dump"):
-                            serializable_response = llm_response.model_dump()  # type: ignore[attr-defined]
-                        elif hasattr(llm_response, "dict"):
-                            serializable_response = llm_response.dict()  # type: ignore[attr-defined]
-                        else:
-                            serializable_response = str(llm_response)
-                    except Exception:
-                        serializable_response = str(llm_response)
-
+                    # Save the full LiteLLM response object directly in content
                     await self.add_message(
                         thread_id=thread_id,
                         type="assistant_response_end",
-                        content=serializable_response,
+                        content=llm_response,
                         is_llm_message=False,
                         metadata={"thread_run_id": thread_run_id}
                     )
