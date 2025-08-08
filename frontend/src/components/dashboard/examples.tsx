@@ -53,11 +53,11 @@ const allPrompts: PromptExample[] = [
     query: '1. Search {{news_outlet}} for {{topic}} articles from past {{time_period}}\n2. Categorize coverage and identify key themes\n3. Track expert sources and data points\n4. Create timeline of major developments\n5. Generate report with insights and coverage gaps',
     icon: <PenTool className="text-indigo-700 dark:text-indigo-400" size={16} />,
   },
-  {
-    title: 'Book restaurant reservations',
-    query: '1. Search OpenTable for restaurants in {{city}} for {{occasion}}\n2. Filter by date, party size, and cuisine preferences\n3. Check reviews and menu highlights\n4. Make reservations at {{number}} restaurants\n5. Create itinerary with confirmation details',
-    icon: <Users className="text-emerald-700 dark:text-emerald-400" size={16} />,
-  },
+  // {
+  //   title: 'Book restaurant reservations',
+  //   query: '1. Search OpenTable for restaurants in {{city}} for {{occasion}}\n2. Filter by date, party size, and cuisine preferences\n3. Check reviews and menu highlights\n4. Make reservations at {{number}} restaurants\n5. Create itinerary with confirmation details',
+  //   icon: <Users className="text-emerald-700 dark:text-emerald-400" size={16} />,
+  // },
   {
     title: 'Build financial model',
     query: '1. Create {{model_type}} model for {{company_type}} business\n2. Gather historical data and industry benchmarks\n3. Build revenue forecasts and expense projections\n4. Include DCF, LTV/CAC, or NPV analysis\n5. Design Excel dashboard with scenarios',
