@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
 import { UpcomingRunsDropdown } from '@/components/agents/upcoming-runs-dropdown';
+import { DEFAULT_AGENTPRESS_TOOLS } from '@/components/agents/tools';
 import { useExportAgent } from '@/hooks/react-query/agents/use-agent-export-import';
 
 interface FormData {
@@ -57,7 +58,7 @@ export default function AgentConfigurationPage() {
     name: '',
     description: '',
     system_prompt: '',
-    agentpress_tools: {},
+    agentpress_tools: DEFAULT_AGENTPRESS_TOOLS,
     configured_mcps: [],
     custom_mcps: [],
     is_default: false,
@@ -67,7 +68,6 @@ export default function AgentConfigurationPage() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  // Initialize active tab from URL param, default to 'agent-builder'
   const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -86,7 +86,7 @@ export default function AgentConfigurationPage() {
       name: agent.name || '',
       description: agent.description || '',
       system_prompt: configSource.system_prompt || '',
-      agentpress_tools: configSource.agentpress_tools || {},
+      agentpress_tools: configSource.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
       is_default: agent.is_default || false,
@@ -439,7 +439,7 @@ export default function AgentConfigurationPage() {
     name: agent?.name || '',
     description: agent?.description || '',
     system_prompt: versionData.system_prompt || '',
-    agentpress_tools: versionData.agentpress_tools || {},
+    agentpress_tools: versionData.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
     configured_mcps: versionData.configured_mcps || [],
     custom_mcps: versionData.custom_mcps || [],
     is_default: agent?.is_default || false,
@@ -504,12 +504,12 @@ export default function AgentConfigurationPage() {
                         >
                           {isSaving ? (
                             <>
-                              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                               Saving...
                             </>
                           ) : (
                             <>
-                              <Save className="h-3 w-3 mr-2" />
+                              <Save className="h-3 w-3" />
                               Save
                             </>
                           )}

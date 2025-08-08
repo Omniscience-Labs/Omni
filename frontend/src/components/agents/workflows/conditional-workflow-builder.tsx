@@ -56,6 +56,7 @@ const normalizeToolName = (toolName: string, toolType: 'agentpress' | 'mcp') => 
       'web_search_tool': 'Web Search',
       'sb_vision_tool': 'Vision Tool',
       'data_providers_tool': 'Data Providers',
+      'sb_sheets_tool': 'Sheets Tool',
     };
     return agentPressMapping[toolName] || toolName;
   } else {
@@ -613,7 +614,7 @@ export function ConditionalWorkflowBuilder({
                   onClick={() => removeStep(step.id)}
                   className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-4 w-4" />
                   Delete step
                 </Button>
               </PopoverContent>

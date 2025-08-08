@@ -12,17 +12,32 @@ from .mcp_connection_manager import MCPConnectionManager
 class CustomMCPHandler:
     def __init__(self, connection_manager: MCPConnectionManager):
         self.connection_manager = connection_manager
-        self.custom_tools: Dict[str, Dict[str, Any]] = {}
+        self.custom_tools = {}
     
     async def initialize_custom_mcps(self, custom_configs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        initialization_tasks = []
+        
         for config in custom_configs:
-            try:
-                await self._initialize_single_custom_mcp(config)
-            except Exception as e:
-                logger.error(f"Failed to initialize custom MCP {config.get('name', 'Unknown')}: {e}")
-                continue
+            task = self._initialize_single_custom_mcp_safe(config)
+            initialization_tasks.append(task)
+        
+        if initialization_tasks:
+            logger.info(f"Initializing {len(initialization_tasks)} custom MCPs in parallel...")
+            results = await asyncio.gather(*initialization_tasks, return_exceptions=True)
+            
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    config_name = custom_configs[i].get('name', 'Unknown')
+                    logger.error(f"Failed to initialize custom MCP {config_name}: {result}")
         
         return self.custom_tools
+    
+    async def _initialize_single_custom_mcp_safe(self, config: Dict[str, Any]):
+        try:
+            await self._initialize_single_custom_mcp(config)
+        except Exception as e:
+            logger.error(f"Failed to initialize custom MCP {config.get('name', 'Unknown')}: {e}")
+            return e
     
     async def _initialize_single_custom_mcp(self, config: Dict[str, Any]):
         custom_type = config.get('customType', 'sse')
@@ -32,7 +47,9 @@ class CustomMCPHandler:
         
         logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")
         
-        if custom_type == 'pipedream':
+        if custom_type == 'composio':
+            await self._initialize_composio_mcp(server_name, server_config, enabled_tools)
+        elif custom_type == 'pipedream':
             await self._initialize_pipedream_mcp(server_name, server_config, enabled_tools)
         elif custom_type == 'sse':
             await self._initialize_sse_mcp(server_name, server_config, enabled_tools)
@@ -42,6 +59,34 @@ class CustomMCPHandler:
             await self._initialize_json_mcp(server_name, server_config, enabled_tools)
         else:
             logger.error(f"Custom MCP {server_name}: Unsupported type '{custom_type}'")
+    
+    async def _initialize_composio_mcp(self, server_name: str, server_config: Dict[str, Any], enabled_tools: List[str]):
+        profile_id = server_config.get('profile_id')
+        if not profile_id:
+            logger.error(f"Composio MCP {server_name}: Missing profile_id in config")
+            return
+        
+        try:
+            from composio_integration.composio_profile_service import ComposioProfileService
+            from services.supabase import DBConnection
+            
+            db = DBConnection()
+            profile_service = ComposioProfileService(db)
+            mcp_url = await profile_service.get_mcp_url_for_runtime(profile_id)
+            
+            logger.info(f"Resolved Composio profile {profile_id} to MCP URL")
+
+            async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    tools_result = await session.list_tools()
+                    tools = tools_result.tools if hasattr(tools_result, 'tools') else tools_result
+                    
+                    self._register_custom_tools(tools, server_name, enabled_tools, 'composio', server_config)
+                    logger.info(f"Registered {len(tools)} tools from Composio MCP {server_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Composio MCP {server_name}: {str(e)}")
     
     async def _initialize_pipedream_mcp(self, server_name: str, server_config: Dict[str, Any], enabled_tools: List[str]):
         app_slug = server_config.get('app_slug')

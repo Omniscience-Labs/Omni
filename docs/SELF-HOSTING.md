@@ -164,10 +164,6 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_SSL=false
 
-# RABBITMQ
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-
 # LLM Providers
 ANTHROPIC_API_KEY=your-anthropic-key
 OPENAI_API_KEY=your-openai-key
@@ -247,10 +243,10 @@ python start.py # Use the same to stop it later
 
 This method requires you to start each component separately:
 
-1. Start Redis and RabbitMQ (required for backend):
+1. Start Redis (required for backend):
 
 ```bash
-docker compose up redis rabbitmq -d
+docker compose up redis -d
 # or
 python start.py # Use the same to stop it later
 ```

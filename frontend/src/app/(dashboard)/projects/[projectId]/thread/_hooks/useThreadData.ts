@@ -46,8 +46,14 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
   const projectQuery = useProjectQuery(projectId);
   const agentRunsQuery = useAgentRunsQuery(threadId);
 
+
   useEffect(() => {
     let isMounted = true;
+    
+    // Reset refs when thread changes
+    agentRunsCheckedRef.current = false;
+    messagesLoadedRef.current = false;
+    initialLoadCompleted.current = false;
 
     async function initializeData() {
       if (!initialLoadCompleted.current) setIsLoading(true);
@@ -72,6 +78,8 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
         }
 
         if (messagesQuery.data && !messagesLoadedRef.current) {
+         
+
           const unifiedMessages = (messagesQuery.data || [])
             .filter((msg) => msg.type !== 'status')
             .map((msg: ApiMessageType) => ({
@@ -86,7 +94,6 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
             }));
 
           setMessages(unifiedMessages);
-          console.log('[PAGE] Loaded Messages (excluding status, keeping browser_state):', unifiedMessages.length);
           messagesLoadedRef.current = true;
 
           if (!hasInitiallyScrolled.current) {
@@ -95,26 +102,19 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
         }
 
         if (agentRunsQuery.data && !agentRunsCheckedRef.current && isMounted) {
-          console.log('[PAGE] Checking for active agent runs...');
-          agentRunsCheckedRef.current = true;
-
-          // Only check for very recent agent runs (last 30 seconds) to avoid false positives
-          const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
-          const recentActiveRun = agentRunsQuery.data.find((run) => {
-            const runCreatedAt = new Date(run.started_at || 0);
-            return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
-          });
+         
           
-          if (recentActiveRun && isMounted) {
-            console.log('[PAGE] Found recent active run on load:', recentActiveRun.id);
-            setAgentRunId(recentActiveRun.id);
+          agentRunsCheckedRef.current = true;
+          
+          // Check for any running agents - no time restrictions!
+          const runningRuns = agentRunsQuery.data.filter(r => r.status === 'running');
+          if (runningRuns.length > 0) {
+            const latestRunning = runningRuns[0]; // Use first running agent
+            setAgentRunId(latestRunning.id);
             setAgentStatus('running');
           } else {
-            console.log('[PAGE] No recent active agent runs found');
-            if (isMounted) {
-              setAgentStatus('idle');
-              setAgentRunId(null);
-            }
+            setAgentStatus('idle');
+            setAgentRunId(null);
           }
         }
 

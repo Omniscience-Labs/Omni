@@ -33,14 +33,6 @@ export const PublishDialog = ({
             Make "{publishDialog?.templateName}" available for the community to discover and install.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Important:</strong> Any personal information, API keys, credentials, or data from custom MCP servers included in this template will be publicly visible. Please ensure your template does not contain sensitive information before publishing.
-            </AlertDescription>
-          </Alert>
-        </div>
         <DialogFooter>
           <Button
             variant="outline"

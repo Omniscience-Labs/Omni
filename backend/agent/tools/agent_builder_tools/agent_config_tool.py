@@ -33,13 +33,9 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     },
                     "agentpress_tools": {
                         "type": "object",
-                        "description": "Configuration for AgentPress tools. Each key is a tool name, and the value is an object with 'enabled' (boolean) and 'description' (string) properties.",
+                        "description": "Configuration for AgentPress tools. Each key is a tool name, and the value is a boolean indicating if the tool is enabled.",
                         "additionalProperties": {
-                            "type": "object",
-                            "properties": {
-                                "enabled": {"type": "boolean"},
-                                "description": {"type": "string"}
-                            }
+                            "type": "boolean"
                         }
                     },
                     "configured_mcps": {
@@ -78,7 +74,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
         <parameter name="name">Research Assistant</parameter>
         <parameter name="description">An AI assistant specialized in conducting research and providing comprehensive analysis</parameter>
         <parameter name="system_prompt">You are a research assistant with expertise in gathering, analyzing, and synthesizing information. Your approach is thorough and methodical...</parameter>
-        <parameter name="agentpress_tools">{"web_search": {"enabled": true, "description": "Search the web for information"}, "sb_files": {"enabled": true, "description": "Read and write files"}}</parameter>
+                        <parameter name="agentpress_tools">{"web_search_tool": true, "sb_files_tool": true, "sb_shell_tool": false}</parameter>
         <parameter name="avatar">🔬</parameter>
         <parameter name="avatar_color">#4F46E5</parameter>
         </invoke>
@@ -171,7 +167,10 @@ class AgentConfigTool(AgentBuilderBaseTool):
                         formatted_tools = {}
                         for tool_name, tool_config in agentpress_tools.items():
                             if isinstance(tool_config, dict):
-                                formatted_tools[tool_name] = tool_config.get("enabled", False)
+                                if tool_config == {}:
+                                    formatted_tools[tool_name] = True
+                                else:
+                                    formatted_tools[tool_name] = tool_config.get("enabled", False)
                             else:
                                 formatted_tools[tool_name] = bool(tool_config)
                         current_agentpress_tools = formatted_tools
@@ -315,8 +314,16 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 "updated_at": agent_data.get("updated_at"),
                 "current_version": agent_config.get("version_name", "v1") if version_data else "No version data"
             }
-            
-            tools_count = len([t for t, cfg in config_summary["agentpress_tools"].items() if cfg.get("enabled")])
+
+            enabled_tools = []
+            for tool_name, tool_config in config_summary["agentpress_tools"].items():
+                if isinstance(tool_config, bool):
+                    if tool_config:
+                        enabled_tools.append(tool_name)
+                elif isinstance(tool_config, dict):
+                    if tool_config.get("enabled", False):
+                        enabled_tools.append(tool_name)
+            tools_count = len(enabled_tools)
             mcps_count = len(config_summary["configured_mcps"])
             custom_mcps_count = len(config_summary["custom_mcps"])
             

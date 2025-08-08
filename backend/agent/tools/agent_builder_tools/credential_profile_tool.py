@@ -1,9 +1,11 @@
-import json
 from typing import Optional, List
+from uuid import uuid4
 from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
-from pipedream import profile_service, connection_service, app_service, mcp_service, connection_token_service
+from composio_integration.composio_service import get_integration_service
+from composio_integration.composio_profile_service import ComposioProfileService
+from mcp_module.mcp_service import mcp_service
 from .mcp_search_tool import MCPSearchTool
 from utils.logger import logger
 
@@ -11,19 +13,19 @@ from utils.logger import logger
 class CredentialProfileTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
-        self.pipedream_search = MCPSearchTool(thread_manager, db_connection, agent_id)
+        self.composio_search = MCPSearchTool(thread_manager, db_connection, agent_id)
 
     @openapi_schema({
         "type": "function",
         "function": {
             "name": "get_credential_profiles",
-            "description": "Get all existing Pipedream credential profiles for the current user. Use this to show the user their available profiles.",
+            "description": "Get all existing Composio credential profiles for the current user. Use this to show the user their available profiles.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "app_slug": {
+                    "toolkit_slug": {
                         "type": "string",
-                        "description": "Optional filter to show only profiles for a specific app"
+                        "description": "Optional filter to show only profiles for a specific toolkit"
                     }
                 },
                 "required": []
@@ -33,31 +35,29 @@ class CredentialProfileTool(AgentBuilderBaseTool):
     @usage_example('''
         <function_calls>
         <invoke name="get_credential_profiles">
-        <parameter name="app_slug">github</parameter>
+        <parameter name="toolkit_slug">github</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def get_credential_profiles(self, app_slug: Optional[str] = None) -> ToolResult:
+    async def get_credential_profiles(self, toolkit_slug: Optional[str] = None) -> ToolResult:
         try:
-            from uuid import UUID
             account_id = await self._get_current_account_id()
-            profiles = await profile_service.get_profiles(UUID(account_id), app_slug)
+            profile_service = ComposioProfileService(self.db)
+            profiles = await profile_service.get_profiles(account_id, toolkit_slug)
             
             formatted_profiles = []
             for profile in profiles:
                 formatted_profiles.append({
-                    "profile_id": str(profile.profile_id),
-                    "profile_name": profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name),
+                    "profile_id": profile.profile_id,
+                    "profile_name": profile.profile_name,
                     "display_name": profile.display_name,
-                    "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
-                    "app_name": profile.app_name,
-                    "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
+                    "toolkit_slug": profile.toolkit_slug,
+                    "toolkit_name": profile.toolkit_name,
+                    "mcp_url": profile.mcp_url,
                     "is_connected": profile.is_connected,
-                    "is_active": profile.is_active,
                     "is_default": profile.is_default,
-                    "enabled_tools": profile.enabled_tools,
                     "created_at": profile.created_at.isoformat() if profile.created_at else None,
-                    "last_used_at": profile.last_used_at.isoformat() if profile.last_used_at else None
+                    "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
                 })
             
             return self.success_response({
@@ -73,13 +73,13 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "create_credential_profile",
-            "description": "Create a new Pipedream credential profile for a specific app. This will generate a unique external user ID for the profile.",
+            "description": "Create a new Composio credential profile for a specific toolkit. This will create the integration and return an authentication link that the user needs to visit to connect their account.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "app_slug": {
+                    "toolkit_slug": {
                         "type": "string",
-                        "description": "The app slug to create the profile for (e.g., 'github', 'linear', 'slack')"
+                        "description": "The toolkit slug to create the profile for (e.g., 'github', 'linear', 'slack')"
                     },
                     "profile_name": {
                         "type": "string",
@@ -90,14 +90,14 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                         "description": "Display name for the profile (defaults to profile_name if not provided)"
                     }
                 },
-                "required": ["app_slug", "profile_name"]
+                "required": ["toolkit_slug", "profile_name"]
             }
         }
     })
     @usage_example('''
         <function_calls>
         <invoke name="create_credential_profile">
-        <parameter name="app_slug">github</parameter>
+        <parameter name="toolkit_slug">github</parameter>
         <parameter name="profile_name">Personal GitHub</parameter>
         <parameter name="display_name">My Personal GitHub Account</parameter>
         </invoke>
@@ -105,178 +105,57 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         ''')
     async def create_credential_profile(
         self,
-        app_slug: str,
+        toolkit_slug: str,
         profile_name: str,
         display_name: Optional[str] = None
     ) -> ToolResult:
         try:
-            from uuid import UUID
             account_id = await self._get_current_account_id()
-            # fetch app domain object directly
-            app_obj = await app_service.get_app_by_slug(app_slug)
-            if not app_obj:
-                return self.fail_response(f"Could not find app for slug '{app_slug}'")
-            # create credential profile using the app name
-            profile = await profile_service.create_profile(
-                account_id=UUID(account_id),
+            integration_user_id = str(uuid4())
+            logger.info(f"Generated integration user_id: {integration_user_id} for account: {account_id}")
+
+            integration_service = get_integration_service(db_connection=self.db)
+            result = await integration_service.integrate_toolkit(
+                toolkit_slug=toolkit_slug,
+                account_id=account_id,
+                user_id=integration_user_id,
                 profile_name=profile_name,
-                app_slug=app_slug,
-                app_name=app_obj.name,
-                description=display_name or profile_name,
-                enabled_tools=[]
+                display_name=display_name or profile_name,
+                save_as_profile=True
             )
-            
-            return self.success_response({
-                "message": f"Successfully created credential profile '{profile_name}' for {app_obj.name}",
-                "profile": {
-                    "profile_id": str(profile.profile_id),
-                    "profile_name": profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name),
-                    "display_name": profile.display_name,
-                    "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
-                    "app_name": profile.app_name,
-                    "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
-                    "is_connected": profile.is_connected,
-                    "created_at": profile.created_at.isoformat()
-                }
-            })
-            
-        except Exception as e:
-            return self.fail_response(f"Error creating credential profile: {str(e)}")
 
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "connect_credential_profile",
-            "description": "Generate a connection link for a credential profile. The user needs to visit this link to connect their app account to the profile.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "profile_id": {
-                        "type": "string",
-                        "description": "The ID of the credential profile to connect"
-                    }
-                },
-                "required": ["profile_id"]
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="connect_credential_profile">
-        <parameter name="profile_id">profile-uuid-123</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def connect_credential_profile(self, profile_id: str) -> ToolResult:
-        try:
-            from uuid import UUID
-            from pipedream.connection_token_service import ExternalUserId, AppSlug
-            account_id = await self._get_current_account_id()
-            
-            profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
-            if not profile:
-                return self.fail_response("Credential profile not found")
-            
-            # generate connection token using primitive values
-            external_user_id = ExternalUserId(profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id))
-            app_slug = AppSlug(profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug))
-            connection_result = await connection_token_service.create(external_user_id, app_slug)
-            
-            return self.success_response({
-                "message": f"Generated connection link for '{profile.display_name}'",
-                "profile_name": profile.display_name,
-                "app_name": profile.app_name,
-                "connection_link": connection_result.get("connect_link_url"),
-                "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
-                "expires_at": connection_result.get("expires_at"),
-                "instructions": f"Please visit the connection link to connect your {profile.app_name} account to this profile. After connecting, you'll be able to use {profile.app_name} tools in your agent."
-            })
-            
-        except Exception as e:
-            return self.fail_response(f"Error connecting credential profile: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "check_profile_connection",
-            "description": "Check the connection status of a credential profile and get available tools if connected.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "profile_id": {
-                        "type": "string",
-                        "description": "The ID of the credential profile to check"
-                    }
-                },
-                "required": ["profile_id"]
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="check_profile_connection">
-        <parameter name="profile_id">profile-uuid-123</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def check_profile_connection(self, profile_id: str) -> ToolResult:
-        try:
-            from uuid import UUID
-            from pipedream.connection_service import ExternalUserId
-            account_id = await self._get_current_account_id()
-            
-            profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
-            if not profile:
-                return self.fail_response("Credential profile not found")
-            
-            # fetch and serialize connection objects
-            external_user_id = ExternalUserId(profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id))
-            raw_connections = await connection_service.get_connections_for_user(external_user_id)
-            connections = []
-            for conn in raw_connections:
-                connections.append({
-                    "external_user_id": conn.external_user_id.value if hasattr(conn.external_user_id, 'value') else str(conn.external_user_id),
-                    "app_slug": conn.app.slug.value if hasattr(conn.app.slug, 'value') else str(conn.app.slug),
-                    "app_name": conn.app.name,
-                    "created_at": conn.created_at.isoformat() if conn.created_at else None,
-                    "updated_at": conn.updated_at.isoformat() if conn.updated_at else None,
-                    "is_active": conn.is_active
-                })
-            
             response_data = {
-                "profile_name": profile.display_name,
-                "app_name": profile.app_name,
-                "app_slug": profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug),
-                "external_user_id": profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id),
-                "is_connected": profile.is_connected,
-                "connections": connections,
-                "connection_count": len(connections)
+                "message": f"Successfully created credential profile '{profile_name}' for {result.toolkit.name}",
+                "profile": {
+                    "profile_id": result.profile_id,
+                    "profile_name": profile_name,
+                    "display_name": display_name or profile_name,
+                    "toolkit_slug": toolkit_slug,
+                    "toolkit_name": result.toolkit.name,
+                    "mcp_url": result.final_mcp_url,
+                    "is_connected": False,
+                    "auth_required": bool(result.connected_account.redirect_url)
+                }
             }
             
-            if profile.is_connected and connections:
-                try:
-                    from pipedream.mcp_service import ConnectionStatus, ExternalUserId, AppSlug
-                    external_user_id = ExternalUserId(profile.external_user_id.value if hasattr(profile.external_user_id, 'value') else str(profile.external_user_id))
-                    app_slug = AppSlug(profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug))
-                    servers = await mcp_service.discover_servers_for_user(external_user_id, app_slug)
-                    connected_servers = [s for s in servers if s.status == ConnectionStatus.CONNECTED]
-                    if connected_servers:
-                        tools = [t.name for t in connected_servers[0].available_tools]
-                        response_data["available_tools"] = tools
-                        response_data["tool_count"] = len(tools)
-                        response_data["message"] = f"Profile '{profile.display_name}' is connected with {len(tools)} available tools"
-                    else:
-                        response_data["message"] = f"Profile '{profile.display_name}' is connected but no MCP tools are available yet"
-                except Exception as mcp_error:
-                    logger.error(f"Error getting MCP tools for profile: {mcp_error}")
-                    response_data["message"] = f"Profile '{profile.display_name}' is connected but could not retrieve MCP tools"
+            if result.connected_account.redirect_url:
+                response_data["connection_link"] = result.connected_account.redirect_url
+                # Include both the toolkit name and slug in a parseable format
+                # Format: [toolkit:slug:name] to help frontend identify the service accurately
+                response_data["instructions"] = f"""🔗 **{result.toolkit.name} Authentication Required**
+
+Please authenticate your {result.toolkit.name} account by clicking the link below:
+
+[toolkit:{toolkit_slug}:{result.toolkit.name}] Authentication: {result.connected_account.redirect_url}
+
+After connecting, you'll be able to use {result.toolkit.name} tools in your agent."""
             else:
-                response_data["message"] = f"Profile '{profile.display_name}' is not connected yet"
+                response_data["instructions"] = f"This {result.toolkit.name} profile has been created and is ready to use."
             
             return self.success_response(response_data)
             
         except Exception as e:
-            return self.fail_response(f"Error checking profile connection: {str(e)}")
+            return self.fail_response(f"Error creating credential profile: {str(e)}")
 
     @openapi_schema({
         "type": "function",
@@ -320,11 +199,18 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         display_name: Optional[str] = None
     ) -> ToolResult:
         try:
-            from uuid import UUID
             account_id = await self._get_current_account_id()
             client = await self.db.client
 
-            profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
+            profile_service = ComposioProfileService(self.db)
+            profiles = await profile_service.get_profiles(account_id)
+            
+            profile = None
+            for p in profiles:
+                if p.profile_id == profile_id:
+                    profile = p
+                    break
+            
             if not profile:
                 return self.fail_response("Credential profile not found")
             if not profile.is_connected:
@@ -346,18 +232,14 @@ class CredentialProfileTool(AgentBuilderBaseTool):
             current_config = version_result.data['config']
             current_tools = current_config.get('tools', {})
             current_custom_mcps = current_tools.get('custom_mcp', [])
-
-            app_slug = profile.app_slug.value if hasattr(profile.app_slug, 'value') else str(profile.app_slug)
             
             new_mcp_config = {
-                'name': display_name or profile.display_name,
-                'type': 'pipedream',
+                'name': profile.toolkit_name,
+                'type': 'composio',
                 'config': {
-                    'url': 'https://remote.mcp.pipedream.net',
-                    'headers': {
-                        'x-pd-app-slug': app_slug
-                    },
-                    'profile_id': profile_id
+                    'profile_id': profile_id,
+                    'toolkit_slug': profile.toolkit_slug,
+                    'mcp_qualified_name': profile.mcp_qualified_name
                 },
                 'enabledTools': enabled_tools
             }
@@ -382,13 +264,48 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                 change_description=f"Configured {display_name or profile.display_name} with {len(enabled_tools)} tools"
             )
 
-            profile_name = profile.profile_name.value if hasattr(profile.profile_name, 'value') else str(profile.profile_name)
+            # Dynamically register the MCP tools in the current runtime
+            try:
+                from agent.tools.mcp_tool_wrapper import MCPToolWrapper
+                
+                mcp_config_for_wrapper = {
+                    'name': profile.toolkit_name,
+                    'qualifiedName': f"composio.{profile.toolkit_slug}",
+                    'config': {
+                        'profile_id': profile_id,
+                        'toolkit_slug': profile.toolkit_slug,
+                        'mcp_qualified_name': profile.mcp_qualified_name
+                    },
+                    'enabledTools': enabled_tools,
+                    'instructions': '',
+                    'isCustom': True,
+                    'customType': 'composio'
+                }
+                
+                mcp_wrapper_instance = MCPToolWrapper(mcp_configs=[mcp_config_for_wrapper])
+                await mcp_wrapper_instance.initialize_and_register_tools()
+                updated_schemas = mcp_wrapper_instance.get_schemas()
+                
+                for method_name, schema_list in updated_schemas.items():
+                    for schema in schema_list:
+                        self.thread_manager.tool_registry.tools[method_name] = {
+                            "instance": mcp_wrapper_instance,
+                            "schema": schema
+                        }
+                        logger.info(f"Dynamically registered MCP tool: {method_name}")
+                
+                logger.info(f"Successfully registered {len(updated_schemas)} MCP tools dynamically for {profile.toolkit_name}")
+                
+            except Exception as e:
+                logger.warning(f"Could not dynamically register MCP tools in current runtime: {str(e)}. Tools will be available on next agent run.")
+
             return self.success_response({
-                "message": f"Profile '{profile_name}' updated with {len(enabled_tools)} tools",
+                "message": f"Profile '{profile.profile_name}' configured with {len(enabled_tools)} tools and registered in current runtime",
                 "enabled_tools": enabled_tools,
                 "total_tools": len(enabled_tools),
                 "version_id": new_version.version_id,
-                "version_name": new_version.version_name
+                "version_name": new_version.version_name,
+                "runtime_registration": "success"
             })
             
         except Exception as e:
@@ -421,14 +338,22 @@ class CredentialProfileTool(AgentBuilderBaseTool):
         ''')
     async def delete_credential_profile(self, profile_id: str) -> ToolResult:
         try:
-            from uuid import UUID
             account_id = await self._get_current_account_id()
             client = await self.db.client
             
-            profile = await profile_service.get_profile(UUID(account_id), UUID(profile_id))
+            profile_service = ComposioProfileService(self.db)
+            profiles = await profile_service.get_profiles(account_id)
+            
+            profile = None
+            for p in profiles:
+                if p.profile_id == profile_id:
+                    profile = p
+                    break
+            
             if not profile:
                 return self.fail_response("Credential profile not found")
             
+            # Remove from agent configuration if it exists
             agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).execute()
             if agent_result.data and agent_result.data[0].get('current_version_id'):
                 version_result = await client.table('agent_versions')\
@@ -442,7 +367,7 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                     current_tools = current_config.get('tools', {})
                     current_custom_mcps = current_tools.get('custom_mcp', [])
                     
-                    updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != str(profile.profile_id)]
+                    updated_mcps = [mcp for mcp in current_custom_mcps if mcp.get('config', {}).get('profile_id') != profile_id]
                     
                     if len(updated_mcps) != len(current_custom_mcps):
                         from agent.versioning.version_service import get_version_service
@@ -463,14 +388,15 @@ class CredentialProfileTool(AgentBuilderBaseTool):
                         except Exception as e:
                             return self.fail_response(f"Failed to update agent config: {str(e)}")
             
-            await profile_service.delete_profile(UUID(account_id), UUID(profile_id))
+            # Delete the profile
+            await profile_service.delete_profile(profile_id)
             
             return self.success_response({
-                "message": f"Successfully deleted credential profile '{profile.display_name}' for {profile.app_name}",
+                "message": f"Successfully deleted credential profile '{profile.display_name}' for {profile.toolkit_name}",
                 "deleted_profile": {
-                    "profile_id": str(profile.profile_id),
+                    "profile_id": profile.profile_id,
                     "profile_name": profile.profile_name,
-                    "app_name": profile.app_name
+                    "toolkit_name": profile.toolkit_name
                 }
             })
             

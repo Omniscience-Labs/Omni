@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { isLocalMode, isYearlyCommitmentDowngrade, isPlanChangeAllowed, getPlanInfo } from '@/lib/config';
 import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
+import posthog from 'posthog-js';
 
 // Constants
 export const SUBSCRIPTION_PLANS = {
@@ -241,6 +242,7 @@ function PricingTier({
         case 'checkout_created':
         case 'commitment_created':
           if (response.url) {
+            posthog.capture('plan_purchase_attempted');
             window.location.href = response.url;
           } else {
             console.error(
@@ -255,6 +257,7 @@ function PricingTier({
             ? `Subscription upgraded from $${response.details.current_price} to $${response.details.new_price}`
             : 'Subscription updated successfully';
           toast.success(upgradeMessage);
+          posthog.capture('plan_upgraded');
           if (onSubscriptionUpdate) onSubscriptionUpdate();
           break;
         case 'commitment_blocks_downgrade':
@@ -276,6 +279,7 @@ function PricingTier({
               </p>
             </div>,
           );
+          posthog.capture('plan_downgraded');
           if (onSubscriptionUpdate) onSubscriptionUpdate();
           break;
         case 'no_change':

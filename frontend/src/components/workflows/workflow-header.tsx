@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Save, Settings, GitBranch } from 'lucide-react';
+import { ArrowLeft, Save, Settings, GitBranch, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,9 @@ interface WorkflowHeaderProps {
     workflowDescription?: string;
     onToggleSidePanel: () => void;
     onSave: () => void;
+    onExecute?: () => void;
     isSaving?: boolean;
+    isExecuting?: boolean;
     onNameChange?: (name: string) => void;
     onDescriptionChange?: (description: string) => void;
 }
@@ -24,7 +26,9 @@ export function WorkflowHeader({
     workflowDescription,
     onToggleSidePanel,
     onSave,
+    onExecute,
     isSaving = false,
+    isExecuting = false,
     onNameChange,
     onDescriptionChange
 }: WorkflowHeaderProps) {
@@ -109,6 +113,17 @@ export function WorkflowHeader({
             </div>
 
             <div className="flex items-center gap-2">
+                {onExecute && (
+                    <Button
+                        onClick={onExecute}
+                        disabled={isExecuting || isSaving}
+                        variant="outline"
+                        size="sm"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        {isExecuting ? 'Executing...' : 'Execute'}
+                    </Button>
+                )}
                 <Button
                     onClick={onSave}
                     disabled={isSaving}

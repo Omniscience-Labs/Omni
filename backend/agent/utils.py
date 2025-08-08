@@ -1,7 +1,10 @@
 import json
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone, timedelta
 from utils.logger import logger
+from utils.config import config
 from services import redis
+from run_agent_background import update_agent_run_status
 
 
 async def _cleanup_redis_response_list(agent_run_id: str):
@@ -67,11 +70,64 @@ async def stop_agent_run(db, agent_run_id: str, error_message: Optional[str] = N
                 except Exception as e:
                     logger.warning(f"Failed to publish STOP signal to instance channel {instance_control_channel}: {str(e)}")
             else:
-                 logger.warning(f"Unexpected key format found: {key}")
+                logger.warning(f"Unexpected key format found: {key}")
 
         await _cleanup_redis_response_list(agent_run_id)
 
     except Exception as e:
         logger.error(f"Failed to find or signal active instances for {agent_run_id}: {str(e)}")
 
-    logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}") 
+    logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
+
+
+async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
+    """
+    Check if the account has reached the limit of 3 parallel agent runs within the past 24 hours.
+    
+    Returns:
+        Dict with 'can_start' (bool), 'running_count' (int), 'running_thread_ids' (list)
+    """
+    try:
+        # Calculate 24 hours ago
+        twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+        twenty_four_hours_ago_iso = twenty_four_hours_ago.isoformat()
+        
+        logger.debug(f"Checking agent run limit for account {account_id} since {twenty_four_hours_ago_iso}")
+        
+        # Get all threads for this account
+        threads_result = await client.table('threads').select('thread_id').eq('account_id', account_id).execute()
+        
+        if not threads_result.data:
+            logger.debug(f"No threads found for account {account_id}")
+            return {
+                'can_start': True,
+                'running_count': 0,
+                'running_thread_ids': []
+            }
+        
+        thread_ids = [thread['thread_id'] for thread in threads_result.data]
+        logger.debug(f"Found {len(thread_ids)} threads for account {account_id}")
+        
+        # Query for running agent runs within the past 24 hours for these threads
+        running_runs_result = await client.table('agent_runs').select('id', 'thread_id', 'started_at').in_('thread_id', thread_ids).eq('status', 'running').gte('started_at', twenty_four_hours_ago_iso).execute()
+        
+        running_runs = running_runs_result.data or []
+        running_count = len(running_runs)
+        running_thread_ids = [run['thread_id'] for run in running_runs]
+        
+        logger.info(f"Account {account_id} has {running_count} running agent runs in the past 24 hours")
+        
+        return {
+            'can_start': running_count < config.MAX_PARALLEL_AGENT_RUNS,
+            'running_count': running_count,
+            'running_thread_ids': running_thread_ids
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking agent run limit for account {account_id}: {str(e)}")
+        # In case of error, allow the run to proceed but log the error
+        return {
+            'can_start': True,
+            'running_count': 0,
+            'running_thread_ids': []
+        } 

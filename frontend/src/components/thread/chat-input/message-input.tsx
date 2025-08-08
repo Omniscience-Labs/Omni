@@ -177,6 +177,7 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
               refreshCustomModels={refreshCustomModels}
               billingModalOpen={billingModalOpen}
               setBillingModalOpen={setBillingModalOpen}
+              selectedAgentId={selectedAgentId}
             />
           </div>
         );

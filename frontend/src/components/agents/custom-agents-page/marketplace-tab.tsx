@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SearchBar } from './search-bar';
 import { MarketplaceSectionHeader } from './marketplace-section-header';
 import { AgentCard } from './agent-card';
+
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 
 interface MarketplaceTabProps {
@@ -23,6 +24,7 @@ interface MarketplaceTabProps {
   onDeleteTemplate?: (item: MarketplaceTemplate, e?: React.MouseEvent) => void;
   getItemStyling: (item: MarketplaceTemplate) => { avatar: string; color: string };
   currentUserId?: string;
+  onAgentPreview?: (agent: MarketplaceTemplate) => void;
 }
 
 export const MarketplaceTab = ({
@@ -39,8 +41,15 @@ export const MarketplaceTab = ({
   onInstallClick,
   onDeleteTemplate,
   getItemStyling,
-  currentUserId
+  currentUserId,
+  onAgentPreview
 }: MarketplaceTabProps) => {
+  const handleAgentClick = (item: MarketplaceTemplate) => {
+    if (onAgentPreview) {
+      onAgentPreview(item);
+    }
+  };
+
   return (
     <div className="space-y-6 mt-8 flex flex-col min-h-full">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -107,7 +116,7 @@ export const MarketplaceTab = ({
                           isActioning={installingItemId === item.id}
                           onPrimaryAction={onInstallClick}
                           onDeleteAction={onDeleteTemplate}
-                          onClick={() => onInstallClick(item)}
+                          onClick={() => handleAgentClick(item)}
                           currentUserId={currentUserId}
                         />
                       ))}
@@ -126,7 +135,7 @@ export const MarketplaceTab = ({
                           isActioning={installingItemId === item.id}
                           onPrimaryAction={onInstallClick}
                           onDeleteAction={onDeleteTemplate}
-                          onClick={() => onInstallClick(item)}
+                          onClick={() => handleAgentClick(item)}
                           currentUserId={currentUserId}
                         />
                       ))}
@@ -145,7 +154,7 @@ export const MarketplaceTab = ({
                     isActioning={installingItemId === item.id}
                     onPrimaryAction={onInstallClick}
                     onDeleteAction={onDeleteTemplate}
-                    onClick={() => onInstallClick(item)}
+                    onClick={() => handleAgentClick(item)}
                     currentUserId={currentUserId}
                   />
                 ))}

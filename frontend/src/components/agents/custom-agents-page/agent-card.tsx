@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch, Trash2, MoreVertical } from 'lucide-react';
+import { Download, CheckCircle, Loader2, Globe, GlobeLock, GitBranch, Trash2, MoreVertical, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -147,7 +147,11 @@ const AgentBadges: React.FC<{ agent: AgentData, isSunaAgent: boolean }> = ({ age
 );
 
 const MarketplaceMetadata: React.FC<{ data: MarketplaceData }> = ({ data }) => (
-  <div className="flex items-center text-xs text-muted-foreground">
+  <div className="flex items-center justify-between text-xs text-muted-foreground">
+    <div className="flex items-center gap-1">
+      <User className="h-3 w-3" />
+      <span>{data.creator_name || 'Anonymous'}</span>
+    </div>
     <div className="flex items-center gap-1">
       <Download className="h-3 w-3" />
       <span>{data.download_count} installs</span>

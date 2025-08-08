@@ -84,6 +84,22 @@ MODELS = {
         },
         "tier_availability": ["paid"]
     },
+    "openai/gpt-5": {
+        "aliases": ["gpt-5"],
+        "pricing": {
+            "input_cost_per_million_tokens": 1.25,
+            "output_cost_per_million_tokens": 10.00
+        },
+        "tier_availability": ["paid"]
+    },
+    "openai/gpt-5-mini": {
+        "aliases": ["gpt-5-mini"],
+        "pricing": {
+            "input_cost_per_million_tokens": 0.25,
+            "output_cost_per_million_tokens": 2.00
+        },
+        "tier_availability": ["paid"]
+    },
     "openai/gpt-4.1-mini": {
         "aliases": ["gpt-4.1-mini"],
         "pricing": {
@@ -171,4 +187,7 @@ MODEL_ACCESS_TIERS = {
     "tier_50_400": PAID_TIER_MODELS,
     "tier_125_800": PAID_TIER_MODELS,
     "tier_200_1000": PAID_TIER_MODELS,
+    "tier_25_170_yearly_commitment": PAID_TIER_MODELS,
+    "tier_6_42_yearly_commitment": PAID_TIER_MODELS,
+    "tier_12_84_yearly_commitment": PAID_TIER_MODELS,
 }

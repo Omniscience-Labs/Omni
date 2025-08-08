@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AgentHeaderProps {
   agentId: string;
@@ -105,33 +106,27 @@ export function AgentHeader({
       </div>
       
       <div className="flex items-center gap-2">
-        {/* 3-dots menu for actions - always show if onExport is available */}
         {onExport && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                disabled={isExporting}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-40">
-              <DropdownMenuItem 
-                onClick={onExport}
-                disabled={isExporting}
-                className="flex items-center gap-2 text-xs"
-              >
-                <Download className="h-3 w-3" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onExport}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  disabled={isExporting}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
                 Export agent
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
         
-        {/* Only show tabs for non-Suna agents */}
         {!isSunaAgent && (
           <Tabs value={activeTab} onValueChange={onTabChange}>
             <TabsList className="grid grid-cols-2 bg-muted/50 h-9">

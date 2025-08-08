@@ -8,15 +8,10 @@ from utils.auth_utils import get_current_user_id_from_jwt
 from services.supabase import DBConnection
 
 from .credential_service import (
-    get_credential_service, 
-    MCPCredential, 
-    CredentialNotFoundError, 
-    CredentialAccessDeniedError
+    get_credential_service
 )
 from .profile_service import (
     get_profile_service, 
-    MCPCredentialProfile, 
-    ProfileNotFoundError, 
     ProfileAccessDeniedError
 )
 from .utils import validate_config_not_empty, decode_mcp_qualified_name, extract_config_keys
@@ -67,6 +62,39 @@ class CredentialProfileResponse(BaseModel):
     is_default: bool
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class ComposioProfileSummary(BaseModel):
+    profile_id: str
+    profile_name: str
+    display_name: str
+    toolkit_slug: str
+    toolkit_name: str
+    is_connected: bool
+    is_default: bool
+    created_at: str
+    has_mcp_url: bool
+
+
+class ComposioToolkitGroup(BaseModel):
+    toolkit_slug: str
+    toolkit_name: str
+    icon_url: Optional[str] = None
+    profiles: List[ComposioProfileSummary]
+
+
+class ComposioCredentialsResponse(BaseModel):
+    success: bool
+    toolkits: List[ComposioToolkitGroup]
+    total_profiles: int
+
+
+class ComposioMcpUrlResponse(BaseModel):
+    success: bool
+    mcp_url: str
+    profile_name: str
+    toolkit_name: str
+    warning: str
 
 
 def initialize(database: DBConnection):
@@ -324,4 +352,127 @@ async def delete_credential_profile(
         
     except Exception as e:
         logger.error(f"Error deleting profile: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/composio-profiles", response_model=ComposioCredentialsResponse)
+async def get_composio_profiles(
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        profile_service = get_profile_service(db)
+        from composio_integration.composio_profile_service import ComposioProfileService
+        composio_service = ComposioProfileService(db)
+        
+        all_profiles = await profile_service.get_all_user_profiles(user_id)
+        
+        composio_profiles = [
+            profile for profile in all_profiles 
+            if profile.mcp_qualified_name.startswith('composio.')
+        ]
+        
+        from composio_integration.toolkit_service import ToolkitService
+        toolkit_service = ToolkitService()
+        
+        toolkit_groups = {}
+        for profile in composio_profiles:
+            mcp_parts = profile.mcp_qualified_name.split('.')
+            if len(mcp_parts) >= 2:
+                toolkit_slug = mcp_parts[1]
+                toolkit_name = toolkit_slug.replace('_', ' ').title()
+            else:
+                config = profile.config
+                toolkit_slug = config.get('toolkit_slug', 'unknown')
+                toolkit_name = config.get('toolkit_name', toolkit_slug.title())
+            
+            if toolkit_slug not in toolkit_groups:
+                try:
+                    icon_url = await toolkit_service.get_toolkit_icon(toolkit_slug)
+                except:
+                    icon_url = None
+                
+                toolkit_groups[toolkit_slug] = {
+                    'toolkit_slug': toolkit_slug,
+                    'toolkit_name': toolkit_name,
+                    'icon_url': icon_url,
+                    'profiles': []
+                }
+            
+            has_mcp_url = False
+            try:
+                mcp_url = await composio_service.get_mcp_url_for_runtime(profile.profile_id)
+                has_mcp_url = bool(mcp_url)
+            except:
+                has_mcp_url = False
+            
+            profile_summary = ComposioProfileSummary(
+                profile_id=profile.profile_id,
+                profile_name=profile.profile_name,
+                display_name=profile.display_name,
+                toolkit_slug=toolkit_slug,
+                toolkit_name=toolkit_name,
+                is_connected=has_mcp_url,
+                is_default=profile.is_default,
+                created_at=profile.created_at.isoformat() if profile.created_at else "",
+                has_mcp_url=has_mcp_url
+            )
+            
+            toolkit_groups[toolkit_slug]['profiles'].append(profile_summary)
+        
+        toolkits = []
+        for group_data in toolkit_groups.values():
+            group_data['profiles'].sort(key=lambda p: p.created_at, reverse=True)
+            toolkits.append(ComposioToolkitGroup(**group_data))
+        
+        toolkits.sort(key=lambda t: t.toolkit_name)
+        
+        return ComposioCredentialsResponse(
+            success=True,
+            toolkits=toolkits,
+            total_profiles=len(composio_profiles)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting Composio profiles: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/composio-profiles/{profile_id}/mcp-url", response_model=ComposioMcpUrlResponse)
+async def get_composio_mcp_url(
+    profile_id: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        from composio_integration.composio_profile_service import ComposioProfileService
+        composio_service = ComposioProfileService(db)
+
+        profile_service = get_profile_service(db)
+        profile = await profile_service.get_profile(user_id, profile_id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        if not profile.mcp_qualified_name.startswith('composio.'):
+            raise HTTPException(status_code=400, detail="Not a Composio profile")
+        
+        try:
+            mcp_url = await composio_service.get_mcp_url_for_runtime(profile_id)
+            config = await composio_service.get_profile_config(profile_id)
+            toolkit_name = config.get('toolkit_name', 'Unknown')
+        except Exception as e:
+            logger.error(f"Failed to decrypt Composio profile {profile_id}: {e}")
+            raise HTTPException(status_code=404, detail="MCP URL not found or could not be decrypted")
+        
+        return ComposioMcpUrlResponse(
+            success=True,
+            mcp_url=mcp_url,
+            profile_name=profile.profile_name,
+            toolkit_name=toolkit_name,
+            warning="This MCP URL contains sensitive authentication information. Never share it publicly or include it in code repositories. Anyone with access to this URL can perform actions on your behalf."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Composio MCP URL: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") 

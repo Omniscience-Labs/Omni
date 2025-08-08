@@ -97,7 +97,9 @@ def create_mcp_requirement_from_dict(data: Dict[str, Any]) -> MCPRequirementValu
         display_name=data['display_name'],
         enabled_tools=data.get('enabled_tools', []),
         required_config=data.get('required_config', []),
-        custom_type=data.get('custom_type')
+        custom_type=data.get('custom_type'),
+        toolkit_slug=data.get('toolkit_slug'),
+        app_slug=data.get('app_slug')
     )
 
 
@@ -131,7 +133,8 @@ def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
         'updated_at': template.updated_at.isoformat(),
         'avatar': template.avatar,
         'avatar_color': template.avatar_color,
-        'metadata': template.metadata
+        'metadata': template.metadata,
+        'creator_name': template.creator_name
     }
 
 
@@ -143,6 +146,8 @@ def format_mcp_requirements_for_response(requirements: List[MCPRequirementValue]
             'enabled_tools': req.enabled_tools,
             'required_config': req.required_config,
             'custom_type': req.custom_type,
+            'toolkit_slug': req.toolkit_slug,
+            'app_slug': req.app_slug,
             'is_custom': req.is_custom()
         }
         for req in requirements
