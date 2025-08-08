@@ -68,9 +68,9 @@ export function BinaryRenderer({
           disabled={isDownloading}
         >
           {isDownloading ? (
-            <Loader className="h-4 w-4 mr-2 animate-spin" />
+            <Loader className="h-4 w-4 animate-spin" />
           ) : (
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4" />
           )}
           Download
         </Button>

@@ -27,6 +27,7 @@ import { ConfigureProfileForAgentToolView } from '../configure-profile-for-agent
 import { GetCredentialProfilesToolView } from '../get-credential-profiles/get-credential-profiles';
 import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-current-agent-config';
 import { TaskListToolView } from '../task-list/TaskListToolView';
+import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -93,6 +94,13 @@ const defaultRegistry: ToolViewRegistryType = {
   'complete': CompleteToolView,
 
   'deploy': DeployToolView,
+
+  'create-sheet': SheetsToolView,
+  'update-sheet': SheetsToolView,
+  'view-sheet': SheetsToolView,
+  'analyze-sheet': SheetsToolView,
+  'visualize-sheet': SheetsToolView,
+  'format-sheet': SheetsToolView,
 
   'default': GenericToolView,
 };
