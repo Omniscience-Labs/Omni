@@ -34,6 +34,7 @@ from agent.gemini_prompt import get_gemini_system_prompt
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
 from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
+from agent.tools.sb_sheets_tool import SandboxSheetsTool
 
 load_dotenv()
 
@@ -76,6 +77,7 @@ class ToolManager:
         self.thread_manager.add_tool(SandboxPresentationOutlineTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxPresentationTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
+        self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY:
             self.thread_manager.add_tool(DataProvidersTool)
     
@@ -127,6 +129,8 @@ class ToolManager:
         if safe_tool_check('sb_presentation_tool'):
             self.thread_manager.add_tool(SandboxPresentationOutlineTool, project_id=self.project_id, thread_manager=self.thread_manager)
             self.thread_manager.add_tool(SandboxPresentationTool, project_id=self.project_id, thread_manager=self.thread_manager)
+        if safe_tool_check('sb_sheets_tool'):
+            self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):
             self.thread_manager.add_tool(DataProvidersTool)
 
@@ -209,6 +213,7 @@ class MCPManager:
                         "schema": schema
                     }
             
+            logger.info(f"⚡ Registered {len(updated_schemas)} MCP tools (Redis cache enabled)")
             return mcp_wrapper_instance
         except Exception as e:
             logger.error(f"Failed to initialize MCP tools: {e}")
@@ -238,7 +243,7 @@ class PromptManager:
             system_content = render_prompt_template(agent_config['system_prompt'].strip())
         else:
             system_content = default_system_content
-
+        
         if agent_config and (agent_config.get('configured_mcps') or agent_config.get('custom_mcps')) and mcp_wrapper_instance and mcp_wrapper_instance._initialized:
             mcp_info = "\n\n--- MCP Tools Available ---\n"
             mcp_info += "You have access to external MCP (Model Context Protocol) server tools.\n"

@@ -648,7 +648,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
             className="pl-9"
           />
         </div>
-        <Button onClick={() => handleOpenAddDialog()} className="gap-2">
+        <Button onClick={() => handleOpenAddDialog()} className="gap-2 ml-4">
           <Plus className="h-4 w-4" />
           Add Knowledge
         </Button>

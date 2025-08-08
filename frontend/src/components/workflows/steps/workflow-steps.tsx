@@ -197,7 +197,7 @@ export function WorkflowSteps({
                     onClick={() => onAddStep(steps.length)}
                     className="h-8 px-4 border border-dashed border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 bg-background hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4" />
                     Add step
                 </Button>
             </div>

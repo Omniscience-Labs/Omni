@@ -12,17 +12,32 @@ from .mcp_connection_manager import MCPConnectionManager
 class CustomMCPHandler:
     def __init__(self, connection_manager: MCPConnectionManager):
         self.connection_manager = connection_manager
-        self.custom_tools: Dict[str, Dict[str, Any]] = {}
+        self.custom_tools = {}
     
     async def initialize_custom_mcps(self, custom_configs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        initialization_tasks = []
+        
         for config in custom_configs:
-            try:
-                await self._initialize_single_custom_mcp(config)
-            except Exception as e:
-                logger.error(f"Failed to initialize custom MCP {config.get('name', 'Unknown')}: {e}")
-                continue
+            task = self._initialize_single_custom_mcp_safe(config)
+            initialization_tasks.append(task)
+        
+        if initialization_tasks:
+            logger.info(f"Initializing {len(initialization_tasks)} custom MCPs in parallel...")
+            results = await asyncio.gather(*initialization_tasks, return_exceptions=True)
+            
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    config_name = custom_configs[i].get('name', 'Unknown')
+                    logger.error(f"Failed to initialize custom MCP {config_name}: {result}")
         
         return self.custom_tools
+    
+    async def _initialize_single_custom_mcp_safe(self, config: Dict[str, Any]):
+        try:
+            await self._initialize_single_custom_mcp(config)
+        except Exception as e:
+            logger.error(f"Failed to initialize custom MCP {config.get('name', 'Unknown')}: {e}")
+            return e
     
     async def _initialize_single_custom_mcp(self, config: Dict[str, Any]):
         custom_type = config.get('customType', 'sse')

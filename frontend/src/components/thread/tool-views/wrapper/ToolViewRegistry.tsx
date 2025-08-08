@@ -30,6 +30,7 @@ import { TaskListToolView } from '../task-list/TaskListToolView';
 import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
 import { PresentationToolView } from '../PresentationToolView';
 import { ListPresentationTemplatesToolView } from '../ListPresentationTemplatesToolView';
+import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -101,6 +102,13 @@ const defaultRegistry: ToolViewRegistryType = {
   'create-presentation': PresentationToolView,
   'export-presentation': PresentationToolView,
   'list-presentation-templates': ListPresentationTemplatesToolView,
+  
+  'create-sheet': SheetsToolView,
+  'update-sheet': SheetsToolView,
+  'view-sheet': SheetsToolView,
+  'analyze-sheet': SheetsToolView,
+  'visualize-sheet': SheetsToolView,
+  'format-sheet': SheetsToolView,
 
   'default': GenericToolView,
 };

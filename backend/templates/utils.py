@@ -133,7 +133,8 @@ def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
         'updated_at': template.updated_at.isoformat(),
         'avatar': template.avatar,
         'avatar_color': template.avatar_color,
-        'metadata': template.metadata
+        'metadata': template.metadata,
+        'creator_name': template.creator_name
     }
 
 

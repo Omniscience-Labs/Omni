@@ -13,34 +13,30 @@ import { useAgentTools } from '@/hooks/react-query/agents/use-agent-tools';
 import { useAgent } from '@/hooks/react-query/agents/use-agents';
 import { ConditionalStep } from '@/components/agents/workflows/conditional-workflow-builder';
 import { WorkflowBuilder } from '@/components/workflows/workflow-builder';
+import { WorkflowExecutionDialog } from '@/components/workflows/workflow-execution-dialog';
 
 const convertToNestedJSON = (steps: ConditionalStep[]): any[] => {
-  // Clean, simple conversion - preserve the exact structure with order field for validation
   let globalOrder = 1;
 
   const convertStepsWithNesting = (stepList: ConditionalStep[]): any[] => {
     return stepList.map((step) => {
-      // Build clean step object with required fields for backend validation
       const jsonStep: any = {
-        id: step.id, // CRITICAL: Always include ID
+        id: step.id,
         name: step.name,
         description: step.description,
         type: step.type,
         config: step.config || {},
-        order: globalOrder++ // Required by backend validation
+        order: globalOrder++
       };
 
-      // Add conditional metadata if present
       if (step.type === 'condition' && step.conditions) {
         jsonStep.conditions = step.conditions;
       }
 
-      // Add parent relationship if present
       if (step.parentConditionalId) {
         jsonStep.parentConditionalId = step.parentConditionalId;
       }
 
-      // Add children if present
       if (step.children && step.children.length > 0) {
         jsonStep.children = convertStepsWithNesting(step.children);
       }
@@ -245,6 +241,10 @@ export default function WorkflowPage() {
   const [triggerPhrase, setTriggerPhrase] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [steps, setSteps] = useState<ConditionalStep[]>([]);
+  
+  // Execution state
+  const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
+  const [currentWorkflow, setCurrentWorkflow] = useState<any>(null);
 
   // Wrapper for setSteps  
   const setStepsWithDebug = useCallback((newSteps: ConditionalStep[]) => {
@@ -345,6 +345,21 @@ export default function WorkflowPage() {
     }
   }, [workflowName, workflowDescription, triggerPhrase, isDefault, steps, agentId, workflowId, isEditing, createWorkflowMutation, updateWorkflowMutation, router]);
 
+  const handleExecute = useCallback(() => {
+    const workflow = workflows.find(w => w.id === workflowId);
+    if (workflow) {
+      setCurrentWorkflow(workflow);
+      setIsExecuteDialogOpen(true);
+    } else {
+      toast.error('Workflow not found or not saved yet');
+    }
+  }, [workflows, workflowId]);
+
+  const handleExecutionSuccess = useCallback(() => {
+    setIsExecuteDialogOpen(false);
+    setCurrentWorkflow(null);
+  }, []);
+
   if (isLoading || isLoadingWorkflows) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -357,20 +372,33 @@ export default function WorkflowPage() {
   }
 
   return (
-    <WorkflowBuilder
-      steps={steps}
-      onStepsChange={setStepsWithDebug}
-      agentTools={agentTools}
-      isLoadingTools={isLoadingTools}
-      agentId={agentId}
-      versionData={versionData}
-      onToolsUpdate={handleToolsUpdate}
-      workflowName={workflowName}
-      workflowDescription={workflowDescription}
-      onSave={handleSave}
-      isSaving={createWorkflowMutation.isPending || updateWorkflowMutation.isPending}
-      onNameChange={setWorkflowName}
-      onDescriptionChange={setWorkflowDescription}
-    />
+    <>
+      <WorkflowBuilder
+        steps={steps}
+        onStepsChange={setStepsWithDebug}
+        agentTools={agentTools}
+        isLoadingTools={isLoadingTools}
+        agentId={agentId}
+        workflowId={workflowId}
+        versionData={versionData}
+        onToolsUpdate={handleToolsUpdate}
+        workflowName={workflowName}
+        workflowDescription={workflowDescription}
+        onSave={handleSave}
+        isSaving={createWorkflowMutation.isPending || updateWorkflowMutation.isPending}
+        onExecute={isEditing ? handleExecute : undefined}
+        isExecuting={false}
+        onNameChange={setWorkflowName}
+        onDescriptionChange={setWorkflowDescription}
+      />
+      
+      <WorkflowExecutionDialog
+        open={isExecuteDialogOpen}
+        onOpenChange={setIsExecuteDialogOpen}
+        workflow={currentWorkflow}
+        agentId={agentId}
+        onSuccess={handleExecutionSuccess}
+      />
+    </>
   );
 } 

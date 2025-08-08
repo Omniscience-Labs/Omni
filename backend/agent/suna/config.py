@@ -21,7 +21,8 @@ class SunaConfig:
         "data_providers_tool": True,
         "sb_presentation_outline_tool": True,
         "sb_presentation_tool": True,
-        "sb_files_tool": True
+        "sb_sheets_tool": True,
+        "sb_slides_tool": True
     }
     
     DEFAULT_MCPS = []

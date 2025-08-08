@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SearchBar } from './search-bar';
 import { MarketplaceSectionHeader } from './marketplace-section-header';
 import { AgentCard } from './agent-card';
-import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
+
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 
 interface MarketplaceTabProps {
@@ -24,6 +24,7 @@ interface MarketplaceTabProps {
   onDeleteTemplate?: (item: MarketplaceTemplate, e?: React.MouseEvent) => void;
   getItemStyling: (item: MarketplaceTemplate) => { avatar: string; color: string };
   currentUserId?: string;
+  onAgentPreview?: (agent: MarketplaceTemplate) => void;
 }
 
 export const MarketplaceTab = ({
@@ -40,25 +41,13 @@ export const MarketplaceTab = ({
   onInstallClick,
   onDeleteTemplate,
   getItemStyling,
-  currentUserId
+  currentUserId,
+  onAgentPreview
 }: MarketplaceTabProps) => {
-  const [previewAgent, setPreviewAgent] = useState<MarketplaceTemplate | null>(null);
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-
   const handleAgentClick = (item: MarketplaceTemplate) => {
-    setPreviewAgent(item);
-    setPreviewDialogOpen(true);
-  };
-
-  const handlePreviewClose = () => {
-    setPreviewDialogOpen(false);
-    setPreviewAgent(null);
-  };
-
-  const handleInstallFromPreview = (agent: MarketplaceTemplate) => {
-    onInstallClick(agent);
-    setPreviewDialogOpen(false);
-    setPreviewAgent(null);
+    if (onAgentPreview) {
+      onAgentPreview(item);
+    }
   };
 
   return (
@@ -174,14 +163,6 @@ export const MarketplaceTab = ({
           </div>
         )}
       </div>
-
-      <MarketplaceAgentPreviewDialog
-        agent={previewAgent}
-        isOpen={previewDialogOpen}
-        onClose={handlePreviewClose}
-        onInstall={handleInstallFromPreview}
-        isInstalling={installingItemId === previewAgent?.id}
-      />
     </div>
   );
 }; 
