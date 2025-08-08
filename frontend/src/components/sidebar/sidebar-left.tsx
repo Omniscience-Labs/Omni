@@ -41,6 +41,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useFeatureFlags } from '@/lib/feature-flags';
+import posthog from 'posthog-js';
 
 export function SidebarLeft({
   ...props
@@ -150,7 +151,7 @@ export function SidebarLeft({
           <Link href="/dashboard">
             <SidebarMenuButton className={cn({
               'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
-            })}>
+            })} onClick={() => posthog.capture('new_task_clicked')}>
               <Plus className="h-4 w-4 mr-1" />
               <span className="flex items-center justify-between w-full">
                 New Task

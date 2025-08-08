@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { handleApiError } from './error-handler';
+import posthog from 'posthog-js';
 
 // Get backend URL from environment variables
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -837,6 +838,8 @@ export const stopAgent = async (agentRunId: string): Promise<void> => {
     // Add cache: 'no-store' to prevent caching
     cache: 'no-store',
   });
+
+  posthog.capture('task_abandoned', { agentRunId });
 
   if (!response.ok) {
     const stopError = new Error(`Error stopping agent: ${response.statusText}`);
