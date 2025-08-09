@@ -41,10 +41,6 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
   const agentRunsCheckedRef = useRef(false);
   const hasInitiallyScrolled = useRef<boolean>(false);
   
-  // Store messages by thread ID to preserve across navigation
-  const threadMessagesRef = useRef<Map<string, UnifiedMessage[]>>(new Map());
-  // Track the last active thread id to correctly cache on navigation
-  const lastThreadIdRef = useRef<string>(threadId);
 
   const threadQuery = useThreadQuery(threadId);
   const messagesQuery = useMessagesQuery(threadId);
@@ -56,28 +52,13 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
   useEffect(() => {
     let isMounted = true;
     
-    // Store current messages before switching threads using the actual last thread id
-    const previousThreadId = lastThreadIdRef.current;
-    if (previousThreadId && previousThreadId !== threadId && messages.length > 0) {
-      threadMessagesRef.current.set(previousThreadId, [...messages]);
-    }
-    
     // Reset refs when thread changes
-    // (debug logs removed)
     agentRunsCheckedRef.current = false;
     messagesLoadedRef.current = false;
     initialLoadCompleted.current = false;
     
-    // Restore cached messages for this thread if available
-    const cachedMessages = threadMessagesRef.current.get(threadId);
-    if (cachedMessages && cachedMessages.length > 0) {
-      setMessages(cachedMessages);
-    } else {
-      setMessages([]);
-    }
-
-    // Update last thread id tracker to the new thread
-    lastThreadIdRef.current = threadId;
+    // Clear messages on thread change; fresh data will set messages
+    setMessages([]);
 
     async function initializeData() {
       if (!initialLoadCompleted.current) setIsLoading(true);
@@ -136,9 +117,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
           });
 
           setMessages(mergedMessages);
-          // Update cache for this thread
-          threadMessagesRef.current.set(threadId, [...mergedMessages]);
-          // (debug logs removed)
+          // Messages set only from server merge; no cross-thread cache
           messagesLoadedRef.current = true;
 
           if (!hasInitiallyScrolled.current) {
@@ -257,9 +236,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
             return aTime - bTime;
           });
           
-          // Update cache for this thread
-          threadMessagesRef.current.set(threadId, [...merged]);
-          // (debug logs removed)
+          // Messages set only from server merge; no cross-thread cache
           return merged;
         });
       } else {
@@ -268,19 +245,9 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
     }
   }, [messagesQuery.data, messagesQuery.status, isLoading, messages.length, threadId]);
 
-  // Wrap setMessages to also update the cache
-  const setMessagesWithCache = (messagesOrUpdater: UnifiedMessage[] | ((prev: UnifiedMessage[]) => UnifiedMessage[])) => {
-    setMessages((prev) => {
-      const newMessages = typeof messagesOrUpdater === 'function' ? messagesOrUpdater(prev) : messagesOrUpdater;
-      // Update cache whenever messages change
-      threadMessagesRef.current.set(threadId, [...newMessages]);
-      return newMessages;
-    });
-  };
-
   return {
     messages,
-    setMessages: setMessagesWithCache,
+    setMessages,
     project,
     sandboxId,
     projectName,

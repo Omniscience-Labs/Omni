@@ -116,59 +116,9 @@ export function useAgentStream(
     textContentRef.current = textContent;
   }, [textContent]);
 
-  // Update refs if threadId or setMessages changes
+  // Update refs if threadId changes (no persistence across navigation)
   useEffect(() => {
-    const previousThreadId = threadIdRef.current;
-    
-    // If we're switching threads and have an active stream, persist it and clean up
-    if (previousThreadId && previousThreadId !== threadId && streamCleanupRef.current) {
-      // Use refs to get current state values
-      const currentState = {
-        status: statusRef.current,
-        agentRunId: agentRunIdRef.current,
-        textContent: textContentRef.current,
-        timestamp: Date.now()
-      };
-      sessionStorage.setItem(`stream_state_${previousThreadId}`, JSON.stringify(currentState));
-      
-      // Clean up current stream
-      streamCleanupRef.current();
-      streamCleanupRef.current = null;
-      setStatus('idle');
-      setTextContent([]);
-      setToolCall(null);
-      setAgentRunId(null);
-      currentRunIdRef.current = null;
-    }
-    
     threadIdRef.current = threadId;
-    
-    // Check if we have persisted stream state for this thread
-    const persistedKey = `stream_state_${threadId}`;
-    const persistedState = sessionStorage.getItem(persistedKey);
-    
-    if (persistedState && previousThreadId !== threadId) {
-      try {
-        const parsed = JSON.parse(persistedState);
-        const stateAge = Date.now() - (parsed.timestamp || 0);
-        
-        // Only restore if state is recent (< 5 minutes) and was streaming
-        if (parsed.status === 'streaming' && parsed.agentRunId && stateAge < 5 * 60 * 1000) {
-          setStatus('streaming');
-          setAgentRunId(parsed.agentRunId);
-          currentRunIdRef.current = parsed.agentRunId;
-          setTextContent(parsed.textContent || []);
-          
-          // Clear the persisted state since we've restored it
-          sessionStorage.removeItem(persistedKey);
-        } else {
-          sessionStorage.removeItem(persistedKey);
-        }
-      } catch (e) {
-        console.warn('Failed to parse persisted stream state:', e);
-        sessionStorage.removeItem(persistedKey);
-      }
-    }
   }, [threadId]);
 
   useEffect(() => {
@@ -240,10 +190,6 @@ export function useAgentStream(
       setAgentRunId(null);
       currentRunIdRef.current = null;
       
-      // Clear persisted state when stream completes
-      const persistedKey = `stream_state_${currentThreadId}`;
-      sessionStorage.removeItem(persistedKey);
-
       // Message refetch disabled - optimistic messages will handle updates
 
       // If the run was stopped or completed, try to get final status to update nonRunning set (keep this)
