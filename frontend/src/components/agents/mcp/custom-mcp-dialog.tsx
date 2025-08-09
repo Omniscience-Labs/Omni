@@ -15,7 +15,7 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 interface CustomMCPDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: CustomMCPConfiguration) => Promise<void>;
+  onSave: (config: CustomMCPConfiguration) => void;
 }
 
 interface CustomMCPConfiguration {
@@ -145,7 +145,7 @@ export const CustomMCPDialog: React.FC<CustomMCPDialogProps> = ({
     try {
       let configToSave: any = { url: configText.trim() };
       
-      await onSave({
+      onSave({
         name: serverName,
         type: serverType,
         config: configToSave,

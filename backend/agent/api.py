@@ -1384,7 +1384,19 @@ async def get_agents(
             filtered_agents = []
             tools_filter = []
             if tools:
-                tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+                # Handle case where tools might be passed as dict instead of string
+                if isinstance(tools, str):
+                    tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+                elif isinstance(tools, dict):
+                    # If tools is a dict, log the issue and skip filtering
+                    logger.warning(f"Received tools parameter as dict instead of string: {tools}")
+                    tools_filter = []
+                elif isinstance(tools, list):
+                    # If tools is a list, use it directly
+                    tools_filter = [str(tool).strip() for tool in tools if str(tool).strip()]
+                else:
+                    logger.warning(f"Unexpected tools parameter type: {type(tools)}, value: {tools}")
+                    tools_filter = []
             
             for agent in agents_data:
                 # Get version data if available and extract configuration
