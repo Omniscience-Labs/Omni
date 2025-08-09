@@ -31,17 +31,17 @@ export function BentoSection() {
 
   return (
     <section
-      id="bento"
+      id="process"
       className="flex flex-col items-center justify-center w-full relative"
     >
       <div className="relative w-full px-6">
         <div className="max-w-6xl mx-auto border-l border-r border-border">
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance pb-1">
-              Build Your AI Agent in 3 Simple Steps
+              Build Your AI Worker in 3 Simple Steps
             </h2>
             <p className="text-muted-foreground text-center text-balance font-medium">
-              From description to deployment, create powerful AI agents that work autonomously in minutes.
+              From description to deployment, create powerful AI Workers that work autonomously in minutes.
             </p>
           </SectionHeader>
 

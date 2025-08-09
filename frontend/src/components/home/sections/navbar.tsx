@@ -253,6 +253,12 @@ export function Navbar() {
                         <a
                           href={item.href}
                           onClick={(e) => {
+                            // If it's an external link (not starting with #), let it navigate normally
+                            if (!item.href.startsWith('#')) {
+                              setIsDrawerOpen(false);
+                              return;
+                            }
+                            
                             e.preventDefault();
                             const element = document.getElementById(
                               item.href.substring(1),

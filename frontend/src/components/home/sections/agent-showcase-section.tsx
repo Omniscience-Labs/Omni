@@ -83,7 +83,7 @@ const CustomAgentCard = () => {
               Custom Agent
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Create a specialized AI agent tailored to your unique business needs and workflow.
+              Create a specialized AI Worker tailored to your unique business needs and workflow.
             </p>
           </div>
 
@@ -187,7 +187,7 @@ export function AgentShowcaseSection() {
               Build Your AI Team
             </h2>
             <p className="text-muted-foreground text-center text-balance font-medium">
-              Specialized AI agents ready to transform your workflow. Choose from our curated team of experts.
+              Specialized AI Workers ready to transform your workflow. Choose from our curated team of experts.
             </p>
           </SectionHeader>
 

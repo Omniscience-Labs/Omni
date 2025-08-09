@@ -1,6 +1,6 @@
 # Suna Self-Hosting Guide
 
-This guide provides detailed instructions for setting up and hosting your own instance of Suna, an open-source generalist AI agent.
+This guide provides detailed instructions for setting up and hosting your own instance of Suna, an open-source generalist AI Worker.
 
 ## Table of Contents
 

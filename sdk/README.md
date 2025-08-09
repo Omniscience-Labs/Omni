@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 
-A Python SDK that enables you to create, manage, and interact with AI agents on [Suna](https://suna.so).
+A Python SDK that enables you to create, manage, and interact with AI Workers on [Suna](https://suna.so).
 
 ## 📦 Installation
 

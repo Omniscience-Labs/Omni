@@ -16,7 +16,7 @@ export function TestimonialSection() {
           Empower Your Workflow with AI
         </h2>
         <p className="text-muted-foreground text-center text-balance font-medium">
-          Ask your AI Agent for real-time collaboration, seamless integrations,
+          Ask your AI Worker for real-time collaboration, seamless integrations,
           and actionable insights to streamline your operations.
         </p>
       </SectionHeader>
