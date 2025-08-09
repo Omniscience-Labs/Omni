@@ -42,6 +42,10 @@ class StoreCredentialProfileRequest(BaseModel):
         return validate_config_not_empty(v)
 
 
+class BulkDeleteProfilesRequest(BaseModel):
+    profile_ids: List[str]
+
+
 class CredentialResponse(BaseModel):
     credential_id: str
     mcp_qualified_name: str
@@ -62,6 +66,13 @@ class CredentialProfileResponse(BaseModel):
     is_default: bool
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class BulkDeleteProfilesResponse(BaseModel):
+    success: bool
+    deleted_count: int
+    failed_profiles: List[str] = []
+    message: str
 
 
 class ComposioProfileSummary(BaseModel):
@@ -352,6 +363,37 @@ async def delete_credential_profile(
         
     except Exception as e:
         logger.error(f"Error deleting profile: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/credential-profiles/bulk-delete", response_model=BulkDeleteProfilesResponse)
+async def bulk_delete_credential_profiles(
+    request: BulkDeleteProfilesRequest,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        profile_service = get_profile_service(db)
+        deleted_count = 0
+        failed_profiles = []
+        for profile_id in request.profile_ids:
+            try:
+                success = await profile_service.delete_profile(user_id, profile_id)
+                if success:
+                    deleted_count += 1
+                else:
+                    failed_profiles.append(profile_id)
+            except Exception as e:
+                logger.error(f"Error deleting profile {profile_id}: {e}")
+                failed_profiles.append(profile_id)
+        
+        return BulkDeleteProfilesResponse(
+            success=True,
+            deleted_count=deleted_count,
+            failed_profiles=failed_profiles,
+            message="Bulk deletion completed"
+        )
+    except Exception as e:
+        logger.error(f"Error performing bulk deletion: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

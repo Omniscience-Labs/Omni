@@ -73,7 +73,18 @@ export const useImportAgentFromJson = () => {
         const response = await backendApi.post('/agents/json/import', request);
         return response.data;
       } catch (error: any) {
-        // Extract error message from different error formats
+        const errorData = error.response?.data;
+        const isAgentLimitError = (error.response?.status === 402) && (
+          errorData?.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+          errorData?.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
+        );
+        
+        if (isAgentLimitError) {
+          const { AgentCountLimitError } = await import('@/lib/api');
+          const errorDetail = errorData?.detail || errorData;
+          throw new AgentCountLimitError(error.response.status, errorDetail);
+        }
+        
         const message = error.response?.data?.detail || error.message || 'Failed to import agent';
         throw new Error(message);
       }

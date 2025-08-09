@@ -592,6 +592,30 @@ async def can_use_model(client, user_id: str, model_name: str):
     
     return False, f"Your current subscription plan does not include access to {model_name}. Please upgrade your subscription or choose from your available models: {', '.join(allowed_models)}", allowed_models
 
+async def get_subscription_tier(client, user_id: str) -> str:
+    try:
+        subscription = await get_user_subscription(user_id)
+        
+        if not subscription:
+            return 'free'
+        
+        price_id = None
+        if subscription.get('items') and subscription['items'].get('data') and len(subscription['items']['data']) > 0:
+            price_id = subscription['items']['data'][0]['price']['id']
+        else:
+            price_id = subscription.get('price_id', config.STRIPE_FREE_TIER_ID)
+        
+        tier_info = SUBSCRIPTION_TIERS.get(price_id)
+        if tier_info:
+            return tier_info['name']
+        
+        logger.warning(f"Unknown price_id {price_id} for user {user_id}, defaulting to free tier")
+        return 'free'
+        
+    except Exception as e:
+        logger.error(f"Error getting subscription tier for user {user_id}: {str(e)}")
+        return 'free'
+
 async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optional[Dict]]:
     """
     Check if a user can run agents based on their subscription and usage.
@@ -634,8 +658,6 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     # Calculate current month's usage
     current_usage = await calculate_monthly_usage(client, user_id)
     
-    # TODO: also do user's AAL check
-    # Check if within limits
     if current_usage >= tier_info['cost']:
         return False, f"Monthly limit of {tier_info['cost']} dollars reached. Please upgrade your plan or wait until next month.", subscription
     

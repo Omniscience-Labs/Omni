@@ -10,7 +10,7 @@ from datetime import datetime
 from .composio_service import (
     get_integration_service,
 )
-from .toolkit_service import ToolkitService
+from .toolkit_service import ToolkitService, ToolsListResponse
 from .composio_profile_service import ComposioProfileService, ComposioProfile
 
 router = APIRouter(prefix="/composio", tags=["composio"])
@@ -21,14 +21,12 @@ def initialize(database: DBConnection):
     global db
     db = database
 
-
 class IntegrateToolkitRequest(BaseModel):
     toolkit_slug: str
     profile_name: Optional[str] = None
     display_name: Optional[str] = None
     mcp_server_name: Optional[str] = None
     save_as_profile: bool = True
-
 
 class IntegrationStatusResponse(BaseModel):
     status: str
@@ -40,7 +38,6 @@ class IntegrationStatusResponse(BaseModel):
     profile_id: Optional[str] = None
     redirect_url: Optional[str] = None
 
-
 class CreateProfileRequest(BaseModel):
     toolkit_slug: str
     profile_name: str
@@ -49,6 +46,10 @@ class CreateProfileRequest(BaseModel):
     is_default: bool = False
     initiation_fields: Optional[Dict[str, str]] = None
 
+class ToolsListRequest(BaseModel):
+    toolkit_slug: str
+    limit: int = 50
+    cursor: Optional[str] = None
 
 class ProfileResponse(BaseModel):
     profile_id: str
@@ -404,6 +405,35 @@ async def get_toolkit_icon(
     except Exception as e:
         logger.error(f"Error getting toolkit icon: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/tools/list")
+async def list_toolkit_tools(
+    request: ToolsListRequest,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        logger.info(f"User {current_user_id} requesting tools for toolkit: {request.toolkit_slug}")
+        
+        toolkit_service = ToolkitService()
+        tools_response = await toolkit_service.get_toolkit_tools(
+            toolkit_slug=request.toolkit_slug,
+            limit=request.limit,
+            cursor=request.cursor
+        )
+        
+        return {
+            "success": True,
+            "tools": [tool.dict() for tool in tools_response.items],
+            "total_items": tools_response.total_items,
+            "current_page": tools_response.current_page,
+            "total_pages": tools_response.total_pages,
+            "next_cursor": tools_response.next_cursor
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list toolkit tools for {request.toolkit_slug}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get toolkit tools: {str(e)}")
 
 
 @router.get("/health")
