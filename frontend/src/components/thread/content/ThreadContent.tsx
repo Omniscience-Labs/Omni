@@ -608,8 +608,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 // Use merged groups instead of original grouped messages
                                 const finalGroupedMessages = mergedGroups;
 
-                                // Handle streaming content - only add to existing group or create new one if needed
-                                if (streamingTextContent) {
+                                
+                                // Helper function to add streaming content to groups
+                                const appendStreamingContent = (content: string, isPlayback: boolean = false) => {
+                                    const messageId = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
+                                    const metadata = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
+                                    const keySuffix = isPlayback ? 'playback-streaming' : 'streaming';
+                                    
                                     const lastGroup = finalGroupedMessages.at(-1);
                                     if (!lastGroup || lastGroup.type === 'user') {
                                         // Create new assistant group for streaming content
@@ -617,35 +622,45 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         finalGroupedMessages.push({
                                             type: 'assistant_group',
                                             messages: [{
-                                                content: streamingTextContent,
+                                                content,
                                                 type: 'assistant',
-                                                message_id: 'streamingTextContent',
-                                                metadata: 'streamingTextContent',
+                                                message_id: messageId,
+                                                metadata,
                                                 created_at: new Date().toISOString(),
                                                 updated_at: new Date().toISOString(),
                                                 is_llm_message: true,
-                                                thread_id: 'streamingTextContent',
+                                                thread_id: messageId,
                                                 sequence: Infinity,
                                             }],
-                                            key: `assistant-group-${assistantGroupCounter}-streaming`
+                                            key: `assistant-group-${assistantGroupCounter}-${keySuffix}`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {
                                         // Only add streaming content if it's not already represented in the last message
                                         const lastMessage = lastGroup.messages[lastGroup.messages.length - 1];
-                                        if (lastMessage.message_id !== 'streamingTextContent') {
+                                        if (lastMessage.message_id !== messageId) {
                                             lastGroup.messages.push({
-                                                content: streamingTextContent,
+                                                content,
                                                 type: 'assistant',
-                                                message_id: 'streamingTextContent',
-                                                metadata: 'streamingTextContent',
+                                                message_id: messageId,
+                                                metadata,
                                                 created_at: new Date().toISOString(),
                                                 updated_at: new Date().toISOString(),
                                                 is_llm_message: true,
-                                                thread_id: 'streamingTextContent',
+                                                thread_id: messageId,
                                                 sequence: Infinity,
                                             });
                                         }
                                     }
+                                };
+
+                                // Handle streaming content - only add to existing group or create new one if needed
+                                if (streamingTextContent) {
+                                    appendStreamingContent(streamingTextContent, false);
+                                }
+
+                                // Handle playback mode streaming text
+                                if (readOnly && streamingText && isStreamingText) {
+                                    appendStreamingContent(streamingText, true);
                                 }
 
                                 return finalGroupedMessages.map((group, groupIndex) => {
@@ -827,7 +842,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                        const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
+                                                                        const showCursor =
+                                                                          (streamHookStatus ===
+                                                                            'streaming' ||
+                                                                            streamHookStatus ===
+                                                                              'connecting') &&
+                                                                          !detectedTag;
 
                                                                         return (
                                                                             <>
