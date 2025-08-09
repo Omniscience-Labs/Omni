@@ -31,35 +31,6 @@ interface UseWorkflowStepsProps {
 
 const STEP_CATEGORIES = CATEGORY_DEFINITIONS;
 
-const STEP_TYPES: StepType[] = BASE_STEP_DEFINITIONS.map(step => ({
-    id: step.id,
-    name: step.name,
-    description: step.description,
-    icon: step.icon.name,
-    category: step.category,
-    config: step.config
-}));
-
-const normalizeToolName = (toolName: string, toolType: 'agentpress' | 'mcp') => {
-    if (toolType === 'agentpress') {
-        const agentPressMapping: Record<string, string> = {
-            'sb_shell_tool': 'Shell Tool',
-            'sb_files_tool': 'Files Tool',
-            'sb_browser_tool': 'Browser Tool',
-            'sb_deploy_tool': 'Deploy Tool',
-            'sb_expose_tool': 'Expose Tool',
-            'web_search_tool': 'Web Search',
-            'sb_vision_tool': 'Vision Tool',
-            'data_providers_tool': 'Data Providers',
-        };
-        return agentPressMapping[toolName] || toolName;
-    } else {
-        return toolName
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-    }
-};
 
 export function useWorkflowSteps({
     steps,

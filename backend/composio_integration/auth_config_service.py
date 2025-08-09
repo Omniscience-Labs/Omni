@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Union
 from composio_client import Composio
 from utils.logger import logger
 from pydantic import BaseModel
@@ -18,15 +18,51 @@ class AuthConfigService:
     def __init__(self, api_key: Optional[str] = None):
         self.client = ComposioClient.get_client(api_key)
     
-    async def create_auth_config(self, toolkit_slug: str) -> AuthConfig:
+    def _convert_field_value(self, value: str, field_type: str) -> Union[str, bool, float]:
+        if field_type == 'boolean':
+            if isinstance(value, bool):
+                return value
+            return value.lower() in ('true', '1', 'yes', 'on')
+        elif field_type == 'number' or field_type == 'double':
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                logger.warning(f"Failed to convert '{value}' to float, using as string")
+                return str(value)
+        else:
+            return str(value)
+    
+    async def create_auth_config(
+        self, 
+        toolkit_slug: str, 
+        initiation_fields: Optional[Dict[str, str]] = None
+    ) -> AuthConfig:
         try:
             logger.info(f"Creating auth config for toolkit: {toolkit_slug}")
+            logger.info(f"Initiation fields: {initiation_fields}")
+            
+            credentials = {"region": "ind"}
+            
+            if initiation_fields:
+                for field_name, field_value in initiation_fields.items():
+                    if field_value:
+                        if field_name == "suffix.one":
+                            credentials["extension"] = str(field_value)
+                        else:
+                            credentials[field_name] = str(field_value)
+            
+            logger.info(f"Using credentials: {credentials}")
             
             response = self.client.auth_configs.create(
-                toolkit={"slug": toolkit_slug}
+                toolkit={
+                    "slug": toolkit_slug
+                },
+                auth_config={
+                    "type": "use_composio_managed_auth",
+                    "credentials": credentials
+                }
             )
             
-            # Access Pydantic model attributes directly
             auth_config_obj = response.auth_config
             
             auth_config = AuthConfig(
@@ -53,7 +89,6 @@ class AuthConfigService:
             if not response:
                 return None
             
-            # Access Pydantic model attributes directly
             return AuthConfig(
                 id=response.id,
                 auth_scheme=response.auth_scheme,

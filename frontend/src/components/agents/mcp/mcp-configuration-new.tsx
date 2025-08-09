@@ -175,7 +175,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
             onToolsSelected={handleToolsSelected}
             onClose={() => {
               setShowRegistryDialog(false);
-              // Refresh data when dialog closes to ensure UI is up to date
               queryClient.invalidateQueries({ queryKey: ['agents'] });
               queryClient.invalidateQueries({ queryKey: ['agent', selectedAgentId] });
             }}

@@ -40,10 +40,12 @@ class ComposioIntegrationService:
         profile_name: Optional[str] = None,
         display_name: Optional[str] = None,
         mcp_server_name: Optional[str] = None,
-        save_as_profile: bool = True
+        save_as_profile: bool = True,
+        initiation_fields: Optional[Dict[str, str]] = None
     ) -> ComposioIntegrationResult:
         try:
             logger.info(f"Starting Composio integration for toolkit: {toolkit_slug}")
+            logger.info(f"Initiation fields: {initiation_fields}")
             
             toolkit = await self.toolkit_service.get_toolkit_by_slug(toolkit_slug)
             if not toolkit:
@@ -51,12 +53,16 @@ class ComposioIntegrationService:
             
             logger.info(f"Step 1 complete: Verified toolkit {toolkit_slug}")
             
-            auth_config = await self.auth_config_service.create_auth_config(toolkit_slug)
+            auth_config = await self.auth_config_service.create_auth_config(
+                toolkit_slug, 
+                initiation_fields=initiation_fields
+            )
             logger.info(f"Step 2 complete: Created auth config {auth_config.id}")
             
             connected_account = await self.connected_account_service.create_connected_account(
                 auth_config_id=auth_config.id,
-                user_id=user_id
+                user_id=user_id,
+                initiation_fields=initiation_fields
             )
             logger.info(f"Step 3 complete: Connected account {connected_account.id}")
             
@@ -113,11 +119,11 @@ class ComposioIntegrationService:
             logger.error(f"Failed to integrate toolkit {toolkit_slug}: {e}", exc_info=True)
             raise
     
-    async def list_available_toolkits(self, limit: int = 100, category: Optional[str] = None) -> List[ToolkitInfo]:
-        return await self.toolkit_service.list_toolkits(limit=limit, category=category)
+    async def list_available_toolkits(self, limit: int = 100, cursor: Optional[str] = None, category: Optional[str] = None) -> Dict[str, Any]:
+        return await self.toolkit_service.list_toolkits(limit=limit, cursor=cursor, category=category)
     
-    async def search_toolkits(self, query: str, category: Optional[str] = None) -> List[ToolkitInfo]:
-        return await self.toolkit_service.search_toolkits(query, category=category)
+    async def search_toolkits(self, query: str, category: Optional[str] = None, limit: int = 100, cursor: Optional[str] = None) -> Dict[str, Any]:
+        return await self.toolkit_service.search_toolkits(query, category=category, limit=limit, cursor=cursor)
     
     async def get_integration_status(self, connected_account_id: str) -> Dict[str, Any]:
         return await self.connected_account_service.get_auth_status(connected_account_id)
