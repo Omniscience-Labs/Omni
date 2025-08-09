@@ -10,7 +10,7 @@ export function CTACard() {
             Enterprise Demo
           </span>
           <span className="text-xs text-muted-foreground mt-0.5">
-          Request custom AI Agents for enterprise
+          Request custom AI Agents implementation
           </span>
         </div>
 
