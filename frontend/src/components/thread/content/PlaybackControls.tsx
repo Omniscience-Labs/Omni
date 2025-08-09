@@ -11,42 +11,15 @@ import {
 import { UnifiedMessage } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import Link from 'next/link';
-
-// Define the set of tags whose raw XML should be hidden during streaming
-const HIDE_STREAMING_XML_TAGS = new Set([
-  'execute-command',
-  'create-file',
-  'delete-file',
-  'full-file-rewrite',
-  'edit-file',
-  'str-replace',
-  'browser-click-element',
-  'browser-close-tab',
-  'browser-drag-drop',
-  'browser-get-dropdown-options',
-  'browser-go-back',
-  'browser-input-text',
-  'browser-navigate-to',
-  'browser-scroll-down',
-  'browser-scroll-to-text',
-  'browser-scroll-up',
-  'browser-select-dropdown-option',
-  'browser-send-keys',
-  'browser-switch-tab',
-  'browser-wait',
-  'deploy',
-  'ask',
-  'complete',
-  'crawl-webpage',
-  'web-search',
-]);
+import { parseXmlToolCalls } from '../tool-views/xml-parser';
+import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
 
 export interface PlaybackControlsProps {
   messages: UnifiedMessage[];
   isSidePanelOpen: boolean;
   onToggleSidePanel: () => void;
   toolCalls: any[];
-  setCurrentToolIndex: (index: number) => void;
+  setCurrentToolIndex: React.Dispatch<React.SetStateAction<number>>;
   onFileViewerOpen: () => void;
   projectName?: string;
 }
@@ -58,7 +31,6 @@ export interface PlaybackState {
   streamingText: string;
   isStreamingText: boolean;
   currentToolCall: any | null;
-  toolPlaybackIndex: number;
 }
 
 export interface PlaybackController {
@@ -88,7 +60,6 @@ export const PlaybackControls = ({
     streamingText: '',
     isStreamingText: false,
     currentToolCall: null,
-    toolPlaybackIndex: -1,
   });
 
   // Extract state variables for easier access
@@ -99,10 +70,10 @@ export const PlaybackControls = ({
     streamingText,
     isStreamingText,
     currentToolCall,
-    toolPlaybackIndex,
   } = playbackState;
 
   const playbackTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [isToolInitialized, setIsToolInitialized] = useState(false);
 
   // Helper function to update playback state
   const updatePlaybackState = useCallback((updates: Partial<PlaybackState>) => {
@@ -129,9 +100,9 @@ export const PlaybackControls = ({
       streamingText: '',
       isStreamingText: false,
       currentToolCall: null,
-      toolPlaybackIndex: -1,
     });
-    setCurrentToolIndex(-1);
+    setCurrentToolIndex(0);
+    setIsToolInitialized(false);
 
     if (playbackTimeout.current) {
       clearTimeout(playbackTimeout.current);
@@ -192,7 +163,6 @@ export const PlaybackControls = ({
       streamingText: '',
       isStreamingText: false,
       currentToolCall: null,
-      toolPlaybackIndex: toolCalls.length - 1,
     });
 
     if (toolCalls.length > 0) {
@@ -242,11 +212,9 @@ export const PlaybackControls = ({
         }
 
         // Add the tool call
-        const toolName = match[1] || match[2];
         chunks.push({
           text: match[0],
           isTool: true,
-          toolName,
         });
 
         lastIndex = toolCallRegex.lastIndex;
@@ -306,40 +274,23 @@ export const PlaybackControls = ({
         // If this is a tool call chunk and we're at the start of it
         if (currentChunk.isTool && currentIndex === 0) {
           // For tool calls, check if they should be hidden during streaming
-          if (
-            currentChunk.toolName &&
-            HIDE_STREAMING_XML_TAGS.has(currentChunk.toolName)
-          ) {
-            // Instead of showing the XML, create a tool call object
-            const toolCall = {
-              name: currentChunk.toolName,
-              arguments: currentChunk.text,
-              xml_tag_name: currentChunk.toolName,
-            };
-
-            updatePlaybackState({
-              currentToolCall: toolCall,
-              toolPlaybackIndex: toolPlaybackIndex + 1,
-            });
-
-            if (!isSidePanelOpen) {
-              onToggleSidePanel();
-            }
-
-            setCurrentToolIndex(toolPlaybackIndex + 1);
-
-            // Pause streaming briefly while showing the tool
-            isPaused = true;
-            setTimeout(() => {
-              isPaused = false;
-              updatePlaybackState({ currentToolCall: null });
-              chunkIndex++; // Move to next chunk
-              currentIndex = 0; // Reset index for next chunk
-              processNextCharacter();
-            }, 500); // Reduced from 1500ms to 500ms pause for tool display
-
-            return;
+          if (isToolInitialized) {
+            setCurrentToolIndex((prev) => prev + 1);
+          } else {
+            setIsToolInitialized(true);
           }
+
+          // Pause streaming briefly while showing the tool
+          isPaused = true;
+          setTimeout(() => {
+            isPaused = false;
+            updatePlaybackState({ currentToolCall: null });
+            chunkIndex++; // Move to next chunk
+            currentIndex = 0; // Reset index for next chunk
+            processNextCharacter();
+          }, 500); // Reduced from 1500ms to 500ms pause for tool display
+
+          return;
         }
 
         // Handle normal text streaming for non-tool chunks or visible tool chunks
@@ -387,7 +338,6 @@ export const PlaybackControls = ({
       isPlaying,
       messages,
       currentMessageIndex,
-      toolPlaybackIndex,
       setCurrentToolIndex,
       isSidePanelOpen,
       onToggleSidePanel,
