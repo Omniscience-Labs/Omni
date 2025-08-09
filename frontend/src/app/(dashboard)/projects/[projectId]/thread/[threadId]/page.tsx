@@ -137,6 +137,12 @@ export default function ThreadPage({
   const agent = threadAgentData?.agent;
   const workflowId = threadQuery.data?.metadata?.workflow_id;
 
+  // Invalidate cache when thread changes to get fresh data
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: threadKeys.agentRuns(threadId) });
+    queryClient.invalidateQueries({ queryKey: threadKeys.messages(threadId) });
+  }, [threadId, queryClient]);
+
   // Set initial selected agent from thread data
   useEffect(() => {
     if (threadAgentData?.agent && !selectedAgentId) {

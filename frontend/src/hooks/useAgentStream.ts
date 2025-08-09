@@ -98,9 +98,77 @@ export function useAgentStream(
       .reduce((acc, curr) => acc + curr.content, '');
   }, [textContent]);
 
+  // Refs to capture current state for persistence
+  const statusRef = useRef(status);
+  const agentRunIdRef = useRef(agentRunId);
+  const textContentRef = useRef(textContent);
+  
+  // Update refs whenever state changes
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+  
+  useEffect(() => {
+    agentRunIdRef.current = agentRunId;
+  }, [agentRunId]);
+  
+  useEffect(() => {
+    textContentRef.current = textContent;
+  }, [textContent]);
+
   // Update refs if threadId or setMessages changes
   useEffect(() => {
+    const previousThreadId = threadIdRef.current;
+    
+    // If we're switching threads and have an active stream, persist it and clean up
+    if (previousThreadId && previousThreadId !== threadId && streamCleanupRef.current) {
+      // Use refs to get current state values
+      const currentState = {
+        status: statusRef.current,
+        agentRunId: agentRunIdRef.current,
+        textContent: textContentRef.current,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem(`stream_state_${previousThreadId}`, JSON.stringify(currentState));
+      
+      // Clean up current stream
+      streamCleanupRef.current();
+      streamCleanupRef.current = null;
+      setStatus('idle');
+      setTextContent([]);
+      setToolCall(null);
+      setAgentRunId(null);
+      currentRunIdRef.current = null;
+    }
+    
     threadIdRef.current = threadId;
+    
+    // Check if we have persisted stream state for this thread
+    const persistedKey = `stream_state_${threadId}`;
+    const persistedState = sessionStorage.getItem(persistedKey);
+    
+    if (persistedState && previousThreadId !== threadId) {
+      try {
+        const parsed = JSON.parse(persistedState);
+        const stateAge = Date.now() - (parsed.timestamp || 0);
+        
+        // Only restore if state is recent (< 5 minutes) and was streaming
+        if (parsed.status === 'streaming' && parsed.agentRunId && stateAge < 5 * 60 * 1000) {
+          setStatus('streaming');
+          setAgentRunId(parsed.agentRunId);
+          currentRunIdRef.current = parsed.agentRunId;
+          setTextContent(parsed.textContent || []);
+          
+          // Clear the persisted state since we've restored it
+          sessionStorage.removeItem(persistedKey);
+        } else {
+          sessionStorage.removeItem(persistedKey);
+        }
+      } catch (e) {
+        console.warn('Failed to parse persisted stream state:', e);
+        sessionStorage.removeItem(persistedKey);
+      }
+    }
   }, [threadId]);
 
   useEffect(() => {
@@ -171,6 +239,10 @@ export function useAgentStream(
       updateStatus(finalStatus);
       setAgentRunId(null);
       currentRunIdRef.current = null;
+      
+      // Clear persisted state when stream completes
+      const persistedKey = `stream_state_${currentThreadId}`;
+      sessionStorage.removeItem(persistedKey);
 
       // Message refetch disabled - optimistic messages will handle updates
 
@@ -470,23 +542,14 @@ export function useAgentStream(
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Cleanup function for when the component unmounts or agentRunId changes
+    // Cleanup function - be more conservative about stream cleanup
     return () => {
       isMountedRef.current = false;
-      console.log(
-        '[useAgentStream] Unmounting or agentRunId changing. Cleaning up stream.',
-      );
-      if (streamCleanupRef.current) {
-        streamCleanupRef.current();
-        streamCleanupRef.current = null;
-      }
-      // Reset state on unmount if needed, though finalizeStream should handle most cases
-      setStatus('idle');
-      setTextContent([]);
-      setToolCall(null);
-      setError(null);
-      setAgentRunId(null);
-      currentRunIdRef.current = null;
+      console.log('[useAgentStream] Component unmounting/navigation.');
+      
+      // Don't automatically cleanup streams on navigation
+      // Only set mounted flag to false to prevent new operations
+      // Streams will be cleaned up when they naturally complete or on explicit stop
     };
   }, []); // Empty dependency array for mount/unmount effect
 
@@ -496,13 +559,13 @@ export function useAgentStream(
     async (runId: string) => {
       if (!isMountedRef.current) return;
       console.log(
-        `[useAgentStream] Received request to start streaming for ${runId}`,
+        `[STREAM_FIX] Thread ${threadId} received request to start streaming for ${runId}`,
       );
 
       // Clean up any previous stream
       if (streamCleanupRef.current) {
         console.log(
-          '[useAgentStream] Cleaning up existing stream before starting new one.',
+          `[STREAM_FIX] Thread ${threadId} cleaning up existing stream before starting new one.`,
         );
         streamCleanupRef.current();
         streamCleanupRef.current = null;
