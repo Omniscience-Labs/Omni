@@ -59,6 +59,36 @@ export class AgentRunLimitError extends Error {
   }
 }
 
+export class AgentCountLimitError extends Error {
+  status: number;
+  detail: { 
+    message: string;
+    current_count: number;
+    limit: number;
+    tier_name: string;
+    error_code: string;
+  };
+
+  constructor(
+    status: number,
+    detail: { 
+      message: string;
+      current_count: number;
+      limit: number;
+      tier_name: string;
+      error_code: string;
+      [key: string]: any;
+    },
+    message?: string,
+  ) {
+    super(message || detail.message || `Agent Count Limit Exceeded: ${status}`);
+    this.name = 'AgentCountLimitError';
+    this.status = status;
+    this.detail = detail;
+    Object.setPrototypeOf(this, AgentCountLimitError.prototype);
+  }
+}
+
 export class NoAccessTokenAvailableError extends Error {
   constructor(message?: string, options?: { cause?: Error }) {
     super(message || 'No access token available', options);

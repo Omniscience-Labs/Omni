@@ -23,6 +23,8 @@ import { PublishDialog } from '@/components/agents/custom-agents-page/publish-di
 import { LoadingSkeleton } from '@/components/agents/custom-agents-page/loading-skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { MarketplaceAgentPreviewDialog } from '@/components/agents/marketplace-agent-preview-dialog';
+import { AgentCountLimitDialog } from '@/components/agents/agent-count-limit-dialog';
+import { AgentCountLimitError } from '@/lib/api';
 
 type ViewMode = 'grid' | 'list';
 type AgentSortOption = 'name' | 'created_at' | 'updated_at' | 'tools_count';
@@ -86,6 +88,8 @@ export default function AgentsPage() {
 
   const [publishingAgentId, setPublishingAgentId] = useState<string | null>(null);
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitError, setAgentLimitError] = useState<AgentCountLimitError | null>(null);
 
   const activeTab = useMemo(() => {
     return searchParams.get('tab') || 'my-agents';
@@ -146,7 +150,6 @@ export default function AgentsPage() {
 
     if (marketplaceTemplates) {
       marketplaceTemplates.forEach(template => {
-
         const item: MarketplaceTemplate = {
           id: template.template_id,
           creator_id: template.creator_id,
@@ -174,14 +177,12 @@ export default function AgentsPage() {
                  item.creator_name?.toLowerCase().includes(searchLower);
         })();
 
-        if (!matchesSearch) return; // Skip items that don't match search
+        if (!matchesSearch) return;
 
-        // Always add user's own templates to mineItems for the "mine" filter
         if (user?.id === template.creator_id) {
           mineItems.push(item);
         }
         
-        // Categorize all templates (including user's own) for the "all" view
         if (template.is_kortix_team) {
           kortixItems.push(item);
         } else {
@@ -358,7 +359,7 @@ export default function AgentsPage() {
       }
 
       const customRequirements = item.mcp_requirements?.filter(req => 
-        req.custom_type && req.custom_type !== 'pipedream'
+        req.custom_type
       ) || [];
       const missingCustomConfigs = customRequirements.filter(req => 
         !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
@@ -368,20 +369,6 @@ export default function AgentsPage() {
       if (missingCustomConfigs.length > 0) {
         const missingNames = missingCustomConfigs.map(req => req.display_name).join(', ');
         toast.error(`Please provide all required configuration for: ${missingNames}`);
-        return;
-      }
-
-      const pipedreamRequirements = item.mcp_requirements?.filter(req => 
-        req.custom_type === 'pipedream'
-      ) || [];
-      const missingPipedreamConfigs = pipedreamRequirements.filter(req => 
-        !customMcpConfigs || !customMcpConfigs[req.qualified_name] || 
-        !customMcpConfigs[req.qualified_name].profile_id
-      );
-      
-      if (missingPipedreamConfigs.length > 0) {
-        const missingNames = missingPipedreamConfigs.map(req => req.display_name).join(', ');
-        toast.error(`Please select Pipedream profiles for: ${missingNames}`);
         return;
       }
 
@@ -405,6 +392,12 @@ export default function AgentsPage() {
       }
     } catch (error: any) {
       console.error('Installation error:', error);
+
+      if (error instanceof AgentCountLimitError) {
+        setAgentLimitError(error);
+        setShowAgentLimitDialog(true);
+        return;
+      }
 
       if (error.message?.includes('already in your library')) {
         toast.error('This agent is already in your library');
@@ -566,7 +559,6 @@ export default function AgentsPage() {
         </div>
       </div>
       <div className="container mx-auto max-w-7xl px-4 py-2">
-        {/* Fixed height container to prevent layout shifts on tab change */}
         <div className="w-full min-h-[calc(100vh-300px)]">
           {activeTab === "my-agents" && (
             <MyAgentsTab
@@ -643,6 +635,15 @@ export default function AgentsPage() {
           onInstall={handlePreviewInstall}
           isInstalling={installingItemId === selectedItem?.id}
         />
+        {agentLimitError && (
+          <AgentCountLimitDialog
+            open={showAgentLimitDialog}
+            onOpenChange={setShowAgentLimitDialog}
+            currentCount={agentLimitError.detail.current_count}
+            limit={agentLimitError.detail.limit}
+            tierName={agentLimitError.detail.tier_name}
+          />
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   type CreateComposioProfileRequest,
   type CreateComposioProfileResponse,
   type DetailedComposioToolkitResponse,
+  type ComposioToolsResponse,
 } from './utils';
 import { composioKeys } from './keys';
 import { toast } from 'sonner';
@@ -78,6 +79,19 @@ export const useComposioToolkitDetails = (toolkitSlug: string, options?: { enabl
       return result;
     },
     enabled: options?.enabled !== undefined ? options.enabled : !!toolkitSlug,
+    staleTime: 10 * 60 * 1000,
+    retry: 2,
+  });
+};
+
+export const useComposioTools = (toolkitSlug: string, options?: { enabled?: boolean; limit?: number }) => {
+  return useQuery({
+    queryKey: ['composio', 'tools', toolkitSlug, options?.limit],
+    queryFn: async (): Promise<ComposioToolsResponse> => {
+      const result = await composioApi.getTools(toolkitSlug, options?.limit);
+      return result;
+    },
+    enabled: (options?.enabled ?? true) && !!toolkitSlug,
     staleTime: 10 * 60 * 1000,
     retry: 2,
   });

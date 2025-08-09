@@ -126,6 +126,7 @@ export const siteConfig = {
       hours: '60 min',
       features: [
         '$5 free AI tokens included',
+        '2 custom agents',
         'Public projects',
         'Basic Models',
         'Community support',
@@ -147,6 +148,7 @@ export const siteConfig = {
       hours: '2 hours',
       features: [
         '$20 AI token credits/month',
+        '5 custom agents',
         'Private projects',
         'Premium AI Models',
         'Community support',
@@ -170,6 +172,7 @@ export const siteConfig = {
       hours: '6 hours',
       features: [
         '$50 AI token credits/month',
+        '20 custom agents',
         'Private projects',
         'Premium AI Models',
         'Community support',
@@ -192,6 +195,7 @@ export const siteConfig = {
       hours: '12 hours',
       features: [
         '$100 AI token credits/month',
+        '20 custom agents',
         'Private projects',
         'Premium AI Models',
         'Community support',
@@ -214,6 +218,7 @@ export const siteConfig = {
       hours: '25 hours',
       features: [
         '$200 AI token credits/month',
+        '100 custom agents',
         'Private projects',
         'Premium AI Models',
         'Priority support',

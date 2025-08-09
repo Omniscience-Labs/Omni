@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, Plus, FileJson, Code } from 'lucide-react';
 import {
   AlertDialog,
@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useCreateNewAgent } from '@/hooks/react-query/agents/use-agents';
 import { JsonImportDialog } from './json-import-dialog';
+import { AgentCountLimitDialog } from './agent-count-limit-dialog';
+import { AgentCountLimitError } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface NewAgentDialogProps {
@@ -25,19 +27,43 @@ interface NewAgentDialogProps {
 export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialogProps) {
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [jsonImportText, setJsonImportText] = useState('');
+  const [showAgentLimitDialog, setShowAgentLimitDialog] = useState(false);
+  const [agentLimitError, setAgentLimitError] = useState<AgentCountLimitError | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createNewAgentMutation = useCreateNewAgent();
 
+  useEffect(() => {
+    console.log('[DEBUG] NewAgentDialog state:', {
+      agentLimitError: !!agentLimitError,
+      showAgentLimitDialog,
+      errorDetail: agentLimitError?.detail
+    });
+  }, [agentLimitError, showAgentLimitDialog]);
+
   const handleCreateNewAgent = () => {
+    console.log('[DEBUG] Creating new agent...');
     createNewAgentMutation.mutate(undefined, {
       onSuccess: () => {
+        console.log('[DEBUG] Agent created successfully');
         onOpenChange(false);
         onSuccess?.();
       },
-      onError: () => {
-        // Keep dialog open on error so user can see the error and try again
-        // The useCreateNewAgent hook already shows error toasts
+      onError: (error) => {
+        console.log('[DEBUG] Error creating agent:', error);
+        console.log('[DEBUG] Error type:', typeof error);
+        console.log('[DEBUG] Error constructor:', error.constructor.name);
+        console.log('[DEBUG] Is AgentCountLimitError?', error instanceof AgentCountLimitError);
+        
+        if (error instanceof AgentCountLimitError) {
+          console.log('[DEBUG] Setting agent limit error state');
+          setAgentLimitError(error);
+          setShowAgentLimitDialog(true);
+          onOpenChange(false);
+        } else {
+          console.log('[DEBUG] Not an agent limit error, keeping dialog open');
+          toast.error(error instanceof Error ? error.message : 'Failed to create agent');
+        }
       }
     });
   };
@@ -107,8 +133,6 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
             .
           </AlertDialogDescription>
         </AlertDialogHeader>
-
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -116,7 +140,6 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
           onChange={handleFileChange}
           className="hidden"
         />
-
         <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-6">
           <AlertDialogCancel disabled={isLoading} className="mt-2 sm:mt-0">
             Cancel
@@ -128,12 +151,12 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
           >
             {createNewAgentMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Creating...
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4" />
                 Create Agent
               </>
             )}
@@ -150,6 +173,16 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
           onSuccess?.();
         }}
       />
+      
+      {agentLimitError && (
+        <AgentCountLimitDialog
+          open={showAgentLimitDialog}
+          onOpenChange={setShowAgentLimitDialog}
+          currentCount={agentLimitError.detail.current_count}
+          limit={agentLimitError.detail.limit}
+          tierName={agentLimitError.detail.tier_name}
+        />
+      )}
     </AlertDialog>
   );
 }
