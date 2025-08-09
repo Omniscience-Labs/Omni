@@ -80,10 +80,10 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
           <div
             key={agent.id}
             className={cn(
-              'group relative bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border cursor-pointer flex flex-col min-h-[280px] border-border/50',
+              'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col min-h-[280px] border-border/50',
               agent.comingSoon 
                 ? 'opacity-70 cursor-not-allowed' 
-                : 'hover:border-primary/20 hover:shadow-lg'
+                : 'hover:border-primary/20'
             )}
             onClick={() => handleAgentClick(agent)}
           >
