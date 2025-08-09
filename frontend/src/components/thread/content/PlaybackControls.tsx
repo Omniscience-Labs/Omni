@@ -275,6 +275,7 @@ export const PlaybackControls = ({
         if (currentChunk.isTool && currentIndex === 0) {
           // For tool calls, check if they should be hidden during streaming
           if (isToolInitialized) {
+            // TODO: better to change tool index by uniq tool id
             setCurrentToolIndex((prev) => prev + 1);
           } else {
             setIsToolInitialized(true);
