@@ -145,23 +145,7 @@ export function useThreadData(threadId: string, projectId: string): UseThreadDat
         if (threadQuery.data && messagesQuery.data && agentRunsQuery.data) {
           initialLoadCompleted.current = true;
           setIsLoading(false);
-          
-          // Final safety check: if no recent active runs found, ensure status is idle
-          if (agentRunsCheckedRef.current) {
-            const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
-            const hasRecentActiveRun = agentRunsQuery.data.find((run) => {
-              const runCreatedAt = new Date(run.started_at || 0);
-              return run.status === 'running' && runCreatedAt > thirtySecondsAgo;
-            });
-            
-            if (!hasRecentActiveRun) {
-              console.log('[PAGE] Final check: No recent active runs, ensuring idle status');
-              if (isMounted) {
-                setAgentStatus('idle');
-                setAgentRunId(null);
-              }
-            }
-          }
+          // Removed time-based final check to avoid incorrectly forcing idle while a stream is active
         }
 
       } catch (err) {

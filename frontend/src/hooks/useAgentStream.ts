@@ -116,8 +116,19 @@ export function useAgentStream(
     textContentRef.current = textContent;
   }, [textContent]);
 
-  // Update refs if threadId changes (no persistence across navigation)
+  // On thread change, ensure any existing stream is cleaned up to avoid stale subscriptions
   useEffect(() => {
+    const previousThreadId = threadIdRef.current;
+    if (previousThreadId && previousThreadId !== threadId && streamCleanupRef.current) {
+      // Close the existing stream for the previous thread
+      streamCleanupRef.current();
+      streamCleanupRef.current = null;
+      setStatus('idle');
+      setTextContent([]);
+      setToolCall(null);
+      setAgentRunId(null);
+      currentRunIdRef.current = null;
+    }
     threadIdRef.current = threadId;
   }, [threadId]);
 
@@ -547,12 +558,38 @@ export function useAgentStream(
           `[useAgentStream] Agent run ${runId} confirmed running. Setting up EventSource.`,
         );
         const cleanup = streamAgent(runId, {
-          onMessage: handleStreamMessage,
-          onError: handleStreamError,
-          onClose: handleStreamClose,
+          onMessage: (data) => {
+            // Ignore messages if threadId changed while the EventSource stayed open
+            if (threadIdRef.current !== threadId) return;
+            handleStreamMessage(data);
+          },
+          onError: (err) => {
+            if (threadIdRef.current !== threadId) return;
+            handleStreamError(err);
+          },
+          onClose: () => {
+            if (threadIdRef.current !== threadId) return;
+            handleStreamClose();
+          },
         });
         streamCleanupRef.current = cleanup;
         // Status will be updated to 'streaming' by the first message received in handleStreamMessage
+        // If for some reason no message arrives shortly, verify liveness again to avoid zombie state
+        setTimeout(async () => {
+          if (!isMountedRef.current) return;
+          if (currentRunIdRef.current !== runId) return; // Another run started
+          if (statusRef.current === 'streaming') return; // Already streaming
+          try {
+            const latest = await getAgentStatus(runId);
+            if (!isMountedRef.current) return;
+            if (currentRunIdRef.current !== runId) return;
+            if (latest.status !== 'running') {
+              finalizeStream(mapAgentStatus(latest.status) || 'agent_not_running', runId);
+            }
+          } catch {
+            // ignore
+          }
+        }, 1500);
       } catch (err) {
         if (!isMountedRef.current) return; // Check mount status after async call
 
