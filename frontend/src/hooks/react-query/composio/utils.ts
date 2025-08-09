@@ -63,6 +63,33 @@ export interface DetailedComposioToolkitResponse {
   error?: string;
 }
 
+export interface ComposioTool {
+  slug: string;
+  name: string;
+  description: string;
+  version: string;
+  input_parameters: {
+    properties: Record<string, any>;
+    required?: string[];
+  };
+  output_parameters: {
+    properties: Record<string, any>;
+  };
+  scopes?: string[];
+  tags?: string[];
+  no_auth: boolean;
+}
+
+export interface ComposioToolsResponse {
+  success: boolean;
+  tools: ComposioTool[];
+  total_items: number;
+  current_page: number;
+  total_pages: number;
+  next_cursor?: string;
+  error?: string;
+}
+
 export interface ComposioToolkitsResponse {
   success: boolean;
   toolkits: ComposioToolkit[];
@@ -157,6 +184,21 @@ export interface ComposioMcpUrlResponse {
   profile_name: string;
   toolkit_name: string;
   warning: string;
+}
+
+export interface DeleteProfileResponse {
+  message: string;
+}
+
+export interface BulkDeleteProfilesRequest {
+  profile_ids: string[];
+}
+
+export interface BulkDeleteProfilesResponse {
+  success: boolean;
+  deleted_count: number;
+  failed_profiles: string[];
+  message: string;
 }
 
 export const composioApi = {
@@ -304,6 +346,72 @@ export const composioApi = {
 
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get toolkit details');
+    }
+
+    return result.data!;
+  },
+
+  async getTools(toolkitSlug: string, limit: number = 50): Promise<ComposioToolsResponse> {
+    const result = await backendApi.post<ComposioToolsResponse>(
+      `/composio/tools/list`,
+      {
+        toolkit_slug: toolkitSlug,
+        limit
+      },
+      {
+        errorContext: { operation: 'get tools', resource: 'Composio tools' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get tools');
+    }
+
+    return result.data!;
+  },
+
+  async deleteProfile(profileId: string): Promise<DeleteProfileResponse> {
+    const result = await backendApi.delete<DeleteProfileResponse>(
+      `/secure-mcp/credential-profiles/${profileId}`,
+      {
+        errorContext: { operation: 'delete profile', resource: 'Composio profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to delete profile');
+    }
+
+    return result.data!;
+  },
+
+  async bulkDeleteProfiles(profileIds: string[]): Promise<BulkDeleteProfilesResponse> {
+    const result = await backendApi.post<BulkDeleteProfilesResponse>(
+      '/secure-mcp/credential-profiles/bulk-delete',
+      { profile_ids: profileIds },
+      {
+        errorContext: { operation: 'bulk delete profiles', resource: 'Composio profiles' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to bulk delete profiles');
+    }
+
+    return result.data!;
+  },
+
+  async setDefaultProfile(profileId: string): Promise<{ message: string }> {
+    const result = await backendApi.put<{ message: string }>(
+      `/secure-mcp/credential-profiles/${profileId}/set-default`,
+      {},
+      {
+        errorContext: { operation: 'set default profile', resource: 'Composio profile' },
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to set default profile');
     }
 
     return result.data!;
