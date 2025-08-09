@@ -107,7 +107,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "create_workflow",
-            "description": "Create a new workflow for the agent. Workflows define structured, multi-step processes that the agent can execute. Tool names in steps will be validated against available tools.",
+            "description": "Create a new workflow for the agent. NOTE: For playbooks, prefer 'create_playbook'. If you still use this, include a Start node with a single child step whose config.playbook contains { template, variables }.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -135,7 +135,7 @@ class WorkflowTool(AgentBuilderBaseTool):
                     },
                     "steps": {
                         "type": "array",
-                        "description": "List of steps in the workflow. Each step defines an action or instruction.",
+                        "description": "List of steps. For playbooks: Start node (order=0) with one child step (order=1) where step.config.playbook = { template: string, variables: [{key,label,required}] }.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -155,7 +155,7 @@ class WorkflowTool(AgentBuilderBaseTool):
                                 },
                                 "config": {
                                     "type": "object",
-                                    "description": "Configuration for the step. For tool steps, include 'tool_name'. For conditions, include logic details.",
+                                    "description": "Configuration for the step. For tools include 'tool_name'. For playbooks include 'playbook' with { template, variables }.",
                                     "additionalProperties": True
                                 },
                                 "conditions": {
@@ -182,32 +182,34 @@ class WorkflowTool(AgentBuilderBaseTool):
         }
     })
     @usage_example('''
+        # Preferred for playbooks: use create_playbook.
+        # If using create_workflow for a playbook, use this structure:
         <function_calls>
         <invoke name="create_workflow">
-        <parameter name="name">Research and Report</parameter>
-        <parameter name="description">Conducts research on a topic and creates a comprehensive report</parameter>
-        <parameter name="trigger_phrase">research report</parameter>
+        <parameter name="name">Company Research Playbook</parameter>
+        <parameter name="description">Research companies and update sheets</parameter>
         <parameter name="steps">[
           {
-            "name": "Gather Information",
-            "description": "Search for relevant information on the topic",
-            "type": "tool",
-            "config": {"tool_name": "web_search"},
-            "order": 1
-          },
-          {
-            "name": "Analyze Data",
-            "description": "Process and analyze the gathered information",
+            "id": "start-node",
+            "name": "Start",
+            "description": "Click to add steps or use the Add Node button",
             "type": "instruction",
             "config": {},
-            "order": 2
-          },
-          {
-            "name": "Create Report",
-            "description": "Generate a comprehensive report document",
-            "type": "tool",
-            "config": {"tool_name": "create_file"},
-            "order": 3
+            "order": 0,
+            "children": [
+              {
+                "id": "playbook-exec",
+                "name": "Execute Playbook",
+                "type": "instruction",
+                "order": 1,
+                "config": {
+                  "playbook": {
+                    "template": "Do X then Y using {{var1}} and {{var2}}",
+                    "variables": [{"key": "var1", "label": "Var 1", "required": true}, {"key": "var2", "label": "Var 2", "required": true}]
+                  }
+                }
+              }
+            ]
           }
         ]</parameter>
         </invoke>
@@ -335,7 +337,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "update_workflow",
-            "description": "Update an existing workflow. You can modify any aspect of the workflow including name, description, steps, or status. Tool names in steps will be validated if validation is enabled.",
+            "description": "Update an existing workflow or playbook. For playbooks, the first child under Start should contain config.playbook { template, variables }.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -371,7 +373,7 @@ class WorkflowTool(AgentBuilderBaseTool):
                     },
                     "steps": {
                         "type": "array",
-                        "description": "New steps for the workflow",
+                        "description": "New steps. For playbooks, follow the Start + Execute Playbook structure with config.playbook.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -576,7 +578,7 @@ class WorkflowTool(AgentBuilderBaseTool):
     def _convert_steps_to_json(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not steps:
             return []
-        
+
         result = []
         for step in steps:
             step_dict = {
@@ -587,10 +589,137 @@ class WorkflowTool(AgentBuilderBaseTool):
                 'conditions': step.get('conditions'),
                 'order': step.get('order', 0)
             }
-            
+
+            # Preserve identifiers to avoid breaking frontends/editors
+            if 'id' in step and step.get('id'):
+                step_dict['id'] = step['id']
+            if 'parentConditionalId' in step and step.get('parentConditionalId'):
+                step_dict['parentConditionalId'] = step['parentConditionalId']
+
             if step.get('children'):
                 step_dict['children'] = self._convert_steps_to_json(step['children'])
-            
+
             result.append(step_dict)
-        
+
         return result
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "create_playbook",
+            "description": "Create a new playbook stored as a workflow. The playbook template and variables are saved inside the first step's config (config.playbook).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the playbook"
+                    },
+                    "template": {
+                        "type": "string",
+                        "description": "Playbook instructions text. Use {{variable}} tokens."
+                    },
+                    "variables": {
+                        "type": "array",
+                        "description": "Optional variable specs; all treated as strings currently",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {"type": "string"},
+                                "label": {"type": "string"},
+                                "required": {"type": "boolean", "default": True}
+                            },
+                            "required": ["key"]
+                        },
+                        "default": []
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional short description (will auto-summarize if omitted)"
+                    },
+                    "is_default": {
+                        "type": "boolean",
+                        "description": "Whether this should be the default workflow",
+                        "default": False
+                    }
+                },
+                "required": ["name", "template"]
+            }
+        }
+    })
+    async def create_playbook(
+        self,
+        name: str,
+        template: str,
+        variables: Optional[List[Dict[str, Any]]] = None,
+        description: Optional[str] = None,
+        is_default: bool = False,
+    ) -> ToolResult:
+        """Create a workflow representing a playbook with Start node + Execute Playbook child."""
+        try:
+            client = await self.db.client
+
+            variables = variables or []
+
+            # Build steps structure
+            playbook_step = {
+                'id': 'playbook-exec',
+                'name': 'Execute Playbook',
+                'description': 'Execute the playbook template using provided variables.',
+                'type': 'instruction',
+                'config': {
+                    'playbook': {
+                        'template': template,
+                        'variables': variables,
+                    }
+                },
+                'order': 1,
+                'children': []
+            }
+
+            start_node = {
+                'id': 'start-node',
+                'name': 'Start',
+                'description': 'Click to add steps or use the Add Node button',
+                'type': 'instruction',
+                'config': {},
+                'order': 0,
+                'children': [playbook_step]
+            }
+
+            steps_json = self._convert_steps_to_json([start_node])
+
+            def _summarize(text: str) -> str:
+                s = (text or '').strip().replace('\n', ' ')
+                return s[:160] + ('…' if len(s) > 160 else '')
+
+            workflow_data = {
+                'agent_id': self.agent_id,
+                'name': name,
+                'description': description if description is not None else _summarize(template),
+                'trigger_phrase': None,
+                'is_default': is_default,
+                'status': 'draft',
+                'steps': steps_json,
+            }
+
+            result = await client.table('agent_workflows').insert(workflow_data).execute()
+            if not result.data:
+                return self.fail_response("Failed to create playbook workflow")
+
+            workflow = result.data[0]
+            return self.success_response({
+                "message": f"Playbook '{name}' created successfully",
+                "workflow": {
+                    "id": workflow["id"],
+                    "name": workflow["name"],
+                    "description": workflow.get("description"),
+                    "is_default": workflow["is_default"],
+                    "status": workflow["status"],
+                    "steps_count": len(steps_json),
+                    "created_at": workflow["created_at"],
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error creating playbook: {e}")
+            return self.fail_response(f"Error creating playbook: {str(e)}")
