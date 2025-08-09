@@ -31,6 +31,10 @@ import { useAgentStream } from '@/hooks/useAgentStream';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
 import { extractToolName } from '@/components/thread/tool-views/xml-parser';
 
+// Memoized components
+const MemoizedToolCallSidePanel = React.memo(ToolCallSidePanel);
+const MemoizedFileViewerModal = React.memo(FileViewerModal);
+
 const threadErrorCodeMessages: Record<string, string> = {
   PGRST116: 'The requested chat does not exist, has been deleted, or you do not have access to it.',
 };
@@ -177,7 +181,7 @@ export default function ThreadPage({
           break;
       }
     },
-    [threadId],
+    [],
   );
 
   const handleStreamError = useCallback((errorMessage: string) => {
@@ -284,32 +288,32 @@ export default function ThreadPage({
     [],
   );
 
-  useEffect(() => {
-    if (!isPlaying || messages.length === 0) return;
+  // useEffect(() => {
+  //   if (!isPlaying || messages.length === 0) return;
 
-    let playbackTimeout: NodeJS.Timeout;
+  //   let playbackTimeout: NodeJS.Timeout;
 
-    const playbackNextMessage = async () => {
-      if (currentMessageIndex >= messages.length) {
-        setIsPlaying(false);
-        return;
-      }
+  //   const playbackNextMessage = async () => {
+  //     if (currentMessageIndex >= messages.length) {
+  //       setIsPlaying(false);
+  //       return;
+  //     }
 
-      const currentMessage = messages[currentMessageIndex];
-      console.log(
-        `Playing message ${currentMessageIndex}:`,
-        currentMessage.type,
-        currentMessage.message_id,
-      );
+  //     const currentMessage = messages[currentMessageIndex];
+  //     console.log(
+  //       `Playing message ${currentMessageIndex}:`,
+  //       currentMessage.type,
+  //       currentMessage.message_id,
+  //     );
 
-      setCurrentMessageIndex((prevIndex) => prevIndex + 1);
-    };
-    playbackTimeout = setTimeout(playbackNextMessage, 500);
+  //     setCurrentMessageIndex((prevIndex) => prevIndex + 1);
+  //   };
+  //   playbackTimeout = setTimeout(playbackNextMessage, 500);
 
-    return () => {
-      clearTimeout(playbackTimeout);
-    };
-  }, [isPlaying, currentMessageIndex, messages]);
+  //   return () => {
+  //     clearTimeout(playbackTimeout);
+  //   };
+  // }, [isPlaying, currentMessageIndex, messages]);
 
   const {
     status: streamHookStatus,
@@ -804,7 +808,7 @@ export default function ThreadPage({
         {renderFloatingControls()}
       </div>
 
-      <ToolCallSidePanel
+      <MemoizedToolCallSidePanel
         isOpen={isSidePanelOpen}
         onClose={() => {
           setIsSidePanelOpen(false);
@@ -820,7 +824,7 @@ export default function ThreadPage({
         onFileClick={handleOpenFileViewer}
       />
 
-      <FileViewerModal
+      <MemoizedFileViewerModal
         open={fileViewerOpen}
         onOpenChange={setFileViewerOpen}
         sandboxId={sandboxId || ''}

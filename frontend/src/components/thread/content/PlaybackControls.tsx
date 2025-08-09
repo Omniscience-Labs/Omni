@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, ArrowDown, FileText, Info, ArrowUp } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  ArrowDown,
+  FileText,
+  PanelRightOpen,
+  ArrowUp,
+} from 'lucide-react';
 import { UnifiedMessage } from '@/components/thread/types';
 import { safeJsonParse } from '@/components/thread/utils';
 import Link from 'next/link';
@@ -95,6 +102,8 @@ export const PlaybackControls = ({
     toolPlaybackIndex,
   } = playbackState;
 
+  const playbackTimeout = useRef<NodeJS.Timeout | null>(null);
+
   // Helper function to update playback state
   const updatePlaybackState = useCallback((updates: Partial<PlaybackState>) => {
     setPlaybackState((prev) => ({ ...prev, ...updates }));
@@ -123,6 +132,12 @@ export const PlaybackControls = ({
       toolPlaybackIndex: -1,
     });
     setCurrentToolIndex(-1);
+
+    if (playbackTimeout.current) {
+      clearTimeout(playbackTimeout.current);
+    }
+
+    // If the side panel is open, close it
     if (isSidePanelOpen) {
       onToggleSidePanel();
     }
@@ -140,6 +155,10 @@ export const PlaybackControls = ({
         messages.length,
       );
 
+      if (!isSidePanelOpen) {
+        onToggleSidePanel();
+      }
+
       // If we're moving to a new message, update the visible messages
       if (newMessageIndex > currentMessageIndex) {
         const newVisibleMessages = messages.slice(0, newMessageIndex);
@@ -156,7 +175,13 @@ export const PlaybackControls = ({
         updatePlaybackState({ isPlaying: false });
       }
     },
-    [currentMessageIndex, messages, updatePlaybackState],
+    [
+      currentMessageIndex,
+      messages,
+      isSidePanelOpen,
+      onToggleSidePanel,
+      updatePlaybackState,
+    ],
   );
 
   const skipToEnd = useCallback(() => {
@@ -375,7 +400,6 @@ export const PlaybackControls = ({
   useEffect(() => {
     if (!isPlaying || messages.length === 0) return;
 
-    let playbackTimeout: NodeJS.Timeout;
     let cleanupStreaming: (() => void) | undefined;
 
     const playbackNextMessage = async () => {
@@ -430,10 +454,10 @@ export const PlaybackControls = ({
     };
 
     // Start playback with a small delay
-    playbackTimeout = setTimeout(playbackNextMessage, 500);
+    playbackTimeout.current = setTimeout(playbackNextMessage, 500);
 
     return () => {
-      clearTimeout(playbackTimeout);
+      clearTimeout(playbackTimeout.current);
       if (cleanupStreaming) cleanupStreaming();
     };
   }, [
@@ -537,7 +561,7 @@ export const PlaybackControls = ({
               className={`h-8 w-8 ${isSidePanelOpen ? 'text-primary' : ''}`}
               aria-label="Toggle Tool Panel"
             >
-              <Info className="h-4 w-4" />
+              <PanelRightOpen className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -588,8 +612,7 @@ export const PlaybackControls = ({
       currentMessageIndex,
       messages.length,
       skipToEnd,
-      togglePlayback,
-      isPlaying,
+      PlayButton,
       ResetButton,
       ForwardButton,
     ],
