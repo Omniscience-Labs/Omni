@@ -325,15 +325,22 @@ async def install_template(
     request: InstallTemplateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """
-    Install a template as a new agent instance.
-    
-    Requires:
-    - User must have access to the template (own it or it's public)
-    """
     try:
-        # Validate template access first
-        template = await validate_template_access_and_get(request.template_id, user_id)
+        await validate_template_access_and_get(request.template_id, user_id)
+        client = await db.client
+        from agent.utils import check_agent_count_limit
+        limit_check = await check_agent_count_limit(client, user_id)
+        
+        if not limit_check['can_create']:
+            error_detail = {
+                "message": f"Maximum of {limit_check['limit']} agents allowed for your current plan. You have {limit_check['current_count']} agents.",
+                "current_count": limit_check['current_count'],
+                "limit": limit_check['limit'],
+                "tier_name": limit_check['tier_name'],
+                "error_code": "AGENT_LIMIT_EXCEEDED"
+            }
+            logger.warning(f"Agent limit exceeded for account {user_id}: {limit_check['current_count']}/{limit_check['limit']} agents")
+            raise HTTPException(status_code=402, detail=error_detail)
         
         logger.info(f"User {user_id} installing template {request.template_id}")
         
@@ -362,7 +369,6 @@ async def install_template(
         )
         
     except HTTPException:
-        # Re-raise HTTP exceptions from our validation functions
         raise
     except TemplateInstallationError as e:
         logger.warning(f"Template installation failed: {e}")

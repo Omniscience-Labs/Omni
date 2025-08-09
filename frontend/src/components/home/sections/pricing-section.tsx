@@ -566,7 +566,7 @@ function PricingTier({
           variant={buttonVariant || 'default'}
           className={cn(
             'w-full font-medium transition-all duration-200',
-            isCompact || insideDialog ? 'h-8 rounded-md text-xs' : 'h-10 rounded-full text-sm',
+            isCompact || insideDialog ? 'h-8 text-xs' : 'h-10 rounded-full text-sm',
             buttonClassName,
             isPlanLoading && 'animate-pulse',
           )}
@@ -584,13 +584,17 @@ interface PricingSectionProps {
   showTitleAndTabs?: boolean;
   hideFree?: boolean;
   insideDialog?: boolean;
+  showInfo?: boolean;
+  noPadding?: boolean;
 }
 
 export function PricingSection({
   returnUrl = typeof window !== 'undefined' ? window.location.href : '/',
   showTitleAndTabs = true,
   hideFree = false,
-  insideDialog = false
+  insideDialog = false,
+  showInfo = true,
+  noPadding = false,
 }: PricingSectionProps) {
   const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
     'cloud',
@@ -598,18 +602,14 @@ export function PricingSection({
   const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription();
   const subCommitmentQuery = useSubscriptionCommitment(subscriptionData?.subscription_id);
 
-  // Derive authentication and subscription status from the hook data
   const isAuthenticated = !!subscriptionData && subscriptionQueryError === null;
   const currentSubscription = subscriptionData || null;
 
-  // Determine default billing period based on user's current subscription
   const getDefaultBillingPeriod = useCallback((): 'monthly' | 'yearly' | 'yearly_commitment' => {
     if (!isAuthenticated || !currentSubscription) {
-      // Default to yearly_commitment for non-authenticated users (the new yearly plans)
       return 'yearly_commitment';
     }
 
-    // Find current tier to determine if user is on monthly, yearly, or yearly commitment plan
     const currentTier = siteConfig.cloudPricingItems.find(
       (p) => p.stripePriceId === currentSubscription.price_id || 
              p.yearlyStripePriceId === currentSubscription.price_id ||
@@ -685,7 +685,7 @@ export function PricingSection({
   return (
     <section
       id="pricing"
-      className={cn("flex flex-col items-center justify-center gap-10 w-full relative pb-12")}
+      className={cn("flex flex-col items-center justify-center gap-10 w-full relative", noPadding ? "pb-0" : "pb-12")}
     >
       {showTitleAndTabs && (
         <>
@@ -747,14 +747,15 @@ export function PricingSection({
             ))}
         </div>
       )}
-       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-2xl mx-auto">
-                <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                  <strong>What are AI tokens?</strong> Tokens are units of text that AI models process. 
-                  Your plan includes credits to spend on various AI models - the more complex the task, 
-                  the more tokens used.
-                </p>
-              </div>
-
+      {showInfo && (
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-2xl mx-auto">
+          <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+            <strong>What are AI tokens?</strong> Tokens are units of text that AI models process. 
+            Your plan includes credits to spend on various AI models - the more complex the task, 
+            the more tokens used.
+          </p>
+        </div>
+      )}
     </section>
 
   );
