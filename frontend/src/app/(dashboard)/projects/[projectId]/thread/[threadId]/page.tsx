@@ -27,8 +27,9 @@ import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_type
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
 import { useVncPreloader } from '@/hooks/useVncPreloader';
-import { useThreadAgent } from '@/hooks/react-query/agents/use-agents';
+import { useThreadAgent, useAgents } from '@/hooks/react-query/agents/use-agents';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 export default function ThreadPage({
   params,
@@ -52,7 +53,17 @@ export default function ThreadPage({
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [initialPanelOpenAttempted, setInitialPanelOpenAttempted] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
+  // Use Zustand store for agent selection persistence
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents,
+    getCurrentAgent,
+    isSunaAgent 
+  } = useAgentSelection();
+  
+  const { data: agentsResponse } = useAgents();
+  const agents = agentsResponse?.agents || [];
   const [isSidePanelAnimating, setIsSidePanelAnimating] = useState(false);
   const [userInitiatedRun, setUserInitiatedRun] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -134,12 +145,13 @@ export default function ThreadPage({
   const agent = threadAgentData?.agent;
   const workflowId = threadQuery.data?.metadata?.workflow_id;
 
-  // Set initial selected agent from thread data
+  // Initialize agent selection from thread data and agents list
   useEffect(() => {
-    if (threadAgentData?.agent && !selectedAgentId) {
-      setSelectedAgentId(threadAgentData.agent.agent_id);
+    if (agents.length > 0) {
+      const threadAgentId = threadAgentData?.agent?.agent_id;
+      initializeFromAgents(agents, threadAgentId);
     }
-  }, [threadAgentData, selectedAgentId]);
+  }, [threadAgentData, agents, initializeFromAgents]);
 
   const { data: subscriptionData } = useSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
@@ -735,7 +747,7 @@ export default function ThreadPage({
               messages={messages}
               agentName={agent && agent.name}
               selectedAgentId={selectedAgentId}
-              onAgentSelect={setSelectedAgentId}
+              onAgentSelect={setSelectedAgent}
               toolCalls={toolCalls}
               toolCallIndex={currentToolIndex}
               showToolPreview={!isSidePanelOpen && toolCalls.length > 0}

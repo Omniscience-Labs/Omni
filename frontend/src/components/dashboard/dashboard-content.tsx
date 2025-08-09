@@ -29,6 +29,7 @@ import { ModalProviders } from '@/providers/modal-providers';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
@@ -43,7 +44,12 @@ export function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents,
+    getCurrentAgent
+  } = useAgentSelection();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
@@ -82,15 +88,22 @@ export function DashboardContent() {
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
+  // Initialize agent selection from agents list
+  useEffect(() => {
+    if (agents.length > 0) {
+      initializeFromAgents(agents);
+    }
+  }, [agents, initializeFromAgents]);
+
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');
     if (agentIdFromUrl && agentIdFromUrl !== selectedAgentId) {
-      setSelectedAgentId(agentIdFromUrl);
+      setSelectedAgent(agentIdFromUrl);
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('agent_id');
       router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
-  }, [searchParams, selectedAgentId, router]);
+  }, [searchParams, selectedAgentId, router, setSelectedAgent]);
 
   useEffect(() => {
     if (threadQuery.data && initiatedThreadId) {
@@ -224,8 +237,8 @@ export function DashboardContent() {
           </div>
         )}
         <div className={cn(
-          "flex flex-col min-h-screen px-4",
-          customAgentsEnabled ? "items-center pt-20" : "items-center justify-center"
+          "flex flex-col min-h-screen px-4 items-center justify-center",
+          // customAgentsEnabled ? "items-center pt-20" : "items-center justify-center"
         )}>
           <div className="w-[650px] max-w-[90%]">
             <div className="flex flex-col items-center text-center w-full">
@@ -247,7 +260,7 @@ export function DashboardContent() {
                 onChange={setInputValue}
                 hideAttachments={false}
                 selectedAgentId={selectedAgentId}
-                onAgentSelect={setSelectedAgentId}
+                onAgentSelect={setSelectedAgent}
                 enableAdvancedConfig={true}
                 onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
               />
@@ -255,13 +268,13 @@ export function DashboardContent() {
             <Examples onSelectPrompt={setInputValue} />
           </div>
           
-          {customAgentsEnabled && (
+          {/* {customAgentsEnabled && (
             <div className="w-full max-w-none mt-16 mb-8">
               <CustomAgentsSection 
                 onAgentSelect={setSelectedAgentId}
               />
             </div>
-          )}
+          )} */}
         </div>
         <BillingErrorAlert
           message={billingError?.message}
