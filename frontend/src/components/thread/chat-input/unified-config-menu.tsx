@@ -68,7 +68,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
     const [customModels, setCustomModels] = useState<Array<{ id: string; label: string }>>([]);
 
-    const { data: agentsResponse } = useAgents();
+    const { data: agentsResponse } = useAgents({}, { enabled: true });
     const agents: any[] = agentsResponse?.agents || [];
 
     // Quick integrations icons
@@ -571,261 +571,33 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     );
 };
 
-const GuestMenu: React.FC<UnifiedConfigMenuProps> = ({
-    selectedModel,
-    onModelChange,
-    modelOptions,
-    canAccessModel,
-    onUpgradeRequest,
-}) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const searchInputRef = useRef<HTMLInputElement>(null);
-    const [isCustomModelDialogOpen, setIsCustomModelDialogOpen] = useState(false);
-    const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
-    const [customModels, setCustomModels] = useState<Array<{ id: string; label: string }>>([]);
-
-    useEffect(() => {
-        if (isOpen) setTimeout(() => searchInputRef.current?.focus(), 30);
-        else setSearchQuery('');
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (isLocalMode()) {
-            setCustomModels(getCustomModels());
-        }
-    }, []);
-
-    const topModels = useMemo(() => {
-        const base = modelOptions.filter(m => m.top === true);
-        const filtered = base.filter(m =>
-            m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            m.id.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        const accessibleOnly = filtered.filter(m => canAccessModel(m.id));
-        return accessibleOnly.slice(0, 3);
-    }, [modelOptions, searchQuery, canAccessModel]);
-
-    const handleModelClick = (modelId: string) => {
-        if (!canAccessModel(modelId)) return;
-        onModelChange(modelId);
-        setIsOpen(false);
-    };
-
-    const handleUpgradeClick = () => {
-        if (onUpgradeRequest) {
-            onUpgradeRequest();
-            return;
-        }
-        if (typeof window !== 'undefined') {
-            window.open('/dashboard/settings/billing', '_blank');
-        }
-    };
-
-    const openAddCustomModelDialog = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setDialogInitialData({ id: '', label: '' });
-        setIsCustomModelDialogOpen(true);
-        setIsOpen(false);
-    };
-
-    const closeCustomModelDialog = () => {
-        setIsCustomModelDialogOpen(false);
-        setDialogInitialData({ id: '', label: '' });
-    };
-
-    const handleSaveCustomModel = (formData: CustomModelFormData) => {
-        const modelIdRaw = formData.id.trim();
-        if (!modelIdRaw) return;
-        const modelId = modelIdRaw;
-        const displayId = modelId.startsWith('openrouter/') ? modelId.replace('openrouter/', '') : modelId;
-        const modelLabel = formData.label.trim() || formatModelName(displayId);
-
-        const newModel = { id: modelId, label: modelLabel };
-        const updatedModels = [...customModels.filter(m => m.id !== modelId), newModel];
-        try {
-            localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(updatedModels));
-        } catch { }
-        setCustomModels(updatedModels);
-        onModelChange(modelId);
-        try {
-            localStorage.setItem(STORAGE_KEY_MODEL, modelId);
-        } catch { }
-        closeCustomModelDialog();
-    };
-
-    const combinedModels: ModelOption[] = useMemo(() => {
-        if (!isLocalMode()) return modelOptions;
-        const baseIds = new Set(modelOptions.map(m => m.id));
-        const customs: ModelOption[] = customModels
-            .filter(cm => !baseIds.has(cm.id))
-            .map(cm => ({ id: cm.id, label: cm.label || formatModelName(cm.id), requiresSubscription: false, top: false }));
-        return [...modelOptions, ...customs];
-    }, [modelOptions, customModels]);
-
+const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
     return (
-        <>
-            <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-                <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 bg-transparent border-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-1.5"
-                    >
-                        <div className="flex items-center gap-1.5">
-                            <Cpu className="h-4 w-4" />
-                            <ChevronDown size={12} className="opacity-60" />
-                        </div>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 p-0" sideOffset={6}>
-                    <div className="p-2">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                placeholder="Search..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-8 pl-8 pr-2 rounded-lg text-sm bg-muted focus:outline-none"
-                            />
-                        </div>
-                    </div>
-                    <div className="px-1.5">
-                        <div className="px-3 py-1 text-[11px] font-medium text-muted-foreground">Models</div>
-                        {topModels.map((m, idx) => (
-                            <DropdownMenuItem
-                                key={`${m.id}-${idx}`}
-                                className={cn('text-sm px-3 py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer rounded-lg')}
-                                onClick={() => handleModelClick(m.id)}
-                            >
-                                <span className="truncate">{m.label}</span>
-                                {selectedModel === m.id && <Check className="h-4 w-4 text-blue-500" />}
-                            </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="flex items-center rounded-lg gap-2 px-3 py-2 mx-0 my-0.5">
-                                <span className="font-medium">All models</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent className="w-72 rounded-xl">
-                                    <div className="max-h-80 overflow-y-auto">
-                                        {isLocalMode() && (<div className="px-3 py-2 text-xs font-medium text-muted-foreground flex items-center justify-between">
-                                            <span>All Models</span>
-
-                                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={openAddCustomModelDialog}>
-                                                <Plus className="h-3.5 w-3.5" />
-                                            </Button>
-
-                                        </div>
-                                        )}
-                                        <div className="pb-2">
-                                            {isLocalMode() ? (
-                                                <div>
-                                                    {combinedModels.map((m, index) => (
-                                                        <DropdownMenuItem
-                                                            key={`${m.id}-${index}`}
-                                                            className={cn('text-sm px-3 py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer rounded-lg')}
-                                                            onClick={() => handleModelClick(m.id)}
-                                                        >
-                                                            <span className="truncate">{m.label}</span>
-                                                            {selectedModel === m.id && <Check className="h-4 w-4 text-blue-500" />}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Available Models</div>
-                                                    {combinedModels
-                                                        .filter(m => !m.requiresSubscription)
-                                                        .map((m, index) => (
-                                                            <DropdownMenuItem
-                                                                key={`${m.id}-${index}`}
-                                                                className={cn('text-sm px-3 py-2 mx-0 my-0.5 flex items-center justify-between cursor-pointer rounded-lg')}
-                                                                onClick={() => handleModelClick(m.id)}
-                                                            >
-                                                                <span className="truncate">{m.label}</span>
-                                                                <div className="flex items-center gap-2">
-                                                                    {MODELS[m.id]?.recommended && (
-                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">Recommended</span>
-                                                                    )}
-                                                                    {selectedModel === m.id && <Check className="h-4 w-4 text-blue-500" />}
-                                                                </div>
-                                                            </DropdownMenuItem>
-                                                        ))}
-
-                                                    <div className="mt-2 border-t border-border pt-2">
-                                                        <div className="px-3 py-1.5 text-xs font-medium text-blue-500 flex items-center">
-                                                            <Crown className="h-3.5 w-3.5 mr-1.5" />
-                                                            Additional Models
-                                                        </div>
-                                                        <div className="relative h-40 overflow-hidden px-1.5">
-                                                            {combinedModels
-                                                                .filter(m => m.requiresSubscription)
-                                                                .slice(0, 3)
-                                                                .map((model, index) => (
-                                                                    <TooltipProvider key={`model-${model.id}-${index}`}>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger asChild>
-                                                                                <div className='w-full'>
-                                                                                    <DropdownMenuItem className="text-sm px-3 rounded-lg py-2 mx-1.5 my-0.5 flex items-center justify-between opacity-70 cursor-pointer pointer-events-none">
-                                                                                        <div className="flex items-center">
-                                                                                            <span className="font-medium">{model.label}</span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            {MODELS[model.id]?.recommended && (
-                                                                                                <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium whitespace-nowrap">Recommended</span>
-                                                                                            )}
-                                                                                            <Crown className="h-3.5 w-3.5 text-blue-500" />
-                                                                                        </div>
-                                                                                    </DropdownMenuItem>
-                                                                                </div>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent side="left" className="text-xs max-w-xs">
-                                                                                <p>Requires subscription to access premium model</p>
-                                                                            </TooltipContent>
-                                                                        </Tooltip>
-                                                                    </TooltipProvider>
-                                                                ))}
-
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent flex items-end justify-center">
-                                                                <div className="w-full p-3">
-                                                                    <div className="rounded-xl bg-gradient-to-br from-blue-50/80 to-blue-200/70 dark:from-blue-950/40 dark:to-blue-900/30 shadow-sm border border-blue-200/50 dark:border-blue-800/50 p-3">
-                                                                        <div className="flex flex-col space-y-2">
-                                                                            <div className="flex items-center">
-                                                                                <Crown className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
-                                                                                <div>
-                                                                                    <p className="text-sm font-medium">Unlock all models + higher limits</p>
-                                                                                </div>
-                                                                            </div>
-                                                                            <Button size="sm" className="w-full h-8 font-medium" onClick={handleUpgradeClick}>
-                                                                                Upgrade now
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                    </div>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <CustomModelDialog
-                isOpen={isCustomModelDialogOpen}
-                onClose={closeCustomModelDialog}
-                onSave={handleSaveCustomModel}
-                initialData={dialogInitialData}
-                mode={"add"}
-            />
-        </>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 bg-transparent border-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-1.5 cursor-not-allowed opacity-80 pointer-events-none"
+                            disabled
+                        >
+                            <div className="flex items-center gap-2 max-w-[160px]">
+                                <div className="flex-shrink-0">
+                                    <KortixLogo size={16} />
+                                </div>
+                                <span className="truncate text-sm">Suna</span>
+                                <ChevronDown size={12} className="opacity-60" />
+                            </div>
+                        </Button>
+                    </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                    <p>Log in to change agent</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     );
 };
 
