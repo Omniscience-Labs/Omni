@@ -42,6 +42,7 @@ export interface PlaybackController {
   togglePlayback: () => void;
   resetPlayback: () => void;
   skipToEnd: () => void;
+  forward: (step?: number) => void;
 }
 
 export const PlaybackControls = ({
@@ -615,6 +616,7 @@ export const PlaybackControls = ({
     togglePlayback,
     resetPlayback,
     skipToEnd,
+    forward,
   };
 };
 
