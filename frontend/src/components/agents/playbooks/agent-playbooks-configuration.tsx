@@ -9,7 +9,7 @@ import { useAgentWorkflows, useDeleteAgentWorkflow } from '@/hooks/react-query/a
 import type { AgentWorkflow } from '@/hooks/react-query/agents/workflow-utils';
 import { PlaybookCreateModal } from '@/components/playbooks/playbook-create-modal';
 import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-dialog';
-import { toast } from 'sonner';
+import { DeleteConfirmationDialog } from '@/components/thread/DeleteConfirmationDialog';
 
 interface AgentPlaybooksConfigurationProps {
     agentId: string;
@@ -38,13 +38,21 @@ export function AgentPlaybooksConfiguration({ agentId, agentName }: AgentPlayboo
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editing, setEditing] = useState<AgentWorkflow | null>(null);
     const [executing, setExecuting] = useState<AgentWorkflow | null>(null);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [toDelete, setToDelete] = useState<AgentWorkflow | null>(null);
 
-    const handleDelete = async (w: AgentWorkflow) => {
+    const handleDelete = (w: AgentWorkflow) => {
+        setToDelete(w);
+        setIsDeleteOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!toDelete) return;
         try {
-            await deleteWorkflowMutation.mutateAsync({ agentId, workflowId: w.id });
-            toast.success('Deleted');
-        } catch (e) {
-            toast.error('Failed to delete');
+            await deleteWorkflowMutation.mutateAsync({ agentId, workflowId: toDelete.id });
+        } finally {
+            setIsDeleteOpen(false);
+            setToDelete(null);
         }
     };
 
@@ -112,6 +120,14 @@ export function AgentPlaybooksConfiguration({ agentId, agentName }: AgentPlayboo
                     playbook={executing}
                 />
             )}
+
+            <DeleteConfirmationDialog
+                isOpen={isDeleteOpen}
+                onClose={() => { if (!deleteWorkflowMutation.isPending) { setIsDeleteOpen(false); setToDelete(null); } }}
+                onConfirm={confirmDelete}
+                threadName={toDelete?.name ?? ''}
+                isDeleting={deleteWorkflowMutation.isPending}
+            />
         </div>
     );
 }
