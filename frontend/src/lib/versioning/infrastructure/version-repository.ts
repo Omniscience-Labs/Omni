@@ -16,6 +16,7 @@ export class ApiVersionRepository implements IVersionRepository {
       versionNumber: { value: response.version_number },
       versionName: response.version_name,
       systemPrompt: response.system_prompt,
+      model: response.model,
       configuredMcps: (response.configured_mcps || []).map(mcp => ({
         name: mcp.name,
         type: mcp.type || 'sse',

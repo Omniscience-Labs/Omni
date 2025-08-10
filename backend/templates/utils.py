@@ -123,6 +123,7 @@ def format_template_for_response(template: AgentTemplate) -> Dict[str, Any]:
         'name': template.name,
         'description': template.description,
         'system_prompt': template.system_prompt,
+        'model': template.config.get('model'),
         'mcp_requirements': format_mcp_requirements_for_response(template.mcp_requirements),
         'agentpress_tools': template.agentpress_tools,
         'tags': template.tags,

@@ -31,6 +31,7 @@ export interface AgentVersion {
   versionNumber: VersionNumber;
   versionName: string;
   systemPrompt: string;
+  model?: string;
   configuredMcps: MCPConfiguration[];
   customMcps: MCPConfiguration[];
   toolConfiguration: ToolConfiguration;
@@ -57,6 +58,7 @@ export interface VersionComparison {
 
 export interface CreateVersionRequest {
   system_prompt: string;
+  model?: string;
   configured_mcps: Array<Record<string, any>>;
   custom_mcps: Array<Record<string, any>>;
   agentpress_tools: Record<string, any>;
@@ -75,6 +77,7 @@ export interface VersionResponse {
   version_number: number;
   version_name: string;
   system_prompt: string;
+  model?: string;
   configured_mcps: Array<Record<string, any>>;
   custom_mcps: Array<Record<string, any>>;
   agentpress_tools: Record<string, any>;

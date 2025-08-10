@@ -107,166 +107,126 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "create_workflow",
-            "description": "Create a new workflow for the agent. Workflows define structured, multi-step processes that the agent can execute. Tool names in steps will be validated against available tools.",
+            "description": "Create a new workflow/playbook. This stores a Start node with a single child that contains config.playbook { template, variables }.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Name of the workflow. Should be descriptive and indicate the workflow's purpose."
+                        "description": "Name of the workflow"
                     },
-                    "description": {
+                    "template": {
                         "type": "string",
-                        "description": "Brief description of what the workflow does and when it should be used."
+                        "description": "Workflow/playbook instructions text. Use {{variable}} tokens."
                     },
-                    "trigger_phrase": {
-                        "type": "string",
-                        "description": "Optional phrase that can trigger this workflow when mentioned in a conversation."
-                    },
-                    "is_default": {
-                        "type": "boolean",
-                        "description": "Whether this workflow should be the default workflow for the agent.",
-                        "default": False
-                    },
-                    "validate_tools": {
-                        "type": "boolean",
-                        "description": "Whether to validate tool names against available tools. Recommended to keep true.",
-                        "default": True
-                    },
-                    "steps": {
+                    "variables": {
                         "type": "array",
-                        "description": "List of steps in the workflow. Each step defines an action or instruction.",
+                        "description": "Optional variable specs; all treated as strings currently",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "name": {
-                                    "type": "string",
-                                    "description": "Name of the step"
-                                },
-                                "description": {
-                                    "type": "string",
-                                    "description": "Optional description of what this step does"
-                                },
-                                "type": {
-                                    "type": "string",
-                                    "enum": ["instruction", "tool", "condition"],
-                                    "description": "Type of step: 'instruction' for text instructions, 'tool' for tool calls, 'condition' for conditional logic",
-                                    "default": "instruction"
-                                },
-                                "config": {
-                                    "type": "object",
-                                    "description": "Configuration for the step. For tool steps, include 'tool_name'. For conditions, include logic details.",
-                                    "additionalProperties": True
-                                },
-                                "conditions": {
-                                    "type": "object",
-                                    "description": "Conditional logic for this step. Used with type='condition'.",
-                                    "additionalProperties": True
-                                },
-                                "order": {
-                                    "type": "integer",
-                                    "description": "Order/sequence number for this step"
-                                },
-                                "children": {
-                                    "type": "array",
-                                    "description": "Nested steps that execute when this step's condition is met",
-                                    "items": {"$ref": "#"}
-                                }
+                                "key": {"type": "string"},
+                                "label": {"type": "string"},
+                                "required": {"type": "boolean", "default": True}
                             },
-                            "required": ["name", "order"]
-                        }
+                            "required": ["key"]
+                        },
+                        "default": []
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional short description (auto-summarized from template if omitted)"
+                    },
+                    "is_default": {
+                        "type": "boolean",
+                        "description": "Whether this should be the default workflow",
+                        "default": False
                     }
                 },
-                "required": ["name", "steps"]
+                "required": ["name", "template"]
             }
         }
     })
     @usage_example('''
         <function_calls>
         <invoke name="create_workflow">
-        <parameter name="name">Research and Report</parameter>
-        <parameter name="description">Conducts research on a topic and creates a comprehensive report</parameter>
-        <parameter name="trigger_phrase">research report</parameter>
-        <parameter name="steps">[
-          {
-            "name": "Gather Information",
-            "description": "Search for relevant information on the topic",
-            "type": "tool",
-            "config": {"tool_name": "web_search"},
-            "order": 1
-          },
-          {
-            "name": "Analyze Data",
-            "description": "Process and analyze the gathered information",
-            "type": "instruction",
-            "config": {},
-            "order": 2
-          },
-          {
-            "name": "Create Report",
-            "description": "Generate a comprehensive report document",
-            "type": "tool",
-            "config": {"tool_name": "create_file"},
-            "order": 3
-          }
-        ]</parameter>
+        <parameter name="name">Company Research Playbook</parameter>
+        <parameter name="template">Research companies and update sheets using {{sheet_id}} and {{limit}}</parameter>
+        <parameter name="variables">[{"key":"sheet_id","label":"Sheet ID","required":true},{"key":"limit","label":"Row Limit","required":false}]</parameter>
         </invoke>
         </function_calls>
         ''')
     async def create_workflow(
         self,
         name: str,
-        steps: List[Dict[str, Any]],
+        template: str,
+        variables: Optional[List[Dict[str, Any]]] = None,
         description: Optional[str] = None,
-        trigger_phrase: Optional[str] = None,
         is_default: bool = False,
-        validate_tools: bool = True
     ) -> ToolResult:
         try:
             client = await self.db.client
-            
-            if not isinstance(steps, list) or len(steps) == 0:
-                return self.fail_response("Steps must be a non-empty list")
-            
-            if validate_tools:
-                available_tools = await self._get_available_tools_for_agent()
-                validation_errors = self._validate_tool_steps(steps, available_tools)
-                if validation_errors:
-                    return self.fail_response(f"Tool validation failed:\n" + "\n".join(validation_errors))
-            
-            steps_json = self._convert_steps_to_json(steps)
-            
+
+            variables = variables or []
+
+            playbook_step = {
+                'id': 'workflow-exec',
+                'name': 'Execute Workflow Template',
+                'description': 'Execute the workflow/playbook template using provided variables.',
+                'type': 'instruction',
+                'config': {
+                    'playbook': {
+                        'template': template,
+                        'variables': variables,
+                    }
+                },
+                'order': 1,
+                'children': []
+            }
+
+            start_node = {
+                'id': 'start-node',
+                'name': 'Start',
+                'description': 'Click to add steps or use the Add Node button',
+                'type': 'instruction',
+                'config': {},
+                'order': 0,
+                'children': [playbook_step]
+            }
+
+            steps_json = self._convert_steps_to_json([start_node])
+
+            def _summarize(text: str) -> str:
+                s = (text or '').strip().replace('\n', ' ')
+                return s[:160] + ('…' if len(s) > 160 else '')
+
             workflow_data = {
                 'agent_id': self.agent_id,
                 'name': name,
-                'description': description,
-                'trigger_phrase': trigger_phrase,
+                'description': description if description is not None else _summarize(template),
+                'trigger_phrase': None,
                 'is_default': is_default,
                 'status': 'draft',
-                'steps': steps_json
+                'steps': steps_json,
             }
-            
+
             result = await client.table('agent_workflows').insert(workflow_data).execute()
-            
             if not result.data:
                 return self.fail_response("Failed to create workflow")
-            
+
             workflow = result.data[0]
-            
             return self.success_response({
                 "message": f"Workflow '{name}' created successfully",
                 "workflow": {
                     "id": workflow["id"],
                     "name": workflow["name"],
                     "description": workflow.get("description"),
-                    "trigger_phrase": workflow.get("trigger_phrase"),
                     "is_default": workflow["is_default"],
                     "status": workflow["status"],
                     "steps_count": len(steps_json),
-                    "created_at": workflow["created_at"]
+                    "created_at": workflow["created_at"],
                 }
             })
-            
         except Exception as e:
             return self.fail_response(f"Error creating workflow: {str(e)}")
 
@@ -274,7 +234,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "get_workflows",
-            "description": "Get all workflows for the current agent. Use this to see what workflows are already configured.",
+            "description": "Get all workflows/playbooks for the current agent. Use this to see what workflows are already configured.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -335,7 +295,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "update_workflow",
-            "description": "Update an existing workflow. You can modify any aspect of the workflow including name, description, steps, or status. Tool names in steps will be validated if validation is enabled.",
+            "description": "Update an existing workflow or playbook. For playbooks, the first child under Start should contain config.playbook { template, variables }.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -371,7 +331,7 @@ class WorkflowTool(AgentBuilderBaseTool):
                     },
                     "steps": {
                         "type": "array",
-                        "description": "New steps for the workflow",
+                        "description": "New steps. For playbooks, follow the Start + Execute Playbook structure with config.playbook.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -479,7 +439,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "delete_workflow",
-            "description": "Delete a workflow from the agent. This action cannot be undone.",
+            "description": "Delete a workflow/playbook from the agent. This action cannot be undone.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -523,7 +483,7 @@ class WorkflowTool(AgentBuilderBaseTool):
         "type": "function",
         "function": {
             "name": "activate_workflow",
-            "description": "Activate or deactivate a workflow. Only active workflows can be executed.",
+            "description": "Activate or deactivate a workflow/playbook. Only active workflows can be executed.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -576,7 +536,7 @@ class WorkflowTool(AgentBuilderBaseTool):
     def _convert_steps_to_json(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not steps:
             return []
-        
+
         result = []
         for step in steps:
             step_dict = {
@@ -587,10 +547,18 @@ class WorkflowTool(AgentBuilderBaseTool):
                 'conditions': step.get('conditions'),
                 'order': step.get('order', 0)
             }
-            
+
+            # Preserve identifiers to avoid breaking frontends/editors
+            if 'id' in step and step.get('id'):
+                step_dict['id'] = step['id']
+            if 'parentConditionalId' in step and step.get('parentConditionalId'):
+                step_dict['parentConditionalId'] = step['parentConditionalId']
+
             if step.get('children'):
                 step_dict['children'] = self._convert_steps_to_json(step['children'])
-            
+
             result.append(step_dict)
-        
+
         return result
+
+    # Removed separate create_playbook in favor of playbook-style create_workflow

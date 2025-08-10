@@ -449,7 +449,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             <div className='w-full'>
               <DropdownMenuItem
                 className={cn(
-                  "text-sm px-3 py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                  "text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
                   isHighlighted && "bg-accent",
                   !accessible && "opacity-70"
                 )}

@@ -207,6 +207,15 @@ def prepare_params(
     # OpenAI GPT-5: drop unsupported temperature param (only default 1 allowed)
     if "gpt-5" in effective_model_name and "temperature" in params and params["temperature"] != 1:
         params.pop("temperature", None)
+
+    # OpenAI GPT-5: request priority service tier when calling OpenAI directly
+    # Pass via both top-level and extra_body for LiteLLM compatibility
+    if "gpt-5" in effective_model_name and not effective_model_name.startswith("openrouter/"):
+        params["service_tier"] = "priority"
+        extra_body = params.get("extra_body", {})
+        if "service_tier" not in extra_body:
+            extra_body["service_tier"] = "priority"
+        params["extra_body"] = extra_body
     if "claude" in effective_model_name.lower() or "anthropic" in effective_model_name.lower():
         messages = params["messages"] # Direct reference, modification affects params
 

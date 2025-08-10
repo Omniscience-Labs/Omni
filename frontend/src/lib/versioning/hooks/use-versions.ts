@@ -63,8 +63,13 @@ export const useCreateAgentVersion = () => {
       return versionService.createVersion(agentId, data);
     },
     onSuccess: (newVersion, { agentId }) => {
-      // Invalidate version list to update version dropdown
+      // Invalidate both version list and agent data to update current version
       queryClient.invalidateQueries({ queryKey: versionKeys.list(agentId) });
+      queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+      // Also invalidate the specific version query
+      if (newVersion?.versionId?.value) {
+        queryClient.invalidateQueries({ queryKey: versionKeys.detail(agentId, newVersion.versionId.value) });
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create version');

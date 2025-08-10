@@ -1,5 +1,5 @@
 import { createMutationHook, createQueryHook } from '@/hooks/use-query';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { agentKeys } from './keys';
 import { Agent, AgentUpdateRequest, AgentsParams, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat, getAgentBuilderChatHistory } from './utils';
@@ -8,7 +8,13 @@ import { useRouter } from 'next/navigation';
 import { generateRandomAvatar } from '@/lib/utils/_avatar-generator';
 import { DEFAULT_AGENTPRESS_TOOLS } from '@/components/agents/tools';
 
-export const useAgents = (params: AgentsParams = {}) => {
+export const useAgents = (
+  params: AgentsParams = {},
+  customOptions?: Omit<
+    UseQueryOptions<Awaited<ReturnType<typeof getAgents>>, Error, Awaited<ReturnType<typeof getAgents>>, ReturnType<typeof agentKeys.list>>,
+    'queryKey' | 'queryFn'
+  >,
+) => {
   return createQueryHook(
     agentKeys.list(params),
     () => getAgents(params),
@@ -16,7 +22,7 @@ export const useAgents = (params: AgentsParams = {}) => {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
     }
-  )();
+  )(customOptions);
 };
 
 export const useAgent = (agentId: string) => {
