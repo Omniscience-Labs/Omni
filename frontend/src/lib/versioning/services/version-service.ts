@@ -95,6 +95,15 @@ export class VersionService implements IVersionService {
       });
     }
 
+    if (v1.model !== v2.model) {
+      differences.push({
+        field: 'model',
+        type: 'modified',
+        oldValue: v1.model,
+        newValue: v2.model
+      });
+    }
+
     const v1Tools = new Set(Object.keys(v1.toolConfiguration.tools));
     const v2Tools = new Set(Object.keys(v2.toolConfiguration.tools));
 

@@ -371,6 +371,7 @@ class TemplateService:
         
         sanitized = {
             'system_prompt': config.get('system_prompt', ''),
+            'model': config.get('model'),
             'tools': {
                 'agentpress': sanitized_agentpress,
                 'mcp': config.get('tools', {}).get('mcp', []),

@@ -223,7 +223,8 @@ class InstallationService:
                 'custom_mcp': []
             },
             'metadata': template.config.get('metadata', {}),
-            'system_prompt': request.custom_system_prompt or template.system_prompt
+            'system_prompt': request.custom_system_prompt or template.system_prompt,
+            'model': template.config.get('model')
         }
         
         from credentials import get_profile_service
@@ -348,6 +349,7 @@ class InstallationService:
             configured_mcps = tools.get('mcp', [])
             custom_mcps = tools.get('custom_mcp', [])
             agentpress_tools = tools.get('agentpress', {})
+            model = agent_config.get('model')
             
             from agent.versioning.version_service import get_version_service
             version_service = await get_version_service()
@@ -355,6 +357,7 @@ class InstallationService:
                 agent_id=agent_id,
                 user_id=user_id,
                 system_prompt=system_prompt,
+                model=model,
                 configured_mcps=configured_mcps,
                 custom_mcps=custom_mcps,
                 agentpress_tools=agentpress_tools,

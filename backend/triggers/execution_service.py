@@ -246,6 +246,7 @@ class AgentExecutor:
                 'account_id': agent_data.get('account_id'),
                 'name': agent_data.get('name', 'Unknown Agent'),
                 'system_prompt': active_version.system_prompt,
+                'model': active_version.model,
                 'configured_mcps': active_version.configured_mcps,
                 'custom_mcps': active_version.custom_mcps,
                 'agentpress_tools': active_version.agentpress_tools if isinstance(active_version.agentpress_tools, dict) else {},
@@ -284,7 +285,21 @@ class AgentExecutor:
         trigger_variables: Dict[str, Any]
     ) -> str:
         client = await self._db.client
-        model_name = "anthropic/claude-sonnet-4-20250514"
+        model_name = agent_config.get('model') or "anthropic/claude-sonnet-4-20250514"
+        
+        account_id = agent_config.get('account_id')
+        if not account_id:
+            raise ValueError("Account ID not found in agent configuration")
+        
+        from services.billing import can_use_model, check_billing_status
+        
+        can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+        if not can_use:
+            raise ValueError(f"Model not available: {model_message}")
+        
+        can_run, message, subscription = await check_billing_status(client, account_id)
+        if not can_run:
+            raise ValueError(f"Billing check failed: {message}")
         
         agent_run = await client.table('agent_runs').insert({
             "thread_id": thread_id,
@@ -351,7 +366,7 @@ class WorkflowExecutor:
             agent_config, account_id = await self._get_agent_data(agent_id)
             
             enhanced_agent_config = await self._enhance_agent_config_for_workflow(
-                agent_config, workflow_config, steps_json, workflow_input
+                agent_config, workflow_config, steps_json, workflow_input, account_id
             )
             
             thread_id, project_id = await self._session_manager.create_workflow_session(
@@ -359,7 +374,6 @@ class WorkflowExecutor:
             )
             
             await self._validate_workflow_execution(account_id)
-            
             await self._create_workflow_message(thread_id, workflow_config, workflow_input)
             
             agent_run_id = await self._start_workflow_agent_execution(
@@ -417,6 +431,7 @@ class WorkflowExecutor:
                 'agent_id': agent_id,
                 'name': agent_data.get('name', 'Unknown Agent'),
                 'system_prompt': active_version.system_prompt,
+                'model': active_version.model,
                 'configured_mcps': active_version.configured_mcps,
                 'custom_mcps': active_version.custom_mcps,
                 'agentpress_tools': active_version.agentpress_tools if isinstance(active_version.agentpress_tools, dict) else {},
@@ -434,7 +449,8 @@ class WorkflowExecutor:
         agent_config: Dict[str, Any],
         workflow_config: Dict[str, Any],
         steps_json: list,
-        workflow_input: Dict[str, Any]
+        workflow_input: Dict[str, Any],
+        account_id: str = None
     ) -> Dict[str, Any]:
         available_tools = self._get_available_tools(agent_config)
         workflow_prompt = format_workflow_for_llm(
@@ -449,6 +465,9 @@ class WorkflowExecutor:
 
 --- WORKFLOW EXECUTION MODE ---
 {workflow_prompt}"""
+        
+        if account_id:
+            enhanced_config['account_id'] = account_id
         
         return enhanced_config
     
@@ -528,14 +547,39 @@ class WorkflowExecutor:
         agent_config: Dict[str, Any]
     ) -> str:
         client = await self._db.client
-        model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+        model_name = agent_config.get('model') or config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+        
+        account_id = agent_config.get('account_id')
+        if not account_id:
+            thread_result = await client.table('threads').select('account_id').eq('thread_id', thread_id).execute()
+            if thread_result.data:
+                account_id = thread_result.data[0]['account_id']
+            else:
+                raise ValueError("Cannot determine account ID for workflow execution")
+        
+        from services.billing import can_use_model, check_billing_status
+        
+        can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
+        if not can_use:
+            raise ValueError(f"Model not available for workflow: {model_message}")
+        
+        can_run, message, subscription = await check_billing_status(client, account_id)
+        if not can_run:
+            raise ValueError(f"Billing check failed for workflow: {message}")
         
         agent_run = await client.table('agent_runs').insert({
             "thread_id": thread_id,
             "status": "running",
             "started_at": datetime.now(timezone.utc).isoformat(),
             "agent_id": agent_config.get('agent_id'),
-            "agent_version_id": agent_config.get('current_version_id')
+            "agent_version_id": agent_config.get('current_version_id'),
+            "metadata": {
+                "model_name": model_name,
+                "enable_thinking": False,
+                "reasoning_effort": "medium",
+                "enable_context_manager": True,
+                "workflow_execution": True
+            }
         }).execute()
         
         agent_run_id = agent_run.data[0]['id']

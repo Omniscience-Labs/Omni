@@ -731,12 +731,12 @@ export default function ThreadPage({
             "fixed bottom-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pt-8",
             isSidePanelAnimating ? "" : "transition-all duration-200 ease-in-out",
             leftSidebarState === 'expanded' ? 'left-[72px] md:left-[256px]' : 'left-[72px]',
-            isSidePanelOpen ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]' : 'right-0',
-            isMobile ? 'left-0 right-0' : ''
+            isSidePanelOpen ? (isMobile ? 'right-[90%]' : 'right-[50vw]') : 'right-0',
+            isMobile ? 'left-0' : ''
           )}>
           <div className={cn(
             "mx-auto",
-            isMobile ? "w-full" : "max-w-3xl"
+            isMobile ? "w-full" : "max-w-4xl"
           )}>
             <ChatInput
               value={newMessage}
