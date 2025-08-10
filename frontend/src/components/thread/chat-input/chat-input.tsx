@@ -181,25 +181,25 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     }, [subscriptionData, showSnackbar, defaultShowSnackbar, shouldShowUsage, subscriptionStatus, showToLowCreditUsers, userDismissedUsage]);
 
-      const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: agentsResponse } = useAgents();
-  const agents = agentsResponse?.agents || [];
-  
-  const { initializeFromAgents } = useAgentSelection();
+    const { data: agentsResponse } = useAgents({}, { enabled: isLoggedIn });
+    const agents = agentsResponse?.agents || [];
+
+    const { initializeFromAgents } = useAgentSelection();
     useImperativeHandle(ref, () => ({
       getPendingFiles: () => pendingFiles,
       clearPendingFiles: () => setPendingFiles([]),
     }));
 
-  useEffect(() => {
-    if (agents.length > 0 && !onAgentSelect) {
-      initializeFromAgents(agents);
-    }
-  }, [agents, onAgentSelect, initializeFromAgents]);
+    useEffect(() => {
+      if (agents.length > 0 && !onAgentSelect) {
+        initializeFromAgents(agents);
+      }
+    }, [agents, onAgentSelect, initializeFromAgents]);
 
-    
+
 
     useEffect(() => {
       if (autoFocus && textareaRef.current) {
@@ -417,7 +417,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               </CardContent>
             </div>
           </Card>
-          
+
           {enableAdvancedConfig && selectedAgentId && (
             <div className="w-full max-w-4xl mx-auto -mt-12 relative z-10">
               <div className="bg-muted/30 border border-border/50 rounded-b-3xl px-4 py-2 pt-8 transition-all duration-300 ease-out">

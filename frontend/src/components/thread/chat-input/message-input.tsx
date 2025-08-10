@@ -6,8 +6,7 @@ import { cn } from '@/lib/utils';
 import { UploadedFile } from './chat-input';
 import { FileUploadHandler } from './file-upload-handler';
 import { VoiceRecorder } from './voice-recorder';
-import { ModelSelector } from './model-selector';
-import { AgentSelector } from './agent-selector';
+import { UnifiedConfigMenu } from './unified-config-menu';
 import { canAccessModel, SubscriptionStatus } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
 import { useFeatureFlag } from '@/lib/feature-flags';
@@ -15,7 +14,6 @@ import { TooltipContent } from '@/components/ui/tooltip';
 import { Tooltip } from '@/components/ui/tooltip';
 import { TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
 import { BillingModal } from '@/components/billing/billing-modal';
-import ChatDropdown from './chat-dropdown';
 import { handleFiles } from './file-upload-handler';
 
 interface MessageInputProps {
@@ -160,39 +158,27 @@ export const MessageInput = forwardRef<HTMLTextAreaElement, MessageInputProps>(
     };
 
     const renderDropdown = () => {
+      const showAdvancedFeatures = isLoggedIn && (enableAdvancedConfig || (customAgentsEnabled && !flagsLoading));
       // Don't render dropdown components until after hydration to prevent ID mismatches
       if (!mounted) {
         return <div className="flex items-center gap-2 h-8" />; // Placeholder with same height
       }
-
-      if (isLoggedIn) {
-        const showAdvancedFeatures = enableAdvancedConfig || (customAgentsEnabled && !flagsLoading);
-
-        return (
-          <div className="flex items-center gap-2">
-            {showAdvancedFeatures && !hideAgentSelection && (
-              <AgentSelector
-                selectedAgentId={selectedAgentId}
-                onAgentSelect={onAgentSelect}
-                disabled={loading || (disabled && !isAgentRunning)}
-                isSunaAgent={isSunaAgent}
-              />
-            )}
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={onModelChange}
-              modelOptions={modelOptions}
-              subscriptionStatus={subscriptionStatus}
-              canAccessModel={canAccessModel}
-              refreshCustomModels={refreshCustomModels}
-              billingModalOpen={billingModalOpen}
-              setBillingModalOpen={setBillingModalOpen}
-              selectedAgentId={selectedAgentId}
-            />
-          </div>
-        );
-      }
-      return <ChatDropdown />;
+      // Unified compact menu for both logged and non-logged (non-logged shows only models subset via menu trigger)
+      return (
+        <div className="flex items-center gap-2">
+          <UnifiedConfigMenu
+            isLoggedIn={isLoggedIn}
+            selectedAgentId={showAdvancedFeatures && !hideAgentSelection ? selectedAgentId : undefined}
+            onAgentSelect={showAdvancedFeatures && !hideAgentSelection ? onAgentSelect : undefined}
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            modelOptions={modelOptions}
+            subscriptionStatus={subscriptionStatus}
+            canAccessModel={canAccessModel}
+            refreshCustomModels={refreshCustomModels}
+          />
+        </div>
+      );
     }
 
     return (

@@ -529,7 +529,11 @@ class WorkflowExecutor:
     ) -> None:
         client = await self._db.client
         
-        message_content = f"Execute workflow: {workflow_config['name']}\n\nInput: {json.dumps(workflow_input) if workflow_input else 'None'}"
+        message_content = (
+            f"**Execute workflow:** {workflow_config['name']}\n\n"
+            f"**Inputs:**\n"
+            + ("\n".join(f"- **{k.replace('_',' ').title()}:** {v}" for k, v in workflow_input.items()) if workflow_input else "- None")
+        )
         
         await client.table('messages').insert({
             "message_id": str(uuid.uuid4()),
