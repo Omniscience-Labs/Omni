@@ -20,6 +20,7 @@ router = APIRouter()
 
 class CreateVersionRequest(BaseModel):
     system_prompt: str
+    model: Optional[str] = None  # Add model field
     configured_mcps: List[Dict[str, Any]] = []
     custom_mcps: List[Dict[str, Any]] = []
     agentpress_tools: Dict[str, Any] = {}
@@ -38,6 +39,7 @@ class VersionResponse(BaseModel):
     version_number: int
     version_name: str
     system_prompt: str
+    model: Optional[str] = None  # Add model field
     configured_mcps: List[Dict[str, Any]]
     custom_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
@@ -89,6 +91,7 @@ async def create_version(
             configured_mcps=request.configured_mcps,
             custom_mcps=request.custom_mcps,
             agentpress_tools=request.agentpress_tools,
+            model=request.model,  # Pass model to service
             version_name=request.version_name,
             change_description=request.description
         )

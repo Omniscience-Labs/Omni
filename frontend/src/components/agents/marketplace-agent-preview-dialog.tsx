@@ -5,11 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share } from 'lucide-react';
+import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
-import { AGENTPRESS_TOOL_DEFINITIONS } from '@/components/agents/tools';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 
 interface MarketplaceAgentPreviewDialogProps {
@@ -182,6 +180,26 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
             )}
           </div>
           <div className="flex-1 gap-4 overflow-y-auto p-6 pt-4 space-y-4">
+            {agent.model && (
+              <Card className='p-0 border-none bg-transparent shadow-none'>
+                <CardContent className="p-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold">Model Configuration</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center px-3 py-1.5 bg-muted/50 hover:bg-muted border"
+                    >
+                      <span className="text-sm font-medium">
+                        {agent.model.replace('openrouter/', '').replace('anthropic/', '')}
+                      </span>
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {integrations.length > 0 && (
               <Card className='p-0 border-none bg-transparent shadow-none'>
                 <CardContent className="p-0">

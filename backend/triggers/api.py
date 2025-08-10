@@ -698,8 +698,15 @@ async def execute_agent_workflow(
     
     account_id = agent_result.data[0]['account_id']
     
-    # Validate permissions
-    model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+    from agent.versioning.version_service import get_version_service
+    version_service = await get_version_service()
+    active_version = await version_service.get_active_version(agent_id, "system")
+    
+    if active_version and active_version.model:
+        model_name = active_version.model
+    else:
+        model_name = config.MODEL_TO_USE or "anthropic/claude-sonnet-4-20250514"
+    
     can_use, model_message, allowed_models = await can_use_model(client, account_id, model_name)
     if not can_use:
         raise HTTPException(status_code=403, detail={"message": model_message, "allowed_models": allowed_models})
@@ -708,7 +715,6 @@ async def execute_agent_workflow(
     if not can_run:
         raise HTTPException(status_code=402, detail={"message": message, "subscription": subscription})
     
-    # Create execution objects
     from .trigger_service import TriggerResult, TriggerEvent, TriggerType
     
     trigger_result = TriggerResult(

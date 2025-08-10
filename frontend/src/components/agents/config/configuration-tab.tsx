@@ -1,12 +1,12 @@
 import React from 'react';
-import { Settings, Wrench, Server, BookOpen, Workflow, Zap, ChevronDown } from 'lucide-react';
+import { Settings, Wrench, Server, BookOpen, Workflow, Zap, ChevronDown, Brain } from 'lucide-react';
 import { ExpandableMarkdownEditor } from '@/components/ui/expandable-markdown-editor';
 import { AgentToolsConfiguration } from '../agent-tools-configuration';
 import { AgentMCPConfiguration } from '../agent-mcp-configuration';
 import { AgentKnowledgeBaseManager } from '../knowledge-base/agent-knowledge-base-manager';
-// import { AgentWorkflowsConfiguration } from '../workflows/agent-workflows-configuration';
 import { AgentPlaybooksConfiguration } from '../playbooks/agent-playbooks-configuration';
 import { AgentTriggersConfiguration } from '../triggers/agent-triggers-configuration';
+import { AgentModelSelector } from './model-selector';
 import { toast } from 'sonner';
 import { KortixLogo } from '../../sidebar/kortix-logo';
 
@@ -16,6 +16,7 @@ interface ConfigurationTabProps {
     name: string;
     description: string;
     system_prompt: string;
+    model?: string;  // Add model field
     agentpress_tools: any;
     configured_mcps: any[];
     custom_mcps: any[];
@@ -28,12 +29,14 @@ interface ConfigurationTabProps {
     configured_mcps: any[];
     custom_mcps: any[];
     system_prompt: string;
+    model?: string;  // Add model field
     agentpress_tools: any;
   };
   isViewingOldVersion: boolean;
   onFieldChange: (field: string, value: any) => void;
   onMCPChange: (updates: { configured_mcps: any[]; custom_mcps: any[] }) => void;
   onSystemPromptSave?: (value: string) => void;
+  onModelSave?: (model: string) => void;  // Add model save handler
   onToolsSave?: (tools: Record<string, boolean | { enabled: boolean; description: string }>) => void;
   initialAccordion?: string;
   agentMetadata?: {
@@ -57,6 +60,7 @@ export function ConfigurationTab({
   onFieldChange,
   onMCPChange,
   onSystemPromptSave,
+  onModelSave,
   onToolsSave,
   initialAccordion,
   agentMetadata,
@@ -69,7 +73,7 @@ export function ConfigurationTab({
     if (isSunaAgent && (val === 'system' || val === 'tools')) {
       return 'integrations';
     }
-    if (['system', 'tools', 'integrations', 'knowledge', 'triggers', 'playbooks'].includes(val || '')) {
+    if (['system', 'tools', 'integrations', 'knowledge', 'playbooks', 'triggers'].includes(val || '')) {
       return val!;
     }
     return isSunaAgent ? 'integrations' : 'system';
@@ -141,14 +145,14 @@ export function ConfigurationTab({
             </div>
             <p className="text-sm text-primary-700">
               This is Suna's default agent with centrally managed system prompt and tools.
-              You can customize integrations, knowledge base, workflows, and triggers to personalize your experience.
+              You can customize integrations, knowledge base, playbooks, and triggers to personalize your experience.
             </p>
           </div>
         )}
 
         <div className="space-y-3">
           {!isSunaAgent && (
-            <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+            <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'system' ? '' : 'system')}
@@ -161,8 +165,8 @@ export function ConfigurationTab({
 
                   </div>
                   <div className="text-left flex-1">
-                    <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">System Prompt</h4>
-                    <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Define agent behavior and goals</p>
+                    <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">System Prompt</h4>
+                    <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Define agent behavior and goals</p>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'system' ? 'rotate-180' : ''}`} />
                 </div>
@@ -188,7 +192,50 @@ export function ConfigurationTab({
             </div>
           )}
           {!isSunaAgent && (
-            <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+            <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
+              <button
+                className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
+                onClick={() => setOpenAccordion(openAccordion === 'model' ? '' : 'model')}
+              >
+                <div className="flex items-center gap-4 w-full">
+                  <div className="relative">
+                    <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+                      <Brain className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  </div>
+                  <div className="text-left flex-1">
+                    <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Model</h4>
+                    <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Choose the AI model for this agent</p>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'model' ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-out ${openAccordion === 'model'
+                  ? 'max-h-96 opacity-100'
+                  : 'max-h-0 opacity-0'
+                  }`}
+              >
+                <div className="px-6 pb-6 pt-2">
+                  <div className="border-t border-border/30 pt-4">
+                    <AgentModelSelector
+                      value={displayData.model}
+                      onChange={(model) => {
+                        if (onModelSave) {
+                          onModelSave(model);
+                        } else {
+                          onFieldChange('model', model);
+                        }
+                      }}
+                      disabled={isViewingOldVersion}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {!isSunaAgent && (
+            <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'tools' ? '' : 'tools')}
@@ -201,8 +248,8 @@ export function ConfigurationTab({
 
                   </div>
                   <div className="text-left flex-1">
-                    <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Default Tools</h4>
-                    <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Configure default agentpress tools</p>
+                    <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Default Tools</h4>
+                    <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Configure default agentpress tools</p>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'tools' ? 'rotate-180' : ''}`} />
                 </div>
@@ -226,7 +273,7 @@ export function ConfigurationTab({
               </div>
             </div>
           )}
-          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
             <button
               className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
               onClick={() => setOpenAccordion(openAccordion === 'integrations' ? '' : 'integrations')}
@@ -239,8 +286,8 @@ export function ConfigurationTab({
 
                 </div>
                 <div className="text-left flex-1">
-                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Integrations</h4>
-                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Connect external services via MCPs</p>
+                  <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Integrations</h4>
+                  <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Connect external services via MCPs</p>
                 </div>
                 <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'integrations' ? 'rotate-180' : ''}`} />
               </div>
@@ -271,7 +318,7 @@ export function ConfigurationTab({
               </div>
             </div>
           </div>
-          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
             <button
               className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
               onClick={() => setOpenAccordion(openAccordion === 'knowledge' ? '' : 'knowledge')}
@@ -284,8 +331,8 @@ export function ConfigurationTab({
 
                 </div>
                 <div className="text-left flex-1">
-                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Knowledge Base</h4>
-                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Upload and manage knowledge for the agent</p>
+                  <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Knowledge Base</h4>
+                  <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Upload and manage knowledge for the agent</p>
                 </div>
                 <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'knowledge' ? 'rotate-180' : ''}`} />
               </div>
@@ -306,9 +353,7 @@ export function ConfigurationTab({
               </div>
             </div>
           </div>
-          {/* Workflows accordion removed in favor of Playbooks */}
-
-          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
             <button
               className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
               onClick={() => setOpenAccordion(openAccordion === 'playbooks' ? '' : 'playbooks')}
@@ -318,10 +363,11 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Workflow className="h-5 w-5 text-muted-foreground" />
                   </div>
+
                 </div>
                 <div className="text-left flex-1">
-                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Playbooks</h4>
-                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Simple variable-driven runs</p>
+                  <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Playbooks</h4>
+                  <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Simple variable-driven runs</p>
                 </div>
                 <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'playbooks' ? 'rotate-180' : ''}`} />
               </div>
@@ -342,7 +388,7 @@ export function ConfigurationTab({
               </div>
             </div>
           </div>
-          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30">
+          <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10">
             <button
               className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
               onClick={() => setOpenAccordion(openAccordion === 'triggers' ? '' : 'triggers')}
@@ -355,8 +401,8 @@ export function ConfigurationTab({
 
                 </div>
                 <div className="text-left flex-1">
-                  <h4 className="font-semibold text-base text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
-                  <p className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Set up automated agent runs</p>
+                  <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
+                  <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Set up automated agent runs</p>
                 </div>
                 <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'triggers' ? 'rotate-180' : ''}`} />
               </div>

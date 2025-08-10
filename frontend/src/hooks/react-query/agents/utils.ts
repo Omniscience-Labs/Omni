@@ -98,6 +98,7 @@ export type AgentCreateRequest = {
 
 export type AgentVersionCreateRequest = {
   system_prompt: string;
+  model?: string;  // Add model field
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
@@ -119,6 +120,7 @@ export type AgentVersion = {
   version_number: number;
   version_name: string;
   system_prompt: string;
+  model?: string;  // Add model field
   configured_mcps: Array<any>;
   custom_mcps: Array<any>;
   agentpress_tools: Record<string, any>;

@@ -17,6 +17,7 @@ interface NormalizedVersionData {
   version_number: number;
   version_name: string;
   system_prompt: string;
+  model?: string;
   configured_mcps: any[];
   custom_mcps: NormalizedMCP[];
   agentpress_tools: Record<string, any>;
@@ -78,6 +79,7 @@ function normalizeVersionData(version: any): NormalizedVersionData | null {
       version_number: version.version_number,
       version_name: version.version_name,
       system_prompt: version.system_prompt || '',
+      model: version.model,
       configured_mcps: Array.isArray(version.configured_mcps) ? version.configured_mcps : [],
       custom_mcps: normalizeCustomMcps(version.custom_mcps),
       agentpress_tools: version.agentpress_tools && typeof version.agentpress_tools === 'object' 
@@ -96,6 +98,7 @@ function normalizeVersionData(version: any): NormalizedVersionData | null {
       version_number: version.versionNumber?.value || version.versionNumber,
       version_name: version.versionName,
       system_prompt: version.systemPrompt || '',
+      model: version.model,  // Add model field
       configured_mcps: Array.isArray(version.configuredMcps) ? version.configuredMcps : [],
       custom_mcps: normalizeCustomMcps(version.customMcps),
       agentpress_tools: version.agentpress_tools || version.toolConfiguration?.tools || {},
@@ -125,8 +128,11 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
   
   const versionData = useMemo(() => {
     console.log('[useAgentVersionData] Raw version data:', rawVersionData);
+    console.log('[useAgentVersionData] Raw version model:', rawVersionData?.model);
+    console.log('[useAgentVersionData] Raw version full structure:', JSON.stringify(rawVersionData, null, 2));
     const normalized = normalizeVersionData(rawVersionData);
     console.log('[useAgentVersionData] Normalized version data:', normalized);
+    console.log('[useAgentVersionData] Normalized model:', normalized?.model);
     return normalized;
   }, [rawVersionData]);
   
@@ -142,6 +148,7 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
         versionNumber: { value: versionData.version_number },
         versionName: versionData.version_name,
         systemPrompt: versionData.system_prompt,
+        model: versionData.model,  // Add model field
         configuredMcps: versionData.configured_mcps,
         customMcps: versionData.custom_mcps,
         toolConfiguration: { tools: versionData.agentpress_tools },

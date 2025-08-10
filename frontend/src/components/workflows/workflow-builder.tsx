@@ -159,7 +159,7 @@ export function WorkflowBuilder({
             onToolsUpdate={onToolsUpdate}
         >
             <div className="min-h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="mx-auto max-w-3xl md:px-8 min-w-0 py-8">
+                <div className="mx-auto max-w-4xl md:px-8 min-w-0 py-8">
                     {editableSteps.length === 0 ? (
                         <div className="flex-1 min-h-[60vh] flex items-center justify-center">
                             <div className="text-center">
