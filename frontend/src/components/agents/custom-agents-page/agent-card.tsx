@@ -243,7 +243,7 @@ const MarketplaceActions: React.FC<{
               <DropdownMenuItem
                 onClick={handleDeleteClick}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4" />
                 Delete Template
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -272,7 +272,7 @@ const MarketplaceActions: React.FC<{
             >
               {isActioning ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
