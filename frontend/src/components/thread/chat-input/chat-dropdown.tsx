@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronDown, User, LogIn, Lock, Bot, Zap, Code, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +11,16 @@ import Image from 'next/image'
 
 const ChatDropdown = () => {
     const [isOpen, setIsOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
+
+    // Fix hydration mismatch by ensuring component only renders after mount
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    if (!mounted) {
+        return <div className="h-8 px-3 py-2" /> // Placeholder with same height
+    }
 
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

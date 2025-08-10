@@ -1,4 +1,4 @@
-# Suna Frontend
+# Kortix Frontend
 
 ## Quick Setup
 

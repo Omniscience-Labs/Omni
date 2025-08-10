@@ -42,6 +42,14 @@ export const useCreateAgent = () => {
         queryClient.setQueryData(agentKeys.detail(data.agent_id), data);
         toast.success('Agent created successfully');
       },
+      onError: async (error) => {
+        const { AgentCountLimitError } = await import('@/lib/api');
+        if (error instanceof AgentCountLimitError) {
+          return;
+        }
+        console.error('Error creating agent:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to create agent');
+      },
     }
   )();
 };

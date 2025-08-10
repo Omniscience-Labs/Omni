@@ -114,6 +114,9 @@ class JsonImportService:
             request.custom_system_prompt or json_data.get('system_prompt', '')
         )
         
+        from utils.cache import Cache
+        await Cache.invalidate(f"agent_count_limit:{request.account_id}")
+        
         logger.info(f"Successfully imported agent {agent_id} from JSON")
         
         return JsonImportResult(

@@ -1,7 +1,7 @@
 [project]
 name = "suna"
 version = "1.0"
-description = "open source generalist AI Agent"
+description = "open source generalist AI Worker"
 authors = [{ name = "marko-kraemer", email = "mail@markokraemer.com" }]
 readme = "README.md"
 license = { text = "Apache-2.0" }

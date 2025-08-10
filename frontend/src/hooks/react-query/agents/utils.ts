@@ -256,6 +256,25 @@ export const createAgent = async (agentData: AgentCreateRequest): Promise<Agent>
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.log('[DEBUG] Error response data:', errorData);
+      console.log('[DEBUG] Response status:', response.status);
+      console.log('[DEBUG] Error code check:', errorData.error_code);
+      
+      // Check for agent limit error - handle both direct error_code and nested in detail
+      const isAgentLimitError = (response.status === 402) && (
+        errorData.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+        errorData.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
+      );
+      
+      if (isAgentLimitError) {
+        console.log('[DEBUG] Converting to AgentCountLimitError');
+        const { AgentCountLimitError } = await import('@/lib/api');
+        // Use the nested detail if it exists, otherwise use the errorData directly
+        const errorDetail = errorData.detail || errorData;
+        throw new AgentCountLimitError(response.status, errorDetail);
+      }
+      
+      console.log('[DEBUG] Throwing generic error');
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 

@@ -107,6 +107,9 @@ class InstallationService:
         
         await self._increment_download_count(template.template_id)
         
+        from utils.cache import Cache
+        await Cache.invalidate(f"agent_count_limit:{request.account_id}")
+        
         agent_name = request.instance_name or f"{template.name} (from marketplace)"
         logger.info(f"Successfully installed template {template.template_id} as agent {agent_id}")
         

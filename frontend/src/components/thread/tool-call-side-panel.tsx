@@ -151,10 +151,9 @@ export function ToolCallSidePanel({
   }, [toolCalls, navigationMode, toolCallSnapshots.length, isInitialized]);
 
   React.useEffect(() => {
-    if (isOpen && !isInitialized && toolCallSnapshots.length > 0) {
-      setInternalIndex(Math.min(currentIndex, toolCallSnapshots.length - 1));
-    }
-  }, [isOpen, currentIndex, isInitialized, toolCallSnapshots.length]);
+    // This is used to sync the internal index to the current index
+    setInternalIndex(Math.min(currentIndex, toolCallSnapshots.length - 1));
+  }, [currentIndex, toolCallSnapshots.length]);
 
   const safeInternalIndex = Math.min(internalIndex, Math.max(0, toolCallSnapshots.length - 1));
   const currentSnapshot = toolCallSnapshots[safeInternalIndex];

@@ -1,6 +1,7 @@
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
+from utils.cache import Cache
 from utils.logger import logger
 from utils.config import config
 from services import redis
@@ -88,6 +89,10 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         Dict with 'can_start' (bool), 'running_count' (int), 'running_thread_ids' (list)
     """
     try:
+        result = await Cache.get(f"agent_run_limit:{account_id}")
+        if result:
+            return result
+
         # Calculate 24 hours ago
         twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
         twenty_four_hours_ago_iso = twenty_four_hours_ago.isoformat()
@@ -117,12 +122,14 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         
         logger.info(f"Account {account_id} has {running_count} running agent runs in the past 24 hours")
         
-        return {
+        result = {
             'can_start': running_count < config.MAX_PARALLEL_AGENT_RUNS,
             'running_count': running_count,
             'running_thread_ids': running_thread_ids
         }
-        
+        await Cache.set(f"agent_run_limit:{account_id}", result)
+        return result
+
     except Exception as e:
         logger.error(f"Error checking agent run limit for account {account_id}: {str(e)}")
         # In case of error, allow the run to proceed but log the error
@@ -130,4 +137,64 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
             'can_start': True,
             'running_count': 0,
             'running_thread_ids': []
-        } 
+        }
+
+
+async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
+    try:
+        try:
+            result = await Cache.get(f"agent_count_limit:{account_id}")
+            if result:
+                logger.debug(f"Cache hit for agent count limit: {account_id}")
+                return result
+        except Exception as cache_error:
+            logger.warning(f"Cache read failed for agent count limit {account_id}: {str(cache_error)}")
+
+        agents_result = await client.table('agents').select('agent_id, metadata').eq('account_id', account_id).execute()
+        
+        non_suna_agents = []
+        for agent in agents_result.data or []:
+            metadata = agent.get('metadata', {}) or {}
+            is_suna_default = metadata.get('is_suna_default', False)
+            if not is_suna_default:
+                non_suna_agents.append(agent)
+                
+        current_count = len(non_suna_agents)
+        logger.debug(f"Account {account_id} has {current_count} custom agents (excluding Suna defaults)")
+        
+        try:
+            from services.billing import get_subscription_tier
+            tier_name = await get_subscription_tier(client, account_id)
+            logger.debug(f"Account {account_id} subscription tier: {tier_name}")
+        except Exception as billing_error:
+            logger.warning(f"Could not get subscription tier for {account_id}: {str(billing_error)}, defaulting to free")
+            tier_name = 'free'
+        
+        agent_limit = config.AGENT_LIMITS.get(tier_name, config.AGENT_LIMITS['free'])
+        
+        can_create = current_count < agent_limit
+        
+        result = {
+            'can_create': can_create,
+            'current_count': current_count,
+            'limit': agent_limit,
+            'tier_name': tier_name
+        }
+        
+        try:
+            await Cache.set(f"agent_count_limit:{account_id}", result, ttl=300)
+        except Exception as cache_error:
+            logger.warning(f"Cache write failed for agent count limit {account_id}: {str(cache_error)}")
+        
+        logger.info(f"Account {account_id} has {current_count}/{agent_limit} agents (tier: {tier_name}) - can_create: {can_create}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error checking agent count limit for account {account_id}: {str(e)}", exc_info=True)
+        return {
+            'can_create': True,
+            'current_count': 0,
+            'limit': config.AGENT_LIMITS['free'],
+            'tier_name': 'free'
+        }

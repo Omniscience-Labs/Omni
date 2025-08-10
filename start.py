@@ -40,6 +40,16 @@ def get_setup_method():
     return progress.get("data", {}).get("setup_method")
 
 
+def check_docker_available():
+    """Check if Docker is available and running."""
+    try:
+        result = subprocess.run(["docker", "version"], capture_output=True, shell=IS_WINDOWS, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print(f"{Colors.RED}❌ Docker is not running or not installed.{Colors.ENDC}")
+        print(f"{Colors.YELLOW}Please start Docker and try again.{Colors.ENDC}")
+        return False
+
 def check_docker_compose_up():
     result = subprocess.run(
         ["docker", "compose", "ps", "-q"],
@@ -149,6 +159,9 @@ def main():
         if force:
             print("Force awakened. Skipping confirmation.")
 
+        if not check_docker_available():
+            return
+            
         is_up = check_docker_compose_up()
 
         if is_up:

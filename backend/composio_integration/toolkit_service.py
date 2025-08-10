@@ -48,6 +48,31 @@ class DetailedToolkitInfo(BaseModel):
     base_url: Optional[str] = None
 
 
+class ParameterSchema(BaseModel):
+    properties: Dict[str, Any] = {}
+    required: Optional[List[str]] = None
+
+
+class ToolInfo(BaseModel):
+    slug: str
+    name: str
+    description: str
+    version: str
+    input_parameters: ParameterSchema = ParameterSchema()
+    output_parameters: ParameterSchema = ParameterSchema()
+    scopes: List[str] = []
+    tags: List[str] = []
+    no_auth: bool = False
+
+
+class ToolsListResponse(BaseModel):
+    items: List[ToolInfo]
+    next_cursor: Optional[str] = None
+    total_items: int
+    current_page: int = 1
+    total_pages: int = 1
+
+
 class ToolkitService:
     def __init__(self, api_key: Optional[str] = None):
         self.client = ComposioClient.get_client(api_key)
@@ -163,7 +188,6 @@ class ToolkitService:
                 )
                 toolkits.append(toolkit)
             
-            # Return pagination response structure
             result = {
                 "items": toolkits,
                 "total_items": response_data.get("total_items", len(toolkits)),
@@ -209,9 +233,9 @@ class ToolkitService:
             result = {
                 "items": limited_results,
                 "total_items": len(filtered_toolkits),
-                "total_pages": 1,  # For search, we'll keep it simple with one page
+                "total_pages": 1,
                 "current_page": 1,
-                "next_cursor": None  # For search, we don't use cursor pagination
+                "next_cursor": None
             }
             
             logger.info(f"Found {len(filtered_toolkits)} toolkits with OAUTH2 in both auth schemes matching query: {query}" + (f" in category {category}" if category else ""))
@@ -262,7 +286,6 @@ class ToolkitService:
             
             logger.info(f"Raw toolkit response for {toolkit_slug}: {toolkit_response}")
             
-            # Parse the response
             meta = toolkit_dict.get('meta', {})
             if hasattr(meta, '__dict__'):
                 meta = meta.__dict__
@@ -272,13 +295,12 @@ class ToolkitService:
                 name=toolkit_dict.get('name', ''),
                 description=meta.get('description', '') if isinstance(meta, dict) else getattr(meta, 'description', ''),
                 logo=meta.get('logo') if isinstance(meta, dict) else getattr(meta, 'logo', None),
-                tags=[],  # Will populate from meta if available
+                tags=[],
                 auth_schemes=toolkit_dict.get('composio_managed_auth_schemes', []),
                 categories=[],
                 base_url=toolkit_dict.get('base_url')
             )
             
-            # Parse categories properly
             categories_data = meta.get('categories', []) if isinstance(meta, dict) else getattr(meta, 'categories', [])
             detailed_toolkit.categories = [
                 cat.get('name', '') if isinstance(cat, dict) else getattr(cat, 'name', '') 
@@ -287,18 +309,15 @@ class ToolkitService:
             
             logger.info(f"Parsed basic toolkit info: {detailed_toolkit}")
             
-            # Parse auth_config_details
             auth_config_details = []
             raw_auth_configs = toolkit_dict.get('auth_config_details', [])
             
             for config in raw_auth_configs:
-                # Handle both dict and object formats
                 if hasattr(config, '__dict__'):
                     config_dict = config.__dict__
                 else:
                     config_dict = config
                 
-                # Extract fields - this could be a nested object
                 fields_obj = config_dict.get('fields')
                 if hasattr(fields_obj, '__dict__'):
                     fields_dict = fields_obj.__dict__
@@ -307,7 +326,6 @@ class ToolkitService:
                 
                 auth_fields = {}
                 
-                # Parse each field type (auth_config_creation, connected_account_initiation, etc.)
                 for field_type, field_type_obj in fields_dict.items():
                     auth_fields[field_type] = {}
                     
@@ -316,7 +334,6 @@ class ToolkitService:
                     else:
                         field_type_dict = field_type_obj or {}
                     
-                    # Parse required and optional fields
                     for requirement_level in ['required', 'optional']:
                         field_list = field_type_dict.get(requirement_level, [])
                         
@@ -329,7 +346,7 @@ class ToolkitService:
                             
                             auth_config_fields.append(AuthConfigField(
                                 name=field_dict.get('name', ''),
-                                displayName=field_dict.get('display_name', ''),  # Note: display_name not displayName
+                                displayName=field_dict.get('display_name', ''),
                                 type=field_dict.get('type', 'string'),
                                 description=field_dict.get('description'),
                                 required=field_dict.get('required', False),
@@ -346,10 +363,8 @@ class ToolkitService:
             
             detailed_toolkit.auth_config_details = auth_config_details
             
-            # Extract connected_account_initiation fields specifically
             connected_account_initiation = None
             for config in raw_auth_configs:
-                # Handle both dict and object formats
                 if hasattr(config, '__dict__'):
                     config_dict = config.__dict__
                 else:
@@ -398,4 +413,80 @@ class ToolkitService:
             
         except Exception as e:
             logger.error(f"Failed to get detailed toolkit info for {toolkit_slug}: {e}", exc_info=True)
-            return None 
+            return None
+
+    async def get_toolkit_tools(self, toolkit_slug: str, limit: int = 50, cursor: Optional[str] = None) -> ToolsListResponse:
+        try:
+            logger.info(f"Fetching tools for toolkit: {toolkit_slug}")
+            
+            params = {
+                "limit": limit,
+                "toolkit_slug": toolkit_slug
+            }
+            
+            if cursor:
+                params["cursor"] = cursor
+            
+            tools_response = self.client.tools.list(**params)
+            
+            if hasattr(tools_response, '__dict__'):
+                response_data = tools_response.__dict__
+            else:
+                response_data = tools_response
+            
+            items = response_data.get('items', [])
+            
+            tools = []
+            for item in items:
+                if hasattr(item, '__dict__'):
+                    tool_data = item.__dict__
+                elif hasattr(item, '_asdict'):
+                    tool_data = item._asdict()
+                else:
+                    tool_data = item
+                
+                input_params_raw = tool_data.get("input_parameters", {})
+                output_params_raw = tool_data.get("output_parameters", {})
+                
+                input_parameters = ParameterSchema()
+                if isinstance(input_params_raw, dict):
+                    input_parameters.properties = input_params_raw.get("properties", input_params_raw)
+                    input_parameters.required = input_params_raw.get("required")
+                
+                output_parameters = ParameterSchema()  
+                if isinstance(output_params_raw, dict):
+                    output_parameters.properties = output_params_raw.get("properties", output_params_raw)
+                    output_parameters.required = output_params_raw.get("required")
+                
+                tool = ToolInfo(
+                    slug=tool_data.get("slug", ""),
+                    name=tool_data.get("name", ""),
+                    description=tool_data.get("description", ""),
+                    version=tool_data.get("version", "1.0.0"),
+                    input_parameters=input_parameters,
+                    output_parameters=output_parameters,
+                    scopes=tool_data.get("scopes", []),
+                    tags=tool_data.get("tags", []),
+                    no_auth=tool_data.get("no_auth", False)
+                )
+                tools.append(tool)
+            
+            result = ToolsListResponse(
+                items=tools,
+                total_items=response_data.get("total_items", len(tools)),
+                total_pages=response_data.get("total_pages", 1),
+                current_page=response_data.get("current_page", 1),
+                next_cursor=response_data.get("next_cursor")
+            )
+            
+            logger.info(f"Successfully fetched {len(tools)} tools for toolkit {toolkit_slug}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to get tools for toolkit {toolkit_slug}: {e}", exc_info=True)
+            return ToolsListResponse(
+                items=[],
+                total_items=0,
+                current_page=1,
+                total_pages=1
+            ) 
