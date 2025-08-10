@@ -466,7 +466,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
                     onScroll={handleScroll}
                 >
-                    <div ref={contentRef} className="mx-auto max-w-3xl md:px-8 min-w-0 w-full">
+                    <div ref={contentRef} className="mx-auto max-w-4xl md:px-8 min-w-0 w-full">
                         <div className="space-y-8 min-w-0">
                             {(() => {
 
