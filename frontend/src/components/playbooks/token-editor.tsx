@@ -128,7 +128,7 @@ export const TokenEditor: React.FC<TokenEditorProps> = ({ value, onChange, place
             onInput={handleInput}
             onPaste={handlePaste}
             className={cn(
-                'min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'min-h-[200px] max-h-[200px] overflow-y-auto w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 'whitespace-pre-wrap break-words',
                 'token-editor',
                 className,

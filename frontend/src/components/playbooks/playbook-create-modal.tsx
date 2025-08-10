@@ -186,7 +186,7 @@ export const PlaybookCreateModal: React.FC<PlaybookCreateModalProps> = ({
                             value={template}
                             onChange={setTemplate}
                             placeholder="Write the playbook instructions here. Use {{google_sheet_id}}, {{sheet_name}}, {{start_row}}, {{limit_rows}} as needed."
-                            className="min-h-[220px]"
+                            className="min-h-[220px] max-h-[220px] overflow-y-auto"
                         />
                         <p className="text-xs text-muted-foreground">Use double braces like {'{{token}}'} for variables.</p>
                     </div>

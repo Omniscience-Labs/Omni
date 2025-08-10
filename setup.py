@@ -755,7 +755,7 @@ class SetupWizard:
         # Set a default model if not already set
         if not self.env_vars["llm"].get("MODEL_TO_USE"):
             if self.env_vars["llm"].get("OPENAI_API_KEY"):
-                self.env_vars["llm"]["MODEL_TO_USE"] = "openai/gpt-4o"
+                self.env_vars["llm"]["MODEL_TO_USE"] = "openai/gpt-5"
             elif self.env_vars["llm"].get("ANTHROPIC_API_KEY"):
                 self.env_vars["llm"][
                     "MODEL_TO_USE"
