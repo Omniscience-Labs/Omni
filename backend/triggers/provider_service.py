@@ -323,6 +323,11 @@ class ProviderService:
                         "type": "string",
                         "description": "ID of workflow to execute"
                     },
+                    "workflow_input": {
+                        "type": "object",
+                        "description": "JSON input variables for the selected workflow/playbook",
+                        "additionalProperties": True
+                    },
                     "timezone": {
                         "type": "string",
                         "description": "Timezone for cron expression"
