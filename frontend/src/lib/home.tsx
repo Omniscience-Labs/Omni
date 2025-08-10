@@ -109,9 +109,9 @@ export const siteConfig = {
     ),
     badge: '100% OPEN SOURCE',
     githubUrl: 'https://github.com/kortix-ai/suna',
-    title: 'Suna, the AI AI Worker.',
+    title: 'Kortix – Build, manage and train your AI Workforce.',
     description:
-      'Suna by Kortix – is a generalist AI Worker that acts on your behalf.',
+      'Kortix – open-source platform to build, manage and train your AI Workforce.',
     inputPlaceholder: 'Ask Suna to...',
   },
   cloudPricingItems: [
