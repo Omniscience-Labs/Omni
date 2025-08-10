@@ -8,7 +8,7 @@ export function FeatureSection() {
   return (
     <section
       id="features"
-      className="flex flex-col items-center justify-center gap-5 w-full relative"
+      className="flex flex-col items-center justify-center gap-5 w-full relative px-6"
     >
       <SectionHeader>
         <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">

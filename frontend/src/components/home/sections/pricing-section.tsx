@@ -34,11 +34,7 @@ type ButtonVariant =
   | 'link'
   | null;
 
-interface PricingTabsProps {
-  activeTab: 'cloud' | 'self-hosted';
-  setActiveTab: (tab: 'cloud' | 'self-hosted') => void;
-  className?: string;
-}
+
 
 interface PriceDisplayProps {
   price: string;
@@ -61,51 +57,6 @@ interface PricingTierProps {
 }
 
 // Components
-function PricingTabs({ activeTab, setActiveTab, className }: PricingTabsProps) {
-  return (
-    <div
-      className={cn(
-        'relative flex w-fit items-center rounded-full border p-0.5 backdrop-blur-sm cursor-pointer h-9 flex-row bg-muted',
-        className,
-      )}
-    >
-      {['cloud', 'self-hosted'].map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab as 'cloud' | 'self-hosted')}
-          className={cn(
-            'relative z-[1] px-3 h-8 flex items-center justify-center cursor-pointer',
-            {
-              'z-0': activeTab === tab,
-            },
-          )}
-        >
-          {activeTab === tab && (
-            <motion.div
-              layoutId="active-tab"
-              className="absolute inset-0 rounded-full bg-white dark:bg-[#3F3F46] shadow-md border border-border"
-              transition={{
-                duration: 0.2,
-                type: 'spring',
-                stiffness: 300,
-                damping: 25,
-                velocity: 2,
-              }}
-            />
-          )}
-          <span
-            className={cn(
-              'relative block text-sm font-medium duration-200 shrink-0',
-              activeTab === tab ? 'text-primary' : 'text-muted-foreground',
-            )}
-          >
-            {tab === 'cloud' ? 'Cloud' : 'Self-hosted'}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function PriceDisplay({ price, isCompact }: PriceDisplayProps) {
   return (
@@ -596,9 +547,7 @@ export function PricingSection({
   showInfo = true,
   noPadding = false,
 }: PricingSectionProps) {
-  const [deploymentType, setDeploymentType] = useState<'cloud' | 'self-hosted'>(
-    'cloud',
-  );
+
   const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription();
   const subCommitmentQuery = useSubscriptionCommitment(subscriptionData?.subscription_id);
 
@@ -653,24 +602,7 @@ export function PricingSection({
     }, 1000);
   };
 
-  const handleTabChange = (tab: 'cloud' | 'self-hosted') => {
-    if (tab === 'self-hosted') {
-      const openSourceSection = document.getElementById('open-source');
-      if (openSourceSection) {
-        const rect = openSourceSection.getBoundingClientRect();
-        const scrollTop =
-          window.pageYOffset || document.documentElement.scrollTop;
-        const offsetPosition = scrollTop + rect.top - 100;
 
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth',
-        });
-      }
-    } else {
-      setDeploymentType(tab);
-    }
-  };
 
   if (isLocalMode()) {
     return (
@@ -687,8 +619,8 @@ export function PricingSection({
       id="pricing"
       className={cn("flex flex-col items-center justify-center gap-10 w-full relative", noPadding ? "pb-0" : "pb-12")}
     >
-      {showTitleAndTabs && (
-        <>
+      <div className="w-full max-w-6xl mx-auto px-6">
+        {showTitleAndTabs && (
           <SectionHeader>
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
               Choose the right plan for your needs
@@ -697,32 +629,17 @@ export function PricingSection({
               Start with our free plan or upgrade for more AI token credits
             </p>
           </SectionHeader>
-          <div className="relative w-full h-full">
-            <div className="absolute -top-14 left-1/2 -translate-x-1/2">
-              <PricingTabs
-                activeTab={deploymentType}
-                setActiveTab={handleTabChange}
-                className="mx-auto"
-              />
-            </div>
-          </div>
-        </>
-      )}
+        )}
 
-      {deploymentType === 'cloud' && (
-        <BillingPeriodToggle
-          billingPeriod={billingPeriod}
-          setBillingPeriod={setBillingPeriod}
-        />
-      )}
+        <div className="flex justify-center mb-8">
+          <BillingPeriodToggle
+            billingPeriod={billingPeriod}
+            setBillingPeriod={setBillingPeriod}
+          />
+        </div>
 
-      {deploymentType === 'cloud' && (
         <div className={cn(
-          "grid gap-4 w-full mx-auto",
-          {
-            "px-6 max-w-7xl": !insideDialog,
-            "max-w-7xl": insideDialog
-          },
+          "grid gap-6 w-full",
           insideDialog
             ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4"
             : "min-[650px]:grid-cols-2 lg:grid-cols-4",
@@ -746,7 +663,7 @@ export function PricingSection({
               />
             ))}
         </div>
-      )}
+      </div>
       {showInfo && (
         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-2xl mx-auto">
           <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
@@ -757,6 +674,6 @@ export function PricingSection({
         </div>
       )}
     </section>
-
   );
 }
+

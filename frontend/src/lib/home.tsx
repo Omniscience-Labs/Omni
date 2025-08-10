@@ -59,23 +59,25 @@ export interface PricingTier {
 
 export const siteConfig = {
   name: 'Kortix Suna',
-  description: 'The Generalist AI Agent that can act on your behalf.',
+  description: 'The Generalist AI Worker that can act on your behalf.',
   cta: 'Start Free',
   url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  keywords: ['AI Agent', 'Generalist AI', 'Open Source AI', 'Autonomous Agent'],
+  keywords: ['AI Worker', 'Generalist AI', 'Open Source AI', 'Autonomous Agent'],
   links: {
     email: 'support@kortix.ai',
     twitter: 'https://x.com/kortixai',
-    discord: 'https://discord.gg/kortixai',
+    // discord: 'https://discord.gg/kortixai',
     github: 'https://github.com/Kortix-ai/Suna',
     instagram: 'https://instagram.com/kortixai',
   },
   nav: {
     links: [
       { id: 1, name: 'Home', href: '#hero' },
-      { id: 2, name: 'Use Cases', href: '#use-cases' },
-      { id: 3, name: 'Open Source', href: '#open-source' },
-      { id: 4, name: 'Pricing', href: '#pricing' },
+      { id: 2, name: 'Process', href: '#process' },
+      // { id: 3, name: 'Use Cases', href: '#use-cases' },
+      { id: 4, name: 'Open Source', href: '#open-source' },
+      { id: 5, name: 'Pricing', href: '#pricing' },
+      { id: 6, name: 'Enterprise', href: '/enterprise' },
     ],
   },
   hero: {
@@ -107,9 +109,9 @@ export const siteConfig = {
     ),
     badge: '100% OPEN SOURCE',
     githubUrl: 'https://github.com/kortix-ai/suna',
-    title: 'Suna, the AI Employee.',
+    title: 'Suna, the AI AI Worker.',
     description:
-      'Suna by Kortix – is a generalist AI Agent that acts on your behalf.',
+      'Suna by Kortix – is a generalist AI Worker that acts on your behalf.',
     inputPlaceholder: 'Ask Suna to...',
   },
   cloudPricingItems: [
@@ -549,7 +551,7 @@ export const siteConfig = {
         content: <FirstBentoAnimation />,
         title: 'Autonomous Task Execution',
         description:
-          'Experience true automation with Suna. Ask your AI Agent to complete tasks, research information, and handle complex workflows with minimal supervision.',
+          'Experience true automation with Suna. Ask your AI Worker to complete tasks, research information, and handle complex workflows with minimal supervision.',
       },
       {
         id: 2,
@@ -1185,9 +1187,9 @@ export const siteConfig = {
     faQitems: [
       {
         id: 1,
-        question: 'What is an AI Agent?',
+        question: 'What is an AI Worker?',
         answer:
-          'An AI Agent is an intelligent software program that can perform tasks autonomously, learn from interactions, and make decisions to help achieve specific goals. It combines artificial intelligence and machine learning to provide personalized assistance and automation.',
+          'An AI Worker is an intelligent software program that can perform tasks autonomously, learn from interactions, and make decisions to help achieve specific goals. It combines artificial intelligence and machine learning to provide personalized assistance and automation.',
       },
       {
         id: 2,
@@ -1223,13 +1225,13 @@ export const siteConfig = {
   },
   ctaSection: {
     id: 'cta',
-    title: 'Start Using Kortix Suna Today',
+    title: 'Launch Your First AI Agent Today',
     backgroundImage: '/holo.png',
     button: {
       text: 'Get Started for free',
       href: '/auth',
     },
-    subtext: 'The generalist AI Agent that acts on your behalf',
+    subtext: 'Build, manage and train your AI Workforce',
   },
   footerLinks: [
     {

@@ -27,20 +27,28 @@ interface AgentSelectorProps {
   onAgentSelect?: (agentId: string | undefined) => void;
   disabled?: boolean;
   isSunaAgent?: boolean;
+  compact?: boolean;
 }
 
 export const AgentSelector: React.FC<AgentSelectorProps> = ({
   selectedAgentId,
   onAgentSelect,
   disabled = false,
-  isSunaAgent
+  isSunaAgent,
+  compact = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Fix hydration mismatch by ensuring component only renders after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: agentsResponse, isLoading: agentsLoading } = useAgents();
   const agents = agentsResponse?.agents || [];
@@ -211,6 +219,11 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
 
   const agentDisplay = getAgentDisplay();
 
+  // Don't render dropdown until after hydration to prevent ID mismatches
+  if (!mounted) {
+    return <div className="h-8 px-2.5 py-1.5" />; // Placeholder with same height
+  }
+
   return (
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -222,20 +235,27 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "px-2.5 py-1.5 text-sm font-normal hover:bg-accent/40 transition-all duration-200 rounded-xl",
+                    compact 
+                      ? "px-2 py-1 text-xs hover:bg-accent/40 transition-all duration-200 rounded-lg"
+                      : "px-2.5 py-1.5 text-sm font-normal hover:bg-accent/40 transition-all duration-200 rounded-xl",
+                    "focus:ring-1 focus:ring-ring focus:ring-offset-1 focus:outline-none",
                     isOpen && "bg-accent/40"
                   )}
                   disabled={disabled}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
+                    <div className={cn("flex-shrink-0", compact && "scale-90")}>
                       {agentDisplay.icon}
                     </div>
-                    <span className="hidden sm:inline-block truncate max-w-[80px] font-normal">
+                    <span className={cn(
+                      compact 
+                        ? "truncate max-w-[60px] text-xs"
+                        : "hidden sm:inline-block truncate max-w-[80px] font-normal"
+                    )}>
                       {agentDisplay.name}
                     </span>
                     <ChevronDown 
-                      size={12} 
+                      size={compact ? 10 : 12} 
                       className={cn(
                         "opacity-50 transition-transform duration-200",
                         isOpen && "rotate-180"
