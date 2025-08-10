@@ -1349,13 +1349,10 @@ async def get_agents(
             # Default to created_at
             query = query.order("created_at", desc=(sort_order == "desc"))
         
-        # Execute query to get total count first
-        count_result = await query.execute()
-        total_count = count_result.count
-        
-        # Now get the actual data with pagination
+        # Get paginated data and total count in one request
         query = query.range(offset, offset + limit - 1)
         agents_result = await query.execute()
+        total_count = agents_result.count if agents_result.count is not None else 0
         
         if not agents_result.data:
             logger.info(f"No agents found for user: {user_id}")
@@ -1373,28 +1370,54 @@ async def get_agents(
         agents_data = agents_result.data
         
         # First, fetch version data for all agents to ensure we have correct tool info
+        # Do this in a single batched query instead of per-agent service calls
         agent_version_map = {}
-        for agent in agents_data:
-            if agent.get('current_version_id'):
-                try:
-                    version_service = await _get_version_service()
+        version_ids = list({agent['current_version_id'] for agent in agents_data if agent.get('current_version_id')})
+        if version_ids:
+            try:
+                versions_result = await client.table('agent_versions').select(
+                    'version_id, agent_id, version_number, version_name, is_active, created_at, updated_at, created_by, config'
+                ).in_('version_id', version_ids).execute()
 
-                    version_obj = await version_service.get_version(
-                        agent_id=agent['agent_id'],
-                        version_id=agent['current_version_id'],
-                        user_id=user_id
-                    )
-                    version_dict = version_obj.to_dict()
-                    agent_version_map[agent['agent_id']] = version_dict
-                except Exception as e:
-                    logger.warning(f"Failed to get version data for agent {agent['agent_id']}: {e}")
+                for row in (versions_result.data or []):
+                    config = row.get('config') or {}
+                    tools = config.get('tools') or {}
+                    version_dict = {
+                        'version_id': row['version_id'],
+                        'agent_id': row['agent_id'],
+                        'version_number': row['version_number'],
+                        'version_name': row['version_name'],
+                        'system_prompt': config.get('system_prompt', ''),
+                        'configured_mcps': tools.get('mcp', []),
+                        'custom_mcps': tools.get('custom_mcp', []),
+                        'agentpress_tools': tools.get('agentpress', {}),
+                        'is_active': row.get('is_active', False),
+                        'created_at': row.get('created_at'),
+                        'updated_at': row.get('updated_at') or row.get('created_at'),
+                        'created_by': row.get('created_by'),
+                    }
+                    agent_version_map[row['agent_id']] = version_dict
+            except Exception as e:
+                logger.warning(f"Failed to batch load versions for agents: {e}")
         
         # Apply tool-based filters using version data
         if has_mcp_tools is not None or has_agentpress_tools is not None or tools:
             filtered_agents = []
             tools_filter = []
             if tools:
-                tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+                # Handle case where tools might be passed as dict instead of string
+                if isinstance(tools, str):
+                    tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
+                elif isinstance(tools, dict):
+                    # If tools is a dict, log the issue and skip filtering
+                    logger.warning(f"Received tools parameter as dict instead of string: {tools}")
+                    tools_filter = []
+                elif isinstance(tools, list):
+                    # If tools is a list, use it directly
+                    tools_filter = [str(tool).strip() for tool in tools if str(tool).strip()]
+                else:
+                    logger.warning(f"Unexpected tools parameter type: {type(tools)}, value: {tools}")
+                    tools_filter = []
             
             for agent in agents_data:
                 # Get version data if available and extract configuration

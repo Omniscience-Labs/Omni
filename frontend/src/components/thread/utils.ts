@@ -494,3 +494,38 @@ export function getUserFriendlyToolName(toolName: string): string {
   }
   return TOOL_DISPLAY_NAMES.get(toolName) || toolName;
 }
+
+export const HIDE_STREAMING_XML_TAGS = new Set([
+  'create-tasks',
+  'execute-command',
+  'create-file',
+  'delete-file',
+  'full-file-rewrite',
+  'edit-file',
+  'str-replace',
+  'browser-click-element',
+  'browser-close-tab',
+  'browser-drag-drop',
+  'browser-get-dropdown-options',
+  'browser-go-back',
+  'browser-input-text',
+  'browser-navigate-to',
+  'browser-scroll-down',
+  'browser-scroll-to-text',
+  'browser-scroll-up',
+  'browser-select-dropdown-option',
+  'browser-send-keys',
+  'browser-switch-tab',
+  'browser-wait',
+  'deploy',
+  'ask',
+  'complete',
+  'crawl-webpage',
+  'web-search',
+  'see-image',
+  'execute_data_provider_call',
+  'execute_data_provider_endpoint',
+
+  'execute-data-provider-call',
+  'execute-data-provider-endpoint',
+]);

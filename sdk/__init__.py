@@ -1,7 +1,7 @@
 """
-Kortix SDK for Suna AI Agent Platform
+Kortix SDK for Suna AI Worker Platform
 
-A Python SDK for creating and managing AI agents with thread execution capabilities.
+A Python SDK for creating and managing AI Workers with thread execution capabilities.
 """
 
 __version__ = "0.1.0"

@@ -288,33 +288,6 @@ export default function ThreadPage({
     [],
   );
 
-  // useEffect(() => {
-  //   if (!isPlaying || messages.length === 0) return;
-
-  //   let playbackTimeout: NodeJS.Timeout;
-
-  //   const playbackNextMessage = async () => {
-  //     if (currentMessageIndex >= messages.length) {
-  //       setIsPlaying(false);
-  //       return;
-  //     }
-
-  //     const currentMessage = messages[currentMessageIndex];
-  //     console.log(
-  //       `Playing message ${currentMessageIndex}:`,
-  //       currentMessage.type,
-  //       currentMessage.message_id,
-  //     );
-
-  //     setCurrentMessageIndex((prevIndex) => prevIndex + 1);
-  //   };
-  //   playbackTimeout = setTimeout(playbackNextMessage, 500);
-
-  //   return () => {
-  //     clearTimeout(playbackTimeout);
-  //   };
-  // }, [isPlaying, currentMessageIndex, messages]);
-
   const {
     status: streamHookStatus,
     toolCall: streamingToolCall,
