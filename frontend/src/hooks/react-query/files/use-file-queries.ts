@@ -115,8 +115,6 @@ export async function fetchFileContent(
   const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content`);
   url.searchParams.append('path', normalizedPath);
   
-  console.log(`[FILE QUERY] Fetching ${contentType} content for: ${normalizedPath}`);
-  
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -141,29 +139,13 @@ export async function fetchFileContent(
       // Ensure correct MIME type for known file types
       const expectedMimeType = getMimeTypeFromPath(filePath);
       if (expectedMimeType !== blob.type && expectedMimeType !== 'application/octet-stream') {
-        console.log(`[FILE QUERY] Correcting MIME type for ${filePath}: ${blob.type} → ${expectedMimeType}`);
         const correctedBlob = new Blob([blob], { type: expectedMimeType });
         
         // Additional validation for images
         if (isImageFile(filePath)) {
-          console.log(`[FILE QUERY] Created image blob:`, {
-            originalType: blob.type,
-            correctedType: correctedBlob.type,
-            size: correctedBlob.size,
-            filePath
-          });
         }
         
         return correctedBlob;
-      }
-      
-      // Log blob details for debugging
-      if (isImageFile(filePath)) {
-        console.log(`[FILE QUERY] Image blob details:`, {
-          type: blob.type,
-          size: blob.size,
-          filePath
-        });
       }
       
       return blob;
@@ -285,8 +267,6 @@ export function useDirectoryQuery(
       if (!sandboxId || !normalizedPath) {
         throw new Error('Missing required parameters');
       }
-      
-      console.log(`[FILE QUERY] Fetching directory listing for: ${normalizedPath}`);
       return await listSandboxFiles(sandboxId, normalizedPath);
     },
     enabled: Boolean(sandboxId && normalizedPath && (options.enabled !== false)),
@@ -313,7 +293,6 @@ export function useFilePreloader() {
     }
     
     const uniquePaths = [...new Set(filePaths)];
-    console.log(`[FILE QUERY] Preloading ${uniquePaths.length} files for sandbox ${sandboxId}`);
     
     const preloadPromises = uniquePaths.map(async (path) => {
       const normalizedPath = normalizePath(path);
@@ -324,7 +303,6 @@ export function useFilePreloader() {
       const existingData = queryClient.getQueryData(queryKey);
       
       if (existingData) {
-        console.log(`[FILE QUERY] Already cached: ${normalizedPath}`);
         return existingData;
       }
       
@@ -337,7 +315,6 @@ export function useFilePreloader() {
     });
     
     await Promise.all(preloadPromises);
-    console.log(`[FILE QUERY] Completed preloading ${uniquePaths.length} files`);
   }, [queryClient, session?.access_token]);
   
   return { preloadFiles };

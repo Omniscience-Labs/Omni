@@ -9,7 +9,6 @@ import { ArrowLeft, Check, AlertCircle, Plus, ExternalLink, ChevronRight, Search
 import { useCreateComposioProfile, useComposioTools } from '@/hooks/react-query/composio/use-composio';
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
 import { useComposioToolkitDetails } from '@/hooks/react-query/composio/use-composio';
-import { ComposioToolsManager } from './composio-tools-manager';
 import type { ComposioToolkit, ComposioProfile, AuthConfigField } from '@/hooks/react-query/composio/utils';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -329,18 +328,52 @@ const ToolPreviewCard = ({ tool, searchTerm }: {
     );
   };
   
+  // Generate icon based on tool name/category
+  const getToolIcon = (toolName: string) => {
+    const name = toolName.toLowerCase();
+    if (name.includes('create') || name.includes('add') || name.includes('new')) {
+      return <Plus className="w-3 h-3" />;
+    }
+    if (name.includes('get') || name.includes('fetch') || name.includes('read') || name.includes('view')) {
+      return <Eye className="w-3 h-3" />;
+    }
+    if (name.includes('update') || name.includes('edit') || name.includes('modify')) {
+      return <Settings className="w-3 h-3" />;
+    }
+    if (name.includes('send') || name.includes('post') || name.includes('message')) {
+      return <ChevronRight className="w-3 h-3" />;
+    }
+    if (name.includes('search') || name.includes('find')) {
+      return <Search className="w-3 h-3" />;
+    }
+    if (name.includes('user') || name.includes('profile') || name.includes('account')) {
+      return <User className="w-3 h-3" />;
+    }
+    // Default to first letter of tool name
+    return (
+      <div className="w-3 h-3 rounded-sm bg-primary/10 flex items-center justify-center text-[8px] font-semibold text-primary">
+        {toolName.charAt(0).toUpperCase()}
+      </div>
+    );
+  };
+  
   return (
-    <div className="border rounded-xl p-3 space-y-2 hover:bg-muted/50 transition-colors">
-      <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Wrench className="w-4 h-4" />
-            <h3 className="font-medium text-sm leading-tight">{highlightText(tool.name, searchTerm)}</h3>
-          </div>
+    <div 
+      className="border rounded-md p-2 hover:bg-muted/30 transition-colors group cursor-pointer"
+      title={tool.description} // Show full description on hover
+    >
+      <div className="flex items-center gap-2">
+        <div className="flex-shrink-0">
+          {getToolIcon(tool.name)}
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-1">
-          {highlightText(tool.description, searchTerm)}
-        </p>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium truncate">{highlightText(tool.name, searchTerm)}</div>
+          {tool.tags && tool.tags.length > 0 && (
+            <div className="text-[10px] text-muted-foreground truncate">
+              {tool.tags[0]}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -362,6 +395,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [showToolsManager, setShowToolsManager] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
+  const [selectedConnectionType, setSelectedConnectionType] = useState<'existing' | 'new' | null>(null);
   
   const [initiationFields, setInitiationFields] = useState<Record<string, string>>({});
   const [initiationFieldsErrors, setInitiationFieldsErrors] = useState<Record<string, string>>({});
@@ -415,6 +449,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       setRedirectUrl(null);
       setShowToolsManager(false);
       setDirection('forward');
+      setSelectedConnectionType(null);
       setSearchTerm('');
       setSelectedTools([]);
       setAvailableTools([]);
@@ -759,146 +794,219 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     animate="center"
                     exit="exit"
                     transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="grid grid-cols-4 gap-0 h-full"
+                    className="flex flex-col h-full max-h-[500px]"
                   >
-                    <div className="col-span-2 flex flex-col space-y-6 p-8 pr-6 border-border/50 overflow-y-auto">
-                      <div>
-                        <h3 className="text-lg font-semibold">Connect to {app.name}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Choose how you'd like to authenticate with {app.name}
-                        </p>
-                      </div>
-                      {existingProfiles.length > 0 && (
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">Use Existing Profile</Label>
-                        <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                          <SelectTrigger className="w-full h-12 text-base">
-                            <SelectValue placeholder="Select a profile...">
-                              {selectedProfileId && (() => {
-                                const selectedProfile = existingProfiles.find(p => p.profile_id === selectedProfileId);
-                                return selectedProfile ? (
-                                  <div className="flex items-center gap-3">
-                                    {app.logo ? (
-                                      <img src={app.logo} alt={app.name} className="h-5 w-5 rounded-lg object-contain flex-shrink-0" />
-                                    ) : (
-                                      <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0">
-                                        {app.name.charAt(0)}
-                                      </div>
-                                    )}
-                                    <span className="text-sm font-medium truncate">{selectedProfile.profile_name}</span>
-                                  </div>
-                                ) : null;
-                              })()}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="w-full">
-                            {existingProfiles.map((profile) => (
-                              <SelectItem key={profile.profile_id} value={profile.profile_id}>
-                                <div className="flex items-center gap-3 w-full">
-                                  {app.logo ? (
-                                    <img src={app.logo} alt={app.name} className="h-5 w-5 rounded-lg object-contain flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0">
-                                      {app.name.charAt(0)}
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">{profile.profile_name}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      Created {formatDistanceToNow(new Date(profile.created_at), { addSuffix: true })}
-                                    </div>
-                                  </div>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-px bg-border flex-1" />
-                        <span className="text-xs text-muted-foreground px-2">
-                          {existingProfiles.length > 0 ? 'or' : ''}
-                        </span>
-                        <div className="h-px bg-border flex-1" />
-                      </div>
-                        <Button
-                          onClick={() => navigateToStep(Step.ProfileCreate)}
-                          variant={existingProfiles.length > 0 ? "outline" : "default"}
-                          className="w-full"
-                        >
-                          {app.logo ? (
-                            <img src={app.logo} alt={app.name} className="h-4 w-4 rounded-lg object-contain" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold mr-2">
-                              {app.name.charAt(0)}
-                            </div>
-                          )}
-                          Connect New Account
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex gap-3 pt-4 mt-auto">
-                        <Button
-                          variant="outline"
-                          onClick={() => onOpenChange(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                        {existingProfiles.length > 0 && (
-                          <Button
-                            onClick={handleProfileSelect}
-                            disabled={!selectedProfileId}
-                            className="flex-1"
-                          >
-                            {mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2 flex flex-col pl-2 pr-4 overflow-hidden">
-                      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-muted-foreground/10 pr-2 space-y-2">
-                        {isLoadingToolsPreview ? (
-                          <div className="space-y-2">
-                            {[...Array(3)].map((_, i) => (
-                              <div key={i} className="border rounded-lg p-3 animate-pulse">
-                                <div className="h-3 bg-muted rounded w-3/4 mb-2"></div>
-                                <div className="h-2 bg-muted rounded w-full mb-2"></div>
-                                <div className="flex gap-2">
-                                  <div className="h-4 bg-muted rounded w-12"></div>
-                                  <div className="h-4 bg-muted rounded w-16"></div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            {filteredToolsPreview.length > 0 ? (
-                              <div className="space-y-2">
-                                {filteredToolsPreview.slice(0, 6).map((tool) => (
-                                  <ToolPreviewCard
-                                    key={tool.slug}
-                                    tool={tool}
-                                    searchTerm={toolsPreviewSearchTerm}
-                                  />
-                                ))}
-                                {filteredToolsPreview.length > 6 && (
-                                  <div className="text-center py-2 mb-4 text-sm text-muted-foreground">
-                                    +{filteredToolsPreview.length - 6} more tools available
-                                  </div>
-                                )}
-                              </div>
+                    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                      <div className="p-6 space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3 mb-4">
+                            {app.logo ? (
+                              <img src={app.logo} alt={app.name} className="w-8 h-8 rounded-lg object-contain bg-muted p-1 border flex-shrink-0" />
                             ) : (
-                              <div className="text-center py-8 text-muted-foreground">
-                                {toolsPreviewSearchTerm ? 'No tools match your search' : 'No tools available'}
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
+                                {app.name.charAt(0)}
                               </div>
                             )}
-                          </>
-                        )}
+                            <div className="flex-1">
+                              <h4 className="font-medium text-foreground">Connect to {app.name}</h4>
+                              <p className="text-xs text-muted-foreground">Choose an existing profile or create a new connection</p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => setShowToolsManager(!showToolsManager)}>
+                              {showToolsManager ? 'Hide' : 'View'} Tools
+                            </Button>
+                          </div>
+                          
+                          <div className="grid gap-3">
+                            {existingProfiles.length > 0 && (
+                              <Card 
+                                className={cn(
+                                  "cursor-pointer p-0 transition-all",
+                                  selectedConnectionType === 'existing' ? "border-primary bg-primary/5" : "border-border hover:border-border/80"
+                                )}
+                                onClick={() => {
+                                  if (selectedConnectionType === 'existing') {
+                                    setSelectedConnectionType(null);
+                                    setSelectedProfileId('');
+                                  } else {
+                                    setSelectedConnectionType('existing');
+                                    setSelectedProfileId(existingProfiles[0]?.profile_id || '');
+                                  }
+                                }}
+                              >
+                                <CardContent className='p-2'>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl bg-green-200 dark:bg-green-900/20 flex items-center justify-center">
+                                        <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                      </div>
+                                      <div>
+                                        <h5 className="font-medium text-sm">Use Existing Connection</h5>
+                                        <p className="text-xs text-muted-foreground">{existingProfiles.length} profile{existingProfiles.length > 1 ? 's' : ''} already connected</p>
+                                      </div>
+                                    </div>
+                                    <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", selectedConnectionType === 'existing' && "rotate-90")} />
+                                  </div>
+                                  <AnimatePresence>
+                                    {selectedConnectionType === 'existing' && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                                        className="overflow-hidden"
+                                      >
+                                        <div className="mt-3 pt-3 border-t border-border/50">
+                                          <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                                            <SelectTrigger className="w-full h-10">
+                                              <SelectValue placeholder="Select a profile..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                                                          {existingProfiles.map((profile) => (
+                                              <SelectItem key={profile.profile_id} value={profile.profile_id}>
+                                                <div className="flex items-center gap-3">
+                                                  {app.logo ? (
+                                                    <img src={app.logo} alt={app.name} className="w-5 h-5 rounded-lg object-contain bg-muted p-0.5 border flex-shrink-0" />
+                                                  ) : (
+                                                    <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0">
+                                                      {app.name.charAt(0)}
+                                                    </div>
+                                                  )}
+                                                  <div>
+                                                    <div className="text-sm font-medium">{profile.profile_name}</div>
+                                                  </div>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </CardContent>
+                              </Card>
+                            )}
+                            
+                            <Card className={cn(
+                              "cursor-pointer p-0 transition-all",
+                              selectedConnectionType === 'new' ? "border-primary bg-primary/5" : "border-border hover:border-border/80"
+                            )} onClick={() => {
+                              if (selectedConnectionType === 'new') {
+                                setSelectedConnectionType(null);
+                                setSelectedProfileId('');
+                              } else {
+                                setSelectedConnectionType('new');
+                                setSelectedProfileId('new');
+                              }
+                            }}>
+                              <CardContent className='p-2'>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                      <Plus className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                      <h5 className="font-medium text-sm">Create New Connection</h5>
+                                      <p className="text-xs text-muted-foreground">Connect a new {app.name} account</p>
+                                    </div>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                          <AnimatePresence>
+                            {showToolsManager && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                className="overflow-hidden"
+                              >
+                                <div className="space-y-3">
+                                  <ScrollArea className="h-[200px] border rounded-md bg-muted/10">
+                                    <div className="p-2">
+                                      {isLoadingToolsPreview ? (
+                                        <div className="grid grid-cols-2 gap-1">
+                                          {[...Array(8)].map((_, i) => (
+                                            <div key={i} className="border rounded-md p-2 animate-pulse bg-background/50">
+                                              <div className="h-2 bg-muted rounded w-3/4 mb-1"></div>
+                                              <div className="h-2 bg-muted rounded w-1/2"></div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : filteredToolsPreview.length > 0 ? (
+                                        <div className="grid grid-cols-2 gap-1">
+                                          {filteredToolsPreview.map((tool) => (
+                                            <ToolPreviewCard
+                                              key={tool.slug}
+                                              tool={tool}
+                                              searchTerm={toolsPreviewSearchTerm}
+                                            />
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="text-center py-6 text-muted-foreground">
+                                          <Search className="h-4 w-4 mx-auto mb-2" />
+                                          <p className="text-xs">
+                                            {toolsPreviewSearchTerm ? 'No matches' : 'No tools available'}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="px-6 py-4 border-t border-border/50 bg-muted/20 flex-shrink-0">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          {selectedConnectionType === 'new' ? 'Ready to create new connection' : 
+                           selectedConnectionType === 'existing' && selectedProfileId ? 'Profile selected' :
+                           selectedConnectionType === 'existing' ? 'Select a profile to continue' :
+                           'Choose how you want to connect'}
+                        </div>
+                        <div className="flex gap-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            className="px-6"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (selectedConnectionType === 'new') {
+                                navigateToStep(Step.ProfileCreate);
+                              } else {
+                                handleProfileSelect();
+                              }
+                            }}
+                            disabled={!selectedConnectionType || (selectedConnectionType === 'existing' && !selectedProfileId)}
+                            className="px-8 min-w-[120px]"
+                          >
+                            {selectedConnectionType === 'new' ? (
+                              <>
+                                Create Connection
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </>
+                            ) : selectedConnectionType === 'existing' && selectedProfileId ? (
+                              <>
+                                {mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </>
+                            ) : (
+                              'Continue'
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>

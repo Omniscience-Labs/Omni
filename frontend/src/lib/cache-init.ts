@@ -52,10 +52,6 @@ export function initializeCacheSystem() {
           console.error(`Failed to revoke blob URL: ${url}`, err);
         }
       });
-      
-      if (keysToDelete.length > 0) {
-        console.log(`Cache cleanup: removed ${keysToDelete.length} expired entries`);
-      }
     }
   };
   

@@ -287,7 +287,7 @@ function LoginContent() {
             </div>
             <div className="w-full max-w-sm">
               <div className="mb-4 flex items-center flex-col gap-4 justify-center">
-                {customAgentsEnabled && <ReleaseBadge className='mb-4' text="Custom Agents, Workflows, and more!" link="/changelog" />}
+                {customAgentsEnabled && <ReleaseBadge className='mb-4' text="Custom Agents, Playbooks, and more!" link="/changelog" />}
                 <h1 className="text-2xl font-semibold text-foreground">
                   {isSignUp ? 'Create your account' : 'Log into your account'}
                 </h1>

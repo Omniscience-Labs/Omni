@@ -127,12 +127,7 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
   const { setCurrentVersion, clearVersionState } = useVersionStore();
   
   const versionData = useMemo(() => {
-    console.log('[useAgentVersionData] Raw version data:', rawVersionData);
-    console.log('[useAgentVersionData] Raw version model:', rawVersionData?.model);
-    console.log('[useAgentVersionData] Raw version full structure:', JSON.stringify(rawVersionData, null, 2));
     const normalized = normalizeVersionData(rawVersionData);
-    console.log('[useAgentVersionData] Normalized version data:', normalized);
-    console.log('[useAgentVersionData] Normalized model:', normalized?.model);
     return normalized;
   }, [rawVersionData]);
   
@@ -148,7 +143,7 @@ export function useAgentVersionData({ agentId }: UseAgentVersionDataProps): UseA
         versionNumber: { value: versionData.version_number },
         versionName: versionData.version_name,
         systemPrompt: versionData.system_prompt,
-        model: versionData.model,  // Add model field
+        model: versionData.model,
         configuredMcps: versionData.configured_mcps,
         customMcps: versionData.custom_mcps,
         toolConfiguration: { tools: versionData.agentpress_tools },

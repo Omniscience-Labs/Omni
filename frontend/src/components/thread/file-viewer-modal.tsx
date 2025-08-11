@@ -84,15 +84,6 @@ export function FileViewerModal({
   const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1);
   const isFileListMode = Boolean(filePathList && filePathList.length > 0);
 
-  // Debug filePathList changes
-  useEffect(() => {
-    console.log('[FILE VIEWER DEBUG] filePathList changed:', {
-      filePathList,
-      length: filePathList?.length,
-      isFileListMode,
-      currentFileIndex
-    });
-  }, [filePathList, isFileListMode, currentFileIndex]);
 
   // Use React Query for directory listing
   const {
@@ -177,11 +168,6 @@ export function FileViewerModal({
   const normalizePath = useCallback((path: unknown): string => {
     // Explicitly check if the path is a non-empty string
     if (typeof path !== 'string' || !path) {
-      console.warn(
-        `[FILE VIEWER] normalizePath received non-string or empty value:`,
-        path,
-        `Returning '/workspace'`,
-      );
       return '/workspace';
     }
     // Now we know path is a string
@@ -203,7 +189,6 @@ export function FileViewerModal({
       visited.add(dirPath);
 
       try {
-        console.log(`[DOWNLOAD ALL] Exploring directory: ${dirPath}`);
         const files = await listSandboxFiles(sandboxId, dirPath);
 
         for (const file of files) {
@@ -217,14 +202,12 @@ export function FileViewerModal({
           }
         }
       } catch (error) {
-        console.error(`[DOWNLOAD ALL] Error exploring directory ${dirPath}:`, error);
         toast.error(`Failed to read directory: ${dirPath}`);
       }
     };
 
     await exploreDirectory(startPath);
 
-    console.log(`[DOWNLOAD ALL] Discovered ${allFiles.length} files, total size: ${totalSize} bytes`);
     return { files: allFiles, totalSize };
   }, [sandboxId]);
 
@@ -243,8 +226,6 @@ export function FileViewerModal({
         toast.error('No files found to download');
         return;
       }
-
-      console.log(`[DOWNLOAD ALL] Starting download of ${files.length} files`);
 
       // Step 2: Create zip and load files
       const zip = new JSZip();
@@ -270,7 +251,6 @@ export function FileViewerModal({
 
           if (!content) {
             // Load from server if not cached
-            console.log(`[DOWNLOAD ALL] Loading file from server: ${file.path}`);
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(file.path)}`,
               {
@@ -279,7 +259,6 @@ export function FileViewerModal({
             );
 
             if (!response.ok) {
-              console.warn(`[DOWNLOAD ALL] Failed to load file: ${file.path} (${response.status})`);
               continue; // Skip this file and continue with others
             }
 
@@ -306,7 +285,6 @@ export function FileViewerModal({
                 const blobContent = await blobResponse.blob();
                 zip.file(relativePath, blobContent);
               } catch (blobError) {
-                console.warn(`[DOWNLOAD ALL] Failed to fetch blob content for: ${file.path}`, blobError);
                 // Fallback: try to fetch from server directly
                 const fallbackResponse = await fetch(
                   `${process.env.NEXT_PUBLIC_BACKEND_URL}/sandboxes/${sandboxId}/files/content?path=${encodeURIComponent(file.path)}`,
@@ -326,10 +304,7 @@ export function FileViewerModal({
             zip.file(relativePath, JSON.stringify(content, null, 2));
           }
 
-          console.log(`[DOWNLOAD ALL] Added to zip: ${relativePath} (${i + 1}/${files.length})`);
-
         } catch (fileError) {
-          console.error(`[DOWNLOAD ALL] Error processing file ${file.path}:`, fileError);
           // Continue with other files
         }
       }
@@ -341,7 +316,6 @@ export function FileViewerModal({
         currentFile: 'Generating zip file...'
       });
 
-      console.log('[DOWNLOAD ALL] Generating zip file...');
       const zipBlob = await zip.generateAsync({
         type: 'blob',
         compression: 'DEFLATE',
@@ -361,10 +335,8 @@ export function FileViewerModal({
       setTimeout(() => URL.revokeObjectURL(url), 10000);
 
       toast.success(`Downloaded ${files.length} files as zip archive`);
-      console.log(`[DOWNLOAD ALL] Successfully created zip with ${files.length} files`);
 
     } catch (error) {
-      console.error('[DOWNLOAD ALL] Error creating zip:', error);
       toast.error(`Failed to create zip archive: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDownloadingAll(false);
@@ -379,7 +351,6 @@ export function FileViewerModal({
 
   // Helper function to clear the selected file
   const clearSelectedFile = useCallback(() => {
-    console.log(`[FILE VIEWER DEBUG] clearSelectedFile called, isFileListMode: ${isFileListMode}`);
     setSelectedFilePath(null);
     setRawContent(null);
     setTextContentForRenderer(null); // Clear derived text content
@@ -387,10 +358,7 @@ export function FileViewerModal({
     setContentError(null);
     // Only reset file list mode index when not in file list mode
     if (!isFileListMode) {
-      console.log(`[FILE VIEWER DEBUG] Resetting currentFileIndex in clearSelectedFile`);
       setCurrentFileIndex(-1);
-    } else {
-      console.log(`[FILE VIEWER DEBUG] Keeping currentFileIndex in clearSelectedFile because in file list mode`);
     }
   }, [isFileListMode]);
 
@@ -400,9 +368,6 @@ export function FileViewerModal({
       if (file.is_dir) {
         // For directories, just navigate to that folder
         const normalizedPath = normalizePath(file.path);
-        console.log(
-          `[FILE VIEWER] Navigating to folder: ${file.path} → ${normalizedPath}`,
-        );
 
         // Clear selected file when navigating
         clearSelectedFile();
@@ -414,24 +379,7 @@ export function FileViewerModal({
 
       // Skip if already selected
       if (selectedFilePath === file.path) {
-        console.log(`[FILE VIEWER] File already selected: ${file.path}`);
         return;
-      }
-
-      console.log(`[FILE VIEWER] Opening file: ${file.path}`);
-
-      // Check file types for logging
-      const isImageFile = FileCache.isImageFile(file.path);
-      const isPdfFile = FileCache.isPdfFile(file.path);
-      const extension = file.path.split('.').pop()?.toLowerCase();
-      const isOfficeFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(extension || '');
-
-      if (isImageFile) {
-        console.log(`[FILE VIEWER][IMAGE DEBUG] Opening image file: ${file.path}`);
-      } else if (isPdfFile) {
-        console.log(`[FILE VIEWER] Opening PDF file: ${file.path}`);
-      } else if (isOfficeFile) {
-        console.log(`[FILE VIEWER] Opening Office document: ${file.path} (${extension})`);
       }
 
       // Clear previous state and set selected file
@@ -440,10 +388,7 @@ export function FileViewerModal({
 
       // Only reset file index if we're NOT in file list mode or the file is not in the list
       if (!isFileListMode || !filePathList?.includes(file.path)) {
-        console.log(`[FILE VIEWER DEBUG] Resetting currentFileIndex because not in file list mode or file not in list`);
         setCurrentFileIndex(-1);
-      } else {
-        console.log(`[FILE VIEWER DEBUG] Keeping currentFileIndex because file is in file list mode`);
       }
 
       // The useFileContentQuery hook will automatically handle loading the content
@@ -466,16 +411,13 @@ export function FileViewerModal({
 
     // Skip repeated loads for the same path
     if (isLoadingFiles && currentNavigationRef.current === currentPath) {
-      console.log(`[FILE VIEWER] Already loading ${currentPath}, skipping duplicate load`);
       return;
     }
 
     // Track current navigation
     currentNavigationRef.current = currentPath;
-    console.log(`[FILE VIEWER] Starting navigation to: ${currentPath}`);
 
     // React Query handles the loading state automatically
-    console.log(`[FILE VIEWER] React Query will handle directory listing for: ${currentPath}`);
 
     // After the first load, set isInitialLoad to false
     if (isInitialLoad) {
@@ -484,7 +426,6 @@ export function FileViewerModal({
 
     // Handle any loading errors
     if (filesError) {
-      console.error('Failed to load files:', filesError);
       toast.error('Failed to load files');
     }
   }, [open, sandboxId, currentPath, isInitialLoad, isLoadingFiles, filesError]);
@@ -496,14 +437,6 @@ export function FileViewerModal({
 
       // Ensure the path is properly normalized
       const normalizedPath = normalizePath(folder.path);
-
-      // Always navigate to the folder to ensure breadcrumbs update correctly
-      console.log(
-        `[FILE VIEWER] Navigating to folder: ${folder.path} → ${normalizedPath}`,
-      );
-      console.log(
-        `[FILE VIEWER] Current path before navigation: ${currentPath}`,
-      );
 
       // Clear selected file when navigating
       clearSelectedFile();
@@ -519,11 +452,6 @@ export function FileViewerModal({
     (path: string) => {
       const normalizedPath = normalizePath(path);
 
-      // Always navigate when clicking breadcrumbs to ensure proper update
-      console.log(
-        `[FILE VIEWER] Navigating to breadcrumb path: ${path} → ${normalizedPath}`,
-      );
-
       // Clear selected file and set path
       clearSelectedFile();
       setCurrentPath(normalizedPath);
@@ -533,9 +461,6 @@ export function FileViewerModal({
 
   // Helper function to navigate to home
   const navigateHome = useCallback(() => {
-    // Always navigate home when clicked to ensure consistent behavior
-    console.log('[FILE VIEWER] Navigating home from:', currentPath);
-
     clearSelectedFile();
     setCurrentPath('/workspace');
   }, [clearSelectedFile, currentPath]);
@@ -583,15 +508,12 @@ export function FileViewerModal({
 
       // Create cache key with detected content type
       const cacheKey = `${sandboxId}:${normalizedPath}:${detectedContentType}`;
-      console.log(`[FILE VIEWER] Checking cache for key: ${cacheKey}`);
 
       if (FileCache.has(cacheKey)) {
         const cachedContent = FileCache.get(cacheKey);
-        console.log(`[FILE VIEWER] Direct cache hit for ${normalizedPath} (${detectedContentType})`);
         return { found: true, content: cachedContent, contentType: detectedContentType };
       }
 
-      console.log(`[FILE VIEWER] Cache miss for key: ${cacheKey}`);
       return { found: false, content: null, contentType: detectedContentType };
     },
     [sandboxId],
@@ -599,20 +521,11 @@ export function FileViewerModal({
 
   // Navigation functions for file list mode
   const navigateToFileByIndex = useCallback((index: number) => {
-    console.log('[FILE VIEWER DEBUG] navigateToFileByIndex called:', {
-      index,
-      isFileListMode,
-      filePathList,
-      filePathListLength: filePathList?.length
-    });
-
     if (!isFileListMode || !filePathList || index < 0 || index >= filePathList.length) {
-      console.log('[FILE VIEWER DEBUG] navigateToFileByIndex early return - invalid conditions');
       return;
     }
 
     const filePath = filePathList[index];
-    console.log('[FILE VIEWER DEBUG] Setting currentFileIndex to:', index, 'for file:', filePath);
     setCurrentFileIndex(index);
 
     // Create a temporary FileInfo object for the file
@@ -646,30 +559,11 @@ export function FileViewerModal({
   useEffect(() => {
     // Only run if modal is open, initial path is provided, AND it hasn't been processed yet
     if (open && safeInitialFilePath && !initialPathProcessed) {
-      console.log(
-        `[FILE VIEWER] useEffect[initialFilePath]: Processing initial path: ${safeInitialFilePath}`,
-      );
-
       // If we're in file list mode, find the index and navigate to it
       if (isFileListMode && filePathList) {
-        console.log('[FILE VIEWER DEBUG] Initial file path - file list mode detected:', {
-          isFileListMode,
-          filePathList,
-          safeInitialFilePath,
-          filePathListLength: filePathList.length
-        });
-
         const normalizedInitialPath = normalizePath(safeInitialFilePath);
         const index = filePathList.findIndex(path => normalizePath(path) === normalizedInitialPath);
-
-        console.log('[FILE VIEWER DEBUG] Found index for initial file:', {
-          normalizedInitialPath,
-          index,
-          foundPath: index !== -1 ? filePathList[index] : 'not found'
-        });
-
         if (index !== -1) {
-          console.log(`[FILE VIEWER] File list mode: navigating to index ${index} for ${normalizedInitialPath}`);
           navigateToFileByIndex(index);
           setInitialPathProcessed(true);
           return;
@@ -686,23 +580,14 @@ export function FileViewerModal({
       const fileName =
         lastSlashIndex >= 0 ? fullPath.substring(lastSlashIndex + 1) : '';
 
-      console.log(
-        `[FILE VIEWER] useEffect[initialFilePath]: Normalized Path: ${fullPath}, Directory: ${directoryPath}, File: ${fileName}`,
-      );
-
       // Set the current path to the target directory
       // This will trigger the other useEffect to load files for this directory
       if (currentPath !== directoryPath) {
-        console.log(
-          `[FILE VIEWER] useEffect[initialFilePath]: Setting current path to ${directoryPath}`,
-        );
         setCurrentPath(directoryPath);
       }
 
       // Try to load the file directly from cache if possible
       if (safeInitialFilePath) {
-        console.log(`[FILE VIEWER] Attempting to load initial file directly from cache: ${safeInitialFilePath}`);
-
         // Create a temporary FileInfo object for the initial file
         const initialFile: FileInfo = {
           name: fileName,
@@ -713,7 +598,6 @@ export function FileViewerModal({
         };
 
         // Now that openFile is defined first, we can call it directly
-        console.log(`[FILE VIEWER] Opening initial file: ${fullPath}`);
         openFile(initialFile);
       }
 
@@ -721,9 +605,6 @@ export function FileViewerModal({
       setInitialPathProcessed(true);
     } else if (!open) {
       // Reset the processed flag when the modal closes
-      console.log(
-        '[FILE VIEWER] useEffect[initialFilePath]: Modal closed, resetting initialPathProcessed flag.',
-      );
       setInitialPathProcessed(false);
     }
   }, [open, safeInitialFilePath, initialPathProcessed, normalizePath, currentPath, openFile, isFileListMode, filePathList, navigateToFileByIndex]);
@@ -740,8 +621,6 @@ export function FileViewerModal({
 
     // Handle successful content
     if (cachedFileContent !== null && !isCachedFileLoading) {
-      console.log(`[FILE VIEWER] Received cached content for: ${selectedFilePath}`);
-
       // Check file type to determine proper handling
       const isImageFile = FileCache.isImageFile(selectedFilePath);
       const isPdfFile = FileCache.isPdfFile(selectedFilePath);
@@ -756,37 +635,31 @@ export function FileViewerModal({
       if (typeof cachedFileContent === 'string') {
         if (cachedFileContent.startsWith('blob:')) {
           // It's already a blob URL
-          console.log(`[FILE VIEWER] Setting blob URL from cached content: ${cachedFileContent}`);
           setTextContentForRenderer(null);
           setBlobUrlForRenderer(cachedFileContent);
         } else if (isBinaryFile) {
           // Binary files should not be displayed as text, even if they come as strings
-          console.warn(`[FILE VIEWER] Binary file received as string content, this should not happen: ${selectedFilePath}`);
           setTextContentForRenderer(null);
           setBlobUrlForRenderer(null);
           setContentError('Binary file received in incorrect format. Please try refreshing.');
         } else {
           // Actual text content for text files
-          console.log(`[FILE VIEWER] Setting text content for text file: ${selectedFilePath}`);
           setTextContentForRenderer(cachedFileContent);
           setBlobUrlForRenderer(null);
         }
       } else if (isBlob(cachedFileContent)) {
         // Create blob URL for binary content
         const url = URL.createObjectURL(cachedFileContent);
-        console.log(`[FILE VIEWER] Created blob URL: ${url} for ${selectedFilePath}`);
         setBlobUrlForRenderer(url);
         setTextContentForRenderer(null);
       } else if (typeof cachedFileContent === 'object') {
         // convert to json string if file_contents is a object
         const jsonString = JSON.stringify(cachedFileContent, null, 2);
-        console.log(`[FILE VIEWER] Setting text content for object file: ${selectedFilePath}`);
         setTextContentForRenderer(jsonString);
         setBlobUrlForRenderer(null);
       }
       else {
         // Unknown content type
-        console.warn(`[FILE VIEWER] Unknown content type for: ${selectedFilePath}`, typeof cachedFileContent);
         setTextContentForRenderer(null);
         setBlobUrlForRenderer(null);
         setContentError('Unknown content type received.');
@@ -798,7 +671,6 @@ export function FileViewerModal({
   useEffect(() => {
     return () => {
       if (blobUrlForRenderer && !isDownloading && !activeDownloadUrls.current.has(blobUrlForRenderer)) {
-        console.log(`[FILE VIEWER] Revoking blob URL on cleanup: ${blobUrlForRenderer}`);
         URL.revokeObjectURL(blobUrlForRenderer);
       }
     };
@@ -826,11 +698,8 @@ export function FileViewerModal({
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
-        console.log('[FILE VIEWER] handleOpenChange: Modal closing, resetting state.');
-
         // Only revoke if not downloading and not an active download URL
         if (blobUrlForRenderer && !isDownloading && !activeDownloadUrls.current.has(blobUrlForRenderer)) {
-          console.log(`[FILE VIEWER] Manually revoking blob URL on modal close: ${blobUrlForRenderer}`);
           URL.revokeObjectURL(blobUrlForRenderer);
         }
 
@@ -861,7 +730,6 @@ export function FileViewerModal({
       await navigator.clipboard.writeText(text);
       return true;
     } catch (err) {
-      console.error('Failed to copy text: ', err);
       return false;
     }
   }, []);
@@ -1056,7 +924,6 @@ export function FileViewerModal({
 
         toast.success('PDF export initiated. Check your print dialog.');
       } catch (error) {
-        console.error('PDF export failed:', error);
         toast.error(
           `Failed to export PDF: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -1126,7 +993,6 @@ export function FileViewerModal({
       downloadBlob(finalBlob, fileName);
 
     } catch (error) {
-      console.error('[FILE VIEWER] Download error:', error);
       toast.error(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDownloading(false);
@@ -1211,7 +1077,6 @@ export function FileViewerModal({
 
         toast.success(`Uploaded: ${normalizedName}`);
       } catch (error) {
-        console.error('Upload failed:', error);
         toast.error(
           `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -1260,16 +1125,6 @@ export function FileViewerModal({
           <div className="flex items-center gap-2">
             {/* Navigation arrows for file list mode */}
             {(() => {
-              // Debug logging
-              console.log('[FILE VIEWER DEBUG] Navigation visibility check:', {
-                isFileListMode,
-                selectedFilePath,
-                filePathList,
-                filePathListLength: filePathList?.length,
-                currentFileIndex,
-                shouldShow: isFileListMode && selectedFilePath && filePathList && filePathList.length > 1 && currentFileIndex >= 0
-              });
-
               return isFileListMode && selectedFilePath && filePathList && filePathList.length > 1 && currentFileIndex >= 0;
             })() && (
                 <>
@@ -1613,9 +1468,6 @@ export function FileViewerModal({
                           }`}
                         onClick={() => {
                           if (file.is_dir) {
-                            console.log(
-                              `[FILE VIEWER] Folder clicked: ${file.name}, path: ${file.path}`,
-                            );
                             navigateToFolder(file);
                           } else {
                             openFile(file);

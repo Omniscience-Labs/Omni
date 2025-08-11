@@ -76,16 +76,6 @@ export function ConditionalWorkflowBuilder({
   const [toolSearchOpen, setToolSearchOpen] = useState<{ [key: string]: boolean }>({});
   const [activeConditionTab, setActiveConditionTab] = useState<{ [key: string]: string }>({});
 
-  steps.forEach((step, index) => {
-    console.log(`Step ${index}:`, {
-      name: step.name,
-      type: step.type,
-      hasChildren: !!step.children,
-      childrenCount: step.children?.length || 0,
-      children: step.children?.map(child => ({ name: child.name, type: child.type }))
-    });
-  });
-
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const addStep = useCallback((parentId?: string, afterStepId?: string) => {

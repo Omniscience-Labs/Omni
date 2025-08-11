@@ -65,13 +65,6 @@ const extractFromNewFormat = (content: any): {
       success: toolExecution.result?.success,
       timestamp: toolExecution.execution_details?.timestamp
     };
-
-    console.log('AskToolView: Extracted from new format:', {
-      hasText: !!extractedData.text,
-      attachmentCount: extractedData.attachments?.length || 0,
-      hasStatus: !!extractedData.status,
-      success: extractedData.success
-    });
     
     return extractedData;
   }
@@ -91,12 +84,6 @@ const extractFromLegacyFormat = (content: any): {
   const toolData = extractToolData(content);
   
   if (toolData.toolResult && toolData.arguments) {
-    console.log('AskToolView: Extracted from legacy format (extractToolData):', {
-      hasText: !!toolData.arguments.text,
-      attachmentCount: toolData.arguments.attachments ? 
-        (Array.isArray(toolData.arguments.attachments) ? toolData.arguments.attachments.length : 1) : 0
-    });
-    
     let attachments: string[] | null = null;
     if (toolData.arguments.attachments) {
       if (Array.isArray(toolData.arguments.attachments)) {
@@ -130,11 +117,6 @@ const extractFromLegacyFormat = (content: any): {
     text = textMatch[1].trim();
   }
   
-  console.log('AskToolView: Extracted from legacy format (manual parsing):', {
-    hasText: !!text,
-    attachmentCount: attachments?.length || 0
-  });
-  
   return {
     text,
     attachments,
@@ -166,19 +148,6 @@ export function extractAskData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('AskToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasText: !!assistantNewFormat.text,
-      attachmentCount: assistantNewFormat.attachments?.length || 0,
-      hasStatus: !!assistantNewFormat.status
-    },
-    toolNewFormat: {
-      hasText: !!toolNewFormat.text,
-      attachmentCount: toolNewFormat.attachments?.length || 0,
-      hasStatus: !!toolNewFormat.status
-    }
-  });
-
   if (assistantNewFormat.text || assistantNewFormat.attachments || assistantNewFormat.status) {
     text = assistantNewFormat.text;
     attachments = assistantNewFormat.attachments;
@@ -189,7 +158,6 @@ export function extractAskData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('AskToolView: Using assistant new format data');
   } else if (toolNewFormat.text || toolNewFormat.attachments || toolNewFormat.status) {
     text = toolNewFormat.text;
     attachments = toolNewFormat.attachments;
@@ -200,7 +168,6 @@ export function extractAskData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('AskToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
@@ -208,21 +175,8 @@ export function extractAskData(
     text = assistantLegacy.text || toolLegacy.text;
     attachments = assistantLegacy.attachments || toolLegacy.attachments;
     status = assistantLegacy.status || toolLegacy.status;
-    
-    console.log('AskToolView: Using legacy format data:', {
-      hasText: !!text,
-      attachmentCount: attachments?.length || 0,
-      hasStatus: !!status
-    });
   }
-
-  console.log('AskToolView: Final extracted data:', {
-    hasText: !!text,
-    attachmentCount: attachments?.length || 0,
-    hasStatus: !!status,
-    actualIsSuccess
-  });
-
+  
   return {
     text,
     attachments,

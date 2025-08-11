@@ -244,20 +244,10 @@ export function useToolCalls(
     userClosedPanelRef.current = false;
     userNavigatedRef.current = true; // Mark that user manually navigated
 
-    console.log(
-      '[PAGE] Tool Click Triggered. Assistant Message ID:',
-      clickedAssistantMessageId,
-      'Tool Name:',
-      clickedToolName,
-    );
-
     // Use the pre-computed mapping for faster lookup
     const toolIndex = assistantMessageToToolIndex.current.get(clickedAssistantMessageId);
 
     if (toolIndex !== undefined) {
-      console.log(
-        `[PAGE] Found tool call at index ${toolIndex} for assistant message ${clickedAssistantMessageId}`,
-      );
       setExternalNavIndex(toolIndex);
       setCurrentToolIndex(toolIndex);
       setIsSidePanelOpen(true);
@@ -280,7 +270,6 @@ export function useToolCalls(
         
         // Check if we have a tool call at this index
         if (messageIndex !== -1 && messageIndex < toolCalls.length) {
-          console.log(`[PAGE] Using fallback: found tool at index ${messageIndex}`);
           setExternalNavIndex(messageIndex);
           setCurrentToolIndex(messageIndex);
           setIsSidePanelOpen(true);
@@ -300,8 +289,6 @@ export function useToolCalls(
       // Get the raw tool name and ensure it uses hyphens
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
-
-      console.log('[STREAM] Received tool call:', toolName, '(raw:', rawToolName, ')');
 
       if (userClosedPanelRef.current) return;
 

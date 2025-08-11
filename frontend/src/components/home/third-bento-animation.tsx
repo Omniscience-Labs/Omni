@@ -20,7 +20,7 @@ const taskConfigs: TaskConfig[] = [
       </svg>
     ),
     status: 'completed',
-    className: 'bg-green-500/10 border border-green-500/20 text-green-600',
+    className: 'bg-muted border border-border text-muted-foreground',
   },
   {
     title: 'Meeting scheduled',
@@ -30,7 +30,7 @@ const taskConfigs: TaskConfig[] = [
       </svg>
     ),
     status: 'completed',
-    className: 'bg-green-500/10 border border-green-500/20 text-green-600',
+    className: 'bg-muted border border-border text-muted-foreground',
   },
   {
     title: 'Reports generated',
@@ -40,7 +40,7 @@ const taskConfigs: TaskConfig[] = [
       </svg>
     ),
     status: 'processing',
-    className: 'bg-blue-500/10 border border-blue-500/20 text-blue-600',
+    className: 'bg-accent border border-border text-foreground',
   },
   {
     title: 'Data analyzed',
@@ -50,7 +50,7 @@ const taskConfigs: TaskConfig[] = [
       </svg>
     ),
     status: 'pending',
-    className: 'bg-gray-500/10 border border-gray-500/20 text-gray-600',
+    className: 'bg-muted/50 border border-border/50 text-muted-foreground/70',
   },
 ];
 
@@ -153,7 +153,7 @@ export function AITaskExecution({
               ease: 'easeOut',
             }}
             className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-300 ${
-              index <= currentTaskIndex ? task.className : 'bg-gray-500/5 border border-gray-500/10 text-gray-400'
+              index <= currentTaskIndex ? task.className : 'bg-muted/30 border border-border/30 text-muted-foreground/50'
             }`}
           >
             {/* Status indicator */}
@@ -162,9 +162,9 @@ export function AITaskExecution({
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="size-5 bg-green-500 rounded-full flex items-center justify-center"
+                  className="size-5 bg-primary rounded-full flex items-center justify-center"
                 >
-                  <svg className="size-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="size-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </motion.div>
@@ -172,10 +172,10 @@ export function AITaskExecution({
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="size-5 border-2 border-blue-500 border-t-transparent rounded-full"
+                  className="size-5 border-2 border-primary border-t-transparent rounded-full"
                 />
               ) : (
-                <div className="size-5 border-2 border-gray-300 rounded-full" />
+                <div className="size-5 border-2 border-border rounded-full" />
               )}
             </div>
 

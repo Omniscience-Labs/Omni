@@ -71,7 +71,6 @@ export const useCreateNewAgent = () => {
       const defaultAgentData = {
         name: 'New Agent',
         description: '',
-        system_prompt: 'You are a helpful assistant. Provide clear, accurate, and helpful responses to user queries.',
         avatar,
         avatar_color,
         configured_mcps: [],

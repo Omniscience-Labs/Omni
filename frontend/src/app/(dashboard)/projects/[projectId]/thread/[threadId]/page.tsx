@@ -181,13 +181,9 @@ export default function ThreadPage({
   }, []);
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
-    console.log(
-      `[STREAM HANDLER] Received message: ID=${message.message_id}, Type=${message.type}`,
-    );
-
     if (!message.message_id) {
       console.warn(
-        `[STREAM HANDLER] Received message is missing ID: Type=${message.type}, Content=${message.content?.substring(0, 50)}...`,
+        `[STREAM HANDLER] Received message is missing ID: Type=${message.type}`,
       );
     }
 
@@ -224,7 +220,6 @@ export default function ThreadPage({
   }, [setMessages, setAutoOpenedPanel]);
 
   const handleStreamStatusChange = useCallback((hookStatus: string) => {
-    console.log(`[PAGE] Hook status changed: ${hookStatus}`);
     switch (hookStatus) {
       case 'idle':
       case 'completed':
@@ -258,10 +253,8 @@ export default function ThreadPage({
   }, []);
 
   const handleStreamClose = useCallback(() => {
-    console.log(`[PAGE] Stream hook closed with final status: ${agentStatus}`);
-  }, [agentStatus]);
+  }, []);
 
-  // Agent stream hook
   const {
     status: streamHookStatus,
     textContent: streamingTextContent,
@@ -302,7 +295,6 @@ export default function ThreadPage({
 
       setMessages((prev) => [...prev, optimisticUserMessage]);
       setNewMessage('');
-      // No scroll needed - flex-column-reverse handles positioning
 
       try {
         const messagePromise = addUserMessageMutation.mutateAsync({
@@ -331,7 +323,6 @@ export default function ThreadPage({
           console.error("Failed to start agent:", error);
 
           if (error instanceof BillingError) {
-            console.log("Caught BillingError:", error.detail);
             setBillingData({
               currentUsage: error.detail.currentUsage as number | undefined,
               limit: error.detail.limit as number | undefined,
@@ -345,10 +336,8 @@ export default function ThreadPage({
           }
 
           if (error instanceof AgentRunLimitError) {
-            console.log("Caught AgentRunLimitError:", error.detail);
             const { running_thread_ids, running_count } = error.detail;
 
-            // Show the dialog with limit information
             setAgentLimitData({
               runningCount: running_count,
               runningThreadIds: running_thread_ids,
@@ -363,9 +352,7 @@ export default function ThreadPage({
         }
 
         const agentResult = results[1].value;
-        console.log('[STREAM STUFF] User submitted message, setting userInitiatedRun to true');
         setUserInitiatedRun(true);
-        console.log('[STREAM STUFF] Setting agentRunId to:', agentResult.agent_run_id);
         setAgentRunId(agentResult.agent_run_id);
 
       } catch (err) {
@@ -384,7 +371,6 @@ export default function ThreadPage({
   );
 
   const handleStopAgent = useCallback(async () => {
-    console.log(`[PAGE] Requesting agent stop via hook.`);
     setAgentStatus('idle');
 
     await stopStreaming();
@@ -478,30 +464,14 @@ export default function ThreadPage({
   }, [initialPanelOpenAttempted, messages, toolCalls, initialLoadCompleted, setIsSidePanelOpen, setCurrentToolIndex]);
 
   useEffect(() => {
-    console.log('[STREAM STUFF] Stream effect triggered:', {
-      agentRunId,
-      currentHookRunId,
-      initialLoadCompleted,
-      userInitiatedRun
-    });
-
     // Start streaming if user initiated a run (don't wait for initialLoadCompleted for first-time users)
     if (agentRunId && agentRunId !== currentHookRunId && userInitiatedRun) {
-      console.log('[STREAM STUFF] User-initiated stream starting for agentRunId:', agentRunId);
       startStreaming(agentRunId);
       setUserInitiatedRun(false); // Reset flag after starting
     }
     // Also start streaming if this is from page load with recent active runs
     else if (agentRunId && agentRunId !== currentHookRunId && initialLoadCompleted && !userInitiatedRun) {
-      console.log('[STREAM STUFF] Page load stream starting for agentRunId:', agentRunId);
       startStreaming(agentRunId);
-    } else {
-      console.log('[STREAM STUFF] Not starting stream, conditions not met:', {
-        hasAgentRunId: !!agentRunId,
-        differentFromCurrent: agentRunId !== currentHookRunId,
-        loadCompleted: initialLoadCompleted,
-        userInitiated: userInitiatedRun
-      });
     }
   }, [agentRunId, startStreaming, currentHookRunId, initialLoadCompleted, userInitiatedRun]);
 
@@ -510,17 +480,13 @@ export default function ThreadPage({
   // No intersection observer needed with flex-column-reverse
 
   useEffect(() => {
-    console.log(`[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`);
-
     if ((streamHookStatus === 'completed' || streamHookStatus === 'stopped' ||
       streamHookStatus === 'agent_not_running' || streamHookStatus === 'error') &&
       (agentStatus === 'running' || agentStatus === 'connecting')) {
-      console.log('[PAGE] Detected hook completed but UI still shows running, updating status');
       setAgentStatus('idle');
       setAgentRunId(null);
-      setAutoOpenedPanel(false);
     }
-  }, [agentStatus, streamHookStatus, agentRunId, currentHookRunId, setAgentStatus, setAgentRunId, setAutoOpenedPanel]);
+  }, [streamHookStatus, agentStatus, setAgentStatus, setAgentRunId]);
 
   // SEO title update
   useEffect(() => {
@@ -731,12 +697,12 @@ export default function ThreadPage({
             "fixed bottom-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pt-8",
             isSidePanelAnimating ? "" : "transition-all duration-200 ease-in-out",
             leftSidebarState === 'expanded' ? 'left-[72px] md:left-[256px]' : 'left-[72px]',
-            isSidePanelOpen ? (isMobile ? 'right-[90%]' : 'right-[50vw]') : 'right-0',
-            isMobile ? 'left-0' : ''
+            isSidePanelOpen ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]' : 'right-0',
+            isMobile ? 'left-0 right-0' : ''
           )}>
           <div className={cn(
             "mx-auto",
-            isMobile ? "w-full" : "max-w-4xl"
+            isMobile ? "w-full" : "max-w-3xl"
           )}>
             <ChatInput
               value={newMessage}

@@ -118,10 +118,7 @@ export function WorkflowSidePanel({
     };
 
     const handleComposioToolsSelected = (profileId: string, selectedTools: string[], appName: string, appSlug: string) => {
-        console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
         setShowComposioRegistry(false);
-        // ComposioRegistry handles all the actual configuration internally
-        // We need to refresh the agent data to show updated configuration
         queryClient.invalidateQueries({ queryKey: ['agents'] });
         queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
         queryClient.invalidateQueries({ queryKey: ['composio', 'profiles'] });

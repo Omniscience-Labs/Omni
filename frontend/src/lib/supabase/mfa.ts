@@ -94,8 +94,6 @@ export const supabaseMFAService = {
     const supabase = createClient();
     
     try {
-      console.log('🔵 Starting MFA verification with Supabase client');
-      
       const response = await supabase.auth.mfa.verify({
         factorId: data.factor_id,
         challengeId: data.challenge_id,
@@ -105,8 +103,6 @@ export const supabaseMFAService = {
       if (response.error) {
         throw new Error(response.error.message);
       }
-
-      console.log('✅ MFA verification successful');
 
       return {
         success: true,
@@ -245,14 +241,12 @@ export const supabaseMFAService = {
     const supabase = createClient();
     
     try {
-      // Get the current AAL from Supabase
       const aalResponse = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       
       if (aalResponse.error) {
         throw new Error(aalResponse.error.message);
       }
 
-      // Get user creation date and factors for phone verification requirement
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -269,15 +263,12 @@ export const supabaseMFAService = {
           userCreatedAt = new Date(user.created_at);
         } catch (e) {
           console.error('Failed to parse user created_at:', e);
-          // Fall back to treating as new user for safety
           userCreatedAt = new Date();
         }
       }
 
-      // Determine if this is a new user who needs phone verification
       const isNewUser = userCreatedAt && userCreatedAt >= PHONE_VERIFICATION_CUTOFF_DATE;
 
-      // Get factors and compute phone verification status
       const factors: any[] = [];
       const phoneFactors: any[] = [];
       let hasVerifiedPhone = false;
@@ -289,7 +280,7 @@ export const supabaseMFAService = {
             friendly_name: factor.friendly_name,
             factor_type: factor.factor_type,
             status: factor.status,
-            phone: (factor as any).phone, // Phone property may not be in the type definition
+            phone: (factor as any).phone,
             created_at: factor.created_at,
             updated_at: factor.updated_at,
           };
@@ -307,59 +298,39 @@ export const supabaseMFAService = {
       const current = aalResponse.data?.currentLevel;
       const nextLevel = aalResponse.data?.nextLevel;
 
-      // Determine action required based on AAL combination
       let actionRequired: string = 'none';
       let message: string = '';
 
       if (current === 'aal1' && nextLevel === 'aal1') {
-        // User does not have MFA enrolled
         actionRequired = 'none';
         message = 'MFA is not enrolled for this account';
       } else if (current === 'aal1' && nextLevel === 'aal2') {
-        // User has MFA enrolled but needs to verify it
         actionRequired = 'verify_mfa';
         message = 'MFA verification required to access full features';
       } else if (current === 'aal2' && nextLevel === 'aal2') {
-        // User has verified their MFA factor
         actionRequired = 'none';
         message = 'MFA is verified and active';
       } else if (current === 'aal2' && nextLevel === 'aal1') {
-        // User has disabled MFA or has stale JWT
         actionRequired = 'reauthenticate';
         message = 'Session needs refresh due to MFA changes';
       } else {
-        // Unknown combination
         actionRequired = 'unknown';
         message = `Unknown AAL combination: ${current} -> ${nextLevel}`;
       }
 
-      // Determine verification_required based on AAL status AND grandfathering logic
       let verificationRequired = false;
       if (isNewUser) {
-        // New users (created after cutoff date) must have phone verification
         if (current === 'aal1' && nextLevel === 'aal1') {
-          // No MFA enrolled - new users must enroll
           verificationRequired = true;
         } else if (actionRequired === 'verify_mfa') {
-          // MFA enrolled but needs verification
           verificationRequired = true;
         }
       } else {
-        // Existing users (grandfathered) - only require verification if AAL demands it
         verificationRequired = actionRequired === 'verify_mfa';
       }
 
       const phoneVerificationRequired = isNewUser && isPhoneVerificationMandatory();
       verificationRequired = isNewUser && verificationRequired && isPhoneVerificationMandatory();
-
-      console.log('AAL check: ', {
-        current_level: current,
-        next_level: nextLevel,
-        action_required: actionRequired,
-        phone_verification_required: phoneVerificationRequired,
-        verification_required: verificationRequired,
-        is_verified: hasVerifiedPhone,
-      });
 
       return {
         current_level: current,

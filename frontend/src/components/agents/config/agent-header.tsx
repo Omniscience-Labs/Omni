@@ -54,7 +54,6 @@ export function AgentHeader({
   agentMetadata,
 }: AgentHeaderProps) {
   const isSunaAgent = agentMetadata?.is_suna_default || false;
-  console.log('isSunaAgent', isSunaAgent);
   const restrictions = agentMetadata?.restrictions || {};
   const isNameEditable = !isViewingOldVersion && (restrictions.name_editable !== false);
   

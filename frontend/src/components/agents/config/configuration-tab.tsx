@@ -91,43 +91,30 @@ export function ConfigurationTab({
   const areToolsEditable = !isViewingOldVersion && (restrictions.tools_editable !== false);
 
   const handleSystemPromptChange = (value: string) => {
-    console.log('📝 System prompt change in ConfigurationTab:', { value, length: value.length, hasImmediateSave: !!onSystemPromptSave });
-
     if (!isSystemPromptEditable && isSunaAgent) {
-      console.log('❌ System prompt edit blocked for Suna agent');
       toast.error("System prompt cannot be edited", {
         description: "Suna's system prompt is managed centrally and cannot be changed.",
       });
       return;
     }
-
-    // Use immediate save if available, otherwise fall back to regular field change
     if (onSystemPromptSave) {
-      console.log('🚀 Using immediate save for system prompt');
       onSystemPromptSave(value);
     } else {
-      console.log('📋 Using regular field change for system prompt');
       onFieldChange('system_prompt', value);
     }
   };
 
   const handleToolsChange = (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
-    console.log('🔧 Tools change in ConfigurationTab:', { tools, toolsCount: Object.keys(tools).length, hasImmediateSave: !!onToolsSave });
-
     if (!areToolsEditable && isSunaAgent) {
-      console.log('❌ Tools edit blocked for Suna agent');
       toast.error("Tools cannot be modified", {
         description: "Suna's default tools are managed centrally and cannot be changed.",
       });
       return;
     }
-
-    // Use immediate save if available, otherwise fall back to regular field change
+    
     if (onToolsSave) {
-      console.log('🚀 Using immediate save for tools');
       onToolsSave(tools);
     } else {
-      console.log('📋 Using regular field change for tools');
       onFieldChange('agentpress_tools', tools);
     }
   };
@@ -162,7 +149,6 @@ export function ConfigurationTab({
                     <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                       <Settings className="h-5 w-5 text-muted-foreground" />
                     </div>
-
                   </div>
                   <div className="text-left flex-1">
                     <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">System Prompt</h4>
@@ -173,12 +159,12 @@ export function ConfigurationTab({
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out ${openAccordion === 'system'
-                  ? 'max-h-96 opacity-100'
+                  ? 'max-h-auto opacity-100'
                   : 'max-h-0 opacity-0'
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <ExpandableMarkdownEditor
                       value={displayData.system_prompt}
                       onSave={handleSystemPromptChange}
@@ -212,12 +198,12 @@ export function ConfigurationTab({
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out ${openAccordion === 'model'
-                  ? 'max-h-96 opacity-100'
+                  ? 'max-h-auto opacity-100'
                   : 'max-h-0 opacity-0'
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <AgentModelSelector
                       value={displayData.model}
                       onChange={(model) => {
@@ -245,7 +231,6 @@ export function ConfigurationTab({
                     <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                       <Wrench className="h-5 w-5 text-muted-foreground" />
                     </div>
-
                   </div>
                   <div className="text-left flex-1">
                     <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Default Tools</h4>
@@ -261,7 +246,7 @@ export function ConfigurationTab({
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <AgentToolsConfiguration
                       tools={displayData.agentpress_tools}
                       onToolsChange={areToolsEditable ? handleToolsChange : () => { }}
@@ -283,7 +268,6 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Server className="h-5 w-5 text-muted-foreground" />
                   </div>
-
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Integrations</h4>
@@ -299,7 +283,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentMCPConfiguration
                     configuredMCPs={displayData.configured_mcps}
                     customMCPs={displayData.custom_mcps}
@@ -328,7 +312,6 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <BookOpen className="h-5 w-5 text-muted-foreground" />
                   </div>
-
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Knowledge Base</h4>
@@ -344,7 +327,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentKnowledgeBaseManager
                     agentId={agentId}
                     agentName={displayData.name || 'Agent'}
@@ -363,7 +346,6 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Workflow className="h-5 w-5 text-muted-foreground" />
                   </div>
-
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Playbooks</h4>
@@ -379,7 +361,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentPlaybooksConfiguration
                     agentId={agentId}
                     agentName={displayData.name || 'Agent'}
@@ -398,7 +380,6 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Zap className="h-5 w-5 text-muted-foreground" />
                   </div>
-
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
@@ -414,7 +395,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentTriggersConfiguration agentId={agentId} />
                 </div>
               </div>

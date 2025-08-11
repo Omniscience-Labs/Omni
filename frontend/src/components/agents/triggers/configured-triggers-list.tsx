@@ -19,6 +19,16 @@ import {
 } from 'lucide-react';
 import { TriggerConfiguration } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { getTriggerIcon } from './utils';
 import { truncateString } from '@/lib/utils';
 
@@ -65,6 +75,22 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
   onToggle,
   isLoading = false,
 }) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [triggerToDelete, setTriggerToDelete] = React.useState<TriggerConfiguration | null>(null);
+
+  const handleDeleteClick = (trigger: TriggerConfiguration) => {
+    setTriggerToDelete(trigger);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (triggerToDelete) {
+      onRemove(triggerToDelete);
+      setTriggerToDelete(null);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-2">
@@ -147,7 +173,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                 )}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center">
@@ -185,7 +211,7 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => onRemove(trigger)}
+                    onClick={() => handleDeleteClick(trigger)}
                     className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                     disabled={isLoading}
                   >
@@ -200,6 +226,26 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
           </div>
         ))}
       </div>
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Trigger</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{triggerToDelete?.name}"? This action cannot be undone and will stop all automated runs from this trigger.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Trigger
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }; 

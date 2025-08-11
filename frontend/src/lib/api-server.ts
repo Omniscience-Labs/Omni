@@ -24,8 +24,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
       .eq('project_id', projectId)
       .single();
 
-      console.log('Raw project data from database:', data);
-
     if (error) {
       // Handle the specific "no rows returned" error from Supabase
       if (error.code === 'PGRST116') {
@@ -33,8 +31,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
       }
       throw error;
     }
-
-    console.log('Raw project data from database:', data);
 
     // // If project has a sandbox, ensure it's started
     // if (data.sandbox?.id) {
@@ -54,7 +50,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
     //         headers['Authorization'] = `Bearer ${session.access_token}`;
     //       }
 
-    //       console.log(`Ensuring sandbox is active for project ${projectId}...`);
     //       const response = await fetch(
     //         `${API_URL}/project/${projectId}/sandbox/ensure-active`,
     //         {
@@ -71,8 +66,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
     //           `Failed to ensure sandbox is active: ${response.status} ${response.statusText}`,
     //           errorText,
     //         );
-    //       } else {
-    //         console.log('Sandbox activation successful');
     //       }
     //     } catch (sandboxError) {
     //       console.warn('Failed to ensure sandbox is active:', sandboxError);
@@ -98,9 +91,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
         sandbox_url: '',
       },
     };
-
-    // console.log('Mapped project data for frontend:', mappedProject);
-
     return mappedProject;
   } catch (error) {
     console.error(`Error fetching project ${projectId}:`, error);

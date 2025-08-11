@@ -37,8 +37,6 @@ export interface AgentImportRequest {
 export const useExportAgent = () => {
   return useMutation({
     mutationFn: async (agentId: string): Promise<AgentExportData> => {
-      console.log('Exporting agent:', agentId);
-      
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -60,12 +58,9 @@ export const useExportAgent = () => {
       }
 
       const data = await response.json();
-      console.log('Export response:', data);
       return data;
     },
     onSuccess: (data, agentId) => {
-      console.log('Export successful for agent:', agentId, 'Data:', data);
-      
       // Create and download JSON file
       const jsonString = JSON.stringify(data, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
@@ -94,8 +89,6 @@ export const useImportAgent = () => {
   
   return useMutation({
     mutationFn: async (importRequest: AgentImportRequest) => {
-      console.log('Importing agent:', importRequest);
-      
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -118,12 +111,9 @@ export const useImportAgent = () => {
       }
 
       const data = await response.json();
-      console.log('Import response:', data);
       return data;
     },
     onSuccess: (data, variables) => {
-      console.log('Import successful:', data);
-      
       // Invalidate agents list to refresh data
       queryClient.invalidateQueries({ queryKey: ['agents'] });
       
