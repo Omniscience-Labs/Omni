@@ -142,6 +142,16 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
 
 async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
     try:
+        # In local mode, allow practically unlimited custom agents
+        if config.ENV_MODE.value == "local":
+            logger.debug(f"Local mode detected - bypassing agent count limit for account {account_id}")
+            return {
+                'can_create': True,
+                'current_count': 0,  # Return 0 to avoid showing any limit warnings
+                'limit': 999999,     # Practically unlimited
+                'tier_name': 'local'
+            }
+        
         try:
             result = await Cache.get(f"agent_count_limit:{account_id}")
             if result:
