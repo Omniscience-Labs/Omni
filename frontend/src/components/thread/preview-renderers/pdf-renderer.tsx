@@ -4,6 +4,7 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import '@/lib/polyfills'; // Import polyfill for Promise.withResolvers
+import { Document, Page, pdfjs } from 'react-pdf';
 
 // Import styles for annotations and text layer
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -16,8 +17,6 @@ interface PdfDocumentProps {
 }
 
 const PdfDocument = ({ url, containerWidth }: PdfDocumentProps) => {
-    const { Document, Page, pdfjs } = require('react-pdf');
-    
     // Configure PDF.js worker
     React.useEffect(() => {
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
