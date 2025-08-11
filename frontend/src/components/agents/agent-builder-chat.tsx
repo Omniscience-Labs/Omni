@@ -47,18 +47,9 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   const previousAgentIdRef = useRef<string | null>(null);
   const agentRunsCheckedRef = useRef(false);
 
-  // Debug mount/unmount
-  useEffect(() => {
-    console.log('[AgentBuilderChat] Component mounted');
-    return () => {
-      console.log('[AgentBuilderChat] Component unmounted');
-    };
-  }, []);
-
   // Reset hasInitiallyLoadedRef when agentId changes
   useEffect(() => {
     if (previousAgentIdRef.current !== null && previousAgentIdRef.current !== agentId) {
-      console.log('[AgentBuilderChat] Agent ID changed, resetting state');
       hasInitiallyLoadedRef.current = false;
       setMessages([]);
       setThreadId(null);
@@ -91,7 +82,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
   useEffect(() => {
     if (chatHistoryQuery.data && chatHistoryQuery.status === 'success' && !hasInitiallyLoadedRef.current) {
-      console.log('[AgentBuilderChat] Loading chat history for agent:', agentId);
       const { messages: historyMessages, thread_id } = chatHistoryQuery.data;
       if (historyMessages && historyMessages.length > 0) {
         const unifiedMessages = historyMessages
@@ -124,16 +114,13 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
   useEffect(() => {
     if (threadId && agentRunsQuery.data && !agentRunsCheckedRef.current) {
-      console.log('[AgentBuilderChat] Checking for active agent runs...');
       agentRunsCheckedRef.current = true;
 
       const activeRun = agentRunsQuery.data.find((run) => run.status === 'running');
       if (activeRun) {
-        console.log('[AgentBuilderChat] Found active run on load:', activeRun.id);
         setAgentRunId(activeRun.id);
         setAgentStatus('connecting');
       } else {
-        console.log('[AgentBuilderChat] No active agent runs found');
         setAgentStatus('idle');
       }
     }
@@ -151,7 +138,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
         );
 
         if (optimisticIndex !== -1) {
-          console.log(`[AGENT BUILDER] Replacing optimistic message with real message`);
           const newMessages = [...prev];
           newMessages[optimisticIndex] = message;
           return newMessages;
@@ -200,7 +186,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   }, []);
 
   const handleStreamClose = useCallback(() => {
-    console.log(`[AGENT BUILDER] Stream closed`);
   }, []);
 
   const {
@@ -224,7 +209,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
 
   useEffect(() => {
     if (agentRunId && agentRunId !== currentHookRunId) {
-      console.log(`[AgentBuilderChat] Target agentRunId set to ${agentRunId}, initiating stream...`);
       startStreaming(agentRunId);
     }
   }, [agentRunId, startStreaming, currentHookRunId]);
@@ -269,7 +253,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
       if (result.thread_id) {
         setThreadId(result.thread_id);
         if (result.agent_run_id) {
-          console.log('[AGENT BUILDER] Setting agent run ID:', result.agent_run_id);
           setAgentRunId(result.agent_run_id);
         }
 

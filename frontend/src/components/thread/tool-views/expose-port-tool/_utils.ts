@@ -51,13 +51,6 @@ const extractFromNewFormat = (content: any): {
       success: toolExecution.result?.success,
       timestamp: toolExecution.execution_details?.timestamp
     };
-
-    console.log('ExposePortToolView: Extracted from new format:', {
-      port: extractedData.port,
-      hasUrl: !!extractedData.url,
-      hasMessage: !!extractedData.message,
-      success: extractedData.success
-    });
     
     return extractedData;
   }
@@ -90,10 +83,6 @@ const extractFromLegacyFormat = (content: any): {
   const toolData = extractToolData(content);
   
   if (toolData.toolResult && toolData.arguments) {
-    console.log('ExposePortToolView: Extracted from legacy format (extractToolData):', {
-      port: toolData.arguments.port
-    });
-    
     return {
       port: toolData.arguments.port ? parseInt(toolData.arguments.port, 10) : null,
       url: null,
@@ -183,19 +172,6 @@ export function extractExposePortData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('ExposePortToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasPort: !!assistantNewFormat.port,
-      hasUrl: !!assistantNewFormat.url,
-      hasMessage: !!assistantNewFormat.message
-    },
-    toolNewFormat: {
-      hasPort: !!toolNewFormat.port,
-      hasUrl: !!toolNewFormat.url,
-      hasMessage: !!toolNewFormat.message
-    }
-  });
-
   if (assistantNewFormat.port || assistantNewFormat.url || assistantNewFormat.message) {
     port = assistantNewFormat.port;
     url = assistantNewFormat.url;
@@ -206,7 +182,6 @@ export function extractExposePortData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('ExposePortToolView: Using assistant new format data');
   } else if (toolNewFormat.port || toolNewFormat.url || toolNewFormat.message) {
     port = toolNewFormat.port;
     url = toolNewFormat.url;
@@ -217,7 +192,6 @@ export function extractExposePortData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('ExposePortToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
@@ -232,20 +206,7 @@ export function extractExposePortData(
         port = assistantPort;
       }
     }
-    
-    console.log('ExposePortToolView: Using legacy format data:', {
-      port,
-      hasUrl: !!url,
-      hasMessage: !!message
-    });
   }
-
-  console.log('ExposePortToolView: Final extracted data:', {
-    port,
-    hasUrl: !!url,
-    hasMessage: !!message,
-    actualIsSuccess
-  });
 
   return {
     port,

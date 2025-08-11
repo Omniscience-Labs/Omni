@@ -41,12 +41,10 @@ export const useAgentVersions = (agentId: string) => {
 
 export const useAgentVersion = (agentId: string, versionId: string | null | undefined) => {
   const { setCurrentVersion } = useVersionStore();
-  console.log('versionId', versionId);
   return useQuery({
     queryKey: versionKeys.detail(agentId, versionId!),
     queryFn: async () => {
       const version = await versionService.getVersion(agentId, versionId!);
-      console.log('version', version);
       setCurrentVersion(version);
       return version;
     },

@@ -207,13 +207,10 @@ export function HeroSection() {
       setInputValue('');
     } catch (error: any) {
       if (error instanceof BillingError) {
-        console.log('Billing error:', error.detail);
         onOpen("paymentRequiredDialog");
       } else if (error instanceof AgentRunLimitError) {
-        console.log('Handling AgentRunLimitError:', error.detail);
         const { running_thread_ids, running_count } = error.detail;
         
-        // Show the dialog with limit information
         setAgentLimitData({
           runningCount: running_count,
           runningThreadIds: running_thread_ids,

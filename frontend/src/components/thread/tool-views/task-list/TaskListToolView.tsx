@@ -96,7 +96,7 @@ export const TaskListToolView: React.FC<ToolViewProps> = ({
   const sections = taskData?.sections || []
   const allTasks = sections.flatMap((section) => section.tasks)
   const totalTasks = taskData?.total_tasks || 0
-  // console.log("Tasks", taskData)
+
   const completedTasks = allTasks.filter((t) => t.status === "completed").length
   const hasData = taskData?.total_tasks && taskData?.total_tasks > 0
 

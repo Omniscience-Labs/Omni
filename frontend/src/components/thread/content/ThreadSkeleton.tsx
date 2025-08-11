@@ -14,17 +14,6 @@ export function ThreadSkeleton({
     showHeader = true,
     messageCount = 3,
 }: ThreadSkeletonProps) {
-    // Mock handlers for the ChatInput component
-    const handleSubmit = (message: string) => {
-        // No-op for skeleton
-        console.log('Skeleton submit:', message);
-    };
-
-    const handleChange = (value: string) => {
-        // No-op for skeleton
-        console.log('Skeleton change:', value);
-    };
-
     return (
         <div className="flex h-screen">
             <div
@@ -50,7 +39,7 @@ export function ThreadSkeleton({
 
                 {/* Skeleton Chat Messages */}
                 <div className="flex-1 overflow-y-auto px-6 py-4 pb-72">
-                    <div className="mx-auto max-w-4xl space-y-6">
+                    <div className="mx-auto max-w-3xl space-y-6">
                         {/* Generate multiple message skeletons based on messageCount */}
                         {Array.from({ length: messageCount }).map((_, index) => (
                             <React.Fragment key={index}>
@@ -124,11 +113,11 @@ export function ThreadSkeleton({
                 >
                     <div className={cn(
                         "mx-auto",
-                        "max-w-4xl"
+                        "max-w-3xl"
                     )}>
                         <ChatInput
-                            onSubmit={handleSubmit}
-                            onChange={handleChange}
+                            onSubmit={() => {}}
+                            onChange={() => {}}
                             placeholder="Describe what you need help with..."
                             loading={false}
                             disabled={true}
@@ -145,7 +134,7 @@ export function ThreadSkeleton({
 
             {/* Side Panel - Always visible in skeleton with exact responsive widths */}
             <div className="hidden sm:block">
-                <div className="h-screen w-[50vw] border-l">
+                <div className="h-screen w-[90%] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[650px] border-l">
                     <div className="p-4">
                         <Skeleton className="h-8 w-32 mb-4" />
                         <Skeleton className="h-20 w-full rounded-md mb-4" />

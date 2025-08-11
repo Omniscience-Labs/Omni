@@ -68,12 +68,6 @@ const extractFromLegacyFormat = (content: any): Omit<WebSearchData, 'success' | 
   
   if (toolData.toolResult) {
     const args = toolData.arguments || {};
-    
-    console.log('WebSearchToolView: Extracted from legacy format (extractToolData):', {
-      query: toolData.query || args.query,
-      resultsCount: 0 
-    });
-    
     return {
       query: toolData.query || args.query || null,
       results: [], 
@@ -83,11 +77,6 @@ const extractFromLegacyFormat = (content: any): Omit<WebSearchData, 'success' | 
   }
 
   const legacyQuery = extractSearchQuery(content);
-  
-  console.log('WebSearchToolView: Extracted from legacy format (fallback):', {
-    query: legacyQuery,
-    resultsCount: 0 
-  });
   
   return {
     query: legacyQuery,
@@ -123,21 +112,6 @@ export function extractWebSearchData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('WebSearchToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasQuery: !!assistantNewFormat.query,
-      resultsCount: assistantNewFormat.results.length,
-      hasAnswer: !!assistantNewFormat.answer,
-      imagesCount: assistantNewFormat.images.length
-    },
-    toolNewFormat: {
-      hasQuery: !!toolNewFormat.query,
-      resultsCount: toolNewFormat.results.length,
-      hasAnswer: !!toolNewFormat.answer,
-      imagesCount: toolNewFormat.images.length
-    }
-  });
-
   if (assistantNewFormat.query || assistantNewFormat.results.length > 0) {
     query = assistantNewFormat.query;
     searchResults = assistantNewFormat.results;
@@ -149,7 +123,6 @@ export function extractWebSearchData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('WebSearchToolView: Using assistant new format data');
   } else if (toolNewFormat.query || toolNewFormat.results.length > 0) {
     query = toolNewFormat.query;
     searchResults = toolNewFormat.results;
@@ -161,7 +134,6 @@ export function extractWebSearchData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('WebSearchToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
@@ -170,12 +142,6 @@ export function extractWebSearchData(
     
     const legacyResults = extractSearchResults(toolContent);
     searchResults = legacyResults;
-    
-    console.log('WebSearchToolView: Using legacy format data:', {
-      query,
-      legacyResultsCount: legacyResults.length,
-      firstLegacyResult: legacyResults[0]
-    });
     
     if (toolContent) {
       try {
@@ -206,17 +172,7 @@ export function extractWebSearchData(
   if (searchResults.length === 0) {
     const fallbackResults = extractSearchResults(toolContent);
     searchResults = fallbackResults;
-    console.log('WebSearchToolView: Fallback extraction results:', fallbackResults.length);
   }
-
-  console.log('WebSearchToolView: Final extracted data:', {
-    query,
-    searchResultsCount: searchResults.length,
-    hasAnswer: !!answer,
-    imagesCount: images.length,
-    actualIsSuccess,
-    firstResult: searchResults[0]
-  });
 
   return {
     query,

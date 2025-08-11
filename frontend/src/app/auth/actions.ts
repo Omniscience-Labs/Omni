@@ -26,7 +26,6 @@ async function sendWelcomeEmail(email: string, name?: string) {
     });
 
     if (response.ok) {
-      console.log(`Welcome email queued for ${email}`);
     } else {
       const errorData = await response.json().catch(() => ({}));
       console.error(`Failed to queue welcome email for ${email}:`, errorData);

@@ -191,9 +191,6 @@ export const getToolIcon = (toolName: string): ElementType => {
       }
       
       // Add logging for debugging unhandled tool types
-      console.log(
-        `[PAGE] Using default icon for unknown tool type: ${toolName}`,
-      );
       return Wrench; // Default icon for tools
   }
 };

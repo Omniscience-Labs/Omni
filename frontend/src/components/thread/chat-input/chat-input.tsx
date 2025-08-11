@@ -271,7 +271,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     };
 
-    const removeUploadedFile = (index: number) => {
+    const removeUploadedFile = async (index: number) => {
       const fileToRemove = uploadedFiles[index];
 
       // Clean up local URL if it exists
@@ -301,8 +301,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             console.error('Failed to delete file from server:', error);
           }
         });
-      } else if (isFileUsedInChat) {
-        console.log(`Skipping server deletion for ${fileToRemove.path} - file is referenced in chat history`);
+      } else {
+        // File exists in chat history, don't delete from server
       }
     };
 
@@ -488,7 +488,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 selectedAgentId={selectedAgentId}
                 onAgentChange={onAgentSelect}
                 onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
-                  console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
+                  // Save to workflow or perform other action here
                 }}
               />
             </DialogContent>

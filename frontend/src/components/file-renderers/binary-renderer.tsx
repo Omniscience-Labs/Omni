@@ -22,14 +22,10 @@ export function BinaryRenderer({
 }: BinaryRendererProps) {
   const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
 
-  // Handle download - use external handler if provided, fallback to direct URL
   const handleDownload = () => {
     if (onDownload) {
-      // Use the file-viewer's more robust download handler if provided
       onDownload();
     } else if (url) {
-      // Fallback to direct URL download (less robust)
-      console.log(`[BINARY RENDERER] Using fallback download for ${fileName}`);
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName.split('/').pop() || 'file';
