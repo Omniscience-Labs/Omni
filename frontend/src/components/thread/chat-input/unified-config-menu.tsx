@@ -73,11 +73,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const { data: agentsResponse } = useAgents({}, { enabled: isLoggedIn });
     const agents: any[] = agentsResponse?.agents || [];
 
-    useEffect(() => {
-        if (isLoggedIn && agents.length === 1 && !selectedAgentId && onAgentSelect) {
-            onAgentSelect(agents[0].agent_id);
-        }
-    }, [isLoggedIn, agents, selectedAgentId, onAgentSelect]);
+
 
     const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: isLoggedIn });
     const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: isLoggedIn });

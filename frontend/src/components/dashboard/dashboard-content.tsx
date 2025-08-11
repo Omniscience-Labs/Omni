@@ -90,12 +90,18 @@ export function DashboardContent() {
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
-  // Initialize agent selection from agents list
   useEffect(() => {
+    console.log('🚀 Dashboard effect:', { 
+      agentsLength: agents.length, 
+      selectedAgentId, 
+      agents: agents.map(a => ({ id: a.agent_id, name: a.name, isDefault: a.metadata?.is_suna_default })) 
+    });
+    
     if (agents.length > 0) {
-      initializeFromAgents(agents);
+      console.log('📞 Calling initializeFromAgents');
+      initializeFromAgents(agents, undefined, setSelectedAgent);
     }
-  }, [agents, initializeFromAgents]);
+  }, [agents, initializeFromAgents, setSelectedAgent]);
 
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');
