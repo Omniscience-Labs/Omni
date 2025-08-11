@@ -38,6 +38,7 @@ import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog'
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { CustomAgentsSection } from './custom-agents-section';
 import { toast } from 'sonner';
+import { ReleaseBadge } from '../auth/release-badge';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -231,6 +232,11 @@ export function DashboardContent() {
               </TooltipTrigger>
               <TooltipContent>Open menu</TooltipContent>
             </Tooltip>
+          </div>
+        )}
+        {customAgentsEnabled && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+            <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
           </div>
         )}
         <div className={cn(
