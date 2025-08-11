@@ -6,7 +6,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
       args:
         TARGETPLATFORM: ${TARGETPLATFORM:-linux/amd64}
-    image: chirkoot/suna:0.3.33
+    image: chirkoot/suna:0.3.35
     ports:
       - "6080:6080"  # noVNC web interface
       - "5901:5901"  # VNC port

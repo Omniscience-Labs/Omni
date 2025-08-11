@@ -11,7 +11,7 @@ class SunaConfig:
 
     DEFAULT_TOOLS = {
         "sb_shell_tool": True,
-        "stagehand_browser_tool": True,
+        "browser_tool": True,
         "sb_deploy_tool": True,
         "sb_expose_tool": True,
         "web_search_tool": True,

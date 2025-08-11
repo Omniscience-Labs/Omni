@@ -62,6 +62,13 @@ class BrowserAutomation {
                         downloadsPath: '/workspace/downloads',
                         acceptDownloads: true,
                         preserveUserDataDir: true,
+                        args: [
+                            "--remote-debugging-port=9222",
+                            "--no-sandbox",
+                            "--disable-setuid-sandbox",
+                            "--disable-dev-shm-usage",
+                            "--disable-gpu"
+                        ]
                     }
                 });
                 await this.stagehand.init();
@@ -95,7 +102,7 @@ class BrowserAutomation {
                 }
             }
             return {
-                status: "already_initialized",
+                status: "healthy",
                 message: "Browser already initialized"
             }
         } catch (error) {

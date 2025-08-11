@@ -77,9 +77,9 @@ class ToolManager:
         
 
         
-        # Add Stagehand Browser Tool (replaces sandbox browser tool)
-        from agent.tools.stagehand_browser_tool import StagehandBrowserTool
-        self.thread_manager.add_tool(StagehandBrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        # Add Browser Tool
+        from agent.tools.browser_tool import BrowserTool
+        self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
     
     def register_agent_builder_tools(self, agent_id: str):
         from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
@@ -130,9 +130,9 @@ class ToolManager:
             self.thread_manager.add_tool(DataProvidersTool)
 
         
-        if safe_tool_check('stagehand_browser_tool'):
-            from agent.tools.stagehand_browser_tool import StagehandBrowserTool
-            self.thread_manager.add_tool(StagehandBrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        if safe_tool_check('browser_tool'):
+            from agent.tools.browser_tool import BrowserTool
+            self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
 
 
 class MCPManager:

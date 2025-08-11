@@ -1,37 +1,31 @@
-from typing import Any, Dict, List, Optional
 from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from sandbox.tool_base import SandboxToolsBase
 from utils.logger import logger
 from utils.s3_upload_utils import upload_base64_image
 import asyncio
-import os
 import json
 import base64
 import io
 import traceback
 from PIL import Image
-from dotenv import load_dotenv
+from utils.config import config
 
-# Load environment variables
-load_dotenv()
-
-
-class StagehandBrowserTool(SandboxToolsBase):
+class BrowserTool(SandboxToolsBase):
     """
-    Stagehand Browser Tool for browser automation using local Stagehand API.
+    Browser Tool for browser automation using local Stagehand API.
     
     This tool provides browser automation capabilities using a local Stagehand API server,
     replacing the sandbox browser tool functionality.
     
-    KISS Principle: Only 5 core functions that can handle everything:
+    Only 4 core functions that can handle everything:
     - browser_navigate_to: Navigate to URLs
-    - browser_act: Perform any action (click, type, scroll, tab management, dropdowns, drag & drop, etc.)
+    - browser_act: Perform any action (click, type, scroll, dropdowns etc.)
     - browser_extract_content: Extract content from pages
     - browser_screenshot: Take screenshots
-    - browser_observe: Observe and identify interactive elements on the page
     """
-    
+    _sandbox_created = False
+
     def __init__(self, project_id: str, thread_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.thread_id = thread_id
@@ -122,56 +116,29 @@ class StagehandBrowserTool(SandboxToolsBase):
             ports = response2.result if response2.exit_code == 0 else "Failed to get port list"
             
             debug_info = f"""
-=== Sandbox Services Debug Info ===
-Running processes:
-{processes}
+            === Sandbox Services Debug Info ===
+            Running processes:
+            {processes}
 
-Listening ports:
-{ports}
+            Listening ports:
+            {ports}
 
-=== End Debug Info ===
-"""
+            === End Debug Info ===
+            """
             return debug_info
             
         except Exception as e:
             return f"Error getting debug info: {e}"
 
-    async def _check_browser_api_health(self) -> bool:
-        """Check if the regular browser API server is running and accessible"""
-        try:
-            await self._ensure_sandbox()
-            
-            # Simple health check curl command
-            curl_cmd = "curl -s -X GET 'http://localhost:8003/api' -H 'Content-Type: application/json'"
-            
-            logger.debug(f"Checking browser API health with: {curl_cmd}")
-            
-            response = await self.sandbox.process.exec(curl_cmd, timeout=10)
-            
-            if response.exit_code == 0:
-                try:
-                    result = json.loads(response.result)
-                    if result.get("status") == "ok":
-                        logger.info("✅ Browser API server is running and healthy")
-                        return True
-                    else:
-                        logger.warning(f"Browser API server responded but status is not 'ok': {result}")
-                        return False
-                except json.JSONDecodeError:
-                    logger.warning(f"Browser API server responded but with invalid JSON: {response.result}")
-                    return False
-            else:
-                logger.warning(f"Browser API server health check failed with exit code {response.exit_code}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error checking browser API health: {e}")
-            return False
-
     async def _check_stagehand_api_health(self) -> bool:
         """Check if the Stagehand API server is running and accessible"""
         try:
             await self._ensure_sandbox()
+
+            if not self.__class__._sandbox_created:
+                logger.info("Sandbox just created, waiting for server to start")
+                await asyncio.sleep(5)
+                self.__class__._sandbox_created = True
             
             # Simple health check curl command
             curl_cmd = "curl -s -X GET 'http://localhost:8004/api' -H 'Content-Type: application/json'"
@@ -179,7 +146,6 @@ Listening ports:
             logger.debug(f"Checking Stagehand API health with: {curl_cmd}")
             
             response = await self.sandbox.process.exec(curl_cmd, timeout=10)
-            
             if response.exit_code == 0:
                 try:
                     result = json.loads(response.result)
@@ -187,8 +153,16 @@ Listening ports:
                         logger.info("✅ Stagehand API server is running and healthy")
                         return True
                     else:
-                        logger.warning(f"Stagehand API server responded but status is not 'healthy': {result}")
-                        return False
+                        # If the browser api is not healthy, we need to restart the browser api
+                        model_api_key = config.ANTHROPIC_API_KEY
+
+                        response = await self.sandbox.process.exec(f"curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{{\"api_key\": \"{model_api_key}\"}}'", timeout=90)
+                        if response.exit_code == 0:
+                            logger.info("Stagehand API server restarted successfully")
+                            return True
+                        else:
+                            logger.warning(f"Stagehand API server restart failed: {response.result}")
+                            return False
                 except json.JSONDecodeError:
                     logger.warning(f"Stagehand API server responded but with invalid JSON: {response.result}")
                     return False
@@ -208,36 +182,20 @@ Listening ports:
             
             # Check if Stagehand API server is running
             stagehand_healthy = await self._check_stagehand_api_health()
-            browser_healthy = await self._check_browser_api_health()
             
             if not stagehand_healthy:
-                if browser_healthy:
-                    error_msg = "Stagehand API server is not running, but the regular browser API is available. Consider using the sb_browser_tool instead, or check the Stagehand API server logs for startup issues. The Stagehand browser may have crashed due to Docker environment compatibility issues."
-                else:
-                    error_msg = "Neither Stagehand API server (port 8004) nor browser API server (port 8003) are running. Please ensure at least one browser automation service is started in the sandbox container."
+                error_msg = "Stagehand API server is not running. Please ensure the Stagehand API server is running. Error: {response}"
                 
                 # Add debug information
                 debug_info = await self._debug_sandbox_services()
                 error_msg += f"\n\nDebug information:\n{debug_info}"
-                error_msg += "\n\nRecommendation: If Stagehand continues to crash, use the regular browser automation tool (sb_browser_tool) which has proven stability in this environment."
                 
                 logger.error(error_msg)
                 return self.fail_response(error_msg)
             
-            # Get API key from environment
-            model_api_key = os.getenv("MODEL_API_KEY")
-            if not model_api_key:
-                return self.fail_response("MODEL_API_KEY environment variable is required")
-            
-            # Initialize params if None
-            if params is None:
-                params = {}
-            
-            # Add API key to params
-            params["model_api_key"] = model_api_key
             
             # Build the curl command to call the local Stagehand API
-            url = f"http://localhost:8004/api/stagehand/{endpoint}"  # Fixed localhost as curl runs inside container
+            url = f"http://localhost:8004/api/{endpoint}"  # Fixed localhost as curl runs inside container
             
             if method == "GET" and params:
                 query_params = "&".join([f"{k}={v}" for k, v in params.items()])
@@ -256,12 +214,6 @@ Listening ports:
             if response.exit_code == 0:
                 try:
                     result = json.loads(response.result)
-
-                    if not "content" in result:
-                        result["content"] = ""
-                    if not "role" in result:
-                        result["role"] = "assistant"
-
                     logger.info(f"Stagehand API result: {result}")
 
                     logger.info("Stagehand API request completed successfully")
@@ -273,7 +225,7 @@ Listening ports:
                             
                             if is_valid:
                                 logger.debug(f"Screenshot validation passed: {validation_message}")
-                                image_url = await upload_base64_image(screenshot_data, "screenshots")
+                                image_url = await upload_base64_image(screenshot_data)
                                 result["image_url"] = image_url
                                 logger.debug(f"Uploaded screenshot to {image_url}")
                             else:
@@ -293,31 +245,38 @@ Listening ports:
                         is_llm_message=False
                     )
 
-                    success_response = {
+                    # Prepare clean response for agent (filter out internal metadata)
+                    # Only include data that's useful for the agent's decision making
+                    clean_result = {
                         "success": result.get("success", True),
                         "message": result.get("message", "Stagehand action completed successfully")
                     }
-                    if added_message and 'message_id' in added_message:
-                        success_response['message_id'] = added_message['message_id']
-                    if result.get("url"):
-                        success_response["url"] = result["url"]
-                    if result.get("title"):
-                        success_response["title"] = result["title"]
-                    if result.get("content"):
-                        success_response["content"] = result["content"]
-                    if result.get("image_url"):
-                        success_response["image_url"] = result["image_url"]
-                    if result.get("error"):
-                        success_response["error"] = result["error"]
 
-                    if success_response.get("success"):
-                        return self.success_response(success_response)
+                    # Include only data that actually comes from browserApi.ts
+                    if result.get("url"):
+                        clean_result["url"] = result["url"]
+                    if result.get("title"):
+                        clean_result["title"] = result["title"]
+                    if result.get("action"):
+                        clean_result["action"] = result["action"]
+                    if result.get("image_url"):  # This is screenshot_base64 converted to image_url
+                        clean_result["image_url"] = result["image_url"]
+                    
+                    # Include any error context that's useful for the agent
+                    if result.get("image_validation_error"):
+                        clean_result["screenshot_issue"] = f"Screenshot processing issue: {result['image_validation_error']}"
+                    if result.get("image_upload_error"):
+                        clean_result["screenshot_issue"] = f"Screenshot upload issue: {result['image_upload_error']}"
+
+                    if clean_result.get("success"):
+                        return self.success_response(clean_result)
                     else:
-                        # Handle error responses with helpful context
-                        error_msg = success_response.get("error", "Unknown error")
+                        # Handle error responses with helpful context  
+                        error_msg = result.get("error", result.get("message", "Unknown error"))
                         if "Page crashed" in error_msg:
                             error_msg += "\n\nNote: Browser page crashes in Docker environments can be caused by insufficient browser launch options. Consider using the regular browser automation tool (sb_browser_tool) as an alternative."
-                        return self.fail_response(error_msg)
+                        clean_result["message"] = error_msg
+                        return self.fail_response(clean_result)
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse response JSON: {response.result} {e}")
@@ -337,56 +296,7 @@ Listening ports:
             logger.debug(traceback.format_exc())
             return self.fail_response(f"Error executing Stagehand action: {e}")
 
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "browser_test_services",
-            "description": "Test and diagnose browser automation services",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_test_services">
-        </invoke>
-        </function_calls>
-        ''')
-    async def browser_test_services(self) -> ToolResult:
-        """Test and diagnose browser automation services"""
-        try:
-            await self._ensure_sandbox()
-            
-            # Check both APIs
-            stagehand_healthy = await self._check_stagehand_api_health()
-            browser_healthy = await self._check_browser_api_health()
-            
-            # Get debug information
-            debug_info = await self._debug_sandbox_services()
-            
-            result = {
-                "stagehand_api_healthy": stagehand_healthy,
-                "browser_api_healthy": browser_healthy,
-                "debug_info": debug_info,
-                "recommendation": ""
-            }
-            
-            if stagehand_healthy:
-                result["recommendation"] = "Stagehand API is working correctly. You can use browser_navigate_to, browser_act, browser_extract_content, and browser_screenshot."
-            elif browser_healthy:
-                result["recommendation"] = "Stagehand API is not available, but browser API is working. The regular browser automation tool (sb_browser_tool) is recommended as it has proven stability in this Docker environment."
-            else:
-                result["recommendation"] = "Neither API is available. Check sandbox container logs and ensure services are started. Try restarting the sandbox container if both services are down."
-            
-            return self.success_response(result)
-            
-        except Exception as e:
-            logger.error(f"Error testing services: {e}")
-            return self.fail_response(f"Error testing services: {e}")
-
-    # Core Functions Only (KISS Principle)
+    # Core Functions Only
     
     @openapi_schema({
         "type": "function",
@@ -414,20 +324,31 @@ Listening ports:
         ''')
     async def browser_navigate_to(self, url: str) -> ToolResult:
         """Navigate to a URL using Stagehand."""
-        logger.info(f"Stagehand browser navigating to: {url}")
+        logger.info(f"Browser navigating to: {url}")
         return await self._execute_stagehand_api("navigate", {"url": url})
     
     @openapi_schema({
         "type": "function",
         "function": {
             "name": "browser_act",
-            "description": "Perform any browser action using natural language description",
+            "description": "Perform any browser action using natural language description. CRITICAL: This tool automatically provides a screenshot with every action. For data entry actions (filling forms, entering text, selecting options), you MUST review the provided screenshot to verify that displayed values exactly match what was intended. Report mismatches immediately.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "description": "The action to perform. Examples: 'click the login button', 'fill in the email field with test@example.com', 'scroll down to see more content', 'select option 2 from the dropdown', 'press Enter', 'go back', 'wait 5 seconds', 'switch to tab 1', 'close the current tab', 'click at coordinates 100,200', 'drag the file icon to the drop zone', 'select United States from the country dropdown'"
+                        "description": "The action to perform. Examples: 'click the login button', 'fill in the email field with test@example.com', 'scroll down to see more content', 'select option 2 from the dropdown', 'press Enter', 'go back', 'wait 5 seconds', 'click at coordinates 100,200', 'drag the file icon to the drop zone', 'select United States from the country dropdown'"
+                    },
+                    "variables": {
+                        "type": "object",
+                        "description": "Variables to use in the action. Variables in the action string are referenced using %variable_name%. These variables are NOT shared with LLM providers for security.",
+                        "additionalProperties": {"type": "string"},
+                        "default": {}
+                    },
+                    "iframes": {
+                        "type": "boolean",
+                        "description": "Whether to include iframe content in the action. Set to true if the target element is inside an iframe.",
+                        "default": True
                     }
                 },
                 "required": ["action"]
@@ -437,43 +358,59 @@ Listening ports:
     @usage_example('''
         <function_calls>
         <invoke name="browser_act">
-        <parameter name="action">click the submit button</parameter>
+        <parameter name="action">fill in the login form with %username% and %password%</parameter>
+        <parameter name="variables">{"username": "john.doe", "password": "secret123"}</parameter>
+        <parameter name="iframes">true</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def browser_act(self, action: str) -> ToolResult:
+    async def browser_act(self, action: str, variables: dict = None, iframes: bool = False) -> ToolResult:
         """Perform any browser action using Stagehand."""
-        logger.info(f"Stagehand browser acting: {action}")
-        return await self._execute_stagehand_api("act", {"action": action})
+        logger.info(f"Browser acting: {action} (variables={'***' if variables else None}, iframes={iframes})")
+        params = {"action": action, "iframes": iframes, "variables": variables}
+        return await self._execute_stagehand_api("act", params)
     
     @openapi_schema({
         "type": "function",
         "function": {
             "name": "browser_extract_content",
-            "description": "Extract content from the current page based on a goal",
+            "description": "Extract structured content from the current page using Stagehand",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "goal": {
+                    "instruction": {
                         "type": "string",
-                        "description": "What content to extract (e.g., 'extract all product prices', 'get the main heading')"
+                        "description": "What content to extract (e.g., 'extract all product prices', 'get the main heading', 'extract apartment listings with address and price')"
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "Optional XPath selector to reduce extraction scope to a specific element. Useful for reducing input tokens and increasing accuracy.",
+                        "default": None
+                    },
+                    "iframes": {
+                        "type": "boolean",
+                        "description": "Whether to include iframe content in the extraction. Set to true if the target content is inside an iframe.",
+                        "default": True
                     }
                 },
-                "required": ["goal"]
+                "required": ["instruction"]
             }
         }
     })
     @usage_example('''
         <function_calls>
         <invoke name="browser_extract_content">
-        <parameter name="goal">extract all product names and prices</parameter>
+        <parameter name="instruction">extract all product names and prices from the main product list</parameter>
+        <parameter name="selector">//div[@class='product-list']</parameter>
+        <parameter name="iframes">true</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def browser_extract_content(self, goal: str) -> ToolResult:
-        """Extract content from the current page using Stagehand."""
-        logger.info(f"Stagehand browser extracting: {goal}")
-        return await self._execute_stagehand_api("extract", {"goal": goal})
+    async def browser_extract_content(self, instruction: str, selector: str = None, iframes: bool = False) -> ToolResult:
+        """Extract structured content from the current page using Stagehand."""
+        logger.info(f"Browser extracting: {instruction} (selector={selector}, iframes={iframes})")
+        params = {"instruction": instruction, "iframes": iframes, "selector": selector}
+        return await self._execute_stagehand_api("extract", params)
     
     @openapi_schema({
         "type": "function",
@@ -501,49 +438,5 @@ Listening ports:
         ''')
     async def browser_screenshot(self, name: str = "screenshot") -> ToolResult:
         """Take a screenshot using Stagehand."""
-        logger.info(f"Stagehand browser taking screenshot: {name}")
+        logger.info(f"Browser taking screenshot: {name}")
         return await self._execute_stagehand_api("screenshot", {"name": name})
-    
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "browser_observe",
-            "description": "Observe and identify interactive elements on the current page that can be used for subsequent actions",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "instruction": {
-                        "type": "string",
-                        "description": "Instruction for what specific elements to observe. Examples: 'Find all clickable buttons', 'Locate all form fields', 'Identify navigation links', 'Find search elements'",
-                        "default": "Find actions that can be performed on this page."
-                    },
-                    "return_action": {
-                        "type": "boolean",
-                        "description": "Whether to return suggested actions for each element (method and arguments)",
-                        "default": True
-                    },
-                    "iframes": {
-                        "type": "boolean", 
-                        "description": "Whether to include content from iframes in the observation",
-                        "default": False
-                    }
-                }
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="browser_observe">
-        <parameter name="instruction">Find all clickable buttons on this page</parameter>
-        <parameter name="return_action">true</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def browser_observe(self, instruction: str = "Find actions that can be performed on this page.", return_action: bool = True, iframes: bool = False) -> ToolResult:
-        """Observe page elements and get candidate DOM elements for actions using Stagehand."""
-        logger.info(f"Stagehand browser observing: {instruction} (return_action={return_action}, iframes={iframes})")
-        return await self._execute_stagehand_api("observe", {
-            "instruction": instruction,
-            "return_action": return_action,
-            "iframes": iframes
-        }) 
