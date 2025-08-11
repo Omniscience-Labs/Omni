@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sparkles, Settings, MoreHorizontal, Download } from 'lucide-react';
+import { Sparkles, Settings, MoreHorizontal, Download, Image as ImageIcon } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditableText } from '@/components/ui/editable';
-import { StylePicker } from '../style-picker';
+// import { StylePicker } from '../style-picker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
@@ -14,12 +14,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { createClient } from '@/lib/supabase/client';
 
 interface AgentHeaderProps {
   agentId: string;
   displayData: {
     name: string;
     description?: string;
+    profile_image_url?: string;
   };
   currentStyle: {
     avatar: string;
@@ -66,6 +69,45 @@ export function AgentHeader({
     }
     onFieldChange('name', value);
   };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('You must be logged in to upload images');
+        return;
+      }
+      
+      const form = new FormData();
+      form.append('file', file);
+      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/profile-image/upload`, {
+        method: 'POST',
+        body: form,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+      
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      if (data?.url) {
+        onFieldChange('profile_image_url', data.url);
+        toast.success('Profile image updated');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to upload image');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="flex items-center justify-between mb-0">
       <div className="flex items-center gap-3">
@@ -75,19 +117,20 @@ export function AgentHeader({
               <KortixLogo size={16} />
             </div>
           ) : (
-            <StylePicker
-              currentEmoji={currentStyle.avatar}
-              currentColor={currentStyle.color}
-              onStyleChange={onStyleChange}
-              agentId={agentId}
-            >
-              <div 
-                className="h-9 w-9 rounded-lg flex items-center justify-center shadow-sm ring-1 ring-black/5 hover:ring-black/10 transition-all duration-200 cursor-pointer"
-                style={{ backgroundColor: currentStyle.color }}
-              >
-                <div className="text-lg font-medium">{currentStyle.avatar}</div>
-              </div>
-            </StylePicker>
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <Avatar className="h-9 w-9 rounded-lg ring-1 ring-black/5 hover:ring-black/10">
+                  {displayData.profile_image_url ? (
+                    <AvatarImage src={displayData.profile_image_url} alt={displayData.name} />
+                  ) : (
+                    <AvatarFallback className="rounded-lg text-xs">
+                      <ImageIcon className="h-4 w-4" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </label>
+            </div>
           )}
         </div>
         <div className="flex-1 min-w-0">

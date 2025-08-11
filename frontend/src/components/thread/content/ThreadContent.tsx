@@ -359,7 +359,11 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
         if (recentAssistantWithAgent?.agents?.name) {
             const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna' || isSunaDefaultAgent;
-            const avatar = recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
+            // Prefer profile image if available on the agent payload
+            const profileUrl = (recentAssistantWithAgent as any)?.agents?.profile_image_url;
+            const avatar = profileUrl && !isSunaDefaultAgent ? (
+                <img src={profileUrl} alt={recentAssistantWithAgent.agents.name} className="h-5 w-5 rounded object-cover" />
+            ) : recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">

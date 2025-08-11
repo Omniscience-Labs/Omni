@@ -45,6 +45,7 @@ interface Agent {
       mcps_editable?: boolean;
     };
   };
+  profile_image_url?: string;
 }
 
 interface AgentsGridProps {
@@ -111,6 +112,8 @@ const AgentModal: React.FC<AgentModalProps> = ({
               <div className="p-6">
                 <KortixLogo size={48} />
               </div>
+            ) : agent.profile_image_url ? (
+              <img src={agent.profile_image_url} alt={agent.name} className="h-24 w-24 rounded-xl object-cover shadow" />
             ) : (
               <div className="text-6xl drop-shadow-sm">
                 {avatar}

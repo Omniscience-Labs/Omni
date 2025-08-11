@@ -48,4 +48,32 @@ async def upload_base64_image(base64_data: str, bucket_name: str = "browser-scre
         
     except Exception as e:
         logger.error(f"Error uploading base64 image: {e}")
+        raise RuntimeError(f"Failed to upload image: {str(e)}")
+
+async def upload_image_bytes(image_bytes: bytes, content_type: str = "image/png", bucket_name: str = "agent-profile-images") -> str:
+    try:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_id = str(uuid.uuid4())[:8]
+        ext = "png"
+        if content_type == "image/jpeg" or content_type == "image/jpg":
+            ext = "jpg"
+        elif content_type == "image/webp":
+            ext = "webp"
+        elif content_type == "image/gif":
+            ext = "gif"
+        filename = f"agent_profile_{timestamp}_{unique_id}.{ext}"
+
+        db = DBConnection()
+        client = await db.client
+        await client.storage.from_(bucket_name).upload(
+            filename,
+            image_bytes,
+            {"content-type": content_type}
+        )
+
+        public_url = await client.storage.from_(bucket_name).get_public_url(filename)
+        logger.debug(f"Successfully uploaded agent profile image to {public_url}")
+        return public_url
+    except Exception as e:
+        logger.error(f"Error uploading image bytes: {e}")
         raise RuntimeError(f"Failed to upload image: {str(e)}") 
