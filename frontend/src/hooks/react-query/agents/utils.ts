@@ -81,7 +81,7 @@ export type ThreadAgentResponse = {
 export type AgentCreateRequest = {
   name: string;
   description?: string;
-  system_prompt: string;
+  system_prompt?: string;
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
