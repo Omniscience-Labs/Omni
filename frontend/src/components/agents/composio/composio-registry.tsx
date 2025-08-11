@@ -14,7 +14,7 @@ import type { ComposioToolkit, ComposioProfile } from '@/hooks/react-query/compo
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { AgentSelector } from '../../thread/chat-input/agent-selector';
+// import { AgentSelector } from '../../thread/chat-input/agent-selector';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CustomMCPDialog } from '../mcp/custom-mcp-dialog';
 
@@ -512,13 +512,13 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                {showAgentSelector && (
+                {/* {showAgentSelector && (
                   <AgentSelector
                     selectedAgentId={currentAgentId}
                     onAgentSelect={handleAgentSelect}
                     isSunaAgent={agent?.metadata?.is_suna_default}
                   />
-                )}
+                )} */}
                 {mode !== 'profile-only' && currentAgentId && (
                   <Button 
                     variant="outline" 

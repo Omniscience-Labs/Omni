@@ -628,22 +628,18 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-foreground">Knowledge Base</h3>
-          <p className="text-xs text-muted-foreground">Upload and manage knowledge for the agent</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 w-48"
+              className="pl-9 h-9 w-full"
             />
           </div>
-          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
+          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2 flex-shrink-0">
             <Plus className="h-4 w-4" />
             Add Knowledge
           </Button>

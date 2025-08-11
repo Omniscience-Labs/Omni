@@ -22,7 +22,7 @@ import { ChatSnack } from './chat-snack';
 import { Brain, Zap, Workflow, Database, ArrowDown } from 'lucide-react';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AgentConfigModal } from '@/components/agents/agent-config-modal';
+
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
@@ -133,8 +133,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const [configModalOpen, setConfigModalOpen] = useState(false);
-    const [configModalTab, setConfigModalTab] = useState('integrations');
+
     const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
     const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
     const [userDismissedUsage, setUserDismissedUsage] = useState(false);
@@ -495,13 +494,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               </div>
             </div>
           )}
-          <AgentConfigModal
-            isOpen={configModalOpen}
-            onOpenChange={setConfigModalOpen}
-            selectedAgentId={selectedAgentId}
-            onAgentSelect={onAgentSelect}
-            initialTab={configModalTab}
-          />
+
           <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
             <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
               <DialogHeader className="sr-only">

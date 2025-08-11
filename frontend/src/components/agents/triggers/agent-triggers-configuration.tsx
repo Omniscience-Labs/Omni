@@ -128,11 +128,6 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-medium text-foreground">Triggers</h3>
-        <p className="text-xs text-muted-foreground mb-4">Set up automated agent runs</p>
-      </div>
-      
       <OneClickIntegrations agentId={agentId} />
       
       {triggers.length > 0 && (

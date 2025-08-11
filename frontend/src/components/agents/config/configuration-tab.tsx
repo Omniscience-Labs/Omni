@@ -164,7 +164,7 @@ export function ConfigurationTab({
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <ExpandableMarkdownEditor
                       value={displayData.system_prompt}
                       onSave={handleSystemPromptChange}
@@ -203,7 +203,7 @@ export function ConfigurationTab({
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <AgentModelSelector
                       value={displayData.model}
                       onChange={(model) => {
@@ -246,7 +246,7 @@ export function ConfigurationTab({
                   }`}
               >
                 <div className="px-6 pb-6 pt-2">
-                  <div className="border-t border-border/30 pt-4">
+                  <div className="pt-4">
                     <AgentToolsConfiguration
                       tools={displayData.agentpress_tools}
                       onToolsChange={areToolsEditable ? handleToolsChange : () => { }}
@@ -283,7 +283,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentMCPConfiguration
                     configuredMCPs={displayData.configured_mcps}
                     customMCPs={displayData.custom_mcps}
@@ -327,7 +327,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentKnowledgeBaseManager
                     agentId={agentId}
                     agentName={displayData.name || 'Agent'}
@@ -361,7 +361,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentPlaybooksConfiguration
                     agentId={agentId}
                     agentName={displayData.name || 'Agent'}
@@ -395,7 +395,7 @@ export function ConfigurationTab({
                 }`}
             >
               <div className="px-6 pb-6 pt-2">
-                <div className="border-t border-border/30 pt-4">
+                <div className="pt-4">
                   <AgentTriggersConfiguration agentId={agentId} />
                 </div>
               </div>
