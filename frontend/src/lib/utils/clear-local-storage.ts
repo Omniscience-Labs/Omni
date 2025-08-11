@@ -11,15 +11,8 @@ export const clearUserLocalStorage = () => {
     
     localStorage.removeItem('pendingAgentPrompt');
     localStorage.removeItem('suna_upgrade_dialog_displayed');
-    localStorage.removeItem('auth');
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('maintenance-dismissed-')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('suna-agent-installed-')) {
         localStorage.removeItem(key);
       }
     });
