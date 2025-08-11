@@ -87,7 +87,7 @@ export function FirstBentoAnimation() {
             <img 
               src="/kortix-symbol.svg" 
               alt="Kortix Symbol" 
-              className="size-4"
+              className="size-4 dark:invert"
             />
           </div>
 

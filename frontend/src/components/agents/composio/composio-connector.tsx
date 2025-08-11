@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Check, AlertCircle, Plus, ExternalLink, ChevronRight, Search, Save, Loader2, User, Settings, Info, Eye, Zap, Wrench } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Plus, ExternalLink, ChevronRight, Search, Save, Loader2, User, Settings, Info, Eye, Zap } from 'lucide-react';
 import { useCreateComposioProfile, useComposioTools } from '@/hooks/react-query/composio/use-composio';
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
 import { useComposioToolkitDetails } from '@/hooks/react-query/composio/use-composio';
@@ -330,17 +330,28 @@ const ToolPreviewCard = ({ tool, searchTerm }: {
   };
   
   return (
-    <div className="border rounded-xl p-3 space-y-2 hover:bg-muted/50 transition-colors">
+    <div className="border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors group">
       <div className="space-y-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Wrench className="w-4 h-4" />
+          <div className="flex items-center gap-2.5">
             <h3 className="font-medium text-sm leading-tight">{highlightText(tool.name, searchTerm)}</h3>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-1">
+        <p className="text-xs text-muted-foreground line-clamp-2">
           {highlightText(tool.description, searchTerm)}
         </p>
+        {tool.tags && tool.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {tool.tags.slice(0, 3).map((tag, index) => (
+              <span key={index} className="text-[10px] bg-muted/50 text-muted-foreground px-1.5 py-0.5 rounded-md">
+                {tag}
+              </span>
+            ))}
+            {tool.tags.length > 3 && (
+              <span className="text-[10px] text-muted-foreground">+{tool.tags.length - 3}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -720,31 +731,12 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
       <DialogContent className={cn(
         "overflow-hidden gap-0",
         currentStep === Step.ToolsSelection ? "max-w-2xl h-[85vh] p-0 flex flex-col" : 
-        currentStep === Step.ProfileSelect ? "max-w-2xl p-0" : "max-w-lg p-0"
+        currentStep === Step.ProfileSelect ? "max-w-4xl h-[80vh] p-0 flex flex-col" : "max-w-lg p-0"
       )}>
         <StepIndicator currentStep={currentStep} mode={mode} />
         
         {currentStep !== Step.ToolsSelection ? (
           <>
-            <DialogHeader className="px-8 pb-2">
-              <div className="flex items-center gap-4">
-                {app.logo ? (
-                  <img src={app.logo} alt={app.name} className="w-14 h-14 rounded-xl object-contain bg-muted p-2 border" />
-                ) : (
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold shadow-sm">
-                    {app.name.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <DialogTitle className="text-xl font-semibold">
-                    {stepConfigs.find(config => config.id === currentStep)?.title}
-                  </DialogTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {stepConfigs.find(config => config.id === currentStep)?.description}
-                  </p>
-                </div>
-              </div>
-            </DialogHeader>
             <div className={cn(
               "flex-1 overflow-hidden",
               currentStep === Step.ProfileSelect ? "px-0 pb-0 pt-0" : "px-8 pb-8 pt-6"
@@ -759,9 +751,33 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                     animate="center"
                     exit="exit"
                     transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="grid grid-cols-4 gap-0 h-full"
+                    className="flex flex-col h-full"
                   >
-                    <div className="col-span-2 flex flex-col space-y-6 p-8 pr-6 border-border/50 overflow-y-auto">
+                    <div className="px-8 py-6 border-b border-border/50">
+                      <div className="flex items-center gap-4">
+                        {app.logo ? (
+                          <img src={app.logo} alt={app.name} className="w-12 h-12 rounded-xl object-contain bg-muted p-2 border" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold shadow-sm">
+                            {app.name.charAt(0)}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h3 className="text-xl font-semibold">Connect to {app.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Choose how you'd like to authenticate and preview available tools
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg ml-auto">
+                          <Eye className="w-4 h-4" />
+                          <span>{availableToolsPreview.length} tools available</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-1 min-h-0">
+                      {/* Left Panel - Connection Options */}
+                      <div className="w-1/2 flex flex-col space-y-6 p-8 pr-6 border-r border-border/50">
                       <div>
                         <h3 className="text-lg font-semibold">Connect to {app.name}</h3>
                         <p className="text-xs text-muted-foreground">
@@ -813,92 +829,120 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-px bg-border flex-1" />
-                        <span className="text-xs text-muted-foreground px-2">
-                          {existingProfiles.length > 0 ? 'or' : ''}
-                        </span>
-                        <div className="h-px bg-border flex-1" />
-                      </div>
-                        <Button
-                          onClick={() => navigateToStep(Step.ProfileCreate)}
-                          variant={existingProfiles.length > 0 ? "outline" : "default"}
-                          className="w-full"
-                        >
-                          {app.logo ? (
-                            <img src={app.logo} alt={app.name} className="h-4 w-4 rounded-lg object-contain" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold mr-2">
-                              {app.name.charAt(0)}
-                            </div>
-                          )}
-                          Connect New Account
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex gap-3 pt-4 mt-auto">
-                        <Button
-                          variant="outline"
-                          onClick={() => onOpenChange(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                        {existingProfiles.length > 0 && (
-                          <Button
-                            onClick={handleProfileSelect}
-                            disabled={!selectedProfileId}
-                            className="flex-1"
-                          >
-                            {mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2 flex flex-col pl-2 pr-4 overflow-hidden">
-                      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-muted-foreground/10 pr-2 space-y-2">
-                        {isLoadingToolsPreview ? (
-                          <div className="space-y-2">
-                            {[...Array(3)].map((_, i) => (
-                              <div key={i} className="border rounded-lg p-3 animate-pulse">
-                                <div className="h-3 bg-muted rounded w-3/4 mb-2"></div>
-                                <div className="h-2 bg-muted rounded w-full mb-2"></div>
-                                <div className="flex gap-2">
-                                  <div className="h-4 bg-muted rounded w-12"></div>
-                                  <div className="h-4 bg-muted rounded w-16"></div>
-                                </div>
-                              </div>
-                            ))}
                           </div>
-                        ) : (
-                          <>
-                            {filteredToolsPreview.length > 0 ? (
-                              <div className="space-y-2">
-                                {filteredToolsPreview.slice(0, 6).map((tool) => (
-                                  <ToolPreviewCard
-                                    key={tool.slug}
-                                    tool={tool}
-                                    searchTerm={toolsPreviewSearchTerm}
-                                  />
-                                ))}
-                                {filteredToolsPreview.length > 6 && (
-                                  <div className="text-center py-2 mb-4 text-sm text-muted-foreground">
-                                    +{filteredToolsPreview.length - 6} more tools available
-                                  </div>
-                                )}
-                              </div>
+                        )}
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-px bg-border flex-1" />
+                            <span className="text-xs text-muted-foreground px-2">
+                              {existingProfiles.length > 0 ? 'or' : ''}
+                            </span>
+                            <div className="h-px bg-border flex-1" />
+                          </div>
+                          <Button
+                            onClick={() => navigateToStep(Step.ProfileCreate)}
+                            variant={existingProfiles.length > 0 ? "outline" : "default"}
+                            className="w-full"
+                          >
+                            {app.logo ? (
+                              <img src={app.logo} alt={app.name} className="h-4 w-4 rounded-lg object-contain" />
                             ) : (
-                              <div className="text-center py-8 text-muted-foreground">
-                                {toolsPreviewSearchTerm ? 'No tools match your search' : 'No tools available'}
+                              <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-xs font-semibold mr-2">
+                                {app.name.charAt(0)}
                               </div>
                             )}
-                          </>
-                        )}
+                            Connect New Account
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="flex gap-3 pt-4 mt-auto">
+                          <Button
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                          {existingProfiles.length > 0 && (
+                            <Button
+                              onClick={handleProfileSelect}
+                              disabled={!selectedProfileId}
+                              className="flex-1"
+                            >
+                              {mode === 'full' && agentId ? 'Configure Tools' : 'Use Profile'}
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Right Panel - Tools Preview */}
+                      <div className="w-1/2 flex flex-col">
+                        <div className="px-6 py-4 border-b border-border/30">
+                          <div className="flex items-center gap-3">
+                            <h4 className="font-medium text-sm flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-primary" />
+                              Available Tools
+                            </h4>
+                            <div className="relative flex-1">
+                              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Search tools..."
+                                value={toolsPreviewSearchTerm}
+                                onChange={(e) => setToolsPreviewSearchTerm(e.target.value)}
+                                className="pl-9 h-8 text-sm bg-muted/30 border-muted"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <ScrollArea className="flex-1">
+                          <div className="p-6 space-y-3">
+                            {isLoadingToolsPreview ? (
+                              <div className="space-y-3">
+                                {[...Array(6)].map((_, i) => (
+                                  <div key={i} className="border rounded-lg p-3 animate-pulse">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="h-4 w-4 bg-muted rounded" />
+                                      <div className="h-4 bg-muted rounded w-24" />
+                                    </div>
+                                    <div className="h-3 bg-muted rounded w-full mt-2" />
+                                    <div className="h-3 bg-muted rounded w-2/3 mt-1" />
+                                    <div className="flex gap-2 mt-2">
+                                      <div className="h-4 bg-muted rounded w-12" />
+                                      <div className="h-4 bg-muted rounded w-16" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                {filteredToolsPreview.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {filteredToolsPreview.map((tool) => (
+                                      <ToolPreviewCard
+                                        key={tool.slug}
+                                        tool={tool}
+                                        searchTerm={toolsPreviewSearchTerm}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-12">
+                                    <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                                      <Search className="h-6 w-6 text-muted-foreground" />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                      {toolsPreviewSearchTerm ? `No tools found matching "${toolsPreviewSearchTerm}"` : 'No tools available'}
+                                    </p>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </ScrollArea>
                       </div>
                     </div>
                   </motion.div>
@@ -1076,29 +1120,6 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
           </>
         ) : (
           <>
-            <DialogHeader className="px-8 border-border/50 flex-shrink-0 bg-muted/10">
-              <div className="flex items-center gap-4">
-                {app.logo ? (
-                  <img 
-                    src={app.logo} 
-                    alt={app.name} 
-                    className="w-14 h-14 rounded-xl object-contain bg-muted p-2 border"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold shadow-sm">
-                    {app.name.charAt(0) || 'T'}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <DialogTitle className="text-xl font-semibold">
-                    Configure {app.name} Tools
-                  </DialogTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Select tools to add to your agent
-                  </p>
-                </div>
-              </div>
-            </DialogHeader>
             <AnimatePresence mode="wait" custom={direction}>
               {currentStep === Step.ToolsSelection && (
                 <motion.div
@@ -1109,9 +1130,30 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                   animate="center"
                   exit="exit"
                   transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="flex-1 flex flex-col min-h-0"
+                  className="flex-1 flex flex-col min-h-0 h-full"
                 >
-                  <div className="px-8 py-4 border-border/50 bg-muted/10 flex-shrink-0">
+                  <div className="px-8 py-6 border-b border-border/50 flex-shrink-0">
+                    <div className="flex items-center gap-4 mb-4">
+                      {app.logo ? (
+                        <img 
+                          src={app.logo} 
+                          alt={app.name} 
+                          className="w-12 h-12 rounded-xl object-contain bg-muted p-2 border"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-semibold shadow-sm">
+                          {app.name.charAt(0) || 'T'}
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold">
+                          Configure {app.name} Tools
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Select tools to add to your agent
+                        </p>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-4">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1145,7 +1187,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       </div>
                     </div>
                   </div>
-                  <ScrollArea className="flex-1 min-h-0">
+                  <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
                     <div className="p-8">
                       {toolsError && (
                         <Alert className="mb-6 bg-destructive/10 border-destructive/20">
@@ -1183,7 +1225,7 @@ export const ComposioConnector: React.FC<ComposioConnectorProps> = ({
                       )}
                     </div>
                   </ScrollArea>
-                  <div className="px-8 py-6 border-t border-border/50 bg-muted/10 flex-shrink-0">
+                  <div className="px-8 py-6 border-t border-border/50 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
                         {selectedCount > 0 ? (
