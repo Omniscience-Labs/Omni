@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { UserIcon } from 'lucide-react';
 import { signOut } from '@/app/auth/actions';
 import { useRouter } from 'next/navigation';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 interface ClientUserAccountButtonProps {
   userName?: string;
@@ -27,6 +28,7 @@ export default function ClientUserAccountButton({
   const router = useRouter();
 
   const handleSignOut = async () => {
+    clearUserLocalStorage();
     await signOut();
     router.refresh();
   };
