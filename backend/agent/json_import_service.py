@@ -54,8 +54,11 @@ class JsonImportService:
         agent_info = {
             'name': json_data.get('name', 'Imported Agent'),
             'description': json_data.get('description', ''),
+            # Deprecated fields
             'avatar': json_data.get('avatar'),
-            'avatar_color': json_data.get('avatar_color')
+            'avatar_color': json_data.get('avatar_color'),
+            # New field
+            'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
         }
         
         return JsonImportAnalysis(
@@ -90,8 +93,11 @@ class JsonImportService:
                 agent_info={
                     'name': json_data.get('name', 'Imported Agent'),
                     'description': json_data.get('description', ''),
+                    # Deprecated
                     'avatar': json_data.get('avatar'),
-                    'avatar_color': json_data.get('avatar_color')
+                    'avatar_color': json_data.get('avatar_color'),
+                    # New
+                    'profile_image_url': json_data.get('profile_image_url') or json_data.get('metadata', {}).get('profile_image_url')
                 }
             )
         

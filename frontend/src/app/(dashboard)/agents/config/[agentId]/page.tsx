@@ -37,6 +37,7 @@ interface FormData {
   is_default: boolean;
   avatar: string;
   avatar_color: string;
+  profile_image_url?: string;
 }
 
 export default function AgentConfigurationPage() {
@@ -67,11 +68,12 @@ export default function AgentConfigurationPage() {
     is_default: false,
     avatar: '',
     avatar_color: '',
+    profile_image_url: '',
   });
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
+  const initialTab = tabParam === 'agent-builder' ? 'agent-builder' : 'configuration';
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
@@ -96,6 +98,7 @@ export default function AgentConfigurationPage() {
       is_default: agent.is_default || false,
       avatar: agent.avatar || '',
       avatar_color: agent.avatar_color || '',
+      profile_image_url: agent.profile_image_url || '',
     };
     
     setFormData(initialData);
@@ -151,8 +154,10 @@ export default function AgentConfigurationPage() {
           name: formData.name,
           description: formData.description,
           is_default: formData.is_default,
-          avatar: formData.avatar,
-          avatar_color: formData.avatar_color
+          profile_image_url: formData.profile_image_url || undefined,
+          // keep legacy values unchanged for backward compatibility
+          avatar: formData.avatar || undefined,
+          avatar_color: formData.avatar_color || undefined
         })
       ]);
       
@@ -467,6 +472,7 @@ export default function AgentConfigurationPage() {
     is_default: agent?.is_default || false,
     avatar: agent?.avatar || '',
     avatar_color: agent?.avatar_color || '',
+    profile_image_url: agent?.profile_image_url || '',
   } : formData;
 
   const currentStyle = displayData.avatar && displayData.avatar_color
@@ -525,12 +531,12 @@ export default function AgentConfigurationPage() {
                       >
                         {isSaving ? (
                           <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            <Loader2 className="h-3 w-3 animate-spin" />
                             Saving...
                           </>
                         ) : (
                           <>
-                            <Save className="h-3 w-3 mr-2" />
+                            <Save className="h-3 w-3" />
                             Save
                           </>
                         )}

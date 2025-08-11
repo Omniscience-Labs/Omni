@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-dialog';
+import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 
 type UnifiedConfigMenuProps = {
     isLoggedIn?: boolean;
@@ -209,18 +210,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     // combinedModels defined earlier
 
     const renderAgentIcon = (agent: any) => {
-        const isSuna = agent?.metadata?.is_suna_default;
-        if (isSuna) return <KortixLogo size={16} />;
-        if (agent?.avatar) return (
-            // avatar can be URL or emoji string – handle both without extra chrome
-            typeof agent.avatar === 'string' && agent.avatar.startsWith('http') ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={agent.avatar} alt={agent.name} className="h-4 w-4 rounded-sm object-cover" />
-            ) : (
-                <span className="text-base leading-none">{agent.avatar}</span>
-            )
-        );
-        return <KortixLogo size={16} />;
+        return <AgentAvatar agentId={agent?.agent_id} size={16} className="h-4 w-4" fallbackName={agent?.name} />;
     };
 
     const displayAgent = useMemo(() => {

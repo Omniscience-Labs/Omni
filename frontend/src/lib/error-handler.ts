@@ -140,11 +140,6 @@ export const handleApiError = (error: any, context?: ErrorContext): void => {
       description: 'Our team has been notified and is working on a fix.',
       duration: 6000,
     });
-  } else if (error?.status === 401) {
-    toast.error(formattedMessage, {
-      description: 'Please refresh the page and sign in again.',
-      duration: 8000,
-    });
   } else if (error?.status === 403) {
     toast.error(formattedMessage, {
       description: 'Contact support if you believe this is an error.',

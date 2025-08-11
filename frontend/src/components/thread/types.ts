@@ -24,6 +24,7 @@ export interface UnifiedMessage {
     name: string;
     avatar?: string;
     avatar_color?: string;
+    profile_image_url?: string;
   }; // Agent information from join
 }
 

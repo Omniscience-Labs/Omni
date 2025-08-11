@@ -74,8 +74,11 @@ class AgentCreateRequest(BaseModel):
     custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
     is_default: Optional[bool] = False
+    # Deprecated, kept for backward-compat
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    # New profile image url (can be external or Supabase storage URL)
+    profile_image_url: Optional[str] = None
 
 class AgentVersionResponse(BaseModel):
     version_id: str
@@ -108,8 +111,11 @@ class AgentUpdateRequest(BaseModel):
     custom_mcps: Optional[List[Dict[str, Any]]] = None
     agentpress_tools: Optional[Dict[str, Any]] = None
     is_default: Optional[bool] = None
+    # Deprecated, kept for backward-compat
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    # New profile image url
+    profile_image_url: Optional[str] = None
 
 class AgentResponse(BaseModel):
     agent_id: str
@@ -121,8 +127,11 @@ class AgentResponse(BaseModel):
     custom_mcps: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     is_default: bool
+    # Deprecated
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    # New
+    profile_image_url: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
     is_public: Optional[bool] = False
@@ -156,11 +165,14 @@ class AgentExportData(BaseModel):
     agentpress_tools: Dict[str, Any]
     configured_mcps: List[Dict[str, Any]]
     custom_mcps: List[Dict[str, Any]]
+    # Deprecated
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    # New
+    profile_image_url: Optional[str] = None
     tags: Optional[List[str]] = []
     metadata: Optional[Dict[str, Any]] = None
-    export_version: str = "1.0"
+    export_version: str = "1.1"
     exported_at: str
     exported_by: Optional[str] = None
 
@@ -690,6 +702,7 @@ async def get_thread_agent(thread_id: str, user_id: str = Depends(get_current_us
                 tags=agent_data.get('tags', []),
                 avatar=agent_config.get('avatar'),
                 avatar_color=agent_config.get('avatar_color'),
+                profile_image_url=agent_config.get('profile_image_url'),
                 created_at=agent_data['created_at'],
                 updated_at=agent_data.get('updated_at', agent_data['created_at']),
                 current_version_id=agent_data.get('current_version_id'),
@@ -1567,6 +1580,7 @@ async def get_agents(
                 tags=agent.get('tags', []),
                 avatar=agent_config.get('avatar'),
                 avatar_color=agent_config.get('avatar_color'),
+                profile_image_url=agent_config.get('profile_image_url'),
                 created_at=agent['created_at'],
                 updated_at=agent['updated_at'],
                 current_version_id=agent.get('current_version_id'),
@@ -1692,6 +1706,7 @@ async def get_agent(agent_id: str, user_id: str = Depends(get_current_user_id_fr
             tags=agent_data.get('tags', []),
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
+            profile_image_url=agent_config.get('profile_image_url'),
             created_at=agent_data['created_at'],
             updated_at=agent_data.get('updated_at', agent_data['created_at']),
             current_version_id=agent_data.get('current_version_id'),
@@ -1742,8 +1757,11 @@ async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id
                 'custom_mcp': config.get('custom_mcps', [])
             },
             'metadata': {
+                # keep backward compat metadata
                 'avatar': config.get('avatar'),
-                'avatar_color': config.get('avatar_color')
+                'avatar_color': config.get('avatar_color'),
+                # include profile image url in metadata for completeness
+                'profile_image_url': agent.get('profile_image_url')
             }
         }
         
@@ -1760,8 +1778,11 @@ async def export_agent(agent_id: str, user_id: str = Depends(get_current_user_id
             "system_prompt": sanitized_config['system_prompt'],
             "name": config.get('name', ''),
             "description": config.get('description', ''),
+            # Deprecated
             "avatar": config.get('avatar'),
             "avatar_color": config.get('avatar_color'),
+            # New
+            "profile_image_url": agent.get('profile_image_url'),
             "tags": agent.get('tags', []),
             "export_metadata": export_metadata,
             "exported_at": datetime.now(timezone.utc).isoformat()
@@ -1926,8 +1947,11 @@ async def create_agent(
             "account_id": user_id,
             "name": agent_data.name,
             "description": agent_data.description,
+            # Deprecated fields still populated if sent by older clients
             "avatar": agent_data.avatar,
             "avatar_color": agent_data.avatar_color,
+            # New profile image url field
+            "profile_image_url": agent_data.profile_image_url,
             "is_default": agent_data.is_default or False,
             "version_count": 1
         }
@@ -1997,6 +2021,7 @@ async def create_agent(
             tags=agent.get('tags', []),
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
+            profile_image_url=agent.get('profile_image_url'),
             created_at=agent['created_at'],
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),
@@ -2221,6 +2246,8 @@ async def update_agent(
             update_data["avatar"] = agent_data.avatar
         if agent_data.avatar_color is not None:
             update_data["avatar_color"] = agent_data.avatar_color
+        if agent_data.profile_image_url is not None:
+            update_data["profile_image_url"] = agent_data.profile_image_url
         
         current_system_prompt = agent_data.system_prompt if agent_data.system_prompt is not None else current_version_data.get('system_prompt', '')
         current_configured_mcps = agent_data.configured_mcps if agent_data.configured_mcps is not None else current_version_data.get('configured_mcps', [])
@@ -2349,6 +2376,7 @@ async def update_agent(
             tags=agent.get('tags', []),
             avatar=agent_config.get('avatar'),
             avatar_color=agent_config.get('avatar_color'),
+            profile_image_url=agent_config.get('profile_image_url'),
             created_at=agent['created_at'],
             updated_at=agent.get('updated_at', agent['created_at']),
             current_version_id=agent.get('current_version_id'),
@@ -3450,3 +3478,19 @@ async def update_agent_custom_mcps(
     except Exception as e:
         logger.error(f"Error updating agent custom MCPs: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/agents/profile-image/upload")
+async def upload_agent_profile_image(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    """Upload a profile image to Supabase storage and return its public URL."""
+    try:
+        content_type = file.content_type or "image/png"
+        image_bytes = await file.read()
+        from utils.s3_upload_utils import upload_image_bytes
+        public_url = await upload_image_bytes(image_bytes=image_bytes, content_type=content_type, bucket_name="agent-profile-images")
+        return {"url": public_url}
+    except Exception as e:
+        logger.error(f"Failed to upload agent profile image for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload profile image")

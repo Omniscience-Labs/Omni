@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner';
 import { isLocalMode, isYearlyCommitmentDowngrade, isPlanChangeAllowed, getPlanInfo } from '@/lib/config';
 import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
-import { useAuth } from '@/components/AuthProvider';
 import posthog from 'posthog-js';
 
 // Constants
@@ -547,19 +546,10 @@ export function PricingSection({
   noPadding = false,
 }: PricingSectionProps) {
 
-  const { user, isLoading: authLoading } = useAuth();
-  const { 
-    data: subscriptionData, 
-    isLoading: isFetchingPlan, 
-    error: subscriptionQueryError, 
-    refetch: refetchSubscription 
-  } = useSubscription({
-    enabled: !!user && !authLoading,
-  });
-  
+  const { data: subscriptionData, isLoading: isFetchingPlan, error: subscriptionQueryError, refetch: refetchSubscription } = useSubscription();
   const subCommitmentQuery = useSubscriptionCommitment(subscriptionData?.subscription_id);
 
-  const isAuthenticated = !!user && !!subscriptionData && subscriptionQueryError === null;
+  const isAuthenticated = !!subscriptionData && subscriptionQueryError === null;
   const currentSubscription = subscriptionData || null;
 
   const getDefaultBillingPeriod = useCallback((): 'monthly' | 'yearly' | 'yearly_commitment' => {

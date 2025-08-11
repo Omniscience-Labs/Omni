@@ -316,15 +316,23 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-4">
           <div className="flex items-center gap-3">
-            <div 
-              className="h-12 w-12 flex-shrink-0 rounded-lg flex items-center justify-center"
-              style={{ 
-                backgroundColor: color,
-                boxShadow: `0 16px 48px -8px ${color}70, 0 8px 24px -4px ${color}50`
-              }}
-            >
-              <span className="text-lg">{avatar}</span>
-            </div>
+            {item.profile_image_url ? (
+              <img 
+                src={item.profile_image_url} 
+                alt={item.name}
+                className="h-12 w-12 flex-shrink-0 rounded-lg object-cover shadow-lg"
+              />
+            ) : (
+              <div 
+                className="h-12 w-12 flex-shrink-0 rounded-lg flex items-center justify-center"
+                style={{ 
+                  backgroundColor: color,
+                  boxShadow: `0 16px 48px -8px ${color}70, 0 8px 24px -4px ${color}50`
+                }}
+              >
+                <span className="text-lg">{avatar}</span>
+              </div>
+            )}
             <div>
               <DialogTitle className="text-left flex items-center gap-2">
                 Install {item.name}

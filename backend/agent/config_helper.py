@@ -47,8 +47,11 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'configured_mcps': configured_mcps,
             'custom_mcps': custom_mcps,
             'agentpress_tools': _extract_agentpress_tools_for_run(agentpress_tools),
+            # Deprecated fields retained for compatibility
             'avatar': agent_data.get('avatar'),
             'avatar_color': agent_data.get('avatar_color'),
+            # New field
+            'profile_image_url': agent_data.get('profile_image_url'),
             'is_suna_default': is_suna_default,
             'centrally_managed': centrally_managed,
             'restrictions': restrictions
@@ -83,8 +86,10 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         config['custom_mcps'] = tools.get('custom_mcp', [])
         config['agentpress_tools'] = _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
         
+        # Legacy and new fields
         config['avatar'] = agent_data.get('avatar')
         config['avatar_color'] = agent_data.get('avatar_color')
+        config['profile_image_url'] = agent_data.get('profile_image_url')
         
         return config
     
@@ -107,6 +112,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         'agentpress_tools': {},
         'avatar': agent_data.get('avatar'),
         'avatar_color': agent_data.get('avatar_color'),
+        'profile_image_url': agent_data.get('profile_image_url'),
         'is_suna_default': is_suna_default,
         'centrally_managed': centrally_managed,
         'restrictions': restrictions

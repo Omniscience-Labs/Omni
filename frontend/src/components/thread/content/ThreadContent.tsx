@@ -13,6 +13,7 @@ import {
 } from '@/components/thread/utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
+import { AgentAvatar, AgentName } from './agent-avatar';
 import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-views/xml-parser';
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
@@ -282,6 +283,7 @@ export interface ThreadContentProps {
     threadMetadata?: any; // Add thread metadata prop
     scrollContainerRef?: React.RefObject<HTMLDivElement>; // Add scroll container ref prop
     agentMetadata?: any; // Add agent metadata prop
+    agentData?: any; // Add full agent data prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -307,6 +309,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     threadMetadata,
     scrollContainerRef,
     agentMetadata,
+    agentData,
 }) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -357,9 +360,32 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             };
         }
 
+        if (agentData && !isSunaDefaultAgent) {
+            const profileUrl = agentData.profile_image_url;
+            const avatar = profileUrl ? (
+                <img src={profileUrl} alt={agentData.name || agentName} className="h-5 w-5 rounded object-cover" />
+            ) : agentData.avatar ? (
+                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                    <span className="text-lg">{agentData.avatar}</span>
+                </div>
+            ) : (
+                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                    <KortixLogo size={16} />
+                </div>
+            );
+            return {
+                name: agentData.name || agentName,
+                avatar
+            };
+        }
+
         if (recentAssistantWithAgent?.agents?.name) {
             const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna' || isSunaDefaultAgent;
-            const avatar = recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
+            // Prefer profile image if available on the agent payload
+            const profileUrl = (recentAssistantWithAgent as any)?.agents?.profile_image_url;
+            const avatar = profileUrl && !isSunaDefaultAgent ? (
+                <img src={profileUrl} alt={recentAssistantWithAgent.agents.name} className="h-5 w-5 rounded object-cover" />
+            ) : recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -398,7 +424,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             name: agentName || 'Suna',
             avatar: agentAvatar
         };
-    }, [threadMetadata, displayMessages, agentName, agentAvatar, agentMetadata]);
+    }, [threadMetadata, displayMessages, agentName, agentAvatar, agentMetadata, agentData]);
 
     // Simplified scroll handler - flex-column-reverse handles positioning
     const handleScroll = useCallback(() => {
@@ -701,15 +727,27 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             </div>
                                         );
                                     } else if (group.type === 'assistant_group') {
+                                        // Get agent_id from the first assistant message in this group
+                                        const firstAssistantMsg = group.messages.find(m => m.type === 'assistant');
+                                        const groupAgentId = firstAssistantMsg?.agent_id;
+                                        
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center relative">
-                                                            {getAgentInfo().avatar}
+                                                            {groupAgentId ? (
+                                                                <AgentAvatar agentId={groupAgentId} size={20} className="h-5 w-5" />
+                                                            ) : (
+                                                                getAgentInfo().avatar
+                                                            )}
                                                         </div>
                                                         <p className='ml-2 text-sm text-muted-foreground'>
-                                                            {getAgentInfo().name}
+                                                            {groupAgentId ? (
+                                                                <AgentName agentId={groupAgentId} fallback={getAgentInfo().name} />
+                                                            ) : (
+                                                                getAgentInfo().name
+                                                            )}
                                                         </p>
                                                     </div>
 

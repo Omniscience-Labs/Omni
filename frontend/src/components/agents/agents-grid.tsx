@@ -45,6 +45,7 @@ interface Agent {
       mcps_editable?: boolean;
     };
   };
+  profile_image_url?: string;
 }
 
 interface AgentsGridProps {
@@ -106,19 +107,21 @@ const AgentModal: React.FC<AgentModalProps> = ({
       <DialogContent className="max-w-md p-0 overflow-hidden border-none">
         <DialogTitle className="sr-only">Agent actions</DialogTitle>
         <div className="relative">
-          <div className={`h-32 flex items-center justify-center relative bg-gradient-to-br from-opacity-90 to-opacity-100`} style={{ backgroundColor: isSunaAgent ? '' : color }}>
+          <div className={`p-4 h-24 flex items-start justify-start relative`}>
             {isSunaAgent ? (
               <div className="p-6">
-                <KortixLogo size={48} />
+                <KortixLogo size={24} />
               </div>
+            ) : agent.profile_image_url ? (
+              <img src={agent.profile_image_url} alt={agent.name} className="h-16 w-16 rounded-xl object-cover" />
             ) : (
-              <div className="text-6xl drop-shadow-sm">
+              <div className="text-6xl">
                 {avatar}
               </div>
             )}
           </div>
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-2">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <h2 className="text-xl font-semibold text-foreground">
