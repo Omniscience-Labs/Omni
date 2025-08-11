@@ -65,42 +65,45 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
     <ReactMarkdown 
       remarkPlugins={[remarkGfm]}
       components={{
-        h1: ({ children }) => <h1 className="text-lg font-semibold mb-2">{children}</h1>,
-        h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-        h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
-        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-        li: ({ children }) => <li className="text-sm">{children}</li>,
+        h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 text-foreground">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-xl font-semibold mb-3 text-foreground">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-lg font-semibold mb-2 text-foreground">{children}</h3>,
+        h4: ({ children }) => <h4 className="text-base font-semibold mb-2 text-foreground">{children}</h4>,
+        h5: ({ children }) => <h5 className="text-sm font-semibold mb-2 text-foreground">{children}</h5>,
+        h6: ({ children }) => <h6 className="text-sm font-medium mb-2 text-foreground">{children}</h6>,
+        p: ({ children }) => <p className="mb-4 last:mb-0 text-foreground leading-relaxed">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-2 text-foreground">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-2 text-foreground">{children}</ol>,
+        li: ({ children }) => <li className="text-foreground leading-relaxed">{children}</li>,
         code: ({ children, className }) => {
           const isInline = !className?.includes('language-');
           return isInline ? (
-            <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+            <code className="bg-muted px-2 py-1 rounded text-sm font-mono text-foreground">{children}</code>
           ) : (
-            <code className={cn('block bg-muted p-2 rounded text-xs font-mono overflow-x-auto', className)}>
+            <code className={cn('block bg-muted p-4 rounded text-sm font-mono overflow-x-auto', className)}>
               {children}
             </code>
           );
         },
-        pre: ({ children }) => <pre className="bg-muted p-2 rounded text-xs font-mono overflow-x-auto mb-2">{children}</pre>,
-        blockquote: ({ children }) => <blockquote className="border-l-4 border-muted-foreground/20 pl-4 italic mb-2">{children}</blockquote>,
-        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-        em: ({ children }) => <em className="italic">{children}</em>,
-        hr: () => <hr className="my-4 border-muted-foreground/20" />,
+        pre: ({ children }) => <pre className="bg-muted p-4 rounded text-sm font-mono overflow-x-auto mb-4">{children}</pre>,
+        blockquote: ({ children }) => <blockquote className="border-l-4 border-muted-foreground/30 pl-6 italic mb-4 text-muted-foreground">{children}</blockquote>,
+        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+        em: ({ children }) => <em className="italic text-foreground">{children}</em>,
+        hr: () => <hr className="my-6 border-muted-foreground/20" />,
         table: ({ children }) => (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse border border-muted-foreground/20 mb-2">
+          <div className="overflow-x-auto mb-4">
+            <table className="min-w-full border-collapse border border-muted-foreground/20">
               {children}
             </table>
           </div>
         ),
         th: ({ children }) => (
-          <th className="border border-muted-foreground/20 px-2 py-1 bg-muted font-semibold text-left text-xs">
+          <th className="border border-muted-foreground/20 px-3 py-2 bg-muted font-semibold text-left text-sm">
             {children}
           </th>
         ),
         td: ({ children }) => (
-          <td className="border border-muted-foreground/20 px-2 py-1 text-xs">
+          <td className="border border-muted-foreground/20 px-3 py-2 text-sm">
             {children}
           </td>
         ),
@@ -149,50 +152,51 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] w-[95vw] md:w-full flex flex-col">
+        <DialogContent className="max-w-6xl max-h-[90vh] w-[98vw] md:w-full flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>{title}</span>
+              <span className="text-lg font-semibold">{title}</span>
               {!isEditing && (
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={startEditing}
-                  className="h-7 mr-4"
+                  className="h-8 px-3"
                 >
-                  <Edit2 className="h-3 w-3" />
+                  <Edit2 className="h-3 w-3 mr-1" />
                   Edit
                 </Button>
               )}
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             {isEditing ? (
-              <div className="h-full flex flex-col gap-2">
-                <ScrollArea className="flex-1 h-[500px]">
+              <div className="h-full flex flex-col gap-3">
+                <ScrollArea className="flex-1 h-[70vh]">
                   <textarea
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-full h-[500px] rounded-xl bg-muted/30 p-4 resize-none"
-                    style={{ minHeight: '300px' }}
+                    className="w-full h-[70vh] rounded-xl bg-muted/30 p-6 resize-none text-sm leading-relaxed font-mono"
+                    style={{ minHeight: '60vh' }}
                     disabled={disabled}
+                    placeholder="Write your markdown content here..."
                   />
                 </ScrollArea>
-                <div className="text-xs text-muted-foreground/50 flex-shrink-0">
-                  Markdown supported • Cmd+Enter to save • Esc to cancel
+                <div className="text-xs text-muted-foreground/60 flex-shrink-0 px-2">
+                  Markdown supported • <kbd className="bg-muted px-1 py-0.5 rounded text-xs">⌘+Enter</kbd> to save • <kbd className="bg-muted px-1 py-0.5 rounded text-xs">Esc</kbd> to cancel
                 </div>
               </div>
             ) : (
-              <ScrollArea className="flex-1 h-[500px]">
-                <div className="pr-4">
+              <ScrollArea className="flex-1 h-[70vh]">
+                <div className="pr-6 py-2">
                   {value ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div className="prose prose-base dark:prose-invert max-w-none leading-relaxed">
                       {renderMarkdown(value)}
                     </div>
                   ) : (
-                    <div className="text-muted-foreground italic text-center py-8">
+                    <div className="text-muted-foreground italic text-center py-12 text-base">
                       {placeholder}
                     </div>
                   )}
@@ -202,24 +206,24 @@ export const ExpandableMarkdownEditor: React.FC<ExpandableMarkdownEditorProps> =
           </div>
 
           {isEditing && (
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0 pt-4 border-t border-border/50">
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 onClick={handleCancel}
-                className="h-8"
+                className="h-9 px-4"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3 mr-1" />
                 Cancel
               </Button>
               <Button
-                size="sm"
+                size="default"
                 variant="default"
                 onClick={handleSave}
-                className="h-8"
+                className="h-9 px-4"
               >
-                <Save className="h-3 w-3" />
-                Save
+                <Save className="h-3 w-3 mr-1" />
+                Save Changes
               </Button>
             </DialogFooter>
           )}

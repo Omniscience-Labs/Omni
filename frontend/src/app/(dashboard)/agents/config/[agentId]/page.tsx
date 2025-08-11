@@ -156,8 +156,7 @@ export default function AgentConfigurationPage() {
         })
       ]);
       
-      // Force refetch latest data from server
-      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
+      // The createVersionMutation already handles query invalidation
       
       toast.success('Agent saved successfully');
     } catch (error) {
@@ -239,9 +238,8 @@ export default function AgentConfigurationPage() {
       
       setOriginalData(prev => ({ ...prev, system_prompt: value }));
       toast.success('System prompt saved');
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      
+      // The createVersionMutation already handles query invalidation
     } catch (error) {
       console.error('❌ Save error:', error);
       toast.error('Failed to save system prompt');
@@ -284,9 +282,8 @@ export default function AgentConfigurationPage() {
       });
       
       toast.success('Model configuration saved');
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      
+      // The createVersionMutation already handles query invalidation
     } catch (error) {
       toast.error('Failed to save model configuration');
       setFormData(prev => ({ ...prev, model: originalData.model }));
@@ -335,9 +332,8 @@ export default function AgentConfigurationPage() {
       });
       setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
       toast.success('Tools configuration saved');
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      
+      // The createVersionMutation already handles query invalidation
     } catch (error) {
       console.error('❌ Tools save error:', error);
       toast.error('Failed to save tools configuration');
@@ -385,9 +381,8 @@ export default function AgentConfigurationPage() {
       
       setOriginalData(newFormData);
       toast.success('Integration saved');
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      
+      // The createVersionMutation already handles query invalidation
     } catch (error) {
       console.error('Save error:', error);
       toast.error('Failed to save integration');
@@ -439,7 +434,8 @@ export default function AgentConfigurationPage() {
     );
   }
 
-  if (isLoading) {
+  // Only show loading state on initial load, not on refetches
+  if (isLoading && !agent) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center gap-3">

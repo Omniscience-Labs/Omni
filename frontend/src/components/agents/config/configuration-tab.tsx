@@ -191,7 +191,7 @@ export function ConfigurationTab({
                   </div>
                   <div className="text-left flex-1">
                     <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Model</h4>
-                    <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Choose the AI model for this agent</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-300">Choose the default AI model for this agent</p>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${openAccordion === 'model' ? 'rotate-180' : ''}`} />
                 </div>
