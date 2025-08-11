@@ -1225,7 +1225,7 @@ export const siteConfig = {
   },
   ctaSection: {
     id: 'cta',
-    title: 'Launch Your First AI Agent Today',
+    title: 'Launch Your First AI Worker Today',
     backgroundImage: '/holo.png',
     button: {
       text: 'Get Started for free',

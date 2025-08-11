@@ -103,56 +103,46 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto">
-        {configuredMCPs.length === 0 && (
-          <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-              <Zap className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h4 className="text-sm font-medium text-foreground mb-2">
-              No integrations configured
-            </h4>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Browse the app registry to connect your apps through Composio or add custom MCP servers
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Button onClick={() => setShowRegistryDialog(true)} variant="default">
-                <Store className="h-4 w-4" />
-                Browse Apps
-              </Button>
-              <Button onClick={() => setShowCustomDialog(true)} variant="outline">
-                <Server className="h-4 w-4" />
-                Custom MCP
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {configuredMCPs.length > 0 && (
-          <div className="space-y-4">
-            <ConfiguredMcpList
-              configuredMCPs={configuredMCPs}
-              onEdit={handleEditMCP}
-              onRemove={handleRemoveMCP}
-              onConfigureTools={handleConfigureTools}
-            />
-          </div>
-        )}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium text-foreground">Integrations</h3>
+          <p className="text-xs text-muted-foreground">Connect external services via MCPs</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowRegistryDialog(true)} size="sm" variant="default" className="gap-2">
+            <Store className="h-4 w-4" />
+            Browse Apps
+          </Button>
+          <Button onClick={() => setShowCustomDialog(true)} size="sm" variant="outline" className="gap-2">
+            <Server className="h-4 w-4" />
+            Custom MCP
+          </Button>
+        </div>
       </div>
       
-      {configuredMCPs.length > 0 && (
-        <div className="flex-shrink-0 pt-4">
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => setShowRegistryDialog(true)} variant="default">
-              <Store className="h-4 w-4" />
-              Browse Apps
-            </Button>
-            <Button onClick={() => setShowCustomDialog(true)} variant="outline">
-              <Server className="h-4 w-4" />
-              Custom MCP
-            </Button>
+      {configuredMCPs.length === 0 && (
+        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+            <Server className="h-6 w-6 text-muted-foreground" />
           </div>
+          <h4 className="text-sm font-semibold text-foreground mb-2">
+            No integrations configured
+          </h4>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+            Browse the app registry to connect your apps through Composio or add custom MCP servers
+          </p>
+        </div>
+      )}
+      
+      {configuredMCPs.length > 0 && (
+        <div className="space-y-4">
+          <ConfiguredMcpList
+            configuredMCPs={configuredMCPs}
+            onEdit={handleEditMCP}
+            onRemove={handleRemoveMCP}
+            onConfigureTools={handleConfigureTools}
+          />
         </div>
       )}
       

@@ -162,7 +162,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
               </TabsTrigger>
               <TabsTrigger value="workflows" className="text-xs">
                 <Workflow className="h-3 w-3 mr-1" />
-                Workflows
+                Playbooks
               </TabsTrigger>
             </TabsList>
 
@@ -284,7 +284,7 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
                   />
                 ) : (
                   <div className="flex items-center justify-center h-32">
-                    <p className="text-sm text-muted-foreground">Select an agent to configure workflows</p>
+                    <p className="text-sm text-muted-foreground">Select an agent to configure playbooks</p>
                   </div>
                 )}
               </div>

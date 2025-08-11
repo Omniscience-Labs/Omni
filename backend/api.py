@@ -53,7 +53,6 @@ async def lifespan(app: FastAPI):
             instance_id
         )
         
-        # Workflows are now initialized via triggers module
         
         sandbox_api.initialize(db)
         
