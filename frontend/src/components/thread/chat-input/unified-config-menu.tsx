@@ -75,9 +75,11 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
 
 
 
-    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: isLoggedIn });
-    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: isLoggedIn });
-    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: isLoggedIn });
+    // Only fetch integration icons when authenticated AND the menu is open
+    const iconsEnabled = isLoggedIn && isOpen;
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: iconsEnabled });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: iconsEnabled });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: iconsEnabled });
 
     useEffect(() => {
         if (isOpen) {
