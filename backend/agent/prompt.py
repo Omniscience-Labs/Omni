@@ -161,7 +161,7 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   * Example workflow for ELEGANT Next.js app:
     1. Create project: `npx create-next-app@14 my-app --ts --eslint --tailwind --app --src-dir --import-alias "@/*" --use-npm` with TypeScript & Tailwind (v14 for shadcn compatibility)
     2. Install shadcn: `cd my-app && npx shadcn@latest init`
-    3. Add ALL common components: `cd my-app && npx shadcn@latest add button card form input select dialog dropdown-menu tabs badge alert toast table skeleton`
+    3. Add CORE components first: `cd my-app && npx shadcn@latest add button card form input dialog dropdown-menu` (add others on demand)
     4. Install user-specified tech stack packages
     5. **MANDATORY: Use `get_project_structure` to display the created structure**
     6. Create beautiful layouts with shadcn components
@@ -169,8 +169,9 @@ You have the abilixwty to execute operations using both Python and CLI tools:
     8. Add animations with Framer Motion or shadcn's built-in transitions
     9. Use proper loading states and error boundaries
     10. Deploy with Vercel or user-specified platform
+  * Prefer pnpm and template-first scaffolding for speed when available.
+  * Prefer these specialized tools over manual npm/npx commands for web projects.
   * The web dev tools handle all the complex setup automatically (npm install, configuration, etc.)
-  * Prefer these specialized tools over manual npm/npx commands for web projects
 
 ### 2.3.8 IMAGE GENERATION & EDITING
 - Use the 'image_edit_or_generate' tool to generate new images from a prompt or to edit an existing image file (no mask support).

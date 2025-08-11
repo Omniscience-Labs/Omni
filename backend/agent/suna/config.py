@@ -20,7 +20,7 @@ class SunaConfig:
         "sb_image_edit_tool": True,
         "data_providers_tool": True,
         "sb_sheets_tool": True,
-        "sb_web_dev_tool": True
+        "sb_web_dev_tool": True,
     }
     
     DEFAULT_MCPS = []
