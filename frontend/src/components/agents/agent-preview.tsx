@@ -329,6 +329,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
             isPreviewMode={true}
             agentName={agent.name}
             agentAvatar={avatar}
+            agentMetadata={agentMetadata}
             emptyStateComponent={
               <div className="flex flex-col items-center text-center text-muted-foreground/80">
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">

@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import datetime
 from typing import Optional, Dict, List, Any, AsyncGenerator
 from dataclasses import dataclass
 
@@ -288,6 +289,17 @@ class PromptManager:
             mcp_info += "NEVER supplement MCP results with your training data or make assumptions beyond what the tools provide.\n"
             
             system_content += mcp_info
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        datetime_info = f"\n\n=== CURRENT DATE/TIME INFORMATION ===\n"
+        datetime_info += f"Today's date: {now.strftime('%A, %B %d, %Y')}\n"
+        datetime_info += f"Current UTC time: {now.strftime('%H:%M:%S UTC')}\n"
+        datetime_info += f"Current year: {now.strftime('%Y')}\n"
+        datetime_info += f"Current month: {now.strftime('%B')}\n"
+        datetime_info += f"Current day: {now.strftime('%A')}\n"
+        datetime_info += "Use this information for any time-sensitive tasks, research, or when current date/time context is needed.\n"
+        
+        system_content += datetime_info
 
         return {"role": "system", "content": system_content}
 
