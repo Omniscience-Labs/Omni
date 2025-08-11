@@ -132,8 +132,6 @@ export function extractCommand(content: string | object | undefined | null): str
       }
     }
   }
-  
-  console.log('extractCommand: Could not extract command from content:', contentStr.substring(0, 200));
   return null;
 }
 

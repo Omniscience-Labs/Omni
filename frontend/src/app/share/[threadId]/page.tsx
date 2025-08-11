@@ -123,13 +123,9 @@ export default function ThreadPage({
 
   const handleSidePanelNavigate = useCallback((newIndex: number) => {
     setCurrentToolIndex(newIndex);
-    console.log(`Tool panel manually set to index ${newIndex}`);
   }, []);
 
   const handleNewMessageFromStream = useCallback((message: UnifiedMessage) => {
-    console.log(
-      `[STREAM HANDLER] Received message: ID=${message.message_id}, Type=${message.type}`,
-    );
     if (!message.message_id) {
       console.warn(
         `[STREAM HANDLER] Received message is missing ID: Type=${message.type}, Content=${message.content?.substring(0, 50)}...`,
@@ -156,7 +152,6 @@ export default function ThreadPage({
 
   const handleStreamStatusChange = useCallback(
     (hookStatus: string) => {
-      console.log(`[PAGE] Hook status changed: ${hookStatus}`);
       switch (hookStatus) {
         case 'idle':
         case 'completed':
@@ -190,7 +185,6 @@ export default function ThreadPage({
   }, []);
 
   const handleStreamClose = useCallback(() => {
-    console.log(`[PAGE] Stream hook closed with final status: ${agentStatus}`);
   }, [agentStatus]);
 
   // Handle streaming tool calls
@@ -201,8 +195,6 @@ export default function ThreadPage({
       // Normalize the tool name like the project thread page does
       const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
-
-      console.log('[STREAM] Received tool call:', toolName, '(raw:', rawToolName, ')');
 
       // If user explicitly closed the panel, don't reopen it for streaming calls
       if (userClosedPanelRef.current) return;
@@ -308,9 +300,6 @@ export default function ThreadPage({
 
   useEffect(() => {
     if (agentRunId && agentRunId !== currentHookRunId) {
-      console.log(
-        `[PAGE] Target agentRunId set to ${agentRunId}, initiating stream...`,
-      );
       startStreaming(agentRunId);
     }
   }, [agentRunId, startStreaming, currentHookRunId]);
@@ -527,13 +516,6 @@ export default function ThreadPage({
 
       userClosedPanelRef.current = false;
 
-      console.log(
-        '[PAGE] Tool Click Triggered. Assistant Message ID:',
-        clickedAssistantMessageId,
-        'Tool Name:',
-        clickedToolName,
-      );
-
       const toolIndex = toolCalls.findIndex((tc) => {
         if (!tc.toolResult?.content || tc.toolResult.content === 'STREAMING')
           return false;
@@ -562,9 +544,6 @@ export default function ThreadPage({
       });
 
       if (toolIndex !== -1) {
-        console.log(
-          `[PAGE] Found tool call at index ${toolIndex} for assistant message ${clickedAssistantMessageId}`,
-        );
         setExternalNavIndex(toolIndex);
         setCurrentToolIndex(toolIndex);
         setIsSidePanelOpen(true);
@@ -632,10 +611,6 @@ export default function ThreadPage({
   }, [playbackState.visibleMessages, streamingText, currentToolCall]);
 
   useEffect(() => {
-    console.log(
-      `[PAGE] 🔄 Page AgentStatus: ${agentStatus}, Hook Status: ${streamHookStatus}, Target RunID: ${agentRunId || 'none'}, Hook RunID: ${currentHookRunId || 'none'}`,
-    );
-
     if (
       (streamHookStatus === 'completed' ||
         streamHookStatus === 'stopped' ||
@@ -643,9 +618,6 @@ export default function ThreadPage({
         streamHookStatus === 'error') &&
       (agentStatus === 'running' || agentStatus === 'connecting')
     ) {
-      console.log(
-        '[PAGE] Detected hook completed but UI still shows running, updating status',
-      );
       setAgentStatus('idle');
       setAgentRunId(null);
       setAutoOpenedPanel(false);
@@ -677,9 +649,6 @@ export default function ThreadPage({
             return tc.assistantCall?.content === assistantMessage.content;
           });
           if (toolIndex !== -1) {
-            console.log(
-              `Direct mapping: Setting tool index to ${toolIndex} for message ${assistantId}`,
-            );
             setCurrentToolIndex(toolIndex);
           }
         }
@@ -699,15 +668,9 @@ export default function ThreadPage({
           const metadata = safeJsonParse<ParsedMetadata>(msg.metadata, {});
           const assistantId = metadata.assistant_message_id;
           if (assistantId) {
-            console.log(
-              `Looking for tool panel for assistant message ${assistantId}`,
-            );
             for (let j = 0; j < toolCalls.length; j++) {
               const content = toolCalls[j].assistantCall?.content || '';
               if (content.includes(assistantId)) {
-                console.log(
-                  `Found matching tool call at index ${j}, updating panel`,
-                );
                 setCurrentToolIndex(j);
                 return;
               }
@@ -761,7 +724,7 @@ export default function ThreadPage({
   return (
     <div className="flex h-screen">
       <div
-        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${isSidePanelOpen ? 'mr-[50vw]' : ''}`}
+        className={`flex flex-col flex-1 overflow-hidden transition-all duration-200 ease-in-out ${isSidePanelOpen ? 'mr-[90%] sm:mr-[450px] md:mr-[500px] lg:mr-[550px] xl:mr-[650px]' : ''}`}
       >
         {renderHeader()}
         <ThreadContent

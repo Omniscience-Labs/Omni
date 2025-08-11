@@ -72,21 +72,11 @@ export const ToolsManager: React.FC<ToolsManagerProps> = (props) => {
 
   React.useEffect(() => {
     if (data?.tools) {
-      console.log('[ToolsManager] API data received:', {
-        tools: data.tools,
-        initialEnabledTools,
-        mode,
-        data
-      });
-      
       const toolsMap: Record<string, boolean> = {};
       data.tools.forEach((tool: { name: string; enabled: boolean }) => {
         toolsMap[tool.name] = tool.enabled;
-        console.log(`[ToolsManager] Tool ${tool.name}: using API enabled=${tool.enabled}`);
       });
       
-      console.log('[ToolsManager] Final toolsMap:', toolsMap);
-      console.log('[ToolsManager] Setting localTools to:', toolsMap);
       setLocalTools(toolsMap);
       setHasChanges(false);
     }

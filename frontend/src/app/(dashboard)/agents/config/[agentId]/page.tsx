@@ -85,12 +85,6 @@ export default function AgentConfigurationPage() {
       configSource = agent.current_version;
     }
     
-    console.log('📊 Config source:', configSource);
-    console.log('📊 Config source model:', configSource.model);
-    console.log('📊 Agent data:', agent);
-    console.log('📊 Agent current_version:', agent.current_version);
-    console.log('📊 Version data:', versionData);
-    
     const initialData: FormData = {
       name: agent.name || '',
       description: agent.description || '',
@@ -103,9 +97,6 @@ export default function AgentConfigurationPage() {
       avatar: agent.avatar || '',
       avatar_color: agent.avatar_color || '',
     };
-    
-    console.log('📊 Initial data:', initialData);
-    console.log('📊 Initial model:', initialData.model);
     
     setFormData(initialData);
     setOriginalData(initialData);
@@ -207,17 +198,13 @@ export default function AgentConfigurationPage() {
   }, [isViewingOldVersion]);
 
   const handleSystemPromptSave = useCallback(async (value: string) => {
-    console.log('🔥 System prompt save triggered with value:', { value, length: value.length });
-    
     if (!agent || isViewingOldVersion || isSaving) {
-      console.log('❌ Save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
       return;
     }
     
     const isSunaAgent = agent?.metadata?.is_suna_default || false;
     
     if (isSunaAgent) {
-      console.log('❌ Suna agent system prompt edit blocked');
       toast.error("System prompt cannot be edited", {
         description: "Suna's system prompt is managed centrally and cannot be changed.",
       });
@@ -242,7 +229,6 @@ export default function AgentConfigurationPage() {
       description: 'System prompt update'
     };
     
-    console.log('💾 Saving system prompt with data:', saveData);
     setIsSaving(true);
     
     try {
@@ -251,7 +237,6 @@ export default function AgentConfigurationPage() {
         data: saveData
       });
       
-      console.log('✅ Version created successfully:', result);
       setOriginalData(prev => ({ ...prev, system_prompt: value }));
       toast.success('System prompt saved');
       setTimeout(() => {
@@ -266,10 +251,7 @@ export default function AgentConfigurationPage() {
   }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
 
   const handleModelSave = useCallback(async (model: string) => {
-    console.log('🔄 Model save triggered with:', { model });
-    
     if (!agent || isViewingOldVersion || isSaving) {
-      console.log('❌ Model save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
       return;
     }
     
@@ -292,8 +274,7 @@ export default function AgentConfigurationPage() {
       agentpress_tools: formData.agentpress_tools,
       description: 'Model update'
     };
-    
-    console.log('💾 Saving model with data:', saveData);
+
     setIsSaving(true);
     
     try {
@@ -302,13 +283,11 @@ export default function AgentConfigurationPage() {
         data: saveData
       });
       
-      console.log('✅ Model version created successfully:', result);
       toast.success('Model configuration saved');
       setTimeout(() => {
         window.location.reload();
       }, 500);
     } catch (error) {
-      console.error('❌ Model save error:', error);
       toast.error('Failed to save model configuration');
       setFormData(prev => ({ ...prev, model: originalData.model }));
     } finally {
@@ -317,10 +296,7 @@ export default function AgentConfigurationPage() {
   }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
 
   const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
-    console.log('🔧 Tools save triggered with:', { tools, toolsCount: Object.keys(tools).length });
-    
     if (!agent || isViewingOldVersion || isSaving) {
-      console.log('❌ Tools save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
       return;
     }
     
@@ -328,7 +304,6 @@ export default function AgentConfigurationPage() {
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent && restrictions.tools_editable === false) {
-      console.log('❌ Suna agent tools edit blocked');
       toast.error("Suna's default tools cannot be modified.");
       return;
     }
@@ -351,7 +326,6 @@ export default function AgentConfigurationPage() {
       description: 'Tools configuration update'
     };
     
-    console.log('💾 Saving tools with data:', saveData);
     setIsSaving(true);
     
     try {
@@ -359,7 +333,6 @@ export default function AgentConfigurationPage() {
         agentId,
         data: saveData
       });
-      console.log('✅ Tools version created successfully:', result);
       setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
       toast.success('Tools configuration saved');
       setTimeout(() => {

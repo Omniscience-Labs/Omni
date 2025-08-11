@@ -34,13 +34,11 @@ export class VersionService implements IVersionService {
     request: CreateVersionRequest
   ): Promise<AgentVersion> {
     const newVersion = await this.repository.createVersion(agentId, request);
-    console.log(`Created version ${newVersion.versionName} for agent ${agentId}`);
     return newVersion;
   }
 
   async activateVersion(agentId: string, versionId: string): Promise<void> {
     await this.repository.activateVersion(agentId, versionId);
-    console.log(`Activated version ${versionId} for agent ${agentId}`);
   }
 
   async compareVersions(
@@ -56,7 +54,6 @@ export class VersionService implements IVersionService {
     versionId: string
   ): Promise<AgentVersion> {
     const newVersion = await this.repository.rollbackToVersion(agentId, versionId);
-    console.log(`Rolled back to version ${versionId} for agent ${agentId}`);
     return newVersion;
   }
 
@@ -66,7 +63,6 @@ export class VersionService implements IVersionService {
     request: UpdateVersionDetailsRequest
   ): Promise<AgentVersion> {
     const updatedVersion = await this.repository.updateVersionDetails(agentId, versionId, request);
-    console.log(`Updated version details for ${versionId} in agent ${agentId}`);
     return updatedVersion;
   }
 

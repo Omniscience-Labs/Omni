@@ -92,7 +92,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const getAgentDisplay = () => {
     const selectedAgent = allAgents.find(agent => agent.id === selectedAgentId);
     if (selectedAgent) {
-      console.log('Selected agent found:', selectedAgent.name, 'with ID:', selectedAgent.id);
       const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || false;
       return {
         name: selectedAgent.name,
@@ -101,7 +100,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     }
     
     if (selectedAgentId !== undefined) {
-      console.warn('Agent with ID', selectedAgentId, 'not found, falling back to Suna');
     }
     
     const defaultAgent = allAgents[0];
@@ -113,7 +111,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   };
 
   const handleAgentSelect = (agentId: string | undefined) => {
-    console.log('Agent selected:', agentId === undefined ? 'Suna (default)' : agentId);
     onAgentSelect?.(agentId);
     setIsOpen(false);
   };

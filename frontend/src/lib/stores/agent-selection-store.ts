@@ -29,7 +29,6 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
       hasInitialized: false,
 
       setSelectedAgent: (agentId: string | undefined) => {
-        console.log('🔄 Agent selection changed:', agentId);
         set({ selectedAgentId: agentId });
       },
 
@@ -37,7 +36,6 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
         if (get().hasInitialized) return;
 
         if (threadAgentId) {
-          console.log('🎯 Initializing with thread agent:', threadAgentId);
           set({ 
             selectedAgentId: threadAgentId, 
             hasInitialized: true 
@@ -49,7 +47,6 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
           const urlParams = new URLSearchParams(window.location.search);
           const agentIdFromUrl = urlParams.get('agent_id');
           if (agentIdFromUrl) {
-            console.log('🔗 Initializing with URL agent:', agentIdFromUrl);
             set({ 
               selectedAgentId: agentIdFromUrl, 
               hasInitialized: true 
@@ -62,10 +59,8 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
         if (current === undefined && agents.length > 0) {
           const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
           if (defaultSunaAgent) {
-            console.log('🤖 Initializing with default Suna agent:', defaultSunaAgent.agent_id);
             set({ selectedAgentId: defaultSunaAgent.agent_id });
           } else if (agents.length > 0) {
-            console.log('📋 Initializing with first available agent:', agents[0].agent_id);
             set({ selectedAgentId: agents[0].agent_id });
           }
         }

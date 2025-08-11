@@ -169,7 +169,6 @@ export const getAgentWorkflows = async (agentId: string): Promise<AgentWorkflow[
     }
 
     const workflows = await response.json();
-    console.log('[API] Fetched workflows for agent:', agentId, workflows.length);
     return workflows;
   } catch (err) {
     console.error('Error fetching workflows:', err);
@@ -205,7 +204,6 @@ export const createAgentWorkflow = async (agentId: string, workflow: CreateWorkf
     }
 
     const result = await response.json();
-    console.log('[API] Created workflow:', result.id);
     return result;
   } catch (err) {
     console.error('Error creating workflow:', err);
@@ -219,7 +217,6 @@ export const updateAgentWorkflow = async (
   workflow: UpdateWorkflowRequest
 ): Promise<AgentWorkflow> => {
   try {
-    console.log('[API] Updating workflow:', workflow);
     const agentPlaygroundEnabled = await isFlagEnabled('custom_agents');
     if (!agentPlaygroundEnabled) {
       throw new Error('Custom agents is not enabled');
@@ -246,7 +243,6 @@ export const updateAgentWorkflow = async (
     }
 
     const result = await response.json();
-    console.log('[API] Updated workflow:', result.id);
     return result;
   } catch (err) {
     console.error('Error updating workflow:', err);
@@ -279,8 +275,6 @@ export const deleteAgentWorkflow = async (agentId: string, workflowId: string): 
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
-
-    console.log('[API] Deleted workflow:', workflowId);
   } catch (err) {
     console.error('Error deleting workflow:', err);
     throw err;
@@ -325,7 +319,6 @@ export const executeWorkflow = async (
     }
 
     const result = await response.json();
-    console.log('[API] Executed workflow:', workflowId, 'execution:', result.execution_id);
     return result;
   } catch (err) {
     console.error('Error executing workflow:', err);
@@ -364,7 +357,6 @@ export const getWorkflowExecutions = async (
     }
 
     const executions = await response.json();
-    console.log('[API] Fetched executions for workflow:', workflowId, executions.length);
     return executions;
   } catch (err) {
     console.error('Error fetching workflow executions:', err);

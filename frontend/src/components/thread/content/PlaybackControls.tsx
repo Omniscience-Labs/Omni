@@ -361,12 +361,6 @@ export const PlaybackControls = ({
       }
 
       const currentMessage = messages[currentMessageIndex];
-      console.log(
-        `Playing message ${currentMessageIndex}:`,
-        currentMessage.type,
-        currentMessage.message_id,
-      );
-
       // If it's an assistant message, stream it
       if (currentMessage.type === 'assistant') {
         try {

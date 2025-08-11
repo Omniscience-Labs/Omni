@@ -41,17 +41,12 @@ export const useInitiateAgentWithInvalidation = () => {
       queryClient.invalidateQueries({ queryKey: dashboardKeys.agents });
     },
     onError: (error) => {
-      console.log('Mutation error:', error);
-      
-      // Let AgentRunLimitError bubble up to be handled by components
       if (error instanceof AgentRunLimitError) {
         throw error;
       }
-      
       if (error instanceof Error) {
         const errorMessage = error.message;
         if (errorMessage.toLowerCase().includes("payment required")) {
-          console.log('Opening payment required modal');
           onOpen("paymentRequiredDialog");
           return;
         }

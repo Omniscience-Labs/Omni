@@ -21,9 +21,6 @@ export function useBillingError() {
   const handleBillingError = useCallback((error: any) => {
     // In local mode, don't process billing errors
     if (isLocalMode()) {
-      console.log(
-        'Running in local development mode - billing checks are disabled',
-      );
       return false;
     }
 

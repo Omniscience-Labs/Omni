@@ -38,14 +38,6 @@ export function BackgroundAALChecker({
     if (!authLoading && user && enabled && aalData) {
       const { action_required, current_level, next_level, verification_required } = aalData;
 
-      console.log('Background AAL Check:', {
-        action_required,
-        current_level,
-        next_level,
-        phone_verification_required: verification_required,
-        message: aalData.message
-      });
-
       // Only redirect if the user is trying to access protected routes
       // Allow users to stay on the home page "/" even if phone verification fails
       const isProtectedRoute = pathname.startsWith('/dashboard') || 
@@ -54,16 +46,12 @@ export function BackgroundAALChecker({
                               pathname.startsWith('/settings');
       
       if (!isProtectedRoute) {
-        // Don't redirect from home page or other public routes
-        console.log('Background: On public route, skipping phone verification redirect');
         return;
       }
 
       // Handle new users who need phone verification enrollment
       if (verification_required) {
         if (current_level === "aal1" && next_level === "aal1") {
-          // New user has no MFA enrolled - redirect to enrollment
-          console.log('Background: New user without MFA enrolled, redirecting to phone verification');
           router.push(redirectTo);
           return;
         }
@@ -74,19 +62,16 @@ export function BackgroundAALChecker({
       switch (action_required) {
         case 'verify_mfa':
           // User has MFA enrolled but needs to verify it
-          console.log('Background: Redirecting to MFA verification');
           router.push(redirectTo);
           break;
         
         case 'reauthenticate':
           // User has stale JWT due to MFA changes, force reauthentication
-          console.log('Background: MFA state changed, forcing reauthentication');
           router.push('/auth?message=Please sign in again due to security changes');
           break;
         
         case 'none':
           // No action required, user can proceed
-          console.log('Background: AAL check passed, no action required');
           break;
         
         case 'unknown':

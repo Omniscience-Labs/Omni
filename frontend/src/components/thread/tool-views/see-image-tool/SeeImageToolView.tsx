@@ -66,8 +66,6 @@ function SafeImage({ src, alt, filePath, className }: { src: string; alt: string
   const handleError = () => {
     if (attempts < 3) {
       setAttempts(attempts + 1);
-      console.log(`Image load failed (attempt ${attempts + 1}). Trying alternative:`, filePath);
-
       if (attempts === 0) {
         setImgSrc(filePath);
       } else if (attempts === 1) {
@@ -242,8 +240,6 @@ export function SeeImageToolView({
     assistantTimestamp
   );
 
-  console.log('Final file path:', filePath);
-
   useEffect(() => {
     if (isStreaming) {
       const timer = setInterval(() => {
@@ -262,7 +258,6 @@ export function SeeImageToolView({
   }, [isStreaming]);
 
   if (!filePath) {
-    console.log('No file path found, falling back to GenericToolView');
     return (
       <GenericToolView
         name={name || 'see-image'}

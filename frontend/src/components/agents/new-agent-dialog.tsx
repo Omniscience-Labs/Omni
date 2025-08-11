@@ -33,35 +33,18 @@ export function NewAgentDialog({ open, onOpenChange, onSuccess }: NewAgentDialog
 
   const createNewAgentMutation = useCreateNewAgent();
 
-  useEffect(() => {
-    console.log('[DEBUG] NewAgentDialog state:', {
-      agentLimitError: !!agentLimitError,
-      showAgentLimitDialog,
-      errorDetail: agentLimitError?.detail
-    });
-  }, [agentLimitError, showAgentLimitDialog]);
-
   const handleCreateNewAgent = () => {
-    console.log('[DEBUG] Creating new agent...');
     createNewAgentMutation.mutate(undefined, {
       onSuccess: () => {
-        console.log('[DEBUG] Agent created successfully');
         onOpenChange(false);
         onSuccess?.();
       },
       onError: (error) => {
-        console.log('[DEBUG] Error creating agent:', error);
-        console.log('[DEBUG] Error type:', typeof error);
-        console.log('[DEBUG] Error constructor:', error.constructor.name);
-        console.log('[DEBUG] Is AgentCountLimitError?', error instanceof AgentCountLimitError);
-        
         if (error instanceof AgentCountLimitError) {
-          console.log('[DEBUG] Setting agent limit error state');
           setAgentLimitError(error);
           setShowAgentLimitDialog(true);
           onOpenChange(false);
         } else {
-          console.log('[DEBUG] Not an agent limit error, keeping dialog open');
           toast.error(error instanceof Error ? error.message : 'Failed to create agent');
         }
       }

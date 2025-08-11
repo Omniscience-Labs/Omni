@@ -422,7 +422,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   };
 
   const handleComposioComplete = (profileId: string, appName: string, appSlug: string) => {
-    console.log('Composio integration complete:', { profileId, appName, appSlug, selectedAgentId });
     setShowComposioConnector(false);
     setSelectedApp(null);
   };

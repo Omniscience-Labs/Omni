@@ -17,8 +17,6 @@ export default function GoogleSignIn({ returnUrl }: GoogleSignInProps) {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
-      console.log('returnUrl', returnUrl);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

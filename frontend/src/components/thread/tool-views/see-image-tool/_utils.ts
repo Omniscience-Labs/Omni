@@ -52,12 +52,6 @@ const extractFromNewFormat = (content: any): {
       timestamp: toolExecution.execution_details?.timestamp,
       output: typeof toolExecution.result?.output === 'string' ? toolExecution.result.output : null
     };
-
-    console.log('SeeImageToolView: Extracted from new format:', {
-      filePath: extractedData.filePath,
-      hasDescription: !!extractedData.description,
-      success: extractedData.success
-    });
     
     return extractedData;
   }
@@ -86,8 +80,6 @@ function cleanImagePath(path: string): string {
 function extractImageFilePath(content: string | object | undefined | null): string | null {
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return null;
-  
-  console.log('Extracting file path from content:', contentStr);
   
   try {
     const parsedContent = JSON.parse(contentStr);
@@ -123,8 +115,6 @@ function extractImageFilePath(content: string | object | undefined | null): stri
   if (extensionMatch) {
     return cleanImagePath(extensionMatch[1]);
   }
-
-  console.log('No file path found in assistant content');
   return null;
 }
 
@@ -155,8 +145,6 @@ function parseToolResult(content: string | object | undefined | null): { success
   const contentStr = normalizeContentToString(content);
   if (!contentStr) return { success: false, message: 'No tool result available' };
   
-  console.log('Parsing tool result content:', contentStr);
-
   try {
     let contentToProcess = contentStr;
     
@@ -183,7 +171,6 @@ function parseToolResult(content: string | object | undefined | null): { success
         const filePathMatch = message.match(/Successfully loaded the image ['"]([^'"]+)['"]/i);
         if (filePathMatch && filePathMatch[1]) {
           filePath = filePathMatch[1];
-          console.log('Found file path in tool result:', filePath);
         }
       }
       
@@ -199,7 +186,6 @@ function parseToolResult(content: string | object | undefined | null): { success
                            resultContent.match(/Successfully loaded the image ['"]([^'"]+)['"]/i);
       
       const filePath = filePathMatch ? filePathMatch[1] : undefined;
-      console.log('Found file path in direct tool result:', filePath);
       
       return { 
         success, 
@@ -232,10 +218,6 @@ const extractFromLegacyFormat = (content: any): {
   const toolData = extractToolData(content);
   
   if (toolData.toolResult && toolData.arguments) {
-    console.log('SeeImageToolView: Extracted from legacy format (extractToolData):', {
-      filePath: toolData.arguments.file_path
-    });
-    
     return {
       filePath: toolData.arguments.file_path || null,
       description: null
@@ -249,11 +231,6 @@ const extractFromLegacyFormat = (content: any): {
 
   const filePath = extractImageFilePath(contentStr);
   const description = extractImageDescription(contentStr);
-  
-  console.log('SeeImageToolView: Extracted from legacy format (manual parsing):', {
-    filePath,
-    hasDescription: !!description
-  });
   
   return { filePath, description };
 };
@@ -282,16 +259,6 @@ export function extractSeeImageData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('SeeImageToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasFilePath: !!assistantNewFormat.filePath,
-      hasDescription: !!assistantNewFormat.description
-    },
-    toolNewFormat: {
-      hasFilePath: !!toolNewFormat.filePath,
-      hasDescription: !!toolNewFormat.description
-    }
-  });
 
   if (assistantNewFormat.filePath || assistantNewFormat.description) {
     filePath = assistantNewFormat.filePath;
@@ -303,7 +270,6 @@ export function extractSeeImageData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('SeeImageToolView: Using assistant new format data');
   } else if (toolNewFormat.filePath || toolNewFormat.description) {
     filePath = toolNewFormat.filePath;
     description = toolNewFormat.description;
@@ -314,7 +280,6 @@ export function extractSeeImageData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('SeeImageToolView: Using tool new format data');
   } else {
     // Fall back to legacy format parsing
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
@@ -331,20 +296,7 @@ export function extractSeeImageData(
     if (toolResult.message && !output) {
       output = toolResult.message;
     }
-    
-    console.log('SeeImageToolView: Using legacy format data:', {
-      filePath,
-      hasDescription: !!description,
-      hasOutput: !!output
-    });
   }
-
-  console.log('SeeImageToolView: Final extracted data:', {
-    filePath,
-    hasDescription: !!description,
-    hasOutput: !!output,
-    actualIsSuccess
-  });
 
   return {
     filePath,
@@ -392,7 +344,6 @@ export function constructImageUrl(filePath: string, project?: { sandbox?: { sand
     }
     
     const fullUrl = `${sandboxUrl}${normalizedPath}`;
-    console.log('Constructed sandbox URL:', fullUrl);
     return fullUrl;
   }
   

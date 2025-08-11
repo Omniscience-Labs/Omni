@@ -270,9 +270,6 @@ export function ToolCallSidePanel({
     if (newIndex < 0 || newIndex >= totalCalls) return;
 
     const isNavigatingToLatest = newIndex === totalCalls - 1;
-
-    console.log(`[INTERNAL_NAV] ${source}: ${internalIndex} -> ${newIndex}, mode will be: ${isNavigatingToLatest ? 'live' : 'manual'}`);
-
     setInternalIndex(newIndex);
 
     if (isNavigatingToLatest) {
@@ -727,7 +724,7 @@ export function ToolCallSidePanel({
             'fixed top-2 right-2 bottom-4 border rounded-3xl flex flex-col z-30',
             isMobile
               ? 'left-2'
-              : 'w-[50vw]',
+              :'w-[40vw] sm:w-[450px] md:w-[500px] lg:w-[550px] xl:w-[645px]',
           )}
           style={{
             overflow: 'hidden',

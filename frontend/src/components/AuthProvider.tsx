@@ -34,11 +34,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const {
           data: { session: currentSession },
         } = await supabase.auth.getSession();
-        console.log('🔵 Initial session check:', { hasSession: !!currentSession, user: !!currentSession?.user });
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
       } catch (error) {
-        console.error('❌ Error getting initial session:', error);
       } finally {
         setIsLoading(false);
       }
@@ -48,13 +46,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔵 Auth state change:', { 
-          event, 
-          hasSession: !!newSession, 
-          hasUser: !!newSession?.user,
-          expiresAt: newSession?.expires_at 
-        });
-        
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
@@ -62,21 +53,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
-              console.log('✅ User signed in');
               await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
             }
             break;
           case 'SIGNED_OUT':
-            console.log('✅ User signed out');
             break;
           case 'TOKEN_REFRESHED':
-            console.log('🔄 Token refreshed successfully');
             break;
           case 'MFA_CHALLENGE_VERIFIED':
-            console.log('✅ MFA challenge verified');
             break;
           default:
-            console.log(`🔵 Auth event: ${event}`);
         }
       },
     );
@@ -88,9 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      console.log('🔵 Signing out...');
       await supabase.auth.signOut();
-      // State updates will be handled by onAuthStateChange
     } catch (error) {
       console.error('❌ Error signing out:', error);
     }

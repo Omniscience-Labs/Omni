@@ -34,7 +34,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         if (state === 'recording') {
             recordingStartTimeRef.current = Date.now();
             maxTimeoutRef.current = setTimeout(() => {
-                console.log('Auto-stopping recording after 15 minutes');
                 stopRecording();
             }, MAX_RECORDING_TIME);
         } else {
