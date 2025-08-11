@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles, Settings, MoreHorizontal, Download, Image as ImageIcon } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditableText } from '@/components/ui/editable';
-// import { StylePicker } from '../style-picker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
@@ -15,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { createClient } from '@/lib/supabase/client';
+import { ProfilePictureDialog } from './profile-picture-dialog';
 
 interface AgentHeaderProps {
   agentId: string;
@@ -37,6 +36,7 @@ interface AgentHeaderProps {
   isExporting?: boolean;
   agentMetadata?: {
     is_suna_default?: boolean;
+    centrally_managed?: boolean;
     restrictions?: {
       name_editable?: boolean;
     };
@@ -56,6 +56,7 @@ export function AgentHeader({
   isExporting = false,
   agentMetadata,
 }: AgentHeaderProps) {
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const isSunaAgent = agentMetadata?.is_suna_default || false;
   const restrictions = agentMetadata?.restrictions || {};
   const isNameEditable = !isViewingOldVersion && (restrictions.name_editable !== false);
@@ -70,42 +71,8 @@ export function AgentHeader({
     onFieldChange('name', value);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error('You must be logged in to upload images');
-        return;
-      }
-      
-      const form = new FormData();
-      form.append('file', file);
-      
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/profile-image/upload`, {
-        method: 'POST',
-        body: form,
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        }
-      });
-      
-      if (!res.ok) throw new Error('Upload failed');
-      const data = await res.json();
-      if (data?.url) {
-        onFieldChange('profile_image_url', data.url);
-        toast.success('Profile image updated');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to upload image');
-    } finally {
-      e.target.value = '';
-    }
+  const handleImageUpdate = (url: string | null) => {
+    onFieldChange('profile_image_url', url);
   };
 
   return (
@@ -118,18 +85,21 @@ export function AgentHeader({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <label className="cursor-pointer">
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                <Avatar className="h-9 w-9 rounded-lg ring-1 ring-black/5 hover:ring-black/10">
+              <button 
+                className="cursor-pointer transition-opacity hover:opacity-80"
+                onClick={() => setIsProfileDialogOpen(true)}
+                type="button"
+              >
+                <Avatar className="h-9 w-9 rounded-lg ring-1 ring-black/5 hover:ring-black/10 transition-colors">
                   {displayData.profile_image_url ? (
                     <AvatarImage src={displayData.profile_image_url} alt={displayData.name} />
                   ) : (
-                    <AvatarFallback className="rounded-lg text-xs">
+                    <AvatarFallback className="rounded-lg text-xs hover:bg-muted">
                       <ImageIcon className="h-4 w-4" />
                     </AvatarFallback>
                   )}
                 </Avatar>
-              </label>
+              </button>
             </div>
           )}
         </div>
@@ -148,52 +118,46 @@ export function AgentHeader({
       </div>
       
       <div className="flex items-center gap-2">
-        {onExport && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={onExport}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                  disabled={isExporting}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Export agent
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        <Tabs value={activeTab} onValueChange={onTabChange}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="agent-builder" className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Prompt to Build</span>
+            </TabsTrigger>
+            <TabsTrigger value="configuration" className="flex items-center gap-1.5">
+              <Settings className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Manual Config</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         
-        {!isSunaAgent && (
-          <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="grid grid-cols-2 bg-muted/50 h-9">
-              <TabsTrigger 
-                value="agent-builder"
-                disabled={isViewingOldVersion}
-                className={cn(
-                  "flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm",
-                  isViewingOldVersion && "opacity-50 cursor-not-allowed"
-                )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onExport && (
+              <DropdownMenuItem 
+                onClick={onExport} 
+                disabled={isExporting}
+                className="flex items-center gap-2"
               >
-                <Sparkles className="h-3 w-3" />
-                Prompt to Build
-              </TabsTrigger>
-              <TabsTrigger 
-                value="configuration"
-                className="flex items-center gap-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                <Settings className="h-3 w-3" />
-                Manual Config
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        )}
+                <Download className="h-4 w-4" />
+                {isExporting ? 'Exporting...' : 'Export Agent'}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <ProfilePictureDialog
+        isOpen={isProfileDialogOpen}
+        onClose={() => setIsProfileDialogOpen(false)}
+        currentImageUrl={displayData.profile_image_url}
+        agentName={displayData.name}
+        onImageUpdate={handleImageUpdate}
+      />
     </div>
   );
 } 

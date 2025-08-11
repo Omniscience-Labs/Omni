@@ -689,6 +689,7 @@ export default function ThreadPage({
           agentName={agent && agent.name}
           agentAvatar={agent && agent.avatar}
           agentMetadata={agent?.metadata}
+          agentData={agent}
           scrollContainerRef={scrollContainerRef}
         />
 

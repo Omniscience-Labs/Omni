@@ -128,17 +128,25 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
       <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
         <DialogHeader className='p-6'>
           <DialogTitle className='sr-only'>Agent Preview</DialogTitle>
-          <div className='relative h-20 w-20 aspect-square bg-muted rounded-2xl flex items-center justify-center' style={{ backgroundColor: avatar_color }}>
-            <div className="text-4xl drop-shadow-lg">
-                {avatar || '🤖'}
-            </div>
-            <div
-              className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
-              style={{
-                boxShadow: `0 16px 48px -8px ${avatar_color}70, 0 8px 24px -4px ${avatar_color}50`
-              }}
+          {agent.profile_image_url ? (
+            <img 
+              src={agent.profile_image_url} 
+              alt={agent.name}
+              className='h-20 w-20 aspect-square rounded-2xl object-cover shadow-lg'
             />
-        </div>
+          ) : (
+            <div className='relative h-20 w-20 aspect-square bg-muted rounded-2xl flex items-center justify-center' style={{ backgroundColor: avatar_color }}>
+              <div className="text-4xl drop-shadow-lg">
+                  {avatar || '🤖'}
+              </div>
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
+                style={{
+                  boxShadow: `0 16px 48px -8px ${avatar_color}70, 0 8px 24px -4px ${avatar_color}50`
+                }}
+              />
+            </div>
+          )}
         </DialogHeader>
         <div className="-mt-4 flex flex-col max-h-[calc(90vh-8rem)] overflow-hidden">
           <div className="p-6 py-0 pb-4">

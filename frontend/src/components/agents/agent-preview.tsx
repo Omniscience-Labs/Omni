@@ -27,6 +27,7 @@ interface Agent {
   is_default: boolean;
   created_at?: string;
   updated_at?: string;
+  profile_image_url?: string;
 }
 
 interface AgentPreviewProps {
@@ -62,6 +63,25 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   };
 
   const { avatar, color } = getAgentStyling();
+
+  const agentAvatarComponent = React.useMemo(() => {
+    if (isSunaAgent) {
+      return <KortixLogo size={16} />;
+    }
+    if (agent.profile_image_url) {
+      return (
+        <img 
+          src={agent.profile_image_url} 
+          alt={agent.name}
+          className="h-4 w-4 rounded-sm object-cover"
+        />
+      );
+    }
+    if (avatar) {
+      return <div className="text-base leading-none">{avatar}</div>;
+    }
+    return <KortixLogo size={16} />;
+  }, [agent.profile_image_url, agent.name, avatar, isSunaAgent]);
 
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const addUserMessageMutation = useAddUserMessageMutation();
@@ -328,13 +348,20 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
             streamHookStatus={streamHookStatus}
             isPreviewMode={true}
             agentName={agent.name}
-            agentAvatar={avatar}
+            agentAvatar={agentAvatarComponent}
             agentMetadata={agentMetadata}
+            agentData={agent}
             emptyStateComponent={
               <div className="flex flex-col items-center text-center text-muted-foreground/80">
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
                   {isSunaAgent ? (
                     <KortixLogo size={36} />
+                  ) : agent.profile_image_url ? (
+                    <img 
+                      src={agent.profile_image_url} 
+                      alt={agent.name}
+                      className="w-12 h-12 rounded-xl object-cover"
+                    />
                   ) : (
                     <div className="text-4xl">{avatar}</div>
                   )}

@@ -45,6 +45,7 @@ export interface AgentTemplate {
   creator_name?: string;
   avatar?: string;
   avatar_color?: string;
+  profile_image_url?: string;
   is_kortix_team?: boolean;
   metadata?: {
     source_agent_id?: string;

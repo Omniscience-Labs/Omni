@@ -73,7 +73,7 @@ export default function AgentConfigurationPage() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
+  const initialTab = tabParam === 'agent-builder' ? 'agent-builder' : 'configuration';
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
@@ -531,12 +531,12 @@ export default function AgentConfigurationPage() {
                       >
                         {isSaving ? (
                           <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            <Loader2 className="h-3 w-3 animate-spin" />
                             Saving...
                           </>
                         ) : (
                           <>
-                            <Save className="h-3 w-3 mr-2" />
+                            <Save className="h-3 w-3" />
                             Save
                           </>
                         )}
