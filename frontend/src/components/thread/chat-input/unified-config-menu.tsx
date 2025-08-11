@@ -72,7 +72,12 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const { data: agentsResponse } = useAgents({}, { enabled: true });
     const agents: any[] = agentsResponse?.agents || [];
 
-    // Quick integrations icons
+    useEffect(() => {
+        if (agents.length === 1 && !selectedAgentId && onAgentSelect) {
+            onAgentSelect(agents[0].agent_id);
+        }
+    }, [agents, selectedAgentId, onAgentSelect]);
+
     const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: true });
     const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: true });
     const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: true });
