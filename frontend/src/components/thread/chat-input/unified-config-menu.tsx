@@ -49,6 +49,7 @@ type UnifiedConfigMenuProps = {
 };
 
 const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
+    isLoggedIn = true,
     selectedAgentId,
     onAgentSelect,
     selectedModel,
@@ -69,18 +70,18 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
     const [customModels, setCustomModels] = useState<Array<{ id: string; label: string }>>([]);
 
-    const { data: agentsResponse } = useAgents({}, { enabled: true });
+    const { data: agentsResponse } = useAgents({}, { enabled: isLoggedIn });
     const agents: any[] = agentsResponse?.agents || [];
 
     useEffect(() => {
-        if (agents.length === 1 && !selectedAgentId && onAgentSelect) {
+        if (isLoggedIn && agents.length === 1 && !selectedAgentId && onAgentSelect) {
             onAgentSelect(agents[0].agent_id);
         }
-    }, [agents, selectedAgentId, onAgentSelect]);
+    }, [isLoggedIn, agents, selectedAgentId, onAgentSelect]);
 
-    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: true });
-    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: true });
-    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: true });
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: isLoggedIn });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: isLoggedIn });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: isLoggedIn });
 
     useEffect(() => {
         if (isOpen) {
@@ -223,7 +224,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         return found;
     }, [agents, selectedAgentId]);
 
-    const currentAgentIdForPlaybooks = displayAgent?.agent_id || '';
+    const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
     const [playbooksExpanded, setPlaybooksExpanded] = useState(true);
 

@@ -50,7 +50,8 @@ class SunaConfigManager:
             "default_tools": SunaConfig.DEFAULT_TOOLS,
             "avatar": SunaConfig.AVATAR,
             "avatar_color": SunaConfig.AVATAR_COLOR,
-            "restrictions": SunaConfig.USER_RESTRICTIONS
+            "restrictions": SunaConfig.USER_RESTRICTIONS,
+            "profile_image_url": SunaConfig.PROFILE_IMAGE_URL
         }
         
         config_str = json.dumps(config_data, sort_keys=True)

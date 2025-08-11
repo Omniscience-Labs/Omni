@@ -4,16 +4,13 @@ import { GetAccountsResponse } from '@usebasejump/shared';
 
 export const useAccounts = (options?: UseQueryOptions<GetAccountsResponse>) => {
   const supabaseClient = createClient();
-  
   return useQuery<GetAccountsResponse>({
     queryKey: ['accounts'],
     queryFn: async () => {
       const { data, error } = await supabaseClient.rpc('get_accounts');
-
       if (error) {
         throw new Error(error.message);
       }
-
       return data;
     },
     ...options,
