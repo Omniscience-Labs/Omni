@@ -49,6 +49,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
+import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { useTheme } from 'next-themes';
 import { isLocalMode } from '@/lib/config';
 import { useFeatureFlag } from '@/lib/feature-flags';
@@ -147,6 +148,7 @@ export function NavUserWithTeams({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    clearUserLocalStorage();
     router.push('/auth');
   };
 
