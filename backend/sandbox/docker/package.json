@@ -1,7 +1,7 @@
 {
   "name": "browserApi",
   "version": "1.0.0",
-  "description": "Browser API server for sandbox",
+  "description": "Browser API server(Stagehand)",
   "type": "module",
   "scripts": {
     "start": "tsx browserApi.ts"

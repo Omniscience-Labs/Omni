@@ -47,7 +47,6 @@ export function getToolTitle(toolName: string): string {
     'browser-act': 'Browser Action',
     'browser-extract-content': 'Browser Extract',
     'browser-screenshot': 'Browser Screenshot',
-    'browser-observe': 'Browser Observe',
     'see-image': 'View Image',
     'ask': 'Ask',
     'complete': 'Task Complete',

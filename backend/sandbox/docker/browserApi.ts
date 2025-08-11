@@ -1,6 +1,5 @@
 import express from 'express';
-import { Stagehand, type LogLine, type ObserveResult, type Page } from '@browserbasehq/stagehand';
-// import logging from 'logging';
+import { Stagehand, type LogLine, type Page } from '@browserbasehq/stagehand';
 
 const app = express();
 app.use(express.json());
@@ -13,7 +12,6 @@ interface BrowserActionResult {
     title: string;
     screenshot_base64?: string;
     action?: string;
-    observeResult?: ObserveResult[];
 }
 
 class BrowserAutomation {
@@ -41,7 +39,7 @@ class BrowserAutomation {
         try{
             if (!this.browserInitialized) {
                 this.currentApiKey = apiKey;
-                console.log("Initializing browser with api key", apiKey);
+                console.log("Initializing browser with api key");
                 this.stagehand = new Stagehand({
                     env: "LOCAL",
                     enableCaching: true,
@@ -227,7 +225,6 @@ class BrowserAutomation {
         try {
             if (this.page && this.browserInitialized) {
                 const { action, iframes, variables } = req.body;
-                console.log(action, iframes, variables);
                 const result = await this.page.act({action, iframes: iframes || true, variables});
                 const page_info = await this.get_stagehand_state();
                 const response: BrowserActionResult = {
@@ -286,7 +283,7 @@ const browserAutomation = new BrowserAutomation();
 app.use('/api', browserAutomation.router);
 
 app.get('/api', (req, res) => {
-    console.log("Health check", browserAutomation);
+    console.log("Health check");
     const health = browserAutomation.health();
     if (health.status === "healthy") {
         res.status(200).json({
@@ -305,7 +302,7 @@ app.post('/api/init', async (req, res) => {
     console.log("Initializing browser");
     const {api_key} = req.body;
     const result = await browserAutomation.init(api_key);
-    console.log(result);
+    
     if (result.status === "initialized") {
         res.status(200).json({
             "status": "healthy",

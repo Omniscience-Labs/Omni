@@ -106,7 +106,7 @@ RUN npx playwright install chromium
 # Verify installation
 RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"
 
-# Copy server scripts
+# Copy server script
 COPY . /app
 COPY server.py /app/server.py
 

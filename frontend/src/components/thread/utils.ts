@@ -85,7 +85,6 @@ export const getToolIcon = (toolName: string): ElementType => {
     case 'browser-navigate-to':
     case 'browser-act':
     case 'browser-extract-content':
-    case 'browser-observe':
     case 'browser-screenshot':
       return Globe;
 

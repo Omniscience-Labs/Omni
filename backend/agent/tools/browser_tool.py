@@ -104,7 +104,7 @@ class BrowserTool(SandboxToolsBase):
             await self._ensure_sandbox()
             
             # Check what processes are running
-            ps_cmd = "ps aux | grep -E '(python|uvicorn|stagehand)' | grep -v grep"
+            ps_cmd = "ps aux | grep -E '(python|uvicorn|stagehand|node)' | grep -v grep"
             response = await self.sandbox.process.exec(ps_cmd, timeout=10)
             
             processes = response.result if response.exit_code == 0 else "Failed to get process list"

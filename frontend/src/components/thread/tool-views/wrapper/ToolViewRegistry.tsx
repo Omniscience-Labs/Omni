@@ -39,7 +39,6 @@ const defaultRegistry: ToolViewRegistryType = {
   'browser-navigate-to': BrowserToolView,
   'browser-act': BrowserToolView,
   'browser-extract-content': BrowserToolView,
-  'browser-observe': BrowserToolView,
   'browser-screenshot': BrowserToolView,
 
   'execute-command': CommandToolView,
