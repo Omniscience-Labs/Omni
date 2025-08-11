@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { SectionHeader } from '@/components/home/section-header';
 import { FooterSection } from '@/components/home/sections/footer-section';
 import { motion } from 'motion/react';
 import { 
   ArrowRight, 
-  ArrowLeft,
   Check, 
   Clock, 
   Shield, 
@@ -24,34 +22,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { KortixEnterpriseModal } from '@/components/sidebar/kortix-enterprise-modal';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
-
-// Floating Back Button Component
-const FloatingBackButton = () => {
-  const router = useRouter();
-
-  const handleBack = () => {
-    router.back();
-  };
-
-  return (
-    <motion.div
-      className="fixed top-6 left-6 z-50"
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleBack}
-        className="bg-background/80 backdrop-blur-md border-border/50 hover:bg-accent/50 shadow-lg"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
-    </motion.div>
-  );
-};
 
 // Hero Section Component
 const CustomHeroSection = () => {
@@ -477,7 +447,6 @@ const FinalCTASection = () => {
 export default function CustomImplementationPage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen w-full">
-      <FloatingBackButton />
       <div className="w-full divide-y divide-border">
         <CustomHeroSection />
         <ValuePropSection />
