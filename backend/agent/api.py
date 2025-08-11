@@ -69,7 +69,7 @@ class MessageCreateRequest(BaseModel):
 class AgentCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
-    system_prompt: str
+    system_prompt: Optional[str] = None  # Make optional to allow defaulting to Suna's system prompt
     configured_mcps: Optional[List[Dict[str, Any]]] = []
     custom_mcps: Optional[List[Dict[str, Any]]] = []
     agentpress_tools: Optional[Dict[str, Any]] = {}
@@ -1915,11 +1915,13 @@ async def create_agent(
         
         try:
             version_service = await _get_version_service()
-
+            from agent.config_helper import get_default_system_prompt_for_suna_agent
+            system_prompt = get_default_system_prompt_for_suna_agent()
+            
             version = await version_service.create_version(
                 agent_id=agent['agent_id'],
                 user_id=user_id,
-                system_prompt=agent_data.system_prompt,
+                system_prompt=system_prompt,
                 configured_mcps=agent_data.configured_mcps or [],
                 custom_mcps=agent_data.custom_mcps or [],
                 agentpress_tools=agent_data.agentpress_tools or {},
@@ -1950,7 +1952,6 @@ async def create_agent(
             await client.table('agents').delete().eq('agent_id', agent['agent_id']).execute()
             raise HTTPException(status_code=500, detail="Failed to create initial version")
         
-        # Invalidate agent count cache after successful creation
         from utils.cache import Cache
         await Cache.invalidate(f"agent_count_limit:{user_id}")
         
