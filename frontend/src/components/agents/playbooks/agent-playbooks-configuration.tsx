@@ -59,47 +59,59 @@ export function AgentPlaybooksConfiguration({ agentId, agentName }: AgentPlayboo
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                        <div className="font-medium">Playbooks</div>
-                        <div className="text-xs text-muted-foreground">Lightweight, variable-driven instructions stored via workflows</div>
-                    </div>
+                <div>
+                    <h3 className="text-sm font-medium text-foreground">Playbooks</h3>
+                    <p className="text-xs text-muted-foreground">Simple variable-driven runs</p>
                 </div>
-                <Button onClick={() => { setEditing(null); setIsCreateOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> New Playbook
+                <Button onClick={() => { setEditing(null); setIsCreateOpen(true); }} size="sm" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    New Playbook
                 </Button>
             </div>
 
             {isLoading ? (
                 <div className="text-sm text-muted-foreground">Loading...</div>
             ) : playbooks.length === 0 ? (
-                <Card className="p-6 text-center text-sm text-muted-foreground shadow-none">No playbooks yet.</Card>
+                <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+                    <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                        <BookOpen className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">
+                        No playbooks yet
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                        Create your first playbook to automate common workflows with variable-driven runs
+                    </p>
+                </div>
             ) : (
-                <div className="flex flex-col gap-2">
+                <div className="space-y-2">
                     {playbooks.map((pb) => (
-                        <Card key={pb.id} className="w-full p-4 shadow-none">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="font-medium truncate">{pb.name}</div>
-                                    {pb.description ? (
-                                        <div className="text-xs text-muted-foreground truncate">{pb.description}</div>
-                                    ) : null}
+                        <div key={pb.id} className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group">
+                            <div className="flex items-center space-x-4 flex-1">
+                                <div className="p-2 rounded-lg bg-muted border">
+                                    <BookOpen className="h-4 w-4" />
                                 </div>
-                                <div className="flex items-center gap-1">
-
-                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setEditing(pb); setIsCreateOpen(true); }} aria-label="Edit playbook">
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleDelete(pb)} aria-label="Delete playbook">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                    <Button size="icon" className="h-8 w-8" onClick={() => setExecuting(pb)} aria-label="Run playbook">
-                                        <Play className="h-4 w-4" />
-                                    </Button>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                        <h4 className="text-sm font-medium truncate">{pb.name}</h4>
+                                    </div>
+                                    {pb.description && (
+                                        <p className="text-xs text-muted-foreground truncate">{pb.description}</p>
+                                    )}
                                 </div>
                             </div>
-                        </Card>
+                            <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setExecuting(pb)} aria-label="Run playbook">
+                                    <Play className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditing(pb); setIsCreateOpen(true); }} aria-label="Edit playbook">
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(pb)} aria-label="Delete playbook">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     ))}
                 </div>
             )}

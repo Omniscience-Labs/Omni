@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Plus, 
   Edit2, 
@@ -621,7 +621,7 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
 
   return (
     <div 
-      className="space-y-6"
+      className="space-y-4"
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -639,27 +639,33 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
         </div>
       )}
       <div className="flex items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search knowledge entries..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div>
+          <h3 className="text-sm font-medium text-foreground">Knowledge Base</h3>
+          <p className="text-xs text-muted-foreground">Upload and manage knowledge for the agent</p>
         </div>
-        <Button onClick={() => handleOpenAddDialog()} className="gap-2 ml-4">
-          <Plus className="h-4 w-4" />
-          Add Knowledge
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 w-48"
+            />
+          </div>
+          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Knowledge
+          </Button>
+        </div>
       </div>
       {entries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
           <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
             <Bot className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-sm font-semibold mb-2">No Agent Knowledge Entries</h3>
-          <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+          <h4 className="text-sm font-semibold text-foreground mb-2">No knowledge entries</h4>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
             Add knowledge entries to provide <span className="font-medium">{agentName}</span> with specialized context, 
             guidelines, and information it should always remember.
           </p>
@@ -667,9 +673,16 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
       ) : (
         <div className="space-y-3">
           {filteredEntries.length === 0 ? (
-            <div className="text-center py-8">
-              <Search className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">No entries match your search</p>
+            <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h4 className="text-sm font-semibold text-foreground mb-2">
+                No entries match your search
+              </h4>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                Try adjusting your search criteria or add new knowledge entries
+              </p>
             </div>
           ) : (
             filteredEntries.map((entry) => {
@@ -678,106 +691,70 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
               const SourceIcon = getSourceIcon(entry.source_type || 'manual', entry.source_metadata?.filename);
               
               return (
-                <Card
+                <div
                   key={entry.entry_id}
-                  className={cn(
-                    "group transition-all p-0",
-                    entry.is_active 
-                      ? "bg-card" 
-                      : "bg-muted/30 opacity-70"
-                  )}
+                  className="flex items-start justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors group"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <SourceIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <h3 className="font-medium truncate">{entry.name}</h3>
-                          {!entry.is_active && (
-                            <Badge variant="outline" className="text-xs">
-                              <EyeOff className="h-3 w-3 mr-1" />
-                              Disabled
-                            </Badge>
-                          )}
-                          {entry.source_type && entry.source_type !== 'manual' && (
-                            <Badge variant="outline" className="text-xs">
-                              {entry.source_type === 'git_repo' ? 'Git' : 
-                               entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
-                            </Badge>
-                          )}
-                        </div>
-                        {entry.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">
-                            {entry.description}
-                          </p>
-                        )}
-                        <p className="text-sm text-foreground/80 line-clamp-2 leading-relaxed">
-                          {entry.content}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
-                              <ContextIcon className="h-3 w-3" />
-                              {contextConfig.label}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(entry.created_at).toLocaleDateString()}
-                            </span>
-                            {entry.file_size && (
-                              <span className="text-xs text-muted-foreground">
-                                {(entry.file_size / 1024).toFixed(1)}KB
-                              </span>
-                            )}
-                          </div>
-                          {entry.content_tokens && (
-                            <span className="text-xs text-muted-foreground">
-                              ~{entry.content_tokens.toLocaleString()} tokens
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                          <DropdownMenuItem onClick={() => handleOpenEditDialog(entry)}>
-                            <Edit2 className="h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleActive(entry)}>
-                            {entry.is_active ? (
-                              <>
-                                <EyeOff className="h-4 w-4" />
-                                Disable
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="h-4 w-4" />
-                                Enable
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => setDeleteEntryId(entry.entry_id)}
-                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <h4 className="text-sm font-medium truncate">{entry.name}</h4>
+                      {entry.source_type && entry.source_type !== 'manual' && (
+                        <Badge variant="outline" className="text-xs">
+                          {entry.source_type === 'git_repo' ? 'Git' : 
+                           entry.source_type === 'zip_extracted' ? 'ZIP' : 'File'}
+                        </Badge>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                    {entry.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {entry.description}
+                      </p>
+                    )}
+                    <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">
+                      {entry.content}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className={cn("text-xs gap-1", contextConfig.color)}>
+                          <ContextIcon className="h-3 w-3" />
+                          {contextConfig.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(entry.created_at).toLocaleDateString()}
+                        </span>
+                        {entry.file_size && (
+                          <span className="text-xs text-muted-foreground">
+                            {(entry.file_size / 1024).toFixed(1)}KB
+                          </span>
+                        )}
+                      </div>
+                      {entry.content_tokens && (
+                        <span className="text-xs text-muted-foreground">
+                          ~{entry.content_tokens.toLocaleString()} tokens
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <Button 
+                      size="sm"
+                      variant="ghost" 
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleOpenEditDialog(entry)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm"
+                      variant="ghost" 
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteEntryId(entry.entry_id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               );
             })
           )}

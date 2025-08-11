@@ -393,7 +393,6 @@ export function ConfigurationTab({
                   <div className="bg-muted rounded-xl h-10 w-10 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
                     <Zap className="h-5 w-5 text-muted-foreground" />
                   </div>
-
                 </div>
                 <div className="text-left flex-1">
                   <h4 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors duration-300">Triggers</h4>
