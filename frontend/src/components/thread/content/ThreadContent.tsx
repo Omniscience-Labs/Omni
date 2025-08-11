@@ -281,6 +281,7 @@ export interface ThreadContentProps {
     emptyStateComponent?: React.ReactNode; // Add custom empty state component prop
     threadMetadata?: any; // Add thread metadata prop
     scrollContainerRef?: React.RefObject<HTMLDivElement>; // Add scroll container ref prop
+    agentMetadata?: any; // Add agent metadata prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -305,6 +306,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     emptyStateComponent,
     threadMetadata,
     scrollContainerRef,
+    agentMetadata,
 }) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -336,6 +338,9 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             };
         }
 
+        // Check if this is a Suna default agent from metadata
+        const isSunaDefaultAgent = agentMetadata?.is_suna_default || false;
+
         // Then check recent messages for agent info
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
             msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color || msg.agents?.name)
@@ -353,8 +358,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
         }
 
         if (recentAssistantWithAgent?.agents?.name) {
-            const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna';
-            const avatar = recentAssistantWithAgent.agents.avatar ? (
+            const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna' || isSunaDefaultAgent;
+            const avatar = recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -376,11 +381,24 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 avatar
             };
         }
+
+        // Fallback: if this is a Suna default agent, always show KortixLogo
+        if (isSunaDefaultAgent) {
+            return {
+                name: agentName || 'Suna',
+                avatar: (
+                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                        <KortixLogo size={16} />
+                    </div>
+                )
+            };
+        }
+
         return {
             name: agentName || 'Suna',
             avatar: agentAvatar
         };
-    }, [threadMetadata, displayMessages, agentName, agentAvatar]);
+    }, [threadMetadata, displayMessages, agentName, agentAvatar, agentMetadata]);
 
     // Simplified scroll handler - flex-column-reverse handles positioning
     const handleScroll = useCallback(() => {

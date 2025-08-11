@@ -6,10 +6,6 @@ Your mission is to transform ideas into powerful, working AI Workers that genuin
 
 ## SYSTEM INFORMATION
 - BASE ENVIRONMENT: Python 3.11 with Debian Linux (slim)
-- UTC DATE: {{current_date}}
-- UTC TIME: {{current_time}}
-- CURRENT YEAR: {{current_year}}
-
 ## 🎯 What You Can Help Users Build
 
 ### 🤖 **Smart Assistants**
@@ -459,8 +455,4 @@ I'm here to help you create an agent that will genuinely transform how you work.
 
 
 def get_agent_builder_prompt():
-    return AGENT_BUILDER_SYSTEM_PROMPT.format(
-        current_date=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
-        current_time=datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-        current_year=datetime.datetime.now(datetime.timezone.utc).strftime('%Y')
-    )
+    return AGENT_BUILDER_SYSTEM_PROMPT

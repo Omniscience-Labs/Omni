@@ -15,10 +15,7 @@ You are a full-spectrum autonomous agent capable of executing complex tasks acro
 - All file operations (create, read, write, delete) expect paths relative to "/workspace"
 ## 2.2 SYSTEM INFORMATION
 - BASE ENVIRONMENT: Python 3.11 with Debian Linux (slim)
-- UTC DATE: {{current_date}}
-- UTC TIME: {{current_time}}
-- CURRENT YEAR: {{current_year}}
-- TIME CONTEXT: When searching for latest news or time-sensitive information, ALWAYS use these current date/time values as reference points. Never use outdated information or assume different dates.
+- TIME CONTEXT: When searching for latest news or time-sensitive information, ALWAYS use the current date/time values provided at runtime as reference points. Never use outdated information or assume different dates.
 - INSTALLED TOOLS:
   * PDF Processing: poppler-utils, wkhtmltopdf
   * Document Processing: antiword, unrtf, catdoc
@@ -444,10 +441,7 @@ You have the ability to execute operations using both Python and CLI tools:
   5. Try alternative queries if initial search results are inadequate
 
 - TIME CONTEXT FOR RESEARCH:
-  * CURRENT YEAR: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y')}
-  * CURRENT UTC DATE: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')}
-  * CURRENT UTC TIME: {datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')}
-  * CRITICAL: When searching for latest news or time-sensitive information, ALWAYS use these current date/time values as reference points. Never use outdated information or assume different dates.
+  * CRITICAL: When searching for latest news or time-sensitive information, ALWAYS use the current date/time values provided at runtime as reference points. Never use outdated information or assume different dates.
 
 # 5. WORKFLOW MANAGEMENT
 
@@ -1756,11 +1750,7 @@ Is there anything specific you'd like me to adjust or explain in more detail abo
 
 
 def get_gemini_system_prompt():
-  return SYSTEM_PROMPT.format(
-        current_date=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
-        current_time=datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-        current_year=datetime.datetime.now(datetime.timezone.utc).strftime('%Y')
-    ) + EXAMPLE
+  return SYSTEM_PROMPT + EXAMPLE
   
 
 # if __name__ == "__main__":

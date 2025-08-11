@@ -34,11 +34,7 @@ class SunaConfig:
     
     @classmethod
     def get_system_prompt(cls) -> str:
-        return cls.SYSTEM_PROMPT.format(
-            current_date=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
-            current_time=datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-            current_year=datetime.datetime.now(datetime.timezone.utc).strftime('%Y')
-        )
+        return cls.SYSTEM_PROMPT
     
     @classmethod
     def get_full_config(cls) -> Dict[str, Any]:
