@@ -107,7 +107,6 @@
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
     "sonner": "^2.0.3",
-    "swr": "^2.2.5",
     "tailwind-merge": "^3.0.2",
     "tailwind-scrollbar": "^4.0.2",
     "tailwind-scrollbar-hide": "^2.0.0",

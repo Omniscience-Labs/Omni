@@ -1,13 +1,13 @@
-import useSWR, { SWRConfiguration } from 'swr';
+import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { GetAccountsResponse } from '@usebasejump/shared';
 
-export const useAccounts = (options?: SWRConfiguration) => {
+export const useAccounts = (options?: UseQueryOptions<GetAccountsResponse>) => {
   const supabaseClient = createClient();
   
-  return useSWR<GetAccountsResponse>(
-    !!supabaseClient && ['accounts'],
-    async () => {
+  return useQuery<GetAccountsResponse>({
+    queryKey: ['accounts'],
+    queryFn: async () => {
       const { data, error } = await supabaseClient.rpc('get_accounts');
 
       if (error) {
@@ -16,6 +16,6 @@ export const useAccounts = (options?: SWRConfiguration) => {
 
       return data;
     },
-    options,
-  );
+    ...options,
+  });
 };
