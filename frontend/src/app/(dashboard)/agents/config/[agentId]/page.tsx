@@ -482,88 +482,116 @@ export default function AgentConfigurationPage() {
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex-1 flex overflow-hidden">
-        <div className="hidden lg:flex w-full h-full">
-          <div className="w-1/2 border-r border-border/40 bg-background h-full flex flex-col">
-            <div className="h-full flex flex-col">
-              <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="px-4 pt-4 pb-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      {!agent?.metadata?.is_suna_default && (
-                        <AgentVersionSwitcher
-                          agentId={agentId}
-                          currentVersionId={agent?.current_version_id}
-                          currentFormData={{
-                            system_prompt: formData.system_prompt,
-                            configured_mcps: formData.configured_mcps,
-                            custom_mcps: formData.custom_mcps,
-                            agentpress_tools: formData.agentpress_tools
-                          }}
-                        />
-                      )}
-                      <CreateVersionButton
+        <div className="hidden lg:grid lg:grid-cols-2 w-full h-full">
+          <div className="bg-background h-full flex flex-col border-r border-border/40 overflow-hidden">
+            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/20">
+              <div className="px-4 py-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {!agent?.metadata?.is_suna_default && (
+                      <AgentVersionSwitcher
                         agentId={agentId}
+                        currentVersionId={agent?.current_version_id}
                         currentFormData={{
                           system_prompt: formData.system_prompt,
                           configured_mcps: formData.configured_mcps,
                           custom_mcps: formData.custom_mcps,
                           agentpress_tools: formData.agentpress_tools
                         }}
-                        hasChanges={hasUnsavedChanges && !isViewingOldVersion}
-                        onVersionCreated={() => {
-                          setOriginalData(formData);
-                        }}
                       />
-                      <UpcomingRunsDropdown agentId={agentId} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!isViewingOldVersion && hasUnsavedChanges && (
-                        <Button 
-                          onClick={handleSave}
-                          disabled={isSaving}
-                          size="sm"
-                          className="h-8"
-                        >
-                          {isSaving ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-3 w-3" />
-                              Save
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
+                    )}
+                    <CreateVersionButton
+                      agentId={agentId}
+                      currentFormData={{
+                        system_prompt: formData.system_prompt,
+                        configured_mcps: formData.configured_mcps,
+                        custom_mcps: formData.custom_mcps,
+                        agentpress_tools: formData.agentpress_tools
+                      }}
+                      hasChanges={hasUnsavedChanges && !isViewingOldVersion}
+                      onVersionCreated={() => {
+                        setOriginalData(formData);
+                      }}
+                    />
+                    <UpcomingRunsDropdown agentId={agentId} />
                   </div>
-                  {isViewingOldVersion && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!isViewingOldVersion && hasUnsavedChanges && (
+                      <Button 
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        size="sm"
+                        className="h-8"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-3 w-3 mr-2" />
+                            Save
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                {isViewingOldVersion && (
+                  <div className="mb-4">
                     <VersionAlert
                       versionData={versionData}
                       isActivating={activateVersionMutation.isPending}
                       onActivateVersion={handleActivateVersion}
                     />
-                  )}
-                  <AgentHeader
-                    agentId={agentId}
-                    displayData={displayData}
-                    currentStyle={currentStyle}
-                    activeTab={activeTab}
-                    isViewingOldVersion={isViewingOldVersion}
-                    onFieldChange={handleFieldChange}
-                    onStyleChange={handleStyleChange}
-                    onTabChange={setActiveTab}
-                    onExport={handleExport}
-                    isExporting={exportMutation.isPending}
-                    agentMetadata={agent?.metadata}
-                  />
-                </div>
+                  </div>
+                )}
+                
+                <AgentHeader
+                  agentId={agentId}
+                  displayData={displayData}
+                  currentStyle={currentStyle}
+                  activeTab={activeTab}
+                  isViewingOldVersion={isViewingOldVersion}
+                  onFieldChange={handleFieldChange}
+                  onStyleChange={handleStyleChange}
+                  onTabChange={setActiveTab}
+                  onExport={handleExport}
+                  isExporting={exportMutation.isPending}
+                  agentMetadata={agent?.metadata}
+                />
               </div>
-              <div className="flex-1 overflow-hidden">
-                {agent?.metadata?.is_suna_default ? (
-                  <div className="flex-1 h-full">
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {agent?.metadata?.is_suna_default ? (
+                <ConfigurationTab
+                  agentId={agentId}
+                  displayData={displayData}
+                  versionData={versionData}
+                  isViewingOldVersion={isViewingOldVersion}
+                  onFieldChange={handleFieldChange}
+                  onMCPChange={handleMCPChange}
+                  onSystemPromptSave={handleSystemPromptSave}
+                  onModelSave={handleModelSave}
+                  onToolsSave={handleToolsSave}
+                  initialAccordion={initialAccordion}
+                  agentMetadata={agent?.metadata}
+                />
+              ) : (
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+                  <TabsContent value="agent-builder" className="flex-1 m-0 overflow-hidden">
+                    <AgentBuilderTab
+                      agentId={agentId}
+                      displayData={displayData}
+                      currentStyle={currentStyle}
+                      isViewingOldVersion={isViewingOldVersion}
+                      onFieldChange={handleFieldChange}
+                      onStyleChange={handleStyleChange}
+                    />
+                  </TabsContent>
+                  <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
                     <ConfigurationTab
                       agentId={agentId}
                       displayData={displayData}
@@ -577,51 +605,23 @@ export default function AgentConfigurationPage() {
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
                     />
-                  </div>
-                ) : (
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                    <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
-                      <AgentBuilderTab
-                        agentId={agentId}
-                        displayData={displayData}
-                        currentStyle={currentStyle}
-                        isViewingOldVersion={isViewingOldVersion}
-                        onFieldChange={handleFieldChange}
-                        onStyleChange={handleStyleChange}
-                      />
-                    </TabsContent>
-                    <TabsContent value="configuration" className="flex-1 h-0 m-0">
-                      <ConfigurationTab
-                        agentId={agentId}
-                        displayData={displayData}
-                        versionData={versionData}
-                        isViewingOldVersion={isViewingOldVersion}
-                        onFieldChange={handleFieldChange}
-                        onMCPChange={handleMCPChange}
-                        onSystemPromptSave={handleSystemPromptSave}
-                        onModelSave={handleModelSave}
-                        onToolsSave={handleToolsSave}
-                        initialAccordion={initialAccordion}
-                        agentMetadata={agent?.metadata}
-                      />
-                    </TabsContent>
-                  </Tabs>
-                )}
-              </div>
+                  </TabsContent>
+                </Tabs>
+              )}
             </div>
           </div>
-          <div className="w-1/2 bg-muted/30 overflow-y-auto">
-            <div className="h-full">
+          <div className="bg-muted/30 h-full overflow-hidden">
+            <div className="h-full overflow-y-auto">
               {previewAgent && <AgentPreview agent={previewAgent} agentMetadata={agent?.metadata} />}
             </div>
           </div>
         </div>
         <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="px-4 pt-4 pb-1">
+            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/20">
+              <div className="px-4 py-4">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <AgentVersionSwitcher
                       agentId={agentId}
                       currentVersionId={agent?.current_version_id}
@@ -647,7 +647,7 @@ export default function AgentConfigurationPage() {
                     />
                     <UpcomingRunsDropdown agentId={agentId} />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {!isViewingOldVersion && hasUnsavedChanges && (
                       <Button 
                         onClick={handleSave}
@@ -657,28 +657,26 @@ export default function AgentConfigurationPage() {
                       >
                         {isSaving ? (
                           <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                            Saving...
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           </>
                         ) : (
                           <>
-                            <Save className="h-3 w-3 mr-2" />
-                            Save
+                            <Save className="h-3 w-3" />
                           </>
                         )}
                       </Button>
                     )}
                   </div>
                 </div>
-
                 {isViewingOldVersion && (
-                  <VersionAlert
-                    versionData={versionData}
-                    isActivating={activateVersionMutation.isPending}
-                    onActivateVersion={handleActivateVersion}
-                  />
+                  <div className="mb-4">
+                    <VersionAlert
+                      versionData={versionData}
+                      isActivating={activateVersionMutation.isPending}
+                      onActivateVersion={handleActivateVersion}
+                    />
+                  </div>
                 )}
-
                 <AgentHeader
                   agentId={agentId}
                   displayData={displayData}
@@ -694,26 +692,24 @@ export default function AgentConfigurationPage() {
                 />
               </div>
             </div>
-
             <div className="flex-1 overflow-hidden">
               {agent?.metadata?.is_suna_default ? (
-                <div className="flex-1 h-full">
-                  <ConfigurationTab
-                    agentId={agentId}
-                    displayData={displayData}
-                    versionData={versionData}
-                    isViewingOldVersion={isViewingOldVersion}
-                    onFieldChange={handleFieldChange}
-                    onMCPChange={handleMCPChange}
-                    onSystemPromptSave={handleSystemPromptSave}
-                    onModelSave={handleModelSave}
-                    initialAccordion={initialAccordion}
-                    agentMetadata={agent?.metadata}
-                  />
-                </div>
+                <ConfigurationTab
+                  agentId={agentId}
+                  displayData={displayData}
+                  versionData={versionData}
+                  isViewingOldVersion={isViewingOldVersion}
+                  onFieldChange={handleFieldChange}
+                  onMCPChange={handleMCPChange}
+                  onSystemPromptSave={handleSystemPromptSave}
+                  onModelSave={handleModelSave}
+                  onToolsSave={handleToolsSave}
+                  initialAccordion={initialAccordion}
+                  agentMetadata={agent?.metadata}
+                />
               ) : (
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                  <TabsContent value="agent-builder" className="flex-1 h-0 m-0">
+                  <TabsContent value="agent-builder" className="flex-1 m-0 overflow-hidden">
                     <AgentBuilderTab
                       agentId={agentId}
                       displayData={displayData}
@@ -723,7 +719,7 @@ export default function AgentConfigurationPage() {
                       onStyleChange={handleStyleChange}
                     />
                   </TabsContent>
-                  <TabsContent value="configuration" className="flex-1 h-0 m-0">
+                  <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
                     <ConfigurationTab
                       agentId={agentId}
                       displayData={displayData}
@@ -742,11 +738,10 @@ export default function AgentConfigurationPage() {
               )}
             </div>
           </div>
-
           <Drawer open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <DrawerTrigger asChild>
               <Button 
-                className="fixed bottom-6 right-6 rounded-full shadow-lg h-14 w-14 bg-primary hover:bg-primary/90"
+                className="fixed bottom-6 right-6 rounded-full shadow-lg h-14 w-14 bg-primary hover:bg-primary/90 z-50"
                 size="icon"
               >
                 <Eye className="h-5 w-5" />
@@ -761,8 +756,6 @@ export default function AgentConfigurationPage() {
               </div>
             </DrawerContent>
           </Drawer>
-
-
         </div>
       </div>
     </div>

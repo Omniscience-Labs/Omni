@@ -524,17 +524,6 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
                       isSunaAgent={agent?.metadata?.is_suna_default}
                     />
                   )} */}
-
-                  {onClose && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={onClose}
-                      className="p-2"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
