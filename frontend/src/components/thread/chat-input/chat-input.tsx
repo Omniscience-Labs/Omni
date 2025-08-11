@@ -20,8 +20,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ToolCallInput } from './floating-tool-preview';
 import { ChatSnack } from './chat-snack';
 import { Brain, Zap, Workflow, Database, ArrowDown } from 'lucide-react';
-import { FaGoogle, FaDiscord } from 'react-icons/fa';
-import { SiNotion } from 'react-icons/si';
+import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AgentConfigModal } from '@/components/agents/agent-config-modal';
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -153,6 +153,11 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
+
+    // Fetch actual integration icons
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: true });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: true });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: true });
 
     // Show usage preview logic:
     // - Always show to free users when showToLowCreditUsers is true
@@ -348,7 +353,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </button>
           )}
           <Card
-            className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-visible ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'} relative z-20`}
+            className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-visible ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'} relative z-10`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={(e) => {
@@ -419,53 +424,72 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
           </Card>
 
           {enableAdvancedConfig && selectedAgentId && (
-            <div className="w-full max-w-4xl mx-auto -mt-12 relative z-10">
-              <div className="bg-muted/30 border border-border/50 rounded-b-3xl px-4 py-2 pt-8 transition-all duration-300 ease-out">
-                <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none relative z-20">
+            <div className="w-full max-w-4xl mx-auto -mt-12 relative z-20">
+              <div className="bg-gradient-to-b from-transparent via-transparent to-muted/30 pt-8 pb-2 px-4 rounded-b-3xl border border-t-0 border-border/50 transition-all duration-300 ease-out">
+                <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none relative">
                   <button
                     onClick={() => setRegistryDialogOpen(true)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <div className="flex items-center -space-x-0.5">
-                      <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                        <FaGoogle className="w-2.5 h-2.5" />
-                      </div>
-                      <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                        <FaDiscord className="w-2.5 h-2.5" />
-                      </div>
-                      <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                        <SiNotion className="w-2.5 h-2.5" />
-                      </div>
+                      {googleDriveIcon?.icon_url && slackIcon?.icon_url && notionIcon?.icon_url ? (
+                        <>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={googleDriveIcon.icon_url} className="w-2.5 h-2.5" alt="Google Drive" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={slackIcon.icon_url} className="w-2.5 h-2.5" alt="Slack" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={notionIcon.icon_url} className="w-2.5 h-2.5" alt="Notion" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                        </>
+                      )}
                     </div>
                     <span className="text-xs font-medium">Integrations</span>
                   </button>
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <Brain className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Instructions</span>
                   </button>
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <Database className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Knowledge</span>
                   </button>
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <Zap className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="text-xs font-medium">Triggers</span>
                   </button>
                   <button
                     onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
-                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Workflows</span>
+                    <span className="text-xs font-medium">Playbooks</span>
                   </button>
                 </div>
               </div>
