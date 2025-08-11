@@ -7,6 +7,7 @@ class SunaConfig:
     DESCRIPTION = "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains."
     AVATAR = "🌞"
     AVATAR_COLOR = "#F59E0B"
+    DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514"
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
     DEFAULT_TOOLS = {
@@ -18,7 +19,8 @@ class SunaConfig:
         "sb_vision_tool": True,
         "sb_image_edit_tool": True,
         "data_providers_tool": True,
-        "sb_sheets_tool": True
+        "sb_sheets_tool": True,
+        "sb_files_tool": True,
     }
     
     DEFAULT_MCPS = []
@@ -42,6 +44,7 @@ class SunaConfig:
             "name": cls.NAME,
             "description": cls.DESCRIPTION,
             "system_prompt": cls.get_system_prompt(),
+            "model": cls.DEFAULT_MODEL,
             "configured_mcps": cls.DEFAULT_MCPS,
             "custom_mcps": cls.DEFAULT_CUSTOM_MCPS,
             "agentpress_tools": cls.DEFAULT_TOOLS,
