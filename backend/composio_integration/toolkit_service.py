@@ -48,6 +48,31 @@ class DetailedToolkitInfo(BaseModel):
     base_url: Optional[str] = None
 
 
+class ParameterSchema(BaseModel):
+    properties: Dict[str, Any] = {}
+    required: Optional[List[str]] = None
+
+
+class ToolInfo(BaseModel):
+    slug: str
+    name: str
+    description: str
+    version: str
+    input_parameters: ParameterSchema = ParameterSchema()
+    output_parameters: ParameterSchema = ParameterSchema()
+    scopes: List[str] = []
+    tags: List[str] = []
+    no_auth: bool = False
+
+
+class ToolsListResponse(BaseModel):
+    items: List[ToolInfo]
+    next_cursor: Optional[str] = None
+    total_items: int
+    current_page: int = 1
+    total_pages: int = 1
+
+
 class ToolkitService:
     def __init__(self, api_key: Optional[str] = None):
         self.client = ComposioClient.get_client(api_key)
@@ -388,4 +413,80 @@ class ToolkitService:
             
         except Exception as e:
             logger.error(f"Failed to get detailed toolkit info for {toolkit_slug}: {e}", exc_info=True)
-            return None 
+            return None
+
+    async def get_toolkit_tools(self, toolkit_slug: str, limit: int = 50, cursor: Optional[str] = None) -> ToolsListResponse:
+        try:
+            logger.info(f"Fetching tools for toolkit: {toolkit_slug}")
+            
+            params = {
+                "limit": limit,
+                "toolkit_slug": toolkit_slug
+            }
+            
+            if cursor:
+                params["cursor"] = cursor
+            
+            tools_response = self.client.tools.list(**params)
+            
+            if hasattr(tools_response, '__dict__'):
+                response_data = tools_response.__dict__
+            else:
+                response_data = tools_response
+            
+            items = response_data.get('items', [])
+            
+            tools = []
+            for item in items:
+                if hasattr(item, '__dict__'):
+                    tool_data = item.__dict__
+                elif hasattr(item, '_asdict'):
+                    tool_data = item._asdict()
+                else:
+                    tool_data = item
+                
+                input_params_raw = tool_data.get("input_parameters", {})
+                output_params_raw = tool_data.get("output_parameters", {})
+                
+                input_parameters = ParameterSchema()
+                if isinstance(input_params_raw, dict):
+                    input_parameters.properties = input_params_raw.get("properties", input_params_raw)
+                    input_parameters.required = input_params_raw.get("required")
+                
+                output_parameters = ParameterSchema()  
+                if isinstance(output_params_raw, dict):
+                    output_parameters.properties = output_params_raw.get("properties", output_params_raw)
+                    output_parameters.required = output_params_raw.get("required")
+                
+                tool = ToolInfo(
+                    slug=tool_data.get("slug", ""),
+                    name=tool_data.get("name", ""),
+                    description=tool_data.get("description", ""),
+                    version=tool_data.get("version", "1.0.0"),
+                    input_parameters=input_parameters,
+                    output_parameters=output_parameters,
+                    scopes=tool_data.get("scopes", []),
+                    tags=tool_data.get("tags", []),
+                    no_auth=tool_data.get("no_auth", False)
+                )
+                tools.append(tool)
+            
+            result = ToolsListResponse(
+                items=tools,
+                total_items=response_data.get("total_items", len(tools)),
+                total_pages=response_data.get("total_pages", 1),
+                current_page=response_data.get("current_page", 1),
+                next_cursor=response_data.get("next_cursor")
+            )
+            
+            logger.info(f"Successfully fetched {len(tools)} tools for toolkit {toolkit_slug}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to get tools for toolkit {toolkit_slug}: {e}", exc_info=True)
+            return ToolsListResponse(
+                items=[],
+                total_items=0,
+                current_page=1,
+                total_pages=1
+            ) 

@@ -85,14 +85,6 @@ const extractFromNewFormat = (content: any): {
       urlCount,
       timestamp: toolExecution.execution_details?.timestamp
     };
-
-    console.log('WebScrapeToolView: Extracted from new format:', {
-      url: extractedData.url,
-      urlCount: extractedData.urlCount,
-      fileCount: extractedData.files.length,
-      success: extractedData.success
-    });
-    
     return extractedData;
   }
 
@@ -155,10 +147,6 @@ const extractFromLegacyFormat = (content: any): {
   const toolData = extractToolData(content);
   
   if (toolData.toolResult && toolData.arguments) {
-    console.log('WebScrapeToolView: Extracted from legacy format (extractToolData):', {
-      url: toolData.url
-    });
-    
     return {
       url: toolData.url || null,
       urls: toolData.url ? [toolData.url] : null,
@@ -176,12 +164,6 @@ const extractFromLegacyFormat = (content: any): {
 
   const url = extractScrapeUrl(contentStr);
   const results = extractScrapeResults(contentStr);
-  
-  console.log('WebScrapeToolView: Extracted from legacy format (manual parsing):', {
-    url,
-    fileCount: results.files.length,
-    urlCount: results.urlCount
-  });
   
   return {
     url,
@@ -223,19 +205,6 @@ export function extractWebScrapeData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('WebScrapeToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasUrl: !!assistantNewFormat.url,
-      fileCount: assistantNewFormat.files.length,
-      urlCount: assistantNewFormat.urlCount
-    },
-    toolNewFormat: {
-      hasUrl: !!toolNewFormat.url,
-      fileCount: toolNewFormat.files.length,
-      urlCount: toolNewFormat.urlCount
-    }
-  });
-
   if (assistantNewFormat.url || assistantNewFormat.files.length > 0 || assistantNewFormat.urlCount > 0) {
     url = assistantNewFormat.url;
     urls = assistantNewFormat.urls;
@@ -249,7 +218,6 @@ export function extractWebScrapeData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('WebScrapeToolView: Using assistant new format data');
   } else if (toolNewFormat.url || toolNewFormat.files.length > 0 || toolNewFormat.urlCount > 0) {
     url = toolNewFormat.url;
     urls = toolNewFormat.urls;
@@ -263,7 +231,6 @@ export function extractWebScrapeData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('WebScrapeToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
@@ -274,20 +241,7 @@ export function extractWebScrapeData(
     message = assistantLegacy.message || toolLegacy.message;
     files = assistantLegacy.files.length > 0 ? assistantLegacy.files : toolLegacy.files;
     urlCount = assistantLegacy.urlCount > 0 ? assistantLegacy.urlCount : toolLegacy.urlCount;
-    
-    console.log('WebScrapeToolView: Using legacy format data:', {
-      url,
-      fileCount: files.length,
-      urlCount
-    });
   }
-
-  console.log('WebScrapeToolView: Final extracted data:', {
-    url,
-    fileCount: files.length,
-    urlCount,
-    actualIsSuccess
-  });
 
   return {
     url,

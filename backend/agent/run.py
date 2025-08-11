@@ -394,7 +394,10 @@ class AgentRunner:
         project_data = project.data[0]
         sandbox_info = project_data.get('sandbox', {})
         if not sandbox_info.get('id'):
-            raise ValueError(f"No sandbox found for project {self.config.project_id}")
+            # Sandbox is created lazily by tools when required. Do not fail setup
+            # if no sandbox is present — tools will call `_ensure_sandbox()`
+            # which will create and persist the sandbox metadata when needed.
+            logger.info(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
@@ -638,13 +641,22 @@ async def run_agent(
     is_agent_builder: Optional[bool] = False,
     target_agent_id: Optional[str] = None
 ):
+    effective_model = model_name
+    if model_name == "anthropic/claude-sonnet-4-20250514" and agent_config and agent_config.get('model'):
+        effective_model = agent_config['model']
+        logger.info(f"Using model from agent config: {effective_model} (no user selection)")
+    elif model_name != "anthropic/claude-sonnet-4-20250514":
+        logger.info(f"Using user-selected model: {effective_model}")
+    else:
+        logger.info(f"Using default model: {effective_model}")
+    
     config = AgentConfig(
         thread_id=thread_id,
         project_id=project_id,
         stream=stream,
         native_max_auto_continues=native_max_auto_continues,
         max_iterations=max_iterations,
-        model_name=model_name,
+        model_name=effective_model,
         enable_thinking=enable_thinking,
         reasoning_effort=reasoning_effort,
         enable_context_manager=enable_context_manager,

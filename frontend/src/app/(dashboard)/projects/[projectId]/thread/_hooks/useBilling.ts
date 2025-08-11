@@ -24,9 +24,6 @@ export function useBilling(
 
   const checkBillingLimits = useCallback(async () => {
     if (isLocalMode()) {
-      console.log(
-        'Running in local development mode - billing checks are disabled',
-      );
       return false;
     }
 
@@ -61,7 +58,6 @@ export function useBilling(
 
   useEffect(() => {
     if (projectAccountId && initialLoadCompleted && !billingStatusQuery.data) {
-      console.log('Checking billing status on initial load');
       checkBillingLimits();
     }
   }, [projectAccountId, checkBillingLimits, initialLoadCompleted, billingStatusQuery.data]);

@@ -22,6 +22,7 @@ class AgentVersion:
     version_number: int
     version_name: str
     system_prompt: str
+    model: Optional[str] = None  # Add model field
     configured_mcps: List[Dict[str, Any]] = field(default_factory=list)
     custom_mcps: List[Dict[str, Any]] = field(default_factory=list)
     agentpress_tools: Dict[str, Any] = field(default_factory=dict)
@@ -39,6 +40,7 @@ class AgentVersion:
             'version_number': self.version_number,
             'version_name': self.version_name,
             'system_prompt': self.system_prompt,
+            'model': self.model,  # Add model to dict output
             'configured_mcps': self.configured_mcps,
             'custom_mcps': self.custom_mcps,
             'agentpress_tools': self.agentpress_tools,
@@ -146,6 +148,7 @@ class VersionService:
             version_number=row['version_number'],
             version_name=row['version_name'],
             system_prompt=config.get('system_prompt', ''),
+            model=config.get('model'),  # Extract model from config
             configured_mcps=tools.get('mcp', []),
             custom_mcps=tools.get('custom_mcp', []),
             agentpress_tools=tools.get('agentpress', {}),
@@ -194,6 +197,7 @@ class VersionService:
         configured_mcps: List[Dict[str, Any]],
         custom_mcps: List[Dict[str, Any]],
         agentpress_tools: Dict[str, Any],
+        model: Optional[str] = None,  # Move model parameter after required params
         version_name: Optional[str] = None,
         change_description: Optional[str] = None
     ) -> AgentVersion:
@@ -235,6 +239,7 @@ class VersionService:
             version_number=version_number,
             version_name=version_name,
             system_prompt=system_prompt,
+            model=model, # Store the model field
             configured_mcps=configured_mcps,
             custom_mcps=normalized_custom_mcps,
             agentpress_tools=agentpress_tools,
@@ -259,6 +264,7 @@ class VersionService:
             'previous_version_id': version.previous_version_id,
             'config': {
                 'system_prompt': version.system_prompt,
+                'model': version.model, # Include model in config
                 'tools': {
                     'agentpress': version.agentpress_tools,
                     'mcp': version.configured_mcps,
@@ -384,6 +390,14 @@ class VersionService:
                 'new_value': v2.system_prompt
             })
         
+        if v1.model != v2.model:
+            differences.append({
+                'field': 'model',
+                'type': 'modified',
+                'old_value': v1.model,
+                'new_value': v2.model
+            })
+        
         v1_tools = set(v1.agentpress_tools.keys())
         v2_tools = set(v2.agentpress_tools.keys())
         
@@ -431,6 +445,7 @@ class VersionService:
             configured_mcps=version_to_restore.configured_mcps,
             custom_mcps=version_to_restore.custom_mcps,
             agentpress_tools=version_to_restore.agentpress_tools,
+            model=version_to_restore.model,
             change_description=f"Rolled back to version {version_to_restore.version_name}"
         )
         

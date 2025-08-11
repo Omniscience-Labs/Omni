@@ -10,7 +10,6 @@ async function installSunaForNewUser(userId: string) {
       return;
     }
     
-    console.log(`Installing Suna agent for user ${userId}`);
     const response = await fetch(`${backendUrl}/admin/suna-agents/install-user/${userId}`, {
       method: 'POST',
       headers: {
@@ -21,11 +20,10 @@ async function installSunaForNewUser(userId: string) {
 
     if (response.ok) {
       const result = await response.json();
-      console.log(`Suna agent installed for user ${userId}: ${result.agent_id}`);
       return true;
     } else {
       const errorData = await response.json().catch(() => ({}));
-      console.error(`Failed to install Suna agent for user ${userId}:`, errorData);
+      console.error(`Failed to install Suna agent for user:`, errorData);
       return false;
     }
   } catch (error) {
@@ -41,11 +39,9 @@ export async function checkAndInstallSunaAgent(userId: string, userCreatedAt: st
   if (userCreatedDate > tenMinutesAgo) {
     const installKey = `suna-install-attempted-${userId}`;
     if (typeof window !== 'undefined' && localStorage.getItem(installKey)) {
-      console.log(`Suna agent installation already attempted for user ${userId}`);
       return;
     }
     
-    console.log(`Installing Suna agent for new user: ${userId}`);
     const success = await installSunaForNewUser(userId);
     
     if (typeof window !== 'undefined') {

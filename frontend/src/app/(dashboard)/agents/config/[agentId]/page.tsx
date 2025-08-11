@@ -30,6 +30,7 @@ interface FormData {
   name: string;
   description: string;
   system_prompt: string;
+  model?: string;
   agentpress_tools: any;
   configured_mcps: any[];
   custom_mcps: any[];
@@ -47,6 +48,7 @@ export default function AgentConfigurationPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const initialAccordion = searchParams.get('accordion');
+  const versionParam = searchParams.get('version');  // Add this line
   const { setHasUnsavedChanges } = useAgentVersionStore();
   
   const updateAgentMutation = useUpdateAgent();
@@ -58,6 +60,7 @@ export default function AgentConfigurationPage() {
     name: '',
     description: '',
     system_prompt: '',
+    model: undefined,
     agentpress_tools: DEFAULT_AGENTPRESS_TOOLS,
     configured_mcps: [],
     custom_mcps: [],
@@ -86,6 +89,7 @@ export default function AgentConfigurationPage() {
       name: agent.name || '',
       description: agent.description || '',
       system_prompt: configSource.system_prompt || '',
+      model: configSource.model || undefined, // Initialize model
       agentpress_tools: configSource.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
@@ -135,6 +139,7 @@ export default function AgentConfigurationPage() {
           agentId,
           data: {
             system_prompt: isSunaAgent ? '' : formData.system_prompt,
+            model: formData.model,  // Include model in save
             configured_mcps: formData.configured_mcps,
             custom_mcps: normalizedCustomMcps,
             agentpress_tools: formData.agentpress_tools,
@@ -166,12 +171,10 @@ export default function AgentConfigurationPage() {
   // Check for unsaved changes
   const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(originalData);
   
-  // Update the version store with unsaved changes status
   useEffect(() => {
     setHasUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, setHasUnsavedChanges]);
 
-  // Add keyboard shortcut for save (Cmd/Ctrl + S)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -194,26 +197,20 @@ export default function AgentConfigurationPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, [isViewingOldVersion]);
 
-  // Immediate save handler for system prompt changes
   const handleSystemPromptSave = useCallback(async (value: string) => {
-    console.log('🔥 System prompt save triggered with value:', { value, length: value.length });
-    
     if (!agent || isViewingOldVersion || isSaving) {
-      console.log('❌ Save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
       return;
     }
     
     const isSunaAgent = agent?.metadata?.is_suna_default || false;
     
     if (isSunaAgent) {
-      console.log('❌ Suna agent system prompt edit blocked');
       toast.error("System prompt cannot be edited", {
         description: "Suna's system prompt is managed centrally and cannot be changed.",
       });
       return;
     }
     
-    // Update form data first
     setFormData(prev => ({ ...prev, system_prompt: value }));
     
     const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
@@ -225,13 +222,13 @@ export default function AgentConfigurationPage() {
     
     const saveData = {
       system_prompt: value,
+      model: formData.model,
       configured_mcps: formData.configured_mcps,
       custom_mcps: normalizedCustomMcps,
       agentpress_tools: formData.agentpress_tools,
       description: 'System prompt update'
     };
     
-    console.log('💾 Saving system prompt with data:', saveData);
     setIsSaving(true);
     
     try {
@@ -240,30 +237,66 @@ export default function AgentConfigurationPage() {
         data: saveData
       });
       
-      console.log('✅ Version created successfully:', result);
-      
-      // Force refetch latest data from server
-      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
-      
-      // Update original data to reflect the save
       setOriginalData(prev => ({ ...prev, system_prompt: value }));
-      
-      console.log('✅ System prompt saved and state updated');
       toast.success('System prompt saved');
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error('❌ Save error:', error);
       toast.error('Failed to save system prompt');
     } finally {
       setIsSaving(false);
     }
-  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
 
-  // Immediate save handler for tools changes
-  const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
-    console.log('🔧 Tools save triggered with:', { tools, toolsCount: Object.keys(tools).length });
-    
+  const handleModelSave = useCallback(async (model: string) => {
     if (!agent || isViewingOldVersion || isSaving) {
-      console.log('❌ Tools save blocked:', { hasAgent: !!agent, isViewingOldVersion, isSaving });
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, model }));
+    
+    const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
+      name: mcp.name || 'Unnamed MCP',
+      type: mcp.type || mcp.customType || 'sse',
+      config: mcp.config || {},
+      enabledTools: Array.isArray(mcp.enabledTools) ? mcp.enabledTools : [],
+    }));
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    
+    const saveData = {
+      system_prompt: isSunaAgent ? '' : formData.system_prompt,
+      model,
+      configured_mcps: formData.configured_mcps,
+      custom_mcps: normalizedCustomMcps,
+      agentpress_tools: formData.agentpress_tools,
+      description: 'Model update'
+    };
+
+    setIsSaving(true);
+    
+    try {
+      const result = await createVersionMutation.mutateAsync({
+        agentId,
+        data: saveData
+      });
+      
+      toast.success('Model configuration saved');
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      toast.error('Failed to save model configuration');
+      setFormData(prev => ({ ...prev, model: originalData.model }));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
+
+  const handleToolsSave = useCallback(async (tools: Record<string, boolean | { enabled: boolean; description: string }>) => {
+    if (!agent || isViewingOldVersion || isSaving) {
       return;
     }
     
@@ -271,12 +304,10 @@ export default function AgentConfigurationPage() {
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent && restrictions.tools_editable === false) {
-      console.log('❌ Suna agent tools edit blocked');
       toast.error("Suna's default tools cannot be modified.");
       return;
     }
     
-    // Update form data first
     setFormData(prev => ({ ...prev, agentpress_tools: tools }));
     
     const normalizedCustomMcps = (formData.custom_mcps || []).map(mcp => ({
@@ -288,13 +319,13 @@ export default function AgentConfigurationPage() {
     
     const saveData = {
       system_prompt: isSunaAgent ? '' : formData.system_prompt,
+      model: formData.model,
       configured_mcps: formData.configured_mcps,
       custom_mcps: normalizedCustomMcps,
       agentpress_tools: tools,
       description: 'Tools configuration update'
     };
     
-    console.log('💾 Saving tools with data:', saveData);
     setIsSaving(true);
     
     try {
@@ -302,24 +333,18 @@ export default function AgentConfigurationPage() {
         agentId,
         data: saveData
       });
-      
-      console.log('✅ Tools version created successfully:', result);
-      
-      // Force refetch latest data from server
-      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
-      
-      // Update original data to reflect the save
       setOriginalData(prev => ({ ...prev, agentpress_tools: tools }));
-      
-      console.log('✅ Tools saved and state updated');
       toast.success('Tools configuration saved');
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error('❌ Tools save error:', error);
       toast.error('Failed to save tools configuration');
     } finally {
       setIsSaving(false);
     }
-  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
 
   const handleMCPChange = useCallback(async (updates: { configured_mcps: any[]; custom_mcps: any[] }) => {
     if (isViewingOldVersion) {
@@ -334,8 +359,6 @@ export default function AgentConfigurationPage() {
     };
     
     setFormData(newFormData);
-    
-    // Save immediately on integration changes
     if (!agent || isViewingOldVersion || isSaving) return;
     
     const normalizedCustomMcps = (newFormData.custom_mcps || []).map(mcp => ({
@@ -348,10 +371,11 @@ export default function AgentConfigurationPage() {
     setIsSaving(true);
     
     try {
-      await createVersionMutation.mutateAsync({
+      const result = await createVersionMutation.mutateAsync({
         agentId,
         data: {
           system_prompt: agent?.metadata?.is_suna_default ? '' : newFormData.system_prompt,
+          model: newFormData.model, 
           configured_mcps: newFormData.configured_mcps,
           custom_mcps: normalizedCustomMcps,
           agentpress_tools: newFormData.agentpress_tools,
@@ -359,17 +383,18 @@ export default function AgentConfigurationPage() {
         }
       });
       
-      // Force refetch latest data from server
-      await queryClient.refetchQueries({ queryKey: ['agent', agentId] });
-      
+      setOriginalData(newFormData);
       toast.success('Integration saved');
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error('Save error:', error);
       toast.error('Failed to save integration');
     } finally {
       setIsSaving(false);
     }
-  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, queryClient]);
+  }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving]);
 
   const handleStyleChange = useCallback((emoji: string, color: string) => {
     if (isViewingOldVersion) {
@@ -439,6 +464,7 @@ export default function AgentConfigurationPage() {
     name: agent?.name || '',
     description: agent?.description || '',
     system_prompt: versionData.system_prompt || '',
+    model: versionData.model,
     agentpress_tools: versionData.agentpress_tools || DEFAULT_AGENTPRESS_TOOLS,
     configured_mcps: versionData.configured_mcps || [],
     custom_mcps: versionData.custom_mcps || [],
@@ -550,6 +576,7 @@ export default function AgentConfigurationPage() {
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
                       onSystemPromptSave={handleSystemPromptSave}
+                      onModelSave={handleModelSave}
                       onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}
@@ -576,7 +603,8 @@ export default function AgentConfigurationPage() {
                         onFieldChange={handleFieldChange}
                         onMCPChange={handleMCPChange}
                         onSystemPromptSave={handleSystemPromptSave}
-                      onToolsSave={handleToolsSave}
+                        onModelSave={handleModelSave}
+                        onToolsSave={handleToolsSave}
                         initialAccordion={initialAccordion}
                         agentMetadata={agent?.metadata}
                       />
@@ -682,6 +710,7 @@ export default function AgentConfigurationPage() {
                     onFieldChange={handleFieldChange}
                     onMCPChange={handleMCPChange}
                     onSystemPromptSave={handleSystemPromptSave}
+                    onModelSave={handleModelSave}
                     initialAccordion={initialAccordion}
                     agentMetadata={agent?.metadata}
                   />
@@ -707,6 +736,7 @@ export default function AgentConfigurationPage() {
                       onFieldChange={handleFieldChange}
                       onMCPChange={handleMCPChange}
                       onSystemPromptSave={handleSystemPromptSave}
+                      onModelSave={handleModelSave}
                       onToolsSave={handleToolsSave}
                       initialAccordion={initialAccordion}
                       agentMetadata={agent?.metadata}

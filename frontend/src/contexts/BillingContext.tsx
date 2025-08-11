@@ -22,7 +22,6 @@ export function BillingProvider({ children }: { children: React.ReactNode }) {
 
   const checkBillingStatus = useCallback(async (force = false): Promise<boolean> => {
     if (isLocalMode()) {
-      console.log('Running in local development mode - billing checks are disabled');
       return false;
     }
 

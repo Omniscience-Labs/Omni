@@ -322,7 +322,6 @@ export function FileAttachment({
                         objectFit: isGridLayout ? "cover" : "contain"
                     }}
                     onLoad={() => {
-                        console.log("Image loaded successfully:", filename);
                     }}
                     onError={(e) => {
                         // Avoid logging the error for all instances of the same image
@@ -360,7 +359,6 @@ export function FileAttachment({
                         setHasError(true);
                         // If the image failed to load and we have a localPreviewUrl that's a blob URL, try using it directly
                         if (localPreviewUrl && typeof localPreviewUrl === 'string' && localPreviewUrl.startsWith('blob:')) {
-                            console.log('Falling back to localPreviewUrl for:', filename);
                             (e.target as HTMLImageElement).src = localPreviewUrl;
                         }
                     }}

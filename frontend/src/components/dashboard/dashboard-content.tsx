@@ -29,6 +29,7 @@ import { ModalProviders } from '@/providers/modal-providers';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
@@ -36,6 +37,7 @@ import { KortixLogo } from '../sidebar/kortix-logo';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { CustomAgentsSection } from './custom-agents-section';
+import { toast } from 'sonner';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -43,7 +45,12 @@ export function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents,
+    getCurrentAgent
+  } = useAgentSelection();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
@@ -82,20 +89,26 @@ export function DashboardContent() {
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
+  // Initialize agent selection from agents list
+  useEffect(() => {
+    if (agents.length > 0) {
+      initializeFromAgents(agents);
+    }
+  }, [agents, initializeFromAgents]);
+
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');
     if (agentIdFromUrl && agentIdFromUrl !== selectedAgentId) {
-      setSelectedAgentId(agentIdFromUrl);
+      setSelectedAgent(agentIdFromUrl);
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('agent_id');
       router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
-  }, [searchParams, selectedAgentId, router]);
+  }, [searchParams, selectedAgentId, router, setSelectedAgent]);
 
   useEffect(() => {
     if (threadQuery.data && initiatedThreadId) {
       const thread = threadQuery.data;
-      console.log('Thread data received:', thread);
       if (thread.project_id) {
         router.push(`/projects/${thread.project_id}/thread/${initiatedThreadId}`);
       } else {
@@ -146,10 +159,7 @@ export function DashboardContent() {
       formData.append('stream', String(options?.stream ?? true));
       formData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 
-      console.log('FormData content:', Array.from(formData.entries()));
-
       const result = await initiateAgentMutation.mutateAsync(formData);
-      console.log('Agent initiated:', result);
 
       if (result.thread_id) {
         setInitiatedThreadId(result.thread_id);
@@ -160,19 +170,19 @@ export function DashboardContent() {
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        console.log('Handling BillingError:', error.detail);
         onOpen("paymentRequiredDialog");
       } else if (error instanceof AgentRunLimitError) {
-        console.log('Handling AgentRunLimitError:', error.detail);
         const { running_thread_ids, running_count } = error.detail;
-        
-        // Show the dialog with limit information
         setAgentLimitData({
           runningCount: running_count,
           runningThreadIds: running_thread_ids,
         });
         setShowAgentLimitDialog(true);
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+        toast.error(errorMessage);
       }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -224,8 +234,8 @@ export function DashboardContent() {
           </div>
         )}
         <div className={cn(
-          "flex flex-col min-h-screen px-4",
-          customAgentsEnabled ? "items-center pt-20" : "items-center justify-center"
+          "flex flex-col min-h-screen px-4 items-center justify-center",
+          // customAgentsEnabled ? "items-center pt-20" : "items-center justify-center"
         )}>
           <div className="w-[650px] max-w-[90%]">
             <div className="flex flex-col items-center text-center w-full">
@@ -247,21 +257,23 @@ export function DashboardContent() {
                 onChange={setInputValue}
                 hideAttachments={false}
                 selectedAgentId={selectedAgentId}
-                onAgentSelect={setSelectedAgentId}
+                onAgentSelect={setSelectedAgent}
                 enableAdvancedConfig={true}
                 onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
               />
             </div>
-            <Examples onSelectPrompt={setInputValue} />
+            <div className="w-full pt-4">
+              <Examples onSelectPrompt={setInputValue} count={4} />
+            </div>
           </div>
           
-          {customAgentsEnabled && (
+          {/* {customAgentsEnabled && (
             <div className="w-full max-w-none mt-16 mb-8">
               <CustomAgentsSection 
-                onAgentSelect={setSelectedAgentId}
+                onAgentSelect={setSelectedAgent}
               />
             </div>
-          )}
+          )} */}
         </div>
         <BillingErrorAlert
           message={billingError?.message}

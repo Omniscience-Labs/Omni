@@ -113,8 +113,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const [mounted, setMounted] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Fix hydration mismatch by ensuring component only renders after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Custom models state
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [isCustomModelDialogOpen, setIsCustomModelDialogOpen] = useState(false);
   const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
@@ -415,7 +422,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   };
 
   const handleComposioComplete = (profileId: string, appName: string, appSlug: string) => {
-    console.log('Composio integration complete:', { profileId, appName, appSlug, selectedAgentId });
     setShowComposioConnector(false);
     setSelectedApp(null);
   };
@@ -442,7 +448,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             <div className='w-full'>
               <DropdownMenuItem
                 className={cn(
-                  "text-sm px-3 py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
+                  "text-sm px-3 rounded-lg py-2 mx-2 my-0.5 flex items-center justify-between cursor-pointer",
                   isHighlighted && "bg-accent",
                   !accessible && "opacity-70"
                 )}
@@ -523,6 +529,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setTimeout(() => setIsOpen(true), 10);
     }
   }, [customModels, modelOptions]);
+
+  // Don't render dropdown until after hydration to prevent ID mismatches
+  if (!mounted) {
+    return <div className="h-8 px-2 py-2" />; // Placeholder with same height
+  }
 
   return (
     <div className="relative">

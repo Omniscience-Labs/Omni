@@ -2,11 +2,11 @@
 alwaysApply: true
 ---
 
-# Suna AI Agent Project - Cursor Rules
+# Suna AI Worker Project - Cursor Rules
 
 ## Project Overview
 
-Suna is an open-source generalist AI agent with a full-stack architecture:
+Suna is an open-source generalist AI Worker with a full-stack architecture:
 
 - **Frontend**: Next.js 15+ with TypeScript, Tailwind CSS, Radix UI, React Query
 - **Backend**: Python 3.11+ with FastAPI, Supabase, Redis, LiteLLM, Dramatiq
@@ -37,7 +37,7 @@ project/
 │       ├── providers/    # Context providers
 │       └── contexts/     # React contexts
 ├── backend/               # Python FastAPI backend
-│   ├── agent/            # AI agent core implementation
+│   ├── agent/            # AI Worker core implementation
 │   ├── services/         # Business logic services
 │   ├── utils/           # Shared utilities
 │   ├── supabase/        # Database migrations & config
@@ -70,7 +70,6 @@ project/
 - **LLM Integration**: LiteLLM for multi-provider support, structured prompts
 - **Tool System**: Dual schema decorators (OpenAPI + XML), consistent ToolResult
 - **Real-time**: Supabase subscriptions for live updates
-- **Background Jobs**: Dramatiq for async processing, QStash for scheduling
 
 ## Key Technologies
 

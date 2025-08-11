@@ -39,6 +39,7 @@ import { createQueryHook } from '@/hooks/use-query';
 import { agentKeys } from '@/hooks/react-query/agents/keys';
 import { getAgents } from '@/hooks/react-query/agents/utils';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
+import { Examples } from '@/components/dashboard/examples';
 
 // Custom dialog overlay with blur effect
 const BlurredDialogOverlay = () => (
@@ -47,6 +48,8 @@ const BlurredDialogOverlay = () => (
 
 // Constant for localStorage key to ensure consistency
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
+
+
 
 export function HeroSection() {
   const { hero } = siteConfig;
@@ -204,13 +207,10 @@ export function HeroSection() {
       setInputValue('');
     } catch (error: any) {
       if (error instanceof BillingError) {
-        console.log('Billing error:', error.detail);
         onOpen("paymentRequiredDialog");
       } else if (error instanceof AgentRunLimitError) {
-        console.log('Handling AgentRunLimitError:', error.detail);
         const { running_thread_ids, running_count } = error.detail;
         
-        // Show the dialog with limit information
         setAgentLimitData({
           runningCount: running_count,
           runningThreadIds: running_thread_ids,
@@ -279,7 +279,7 @@ export function HeroSection() {
         {/* Center content background with rounded bottom */}
         <div className="absolute inset-x-1/4 top-0 h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
 
-        <div className="relative z-10 pt-32 max-w-3xl mx-auto h-full w-full flex flex-col gap-10 items-center justify-center">
+        <div className="relative z-10 pt-32 mx-auto h-full w-full max-w-6xl flex flex-col  items-center justify-center">
           {/* <p className="border border-border bg-accent rounded-full text-sm h-8 px-3 flex items-center gap-2">
             {hero.badgeIcon}
             {hero.badge}
@@ -314,23 +314,23 @@ export function HeroSection() {
               </svg>
             </span>
           </Link> */}
-          <div className="flex flex-col items-center justify-center gap-5 pt-16">
+          <div className="flex flex-col items-center justify-center gap-4 pt-12 max-w-4xl mx-auto">
             <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center">
-              <span className="text-secondary">Suna</span>
-              <span className="text-primary">, your AI Employee.</span>
+              <span className="text-primary">Build, manage and train your </span>
+              <span className="text-secondary">AI Workforce.</span>
             </h1>
-            <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight">
-              {hero.description}
+            <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-2xl">
+            Kortix – the simplest way to migrate from human to AI.
             </p>
           </div>
 
-          <div className="flex items-center w-full max-w-4xl gap-2 flex-wrap justify-center">
+          <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center">
             <div className="w-full relative">
               <div className="relative z-10">
                 <ChatInput
                   ref={chatInputRef}
                   onSubmit={handleChatInputSubmit}
-                  placeholder="Describe what you need help with..."
+                  placeholder="Describe the agent you want to build or the task you want completed..."
                   loading={isSubmitting}
                   disabled={isSubmitting}
                   value={inputValue}
@@ -344,10 +344,17 @@ export function HeroSection() {
               {/* Subtle glow effect */}
               <div className="absolute -bottom-4 inset-x-0 h-6 bg-secondary/20 blur-xl rounded-full -z-10 opacity-70"></div>
             </div>
+            
+            {/* Examples section - right after chat input */}
+            <div className="w-full pt-2">
+              <Examples onSelectPrompt={setInputValue} count={4} />
+            </div>
           </div>
+
         </div>
+
       </div>
-      <div className="mb-16 sm:mt-52 max-w-4xl mx-auto"></div>
+        <div className="mb-16 sm:mt-32 mx-auto"></div>
 
       {/* Auth Dialog */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>

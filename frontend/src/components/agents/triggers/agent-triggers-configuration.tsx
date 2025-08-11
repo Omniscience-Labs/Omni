@@ -127,34 +127,37 @@ export const AgentTriggersConfiguration: React.FC<AgentTriggersConfigurationProp
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto space-y-4">
-        <OneClickIntegrations agentId={agentId} />
-        
-        {triggers.length > 0 && (
-          <ConfiguredTriggersList
-            triggers={triggers}
-            onEdit={handleEditTrigger}
-            onRemove={handleRemoveTrigger}
-            onToggle={handleToggleTrigger}
-            isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
-          />
-        )}
-
-        {!isLoading && triggers.length === 0 && (
-          <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-              <Zap className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h4 className="text-sm font-semibold text-foreground">
-              No triggers configured
-            </h4>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Click on a trigger provider above to get started
-            </p>
-          </div>
-        )}
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-medium text-foreground">Triggers</h3>
+        <p className="text-xs text-muted-foreground mb-4">Set up automated agent runs</p>
       </div>
+      
+      <OneClickIntegrations agentId={agentId} />
+      
+      {triggers.length > 0 && (
+        <ConfiguredTriggersList
+          triggers={triggers}
+          onEdit={handleEditTrigger}
+          onRemove={handleRemoveTrigger}
+          onToggle={handleToggleTrigger}
+          isLoading={deleteTriggerMutation.isPending || toggleTriggerMutation.isPending}
+        />
+      )}
+
+      {!isLoading && triggers.length === 0 && (
+        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+            <Zap className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h4 className="text-sm font-semibold text-foreground">
+            No triggers configured
+          </h4>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+            Click on a trigger provider above to get started
+          </p>
+        </div>
+      )}
       
       {configuringProvider && (
         <Dialog open={!!configuringProvider} onOpenChange={() => setConfiguringProvider(null)}>

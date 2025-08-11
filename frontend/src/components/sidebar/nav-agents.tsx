@@ -118,7 +118,6 @@ export function NavAgents() {
 
   useEffect(() => {
     const handleNavigationComplete = () => {
-      console.log('NAVIGATION - Navigation event completed');
       document.body.style.pointerEvents = 'auto';
       isNavigatingRef.current = false;
     };
@@ -228,13 +227,6 @@ export function NavAgents() {
       const thread = combinedThreads.find(t => t.threadId === threadId);
       const project = projects.find(p => p.id === thread?.projectId);
       const sandboxId = project?.sandbox?.id;
-
-      // Log operation start
-      console.log('DELETION - Starting thread deletion process', {
-        threadId: deletedThread.id,
-        isCurrentThread: isActive,
-        sandboxId
-      });
 
       // Use the centralized deletion system with completion callback
       await performDelete(
@@ -428,6 +420,7 @@ export function NavAgents() {
                             onClick={(e) =>
                               handleThreadClick(e, thread.threadId, thread.url)
                             }
+                            prefetch={false}
                             className="flex items-center flex-1 min-w-0"
                           >
                             {isThreadLoading ? (

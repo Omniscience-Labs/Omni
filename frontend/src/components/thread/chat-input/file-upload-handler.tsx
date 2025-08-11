@@ -111,8 +111,6 @@ const uploadFiles = async (
 
       // If file was already in chat and we have queryClient, invalidate its cache
       if (isFileInChat && queryClient) {
-        console.log(`Invalidating cache for existing file: ${uploadPath}`);
-
         // Invalidate all content types for this file
         ['text', 'blob', 'json'].forEach(contentType => {
           const queryKey = fileQueryKeys.content(sandboxId, uploadPath, contentType);

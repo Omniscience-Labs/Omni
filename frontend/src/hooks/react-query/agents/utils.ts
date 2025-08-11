@@ -81,7 +81,7 @@ export type ThreadAgentResponse = {
 export type AgentCreateRequest = {
   name: string;
   description?: string;
-  system_prompt: string;
+  system_prompt?: string;
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
@@ -98,6 +98,7 @@ export type AgentCreateRequest = {
 
 export type AgentVersionCreateRequest = {
   system_prompt: string;
+  model?: string;  // Add model field
   configured_mcps?: Array<{
     name: string;
     config: Record<string, any>;
@@ -119,6 +120,7 @@ export type AgentVersion = {
   version_number: number;
   version_name: string;
   system_prompt: string;
+  model?: string;  // Add model field
   configured_mcps: Array<any>;
   custom_mcps: Array<any>;
   agentpress_tools: Record<string, any>;
@@ -189,7 +191,6 @@ export const getAgents = async (params: AgentsParams = {}): Promise<AgentsRespon
     }
 
     const result = await response.json();
-    console.log('[API] Fetched agents:', result.agents?.length || 0, 'total:', result.pagination?.total || 0);
     return result;
   } catch (err) {
     console.error('Error fetching agents:', err);
@@ -224,7 +225,6 @@ export const getAgent = async (agentId: string): Promise<Agent> => {
     }
 
     const agent = await response.json();
-    console.log('[API] Fetched agent:', agent.agent_id);
     return agent;
   } catch (err) {
     console.error('Error fetching agent:', err);
@@ -256,11 +256,21 @@ export const createAgent = async (agentData: AgentCreateRequest): Promise<Agent>
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      const isAgentLimitError = (response.status === 402) && (
+        errorData.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+        errorData.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
+      );
+      
+      if (isAgentLimitError) {
+        const { AgentCountLimitError } = await import('@/lib/api');
+        const errorDetail = errorData.detail || errorData;
+        throw new AgentCountLimitError(response.status, errorDetail);
+      }
+      
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     const agent = await response.json();
-    console.log('[API] Created agent:', agent.agent_id);
     return agent;
   } catch (err) {
     console.error('Error creating agent:', err);
@@ -296,7 +306,6 @@ export const updateAgent = async (agentId: string, agentData: AgentUpdateRequest
     }
 
     const agent = await response.json();
-    console.log('[API] Updated agent:', agent.agent_id);
     return agent;
   } catch (err) {
     console.error('Error updating agent:', err);
@@ -329,8 +338,6 @@ export const deleteAgent = async (agentId: string): Promise<void> => {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
-
-    console.log('[API] Deleted agent:', agentId);
   } catch (err) {
     console.error('Error deleting agent:', err);
     throw err;
@@ -364,7 +371,6 @@ export const getThreadAgent = async (threadId: string): Promise<ThreadAgentRespo
     }
 
     const agent = await response.json();
-    console.log('[API] Fetched thread agent:', threadId);
     return agent;
   } catch (err) {
     console.error('Error fetching thread agent:', err);
@@ -399,7 +405,6 @@ export const getAgentBuilderChatHistory = async (agentId: string): Promise<{mess
     }
 
     const data = await response.json();
-    console.log('[API] Fetched agent builder chat history:', agentId, data.messages.length);
     return data;
   } catch (err) {
     console.error('Error fetching agent builder chat history:', err);
@@ -536,7 +541,6 @@ export const getAgentVersions = async (agentId: string): Promise<AgentVersion[]>
     }
 
     const versions = await response.json();
-    console.log('[API] Fetched agent versions:', agentId, versions.length);
     return versions;
   } catch (err) {
     console.error('Error fetching agent versions:', err);
@@ -575,7 +579,6 @@ export const createAgentVersion = async (
     }
 
     const version = await response.json();
-    console.log('[API] Created agent version:', version.version_id);
     return version;
   } catch (err) {
     console.error('Error creating agent version:', err);
@@ -613,8 +616,6 @@ export const activateAgentVersion = async (
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
-
-    console.log('[API] Activated agent version:', versionId);
   } catch (err) {
     console.error('Error activating agent version:', err);
     throw err;
@@ -652,7 +653,6 @@ export const getAgentVersion = async (
     }
 
     const version = await response.json();
-    console.log('[API] Fetched agent version:', version.version_id);
     return version;
   } catch (err) {
     console.error('Error fetching agent version:', err);

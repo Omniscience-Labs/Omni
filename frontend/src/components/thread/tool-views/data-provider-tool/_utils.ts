@@ -64,14 +64,6 @@ const extractFromNewFormat = (content: any): {
       output: typeof toolExecution.result?.output === 'string' ? toolExecution.result.output : null
     };
 
-    console.log('DataProviderToolView: Extracted from new format:', {
-      serviceName: extractedData.serviceName,
-      route: extractedData.route,
-      hasPayload: !!extractedData.payload,
-      hasEndpoints: !!extractedData.endpoints,
-      success: extractedData.success
-    });
-    
     return extractedData;
   }
 
@@ -128,11 +120,6 @@ const extractFromLegacyFormat = (content: any): {
   const toolData = extractToolData(content);
   
   if (toolData.toolResult && toolData.arguments) {
-    console.log('DataProviderToolView: Extracted from legacy format (extractToolData):', {
-      serviceName: toolData.arguments.service_name,
-      route: toolData.arguments.route
-    });
-    
     return {
       serviceName: toolData.arguments.service_name || null,
       route: toolData.arguments.route || null,
@@ -148,11 +135,6 @@ const extractFromLegacyFormat = (content: any): {
 
   const parsed = parseDataProviderCall(contentStr);
   if (parsed.serviceName || parsed.route) {
-    console.log('DataProviderToolView: Extracted from legacy format (parseDataProviderCall):', {
-      serviceName: parsed.serviceName,
-      route: parsed.route
-    });
-    
     return {
       serviceName: parsed.serviceName,
       route: parsed.route,
@@ -163,8 +145,6 @@ const extractFromLegacyFormat = (content: any): {
 
   const serviceName = extractServiceName(contentStr);
   if (serviceName) {
-    console.log('DataProviderToolView: Extracted service name from legacy format:', serviceName);
-    
     return {
       serviceName,
       route: null,
@@ -202,19 +182,6 @@ export function extractDataProviderCallData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('DataProviderCallToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasServiceName: !!assistantNewFormat.serviceName,
-      hasRoute: !!assistantNewFormat.route,
-      hasPayload: !!assistantNewFormat.payload
-    },
-    toolNewFormat: {
-      hasServiceName: !!toolNewFormat.serviceName,
-      hasRoute: !!toolNewFormat.route,
-      hasPayload: !!toolNewFormat.payload
-    }
-  });
-
   if (assistantNewFormat.serviceName || assistantNewFormat.route) {
     serviceName = assistantNewFormat.serviceName;
     route = assistantNewFormat.route;
@@ -226,7 +193,6 @@ export function extractDataProviderCallData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('DataProviderCallToolView: Using assistant new format data');
   } else if (toolNewFormat.serviceName || toolNewFormat.route) {
     serviceName = toolNewFormat.serviceName;
     route = toolNewFormat.route;
@@ -238,7 +204,6 @@ export function extractDataProviderCallData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('DataProviderCallToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
@@ -246,21 +211,7 @@ export function extractDataProviderCallData(
     serviceName = assistantLegacy.serviceName || toolLegacy.serviceName;
     route = assistantLegacy.route || toolLegacy.route;
     payload = assistantLegacy.payload || toolLegacy.payload;
-    
-    console.log('DataProviderCallToolView: Using legacy format data:', {
-      serviceName,
-      route,
-      hasPayload: !!payload
-    });
   }
-
-  console.log('DataProviderCallToolView: Final extracted data:', {
-    serviceName,
-    route,
-    hasPayload: !!payload,
-    hasOutput: !!output,
-    actualIsSuccess
-  });
 
   return {
     serviceName,
@@ -295,17 +246,6 @@ export function extractDataProviderEndpointsData(
   const assistantNewFormat = extractFromNewFormat(assistantContent);
   const toolNewFormat = extractFromNewFormat(toolContent);
 
-  console.log('DataProviderEndpointsToolView: Format detection results:', {
-    assistantNewFormat: {
-      hasServiceName: !!assistantNewFormat.serviceName,
-      hasEndpoints: !!assistantNewFormat.endpoints
-    },
-    toolNewFormat: {
-      hasServiceName: !!toolNewFormat.serviceName,
-      hasEndpoints: !!toolNewFormat.endpoints
-    }
-  });
-
   if (assistantNewFormat.serviceName || assistantNewFormat.endpoints) {
     serviceName = assistantNewFormat.serviceName;
     endpoints = assistantNewFormat.endpoints;
@@ -315,7 +255,6 @@ export function extractDataProviderEndpointsData(
     if (assistantNewFormat.timestamp) {
       actualAssistantTimestamp = assistantNewFormat.timestamp;
     }
-    console.log('DataProviderEndpointsToolView: Using assistant new format data');
   } else if (toolNewFormat.serviceName || toolNewFormat.endpoints) {
     serviceName = toolNewFormat.serviceName;
     endpoints = toolNewFormat.endpoints;
@@ -325,18 +264,12 @@ export function extractDataProviderEndpointsData(
     if (toolNewFormat.timestamp) {
       actualToolTimestamp = toolNewFormat.timestamp;
     }
-    console.log('DataProviderEndpointsToolView: Using tool new format data');
   } else {
     const assistantLegacy = extractFromLegacyFormat(assistantContent);
     const toolLegacy = extractFromLegacyFormat(toolContent);
 
     serviceName = assistantLegacy.serviceName || toolLegacy.serviceName;
     endpoints = assistantLegacy.endpoints || toolLegacy.endpoints;
-    
-    console.log('DataProviderEndpointsToolView: Using legacy format data:', {
-      serviceName,
-      hasEndpoints: !!endpoints
-    });
 
     if (!serviceName) {
       const extractProviderName = (content: string | object | undefined | null): string => {
@@ -363,12 +296,6 @@ export function extractDataProviderEndpointsData(
       serviceName = extractProviderName(assistantContent || toolContent);
     }
   }
-
-  console.log('DataProviderEndpointsToolView: Final extracted data:', {
-    serviceName,
-    hasEndpoints: !!endpoints,
-    actualIsSuccess
-  });
 
   return {
     serviceName,

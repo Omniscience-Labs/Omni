@@ -59,6 +59,36 @@ export class AgentRunLimitError extends Error {
   }
 }
 
+export class AgentCountLimitError extends Error {
+  status: number;
+  detail: { 
+    message: string;
+    current_count: number;
+    limit: number;
+    tier_name: string;
+    error_code: string;
+  };
+
+  constructor(
+    status: number,
+    detail: { 
+      message: string;
+      current_count: number;
+      limit: number;
+      tier_name: string;
+      error_code: string;
+      [key: string]: any;
+    },
+    message?: string,
+  ) {
+    super(message || detail.message || `Agent Count Limit Exceeded: ${status}`);
+    this.name = 'AgentCountLimitError';
+    this.status = status;
+    this.detail = detail;
+    Object.setPrototypeOf(this, AgentCountLimitError.prototype);
+  }
+}
+
 export class NoAccessTokenAvailableError extends Error {
   constructor(message?: string, options?: { cause?: Error }) {
     super(message || 'No access token available', options);
@@ -214,7 +244,6 @@ export const getProjects = async (): Promise<Project[]> => {
 
     // If no user is logged in, return an empty array
     if (!userData.user) {
-      console.log('[API] No user logged in, returning empty projects array');
       return [];
     }
 
@@ -238,8 +267,6 @@ export const getProjects = async (): Promise<Project[]> => {
       throw error;
     }
 
-    console.log('[API] Raw projects from DB:', data?.length, data);
-
     // Map database fields to our Project type
     const mappedProjects: Project[] = (data || []).map((project) => ({
       id: project.project_id,
@@ -255,8 +282,6 @@ export const getProjects = async (): Promise<Project[]> => {
         sandbox_url: '',
       },
     }));
-
-    console.log('[API] Mapped projects for frontend:', mappedProjects.length);
 
     return mappedProjects;
   } catch (err) {
@@ -285,8 +310,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
       throw error;
     }
 
-    console.log('Raw project data from database:', data);
-
     // If project has a sandbox, ensure it's started
     if (data.sandbox?.id) {
       // Fire off sandbox activation without blocking
@@ -305,7 +328,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
             headers['Authorization'] = `Bearer ${session.access_token}`;
           }
 
-          console.log(`Ensuring sandbox is active for project ${projectId}...`);
           const response = await fetch(
             `${API_URL}/project/${projectId}/sandbox/ensure-active`,
             {
@@ -322,8 +344,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
               `Failed to ensure sandbox is active: ${response.status} ${response.statusText}`,
               errorText,
             );
-          } else {
-            console.log('Sandbox activation successful');
           }
         } catch (sandboxError) {
           console.warn('Failed to ensure sandbox is active:', sandboxError);
@@ -349,8 +369,6 @@ export const getProject = async (projectId: string): Promise<Project> => {
         sandbox_url: '',
       },
     };
-
-    // console.log('Mapped project data for frontend:', mappedProject);
 
     return mappedProject;
   } catch (error) {
@@ -409,9 +427,6 @@ export const updateProject = async (
   data: Partial<Project>,
 ): Promise<Project> => {
   const supabase = createClient();
-
-  console.log('Updating project with ID:', projectId);
-  console.log('Update data:', data);
 
   // Sanity check to avoid update errors
   if (!projectId || projectId === '') {
@@ -497,7 +512,6 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
 
   // If no user is logged in, return an empty array
   if (!userData.user) {
-    console.log('[API] No user logged in, returning empty threads array');
     return [];
   }
 
@@ -507,7 +521,6 @@ export const getThreads = async (projectId?: string): Promise<Thread[]> => {
   query = query.eq('account_id', userData.user.id);
 
   if (projectId) {
-    console.log('[API] Filtering threads by project_id:', projectId);
     query = query.eq('project_id', projectId);
   }
 
@@ -644,8 +657,6 @@ export const getMessages = async (threadId: string): Promise<Message[]> => {
     }
   }
 
-  console.log('[API] Messages fetched count:', allMessages.length);
-
   return allMessages;
 };
 
@@ -676,10 +687,6 @@ export const startAgent = async (
         'Backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL in your environment.',
       );
     }
-
-    console.log(
-      `[API] Starting agent for thread ${threadId} using ${API_URL}/thread/${threadId}/agent/start`,
-    );
 
     const defaultOptions = {
       model_name: 'claude-3-7-sonnet-latest',
@@ -712,23 +719,15 @@ export const startAgent = async (
     });
 
     if (!response.ok) {
-      // Check for 402 Payment Required first
       if (response.status === 402) {
         try {
           const errorData = await response.json();
-          console.error(`[API] Billing error starting agent (402):`, errorData);
-          // Ensure detail exists and has a message property
           const detail = errorData?.detail || { message: 'Payment Required' };
           if (typeof detail.message !== 'string') {
-            detail.message = 'Payment Required'; // Default message if missing
+            detail.message = 'Payment Required';
           }
           throw new BillingError(response.status, detail);
         } catch (parseError) {
-          // Handle cases where parsing fails or the structure isn't as expected
-          console.error(
-            '[API] Could not parse 402 error response body:',
-            parseError,
-          );
           throw new BillingError(
             response.status,
             { message: 'Payment Required' },
@@ -737,11 +736,8 @@ export const startAgent = async (
         }
       }
 
-      // Check for 429 Too Many Requests (Agent Run Limit)
       if (response.status === 429) {
           const errorData = await response.json();
-          console.error(`[API] Agent run limit error starting agent (429):`, errorData);
-          // Ensure detail exists and has required properties
           const detail = errorData?.detail || { 
             message: 'Too many agent runs running',
             running_thread_ids: [],
@@ -759,13 +755,11 @@ export const startAgent = async (
           throw new AgentRunLimitError(response.status, detail);
       }
 
-      // Handle other errors
       const errorText = await response
         .text()
         .catch(() => 'No error details available');
       console.error(
         `[API] Error starting agent: ${response.status} ${response.statusText}`,
-        errorText,
       );
       throw new Error(
         `Error starting agent: ${response.statusText} (${response.status})`,
@@ -775,7 +769,6 @@ export const startAgent = async (
     const result = await response.json();
     return result;
   } catch (error) {
-    // Rethrow BillingError and AgentRunLimitError instances directly
     if (error instanceof BillingError || error instanceof AgentRunLimitError) {
       throw error;
     }
@@ -786,7 +779,6 @@ export const startAgent = async (
 
     console.error('[API] Failed to start agent:', error);
     
-    // Handle different error types with appropriate user messages
     if (
       error instanceof TypeError &&
       error.message.includes('Failed to fetch')
@@ -798,22 +790,16 @@ export const startAgent = async (
       throw networkError;
     }
 
-    // For other errors, add context and rethrow
     handleApiError(error, { operation: 'start agent', resource: 'AI assistant' });
     throw error;
   }
 };
 
 export const stopAgent = async (agentRunId: string): Promise<void> => {
-  // Add to non-running set immediately to prevent reconnection attempts
   nonRunningAgentRuns.add(agentRunId);
 
-  // Close any existing stream
   const existingStream = activeStreams.get(agentRunId);
   if (existingStream) {
-    console.log(
-      `[API] Closing existing stream for ${agentRunId} before stopping agent`,
-    );
     existingStream.close();
     activeStreams.delete(agentRunId);
   }
@@ -835,7 +821,6 @@ export const stopAgent = async (agentRunId: string): Promise<void> => {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    // Add cache: 'no-store' to prevent caching
     cache: 'no-store',
   });
 
@@ -849,13 +834,7 @@ export const stopAgent = async (agentRunId: string): Promise<void> => {
 };
 
 export const getAgentStatus = async (agentRunId: string): Promise<AgentRun> => {
-  console.log(`[API] Requesting agent status for ${agentRunId}`);
-
-  // If we already know this agent is not running, throw an error
   if (nonRunningAgentRuns.has(agentRunId)) {
-    console.log(
-      `[API] Agent run ${agentRunId} is known to be non-running, returning error`,
-    );
     throw new Error(`Agent run ${agentRunId} is not running`);
   }
 
@@ -871,13 +850,10 @@ export const getAgentStatus = async (agentRunId: string): Promise<AgentRun> => {
     }
 
     const url = `${API_URL}/agent-run/${agentRunId}`;
-    console.log(`[API] Fetching from: ${url}`);
-
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
-      // Add cache: 'no-store' to prevent caching
       cache: 'no-store',
     });
 
@@ -889,8 +865,6 @@ export const getAgentStatus = async (agentRunId: string): Promise<AgentRun> => {
         `[API] Error getting agent status: ${response.status} ${response.statusText}`,
         errorText,
       );
-
-      // If we get a 404, add to non-running set
       if (response.status === 404) {
         nonRunningAgentRuns.add(agentRunId);
       }
@@ -901,9 +875,6 @@ export const getAgentStatus = async (agentRunId: string): Promise<AgentRun> => {
     }
 
     const data = await response.json();
-    console.log(`[API] Successfully got agent status:`, data);
-
-    // If agent is not running, add to non-running set
     if (data.status !== 'running') {
       nonRunningAgentRuns.add(agentRunId);
     }
@@ -931,7 +902,6 @@ export const getAgentRuns = async (threadId: string): Promise<AgentRun[]> => {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
-      // Add cache: 'no-store' to prevent caching
       cache: 'no-store',
     });
 
@@ -960,43 +930,26 @@ export const streamAgent = (
     onClose: () => void;
   },
 ): (() => void) => {
-  console.log(`[STREAM] streamAgent called for ${agentRunId}`);
-
-  // Check if this agent run is known to be non-running
   if (nonRunningAgentRuns.has(agentRunId)) {
-    console.log(
-      `[STREAM] Agent run ${agentRunId} is known to be non-running, not creating stream`,
-    );
-    // Notify the caller immediately
     setTimeout(() => {
       callbacks.onError(`Agent run ${agentRunId} is not running`);
       callbacks.onClose();
     }, 0);
 
-    // Return a no-op cleanup function
     return () => {};
   }
 
-  // Check if there's already an active stream for this agent run
   const existingStream = activeStreams.get(agentRunId);
   if (existingStream) {
-    console.log(
-      `[STREAM] Stream already exists for ${agentRunId}, closing it first`,
-    );
     existingStream.close();
     activeStreams.delete(agentRunId);
   }
 
-  // Set up a new stream
   try {
     const setupStream = async () => {
-      // First verify the agent is actually running
       try {
         const status = await getAgentStatus(agentRunId);
         if (status.status !== 'running') {
-          console.log(
-            `[STREAM] Agent run ${agentRunId} is not running (status: ${status.status}), not creating stream`,
-          );
           nonRunningAgentRuns.add(agentRunId);
           callbacks.onError(
             `Agent run ${agentRunId} is not running (status: ${status.status})`,
@@ -1005,9 +958,6 @@ export const streamAgent = (
           return;
         }
       } catch (err) {
-        console.error(`[STREAM] Error verifying agent run ${agentRunId}:`, err);
-
-        // Check if this is a "not found" error
         const errorMessage = err instanceof Error ? err.message : String(err);
         const isNotFoundError =
           errorMessage.includes('not found') ||
@@ -1015,9 +965,6 @@ export const streamAgent = (
           errorMessage.includes('does not exist');
 
         if (isNotFoundError) {
-          console.log(
-            `[STREAM] Agent run ${agentRunId} not found, not creating stream`,
-          );
           nonRunningAgentRuns.add(agentRunId);
         }
 
@@ -1033,7 +980,6 @@ export const streamAgent = (
 
       if (!session?.access_token) {
         const authError = new NoAccessTokenAvailableError();
-        console.error('[STREAM] No auth token available');
         callbacks.onError(authError);
         callbacks.onClose();
         return;
@@ -1042,14 +988,11 @@ export const streamAgent = (
       const url = new URL(`${API_URL}/agent-run/${agentRunId}/stream`);
       url.searchParams.append('token', session.access_token);
 
-      console.log(`[STREAM] Creating EventSource for ${agentRunId}`);
       const eventSource = new EventSource(url.toString());
 
-      // Store the EventSource in the active streams map
       activeStreams.set(agentRunId, eventSource);
 
       eventSource.onopen = () => {
-        console.log(`[STREAM] Connection opened for ${agentRunId}`);
       };
 
       eventSource.onmessage = (event) => {
@@ -1057,14 +1000,8 @@ export const streamAgent = (
           const rawData = event.data;
           if (rawData.includes('"type": "ping"')) return;
 
-          // Log raw data for debugging (truncated for readability)
-          console.log(
-            `[STREAM] Received data for ${agentRunId}: ${rawData.substring(0, 100)}${rawData.length > 100 ? '...' : ''}`,
-          );
-
           // Skip empty messages
           if (!rawData || rawData.trim() === '') {
-            console.debug('[STREAM] Received empty message, skipping');
             return;
           }
 
@@ -1089,10 +1026,6 @@ export const streamAgent = (
             rawData.includes('Agent run') &&
             rawData.includes('not found in active runs')
           ) {
-            console.log(
-              `[STREAM] Agent run ${agentRunId} not found in active runs, closing stream`,
-            );
-
             // Add to non-running set to prevent future reconnection attempts
             nonRunningAgentRuns.add(agentRunId);
 
@@ -1112,15 +1045,8 @@ export const streamAgent = (
             rawData.includes('"type": "status"') &&
             rawData.includes('"status": "completed"')
           ) {
-            console.log(
-              `[STREAM] Detected completion status message for ${agentRunId}`,
-            );
-
             // Check for specific completion messages that indicate we should stop checking
             if (rawData.includes('Agent run completed successfully')) {
-              console.log(
-                `[STREAM] Detected final completion message for ${agentRunId}, adding to non-running set`,
-              );
               // Add to non-running set to prevent future reconnection attempts
               nonRunningAgentRuns.add(agentRunId);
             }
@@ -1141,10 +1067,6 @@ export const streamAgent = (
             rawData.includes('"type": "status"') &&
             rawData.includes('thread_run_end')
           ) {
-            console.log(
-              `[STREAM] Detected thread run end message for ${agentRunId}`,
-            );
-
             // Notify about the message
             callbacks.onMessage(rawData);
             return;
@@ -1159,23 +1081,15 @@ export const streamAgent = (
       };
 
       eventSource.onerror = (event) => {
-        console.log(`[STREAM] EventSource error for ${agentRunId}:`, event);
-
         // Check if the agent is still running
         getAgentStatus(agentRunId)
           .then((status) => {
             if (status.status !== 'running') {
-              console.log(
-                `[STREAM] Agent run ${agentRunId} is not running after error, closing stream`,
-              );
               nonRunningAgentRuns.add(agentRunId);
               eventSource.close();
               activeStreams.delete(agentRunId);
               callbacks.onClose();
             } else {
-              console.log(
-                `[STREAM] Agent run ${agentRunId} is still running after error, keeping stream open`,
-              );
               // Let the browser handle reconnection for non-fatal errors
             }
           })
@@ -1193,9 +1107,6 @@ export const streamAgent = (
               errMsg.includes('does not exist');
 
             if (isNotFoundErr) {
-              console.log(
-                `[STREAM] Agent run ${agentRunId} not found after error, closing stream`,
-              );
               nonRunningAgentRuns.add(agentRunId);
               eventSource.close();
               activeStreams.delete(agentRunId);
@@ -1213,10 +1124,8 @@ export const streamAgent = (
 
     // Return a cleanup function
     return () => {
-      console.log(`[STREAM] Cleanup called for ${agentRunId}`);
       const stream = activeStreams.get(agentRunId);
       if (stream) {
-        console.log(`[STREAM] Closing stream for ${agentRunId}`);
         stream.close();
         activeStreams.delete(agentRunId);
       }
@@ -1497,12 +1406,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
       return [];
     }
 
-    console.log(
-      '[API] Raw public projects from DB:',
-      projects?.length,
-      projects,
-    );
-
     // Map database fields to our Project type
     const mappedProjects: Project[] = (projects || []).map((project) => ({
       id: project.project_id,
@@ -1519,11 +1422,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
       },
       is_public: true, // Mark these as public projects
     }));
-
-    console.log(
-      '[API] Mapped public projects for frontend:',
-      mappedProjects.length,
-    );
 
     return mappedProjects;
   } catch (err) {
@@ -1553,10 +1451,6 @@ export const initiateAgent = async (
       );
     }
 
-    console.log(
-      `[API] Initiating agent with files using ${API_URL}/agent/initiate`,
-    );
-
     const response = await fetch(`${API_URL}/agent/initiate`, {
       method: 'POST',
       headers: {
@@ -1571,7 +1465,6 @@ export const initiateAgent = async (
       if (response.status === 402) {
         try {
           const errorData = await response.json();
-          console.error(`[API] Billing error initiating agent (402):`, errorData);
           // Ensure detail exists and has a message property
           const detail = errorData?.detail || { message: 'Payment Required' };
           if (typeof detail.message !== 'string') {
@@ -1580,10 +1473,6 @@ export const initiateAgent = async (
           throw new BillingError(response.status, detail);
         } catch (parseError) {
           // Handle cases where parsing fails or the structure isn't as expected
-          console.error(
-            '[API] Could not parse 402 error response body:',
-            parseError,
-          );
           throw new BillingError(
             response.status,
             { message: 'Payment Required' },
@@ -1595,7 +1484,6 @@ export const initiateAgent = async (
       // Check for 429 Too Many Requests (Agent Run Limit)
       if (response.status === 429) {
           const errorData = await response.json();
-          console.error(`[API] Agent run limit error initiating agent (429):`, errorData);
           // Ensure detail exists and has required properties
           const detail = errorData?.detail || { 
             message: 'Too many agent runs running',
@@ -1891,7 +1779,6 @@ export const createCheckoutSession = async (
     
     
     const requestBody = { ...request, tolt_referral: window.tolt_referral };
-    console.log('Tolt Referral ID:', requestBody.tolt_referral);
     
     const response = await fetch(`${API_URL}/billing/create-checkout-session`, {
       method: 'POST',
@@ -1916,9 +1803,6 @@ export const createCheckoutSession = async (
     }
 
     const data = await response.json();
-    console.log('Checkout session response:', data);
-
-    // Handle all possible statuses
     switch (data.status) {
       case 'upgraded':
       case 'updated':
@@ -2273,7 +2157,6 @@ export const transcribeAudio = async (audioFile: File): Promise<TranscriptionRes
         .catch(() => 'No error details available');
       console.error(
         `Error transcribing audio: ${response.status} ${response.statusText}`,
-        errorText,
       );
       throw new Error(
         `Error transcribing audio: ${response.statusText} (${response.status})`,
@@ -2290,32 +2173,4 @@ export const transcribeAudio = async (audioFile: File): Promise<TranscriptionRes
     handleApiError(error, { operation: 'transcribe audio', resource: 'speech-to-text' });
     throw error;
   }
-};
-
-export const getAgentBuilderChatHistory = async (agentId: string): Promise<{messages: Message[], thread_id: string | null}> => {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
-    throw new NoAccessTokenAvailableError();
-  }
-
-  const response = await fetch(`${API_URL}/agents/${agentId}/builder-chat-history`, {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'No error details available');
-    console.error(`Error getting agent builder chat history: ${response.status} ${response.statusText}`, errorText);
-    throw new Error(`Error getting agent builder chat history: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  console.log('[API] Agent builder chat history fetched:', data);
-
-  return data;
 };

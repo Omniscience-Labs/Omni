@@ -15,7 +15,6 @@ export function useVncPreloader(project: Project | null) {
     }
 
     isRetryingRef.current = true;
-    console.log(`[VNC PRELOADER] Attempt ${maxRetriesRef.current + 1}/10 - Starting VNC preload:`, vncUrl);
 
     // Create hidden iframe for preloading
     const iframe = document.createElement('iframe');
@@ -30,9 +29,6 @@ export function useVncPreloader(project: Project | null) {
 
     // Set a timeout to detect if iframe fails to load (for 502 errors)
     const loadTimeout = setTimeout(() => {
-      console.log('[VNC PRELOADER] Load timeout - VNC service likely not ready');
-      
-      // Clean up current iframe
       if (iframe.parentNode) {
         iframe.parentNode.removeChild(iframe);
       }
@@ -44,13 +40,10 @@ export function useVncPreloader(project: Project | null) {
         
         // Exponential backoff: 2s, 3s, 4.5s, 6.75s, etc. (max 15s)
         const delay = Math.min(2000 * Math.pow(1.5, maxRetriesRef.current - 1), 15000);
-        console.log(`[VNC PRELOADER] Retrying in ${delay}ms (attempt ${maxRetriesRef.current + 1}/10)`);
-        
         retryTimeoutRef.current = setTimeout(() => {
           startPreloading(vncUrl);
         }, delay);
       } else {
-        console.log('[VNC PRELOADER] Max retries reached, giving up on preloading');
         isRetryingRef.current = false;
       }
     }, 5000); // 5 second timeout
@@ -58,7 +51,6 @@ export function useVncPreloader(project: Project | null) {
     // Handle successful iframe load
     iframe.onload = () => {
       clearTimeout(loadTimeout);
-      console.log('[VNC PRELOADER] ✅ VNC iframe preloaded successfully!');
       isPreloadedRef.current = true;
       isRetryingRef.current = false;
       preloadedIframeRef.current = iframe;
@@ -67,7 +59,6 @@ export function useVncPreloader(project: Project | null) {
     // Handle iframe load errors
     iframe.onerror = () => {
       clearTimeout(loadTimeout);
-      console.log('[VNC PRELOADER] VNC iframe failed to load (onerror)');
       
       // Clean up current iframe
       if (iframe.parentNode) {
@@ -80,20 +71,17 @@ export function useVncPreloader(project: Project | null) {
         isRetryingRef.current = false;
         
         const delay = Math.min(2000 * Math.pow(1.5, maxRetriesRef.current - 1), 15000);
-        console.log(`[VNC PRELOADER] Retrying in ${delay}ms (attempt ${maxRetriesRef.current + 1}/10)`);
         
         retryTimeoutRef.current = setTimeout(() => {
           startPreloading(vncUrl);
         }, delay);
       } else {
-        console.log('[VNC PRELOADER] Max retries reached, giving up on preloading');
         isRetryingRef.current = false;
       }
     };
 
     // Add to DOM to start loading
     document.body.appendChild(iframe);
-    console.log('[VNC PRELOADER] VNC iframe added to DOM, waiting for load...');
   }, []);
 
   useEffect(() => {

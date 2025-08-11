@@ -54,19 +54,19 @@ export const MODELS = {
   // Premium/Paid tier models (require subscription) - except specific free models
   'moonshotai/kimi-k2': { 
     tier: 'free', 
-    priority: 99,
+    priority: 96,
     recommended: false,
     lowQuality: false
   },
   'grok-4': { 
     tier: 'premium', 
-    priority: 98,
+    priority: 94,
     recommended: false,
     lowQuality: false
   },
   'sonnet-3.7': { 
     tier: 'premium', 
-    priority: 97, 
+    priority: 93, 
     recommended: false,
     lowQuality: false
   },
@@ -76,21 +76,9 @@ export const MODELS = {
     recommended: false,
     lowQuality: false
   },
-  'gpt-4.1': { 
-    tier: 'premium', 
-    priority: 92,
-    recommended: false,
-    lowQuality: false
-  },
   'sonnet-3.5': { 
     tier: 'premium', 
     priority: 90,
-    recommended: false,
-    lowQuality: false
-  },
-  'gpt-4o': { 
-    tier: 'premium', 
-    priority: 88,
     recommended: false,
     lowQuality: false
   },
@@ -102,7 +90,7 @@ export const MODELS = {
   },
   'gpt-5-mini': { 
     tier: 'premium', 
-    priority: 88,
+    priority: 98,
     recommended: false,
     lowQuality: false
   },
@@ -308,18 +296,13 @@ export const useModelSelection = () => {
   // Initialize selected model from localStorage ONLY ONCE
   useEffect(() => {
     if (typeof window === 'undefined' || hasInitialized) return;
-    
-    console.log('Initializing model selection from localStorage...');
-    
     try {
       const savedModel = localStorage.getItem(STORAGE_KEY_MODEL);
-      console.log('Saved model from localStorage:', savedModel);
       
       // If we have a saved model, validate it's still available and accessible
       if (savedModel) {
         // Wait for models to load before validating
         if (isLoadingModels) {
-          console.log('Models still loading, waiting...');
           return;
         }
         
@@ -332,21 +315,15 @@ export const useModelSelection = () => {
             canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false);
           
           if (isAccessible) {
-            console.log('Using saved model:', savedModel);
             setSelectedModel(savedModel);
             setHasInitialized(true);
             return;
-          } else {
-            console.log('Saved model not accessible, falling back to default');
           }
-        } else {
-          console.log('Saved model not found in available models, falling back to default');
         }
       }
       
       // Fallback to default model
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
-      console.log('Using default model:', defaultModel);
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
@@ -362,8 +339,6 @@ export const useModelSelection = () => {
 
   // Handle model selection change
   const handleModelChange = (modelId: string) => {
-    console.log('handleModelChange called with:', modelId);
-    
     // Refresh custom models from localStorage to ensure we have the latest
     if (isLocalMode()) {
       refreshCustomModels();
@@ -393,7 +368,6 @@ export const useModelSelection = () => {
       return;
     }
     
-    console.log('Setting selected model and saving to localStorage:', modelId);
     setSelectedModel(modelId);
     saveModelPreference(modelId);
   };

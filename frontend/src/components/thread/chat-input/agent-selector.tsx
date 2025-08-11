@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, ChevronRight, Bot, Presentation, FileSpreadsheet, Search, Plus, User, Check, ChevronDown } from 'lucide-react';
-import Image from 'next/image';
+import { Settings, Bot, Search, Plus, Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
@@ -24,59 +22,38 @@ import { useRouter } from 'next/navigation';
 import { cn, truncateString } from '@/lib/utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 
-interface PredefinedAgent {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  category: 'productivity' | 'creative' | 'development';
-}
-
-const PREDEFINED_AGENTS: PredefinedAgent[] = [
-  // {
-  //   id: 'slides',
-  //   name: 'Slides',
-  //   description: 'Create stunning presentations and slide decks',
-  //   icon: <Presentation className="h-4 w-4" />,
-  //   category: 'productivity'
-  // },
-  // {
-  //   id: 'sheets',
-  //   name: 'Sheets',
-  //   description: 'Spreadsheet and data analysis expert',
-  //   icon: <FileSpreadsheet className="h-4 w-4" />,
-  //   category: 'productivity'
-  // }
-];
-
 interface AgentSelectorProps {
   selectedAgentId?: string;
   onAgentSelect?: (agentId: string | undefined) => void;
   disabled?: boolean;
   isSunaAgent?: boolean;
+  compact?: boolean;
 }
 
 export const AgentSelector: React.FC<AgentSelectorProps> = ({
   selectedAgentId,
   onAgentSelect,
   disabled = false,
-  isSunaAgent
+  isSunaAgent,
+  compact = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Fix hydration mismatch by ensuring component only renders after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: agentsResponse, isLoading: agentsLoading } = useAgents();
   const agents = agentsResponse?.agents || [];
 
   const allAgents = [
-    ...PREDEFINED_AGENTS.map(agent => ({
-      ...agent,
-      type: 'predefined' as const
-    })),
     ...agents.map((agent: any) => ({
       ...agent,
       id: agent.agent_id,
@@ -115,7 +92,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const getAgentDisplay = () => {
     const selectedAgent = allAgents.find(agent => agent.id === selectedAgentId);
     if (selectedAgent) {
-      console.log('Selected agent found:', selectedAgent.name, 'with ID:', selectedAgent.id);
       const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || false;
       return {
         name: selectedAgent.name,
@@ -124,7 +100,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     }
     
     if (selectedAgentId !== undefined) {
-      console.warn('Agent with ID', selectedAgentId, 'not found, falling back to Suna');
     }
     
     const defaultAgent = allAgents[0];
@@ -136,7 +111,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   };
 
   const handleAgentSelect = (agentId: string | undefined) => {
-    console.log('Agent selected:', agentId === undefined ? 'Suna (default)' : agentId);
     onAgentSelect?.(agentId);
     setIsOpen(false);
   };
@@ -242,6 +216,11 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
 
   const agentDisplay = getAgentDisplay();
 
+  // Don't render dropdown until after hydration to prevent ID mismatches
+  if (!mounted) {
+    return <div className="h-8 px-2.5 py-1.5" />; // Placeholder with same height
+  }
+
   return (
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -253,21 +232,27 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "px-2.5 py-1.5 text-sm font-normal hover:bg-accent/40 transition-all duration-200 rounded-xl",
+                    compact 
+                      ? "px-2 py-1 text-xs hover:bg-accent/40 transition-all duration-200 rounded-lg"
+                      : "px-2.5 py-1.5 text-sm font-normal hover:bg-accent/40 transition-all duration-200 rounded-xl",
                     "focus:ring-1 focus:ring-ring focus:ring-offset-1 focus:outline-none",
                     isOpen && "bg-accent/40"
                   )}
                   disabled={disabled}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
+                    <div className={cn("flex-shrink-0", compact && "scale-90")}>
                       {agentDisplay.icon}
                     </div>
-                    <span className="hidden sm:inline-block truncate max-w-[80px] font-normal">
+                    <span className={cn(
+                      compact 
+                        ? "truncate max-w-[60px] text-xs"
+                        : "hidden sm:inline-block truncate max-w-[80px] font-normal"
+                    )}>
                       {agentDisplay.name}
                     </span>
                     <ChevronDown 
-                      size={12} 
+                      size={compact ? 10 : 12} 
                       className={cn(
                         "opacity-50 transition-transform duration-200",
                         isOpen && "rotate-180"
@@ -282,16 +267,15 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
         <DropdownMenuContent
           align="end"
-          className="w-88 p-0 border-0 shadow-md bg-card/98 backdrop-blur-sm"
+          className="w-88 p-0 border-0 shadow-md bg-card/98 backdrop-blur-sm overflow-hidden h-[480px] flex flex-col"
           sideOffset={6}
           style={{
             borderRadius: '20px'
           }}
         >
-          <div className="p-4 pb-3">
+          <div className="flex-shrink-0 p-4 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
               <input
@@ -309,9 +293,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
               />
             </div>
           </div>
-
-          {/* Agent List */}
-          <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent px-1.5">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent px-1.5">
             {agentsLoading ? (
               <div className="px-4 py-6 text-sm text-muted-foreground/70 text-center">
                 <div className="animate-pulse">Loading agents...</div>
@@ -323,14 +305,12 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 <p className="text-xs mt-1 opacity-60">Try adjusting your search</p>
               </div>
             ) : (
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 pb-2">
                 {sortedFilteredAgents.map((agent, index) => renderAgentItem(agent, index))}
               </div>
             )}
           </div>
-
-          {/* Footer Actions */}
-          <div className="p-4 pt-3 border-t border-border/40">
+          <div className="flex-shrink-0 p-4 pt-3 border-t border-border/40">
             <div className="flex items-center justify-center gap-3">
               <Button
                 variant="ghost"
@@ -341,9 +321,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 <Search className="h-3.5 w-3.5" />
                 Explore All Agents
               </Button>
-
               <div className="w-px h-4 bg-border/60" />
-
               <Button
                 variant="ghost"
                 size="sm"
@@ -357,7 +335,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-      
       <NewAgentDialog 
         open={showNewAgentDialog} 
         onOpenChange={setShowNewAgentDialog}
