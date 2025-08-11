@@ -14,7 +14,6 @@ import Link from 'next/link';
 import { UserIcon } from 'lucide-react';
 import { signOut } from '@/app/auth/actions';
 import { useRouter } from 'next/navigation';
-import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 
 interface ClientUserAccountButtonProps {
   userName?: string;
@@ -28,7 +27,6 @@ export default function ClientUserAccountButton({
   const router = useRouter();
 
   const handleSignOut = async () => {
-    clearUserLocalStorage();
     await signOut();
     router.refresh();
   };
@@ -73,9 +71,6 @@ export default function ClientUserAccountButton({
               My Account
             </Link>
           </DropdownMenuItem>
-          {/* <DropdownMenuItem asChild className="rounded-md hover:bg-hover-bg cursor-pointer">
-                        <Link href="/settings" className="flex w-full h-full text-foreground/90">Settings</Link>
-                    </DropdownMenuItem> */}
           <DropdownMenuItem
             asChild
             className="rounded-md hover:bg-hover-bg cursor-pointer"
