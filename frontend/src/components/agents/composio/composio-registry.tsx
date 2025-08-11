@@ -399,6 +399,10 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
     setShowConnector(false);
     queryClient.invalidateQueries({ queryKey: ['composio', 'profiles'] });
     
+    if (currentAgentId) {
+      queryClient.invalidateQueries({ queryKey: ['agents', 'detail', currentAgentId] });
+    }
+    
     if (onToolsSelected) {
       onToolsSelected(profileId, [], appName, appSlug);
     }
@@ -429,7 +433,7 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
       }, {
         onSuccess: () => {
           toast.success(`Custom MCP "${customConfig.name}" added successfully`);
-          queryClient.invalidateQueries({ queryKey: ['agent', currentAgentId] });
+          queryClient.invalidateQueries({ queryKey: ['agents', 'detail', currentAgentId] });
           resolve();
         },
         onError: (error: any) => {
@@ -721,7 +725,7 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
           }}
           appLogo={selectedConnectedApp.toolkit.logo}
           onToolsUpdate={() => {
-            queryClient.invalidateQueries({ queryKey: ['agents', currentAgentId] });
+            queryClient.invalidateQueries({ queryKey: ['agents', 'detail', currentAgentId] });
           }}
         />
       )}
