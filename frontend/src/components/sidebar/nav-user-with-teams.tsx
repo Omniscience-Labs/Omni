@@ -295,7 +295,7 @@ export function NavUserWithTeams({
                   <DropdownMenuItem asChild>
                     <Link href="/settings/api-keys">
                       <Key className="h-4 w-4" />
-                      API Keys
+                      API Keys (Admin)
                     </Link>
                   </DropdownMenuItem>
                 )}

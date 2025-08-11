@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/components/AuthProvider';
 import { useGitHubStars } from '@/hooks/use-github-stars';
+import { useRouter, usePathname } from 'next/navigation';
 
 const INITIAL_WIDTH = '70rem';
 const MAX_WIDTH = '1000px';
@@ -62,6 +63,8 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
   const { formattedStars, loading: starsLoading } = useGitHubStars('kortix-ai', 'suna');
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
@@ -260,6 +263,14 @@ export function Navbar() {
                             }
                             
                             e.preventDefault();
+                            
+                            // If we're not on the homepage, redirect to homepage with the section
+                            if (pathname !== '/') {
+                              router.push(`/${item.href}`);
+                              setIsDrawerOpen(false);
+                              return;
+                            }
+                            
                             const element = document.getElementById(
                               item.href.substring(1),
                             );
@@ -267,7 +278,7 @@ export function Navbar() {
                             setIsDrawerOpen(false);
                           }}
                           className={`underline-offset-4 hover:text-primary/80 transition-colors ${
-                            activeSection === item.href.substring(1)
+                            (item.href.startsWith('#') && pathname === '/' && activeSection === item.href.substring(1)) || (item.href === pathname)
                               ? 'text-primary font-medium'
                               : 'text-primary/60'
                           }`}

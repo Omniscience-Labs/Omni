@@ -272,6 +272,7 @@ class Configuration:
     _MAX_PARALLEL_AGENT_RUNS_ENV: Optional[str] = None
     
     # Agent limits per billing tier
+    # Note: These limits are bypassed in local mode (ENV_MODE=local) where unlimited agents are allowed
     AGENT_LIMITS = {
         'free': 2,
         'tier_2_20': 5,
