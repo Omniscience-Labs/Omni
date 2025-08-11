@@ -113,8 +113,8 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        'sticky z-50 mx-4 flex justify-center transition-all duration-300 md:mx-0',
-        hasScrolled ? 'top-6' : 'top-4 mx-0',
+        'sticky z-50 flex justify-center transition-all duration-300',
+        hasScrolled ? 'top-6 mx-4 md:mx-0' : 'top-4 mx-2 md:mx-0',
       )}
     >
       <motion.div
@@ -124,34 +124,35 @@ export function Navbar() {
       >
         <div
           className={cn(
-            'mx-auto max-w-7xl rounded-2xl transition-all duration-300  xl:px-0',
+            'mx-auto max-w-7xl rounded-2xl transition-all duration-300 xl:px-0',
             hasScrolled
-              ? 'px-2 border border-border backdrop-blur-lg bg-background/75'
-              : 'shadow-none px-7',
+              ? 'px-2 md:px-2 border border-border backdrop-blur-lg bg-background/75'
+              : 'shadow-none px-3 md:px-7',
           )}
         >
-          <div className="flex h-[56px] items-center p-4">
+          <div className="flex h-[56px] items-center p-2 md:p-4">
             {/* Left Section - Logo */}
-            <div className="flex items-center justify-start" style={{ width: '200px' }}>
+            <div className="flex items-center justify-start flex-shrink-0 w-auto md:w-[200px]">
               <Link href="/" className="flex items-center gap-3">
                 <Image
                   src={logoSrc}
                   alt="Kortix Logo"
-                  width={100}
-                  height={18}
+                  width={80}
+                  height={14}
+                  className="md:w-[100px] md:h-[18px]"
                   priority
                 /> 
               </Link>
             </div>
 
             {/* Center Section - Navigation Menu */}
-            <div className="flex items-center justify-center flex-grow">
+            <div className="hidden md:flex items-center justify-center flex-grow">
               <NavMenu />
             </div>
 
             {/* Right Section - Actions */}
-            <div className="flex items-center justify-end" style={{ width: '200px' }}>
-              <div className="flex flex-row items-center gap-1 md:gap-3 shrink-0">
+            <div className="flex items-center justify-end flex-shrink-0 w-auto md:w-[200px] ml-auto">
+              <div className="flex flex-row items-center gap-2 md:gap-3 shrink-0">
                 <div className="flex items-center space-x-3">
                   <Link
                     href="https://github.com/kortix-ai/suna"

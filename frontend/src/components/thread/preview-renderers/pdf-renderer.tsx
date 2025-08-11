@@ -1,18 +1,53 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
-import { Document, Page, pdfjs } from 'react-pdf';
+import '@/lib/polyfills'; // Import polyfill for Promise.withResolvers
 
 // Import styles for annotations and text layer
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure PDF.js worker (same as main PDF renderer)
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-).toString();
+// Internal component that uses react-pdf
+interface PdfDocumentProps {
+    url: string;
+    containerWidth: number | null;
+}
+
+const PdfDocument = ({ url, containerWidth }: PdfDocumentProps) => {
+    const { Document, Page, pdfjs } = require('react-pdf');
+    
+    // Configure PDF.js worker
+    React.useEffect(() => {
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url,
+        ).toString();
+    }, [pdfjs]);
+
+    return (
+        <Document file={url} className="shadow-none">
+            <Page
+                pageNumber={1}
+                width={containerWidth ?? undefined}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="border border-border rounded bg-white"
+            />
+        </Document>
+    );
+};
+
+// Dynamic import to avoid SSR issues
+const DynamicPdfDocument = dynamic(() => Promise.resolve(PdfDocument), {
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-full flex items-center justify-center bg-muted/20">
+            <div className="text-sm text-muted-foreground">Loading PDF...</div>
+        </div>
+    )
+});
 
 interface PdfRendererProps {
     url?: string | null;
@@ -43,15 +78,7 @@ export function PdfRenderer({ url, className }: PdfRendererProps) {
     return (
         <div ref={wrapperRef} className={cn('w-full h-full overflow-auto bg-background', className)}>
             <div className="flex justify-center">
-                <Document file={url} className="shadow-none">
-                    <Page
-                        pageNumber={1}
-                        width={containerWidth ?? undefined}
-                        renderTextLayer={true}
-                        renderAnnotationLayer={true}
-                        className="border border-border rounded bg-white"
-                    />
-                </Document>
+                <DynamicPdfDocument url={url} containerWidth={containerWidth} />
             </div>
         </div>
     );
