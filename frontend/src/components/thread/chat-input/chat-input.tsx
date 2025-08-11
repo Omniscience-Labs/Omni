@@ -153,10 +153,11 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 
-    // Fetch actual integration icons
-    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: true });
-    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: true });
-    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: true });
+    // Fetch integration icons only when logged in and advanced config UI is in use
+    const shouldFetchIcons = isLoggedIn && !!enableAdvancedConfig;
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: shouldFetchIcons });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: shouldFetchIcons });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: shouldFetchIcons });
 
     // Show usage preview logic:
     // - Always show to free users when showToLowCreditUsers is true
