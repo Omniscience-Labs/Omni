@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Trash2, Copy, Shield } from 'lucide-react';
+import { Key, Plus, Trash2, Copy, Shield, ExternalLink, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -244,6 +244,46 @@ export default function APIKeysPage() {
             Manage your API keys for programmatic access to Suna
           </p>
         </div>
+
+        {/* SDK Beta Notice */}
+        <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 dark:from-blue-950/20 dark:to-indigo-950/10 dark:border-blue-800/30">
+          <CardContent className="">
+            <div className="flex items-start gap-4">
+              <div className="relative">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-600/10 border border-blue-500/20">
+                  <Sparkles className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="absolute -top-1 -right-1">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                    Beta
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                    Suna SDK & API
+                  </h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Our SDK and API are currently in beta. Use these API keys to integrate with our 
+                    programmatic interface for building custom applications and automations.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <a 
+                    href="https://github.com/kortix-ai/suna/tree/main/sdk" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  >
+                    <span>View SDK Documentation</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Header Actions */}
         <div className="flex justify-between items-center">

@@ -499,8 +499,8 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
       <div className="flex-1 h-full overflow-hidden">
         <div className="h-full flex flex-col">
           <div className="flex-shrink-0 border-b p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1 min-w-0 pr-4">
                 <h2 className="text-xl font-semibold">
                   {mode === 'profile-only' ? 'Connect New App' : 'App Integrations'}
                 </h2>
@@ -511,53 +511,69 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
                   }
                 </p>
               </div>
+              <div className="flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  {/* {showAgentSelector && (
+                    <AgentSelector
+                      selectedAgentId={currentAgentId}
+                      onAgentSelect={handleAgentSelect}
+                      isSunaAgent={agent?.metadata?.is_suna_default}
+                    />
+                  )} */}
+
+                  {onClose && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={onClose}
+                      className="p-2"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
-                {/* {showAgentSelector && (
-                  <AgentSelector
-                    selectedAgentId={currentAgentId}
-                    onAgentSelect={handleAgentSelect}
-                    isSunaAgent={agent?.metadata?.is_suna_default}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search apps..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
                   />
-                )} */}
+                </div>
                 {mode !== 'profile-only' && currentAgentId && (
                   <Button 
                     variant="outline" 
-                    size="sm"
                     onClick={() => setShowCustomMCPDialog(true)}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 whitespace-nowrap h-10"
                   >
                     <Server className="h-4 w-4" />
                     Add Custom MCP
                   </Button>
                 )}
               </div>
-            </div>
-            
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search apps..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
 
-            {selectedCategory && (
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-xs text-muted-foreground">Filtered by:</span>
-                <Badge variant="outline" className="gap-1 bg-muted-foreground/20 text-muted-foreground">
-                  <span>{CATEGORY_EMOJIS[selectedCategory] || '📁'}</span>
-                  <span>{categories.find(c => c.id === selectedCategory)?.name}</span>
-                  <button
-                    onClick={() => setSelectedCategory('')}
-                    className="ml-1 hover:bg-muted rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              </div>
-            )}
+              {selectedCategory && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Filtered by:</span>
+                  <Badge variant="outline" className="gap-1 bg-muted-foreground/20 text-muted-foreground">
+                    <span>{CATEGORY_EMOJIS[selectedCategory] || '📁'}</span>
+                    <span>{categories.find(c => c.id === selectedCategory)?.name}</span>
+                    <button
+                      onClick={() => setSelectedCategory('')}
+                      className="ml-1 hover:bg-muted rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-hidden">
@@ -659,7 +675,7 @@ export const ComposioRegistry: React.FC<ComposioRegistryProps> = ({
                             variant="outline"
                             onClick={() => fetchNextPage()}
                             disabled={isFetchingNextPage}
-                            className="px-8"
+
                           >
                             {isFetchingNextPage ? (
                               <>
