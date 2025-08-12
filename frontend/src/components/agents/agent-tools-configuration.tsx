@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
 import { toast } from 'sonner';
@@ -61,7 +62,19 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search tools..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Tools List with Scrolling */}
+      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
           {getFilteredTools().map(([toolName, toolInfo]) => (
             <div 
               key={toolName} 
@@ -91,21 +104,21 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
               </div>
             </div>
           ))}
+          
+          {getFilteredTools().length === 0 && (
+            <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h4 className="text-sm font-semibold text-foreground mb-2">
+                No tools found
+              </h4>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                Try adjusting your search criteria
+              </p>
+            </div>
+          )}
       </div>
-
-      {getFilteredTools().length === 0 && (
-        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-            <Search className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <h4 className="text-sm font-semibold text-foreground mb-2">
-            No tools found
-          </h4>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Try adjusting your search criteria
-          </p>
-        </div>
-      )}
     </div>
   );
 }; 
