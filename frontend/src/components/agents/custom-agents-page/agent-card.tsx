@@ -173,7 +173,7 @@ const TemplateMetadata: React.FC<{ data: TemplateData }> = ({ data }) => (
 
 const AgentMetadata: React.FC<{ data: AgentData }> = ({ data }) => (
   <div className="space-y-1 text-xs text-muted-foreground">
-    {data.is_public && data.marketplace_published_at && data.download_count && data.download_count > 0 && (
+    {data.is_public && data.marketplace_published_at && data.download_count != null && data.download_count > 0 && (
       <div className="flex items-center gap-1">
         <Download className="h-3 w-3" />
         <span>{data.download_count} downloads</span>
