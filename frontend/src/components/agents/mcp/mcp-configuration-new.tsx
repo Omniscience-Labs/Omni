@@ -17,7 +17,8 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   agentId,
   versionData,
   saveMode = 'direct',
-  versionId
+  versionId,
+  isLoading = false
 }) => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [showRegistryDialog, setShowRegistryDialog] = useState(false);
