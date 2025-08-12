@@ -49,20 +49,21 @@ class TemplateResponse(BaseModel):
     template_id: str
     creator_id: str
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     tags: List[str]
     is_public: bool
+    marketplace_published_at: Optional[str] = None
     download_count: int
-    marketplace_published_at: Optional[str]
     created_at: str
     updated_at: str
-    creator_name: Optional[str] = None
     avatar: Optional[str]
     avatar_color: Optional[str]
-    metadata: Dict[str, Any] = {}
+    profile_image_url: Optional[str] = None
+    metadata: Dict[str, Any]
+    creator_name: Optional[str] = None
 
 
 class InstallationResponse(BaseModel):

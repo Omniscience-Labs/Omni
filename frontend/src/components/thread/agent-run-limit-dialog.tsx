@@ -3,17 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import { AlertTriangle, ExternalLink, X, Square, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { UpgradeDialog } from '@/components/ui/upgrade-dialog';
 import Link from 'next/link';
 import { useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
 import { AgentRun, getAgentRuns } from '@/lib/api';
@@ -245,84 +238,75 @@ export const AgentRunLimitDialog: React.FC<AgentRunLimitDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+    <UpgradeDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={AlertTriangle}
+      title="Parallel Runs Limit Reached"
+      description="You've reached the maximum parallel agent runs allowed."
+      theme="warning"
+      size="sm"
+      actions={[
+        {
+          label: "Got it",
+          onClick: handleClose,
+          variant: "outline"
+        }
+      ]}
+    >
+      {(runningThreadIds.length > 0 || runningCount > 0) && (
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
-            <DialogTitle className="text-lg font-semibold">
-              Parallel Runs Limit Reached
-            </DialogTitle>
+            <h4 className="text-sm font-medium">Currently Running Agents</h4>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground">
-            You've reached the maximum parallel agent runs allowed.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {(runningThreadIds.length > 0 || runningCount > 0) && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-medium">Currently Running Agents</h4>
-              </div>
+          
+          {isLoadingThreads ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading threads...</span>
+            </div>
+          ) : runningThreadIds.length === 0 ? (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              <p>Found {runningCount} running agents but unable to load thread details.</p>
+              <p className="text-xs mt-1">Thread IDs: {JSON.stringify(runningThreadIds)}</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {runningThreadsInfo.slice(0, 5).map((threadInfo) => (
+                <RunningThreadItem
+                  key={threadInfo.threadId}
+                  threadInfo={threadInfo}
+                  onThreadStopped={handleThreadStopped}
+                />
+              ))}
               
-              {isLoadingThreads ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="ml-2 text-sm text-muted-foreground">Loading threads...</span>
-                </div>
-              ) : runningThreadIds.length === 0 ? (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  <p>Found {runningCount} running agents but unable to load thread details.</p>
-                  <p className="text-xs mt-1">Thread IDs: {JSON.stringify(runningThreadIds)}</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {runningThreadsInfo.slice(0, 5).map((threadInfo) => (
-                    <RunningThreadItem
-                      key={threadInfo.threadId}
-                      threadInfo={threadInfo}
-                      onThreadStopped={handleThreadStopped}
-                    />
-                  ))}
-                  
-                  {runningThreadsInfo.length > 5 && (
-                    <div className="text-center py-2">
-                      <Badge variant="outline" className="text-xs">
-                        +{runningThreadsInfo.length - 5} more running
-                      </Badge>
-                    </div>
-                  )}
+              {runningThreadsInfo.length > 5 && (
+                <div className="text-center py-2">
+                  <Badge variant="outline" className="text-xs">
+                    +{runningThreadsInfo.length - 5} more running
+                  </Badge>
                 </div>
               )}
             </div>
           )}
-
-          <Separator />
-
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">What can you do?</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
-                <span>Click the <Square className="h-3 w-3 inline mx-1" /> button to stop running agents</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
-                <span>Wait for an agent to complete automatically</span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={handleClose}>
-              Got it
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+
+      <Separator />
+
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium">What can you do?</h4>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
+            <span>Click the <Square className="h-3 w-3 inline mx-1" /> button to stop running agents</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
+            <span>Wait for an agent to complete automatically</span>
+          </li>
+        </ul>
+      </div>
+    </UpgradeDialog>
   );
 };

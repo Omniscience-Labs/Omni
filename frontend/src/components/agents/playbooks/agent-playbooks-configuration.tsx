@@ -58,11 +58,7 @@ export function AgentPlaybooksConfiguration({ agentId, agentName }: AgentPlayboo
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-sm font-medium text-foreground">Playbooks</h3>
-                    <p className="text-xs text-muted-foreground">Simple variable-driven runs</p>
-                </div>
+            <div className="flex items-center justify-start">
                 <Button onClick={() => { setEditing(null); setIsCreateOpen(true); }} size="sm" className="gap-2">
                     <Plus className="h-4 w-4" />
                     New Playbook

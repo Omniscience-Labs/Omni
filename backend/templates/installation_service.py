@@ -323,6 +323,7 @@ class InstallationService:
             'description': template.description,
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
+            'profile_image_url': template.profile_image_url,
             'metadata': {
                 **template.metadata,
                 'created_from_template': template.template_id,

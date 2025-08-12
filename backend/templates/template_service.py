@@ -43,6 +43,8 @@ class AgentTemplate:
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
+    # New field for profile image url
+    profile_image_url: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
     
@@ -172,6 +174,7 @@ class TemplateService:
             marketplace_published_at=datetime.now(timezone.utc) if make_public else None,
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
+            profile_image_url=agent.get('profile_image_url'),
             metadata=agent.get('metadata', {})
         )
         
@@ -484,6 +487,7 @@ class TemplateService:
             'updated_at': template.updated_at.isoformat(),
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
+            'profile_image_url': template.profile_image_url,
             'metadata': template.metadata
         }
         
@@ -506,6 +510,7 @@ class TemplateService:
             updated_at=datetime.fromisoformat(data['updated_at'].replace('Z', '+00:00')),
             avatar=data.get('avatar'),
             avatar_color=data.get('avatar_color'),
+            profile_image_url=data.get('profile_image_url'),
             metadata=data.get('metadata', {}),
             creator_name=creator_name
         )

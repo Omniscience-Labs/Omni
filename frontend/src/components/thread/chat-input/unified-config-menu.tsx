@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { PlaybookExecuteDialog } from '@/components/playbooks/playbook-execute-dialog';
+import { AgentAvatar } from '@/components/thread/content/agent-avatar';
 
 type UnifiedConfigMenuProps = {
     isLoggedIn?: boolean;
@@ -48,6 +49,7 @@ type UnifiedConfigMenuProps = {
 };
 
 const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
+    isLoggedIn = true,
     selectedAgentId,
     onAgentSelect,
     selectedModel,
@@ -68,13 +70,16 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     const [dialogInitialData, setDialogInitialData] = useState<CustomModelFormData>({ id: '', label: '' });
     const [customModels, setCustomModels] = useState<Array<{ id: string; label: string }>>([]);
 
-    const { data: agentsResponse } = useAgents({}, { enabled: true });
+    const { data: agentsResponse } = useAgents({}, { enabled: isLoggedIn });
     const agents: any[] = agentsResponse?.agents || [];
 
-    // Quick integrations icons
-    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: true });
-    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: true });
-    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: true });
+
+
+    // Only fetch integration icons when authenticated AND the menu is open
+    const iconsEnabled = isLoggedIn && isOpen;
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: iconsEnabled });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: iconsEnabled });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: iconsEnabled });
 
     useEffect(() => {
         if (isOpen) {
@@ -209,18 +214,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
     // combinedModels defined earlier
 
     const renderAgentIcon = (agent: any) => {
-        const isSuna = agent?.metadata?.is_suna_default;
-        if (isSuna) return <KortixLogo size={16} />;
-        if (agent?.avatar) return (
-            // avatar can be URL or emoji string – handle both without extra chrome
-            typeof agent.avatar === 'string' && agent.avatar.startsWith('http') ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={agent.avatar} alt={agent.name} className="h-4 w-4 rounded-sm object-cover" />
-            ) : (
-                <span className="text-base leading-none">{agent.avatar}</span>
-            )
-        );
-        return <KortixLogo size={16} />;
+        return <AgentAvatar agentId={agent?.agent_id} size={16} className="h-4 w-4" fallbackName={agent?.name} />;
     };
 
     const displayAgent = useMemo(() => {
@@ -228,7 +222,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
         return found;
     }, [agents, selectedAgentId]);
 
-    const currentAgentIdForPlaybooks = displayAgent?.agent_id || '';
+    const currentAgentIdForPlaybooks = isLoggedIn ? displayAgent?.agent_id || '' : '';
     const { data: playbooks = [], isLoading: playbooksLoading } = useAgentWorkflows(currentAgentIdForPlaybooks);
     const [playbooksExpanded, setPlaybooksExpanded] = useState(true);
 

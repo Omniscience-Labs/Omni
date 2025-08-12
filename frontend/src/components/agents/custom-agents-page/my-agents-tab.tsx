@@ -152,7 +152,7 @@ export const MyAgentsTab = ({
     <div className="space-y-6 mt-8 flex flex-col min-h-full">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
         <SearchBar
-          placeholder="Search your agents..."
+          placeholder="Search agents..."
           value={agentsSearchQuery}
           onChange={setAgentsSearchQuery}
         />

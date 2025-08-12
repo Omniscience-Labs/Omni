@@ -38,6 +38,7 @@ import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog'
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { CustomAgentsSection } from './custom-agents-section';
 import { toast } from 'sonner';
+import { ReleaseBadge } from '../auth/release-badge';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -89,12 +90,18 @@ export function DashboardContent() {
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
-  // Initialize agent selection from agents list
   useEffect(() => {
+    console.log('🚀 Dashboard effect:', { 
+      agentsLength: agents.length, 
+      selectedAgentId, 
+      agents: agents.map(a => ({ id: a.agent_id, name: a.name, isDefault: a.metadata?.is_suna_default })) 
+    });
+    
     if (agents.length > 0) {
-      initializeFromAgents(agents);
+      console.log('📞 Calling initializeFromAgents');
+      initializeFromAgents(agents, undefined, setSelectedAgent);
     }
-  }, [agents, initializeFromAgents]);
+  }, [agents, initializeFromAgents, setSelectedAgent]);
 
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');
@@ -231,6 +238,11 @@ export function DashboardContent() {
               </TooltipTrigger>
               <TooltipContent>Open menu</TooltipContent>
             </Tooltip>
+          </div>
+        )}
+        {customAgentsEnabled && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+            <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
           </div>
         )}
         <div className={cn(

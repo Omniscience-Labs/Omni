@@ -105,10 +105,6 @@ export const MCPConfigurationNew: React.FC<MCPConfigurationProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-foreground">Integrations</h3>
-          <p className="text-xs text-muted-foreground">Connect external services via MCPs</p>
-        </div>
         <div className="flex gap-2">
           <Button onClick={() => setShowRegistryDialog(true)} size="sm" variant="default" className="gap-2">
             <Store className="h-4 w-4" />

@@ -71,9 +71,6 @@ export default function ClientUserAccountButton({
               My Account
             </Link>
           </DropdownMenuItem>
-          {/* <DropdownMenuItem asChild className="rounded-md hover:bg-hover-bg cursor-pointer">
-                        <Link href="/settings" className="flex w-full h-full text-foreground/90">Settings</Link>
-                    </DropdownMenuItem> */}
           <DropdownMenuItem
             asChild
             className="rounded-md hover:bg-hover-bg cursor-pointer"

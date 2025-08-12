@@ -9,6 +9,7 @@ import { AttachmentGroup } from './attachment-group';
 import { HtmlRenderer } from './preview-renderers/html-renderer';
 import { MarkdownRenderer } from './preview-renderers/markdown-renderer';
 import { CsvRenderer } from './preview-renderers/csv-renderer';
+import { PdfRenderer as PdfPreviewRenderer } from './preview-renderers/pdf-renderer';
 import { useFileContent, useImageContent } from '@/hooks/react-query/files';
 import { useAuth } from '@/components/AuthProvider';
 import { Project } from '@/lib/api';
@@ -192,10 +193,11 @@ export function FileAttachment({
     const isImage = fileType === 'image';
     const isHtmlOrMd = extension === 'html' || extension === 'htm' || extension === 'md' || extension === 'markdown';
     const isCsv = extension === 'csv' || extension === 'tsv';
+    const isPdf = extension === 'pdf';
     const isGridLayout = customStyle?.gridColumn === '1 / -1' || Boolean(customStyle && ('--attachment-height' in customStyle));
     // Define isInlineMode early, before any hooks
     const isInlineMode = !isGridLayout;
-    const shouldShowPreview = (isHtmlOrMd || isCsv) && showPreview && collapsed === false;
+    const shouldShowPreview = (isHtmlOrMd || isCsv || isPdf) && showPreview && collapsed === false;
 
     // Use the React Query hook to fetch file content
     const {
@@ -203,8 +205,8 @@ export function FileAttachment({
         isLoading: fileContentLoading,
         error: fileContentError
     } = useFileContent(
-        shouldShowPreview ? sandboxId : undefined,
-        shouldShowPreview ? filepath : undefined
+        (isHtmlOrMd || isCsv) && shouldShowPreview ? sandboxId : undefined,
+        (isHtmlOrMd || isCsv) && shouldShowPreview ? filepath : undefined
     );
 
     // Use the React Query hook to fetch image content with authentication
@@ -217,12 +219,22 @@ export function FileAttachment({
         isImage && showPreview ? filepath : undefined
     );
 
+    // For PDFs we also fetch blob URL via the same binary hook used for images
+    const {
+        data: pdfBlobUrl,
+        isLoading: pdfLoading,
+        error: pdfError
+    } = useImageContent(
+        isPdf && shouldShowPreview && sandboxId ? sandboxId : undefined,
+        isPdf && shouldShowPreview ? filepath : undefined
+    );
+
     // Set error state based on query errors
     React.useEffect(() => {
-        if (fileContentError || imageError) {
+        if (fileContentError || imageError || pdfError) {
             setHasError(true);
         }
-    }, [fileContentError, imageError]);
+    }, [fileContentError, imageError, pdfError]);
 
     const handleClick = () => {
         if (onClick) {
@@ -376,7 +388,7 @@ export function FileAttachment({
         'tsv': CsvRenderer
     };
 
-    // HTML/MD/CSV preview when not collapsed and in grid layout
+    // HTML/MD/CSV/PDF preview when not collapsed and in grid layout
     if (shouldShowPreview && isGridLayout) {
         // Determine the renderer component
         const Renderer = rendererMap[extension as keyof typeof rendererMap];
@@ -388,7 +400,7 @@ export function FileAttachment({
                     "border",
                     "bg-card",
                     "overflow-hidden",
-                    "h-[300px]", // Fixed height for previews
+                    isPdf ? "h-[500px]" : "h-[300px]",
                     "pt-10", // Room for header
                     className
                 )}
@@ -401,20 +413,25 @@ export function FileAttachment({
             >
                 {/* Content area */}
                 <div className="h-full w-full relative">
-                    {/* Only show content if we have it and no errors */}
-                    {!hasError && fileContent && (
+                    {/* Render PDF or text-based previews */}
+                    {!hasError && (
                         <>
-                            {Renderer ? (
+                            {isPdf && (() => {
+                                const pdfUrlForRender = localPreviewUrl || (sandboxId ? (pdfBlobUrl ?? null) : fileUrl);
+                                return pdfUrlForRender ? (
+                                    <PdfPreviewRenderer
+                                        url={pdfUrlForRender}
+                                        className="h-full w-full"
+                                    />
+                                ) : null;
+                            })()}
+                            {!isPdf && fileContent && Renderer && (
                                 <Renderer
                                     content={fileContent}
                                     previewUrl={fileUrl}
                                     className="h-full w-full"
                                     project={project}
                                 />
-                            ) : (
-                                <div className="p-4 text-muted-foreground">
-                                    No preview available for this file type
-                                </div>
                             )}
                         </>
                     )}
@@ -440,14 +457,20 @@ export function FileAttachment({
                     )}
 
                     {/* Loading state */}
-                    {fileContentLoading && (
+                    {fileContentLoading && !isPdf && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        </div>
+                    )}
+
+                    {isPdf && pdfLoading && !pdfBlobUrl && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
                             <Loader2 className="h-6 w-6 text-primary animate-spin" />
                         </div>
                     )}
 
                     {/* Empty content state - show when not loading and no content yet */}
-                    {!fileContent && !fileContentLoading && !hasError && (
+                    {!isPdf && !fileContent && !fileContentLoading && !hasError && (
                         <div className="h-full w-full flex flex-col items-center justify-center p-4 pointer-events-none">
                             <div className="text-muted-foreground text-sm mb-2">
                                 Preview available

@@ -27,6 +27,7 @@ export function KortixLogo({ size = 24 }: KortixLogoProps) {
         width={size}
         height={size}
         className={`${shouldInvert ? 'invert' : ''} flex-shrink-0`}
+        style={{ width: size, height: size, minWidth: size, minHeight: size }}
       />
   );
 }

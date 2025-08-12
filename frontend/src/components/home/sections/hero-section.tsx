@@ -233,9 +233,9 @@ export function HeroSection() {
 
   return (
     <section id="hero" className="w-full relative overflow-hidden">
-      <div className="relative flex flex-col items-center w-full px-6">
+      <div className="relative flex flex-col items-center w-full px-4 sm:px-6">
         {/* Left side flickering grid with gradient fades */}
-        <div className="absolute left-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
+        <div className="hidden sm:block absolute left-0 top-0 h-[500px] sm:h-[600px] md:h-[800px] w-1/4 sm:w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from left to right */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-10" />
 
@@ -245,18 +245,20 @@ export function HeroSection() {
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
 
-          <FlickeringGrid
-            className="h-full w-full"
-            squareSize={mounted && tablet ? 2 : 2.5}
-            gridGap={mounted && tablet ? 2 : 2.5}
-            color="var(--secondary)"
-            maxOpacity={0.4}
-            flickerChance={isScrolling ? 0.01 : 0.03} // Low flickering when not scrolling
-          />
+          {mounted && (
+            <FlickeringGrid
+              className="h-full w-full"
+              squareSize={tablet ? 2 : 2.5}
+              gridGap={tablet ? 2 : 2.5}
+              color="var(--secondary)"
+              maxOpacity={tablet ? 0.2 : 0.4}
+              flickerChance={isScrolling ? 0.005 : (tablet ? 0.015 : 0.03)} // Lower performance impact on mobile
+            />
+          )}
         </div>
 
         {/* Right side flickering grid with gradient fades */}
-        <div className="absolute right-0 top-0 h-[600px] md:h-[800px] w-1/3 -z-10 overflow-hidden">
+        <div className="hidden sm:block absolute right-0 top-0 h-[500px] sm:h-[600px] md:h-[800px] w-1/4 sm:w-1/3 -z-10 overflow-hidden">
           {/* Horizontal fade from right to left */}
           <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-background z-10" />
 
@@ -266,20 +268,22 @@ export function HeroSection() {
           {/* Vertical fade to bottom */}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-10" />
 
-          <FlickeringGrid
-            className="h-full w-full"
-            squareSize={mounted && tablet ? 2 : 2.5}
-            gridGap={mounted && tablet ? 2 : 2.5}
-            color="var(--secondary)"
-            maxOpacity={0.4}
-            flickerChance={isScrolling ? 0.01 : 0.03} // Low flickering when not scrolling
-          />
+          {mounted && (
+            <FlickeringGrid
+              className="h-full w-full"
+              squareSize={tablet ? 2 : 2.5}
+              gridGap={tablet ? 2 : 2.5}
+              color="var(--secondary)"
+              maxOpacity={tablet ? 0.2 : 0.4}
+              flickerChance={isScrolling ? 0.005 : (tablet ? 0.015 : 0.03)} // Lower performance impact on mobile
+            />
+          )}
         </div>
 
         {/* Center content background with rounded bottom */}
-        <div className="absolute inset-x-1/4 top-0 h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
+        <div className="absolute inset-x-0 sm:inset-x-1/6 md:inset-x-1/4 top-0 h-[500px] sm:h-[600px] md:h-[800px] -z-20 bg-background rounded-b-xl"></div>
 
-        <div className="relative z-10 pt-32 mx-auto h-full w-full max-w-6xl flex flex-col  items-center justify-center">
+        <div className="relative z-10 pt-16 sm:pt-24 md:pt-32 mx-auto h-full w-full max-w-6xl flex flex-col items-center justify-center">
           {/* <p className="border border-border bg-accent rounded-full text-sm h-8 px-3 flex items-center gap-2">
             {hero.badgeIcon}
             {hero.badge}
@@ -314,17 +318,17 @@ export function HeroSection() {
               </svg>
             </span>
           </Link> */}
-          <div className="flex flex-col items-center justify-center gap-4 pt-12 max-w-4xl mx-auto">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center">
+          <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-8 sm:pt-12 max-w-4xl mx-auto">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center px-2">
               <span className="text-primary">Build, manage and train your </span>
               <span className="text-secondary">AI Workforce.</span>
             </h1>
-            <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-2xl">
+            <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight max-w-2xl px-2">
             Kortix – the simplest way to migrate from human to AI.
             </p>
           </div>
 
-          <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center">
+          <div className="flex flex-col items-center w-full max-w-3xl mx-auto gap-2 flex-wrap justify-center px-2 sm:px-0">
             <div className="w-full relative">
               <div className="relative z-10">
                 <ChatInput
@@ -347,14 +351,14 @@ export function HeroSection() {
             
             {/* Examples section - right after chat input */}
             <div className="w-full pt-2">
-              <Examples onSelectPrompt={setInputValue} count={4} />
+              <Examples onSelectPrompt={setInputValue} count={tablet ? 2 : 4} />
             </div>
           </div>
 
         </div>
 
       </div>
-        <div className="mb-16 sm:mt-32 mx-auto"></div>
+        <div className="mb-8 sm:mb-16 sm:mt-32 mx-auto"></div>
 
       {/* Auth Dialog */}
       <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>

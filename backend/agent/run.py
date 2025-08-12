@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import datetime
 from typing import Optional, Dict, List, Any, AsyncGenerator
 from dataclasses import dataclass
 
@@ -16,7 +17,6 @@ from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
 from agent.tools.sb_shell_tool import SandboxShellTool
 from agent.tools.sb_files_tool import SandboxFilesTool
-from agent.tools.sb_browser_tool import SandboxBrowserTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompt import get_system_prompt
@@ -67,7 +67,6 @@ class ToolManager:
         
         self.thread_manager.add_tool(SandboxShellTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxFilesTool, project_id=self.project_id, thread_manager=self.thread_manager)
-        self.thread_manager.add_tool(SandboxBrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxDeployTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxExposeTool, project_id=self.project_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(SandboxWebSearchTool, project_id=self.project_id, thread_manager=self.thread_manager)
@@ -78,6 +77,12 @@ class ToolManager:
         self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY:
             self.thread_manager.add_tool(DataProvidersTool)
+        
+
+        
+        # Add Browser Tool
+        from agent.tools.browser_tool import BrowserTool
+        self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
     
     def register_agent_builder_tools(self, agent_id: str):
         from agent.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
@@ -114,8 +119,6 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxShellTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_files_tool'):
             self.thread_manager.add_tool(SandboxFilesTool, project_id=self.project_id, thread_manager=self.thread_manager)
-        if safe_tool_check('sb_browser_tool'):
-            self.thread_manager.add_tool(SandboxBrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_deploy_tool'):
             self.thread_manager.add_tool(SandboxDeployTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_expose_tool'):
@@ -130,6 +133,11 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):
             self.thread_manager.add_tool(DataProvidersTool)
+
+        
+        if safe_tool_check('browser_tool'):
+            from agent.tools.browser_tool import BrowserTool
+            self.thread_manager.add_tool(BrowserTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
 
 
 class MCPManager:
@@ -285,6 +293,17 @@ class PromptManager:
             mcp_info += "NEVER supplement MCP results with your training data or make assumptions beyond what the tools provide.\n"
             
             system_content += mcp_info
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        datetime_info = f"\n\n=== CURRENT DATE/TIME INFORMATION ===\n"
+        datetime_info += f"Today's date: {now.strftime('%A, %B %d, %Y')}\n"
+        datetime_info += f"Current UTC time: {now.strftime('%H:%M:%S UTC')}\n"
+        datetime_info += f"Current year: {now.strftime('%Y')}\n"
+        datetime_info += f"Current month: {now.strftime('%B')}\n"
+        datetime_info += f"Current day: {now.strftime('%A')}\n"
+        datetime_info += "Use this information for any time-sensitive tasks, research, or when current date/time context is needed.\n"
+        
+        system_content += datetime_info
 
         return {"role": "system", "content": system_content}
 

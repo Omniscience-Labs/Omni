@@ -162,13 +162,13 @@ export default function AgentsPage() {
           marketplace_published_at: template.marketplace_published_at,
           avatar: template.avatar,
           avatar_color: template.avatar_color,
+          profile_image_url: template.profile_image_url,
           template_id: template.template_id,
           is_kortix_team: template.is_kortix_team,
           mcp_requirements: template.mcp_requirements,
           metadata: template.metadata,
         };
 
-        // Apply search filtering to each item
         const matchesSearch = !marketplaceSearchQuery.trim() || (() => {
           const searchLower = marketplaceSearchQuery.toLowerCase();
           return item.name.toLowerCase().includes(searchLower) ||

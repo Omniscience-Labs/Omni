@@ -252,8 +252,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.1"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.1"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration
@@ -272,6 +272,7 @@ class Configuration:
     _MAX_PARALLEL_AGENT_RUNS_ENV: Optional[str] = None
     
     # Agent limits per billing tier
+    # Note: These limits are bypassed in local mode (ENV_MODE=local) where unlimited agents are allowed
     AGENT_LIMITS = {
         'free': 2,
         'tier_2_20': 5,

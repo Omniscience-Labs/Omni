@@ -71,6 +71,7 @@ interface AgentData extends BaseAgentData {
       description_editable?: boolean;
       mcps_editable?: boolean;
     };
+    profile_image_url?: string;
   };
 }
 
@@ -339,13 +340,18 @@ const TemplateActions: React.FC<{
   </div>
 );
 
-const CardAvatar: React.FC<{ avatar: string; color: string; isSunaAgent?: boolean }> = ({ avatar, color, isSunaAgent = false }) => {
+const CardAvatar: React.FC<{ avatar: string; color: string; isSunaAgent?: boolean; profileImageUrl?: string }> = ({ avatar, color, isSunaAgent = false, profileImageUrl }) => {
   if (isSunaAgent) {
     return (
       <div className="h-14 w-14 bg-muted border flex items-center justify-center rounded-2xl">
         <KortixLogo size={28} />
       </div>
     )
+  }
+  if (profileImageUrl) {
+    return (
+      <img src={profileImageUrl} alt="Agent" className="h-14 w-14 rounded-2xl object-cover" />
+    );
   }
   return (
     <div 
@@ -465,7 +471,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="relative p-6 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-4">
-          <CardAvatar avatar={avatar} color={color} isSunaAgent={isSunaAgent} />
+          <CardAvatar avatar={avatar} color={color} isSunaAgent={isSunaAgent} profileImageUrl={(data as any)?.profile_image_url} />
           <div className="flex items-center gap-2">
             {renderBadge()}
           </div>

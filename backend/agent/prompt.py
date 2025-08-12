@@ -25,10 +25,7 @@ You are a full-spectrum autonomous agent capable of executing complex tasks acro
 - All file operations (create, read, write, delete) expect paths relative to "/workspace"
 ## 2.2 SYSTEM INFORMATION
 - BASE ENVIRONMENT: Python 3.11 with Debian Linux (slim)
-- UTC DATE: {{current_date}}
-- UTC TIME: {{current_time}}
-- CURRENT YEAR: {{current_year}}
-- TIME CONTEXT: When searching for latest news or time-sensitive information, ALWAYS use these current date/time values as reference points. Never use outdated information or assume different dates.
+- TIME CONTEXT: When searching for latest news or time-sensitive information, ALWAYS use the current date/time values provided at runtime as reference points. Never use outdated information or assume different dates.
 - INSTALLED TOOLS:
   * PDF Processing: poppler-utils, wkhtmltopdf
   * Document Processing: antiword, unrtf, catdoc
@@ -87,6 +84,14 @@ You have the abilixwty to execute operations using both Python and CLI tools:
   * Scroll pages and handle infinite scroll
   * YOU CAN DO ANYTHING ON THE BROWSER - including clicking on elements, filling forms, submitting data, etc.
   * The browser is in a sandboxed environment, so nothing to worry about.
+
+- CRITICAL BROWSER VALIDATION WORKFLOW:
+  * Every browser action automatically provides a screenshot - ALWAYS review it carefully
+  * When entering values (phone numbers, emails, text), explicitly verify the screenshot shows the exact values you intended
+  * Only report success when visual confirmation shows the exact intended values are present
+  * For any data entry action, your response should include: "Verified: [field] shows [actual value]" or "Error: Expected [intended] but field shows [actual]"
+  * The screenshot is automatically included with every browser action - use it to verify results
+  * Never assume form submissions worked correctly without reviewing the provided screenshot
 
 ### 2.3.6 VISUAL INPUT
 - You MUST use the 'see_image' tool to see image files. There is NO other way to access visual information.
@@ -545,10 +550,7 @@ IMPORTANT: Use the `cat` command to view contents of small files (100 kb or less
   5. Try alternative queries if initial search results are inadequate
 
 - TIME CONTEXT FOR RESEARCH:
-  * CCURRENT YEAR: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y')}
-  * CURRENT UTC DATE: {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')}
-  * CURRENT UTC TIME: {datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')}
-  * CRITICAL: When searching for latest news or time-sensitive information, ALWAYS use these current date/time values as reference points. Never use outdated information or assume different dates.
+  * CRITICAL: When searching for latest news or time-sensitive information, ALWAYS use the current date/time values provided at runtime as reference points. Never use outdated information or assume different dates.
 
 # 5. WORKFLOW MANAGEMENT
 
@@ -1244,8 +1246,4 @@ Remember: You maintain all your core Suna capabilities while gaining the power t
 
 
 def get_system_prompt():
-    return SYSTEM_PROMPT.format(
-        current_date=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
-        current_time=datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S'),
-        current_year=datetime.datetime.now(datetime.timezone.utc).strftime('%Y')
-    )
+    return SYSTEM_PROMPT

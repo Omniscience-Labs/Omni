@@ -10,6 +10,7 @@ import { GoogleAnalytics } from '@next/third-parties/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from 'next/script';
 import { PostHogIdentify } from '@/components/posthog-identify';
+import '@/lib/polyfills'; // Load polyfills early
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
