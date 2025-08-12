@@ -41,6 +41,8 @@ interface AgentHeaderProps {
     custom_mcps: any[];
     agentpress_tools: any;
   };
+  hasUnsavedChanges?: boolean;
+  onVersionCreated?: () => void;
 }
 
 export function AgentHeader({
@@ -55,6 +57,8 @@ export function AgentHeader({
   agentMetadata,
   currentVersionId,
   currentFormData,
+  hasUnsavedChanges,
+  onVersionCreated,
 }: AgentHeaderProps) {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -114,9 +118,9 @@ export function AgentHeader({
 
   return (
     <>
-    <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-3 z-20 w-full">
+    <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-3 z-20 w-full px-8">
       {/* Left side - Agent info */}
-      <div className="flex items-center gap-3 min-w-0 pl-4">
+      <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
           {isSunaAgent ? (
             <div className="h-9 w-9 rounded-lg bg-muted border flex items-center justify-center">
@@ -195,7 +199,7 @@ export function AgentHeader({
       </div>
 
       {/* Right side - Version controls, tabs and actions aligned together */}
-      <div className="flex items-center gap-2 pr-4">
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-1">
           {!isSunaAgent && currentFormData && (
             <AgentVersionSwitcher
@@ -227,40 +231,24 @@ export function AgentHeader({
           )}
         </div>
         
-        <TooltipProvider>
-          <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="grid grid-cols-2 h-9">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger 
-                    value="agent-builder" 
-                    className="flex items-center gap-1.5 text-xs px-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    <span className="hidden md:inline">Build</span>
-                  </TabsTrigger>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit system prompt & behavior</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger 
-                    value="configuration" 
-                    className="flex items-center gap-1.5 text-xs px-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                  >
-                    <Settings className="h-3 w-3" />
-                    <span className="hidden md:inline">Config</span>
-                  </TabsTrigger>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Configure tools & settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TabsList>
-          </Tabs>
-        </TooltipProvider>
+        <Tabs value={activeTab} onValueChange={onTabChange}>
+          <TabsList className="grid grid-cols-2 h-9">
+            <TabsTrigger 
+              value="agent-builder" 
+              className="flex items-center gap-1.5 text-xs px-2"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span className="hidden md:inline">Build</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="configuration" 
+              className="flex items-center gap-1.5 text-xs px-2"
+            >
+              <Settings className="h-3 w-3" />
+              <span className="hidden md:inline">Config</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
     </header>
     <ProfilePictureDialog

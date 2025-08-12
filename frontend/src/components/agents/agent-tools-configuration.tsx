@@ -10,9 +10,10 @@ interface AgentToolsConfigurationProps {
   onToolsChange: (tools: Record<string, boolean | { enabled: boolean; description: string }>) => void;
   disabled?: boolean;
   isSunaAgent?: boolean;
+  isLoading?: boolean;
 }
 
-export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false }: AgentToolsConfigurationProps) => {
+export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
@@ -33,6 +34,10 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
       toast.error("Tools cannot be modified", {
         description: "Suna's default tools are managed centrally and cannot be changed.",
       });
+      return;
+    }
+    
+    if (isLoading) {
       return;
     }
     
@@ -99,7 +104,7 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
                 <Switch
                   checked={isToolEnabled(tools[toolName])}
                   onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
-                  disabled={disabled}
+                  disabled={disabled || isLoading}
                 />
               </div>
             </div>

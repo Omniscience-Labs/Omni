@@ -48,6 +48,7 @@ interface ConfigurationTabProps {
       mcps_editable?: boolean;
     };
   };
+  isLoading?: boolean;
 }
 
 export function ConfigurationTab({
@@ -62,6 +63,7 @@ export function ConfigurationTab({
   onToolsSave,
   initialAccordion,
   agentMetadata,
+  isLoading = false,
 }: ConfigurationTabProps) {
   const isSunaAgent = agentMetadata?.is_suna_default || false;
 
@@ -120,7 +122,7 @@ export function ConfigurationTab({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-0 space-y-3">
+        <div className="px-8 py-0 space-y-3">
           {isSunaAgent && (
             <div className="p-4 bg-primary/10 border border-primary-200 rounded-xl">
               <div className="flex items-center gap-3 mb-2">
@@ -142,6 +144,7 @@ export function ConfigurationTab({
                 <button
                   className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                   onClick={() => setOpenAccordion(openAccordion === 'system' ? '' : 'system')}
+                  disabled={isLoading}
                 >
                   <div className="flex items-center gap-4 w-full">
                     <div className="relative flex-shrink-0">
@@ -169,7 +172,7 @@ export function ConfigurationTab({
                         onSave={handleSystemPromptChange}
                         placeholder="Click to set system instructions..."
                         title="System Instructions"
-                        disabled={!isSystemPromptEditable}
+                        disabled={!isSystemPromptEditable || isLoading}
                       />
                     </div>
                   </div>
@@ -182,6 +185,7 @@ export function ConfigurationTab({
                 <button
                   className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                   onClick={() => setOpenAccordion(openAccordion === 'model' ? '' : 'model')}
+                  disabled={isLoading}
                 >
                   <div className="flex items-center gap-4 w-full">
                     <div className="relative flex-shrink-0">
@@ -213,7 +217,7 @@ export function ConfigurationTab({
                             onFieldChange('model', model);
                           }
                         }}
-                        disabled={isViewingOldVersion}
+                        disabled={isViewingOldVersion || isLoading}
                       />
                     </div>
                   </div>
@@ -226,6 +230,7 @@ export function ConfigurationTab({
                 <button
                   className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                   onClick={() => setOpenAccordion(openAccordion === 'tools' ? '' : 'tools')}
+                  disabled={isLoading}
                 >
                   <div className="flex items-center gap-4 w-full">
                     <div className="relative flex-shrink-0">
@@ -253,6 +258,7 @@ export function ConfigurationTab({
                         onToolsChange={areToolsEditable ? handleToolsChange : () => { }}
                         disabled={!areToolsEditable}
                         isSunaAgent={isSunaAgent}
+                        isLoading={isLoading}
                       />
                     </div>
                   </div>
@@ -264,6 +270,7 @@ export function ConfigurationTab({
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'integrations' ? '' : 'integrations')}
+                disabled={isLoading}
               >
                 <div className="flex items-center gap-4 w-full">
                   <div className="relative flex-shrink-0">
@@ -299,6 +306,7 @@ export function ConfigurationTab({
                       }}
                       saveMode="callback"
                       versionId={versionData?.version_id}
+                      isLoading={isLoading}
                     />
                   </div>
                 </div>
@@ -309,6 +317,7 @@ export function ConfigurationTab({
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'knowledge' ? '' : 'knowledge')}
+                disabled={isLoading}
               >
                 <div className="flex items-center gap-4 w-full">
                   <div className="relative flex-shrink-0">
@@ -344,6 +353,7 @@ export function ConfigurationTab({
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'playbooks' ? '' : 'playbooks')}
+                disabled={isLoading}
               >
                 <div className="flex items-center gap-4 w-full">
                   <div className="relative flex-shrink-0">
@@ -379,6 +389,7 @@ export function ConfigurationTab({
               <button
                 className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
                 onClick={() => setOpenAccordion(openAccordion === 'triggers' ? '' : 'triggers')}
+                disabled={isLoading}
               >
                 <div className="flex items-center gap-4 w-full">
                   <div className="relative flex-shrink-0">

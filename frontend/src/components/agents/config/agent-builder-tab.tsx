@@ -39,7 +39,7 @@ export function AgentBuilderTab({
   }
 
   return (
-    <div className="px-4 h-full">
+    <div className="h-full">
       <AgentBuilderChat 
         agentId={agentId}
         formData={displayData}

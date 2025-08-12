@@ -367,7 +367,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto scrollbar-hide">
+        <div className="h-full overflow-y-auto scrollbar-hide px-8">
           <ThreadContent
             messages={messages || []}
             streamingTextContent={streamingTextContent}
@@ -390,7 +390,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           <div ref={messagesEndRef} />
         </div>
       </div>
-      <div className="flex-shrink-0 md:pb-4 md:px-6 px-4">
+      <div className="flex-shrink-0 md:pb-4 px-8">
         <ChatInput
           ref={chatInputRef}
           onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}

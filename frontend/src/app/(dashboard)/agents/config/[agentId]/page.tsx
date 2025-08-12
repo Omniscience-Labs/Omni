@@ -464,11 +464,11 @@ export default function AgentConfigurationPage() {
         <div className="hidden lg:grid lg:grid-cols-2 w-full h-full">
           <div className="bg-background h-full flex flex-col border-r border-border/40 overflow-hidden">
             <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="px-4 pt-4">
+              <div className="pt-4">
 
                 
                 {isViewingOldVersion && (
-                  <div className="mb-4">
+                  <div className="mb-4 px-8">
                     <VersionAlert
                       versionData={versionData}
                       isActivating={activateVersionMutation.isPending}
@@ -515,6 +515,7 @@ export default function AgentConfigurationPage() {
                   onToolsSave={handleToolsSave}
                   initialAccordion={initialAccordion}
                   agentMetadata={agent?.metadata}
+                  isLoading={isSaving}
                 />
               ) : (
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
@@ -554,10 +555,10 @@ export default function AgentConfigurationPage() {
         <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="px-4 py-2">
+              <div className="py-2">
 
                 {isViewingOldVersion && (
-                  <div className="mb-4">
+                  <div className="mb-4 px-8">
                     <VersionAlert
                       versionData={versionData}
                       isActivating={activateVersionMutation.isPending}
@@ -603,6 +604,7 @@ export default function AgentConfigurationPage() {
                   onToolsSave={handleToolsSave}
                   initialAccordion={initialAccordion}
                   agentMetadata={agent?.metadata}
+                  isLoading={isSaving}
                 />
               ) : (
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
