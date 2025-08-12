@@ -426,7 +426,8 @@ class ProviderService:
 
 class ComposioEventProvider(TriggerProvider):
     def __init__(self):
-        super().__init__("composio", TriggerType.EVENT)
+        # Use WEBHOOK to match existing DB enum (no migration needed)
+        super().__init__("composio", TriggerType.WEBHOOK)
 
     async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         composio_trigger_id = config.get("composio_trigger_id")
