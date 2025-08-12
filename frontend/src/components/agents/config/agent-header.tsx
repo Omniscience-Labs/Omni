@@ -230,22 +230,21 @@ export function AgentHeader({
             </TooltipProvider>
           )}
         </div>
-        
         <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid grid-cols-2 h-9">
+          <TabsList className="grid grid-cols-2 h-9 w-[280px]">
             <TabsTrigger 
               value="agent-builder" 
-              className="flex items-center gap-1.5 text-xs px-2"
+              className="flex items-center gap-1.5 text-xs px-3"
             >
               <Sparkles className="h-3 w-3" />
-              <span className="hidden md:inline">Build</span>
+              <span className="hidden md:inline">Prompt to build</span>
             </TabsTrigger>
             <TabsTrigger 
               value="configuration" 
-              className="flex items-center gap-1.5 text-xs px-2"
+              className="flex items-center gap-1.5 text-xs px-3"
             >
               <Settings className="h-3 w-3" />
-              <span className="hidden md:inline">Config</span>
+              <span className="hidden md:inline">Manual Config</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
