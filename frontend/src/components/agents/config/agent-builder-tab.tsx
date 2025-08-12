@@ -11,25 +11,16 @@ interface AgentBuilderTabProps {
     configured_mcps: any[];
     custom_mcps: any[];
     is_default: boolean;
-    avatar: string;
-    avatar_color: string;
-  };
-  currentStyle: {
-    avatar: string;
-    color: string;
   };
   isViewingOldVersion: boolean;
   onFieldChange: (field: string, value: any) => void;
-  onStyleChange: (emoji: string, color: string) => void;
 }
 
 export function AgentBuilderTab({
   agentId,
   displayData,
-  currentStyle,
   isViewingOldVersion,
   onFieldChange,
-  onStyleChange,
 }: AgentBuilderTabProps) {
   if (isViewingOldVersion) {
     return (
@@ -48,13 +39,11 @@ export function AgentBuilderTab({
   }
 
   return (
-    <div className="px-4 h-full">
+    <div className="h-full">
       <AgentBuilderChat 
         agentId={agentId}
         formData={displayData}
         handleFieldChange={onFieldChange}
-        handleStyleChange={onStyleChange}
-        currentStyle={currentStyle}
       />
     </div>
   );

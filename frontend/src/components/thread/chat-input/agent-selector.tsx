@@ -59,7 +59,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       ...agent,
       id: agent.agent_id,
       type: 'custom' as const,
-      icon: agent.avatar || <Bot className="h-4 w-4" />
+      icon: <Bot className="h-4 w-4" />
     }))
   ];
 

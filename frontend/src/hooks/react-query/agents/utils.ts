@@ -27,9 +27,6 @@ export type Agent = {
   tags?: string[];
   created_at: string;
   updated_at: string;
-  // Deprecated
-  avatar?: string;
-  avatar_color?: string;
   // New
   profile_image_url?: string;
   current_version_id?: string | null;
@@ -99,9 +96,6 @@ export type AgentCreateRequest = {
   is_default?: boolean;
   // New
   profile_image_url?: string;
-  // Legacy (unused by new UI)
-  avatar?: string;
-  avatar_color?: string;
 };
 
 export type AgentVersionCreateRequest = {
@@ -157,9 +151,6 @@ export type AgentUpdateRequest = {
   is_default?: boolean;
   // New
   profile_image_url?: string;
-  // Legacy
-  avatar?: string;
-  avatar_color?: string;
 };
 
 export const getAgents = async (params: AgentsParams = {}): Promise<AgentsResponse> => {
@@ -435,9 +426,6 @@ export type AgentBuilderConfig = {
   system_prompt?: string;
   agentpress_tools?: Record<string, { enabled: boolean; description: string }>;
   configured_mcps?: Array<{ name: string; qualifiedName: string; config: any; enabledTools?: string[] }>;
-  // Legacy style properties; not used for profile image feature
-  avatar?: string;
-  avatar_color?: string;
 };
 
 export type AgentBuilderChatRequest = {

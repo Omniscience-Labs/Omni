@@ -164,55 +164,58 @@ export function ProfilePictureDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Update Profile Picture</DialogTitle>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-center">Profile Picture</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 mt-4">
-          <div className="flex flex-col items-center space-y-3">
-            <Avatar className="h-20 w-20 rounded-xl ring-1 ring-border">
+        <div className="space-y-6">
+          {/* Current Image Display */}
+          <div className="flex justify-center">
+            <Avatar className="h-24 w-24 rounded-xl ring-2 ring-border">
               {currentImageUrl ? (
-                <AvatarImage src={currentImageUrl} alt={agentName} />
+                <AvatarImage 
+                  src={currentImageUrl} 
+                  alt={agentName}
+                  className="object-cover w-full h-full"
+                />
               ) : (
-                <AvatarFallback className="rounded-xl">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <AvatarFallback className="rounded-xl bg-muted">
+                  <ImageIcon className="h-10 w-10 text-muted-foreground" />
                 </AvatarFallback>
               )}
             </Avatar>
-            <p className="text-sm text-muted-foreground text-center">
-              Current profile picture for <span className="font-medium">{agentName}</span>
-            </p>
           </div>
 
           <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload" className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload File
+            <TabsList className="grid w-full grid-cols-2 h-9">
+              <TabsTrigger value="upload" className="text-sm">
+                Upload
               </TabsTrigger>
-              <TabsTrigger value="url" className="flex items-center gap-2">
-                <Link2 className="h-4 w-4" />
-                Custom URL
+              <TabsTrigger value="url" className="text-sm">
+                URL
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="upload" className="space-y-4 mt-4">
+            <TabsContent value="upload" className="mt-4">
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
                   dragActive 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                }`}
+                    ? 'border-primary bg-primary/5 scale-[1.02]' 
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/25'
+                } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
+                onClick={() => !isUploading && document.getElementById('file-upload')?.click()}
               >
-                <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-sm font-medium mb-2">
-                  Drop an image here, or click to select
+                <Upload className={`mx-auto h-8 w-8 mb-3 transition-colors ${
+                  dragActive ? 'text-primary' : 'text-muted-foreground'
+                }`} />
+                <p className="text-sm font-medium mb-1">
+                  {isUploading ? 'Uploading...' : 'Drop image here or click to select'}
                 </p>
-                <p className="text-xs text-muted-foreground mb-4">
+                <p className="text-xs text-muted-foreground">
                   PNG, JPG, GIF up to 5MB
                 </p>
                 <input
@@ -223,44 +226,34 @@ export function ProfilePictureDialog({
                   id="file-upload"
                   disabled={isUploading}
                 />
-                <Button 
-                  asChild 
-                  variant="outline" 
-                  disabled={isUploading}
-                  className="cursor-pointer"
-                >
-                  <label htmlFor="file-upload">
-                    {isUploading ? 'Uploading...' : 'Select File'}
-                  </label>
-                </Button>
               </div>
             </TabsContent>
             
-            <TabsContent value="url" className="space-y-4 mt-4">
+            <TabsContent value="url" className="mt-4 space-y-4">
               <div className="space-y-3">
-                <Label htmlFor="image-url">Image URL</Label>
                 <Input
-                  id="image-url"
                   type="url"
-                  placeholder="https://example.com/image.png"
+                  placeholder="Paste image URL here..."
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   onBlur={handleUrlPreview}
+                  className="text-sm"
                 />
                 
                 {previewUrl && (
-                  <div className="flex items-center justify-center p-4 border rounded-lg">
-                    <Avatar className="h-16 w-16 rounded-xl">
+                  <div className="flex justify-center p-3 bg-muted/30 rounded-lg">
+                    <Avatar className="h-12 w-12 rounded-lg">
                       <AvatarImage 
                         src={previewUrl} 
                         alt="Preview"
+                        className="object-cover w-full h-full"
                         onError={() => {
                           setPreviewUrl(null);
                           toast.error('Unable to load image from URL');
                         }}
                       />
-                      <AvatarFallback className="rounded-xl">
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      <AvatarFallback className="rounded-lg">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
                       </AvatarFallback>
                     </Avatar>
                   </div>
@@ -270,24 +263,30 @@ export function ProfilePictureDialog({
                   onClick={handleUrlSubmit}
                   disabled={!customUrl.trim() || isUrlSubmitting}
                   className="w-full"
+                  size="sm"
                 >
-                  {isUrlSubmitting ? 'Updating...' : 'Update Image URL'}
+                  {isUrlSubmitting ? 'Updating...' : 'Set as Profile Picture'}
                 </Button>
               </div>
             </TabsContent>
           </Tabs>
-          <div className="flex justify-end pt-4 gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleRemoveImage}
-              className="flex items-center gap-2"
-              disabled={!currentImageUrl}
-            >
-              <X className="h-4 w-4" />
-              Remove Image
-            </Button>
-            <Button variant="outline" onClick={handleClose}>
-              Cancel
+          
+          {/* Action Buttons */}
+          <div className="flex justify-between pt-2">
+            {currentImageUrl ? (
+              <Button 
+                variant="ghost" 
+                onClick={handleRemoveImage}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                size="sm"
+              >
+                Remove
+              </Button>
+            ) : (
+              <div />
+            )}
+            <Button variant="outline" onClick={handleClose} size="sm">
+              Close
             </Button>
           </div>
         </div>
