@@ -11,10 +11,8 @@ import { useUpdateAgent } from '@/hooks/react-query/agents/use-agents';
 import { useCreateAgentVersion, useActivateAgentVersion } from '@/hooks/react-query/agents/use-agent-versions';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getAgentAvatar } from '../../../../../lib/utils/get-agent-style';
 import { AgentPreview } from '../../../../../components/agents/agent-preview';
-import { AgentVersionSwitcher } from '@/components/agents/agent-version-switcher';
-import { CreateVersionButton } from '@/components/agents/create-version-button';
+
 import { useAgentVersionData } from '../../../../../hooks/use-agent-version-data';
 import { useSearchParams } from 'next/navigation';
 import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-store';
@@ -22,7 +20,7 @@ import { useAgentVersionStore } from '../../../../../lib/stores/agent-version-st
 import { cn } from '@/lib/utils';
 
 import { AgentHeader, VersionAlert, AgentBuilderTab, ConfigurationTab } from '@/components/agents/config';
-import { UpcomingRunsDropdown } from '@/components/agents/upcoming-runs-dropdown';
+
 import { DEFAULT_AGENTPRESS_TOOLS } from '@/components/agents/tools';
 import { useExportAgent } from '@/hooks/react-query/agents/use-agent-export-import';
 
@@ -35,8 +33,6 @@ interface FormData {
   configured_mcps: any[];
   custom_mcps: any[];
   is_default: boolean;
-  avatar: string;
-  avatar_color: string;
   profile_image_url?: string;
 }
 
@@ -66,8 +62,6 @@ export default function AgentConfigurationPage() {
     configured_mcps: [],
     custom_mcps: [],
     is_default: false,
-    avatar: '',
-    avatar_color: '',
     profile_image_url: '',
   });
 
@@ -96,8 +90,6 @@ export default function AgentConfigurationPage() {
       configured_mcps: configSource.configured_mcps || [],
       custom_mcps: configSource.custom_mcps || [],
       is_default: agent.is_default || false,
-      avatar: agent.avatar || '',
-      avatar_color: agent.avatar_color || '',
       profile_image_url: agent.profile_image_url || '',
     };
     
@@ -155,9 +147,6 @@ export default function AgentConfigurationPage() {
           description: formData.description,
           is_default: formData.is_default,
           profile_image_url: formData.profile_image_url || undefined,
-          // keep legacy values unchanged for backward compatibility
-          avatar: formData.avatar || undefined,
-          avatar_color: formData.avatar_color || undefined
         })
       ]);
       
@@ -396,17 +385,6 @@ export default function AgentConfigurationPage() {
     }
   }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving]);
 
-  const handleStyleChange = useCallback((emoji: string, color: string) => {
-    if (isViewingOldVersion) {
-      toast.error('Cannot edit old versions. Please activate this version first to make changes.');
-      return;
-    }
-    setFormData(prev => ({
-      ...prev,
-      avatar: emoji,
-      avatar_color: color
-    }));
-  }, [isViewingOldVersion]);
 
   const handleActivateVersion = useCallback(async (versionId: string) => {
     try {
@@ -470,14 +448,9 @@ export default function AgentConfigurationPage() {
     configured_mcps: versionData.configured_mcps || [],
     custom_mcps: versionData.custom_mcps || [],
     is_default: agent?.is_default || false,
-    avatar: agent?.avatar || '',
-    avatar_color: agent?.avatar_color || '',
     profile_image_url: agent?.profile_image_url || '',
   } : formData;
 
-  const currentStyle = displayData.avatar && displayData.avatar_color
-    ? { avatar: displayData.avatar, color: displayData.avatar_color }
-    : getAgentAvatar(agentId);
 
   const previewAgent = {
     ...agent,
@@ -490,60 +463,9 @@ export default function AgentConfigurationPage() {
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden lg:grid lg:grid-cols-2 w-full h-full">
           <div className="bg-background h-full flex flex-col border-r border-border/40 overflow-hidden">
-            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/20">
-              <div className="px-4 py-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {!agent?.metadata?.is_suna_default && (
-                      <AgentVersionSwitcher
-                        agentId={agentId}
-                        currentVersionId={agent?.current_version_id}
-                        currentFormData={{
-                          system_prompt: formData.system_prompt,
-                          configured_mcps: formData.configured_mcps,
-                          custom_mcps: formData.custom_mcps,
-                          agentpress_tools: formData.agentpress_tools
-                        }}
-                      />
-                    )}
-                    <CreateVersionButton
-                      agentId={agentId}
-                      currentFormData={{
-                        system_prompt: formData.system_prompt,
-                        configured_mcps: formData.configured_mcps,
-                        custom_mcps: formData.custom_mcps,
-                        agentpress_tools: formData.agentpress_tools
-                      }}
-                      hasChanges={hasUnsavedChanges && !isViewingOldVersion}
-                      onVersionCreated={() => {
-                        setOriginalData(formData);
-                      }}
-                    />
-                    <UpcomingRunsDropdown agentId={agentId} />
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {!isViewingOldVersion && hasUnsavedChanges && (
-                      <Button 
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        size="sm"
-                        className="h-8"
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-3 w-3" />
-                            Save
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
+            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="px-4 pt-4">
+
                 
                 {isViewingOldVersion && (
                   <div className="mb-4">
@@ -558,15 +480,24 @@ export default function AgentConfigurationPage() {
                 <AgentHeader
                   agentId={agentId}
                   displayData={displayData}
-                  currentStyle={currentStyle}
                   activeTab={activeTab}
                   isViewingOldVersion={isViewingOldVersion}
                   onFieldChange={handleFieldChange}
-                  onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
                   onExport={handleExport}
                   isExporting={exportMutation.isPending}
                   agentMetadata={agent?.metadata}
+                  currentVersionId={agent?.current_version_id}
+                  currentFormData={{
+                    system_prompt: formData.system_prompt,
+                    configured_mcps: formData.configured_mcps,
+                    custom_mcps: formData.custom_mcps,
+                    agentpress_tools: formData.agentpress_tools
+                  }}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onVersionCreated={() => {
+                    setOriginalData(formData);
+                  }}
                 />
               </div>
             </div>
@@ -591,11 +522,9 @@ export default function AgentConfigurationPage() {
                     <AgentBuilderTab
                       agentId={agentId}
                       displayData={displayData}
-                      currentStyle={currentStyle}
-                      isViewingOldVersion={isViewingOldVersion}
+                          isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
-                      onStyleChange={handleStyleChange}
-                    />
+                        />
                   </TabsContent>
                   <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
                     <ConfigurationTab
@@ -624,56 +553,9 @@ export default function AgentConfigurationPage() {
         </div>
         <div className="lg:hidden flex flex-col h-full w-full">
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/20">
-              <div className="px-4 py-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <AgentVersionSwitcher
-                      agentId={agentId}
-                      currentVersionId={agent?.current_version_id}
-                      currentFormData={{
-                        system_prompt: formData.system_prompt,
-                        configured_mcps: formData.configured_mcps,
-                        custom_mcps: formData.custom_mcps,
-                        agentpress_tools: formData.agentpress_tools
-                      }}
-                    />
-                    <CreateVersionButton
-                      agentId={agentId}
-                      currentFormData={{
-                        system_prompt: formData.system_prompt,
-                        configured_mcps: formData.configured_mcps,
-                        custom_mcps: formData.custom_mcps,
-                        agentpress_tools: formData.agentpress_tools
-                      }}
-                      hasChanges={hasUnsavedChanges && !isViewingOldVersion}
-                      onVersionCreated={() => {
-                        setOriginalData(formData);
-                      }}
-                    />
-                    <UpcomingRunsDropdown agentId={agentId} />
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {!isViewingOldVersion && hasUnsavedChanges && (
-                      <Button 
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        size="sm"
-                        className="h-8"
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-3 w-3" />
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
+            <div className="flex-shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="px-4 py-2">
+
                 {isViewingOldVersion && (
                   <div className="mb-4">
                     <VersionAlert
@@ -686,15 +568,24 @@ export default function AgentConfigurationPage() {
                 <AgentHeader
                   agentId={agentId}
                   displayData={displayData}
-                  currentStyle={currentStyle}
                   activeTab={activeTab}
                   isViewingOldVersion={isViewingOldVersion}
                   onFieldChange={handleFieldChange}
-                  onStyleChange={handleStyleChange}
                   onTabChange={setActiveTab}
                   onExport={handleExport}
                   isExporting={exportMutation.isPending}
                   agentMetadata={agent?.metadata}
+                  currentVersionId={agent?.current_version_id}
+                  currentFormData={{
+                    system_prompt: formData.system_prompt,
+                    configured_mcps: formData.configured_mcps,
+                    custom_mcps: formData.custom_mcps,
+                    agentpress_tools: formData.agentpress_tools
+                  }}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onVersionCreated={() => {
+                    setOriginalData(formData);
+                  }}
                 />
               </div>
             </div>
@@ -719,11 +610,9 @@ export default function AgentConfigurationPage() {
                     <AgentBuilderTab
                       agentId={agentId}
                       displayData={displayData}
-                      currentStyle={currentStyle}
-                      isViewingOldVersion={isViewingOldVersion}
+                          isViewingOldVersion={isViewingOldVersion}
                       onFieldChange={handleFieldChange}
-                      onStyleChange={handleStyleChange}
-                    />
+                        />
                   </TabsContent>
                   <TabsContent value="configuration" className="flex-1 m-0 overflow-hidden">
                     <ConfigurationTab

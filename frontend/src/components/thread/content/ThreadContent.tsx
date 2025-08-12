@@ -346,7 +346,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
         // Then check recent messages for agent info
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
-            msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color || msg.agents?.name)
+            msg.type === 'assistant' && msg.agents?.name
         );
 
         if (recentAssistantWithAgent?.agents?.name === 'Agent Builder') {
@@ -385,7 +385,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             const profileUrl = (recentAssistantWithAgent as any)?.agents?.profile_image_url;
             const avatar = profileUrl && !isSunaDefaultAgent ? (
                 <img src={profileUrl} alt={recentAssistantWithAgent.agents.name} className="h-5 w-5 rounded object-cover" />
-            ) : recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
+            ) : !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -393,7 +393,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                         </div>
                     ) : (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                            <span className="text-lg">{recentAssistantWithAgent.agents.avatar}</span>
+                            <span className="text-lg">{recentAssistantWithAgent.agents.name.charAt(0).toUpperCase()}</span>
                         </div>
                     )}
                 </>

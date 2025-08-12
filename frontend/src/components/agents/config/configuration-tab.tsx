@@ -21,8 +21,6 @@ interface ConfigurationTabProps {
     configured_mcps: any[];
     custom_mcps: any[];
     is_default: boolean;
-    avatar: string;
-    avatar_color: string;
   };
   versionData?: {
     version_id: string;
@@ -122,7 +120,7 @@ export function ConfigurationTab({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4 space-y-3">
+        <div className="px-4 py-0 space-y-3">
           {isSunaAgent && (
             <div className="p-4 bg-primary/10 border border-primary-200 rounded-xl">
               <div className="flex items-center gap-3 mb-2">

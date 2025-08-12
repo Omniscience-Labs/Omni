@@ -20,16 +20,12 @@ interface AgentBuilderChatProps {
   agentId: string;
   formData: any;
   handleFieldChange: (field: string, value: any) => void;
-  handleStyleChange: (emoji: string, color: string) => void;
-  currentStyle: { avatar: string; color: string };
 }
 
 export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   agentId,
   formData,
   handleFieldChange,
-  handleStyleChange,
-  currentStyle
 }: AgentBuilderChatProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
@@ -381,7 +377,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
             handleOpenFileViewer={handleOpenFileViewer}
             streamHookStatus={streamHookStatus}
             agentName="Agent Builder"
-            agentAvatar={'🤖'}
+            agentAvatar={undefined}
             emptyStateComponent={
               <div className="mt-6 flex flex-col items-center text-center text-muted-foreground/80">
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
@@ -418,9 +414,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   return (
     prevProps.agentId === nextProps.agentId &&
     JSON.stringify(prevProps.formData) === JSON.stringify(nextProps.formData) &&
-    prevProps.currentStyle.avatar === nextProps.currentStyle.avatar &&
-    prevProps.currentStyle.color === nextProps.currentStyle.color &&
-    prevProps.handleFieldChange === nextProps.handleFieldChange &&
-    prevProps.handleStyleChange === nextProps.handleStyleChange
+    prevProps.handleFieldChange === nextProps.handleFieldChange
   );
 }); 

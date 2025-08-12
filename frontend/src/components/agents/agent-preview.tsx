@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getAgentAvatar } from '../../lib/utils/get-agent-style';
 import {
   ChatInput,
   ChatInputHandles
@@ -52,14 +51,10 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const chatInputRef = useRef<ChatInputHandles>(null);
 
   const getAgentStyling = () => {
-    const agentData = agent as any;
-    if (agentData.avatar && agentData.avatar_color) {
-      return {
-        avatar: agentData.avatar,
-        color: agentData.avatar_color,
-      };
-    }
-    return getAgentAvatar(agent.agent_id);
+    return {
+      avatar: '🤖',
+      color: '#6366f1',
+    };
   };
 
   const { avatar, color } = getAgentStyling();
