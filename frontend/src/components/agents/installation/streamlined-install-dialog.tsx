@@ -17,6 +17,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getAgentAvatar } from '@/lib/utils/get-agent-style';
 import { ProfileConnector } from './streamlined-profile-connector';
 import { CustomServerStep } from './custom-server-step';
 import type { MarketplaceTemplate, SetupStep } from './types';
@@ -201,8 +202,12 @@ export const StreamlinedInstallDialog: React.FC<StreamlinedInstallDialogProps> =
   const isOnFinalStep = currentStep >= setupSteps.length;
   
   const { avatar, color } = useMemo(() => {
-    return { avatar: '🤖', color: '#6366f1' };
-  }, []);
+    if (!item) return { avatar: '🤖', color: '#000' };
+    if (item.avatar && item.avatar_color) {
+      return { avatar: item.avatar, color: item.avatar_color };
+    }
+    return getAgentAvatar(item.id);
+  }, [item]);
 
   if (!item) return null;
 

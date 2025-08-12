@@ -49,6 +49,16 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
     );
   }
 
+  if (agent?.avatar) {
+    return (
+      <div 
+        className={`flex items-center justify-center text-xs ${className}`}
+        style={{ width: size, height: size, fontSize: size * 0.75 }}
+      >
+        {agent.avatar}
+      </div>
+    );
+  }
 
   return <KortixLogo size={size} />;
 };

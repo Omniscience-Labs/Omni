@@ -14,7 +14,6 @@ interface AgentMCPConfigurationProps {
   };
   saveMode?: 'direct' | 'callback';
   versionId?: string;
-  isLoading?: boolean;
 }
 
 export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
@@ -24,8 +23,7 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
   agentId,
   versionData,
   saveMode = 'direct',
-  versionId,
-  isLoading = false
+  versionId
 }) => {
   const allMCPs = [
     ...(configuredMCPs || []),
@@ -94,7 +92,6 @@ export const AgentMCPConfiguration: React.FC<AgentMCPConfigurationProps> = ({
       versionData={versionData}
       saveMode={saveMode}
       versionId={versionId}
-      isLoading={isLoading}
     />
   );
 }; 

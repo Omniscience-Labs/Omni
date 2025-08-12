@@ -80,8 +80,7 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
 }) => {
   if (!agent) return null;
 
-  const avatar = '🤖';
-  const avatar_color = '#6366f1';
+  const { avatar, avatar_color } = agent;
   const isSunaAgent = agent.is_kortix_team || false;
   
   const tools = agent.mcp_requirements || [];
