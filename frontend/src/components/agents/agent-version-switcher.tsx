@@ -112,7 +112,6 @@ export function AgentVersionSwitcher({
     return (
       <div className="flex items-center gap-2 px-3 py-2">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm text-muted-foreground">Loading versions...</span>
       </div>
     );
   }

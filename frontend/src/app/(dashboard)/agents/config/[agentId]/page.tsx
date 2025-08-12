@@ -201,6 +201,49 @@ export default function AgentConfigurationPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, [isViewingOldVersion]);
 
+  // Dedicated name save handler that saves immediately
+  const handleNameSave = useCallback(async (name: string) => {
+    if (!agent || isViewingOldVersion || isSaving) {
+      return;
+    }
+    
+    const isSunaAgent = agent?.metadata?.is_suna_default || false;
+    const restrictions = agent?.metadata?.restrictions || {};
+    
+    if (isSunaAgent && restrictions.name_editable === false) {
+      toast.error("Name cannot be edited", {
+        description: "Suna's name is managed centrally and cannot be changed.",
+      });
+      return;
+    }
+    
+    // Update form data immediately
+    setFormData(prev => ({ ...prev, name }));
+    
+    setIsSaving(true);
+    
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId,
+        name,
+        description: formData.description,
+        is_default: formData.is_default,
+        profile_image_url: formData.profile_image_url || undefined,
+      });
+      
+      // Update original data to reflect the save
+      setOriginalData(prev => ({ ...prev, name }));
+      toast.success('Agent name saved');
+    } catch (error) {
+      console.error('❌ Name save error:', error);
+      toast.error('Failed to save agent name');
+      // Revert the name change on error
+      setFormData(prev => ({ ...prev, name: formData.name }));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, updateAgentMutation, isSaving]);
+
   const handleSystemPromptSave = useCallback(async (value: string) => {
     if (!agent || isViewingOldVersion || isSaving) {
       return;

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button"
-import { FolderOpen, Link, PanelRightOpen, Check, X, Menu, Share2, Book } from "lucide-react"
+import { FolderOpen, Link, PanelRightOpen, Menu, Share2, Book } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -152,33 +152,15 @@ export function SiteHeader({
 
         <div className="flex flex-1 items-center gap-2 px-3">
           {isEditing ? (
-            <div className="flex items-center gap-1">
-              <Input
-                ref={inputRef}
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={saveNewName}
-                className="h-8 w-auto min-w-[180px] text-base font-medium"
-                maxLength={50}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={saveNewName}
-              >
-                <Check className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={cancelEditing}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            <Input
+              ref={inputRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={saveNewName}
+              className="h-8 w-auto min-w-[180px] text-base font-medium"
+              maxLength={50}
+            />
           ) : !projectName || projectName === 'Project' ? (
             <Skeleton className="h-5 w-32" />
           ) : (
