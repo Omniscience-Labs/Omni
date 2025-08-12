@@ -85,7 +85,7 @@ export function DashboardContent() {
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
   const displayName = selectedAgent?.name || 'Suna';
-  const agentAvatar = undefined;
+  const agentAvatar = selectedAgent?.avatar;
   const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
