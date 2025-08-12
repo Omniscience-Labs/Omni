@@ -168,6 +168,11 @@ export function SidebarLeft({
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       tooltip="Agents"
+                      onClick={() => {
+                        if (state === 'collapsed') {
+                          setOpen(true);
+                        }
+                      }}
                     >
                       <Bot className="h-4 w-4 mr-1" />
                       <span>Agents</span>

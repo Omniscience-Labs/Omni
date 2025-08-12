@@ -5,7 +5,6 @@ import { agentKeys } from './keys';
 import { Agent, AgentUpdateRequest, AgentsParams, createAgent, deleteAgent, getAgent, getAgents, getThreadAgent, updateAgent, AgentBuilderChatRequest, AgentBuilderStreamData, startAgentBuilderChat, getAgentBuilderChatHistory } from './utils';
 import { useRef, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { generateRandomAvatar } from '@/lib/utils/_avatar-generator';
 import { DEFAULT_AGENTPRESS_TOOLS } from '@/components/agents/tools';
 
 export const useAgents = (
@@ -66,13 +65,9 @@ export const useCreateNewAgent = () => {
   
   return createMutationHook(
     async (_: void) => {
-      const { avatar, avatar_color } = generateRandomAvatar();
-      
       const defaultAgentData = {
         name: 'New Agent',
         description: '',
-        avatar,
-        avatar_color,
         configured_mcps: [],
         agentpress_tools: DEFAULT_AGENTPRESS_TOOLS,
         is_default: false,

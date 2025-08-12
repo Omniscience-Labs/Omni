@@ -687,7 +687,7 @@ export default function ThreadPage({
           project={project}
           debugMode={debugMode}
           agentName={agent && agent.name}
-          agentAvatar={agent && agent.avatar}
+          agentAvatar={undefined}
           agentMetadata={agent?.metadata}
           agentData={agent}
           scrollContainerRef={scrollContainerRef}
