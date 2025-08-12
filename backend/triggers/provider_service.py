@@ -284,6 +284,7 @@ class ProviderService:
     def _initialize_providers(self):
         self._providers["schedule"] = ScheduleProvider()
         self._providers["webhook"] = WebhookProvider()
+        self._providers["composio"] = ComposioEventProvider()
     
     async def get_available_providers(self) -> List[Dict[str, Any]]:
         providers = []
@@ -346,6 +347,39 @@ class ProviderService:
                 },
                 "required": []
             }
+        elif provider_id == "composio":
+            return {
+                "type": "object",
+                "properties": {
+                    "composio_trigger_id": {
+                        "type": "string",
+                        "description": "Composio trigger instance ID (nano id from payload.id)"
+                    },
+                    "trigger_slug": {
+                        "type": "string",
+                        "description": "Composio trigger slug (e.g., GITHUB_COMMIT_EVENT)"
+                    },
+                    "execution_type": {
+                        "type": "string",
+                        "enum": ["agent", "workflow"],
+                        "description": "How to route the event"
+                    },
+                    "agent_prompt": {
+                        "type": "string",
+                        "description": "Prompt template for agent execution"
+                    },
+                    "workflow_id": {
+                        "type": "string",
+                        "description": "Workflow ID to execute for workflow routing"
+                    },
+                    "workflow_input": {
+                        "type": "object",
+                        "description": "Optional static input object for workflow execution",
+                        "additionalProperties": True
+                    }
+                },
+                "required": ["composio_trigger_id", "execution_type"]
+            }
         
         return {"type": "object", "properties": {}, "required": []}
     
@@ -388,6 +422,88 @@ class ProviderService:
             )
         
         return await provider.process_event(trigger, event)
+
+
+class ComposioEventProvider(TriggerProvider):
+    def __init__(self):
+        super().__init__("composio", TriggerType.EVENT)
+
+    async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        composio_trigger_id = config.get("composio_trigger_id")
+        if not composio_trigger_id or not isinstance(composio_trigger_id, str):
+            raise ValueError("composio_trigger_id is required and must be a string")
+
+        execution_type = config.get("execution_type", "agent")
+        if execution_type not in ["agent", "workflow"]:
+            raise ValueError("execution_type must be either 'agent' or 'workflow'")
+
+        if execution_type == "workflow" and not config.get("workflow_id"):
+            raise ValueError("workflow_id is required for workflow execution")
+
+        return config
+
+    async def setup_trigger(self, trigger: Trigger) -> bool:
+        # Minimal approach: assume Composio trigger is already created and webhook configured.
+        # We only store the provided composio_trigger_id in config.
+        try:
+            if not trigger.config.get("composio_trigger_id"):
+                return False
+            return True
+        except Exception:
+            return False
+
+    async def teardown_trigger(self, trigger: Trigger) -> bool:
+        # Minimal approach: nothing to do remotely.
+        return True
+
+    async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
+        try:
+            raw = event.raw_data or {}
+            trigger_slug = raw.get("triggerSlug") or trigger.config.get("trigger_slug")
+            provider_event_id = raw.get("eventId") or raw.get("payload", {}).get("id") or raw.get("id")
+            connected_account_id = None
+            metadata = raw.get("metadata") or {}
+            if isinstance(metadata, dict):
+                connected = metadata.get("connectedAccount") or {}
+                if isinstance(connected, dict):
+                    connected_account_id = connected.get("id")
+
+            execution_variables = {
+                "provider": "composio",
+                "trigger_slug": trigger_slug,
+                "composio_trigger_id": raw.get("id") or trigger.config.get("composio_trigger_id"),
+                "provider_event_id": provider_event_id,
+                "connected_account_id": connected_account_id,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            route = trigger.config.get("execution_type", "agent")
+            if route == "workflow":
+                workflow_id = trigger.config.get("workflow_id")
+                workflow_input = trigger.config.get("workflow_input", {})
+                return TriggerResult(
+                    success=True,
+                    should_execute_workflow=True,
+                    workflow_id=workflow_id,
+                    workflow_input=workflow_input,
+                    execution_variables=execution_variables,
+                )
+            else:
+                # Agent routing
+                agent_prompt = trigger.config.get("agent_prompt")
+                if not agent_prompt:
+                    # Minimal default prompt
+                    agent_prompt = f"Process Composio event {trigger_slug or ''}: {json.dumps(raw.get('payload', raw))[:800]}"
+
+                return TriggerResult(
+                    success=True,
+                    should_execute_agent=True,
+                    agent_prompt=agent_prompt,
+                    execution_variables=execution_variables,
+                )
+
+        except Exception as e:
+            return TriggerResult(success=False, error_message=f"Error processing Composio event: {str(e)}")
 
 
 def get_provider_service(db_connection: DBConnection) -> ProviderService:
