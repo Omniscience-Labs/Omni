@@ -212,28 +212,24 @@ export function DashboardContent() {
   return (
     <>
       <ModalProviders />
-      <div className="flex flex-col h-screen w-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+      <div className="flex flex-col h-screen w-full overflow-hidden">
 
         {customAgentsEnabled && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 md:top-20 w-full max-w-[calc(100vw-2rem)] flex justify-center">
             <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
           </div>
         )}
         <div className={cn(
-          "flex flex-col min-h-screen px-4 items-center justify-center",
-          // customAgentsEnabled ? "items-center pt-20" : "items-center justify-center"
+          "flex flex-col h-full px-4 items-center justify-center",
+          customAgentsEnabled ? "pt-16 md:pt-20" : "justify-center"
         )}>
-          <div className="w-[650px] max-w-[90%]">
+          <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
             <div className="flex flex-col items-center text-center w-full">
-              <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">
+              <p className="tracking-tight text-2xl md:text-3xl font-normal text-muted-foreground/80">
                 What would you like to do today?
               </p>
             </div>
-            <div className={cn(
-              "w-full mb-2",
-              "max-w-full",
-              "sm:max-w-3xl"
-            )}>
+            <div className="w-full">
               <ChatInput
                 ref={chatInputRef}
                 onSubmit={handleSubmit}
@@ -248,8 +244,8 @@ export function DashboardContent() {
                 onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
               />
             </div>
-            <div className="w-full pt-4">
-              <Examples onSelectPrompt={setInputValue} count={4} />
+            <div className="w-full">
+              <Examples onSelectPrompt={setInputValue} count={isMobile ? 3 : 4} />
             </div>
           </div>
           
