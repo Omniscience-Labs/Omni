@@ -93,7 +93,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const getAgentDisplay = () => {
     const selectedAgent = allAgents.find(agent => agent.id === selectedAgentId);
     if (selectedAgent) {
-      const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || false;
+      const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || selectedAgent.metadata?.is_omni_default || false;
       return {
         name: selectedAgent.name,
         icon: isSelectedAgentSuna ? <OmniLogo size={16} /> : selectedAgent.icon
@@ -104,7 +104,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     }
     
     const defaultAgent = allAgents[0];
-    const isDefaultAgentSuna = defaultAgent?.metadata?.is_suna_default || false;
+    const isDefaultAgentSuna = defaultAgent?.metadata?.is_suna_default || defaultAgent?.metadata?.is_omni_default || false;
     return {
       name: defaultAgent?.name || 'Omni',
       icon: isDefaultAgentSuna ? <OmniLogo size={16} /> : (defaultAgent?.icon || <OmniLogo size={16} />)

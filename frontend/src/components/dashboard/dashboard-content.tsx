@@ -77,7 +77,7 @@ export function DashboardContent() {
     : null;
   const displayName = selectedAgent?.name || 'Omni';
   const agentAvatar = undefined;
-  const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
+  const isSunaAgent = selectedAgent?.metadata?.is_suna_default || selectedAgent?.metadata?.is_omni_default || false;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 

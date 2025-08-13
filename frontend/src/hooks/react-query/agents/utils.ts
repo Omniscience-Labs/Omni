@@ -34,6 +34,7 @@ export type Agent = {
   current_version?: AgentVersion | null;
   metadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
     centrally_managed?: boolean;
     management_version?: string;
     restrictions?: {

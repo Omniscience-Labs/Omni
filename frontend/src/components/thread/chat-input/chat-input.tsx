@@ -73,6 +73,7 @@ export interface ChatInputProps {
   showToLowCreditUsers?: boolean;
   agentMetadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
   };
   showScrollToBottomIndicator?: boolean;
   onScrollToBottom?: () => void;
@@ -131,7 +132,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [uncontrolledValue, setUncontrolledValue] = useState('');
     const value = isControlled ? controlledValue : uncontrolledValue;
 
-    const isSunaAgent = agentMetadata?.is_suna_default || false;
+    const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);

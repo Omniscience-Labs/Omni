@@ -39,6 +39,7 @@ interface ConfigurationTabProps {
   initialAccordion?: string;
   agentMetadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
     centrally_managed?: boolean;
     restrictions?: {
       system_prompt_editable?: boolean;
@@ -65,7 +66,7 @@ export function ConfigurationTab({
   agentMetadata,
   isLoading = false,
 }: ConfigurationTabProps) {
-  const isSunaAgent = agentMetadata?.is_suna_default || false;
+  const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
 
   const mapAccordion = (val?: string) => {
     if (val === 'instructions') return isSunaAgent ? 'integrations' : 'system';

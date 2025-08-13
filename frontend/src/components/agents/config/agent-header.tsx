@@ -28,6 +28,7 @@ interface AgentHeaderProps {
   isExporting?: boolean;
   agentMetadata?: {
     is_suna_default?: boolean;
+    is_omni_default?: boolean;
     centrally_managed?: boolean;
     restrictions?: {
       name_editable?: boolean;
@@ -68,7 +69,7 @@ export function AgentHeader({
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(displayData.name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const isSunaAgent = agentMetadata?.is_suna_default || false;
+  const isSunaAgent = agentMetadata?.is_suna_default || agentMetadata?.is_omni_default || false;
   const restrictions = agentMetadata?.restrictions || {};
   const isNameEditable = !isViewingOldVersion && (restrictions.name_editable !== false);
   
