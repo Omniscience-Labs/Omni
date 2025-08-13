@@ -1,0 +1,53 @@
+version: "1"
+services:
+  - type: worker
+    name: Suna-worker-dev3
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: dev3
+    plan: pro
+    region: oregon
+    dockerCommand: uv run dramatiq --skip-logging --processes 2 --threads 2 run_agent_background
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - fromGroup: Suna Backend Dev3
+
+  - type: web
+    name: Suna-backend-dev3
+    runtime: docker
+    repo: https://github.com/Omniscience-Labs/Omni
+    branch: dev3
+    plan: pro
+    region: oregon
+    dockerCommand: uv run gunicorn api:app --host 0.0.0.0 --port $PORT --worker-class uvicorn.workers.UvicornWorker --workers 1
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
+    autoDeployTrigger: commit
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 81
+      targetMemoryPercent: 80
+    envVars:
+      - fromGroup: Suna Backend Dev3
+
+  - type: redis
+    name: suna-redis-dev3
+    plan: starter
+    region: oregon
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: REDIS_PASSWORD
+        generateValue: true
