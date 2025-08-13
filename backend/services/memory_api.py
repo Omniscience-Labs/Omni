@@ -28,6 +28,8 @@ class SearchMemoriesRequest(BaseModel):
     query: str = Field(..., description="Search query text")
     thread_id: Optional[str] = Field(None, description="Optional thread identifier to scope search")
     limit: int = Field(10, description="Maximum number of memories to return", ge=1, le=100)
+    version: str = Field("v2", description="API version to use (v1 or v2)")
+    filters: Optional[Dict[str, Any]] = Field(None, description="Optional filters for v2 API")
 
 
 class MemoryResponse(BaseModel):
@@ -150,7 +152,9 @@ async def search_memories(
             query=request.query,
             user_id=user.id,
             thread_id=request.thread_id,
-            limit=request.limit
+            limit=request.limit,
+            version=request.version,
+            filters=request.filters
         )
         
         return SearchMemoriesResponse(

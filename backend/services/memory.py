@@ -13,7 +13,6 @@ Features:
 """
 
 import os
-import logging
 from typing import List, Dict, Any, Optional
 from mem0 import MemoryClient
 from utils.config import config
@@ -119,7 +118,9 @@ class MemoryService:
         query: str, 
         user_id: str,
         thread_id: Optional[str] = None,
-        limit: int = 10
+        limit: int = 10,
+        version: str = "v2",
+        filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search memories for a user based on query.
@@ -129,6 +130,8 @@ class MemoryService:
             user_id: User identifier for memory isolation
             thread_id: Optional thread identifier to scope search
             limit: Maximum number of memories to return
+            version: API version to use ("v1" or "v2")
+            filters: Optional filters for v2 API (e.g., {"AND": [{"user_id": "alex"}]})
             
         Returns:
             List of memory dictionaries matching the query
@@ -138,14 +141,33 @@ class MemoryService:
             return []
         
         try:
-            # Search memories using mem0 client
-            results = self.client.search(
-                query=query,
-                user_id=user_id,
-                limit=limit
-            )
+            # Prepare search parameters
+            search_params = {
+                "query": query,
+                "user_id": user_id,
+                "limit": limit
+            }
             
-            # Filter by thread_id if specified
+            # Add version and filters for v2 API
+            if version == "v2":
+                search_params["version"] = "v2"
+                
+                # Use provided filters or create default user filter
+                if filters:
+                    search_params["filters"] = filters
+                else:
+                    search_params["filters"] = {
+                        "AND": [
+                            {
+                                "user_id": user_id
+                            }
+                        ]
+                    }
+            
+            # Search memories using mem0 client
+            results = self.client.search(**search_params)
+            
+            # Filter by thread_id if specified (additional filtering)
             if thread_id and results:
                 filtered_results = []
                 for memory in results:

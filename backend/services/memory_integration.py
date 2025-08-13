@@ -6,11 +6,15 @@ at the end of AI interactions, following the mem0ai pattern.
 """
 
 import json
-import logging
 from typing import List, Dict, Any, Optional
 from services.memory import memory_service
 from services.supabase import DBConnection
 from utils.logger import logger
+
+
+# Constants for memory formatting
+MEMORY_CONTEXT_HEADER = "**Relevant Context from Previous Conversations:**\n"
+MEMORY_CONTEXT_FOOTER = "\n**Current Conversation:**"
 
 
 async def get_user_id_from_thread(db: DBConnection, thread_id: str) -> Optional[str]:
@@ -137,19 +141,22 @@ async def store_conversation_memory(
         
         # Check for recent memory to avoid duplicates
         if agent_run_id:
-            # Check if we already stored memory for this specific agent run
+            # Use a more specific search to check for this agent run
             recent_memories = await memory_service.search_memories(
-                query=f"agent run {agent_run_id}",
+                query=f"Agent run {agent_run_id}",
                 user_id=user_id,
                 thread_id=thread_id,
-                limit=5
+                limit=1,  # We only need to check if one exists
+                version="v2"
             )
             
-            for memory in recent_memories:
-                memory_metadata = memory.get("metadata", {})
-                if memory_metadata.get("agent_run_id") == agent_run_id:
-                    logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
-                    return True  # Consider it successful since memory already exists
+            # Check if we found a memory for this exact agent run
+            if recent_memories:
+                for memory in recent_memories:
+                    memory_metadata = memory.get("metadata", {})
+                    if memory_metadata.get("agent_run_id") == agent_run_id:
+                        logger.info(f"Memory already stored for agent run {agent_run_id}, skipping duplicate")
+                        return True  # Consider it successful since memory already exists
         
         # Create memory text from conversation
         memory_text = _format_conversation_for_memory(conversation_messages, additional_context)
@@ -218,6 +225,89 @@ def _format_conversation_for_memory(
         memory_parts.append("Conversation:\n" + "\n".join(conversation_parts))
     
     return "\n\n".join(memory_parts)
+
+
+async def retrieve_relevant_memories(
+    db: DBConnection,
+    thread_id: str,
+    query: str,
+    limit: int = 5
+) -> Optional[str]:
+    """
+    Retrieve relevant memories before sending message to agent.
+    
+    This function searches for relevant user memories based on the current
+    query/message and returns formatted context to inject before LLM processing.
+    
+    Args:
+        db: Database connection
+        thread_id: Thread identifier
+        query: User's current message/query
+        limit: Maximum number of memories to retrieve
+        
+    Returns:
+        Formatted memory context string or None if no memories found
+    """
+    try:
+        if not memory_service.is_available():
+            logger.debug("Memory service not available, skipping memory retrieval")
+            return None
+        
+        # Get user_id from thread
+        user_id = await get_user_id_from_thread(db, thread_id)
+        if not user_id:
+            logger.warning(f"Could not get user_id for thread {thread_id}, skipping memory retrieval")
+            return None
+        
+        # Search for relevant memories using mem0ai v2 API with filters
+        filters = {
+            "AND": [
+                {
+                    "user_id": user_id
+                }
+            ]
+        }
+        
+        relevant_memories = await memory_service.search_memories(
+            query=query,
+            user_id=user_id,
+            thread_id=thread_id,
+            limit=limit,
+            version="v2",
+            filters=filters
+        )
+        
+        if not relevant_memories:
+            logger.debug(f"No relevant memories found for query: {query[:50]}...")
+            return None
+        
+        # Format memories for context injection
+        memory_context_parts = [MEMORY_CONTEXT_HEADER]
+        
+        for i, memory in enumerate(relevant_memories):
+            memory_text = memory.get("memory", memory.get("text", ""))
+            if memory_text:
+                memory_context_parts.append(f"{i+1}. {memory_text}")
+        
+        memory_context_parts.append(MEMORY_CONTEXT_FOOTER)
+        
+        memory_context = "\n".join(memory_context_parts)
+        
+        logger.info(
+            f"Retrieved {len(relevant_memories)} relevant memories for user {user_id}",
+            extra={
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "query": query[:100],
+                "memories_count": len(relevant_memories)
+            }
+        )
+        
+        return memory_context
+        
+    except Exception as e:
+        logger.error(f"Error retrieving relevant memories: {str(e)}", exc_info=True)
+        return None
 
 
 # Backwards compatibility - alias for the main function
