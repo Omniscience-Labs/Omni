@@ -344,7 +344,7 @@ export function NavAgents() {
     <SidebarGroup>
       <div className="flex justify-between items-center">
         <SidebarGroupLabel>Tasks</SidebarGroupLabel>
-        {state !== 'collapsed' ? (
+        {(state !== 'collapsed' || isMobile) ? (
           <div className="flex items-center space-x-1">
             {selectedThreads.size > 0 ? (
               <>
@@ -382,7 +382,7 @@ export function NavAgents() {
       <SidebarMenu className="overflow-y-auto max-h-[calc(100vh-200px)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 
 
-        {state !== 'collapsed' && (
+        {(state !== 'collapsed' || isMobile) && (
           <>
             {isLoading ? (
               // Show skeleton loaders while loading

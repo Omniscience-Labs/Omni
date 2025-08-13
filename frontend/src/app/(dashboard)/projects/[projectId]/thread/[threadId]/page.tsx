@@ -452,16 +452,19 @@ export default function ThreadPage({
     if (initialLoadCompleted && !initialPanelOpenAttempted) {
       setInitialPanelOpenAttempted(true);
 
-      if (toolCalls.length > 0) {
-        setIsSidePanelOpen(true);
-        setCurrentToolIndex(toolCalls.length - 1);
-      } else {
-        if (messages.length > 0) {
+      // Only auto-open on desktop, not mobile
+      if (!isMobile) {
+        if (toolCalls.length > 0) {
           setIsSidePanelOpen(true);
+          setCurrentToolIndex(toolCalls.length - 1);
+        } else {
+          if (messages.length > 0) {
+            setIsSidePanelOpen(true);
+          }
         }
       }
     }
-  }, [initialPanelOpenAttempted, messages, toolCalls, initialLoadCompleted, setIsSidePanelOpen, setCurrentToolIndex]);
+  }, [initialPanelOpenAttempted, messages, toolCalls, initialLoadCompleted, setIsSidePanelOpen, setCurrentToolIndex, isMobile]);
 
   useEffect(() => {
     // Start streaming if user initiated a run (don't wait for initialLoadCompleted for first-time users)
@@ -699,7 +702,7 @@ export default function ThreadPage({
             "fixed bottom-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pt-8",
             isSidePanelAnimating ? "" : "transition-all duration-200 ease-in-out",
             leftSidebarState === 'expanded' ? 'left-[72px] md:left-[256px]' : 'left-[72px]',
-            isSidePanelOpen ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]' : 'right-0',
+            isSidePanelOpen && !isMobile ? 'right-[90%] sm:right-[450px] md:right-[500px] lg:right-[550px] xl:right-[650px]' : 'right-0',
             isMobile ? 'left-0 right-0' : ''
           )}>
           <div className={cn(

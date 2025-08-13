@@ -37,11 +37,38 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useFeatureFlags } from '@/lib/feature-flags';
 import posthog from 'posthog-js';
+// Floating mobile menu button component
+function FloatingMobileMenuButton() {
+  const { setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
+
+  if (!isMobile) return null;
+
+  return (
+    <div className="fixed top-1/2 left-4 transform -translate-y-1/2 z-50 md:hidden">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={() => setOpenMobile(true)}
+            size="icon"
+            className="h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all duration-200 hover:scale-105"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          Open menu
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 export function SidebarLeft({
   ...props
@@ -128,19 +155,6 @@ export function SidebarLeft({
                   <SidebarTrigger className="h-8 w-8" />
                 </TooltipTrigger>
                 <TooltipContent>Toggle sidebar (CMD+B)</TooltipContent>
-              </Tooltip>
-            )}
-            {isMobile && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setOpenMobile(true)}
-                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent"
-                  >
-                    <Menu className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Open menu</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -254,3 +268,6 @@ export function SidebarLeft({
     </Sidebar>
   );
 }
+
+// Export the floating button so it can be used in the layout
+export { FloatingMobileMenuButton };

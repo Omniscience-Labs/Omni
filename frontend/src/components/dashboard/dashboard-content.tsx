@@ -3,7 +3,6 @@
 import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Menu } from 'lucide-react';
 import {
   ChatInput,
   ChatInputHandles,
@@ -13,13 +12,6 @@ import {
   AgentRunLimitError,
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useSidebar } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useBillingError } from '@/hooks/useBillingError';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
@@ -63,7 +55,6 @@ export function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
-  const { setOpenMobile } = useSidebar();
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
   const chatInputRef = useRef<ChatInputHandles>(null);
@@ -222,24 +213,7 @@ export function DashboardContent() {
     <>
       <ModalProviders />
       <div className="flex flex-col h-screen w-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-        {isMobile && (
-          <div className="absolute top-4 left-4 z-10">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setOpenMobile(true)}
-                >
-                  <Menu className="h-4 w-4" />
-                  <span className="sr-only">Open menu</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Open menu</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+
         {customAgentsEnabled && (
           <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
             <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
