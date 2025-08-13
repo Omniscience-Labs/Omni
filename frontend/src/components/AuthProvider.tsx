@@ -10,7 +10,7 @@ import React, {
 import { createClient } from '@/lib/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { checkAndInstallSunaAgent } from '@/lib/utils/install-suna-agent';
+import { checkAndInstallOmniAgent } from '@/lib/utils/install-suna-agent';
 
 type AuthContextType = {
   supabase: SupabaseClient;
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
-              await checkAndInstallSunaAgent(newSession.user.id, newSession.user.created_at);
+              await checkAndInstallOmniAgent(newSession.user.id, newSession.user.created_at);
             }
             break;
           case 'SIGNED_OUT':

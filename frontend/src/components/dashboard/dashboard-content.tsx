@@ -25,7 +25,7 @@ import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
-import { KortixLogo } from '../sidebar/kortix-logo';
+import { OmniLogo } from '../sidebar/omni-logo';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { useFeatureFlag } from '@/lib/feature-flags';
 import { CustomAgentsSection } from './custom-agents-section';
@@ -75,7 +75,7 @@ export function DashboardContent() {
   const selectedAgent = selectedAgentId
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
-  const displayName = selectedAgent?.name || 'Suna';
+  const displayName = selectedAgent?.name || 'Omni';
   const agentAvatar = undefined;
   const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
 

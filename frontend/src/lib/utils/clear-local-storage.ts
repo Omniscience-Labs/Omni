@@ -2,7 +2,7 @@ export const clearUserLocalStorage = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    localStorage.removeItem('suna-preferred-model-v3');
+    localStorage.removeItem('omni-preferred-model-v3');
     localStorage.removeItem('customModels');
     
     localStorage.removeItem('agent-selection-storage');
@@ -10,7 +10,7 @@ export const clearUserLocalStorage = () => {
     localStorage.removeItem('auth-tracking-storage');
     
     localStorage.removeItem('pendingAgentPrompt');
-    localStorage.removeItem('suna_upgrade_dialog_displayed');
+    localStorage.removeItem('omni_upgrade_dialog_displayed');
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('maintenance-dismissed-')) {
         localStorage.removeItem(key);

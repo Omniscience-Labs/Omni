@@ -65,7 +65,7 @@ export function KortixEnterpriseModal({
               <div className="mb-6 flex-shrink-0">
                 <Image
                   src={isDarkMode ? '/kortix-logo-white.svg' : '/kortix-logo.svg'}
-                  alt="Kortix Logo"
+                  alt="Omni Logo"
                   width={80}
                   height={28}
                   className="h-7 w-auto"
@@ -119,7 +119,7 @@ export function KortixEnterpriseModal({
             <div className="h-full overflow-auto">
               <Cal
                 namespace="enterprise-demo"
-                calLink="team/kortix/enterprise-demo"
+                calLink="arjun-subramaniam-u32lcu/30min"
                 style={{ width: '100%', height: '100%' }}
                 config={{
                   layout: 'month_view',

@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink, Crown } from 'lucide-react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import type { ModelOption, SubscriptionStatus } from './_use-model-selection';
 import { MODELS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_MODEL, formatModelName, getCustomModels } from './_use-model-selection';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -244,7 +244,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                                     {renderAgentIcon(displayAgent)}
                                 </div>
                                 <span className="truncate text-sm">
-                                    {displayAgent?.name || 'Suna'}
+                                    {displayAgent?.name || 'Omni'}
                                 </span>
                                 <ChevronDown size={12} className="opacity-60" />
                             </div>
@@ -579,9 +579,9 @@ const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
                         >
                             <div className="flex items-center gap-2 max-w-[160px]">
                                 <div className="flex-shrink-0">
-                                    <KortixLogo size={16} />
+                                    <OmniLogo size={16} />
                                 </div>
-                                <span className="truncate text-sm">Suna</span>
+                                <span className="truncate text-sm">Omni</span>
                                 <ChevronDown size={12} className="opacity-60" />
                             </div>
                         </Button>

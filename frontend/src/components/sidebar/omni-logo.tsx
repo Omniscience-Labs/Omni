@@ -4,14 +4,14 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
-interface KortixLogoProps {
+interface OmniLogoProps {
   size?: number;
 }
-export function KortixLogo({ size = 24 }: KortixLogoProps) {
+
+export function OmniLogo({ size = 24 }: OmniLogoProps) {
   const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // After mount, we can access the theme
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -31,3 +31,5 @@ export function KortixLogo({ size = 24 }: KortixLogoProps) {
     />
   );
 }
+
+

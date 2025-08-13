@@ -137,7 +137,7 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
                   Custom Agents
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  Specialized AI agents built by the Kortix team for specific tasks
+                  Specialized AI agents built by Omniscience Labs for specific tasks
                 </p>
               </div>
             </div>
@@ -189,7 +189,7 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
                   Featured Agents
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  Specialized AI agents built by the Kortix team for specific tasks
+                  Specialized AI agents built by Omniscience Labs for specific tasks
                 </p>
               </div>
             </div>
