@@ -71,7 +71,7 @@ class EmailService:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Kortix Suna</title>
+  <title>Welcome to Omni</title>
   <style>
     body {{
       font-family: Arial, sans-serif;
@@ -137,13 +137,13 @@ class EmailService:
 <body>
   <div class="container">
     <div class="logo-container">
-      <img src="https://i.postimg.cc/WdNtRx5Z/kortix-suna-logo.png" alt="Kortix Suna Logo" class="logo">
+      <img src="https://i.postimg.cc/WdNtRx5Z/kortix-suna-logo.png" alt="Omni Logo" class="logo">
     </div>
-    <h1>Welcome to Kortix Suna!</h1>
+    <h1>Welcome to Omni!</h1>
 
     <p>Hi {user_name},</p>
 
-    <p><em><strong>Welcome to Kortix Suna — we're excited to have you on board!</strong></em></p>
+    <p><em><strong>Welcome to Omni — we're excited to have you on board!</strong></em></p>
 
     <p>To get started, we'd like to get to know you better: fill out this short <a href="https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform">form</a>!</p>
 
@@ -155,11 +155,11 @@ class EmailService:
 
     <p><strong>For your business:</strong> if you want to automate manual and ordinary tasks for your company, book a call with us <a href="https://cal.com/arjun-subramaniam-u32lcu/30min">here</a></p>
 
-    <p>Thanks again, and welcome to the Suna community <span class="emoji">🌞</span></p>
+    <p>Thanks again, and welcome to the Omni community <span class="emoji">🌞</span></p>
 
-    <p>— The Suna Team</p>
+    <p>— The Omni Team</p>
 
-    <a href="https://www.suna.so/" class="button">Go to the platform</a>
+    <a href="https://omnisciencelabs.com/" class="button">Go to the platform</a>
   </div>
 </body>
 </html>"""
@@ -167,7 +167,7 @@ class EmailService:
     def _get_welcome_email_text(self, user_name: str) -> str:
         return f"""Hi {user_name},
 
-Welcome to Suna — we're excited to have you on board!
+Welcome to Omni — we're excited to have you on board!
 
 To get started, we'd like to get to know you better: fill out this short form!
 https://docs.google.com/forms/d/e/1FAIpQLSef1EHuqmIh_iQz-kwhjnzSC3Ml-V_5wIySDpMoMU9W_j24JQ/viewform
@@ -179,14 +179,14 @@ Let us know if you need help getting started or have questions — we're always 
 
 For your business: if you want to automate manual and ordinary tasks for your company, book a call with us here: https://cal.com/arjun-subramaniam-u32lcu/30min 
 
-Thanks again, and welcome to the Suna community 🌞
+Thanks again, and welcome to the Omni community 🌞
 
-— The Suna Team
+— The Omni Team
 
-Go to the platform: https://www.suna.so/
+Go to the platform: https://omnisciencelabs.com/
 
 ---
-© 2024 Suna. All rights reserved.
-You received this email because you signed up for a Suna account."""
+© 2024 Omniscience Labs. All rights reserved.
+You received this email because you signed up for an Omni account."""
 
 email_service = EmailService() 
