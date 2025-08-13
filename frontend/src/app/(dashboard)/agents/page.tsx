@@ -129,6 +129,8 @@ export default function AgentsPage() {
   const { data: agentsResponse, isLoading: agentsLoading, error: agentsError, refetch: loadAgents } = useAgents(agentsQueryParams);
   const { data: marketplaceTemplates, isLoading: marketplaceLoading } = useMarketplaceTemplates(marketplaceQueryParams);
   const { data: myTemplates, isLoading: templatesLoading, error: templatesError } = useMyTemplates();
+
+  console.log(marketplaceTemplates);
   
   const updateAgentMutation = useUpdateAgent();
   const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
@@ -180,7 +182,7 @@ export default function AgentsPage() {
           mineItems.push(item);
         }
         
-        if (template.is_kortix_team) {
+        if (template.is_kortix_team === true) {
           kortixItems.push(item);
         } else {
           communityItems.push(item);
@@ -188,8 +190,8 @@ export default function AgentsPage() {
       });
     }
 
-    const sortItems = (items: MarketplaceTemplate[]) => {
-      return items.sort((a, b) => {
+    const sortItems = (items: MarketplaceTemplate[]) =>
+      items.sort((a, b) => {
         switch (marketplaceSortBy) {
           case 'newest':
             return new Date(b.marketplace_published_at || b.created_at).getTime() - 
@@ -203,7 +205,6 @@ export default function AgentsPage() {
             return 0;
         }
       });
-    };
 
     return {
       kortixTeamItems: sortItems(kortixItems),

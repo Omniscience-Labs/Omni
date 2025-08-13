@@ -9,6 +9,8 @@ export interface MarketplaceTemplate {
   created_at: string;
   marketplace_published_at?: string;
   profile_image_url?: string;
+  avatar?: string;
+  avatar_color?: string;
   template_id: string;
   is_kortix_team?: boolean;
   model?: string;
