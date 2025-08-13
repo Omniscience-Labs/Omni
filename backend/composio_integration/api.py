@@ -13,6 +13,8 @@ import httpx
 import asyncio
 import json
 import hashlib
+import time
+import re
 import base64
 
 from .composio_service import (
@@ -39,6 +41,119 @@ def initialize(database: DBConnection):
     db = database
     
 COMPOSIO_API_BASE = os.getenv("COMPOSIO_API_BASE", "https://backend.composio.dev")
+
+# Standard webhook verification used for Composio (hex secret, base64 signature)
+def verify_std_webhook(wid: str, wts: str, wsig: str, raw: bytes, hex_secret: str, max_skew: int = 300) -> bool:
+    if not (wid and wts and wsig and hex_secret):
+        return False
+    try:
+        now = int(time.time())
+        ts_int = int(wts)
+        if abs(now - ts_int) > max_skew:
+            return False
+    except Exception:
+        # Allow non-epoch timestamps
+        pass
+    try:
+        key = bytes.fromhex(hex_secret)
+    except Exception:
+        return False
+    msg = wid.encode() + b"." + (wts.encode()) + b"." + raw
+    digest = hmac.new(key, msg, hashlib.sha256).digest()
+    expected_b64 = base64.b64encode(digest).decode()
+
+    candidates = []
+    for entry in wsig.split():
+        entry = entry.strip()
+        if "," in entry:  # e.g., "v1,<b64>"
+            candidates.append(entry.split(",", 1)[1].strip())
+        elif "=" in entry:  # e.g., "sha256=<hex>"
+            candidates.append(entry.split("=", 1)[1].strip())
+        else:
+            candidates.append(entry)
+    # Compare against expected base64; also tolerate hex
+    if any(hmac.compare_digest(expected_b64, c) for c in candidates):
+        return True
+    try:
+        expected_hex = digest.hex()
+        if any(hmac.compare_digest(expected_hex, c.lower()) for c in candidates):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+# Drop-in verifier per standard-webhooks style; tries ASCII, HEX, B64 keys and id.ts.body/ts.body
+def _parse_sigs(wsig: str):
+    out = []
+    for part in wsig.split():
+        part = part.strip()
+        if "," in part:
+            part = part.split(",", 1)[1].strip()
+        elif "=" in part:
+            part = part.split("=", 1)[1].strip()
+        out.append(part)
+    return out
+
+
+def _b64(d: bytes) -> str:
+    return base64.b64encode(d).decode()
+
+
+async def verify_composio(request: Request, secret_env: str = "COMPOSIO_WEBHOOK_SECRET", max_skew: int = 300) -> bool:
+    secret = os.getenv(secret_env, "")
+    if not secret:
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
+    wid = request.headers.get("webhook-id", "")
+    wts = request.headers.get("webhook-timestamp", "")
+    wsig = request.headers.get("webhook-signature", "")
+
+    if not (wid and wts and wsig):
+        raise HTTPException(status_code=401, detail="Missing standard-webhooks headers")
+
+    # normalize timestamp tolerance
+    try:
+        ts = int(wts)
+        if ts > 10**12:
+            ts //= 1000
+        if abs(int(time.time()) - ts) > max_skew:
+            raise HTTPException(status_code=401, detail="Timestamp outside tolerance")
+    except ValueError:
+        pass
+
+    raw = await request.body()
+
+    keys = [("ascii", secret.encode())]
+    try:
+        keys.append(("hex", bytes.fromhex(secret)))
+    except Exception:
+        pass
+    try:
+        keys.append(("b64", base64.b64decode(secret, validate=False)))
+    except Exception:
+        pass
+
+    msgs = [
+        ("id.ts.body", wid.encode() + b"." + wts.encode() + b"." + raw),
+        ("ts.body", wts.encode() + b"." + raw),
+    ]
+
+    header_sigs = _parse_sigs(wsig)
+    for kname, key in keys:
+        for mname, msg in msgs:
+            dig = hmac.new(key, msg, hashlib.sha256).digest()
+            exp_b64 = _b64(dig)
+            if any(hmac.compare_digest(exp_b64, s) for s in header_sigs):
+                request.state._sig_match = (kname, mname, "b64")
+                return True
+            exp_hex = dig.hex()
+            if any(hmac.compare_digest(exp_hex, s.lower()) for s in header_sigs):
+                request.state._sig_match = (kname, mname, "hex")
+                return True
+
+    request.state._sig_match = ("none", "none", "none")
+    raise HTTPException(status_code=401, detail="Invalid signature")
 
 class IntegrateToolkitRequest(BaseModel):
     toolkit_slug: str
@@ -78,6 +193,7 @@ class ProfileResponse(BaseModel):
     toolkit_name: str
     mcp_url: str
     redirect_url: Optional[str] = None
+    connected_account_id: Optional[str] = None
     is_connected: bool
     is_default: bool
     created_at: str
@@ -92,6 +208,7 @@ class ProfileResponse(BaseModel):
             toolkit_name=profile.toolkit_name,
             mcp_url=profile.mcp_url,
             redirect_url=profile.redirect_url,
+            connected_account_id=getattr(profile, 'connected_account_id', None),
             is_connected=profile.is_connected,
             is_default=profile.is_default,
             created_at=profile.created_at.isoformat() if profile.created_at else datetime.now().isoformat()
@@ -979,158 +1096,51 @@ async def composio_webhook(request: Request):
             logger.error("COMPOSIO_WEBHOOK_SECRET is not configured")
             raise HTTPException(status_code=500, detail="Webhook secret not configured")
 
-        incoming_secret = (
-            request.headers.get("x-composio-secret")
-            or request.headers.get("X-Composio-Secret")
-            or request.headers.get("x-trigger-secret")
-            or ""
-        )
-        if not hmac.compare_digest(incoming_secret, secret):
-            # Default: verify signature when present (no env toggles)
-            signature_hdr = request.headers.get("webhook-signature")
-            timestamp_hdr = request.headers.get("webhook-timestamp")
-
-            if signature_hdr:
-                try:
-                    raw_body = await request.body()
-                    # Raw bytes only; avoid re-encoding differences
-                    provided_raw = signature_hdr.strip()
-                    provided = provided_raw
-                    # Parse common formats: "sha256=..." or "t=..., v1=..."
-                    if provided.startswith("sha256="):
-                        provided = provided.split("=", 1)[1]
-                    elif "," in provided:
-                        parts = {}
-                        for seg in provided.split(","):
-                            if "=" in seg:
-                                k, v = seg.split("=", 1)
-                                parts[k.strip()] = v.strip()
-                        # Stripe-like format t=<ts>, v1=<sig>
-                        provided = parts.get("v1", provided)
-                        if not timestamp_hdr:
-                            timestamp_hdr = parts.get("t", timestamp_hdr)
-                    elif provided.lower().startswith("v1,") and len(provided) > 3:
-                        # Format "v1,<base64>"
-                        provided = provided.split(",", 1)[1]
-
-                    # Build candidate HMACs across key interpretations and message shapes
-                    candidates = []
-                    key_variants = []
-                    # raw ascii
-                    try:
-                        key_variants.append(("ascii", secret.encode()))
-                    except Exception:
-                        pass
-                    # base64-decoded secret
-                    try:
-                        key_variants.append(("b64", base64.b64decode(secret, validate=False)))
-                    except Exception:
-                        pass
-                    # hex-decoded secret
-                    try:
-                        key_variants.append(("hex", bytes.fromhex(secret)))
-                    except Exception:
-                        pass
-
-                    msg_variants = []
-                    if timestamp_hdr:
-                        ts_bytes = timestamp_hdr.encode()
-                        msg_variants.extend([
-                            ("ts.dot", ts_bytes + b"." + raw_body),
-                            ("ts.nl", ts_bytes + b"\n" + raw_body),
-                            ("ts.cat", ts_bytes + raw_body),
-                        ])
-                    msg_variants.append(("body", raw_body))
-
-                    for key_name, key_bytes in key_variants:
-                        for msg_name, msg_bytes in msg_variants:
-                            dig = hmac.new(key_bytes, msg_bytes, hashlib.sha256).digest()
-                            candidates.append({
-                                "hex": dig.hex(),
-                                "b64": base64.b64encode(dig).decode(),
-                                "raw": dig,
-                                "key": key_name,
-                                "msg": msg_name,
-                            })
-
-                    # Normalize provided signature to bytes candidates (base64 or hex)
-                    provided_hex = None
-                    provided_b64 = None
-                    provided_bytes = None
-                    # Try hex
-                    try:
-                        provided_bytes = bytes.fromhex(provided)
-                        provided_hex = provided.lower()
-                    except Exception:
-                        provided_hex = None
-                    # Try base64
-                    if provided_bytes is None:
-                        try:
-                            provided_bytes = base64.b64decode(provided, validate=False)
-                            provided_b64 = provided
-                        except Exception:
-                            provided_b64 = None
-
-                    ok = False
-                    chosen = None
-                    for c in candidates:
-                        if provided_hex and hmac.compare_digest(provided_hex, c["hex"]):
-                            ok = True; chosen = c; break
-                        if provided_b64 and hmac.compare_digest(provided_b64, c["b64"]):
-                            ok = True; chosen = c; break
-                        if provided_bytes is not None and hmac.compare_digest(provided_bytes, c["raw"]):
-                            ok = True; chosen = c; break
-
-                    # Debug log of signature mismatch details
-                    try:
-                        logger.info(
-                            "Composio signature debug",
-                            provided_raw=provided_raw,
-                            timestamp=timestamp_hdr,
-                            body_len=len(raw_body),
-                            cand_hex=[c["hex"] for c in candidates[:6]],
-                            cand_b64=[c["b64"] for c in candidates[:6]],
-                            chosen_key=chosen.get("key") if chosen else None,
-                            chosen_msg=chosen.get("msg") if chosen else None,
-                        )
-                    except Exception:
-                        pass
-
-                    if not ok:
-                        logger.warning("Invalid Composio webhook signature")
-                        raise HTTPException(status_code=401, detail="Unauthorized")
-                except HTTPException:
-                    raise
-                except Exception:
-                    logger.warning("Failed to verify Composio webhook signature; denying")
-                    raise HTTPException(status_code=401, detail="Unauthorized")
-            else:
-                logger.warning("Invalid Composio webhook secret")
-                raise HTTPException(status_code=401, detail="Unauthorized")
+        # Use robust verifier (tries ASCII/HEX/B64 keys and id.ts.body/ts.body)
+        await verify_composio(request, "COMPOSIO_WEBHOOK_SECRET")
 
         try:
             payload = await request.json()
         except Exception:
             payload = {}
 
-        composio_trigger_id = payload.get("id")  # Trigger instance nano id (not always present)
+        wid = request.headers.get("webhook-id", "")
+        composio_trigger_id = payload.get("id")  # often absent
         provider_event_id = (
-            payload.get("eventId") or payload.get("payload", {}).get("id") or payload.get("id")
+            payload.get("eventId")
+            or payload.get("payload", {}).get("id")
+            or payload.get("id")
+            or wid
         )
-        # Try to derive trigger slug from various shapes
+        # Derive trigger slug from various shapes
         trigger_slug = (
             payload.get("triggerSlug")
             or payload.get("type")
             or (payload.get("data", {}) or {}).get("triggerSlug")
+            or (payload.get("data", {}) or {}).get("type")
         )
+
+        # Basic parsed-field logging (no secrets)
+        try:
+            logger.info(
+                "Composio parsed fields",
+                webhook_id=wid,
+                trigger_slug=trigger_slug,
+                payload_id=composio_trigger_id,
+                provider_event_id=provider_event_id,
+                payload_keys=list(payload.keys()) if isinstance(payload, dict) else [],
+            )
+        except Exception:
+            pass
 
         client = await db.client
 
-        if not composio_trigger_id:
-            logger.warning("Composio webhook missing trigger id in payload.id")
-            return JSONResponse(status_code=400, content={"success": False, "error": "Missing composio trigger id"})
-
         # Fetch all active WEBHOOK triggers and filter by provider 'composio'
+        # If neither id nor slug present, ack 200 to avoid Composio retries
+        if not (composio_trigger_id or trigger_slug):
+            logger.warning("No trigger id or slug; acking 200")
+            return JSONResponse(content={"success": True, "matched_triggers": 0})
+
         try:
             res = await client.table("agent_triggers").select("*").eq("trigger_type", "webhook").eq("is_active", True).execute()
             rows = res.data or []
@@ -1139,18 +1149,67 @@ async def composio_webhook(request: Request):
             rows = []
 
         matched = []
+        norm_slug = (str(trigger_slug).strip().lower() if trigger_slug else None)
+        try:
+            logger.info(
+                "Composio matching begin",
+                norm_slug=norm_slug,
+                have_id=bool(composio_trigger_id),
+            )
+        except Exception:
+            pass
         for row in rows:
             cfg = row.get("config") or {}
             if not isinstance(cfg, dict):
                 continue
-            if cfg.get("provider_id") != "composio":
+            prov = cfg.get("provider_id")
+            if prov != "composio":
+                try:
+                    logger.info("Composio skip non-provider", trigger_id=row.get("trigger_id"), provider_id=prov)
+                except Exception:
+                    pass
                 continue
             # Prefer instance-id match when available, else fall back to slug match
-            if composio_trigger_id and cfg.get("composio_trigger_id") == composio_trigger_id:
+            cfg_tid = cfg.get("composio_trigger_id")
+            if composio_trigger_id and cfg_tid == composio_trigger_id:
+                try:
+                    logger.info("Composio matched by id", trigger_id=row.get("trigger_id"), cfg_id=cfg_tid)
+                except Exception:
+                    pass
                 matched.append(row)
                 continue
-            if (not composio_trigger_id) and trigger_slug and cfg.get("trigger_slug") == trigger_slug:
+            cfg_slug_raw = cfg.get("trigger_slug")
+            cfg_slug_norm = str(cfg_slug_raw).strip().lower() if isinstance(cfg_slug_raw, str) else None
+            if norm_slug and cfg_slug_norm and cfg_slug_norm == norm_slug:
+                try:
+                    logger.info("Composio matched by slug", trigger_id=row.get("trigger_id"), cfg_slug=cfg_slug_raw, norm_cfg_slug=cfg_slug_norm)
+                except Exception:
+                    pass
                 matched.append(row)
+            else:
+                try:
+                    logger.info(
+                        "Composio no match row",
+                        trigger_id=row.get("trigger_id"),
+                        cfg_id=cfg_tid,
+                        cfg_slug=cfg_slug_raw,
+                        cfg_slug_norm=cfg_slug_norm,
+                        want_id=composio_trigger_id,
+                        want_slug=trigger_slug,
+                        want_slug_norm=norm_slug,
+                    )
+                except Exception:
+                    pass
+
+        try:
+            logger.info(
+                "Composio matching result",
+                total=len(rows),
+                matched=len(matched),
+                match_basis=("id" if composio_trigger_id else ("slug" if trigger_slug else "none")),
+            )
+        except Exception:
+            pass
 
         if not matched:
             logger.warning(f"No active triggers found for Composio trigger {composio_trigger_id}")
@@ -1169,11 +1228,17 @@ async def composio_webhook(request: Request):
                 trigger = await trigger_service.get_trigger(trigger_id)
                 if not trigger:
                     continue
+                ctx = {
+                    "payload": payload,
+                    "trigger_slug": trigger_slug,
+                    "webhook_id": wid,
+                }
                 event = TriggerEvent(
                     trigger_id=trigger_id,
                     agent_id=trigger.agent_id,
                     trigger_type=TriggerType.EVENT,
                     raw_data=payload,
+                    context=ctx,
                 )
                 await execution_service.execute_trigger_result(
                     agent_id=trigger.agent_id,

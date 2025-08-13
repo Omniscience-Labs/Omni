@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 
 import croniter
 import pytz
+import httpx
 from services.supabase import DBConnection
 
 from services.supabase import DBConnection
@@ -36,6 +37,10 @@ class TriggerProvider(ABC):
     @abstractmethod
     async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
         pass
+
+    # Optional override for providers that manage remote trigger instances
+    async def delete_remote_trigger(self, trigger: Trigger) -> bool:
+        return True
 
 
 class ScheduleProvider(TriggerProvider):
@@ -413,6 +418,17 @@ class ProviderService:
         
         return await provider.teardown_trigger(trigger)
     
+    async def delete_remote_trigger(self, trigger: Trigger) -> bool:
+        provider = self._providers.get(trigger.provider_id)
+        if not provider:
+            logger.error(f"Unknown provider: {trigger.provider_id}")
+            return False
+        try:
+            return await provider.delete_remote_trigger(trigger)
+        except Exception as e:
+            logger.warning(f"Provider delete_remote_trigger failed for {trigger.provider_id}: {e}")
+            return False
+    
     async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
         provider = self._providers.get(trigger.provider_id)
         if not provider:
@@ -428,6 +444,11 @@ class ComposioEventProvider(TriggerProvider):
     def __init__(self):
         # Use WEBHOOK to match existing DB enum (no migration needed)
         super().__init__("composio", TriggerType.WEBHOOK)
+        self._api_base = os.getenv("COMPOSIO_API_BASE", "https://api.composio.dev")
+        self._api_key = os.getenv("COMPOSIO_API_KEY", "")
+
+    def _headers(self) -> Dict[str, str]:
+        return {"x-api-key": self._api_key, "Content-Type": "application/json"}
 
     async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         composio_trigger_id = config.get("composio_trigger_id")
@@ -444,18 +465,74 @@ class ComposioEventProvider(TriggerProvider):
         return config
 
     async def setup_trigger(self, trigger: Trigger) -> bool:
-        # Minimal approach: assume Composio trigger is already created and webhook configured.
-        # We only store the provided composio_trigger_id in config.
+        # Re-enable the Composio trigger instance if present
         try:
-            if not trigger.config.get("composio_trigger_id"):
-                return False
+            trigger_id = trigger.config.get("composio_trigger_id")
+            if not trigger_id:
+                return True
+            if not self._api_key:
+                return True
+            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+            payload_candidates: List[Dict[str, Any]] = [
+                {"status": "enabled"},
+                {"enabled": True},
+            ]
+            async with httpx.AsyncClient(timeout=10) as client:
+                for body in payload_candidates:
+                    try:
+                        resp = await client.patch(url, headers=self._headers(), json=body)
+                        if resp.status_code in (200, 204):
+                            return True
+                    except Exception:
+                        continue
             return True
         except Exception:
-            return False
+            return True
 
     async def teardown_trigger(self, trigger: Trigger) -> bool:
-        # Minimal approach: nothing to do remotely.
-        return True
+        # Disable the Composio trigger instance so it stops sending webhooks
+        try:
+            trigger_id = trigger.config.get("composio_trigger_id")
+            if not trigger_id:
+                return True
+            if not self._api_key:
+                return True
+            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+            payload_candidates: List[Dict[str, Any]] = [
+                {"status": "disabled"},
+                {"enabled": False},
+            ]
+            async with httpx.AsyncClient(timeout=10) as client:
+                for body in payload_candidates:
+                    try:
+                        resp = await client.patch(url, headers=self._headers(), json=body)
+                        if resp.status_code in (200, 204):
+                            return True
+                    except Exception:
+                        continue
+            return True
+        except Exception:
+            return True
+
+    async def delete_remote_trigger(self, trigger: Trigger) -> bool:
+        # Permanently remove the remote Composio trigger instance
+        try:
+            trigger_id = trigger.config.get("composio_trigger_id")
+            if not trigger_id:
+                return True
+            if not self._api_key:
+                return True
+            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+            async with httpx.AsyncClient(timeout=10) as client:
+                try:
+                    resp = await client.delete(url, headers=self._headers())
+                    if resp.status_code in (200, 204):
+                        return True
+                except Exception:
+                    return False
+            return False
+        except Exception:
+            return False
 
     async def process_event(self, trigger: Trigger, event: TriggerEvent) -> TriggerResult:
         try:
