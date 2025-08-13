@@ -118,7 +118,7 @@ export function AgentHeader({
 
   return (
     <>
-    <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-3 z-20 w-full px-8">
+    <header className="bg-background sticky top-0 flex h-14 shrink-0 items-center gap-3 z-20 w-full px-8 mb-2">
       {/* Left side - Agent info */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
@@ -212,24 +212,26 @@ export function AgentHeader({
             </TooltipProvider>
           )}
         </div>
-        <Tabs value={activeTab} onValueChange={onTabChange}>
-          <TabsList className="grid grid-cols-2 h-9 w-[280px]">
-            <TabsTrigger 
-              value="agent-builder" 
-              className="flex items-center gap-1.5 text-xs px-3"
-            >
-              <Sparkles className="h-3 w-3" />
-              <span className="hidden md:inline">Prompt to build</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="configuration" 
-              className="flex items-center gap-1.5 text-xs px-3"
-            >
-              <Settings className="h-3 w-3" />
-              <span className="hidden md:inline">Manual Config</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {!isSunaAgent && (
+          <Tabs value={activeTab} onValueChange={onTabChange}>
+            <TabsList className="grid grid-cols-2 h-9 w-[280px]">
+              <TabsTrigger 
+                value="agent-builder" 
+                className="flex items-center gap-1.5 text-xs px-3"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span className="hidden md:inline">Prompt to build</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="configuration" 
+                className="flex items-center gap-1.5 text-xs px-3"
+              >
+                <Settings className="h-3 w-3" />
+                <span className="hidden md:inline">Manual Config</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
     </header>
     <ProfilePictureDialog
