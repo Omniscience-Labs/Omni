@@ -92,18 +92,24 @@ class InstallationService:
             mcp_requirements
         )
         
-        agent_id = await self._create_agent(
-            template,
-            request,
-            agent_config
-        )
-        
-        await self._create_initial_version(
-            agent_id,
-            request.account_id,
-            agent_config,
-            request.custom_system_prompt or template.system_prompt
-        )
+        # Check if this is a managed template
+        if template.managed_template:
+            # For managed templates, create reference instead of copy
+            agent_id = await self._create_managed_agent_reference(template, request)
+        else:
+            # For unmanaged templates, create a copy (current behavior)
+            agent_id = await self._create_agent(
+                template,
+                request,
+                agent_config
+            )
+            
+            await self._create_initial_version(
+                agent_id,
+                request.account_id,
+                agent_config,
+                request.custom_system_prompt or template.system_prompt
+            )
         
         await self._increment_download_count(template.template_id)
         
@@ -337,6 +343,55 @@ class InstallationService:
         
         logger.info(f"Created agent {agent_id} from template {template.template_id}")
         return agent_id
+    
+    async def _create_managed_agent_reference(
+        self,
+        template: AgentTemplate,
+        request: TemplateInstallationRequest
+    ) -> str:
+        """Create a reference to the original agent for managed templates"""
+        # Get the original agent ID from template metadata
+        original_agent_id = template.metadata.get('original_agent_id')
+        if not original_agent_id:
+            raise TemplateInstallationError("Managed template missing original agent ID")
+        
+        client = await self._db.client
+        
+        # Verify the original agent still exists and is public
+        agent_result = await client.table('agents').select('agent_id, is_public, account_id')\
+            .eq('agent_id', original_agent_id)\
+            .maybe_single()\
+            .execute()
+        
+        if not agent_result.data:
+            raise TemplateInstallationError("Original agent no longer exists")
+        
+        original_agent = agent_result.data
+        if not original_agent['is_public']:
+            raise TemplateInstallationError("Original agent is no longer public")
+        
+        # Check if user already has this agent in their library
+        existing_result = await client.table('user_agent_library').select('id')\
+            .eq('user_account_id', request.account_id)\
+            .eq('original_agent_id', original_agent_id)\
+            .maybe_single()\
+            .execute()
+        
+        if existing_result.data:
+            raise TemplateInstallationError("Agent already in your library")
+        
+        # Create reference in user_agent_library (managed: both IDs are the same)
+        library_data = {
+            'user_account_id': request.account_id,
+            'original_agent_id': original_agent_id,
+            'agent_id': original_agent_id,  # Same ID for managed agents
+            'added_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        await client.table('user_agent_library').insert(library_data).execute()
+        
+        logger.info(f"Created managed agent reference to {original_agent_id} for user {request.account_id}")
+        return original_agent_id
     
     async def _create_initial_version(
         self,

@@ -1362,38 +1362,73 @@ async def get_agents(
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Start building the query
-        query = client.table('agents').select('*', count='exact').eq("account_id", user_id)
+        # Get agents owned by user
+        owned_result = await client.table('agents').select('*').eq("account_id", user_id).execute()
         
-        # Apply search filter
+        # Get agent IDs from user's library
+        library_ids_result = await client.table('user_agent_library').select('agent_id')\
+            .eq('user_account_id', user_id).execute()
+        
+        # Extract just the agent IDs
+        library_agent_ids = [row['agent_id'] for row in library_ids_result.data]
+        
+        # Get library agents if there are any
+        library_result = None
+        if library_agent_ids:
+            library_result = await client.table('agents').select('*')\
+                .in_('agent_id', library_agent_ids).execute()
+        
+        # Combine and deduplicate agents
+        all_agents = {}
+        
+        # Add owned agents
+        for agent in owned_result.data:
+            agent['source'] = 'owned'
+            all_agents[agent['agent_id']] = agent
+        
+        # Add library agents (but don't override owned ones)
+        if library_result and library_result.data:
+            for agent in library_result.data:
+                if agent['agent_id'] not in all_agents:
+                    agent['source'] = 'library'
+                    all_agents[agent['agent_id']] = agent
+        
+        # Convert back to list
+        agents_data = list(all_agents.values())
+        total_count = len(agents_data)
+        
+        # Apply search filter on the combined data
         if search:
-            search_term = f"%{search}%"
-            query = query.or_(f"name.ilike.{search_term},description.ilike.{search_term}")
+            search_lower = search.lower()
+            agents_data = [
+                agent for agent in agents_data 
+                if (search_lower in agent.get('name', '').lower()) or
+                   (search_lower in agent.get('description', '').lower())
+            ]
         
         # Apply filters
         if has_default is not None:
-            query = query.eq("is_default", has_default)
+            agents_data = [agent for agent in agents_data if agent.get('is_default') == has_default]
         
         # For MCP and AgentPress tools filtering, we'll need to do post-processing
         # since Supabase doesn't have great JSON array/object filtering
         
-        # Apply sorting
+        # Apply sorting on the combined data
+        reverse_order = sort_order == "desc"
         if sort_by == "name":
-            query = query.order("name", desc=(sort_order == "desc"))
+            agents_data.sort(key=lambda x: x.get('name', '').lower(), reverse=reverse_order)
         elif sort_by == "updated_at":
-            query = query.order("updated_at", desc=(sort_order == "desc"))
+            agents_data.sort(key=lambda x: x.get('updated_at', ''), reverse=reverse_order)
         elif sort_by == "created_at":
-            query = query.order("created_at", desc=(sort_order == "desc"))
+            agents_data.sort(key=lambda x: x.get('created_at', ''), reverse=reverse_order)
         else:
             # Default to created_at
-            query = query.order("created_at", desc=(sort_order == "desc"))
+            agents_data.sort(key=lambda x: x.get('created_at', ''), reverse=reverse_order)
         
-        # Get paginated data and total count in one request
-        query = query.range(offset, offset + limit - 1)
-        agents_result = await query.execute()
-        total_count = agents_result.count if agents_result.count is not None else 0
+        # Update total count after filtering
+        total_count = len(agents_data)
         
-        if not agents_result.data:
+        if not agents_data:
             logger.info(f"No agents found for user: {user_id}")
             return {
                 "agents": [],
@@ -1405,13 +1440,13 @@ async def get_agents(
                 }
             }
         
-        # Post-process for tool filtering and tools_count sorting
-        agents_data = agents_result.data
+        # Apply pagination to the filtered and sorted data
+        paginated_agents_data = agents_data[offset:offset + limit]
         
         # First, fetch version data for all agents to ensure we have correct tool info
         # Do this in a single batched query instead of per-agent service calls
         agent_version_map = {}
-        version_ids = list({agent['current_version_id'] for agent in agents_data if agent.get('current_version_id')})
+        version_ids = list({agent['current_version_id'] for agent in paginated_agents_data if agent.get('current_version_id')})
         if version_ids:
             try:
                 versions_result = await client.table('agent_versions').select(
@@ -1458,7 +1493,7 @@ async def get_agents(
                     logger.warning(f"Unexpected tools parameter type: {type(tools)}, value: {tools}")
                     tools_filter = []
             
-            for agent in agents_data:
+            for agent in paginated_agents_data:
                 # Get version data if available and extract configuration
                 version_data = agent_version_map.get(agent['agent_id'])
                 from agent.config_helper import extract_agent_config
@@ -1531,9 +1566,11 @@ async def get_agents(
             total_count = len(agents_data)
             agents_data = agents_data[offset:offset + limit]
         
-        # Format the response
+        # Format the response  
         agent_list = []
-        for agent in agents_data:
+        # Use the correct data source - either filtered or paginated
+        final_agents_data = agents_data if (has_mcp_tools is not None or has_agentpress_tools is not None or tools or sort_by == "tools_count") else paginated_agents_data
+        for agent in final_agents_data:
             current_version = None
             # Use already fetched version data from agent_version_map
             version_dict = agent_version_map.get(agent['agent_id'])

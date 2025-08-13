@@ -165,8 +165,6 @@ class TemplateService:
         if not version_config:
             raise TemplateNotFoundError("Agent has no version configuration")
         
-        sanitized_config = await self._sanitize_config_for_template(version_config)
-        
         # Set default sharing preferences if not provided
         if sharing_preferences is None:
             sharing_preferences = {
@@ -178,6 +176,9 @@ class TemplateService:
                 "include_playbooks": True,
                 "include_triggers": True
             }
+        
+        # Apply sharing preferences during sanitization
+        sanitized_config = await self._sanitize_config_for_template(version_config, sharing_preferences, agent_id)
         
         template = AgentTemplate(
             template_id=str(uuid4()),
@@ -191,7 +192,11 @@ class TemplateService:
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
-            metadata=agent.get('metadata', {}),
+            metadata={
+                **agent.get('metadata', {}),
+                'original_agent_id': agent_id,  # Store original agent ID for managed templates
+                'created_from_agent': agent_id
+            },
             sharing_preferences=sharing_preferences,
             managed_template=managed_template
         )
@@ -419,8 +424,67 @@ class TemplateService:
         
         return {}
     
-    async def _sanitize_config_for_template(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        return self._fallback_sanitize_config(config)
+    async def _sanitize_config_for_template(
+        self, 
+        config: Dict[str, Any], 
+        sharing_preferences: Dict[str, bool], 
+        agent_id: str
+    ) -> Dict[str, Any]:
+        sanitized = self._fallback_sanitize_config(config)
+        
+        # Apply sharing preferences to filter components
+        sanitized = await self._apply_sharing_preferences(sanitized, sharing_preferences, agent_id)
+        
+        return sanitized
+    
+    async def _apply_sharing_preferences(
+        self, 
+        config: Dict[str, Any], 
+        sharing_preferences: Dict[str, bool], 
+        agent_id: str
+    ) -> Dict[str, Any]:
+        """Apply sharing preferences to filter what gets included in the template"""
+        filtered_config = config.copy()
+        
+        # 1. System Prompt
+        if not sharing_preferences.get('include_system_prompt', True):
+            filtered_config['system_prompt'] = ''
+            logger.info(f"Removed system prompt from template for agent {agent_id}")
+        
+        # 2. Model Settings
+        if not sharing_preferences.get('include_model_settings', True):
+            filtered_config['model'] = None
+            logger.info(f"Removed model settings from template for agent {agent_id}")
+        
+        # 3. Default Tools (AgentPress tools)
+        if not sharing_preferences.get('include_default_tools', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['agentpress'] = {}
+            logger.info(f"Removed default tools from template for agent {agent_id}")
+        
+        # 4. Integrations (MCP tools)
+        if not sharing_preferences.get('include_integrations', True):
+            if 'tools' in filtered_config:
+                filtered_config['tools']['mcp'] = []
+                filtered_config['tools']['custom_mcp'] = []
+            logger.info(f"Removed integrations from template for agent {agent_id}")
+        
+        # 5. Knowledge Bases (will be handled during installation)
+        # Note: Knowledge bases are stored in separate table, handled in installation service
+        if not sharing_preferences.get('include_knowledge_bases', True):
+            logger.info(f"Knowledge bases will be excluded during template installation for agent {agent_id}")
+        
+        # 6. Playbooks (Workflows)
+        # Note: Workflows are stored in separate table, handled in installation service  
+        if not sharing_preferences.get('include_playbooks', True):
+            logger.info(f"Playbooks will be excluded during template installation for agent {agent_id}")
+        
+        # 7. Triggers
+        # Note: Triggers are stored in separate table, handled in installation service
+        if not sharing_preferences.get('include_triggers', True):
+            logger.info(f"Triggers will be excluded during template installation for agent {agent_id}")
+        
+        return filtered_config
     
     def _fallback_sanitize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         agentpress_tools = config.get('tools', {}).get('agentpress', {})
