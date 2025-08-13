@@ -204,3 +204,4 @@ dump.rdb
 
 # CodeWebChat state and logs (auto-added)
 .cwc/
+.cursor/rules/personal.mdc  
