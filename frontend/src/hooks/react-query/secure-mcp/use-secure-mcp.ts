@@ -91,10 +91,22 @@ export interface InstallationResponse {
   };
 }
 
+export interface SharingPreferences {
+  include_system_prompt: boolean;
+  include_model_settings: boolean;
+  include_default_tools: boolean;
+  include_integrations: boolean;
+  include_knowledge_bases: boolean;
+  include_playbooks: boolean;
+  include_triggers: boolean;
+}
+
 export interface CreateTemplateRequest {
   agent_id: string;
   make_public?: boolean;
   tags?: string[];
+  sharing_preferences?: SharingPreferences;
+  managed_template?: boolean;
 }
 
 // =====================================================
@@ -329,7 +341,17 @@ export function usePublishTemplate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ template_id, tags }: { template_id: string; tags?: string[] }): Promise<{ message: string }> => {
+    mutationFn: async ({ 
+      template_id, 
+      tags,
+      sharing_preferences,
+      managed_template 
+    }: { 
+      template_id: string; 
+      tags?: string[];
+      sharing_preferences?: SharingPreferences;
+      managed_template?: boolean;
+    }): Promise<{ message: string }> => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -343,7 +365,19 @@ export function usePublishTemplate() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ tags }),
+        body: JSON.stringify({ 
+          tags,
+          sharing_preferences: sharing_preferences || {
+            include_system_prompt: true,
+            include_model_settings: true,
+            include_default_tools: true,
+            include_integrations: true,
+            include_knowledge_bases: true,
+            include_playbooks: true,
+            include_triggers: true
+          },
+          managed_template: managed_template || false
+        }),
       });
 
       if (!response.ok) {

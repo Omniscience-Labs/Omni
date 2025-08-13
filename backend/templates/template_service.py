@@ -47,6 +47,8 @@ class AgentTemplate:
     profile_image_url: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
+    sharing_preferences: Optional[Dict[str, bool]] = None
+    managed_template: bool = False
     
     def with_public_status(self, is_public: bool, published_at: Optional[datetime] = None) -> 'AgentTemplate':
         return AgentTemplate(
@@ -143,7 +145,9 @@ class TemplateService:
         agent_id: str,
         creator_id: str,
         make_public: bool = False,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        sharing_preferences: Optional[Dict[str, bool]] = None,
+        managed_template: bool = False
     ) -> str:
         logger.info(f"Creating template from agent {agent_id} for user {creator_id}")
         
@@ -163,6 +167,18 @@ class TemplateService:
         
         sanitized_config = await self._sanitize_config_for_template(version_config)
         
+        # Set default sharing preferences if not provided
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_model_settings": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_playbooks": True,
+                "include_triggers": True
+            }
+        
         template = AgentTemplate(
             template_id=str(uuid4()),
             creator_id=creator_id,
@@ -175,7 +191,9 @@ class TemplateService:
             avatar=agent.get('avatar'),
             avatar_color=agent.get('avatar_color'),
             profile_image_url=agent.get('profile_image_url'),
-            metadata=agent.get('metadata', {})
+            metadata=agent.get('metadata', {}),
+            sharing_preferences=sharing_preferences,
+            managed_template=managed_template
         )
         
         await self._save_template(template)
@@ -279,14 +297,34 @@ class TemplateService:
         
         return templates
     
-    async def publish_template(self, template_id: str, creator_id: str) -> bool:
+    async def publish_template(
+        self, 
+        template_id: str, 
+        creator_id: str,
+        sharing_preferences: Optional[Dict[str, bool]] = None,
+        managed_template: bool = False
+    ) -> bool:
         logger.info(f"Publishing template {template_id}")
+        
+        # Set default sharing preferences if not provided
+        if sharing_preferences is None:
+            sharing_preferences = {
+                "include_system_prompt": True,
+                "include_model_settings": True,
+                "include_default_tools": True,
+                "include_integrations": True,
+                "include_knowledge_bases": True,
+                "include_playbooks": True,
+                "include_triggers": True
+            }
         
         client = await self._db.client
         result = await client.table('agent_templates').update({
             'is_public': True,
             'marketplace_published_at': datetime.now(timezone.utc).isoformat(),
-            'updated_at': datetime.now(timezone.utc).isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat(),
+            'sharing_preferences': sharing_preferences,
+            'managed_template': managed_template
         }).eq('template_id', template_id)\
           .eq('creator_id', creator_id)\
           .execute()
@@ -512,7 +550,9 @@ class TemplateService:
             'avatar': template.avatar,
             'avatar_color': template.avatar_color,
             'profile_image_url': template.profile_image_url,
-            'metadata': template.metadata
+            'metadata': template.metadata,
+            'sharing_preferences': template.sharing_preferences,
+            'managed_template': template.managed_template
         }
         
         await client.table('agent_templates').insert(template_data).execute()
@@ -537,7 +577,9 @@ class TemplateService:
             avatar_color=data.get('avatar_color'),
             profile_image_url=data.get('profile_image_url'),
             metadata=data.get('metadata', {}),
-            creator_name=creator_name
+            creator_name=creator_name,
+            sharing_preferences=data.get('sharing_preferences'),
+            managed_template=data.get('managed_template', False)
         )
 
 def get_template_service(db_connection: DBConnection) -> TemplateService:
