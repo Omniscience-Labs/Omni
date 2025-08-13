@@ -293,7 +293,7 @@ export function Navbar() {
 
                 {/* GitHub link for mobile */}
                 <Link
-                  href="https://github.com/kortix-ai/suna"
+                  href="https://github.com/omniscience-labs/omni"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded-full bg-transparent text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/30 transition-all duration-200"

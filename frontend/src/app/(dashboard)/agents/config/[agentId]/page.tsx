@@ -108,12 +108,12 @@ export default function AgentConfigurationPage() {
     
     if (isSunaAgent) {
       if (restrictions.name_editable === false && formData.name !== originalData.name) {
-        toast.error("Suna's name cannot be modified.");
+        toast.error("Omni's name cannot be modified.");
         return;
       }
 
       if (restrictions.tools_editable === false && JSON.stringify(formData.agentpress_tools) !== JSON.stringify(originalData.agentpress_tools)) {
-        toast.error("Suna's default tools cannot be modified.");
+        toast.error("Omni's default tools cannot be modified.");
         return;
       }
     }
@@ -201,7 +201,7 @@ export default function AgentConfigurationPage() {
     
     if (isSunaAgent && restrictions.name_editable === false) {
       toast.error("Name cannot be edited", {
-        description: "Suna's name is managed centrally and cannot be changed.",
+        description: "Omni's name is managed centrally and cannot be changed.",
       });
       return;
     }
@@ -242,7 +242,7 @@ export default function AgentConfigurationPage() {
     
     if (isSunaAgent) {
       toast.error("System prompt cannot be edited", {
-        description: "Suna's system prompt is managed centrally and cannot be changed.",
+        description: "Omni's system prompt is managed centrally and cannot be changed.",
       });
       return;
     }
@@ -367,7 +367,7 @@ export default function AgentConfigurationPage() {
     const restrictions = agent?.metadata?.restrictions || {};
     
     if (isSunaAgent && restrictions.tools_editable === false) {
-      toast.error("Suna's default tools cannot be modified.");
+      toast.error("Omni's default tools cannot be modified.");
       return;
     }
     

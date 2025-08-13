@@ -66,7 +66,7 @@ export const MarketplaceTab = ({
             <SelectContent className='rounded-xl'>
               <SelectItem className='rounded-xl' value="all">All Agents</SelectItem>
               <SelectItem className='rounded-xl' value="mine">Mine</SelectItem>
-              <SelectItem className='rounded-xl' value="kortix">Kortix Verified</SelectItem>
+              <SelectItem className='rounded-xl' value="kortix">Omniscience Labs Verified</SelectItem>
               <SelectItem className='rounded-xl' value="community">Community</SelectItem>
             </SelectContent>
           </Select>
@@ -105,7 +105,7 @@ export const MarketplaceTab = ({
                 {kortixTeamItems.length > 0 && (
                   <div className="space-y-6">
                     <MarketplaceSectionHeader
-                      title="By team Kortix"
+                      title="By Omniscience Labs"
                       subtitle="Official agents, maintained and supported"
                     />
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -494,7 +494,7 @@ export default function ThreadPage({
   // SEO title update
   useEffect(() => {
     if (projectName) {
-      document.title = `${projectName} | Kortix Suna`;
+      document.title = `${projectName} | Omni`;
 
       const metaDescription = document.querySelector(
         'meta[name="description"]',

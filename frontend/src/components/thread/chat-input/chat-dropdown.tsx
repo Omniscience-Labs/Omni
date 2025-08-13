@@ -34,8 +34,8 @@ const ChatDropdown = () => {
                     }}
                 >
                     <div className="flex items-center gap-2">
-                        <Image src="/kortix-symbol.svg" alt="Suna" width={16} height={16} className="h-4 w-4 dark:invert" />
-                        <span>Suna</span>
+                        <Image src="/kortix-symbol.svg" alt="Omni" width={16} height={16} className="h-4 w-4 dark:invert" />
+                        <span>Omni</span>
                         <ChevronDown size={14} className="opacity-50" />
                     </div>
                 </Button>

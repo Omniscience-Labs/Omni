@@ -244,7 +244,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                                     {renderAgentIcon(displayAgent)}
                                 </div>
                                 <span className="truncate text-sm">
-                                    {displayAgent?.name || 'Suna'}
+                                    {displayAgent?.name || 'Omni'}
                                 </span>
                                 <ChevronDown size={12} className="opacity-60" />
                             </div>
