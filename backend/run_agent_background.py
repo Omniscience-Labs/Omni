@@ -10,6 +10,7 @@ from typing import Optional
 from services import redis
 from agent.run import run_agent
 from utils.logger import logger, structlog
+from services.memory_integration import store_conversation_memory
 import dramatiq
 import uuid
 from agentpress.thread_manager import ThreadManager
@@ -234,6 +235,18 @@ async def run_agent_background(
              final_status = "completed"
              duration = (datetime.now(timezone.utc) - start_time).total_seconds()
              logger.info(f"Agent run {agent_run_id} completed normally (duration: {duration:.2f}s, responses: {total_responses})")
+             
+             # Store conversation memory on successful completion
+             try:
+                 await store_conversation_memory(
+                     db=db,
+                     thread_id=thread_id,
+                     additional_context=f"Agent run {agent_run_id} completed successfully after {duration:.2f}s with {total_responses} responses",
+                     agent_run_id=agent_run_id
+                 )
+             except Exception as e:
+                 logger.warning(f"Failed to store conversation memory on completion: {str(e)}")
+             
              completion_message = {"type": "status", "status": "completed", "message": "Agent run completed successfully"}
              trace.span(name="agent_run_completed").end(status_message="agent_run_completed")
              await redis.rpush(response_list_key, json.dumps(completion_message))
@@ -245,6 +258,19 @@ async def run_agent_background(
 
         # Update DB status
         await update_agent_run_status(client, agent_run_id, final_status, error=error_message)
+
+        # Store conversation memory for failed/stopped runs if there was meaningful conversation
+        if final_status in ["failed", "stopped"] and total_responses > 0:
+            try:
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                await store_conversation_memory(
+                    db=db,
+                    thread_id=thread_id,
+                    additional_context=f"Agent run {agent_run_id} {final_status} after {duration:.2f}s with {total_responses} responses. Error: {error_message or 'None'}",
+                    agent_run_id=agent_run_id
+                )
+            except Exception as e:
+                logger.warning(f"Failed to store conversation memory for {final_status} run: {str(e)}")
 
         # Publish final control signal (END_STREAM or ERROR)
         control_signal = "END_STREAM" if final_status == "completed" else "ERROR" if final_status == "failed" else "STOP"
@@ -262,6 +288,18 @@ async def run_agent_background(
         logger.error(f"Error in agent run {agent_run_id} after {duration:.2f}s: {error_message}\n{traceback_str} (Instance: {instance_id})")
         final_status = "failed"
         trace.span(name="agent_run_failed").end(status_message=error_message, level="ERROR")
+
+        # Store conversation memory if there was meaningful conversation before the error
+        if total_responses > 0:
+            try:
+                await store_conversation_memory(
+                    db=db,
+                    thread_id=thread_id,
+                    additional_context=f"Agent run {agent_run_id} failed with exception after {duration:.2f}s with {total_responses} responses. Error: {error_message}",
+                    agent_run_id=agent_run_id
+                )
+            except Exception as memory_error:
+                logger.warning(f"Failed to store conversation memory for failed run: {str(memory_error)}")
 
         # Push error message to Redis list
         error_response = {"type": "status", "status": "error", "message": error_message}

@@ -241,6 +241,9 @@ class Configuration:
     FIRECRAWL_API_KEY: str
     FIRECRAWL_URL: Optional[str] = "https://api.firecrawl.dev"
     
+    # Memory service configuration
+    MEM0_API_KEY: Optional[str] = None
+    
     # Stripe configuration
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
