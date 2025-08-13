@@ -74,7 +74,7 @@ class ToolManager:
         self.thread_manager.add_tool(SandboxImageEditTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         self.thread_manager.add_tool(TaskListTool, project_id=self.project_id, thread_manager=self.thread_manager, thread_id=self.thread_id)
         self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
-        self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        # self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY:
             self.thread_manager.add_tool(DataProvidersTool)
         
@@ -129,8 +129,8 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxVisionTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_sheets_tool'):
             self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
-        if safe_tool_check('sb_web_dev_tool'):
-            self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        # if safe_tool_check('sb_web_dev_tool'):
+        #     self.thread_manager.add_tool(SandboxWebDevTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if config.RAPID_API_KEY and safe_tool_check('data_providers_tool'):
             self.thread_manager.add_tool(DataProvidersTool)
 
