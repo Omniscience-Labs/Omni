@@ -15,7 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useBillingError } from '@/hooks/useBillingError';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
-import { config } from '@/lib/config';
+import { config, isLocalMode, isStagingMode } from '@/lib/config';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
@@ -80,6 +80,8 @@ export function DashboardContent() {
   const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
+
+  const enabledEnvironment = isStagingMode() || isLocalMode();
 
   useEffect(() => {
     console.log('🚀 Dashboard effect:', { 
@@ -214,7 +216,7 @@ export function DashboardContent() {
       <ModalProviders />
       <div className="flex flex-col h-screen w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="min-h-full flex flex-col mt-10">
+          <div className="min-h-full flex flex-col">
             {customAgentsEnabled && (
               <div className="flex justify-center px-4 pt-4 md:pt-8">
                 <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
@@ -247,7 +249,7 @@ export function DashboardContent() {
                 </div>
               </div>
             </div>
-            {customAgentsEnabled && (
+            {enabledEnvironment && customAgentsEnabled && (
               <div className="w-full px-4 pb-8">
                 <div className="max-w-7xl mx-auto">
                   <CustomAgentsSection 
