@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button"
-import { FolderOpen, Link, PanelRightOpen, Menu, Share2, Book } from "lucide-react"
+import { FolderOpen, Link, PanelRightOpen, Menu, Share2, Book, Monitor } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -228,7 +228,7 @@ export function SiteHeader({
                 </TooltipContent>
               </Tooltip>
 
-              {/* <Tooltip>
+              <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
@@ -236,13 +236,13 @@ export function SiteHeader({
                     onClick={onToggleSidePanel}
                     className="h-9 w-9 cursor-pointer"
                   >
-                    <PanelRightOpen className="h-4 w-4" />
+                    <Monitor className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Toggle Computer Preview (CMD+I)</p>
                 </TooltipContent>
-              </Tooltip> */}
+              </Tooltip>
             </TooltipProvider>
           )}
         </div>
