@@ -49,7 +49,7 @@ import { processThreadsWithProjects, useDeleteMultipleThreads, useDeleteThread, 
 import { projectKeys, threadKeys } from '@/hooks/react-query/sidebar/keys';
 
 export function NavAgents() {
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, setOpenMobile } = useSidebar()
   const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null)
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ threadId: string, projectId: string } | null>(null)
@@ -147,6 +147,12 @@ export function NavAgents() {
 
     e.preventDefault()
     setLoadingThreadId(threadId)
+    
+    // Close mobile menu on navigation
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+    
     router.push(url)
   }
 
@@ -421,7 +427,7 @@ export function NavAgents() {
                               handleThreadClick(e, thread.threadId, thread.url)
                             }
                             prefetch={false}
-                            className="flex items-center flex-1 min-w-0"
+                            className="flex items-center flex-1 min-w-0 touch-manipulation"
                           >
                             {isThreadLoading ? (
                               <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
