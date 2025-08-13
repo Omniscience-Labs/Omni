@@ -18,6 +18,11 @@ services:
       targetCPUPercent: 81
       targetMemoryPercent: 80
     envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-dev3
+          property: connectionString
       - fromGroup: Suna Backend Dev3
 
   - type: web
@@ -38,16 +43,18 @@ services:
       targetCPUPercent: 81
       targetMemoryPercent: 80
     envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: suna-redis-dev3
+          property: connectionString
       - fromGroup: Suna Backend Dev3
 
-  - type: redis
+  - type: keyvalue
     name: suna-redis-dev3
     plan: starter
     region: oregon
-    disk:
-      name: redis-data
-      mountPath: /data
-      sizeGB: 1
-    envVars:
-      - key: REDIS_PASSWORD
-        generateValue: true
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all internal connections
