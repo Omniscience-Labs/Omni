@@ -23,11 +23,47 @@ from utils.retry import retry
 import sentry_sdk
 from typing import Dict, Any
 
-redis_host = os.getenv('REDIS_HOST', 'redis')
-redis_port = int(os.getenv('REDIS_PORT', 6379))
-redis_broker = RedisBroker(host=redis_host, port=redis_port, middleware=[dramatiq.middleware.AsyncIO()])
+# Get Redis configuration - prioritize REDIS_URL if available
+redis_url = os.getenv("REDIS_URL")
+if redis_url:
+    # Parse REDIS_URL for Dramatiq broker
+    import urllib.parse
+    parsed = urllib.parse.urlparse(redis_url)
+    redis_host = parsed.hostname or "redis"
+    redis_port = parsed.port or 6379
+    redis_password = parsed.password or ""
+    print(f"Background worker using REDIS_URL configuration: {redis_host}:{redis_port}")
+else:
+    # Fall back to individual environment variables
+    redis_host = os.getenv('REDIS_HOST', 'redis')
+    redis_port = int(os.getenv('REDIS_PORT', 6379))
+    redis_password = ""
+    print(f"Background worker using individual Redis environment variables: {redis_host}:{redis_port}")
 
-dramatiq.set_broker(redis_broker)
+# Configure Redis broker for Dramatiq with password if available
+broker_config = {
+    "host": redis_host, 
+    "port": redis_port, 
+    "middleware": [dramatiq.middleware.AsyncIO()],
+    "socket_timeout": 10,  # 10 second timeout
+    "socket_connect_timeout": 5,  # 5 second connection timeout
+    "retry_on_timeout": True,
+    "health_check_interval": 30
+}
+if redis_password:
+    broker_config["password"] = redis_password
+
+try:
+    redis_broker = RedisBroker(**broker_config)
+    dramatiq.set_broker(redis_broker)
+    print(f"✅ Dramatiq Redis broker configured successfully for {redis_host}:{redis_port}")
+except Exception as e:
+    print(f"❌ Failed to configure Dramatiq Redis broker: {e}")
+    # Set a stub broker that will fail gracefully
+    from dramatiq.brokers.stub import StubBroker
+    stub_broker = StubBroker()
+    dramatiq.set_broker(stub_broker)
+    print("⚠️ Using StubBroker as fallback - background tasks will not be processed")
 
 
 _initialized = False
