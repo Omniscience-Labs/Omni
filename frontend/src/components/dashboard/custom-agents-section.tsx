@@ -86,7 +86,7 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
       if (result.status === 'installed' && result.instance_id) {
         toast.success(`Agent "${instanceName}" installed successfully!`);
         setShowInstallDialog(false);
-        router.push(`/agents/chat/${result.instance_id}`);
+        router.push(`/agents/config/${result.instance_id}`);
       } else if (result.status === 'configs_required') {
         toast.error('Please provide all required configurations');
         return;
