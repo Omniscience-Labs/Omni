@@ -533,7 +533,7 @@ export default function ThreadPage({
   useEffect(() => {
     if (initialLoadCompleted && subscriptionData && !hasCheckedUpgradeDialog.current) {
       hasCheckedUpgradeDialog.current = true;
-      const hasSeenUpgradeDialog = localStorage.getItem('suna_upgrade_dialog_displayed');
+      const hasSeenUpgradeDialog = localStorage.getItem('omni_upgrade_dialog_displayed');
       const isFreeTier = subscriptionStatus === 'no_subscription';
       if (!hasSeenUpgradeDialog && isFreeTier && !isLocalMode()) {
         setShowUpgradeDialog(true);
@@ -543,7 +543,7 @@ export default function ThreadPage({
 
   const handleDismissUpgradeDialog = () => {
     setShowUpgradeDialog(false);
-    localStorage.setItem('suna_upgrade_dialog_displayed', 'true');
+    localStorage.setItem('omni_upgrade_dialog_displayed', 'true');
   };
 
   useEffect(() => {

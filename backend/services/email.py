@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 class EmailService:
     def __init__(self):
         self.api_token = os.getenv('MAILTRAP_API_TOKEN')
-        self.sender_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'dom@kortix.ai')
-        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Suna Team')
+        self.sender_email = os.getenv('MAILTRAP_SENDER_EMAIL', 'support@omnisciencelabs.com')
+        self.sender_name = os.getenv('MAILTRAP_SENDER_NAME', 'Omni Team')
         
         if not self.api_token:
             logger.warning("MAILTRAP_API_TOKEN not found in environment variables")
@@ -26,7 +26,7 @@ class EmailService:
         if not user_name:
             user_name = user_email.split('@')[0].title()
         
-        subject = "🎉 Welcome to Suna — Let's Get Started "
+        subject = "🎉 Welcome to Omni — Let's Get Started "
         html_content = self._get_welcome_email_template(user_name)
         text_content = self._get_welcome_email_text(user_name)
         
@@ -153,7 +153,7 @@ class EmailService:
 
     <p>Let us know if you need help getting started or have questions — we're always here, and join our <a href="https://discord.com/invite/FjD644cfcs">Discord community</a>.</p>
 
-    <p><strong>For your business:</strong> if you want to automate manual and ordinary tasks for your company, book a call with us <a href="https://cal.com/team/kortix/enterprise-demo">here</a></p>
+    <p><strong>For your business:</strong> if you want to automate manual and ordinary tasks for your company, book a call with us <a href="https://cal.com/arjun-subramaniam-u32lcu/30min">here</a></p>
 
     <p>Thanks again, and welcome to the Suna community <span class="emoji">🌞</span></p>
 
@@ -177,7 +177,7 @@ To celebrate your arrival, here's a 15% discount for your first month to get mor
 
 Let us know if you need help getting started or have questions — we're always here, and join our Discord community: https://discord.com/invite/FjD644cfcs
 
-For your business: if you want to automate manual and ordinary tasks for your company, book a call with us here: https://cal.com/team/kortix/enterprise-demo 
+For your business: if you want to automate manual and ordinary tasks for your company, book a call with us here: https://cal.com/arjun-subramaniam-u32lcu/30min 
 
 Thanks again, and welcome to the Suna community 🌞
 

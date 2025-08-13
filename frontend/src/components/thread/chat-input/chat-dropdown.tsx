@@ -54,7 +54,7 @@ const ChatDropdown = () => {
                 >
                     <User size={18} />
                     <div className="flex flex-col">
-                        <span className="font-semibold text-sm">Suna</span>
+                        <span className="font-semibold text-sm">Omni</span>
                         <span className="text-xs text-muted-foreground">Default</span>
                     </div>
                 </DropdownMenuItem>

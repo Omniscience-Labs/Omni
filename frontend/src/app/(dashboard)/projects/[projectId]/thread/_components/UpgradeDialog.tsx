@@ -15,7 +15,7 @@ export function UpgradeDialog({ open, onOpenChange, onDismiss }: UpgradeDialogPr
   const handleUpgradeClick = () => {
     router.push('/settings/billing');
     onOpenChange(false);
-    localStorage.setItem('suna_upgrade_dialog_displayed', 'true');
+    localStorage.setItem('omni_upgrade_dialog_displayed', 'true');
   };
 
   return (

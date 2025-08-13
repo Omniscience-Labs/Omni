@@ -32,7 +32,7 @@ from .versioning.api import router as version_router, initialize as initialize_v
 # Helper for version service
 async def _get_version_service():
     return await get_version_service()
-from utils.suna_default_agent_service import SunaDefaultAgentService
+from utils.omni_default_agent_service import OmniDefaultAgentService
 
 router = APIRouter()
 router.include_router(version_router)

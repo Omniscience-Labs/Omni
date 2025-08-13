@@ -119,7 +119,7 @@ export function KortixEnterpriseModal({
             <div className="h-full overflow-auto">
               <Cal
                 namespace="enterprise-demo"
-                calLink="team/kortix/enterprise-demo"
+                calLink="arjun-subramaniam-u32lcu/30min"
                 style={{ width: '100%', height: '100%' }}
                 config={{
                   layout: 'month_view',
