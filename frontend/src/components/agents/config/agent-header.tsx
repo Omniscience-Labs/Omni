@@ -43,6 +43,8 @@ interface AgentHeaderProps {
   };
   hasUnsavedChanges?: boolean;
   onVersionCreated?: () => void;
+  onNameSave?: (name: string) => Promise<void>;
+  onProfileImageSave?: (profileImageUrl: string | null) => Promise<void>;
 }
 
 export function AgentHeader({
@@ -59,6 +61,8 @@ export function AgentHeader({
   currentFormData,
   hasUnsavedChanges,
   onVersionCreated,
+  onNameSave,
+  onProfileImageSave,
 }: AgentHeaderProps) {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -98,7 +102,13 @@ export function AgentHeader({
         setIsEditing(false);
         return;
       }
-      onFieldChange('name', editName);
+      
+      // Use dedicated save handler if available, otherwise fallback to generic onFieldChange
+      if (onNameSave) {
+        await onNameSave(editName);
+      } else {
+        onFieldChange('name', editName);
+      }
     }
 
     setIsEditing(false);
@@ -113,7 +123,12 @@ export function AgentHeader({
   };
 
   const handleImageUpdate = (url: string | null) => {
-    onFieldChange('profile_image_url', url);
+    // Use dedicated save handler if available, otherwise fallback to generic onFieldChange
+    if (onProfileImageSave) {
+      onProfileImageSave(url);
+    } else {
+      onFieldChange('profile_image_url', url);
+    }
   };
 
   return (

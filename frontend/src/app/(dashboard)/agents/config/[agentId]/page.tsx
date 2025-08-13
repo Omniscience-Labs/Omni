@@ -285,6 +285,35 @@ export default function AgentConfigurationPage() {
     }
   }, [isViewingOldVersion, formData, agent, agentId, createVersionMutation, isSaving, originalData]);
 
+  const handleProfileImageSave = useCallback(async (profileImageUrl: string | null) => {
+    if (!agent || isViewingOldVersion || isSaving) {
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
+    
+    setIsSaving(true);
+    
+    try {
+      await updateAgentMutation.mutateAsync({
+        agentId,
+        name: formData.name,
+        description: formData.description,
+        is_default: formData.is_default,
+        profile_image_url: profileImageUrl || undefined,
+      });
+      
+      setOriginalData(prev => ({ ...prev, profile_image_url: profileImageUrl || '' }));
+      toast.success('Profile image saved');
+    } catch (error) {
+      console.error('❌ Profile image save error:', error);
+      toast.error('Failed to save profile image');
+      setFormData(prev => ({ ...prev, profile_image_url: originalData.profile_image_url }));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isViewingOldVersion, formData, agent, agentId, updateAgentMutation, isSaving, originalData]);
+
   const handleModelSave = useCallback(async (model: string) => {
     if (!agent || isViewingOldVersion || isSaving) {
       return;
@@ -541,6 +570,8 @@ export default function AgentConfigurationPage() {
                   onVersionCreated={() => {
                     setOriginalData(formData);
                   }}
+                  onNameSave={handleNameSave}
+                  onProfileImageSave={handleProfileImageSave}
                 />
               </div>
             </div>
@@ -630,6 +661,8 @@ export default function AgentConfigurationPage() {
                   onVersionCreated={() => {
                     setOriginalData(formData);
                   }}
+                  onNameSave={handleNameSave}
+                  onProfileImageSave={handleProfileImageSave}
                 />
               </div>
             </div>

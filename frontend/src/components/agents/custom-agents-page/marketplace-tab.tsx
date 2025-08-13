@@ -105,7 +105,7 @@ export const MarketplaceTab = ({
                 {kortixTeamItems.length > 0 && (
                   <div className="space-y-6">
                     <MarketplaceSectionHeader
-                      title="Verified by Kortix"
+                      title="By team Kortix"
                       subtitle="Official agents, maintained and supported"
                     />
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -127,6 +127,11 @@ export const MarketplaceTab = ({
                 )}
                 {communityItems.length > 0 && (
                   <div className="space-y-6">
+                    <MarketplaceSectionHeader
+                      title="From the community"
+                      subtitle="Agents created by our community"
+                      iconColor="bg-gradient-to-br from-green-500 to-green-600"
+                    />
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {communityItems.map((item) => (
                         <AgentCard

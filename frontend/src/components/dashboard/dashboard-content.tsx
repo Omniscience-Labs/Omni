@@ -213,50 +213,52 @@ export function DashboardContent() {
     <>
       <ModalProviders />
       <div className="flex flex-col h-screen w-full overflow-hidden">
-
-        {customAgentsEnabled && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 md:top-20 w-full max-w-[calc(100vw-2rem)] flex justify-center">
-            <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full flex flex-col mt-10">
+            {customAgentsEnabled && (
+              <div className="flex justify-center px-4 pt-4 md:pt-8">
+                <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
+              </div>
+            )}
+            <div className="flex-1 flex items-center justify-center px-4 py-8">
+              <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
+                <div className="flex flex-col items-center text-center w-full">
+                  <p className="tracking-tight text-2xl md:text-3xl font-normal text-muted-foreground/80">
+                    What would you like to do today?
+                  </p>
+                </div>
+                <div className="w-full">
+                  <ChatInput
+                    ref={chatInputRef}
+                    onSubmit={handleSubmit}
+                    loading={isSubmitting}
+                    placeholder="Describe what you need help with..."
+                    value={inputValue}
+                    onChange={setInputValue}
+                    hideAttachments={false}
+                    selectedAgentId={selectedAgentId}
+                    onAgentSelect={setSelectedAgent}
+                    enableAdvancedConfig={true}
+                    onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
+                  />
+                </div>
+                <div className="w-full">
+                  <Examples onSelectPrompt={setInputValue} count={isMobile ? 3 : 4} />
+                </div>
+              </div>
+            </div>
+            {customAgentsEnabled && (
+              <div className="w-full px-4 pb-8">
+                <div className="max-w-7xl mx-auto">
+                  <CustomAgentsSection 
+                    onAgentSelect={setSelectedAgent}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-        <div className={cn(
-          "flex flex-col h-full px-4 items-center justify-center",
-          customAgentsEnabled ? "pt-16 md:pt-20" : "justify-center"
-        )}>
-          <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
-            <div className="flex flex-col items-center text-center w-full">
-              <p className="tracking-tight text-2xl md:text-3xl font-normal text-muted-foreground/80">
-                What would you like to do today?
-              </p>
-            </div>
-            <div className="w-full">
-              <ChatInput
-                ref={chatInputRef}
-                onSubmit={handleSubmit}
-                loading={isSubmitting}
-                placeholder="Describe what you need help with..."
-                value={inputValue}
-                onChange={setInputValue}
-                hideAttachments={false}
-                selectedAgentId={selectedAgentId}
-                onAgentSelect={setSelectedAgent}
-                enableAdvancedConfig={true}
-                onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
-              />
-            </div>
-            <div className="w-full">
-              <Examples onSelectPrompt={setInputValue} count={isMobile ? 3 : 4} />
-            </div>
-          </div>
-          
-          {/* {customAgentsEnabled && (
-            <div className="w-full max-w-none mt-16 mb-8">
-              <CustomAgentsSection 
-                onAgentSelect={setSelectedAgent}
-              />
-            </div>
-          )} */}
         </div>
+        
         <BillingErrorAlert
           message={billingError?.message}
           currentUsage={billingError?.currentUsage}
