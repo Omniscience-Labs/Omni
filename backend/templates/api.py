@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
@@ -55,6 +55,7 @@ class TemplateResponse(BaseModel):
     agentpress_tools: Dict[str, Any]
     tags: List[str]
     is_public: bool
+    is_kortix_team: Optional[bool] = False
     marketplace_published_at: Optional[str] = None
     download_count: int
     created_at: str
@@ -314,7 +315,6 @@ async def delete_template(
         return {"message": "Template deleted successfully"}
         
     except HTTPException:
-        # Re-raise HTTP exceptions from our validation functions
         raise
     except Exception as e:
         logger.error(f"Error deleting template {template_id}: {e}", exc_info=True)
@@ -383,20 +383,35 @@ async def install_template(
 
 
 @router.get("/marketplace", response_model=List[TemplateResponse])
-async def get_marketplace_templates():
-    """
-    Get all public templates from the marketplace.
-    
-    This endpoint is public and doesn't require authentication.
-    """
+async def get_marketplace_templates(
+    limit: Optional[int] = Query(None, description="Maximum number of templates to return"),
+    offset: Optional[int] = Query(0, description="Number of templates to skip"),
+    search: Optional[str] = Query(None, description="Search term for name and description"),
+    tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by"),
+    is_kortix_team: Optional[bool] = Query(None, description="Filter for Kortix team templates")
+):
     try:
-        logger.info("Fetching marketplace templates")
+        logger.info(
+            f"Fetching marketplace templates with filters - "
+            f"limit: {limit}, offset: {offset}, search: {search}, "
+            f"tags: {tags}, is_kortix_team: {is_kortix_team}"
+        )
         
         template_service = get_template_service(db)
-        templates = await template_service.get_public_templates()
+
+        tag_list = None
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
+        templates = await template_service.get_public_templates(
+            is_kortix_team=is_kortix_team,
+            limit=limit,
+            offset=offset,
+            search=search,
+            tags=tag_list
+        )
         
         logger.info(f"Retrieved {len(templates)} marketplace templates")
-        
         return [
             TemplateResponse(**format_template_for_response(template))
             for template in templates

@@ -201,6 +201,7 @@ export function useMarketplaceTemplates(params?: {
   offset?: number;
   search?: string;
   tags?: string;
+  is_kortix_team?: boolean;
 }) {
   return useQuery({
     queryKey: ['secure-mcp', 'marketplace-templates', params],
@@ -217,6 +218,7 @@ export function useMarketplaceTemplates(params?: {
       if (params?.offset) searchParams.set('offset', params.offset.toString());
       if (params?.search) searchParams.set('search', params.search);
       if (params?.tags) searchParams.set('tags', params.tags);
+      if (params?.is_kortix_team !== undefined) searchParams.set('is_kortix_team', params.is_kortix_team.toString());
 
       const response = await fetch(`${API_URL}/templates/marketplace?${searchParams}`, {
         headers: {
@@ -228,7 +230,6 @@ export function useMarketplaceTemplates(params?: {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-
       return response.json();
     },
   });
@@ -424,6 +425,13 @@ export function useDeleteTemplate() {
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'marketplace-templates'] });
       queryClient.invalidateQueries({ queryKey: ['secure-mcp', 'my-templates'] });
     },
+  });
+}
+
+export function useKortixTeamTemplates() {
+  return useMarketplaceTemplates({
+    is_kortix_team: true,
+    limit: 10
   });
 }
 

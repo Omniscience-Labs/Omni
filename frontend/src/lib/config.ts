@@ -39,6 +39,7 @@ export interface SubscriptionTiers {
 interface Config {
   ENV_MODE: EnvMode;
   IS_LOCAL: boolean;
+  IS_STAGING: boolean;
   SUBSCRIPTION_TIERS: SubscriptionTiers;
 }
 
@@ -221,6 +222,7 @@ const currentEnvMode = getEnvironmentMode();
 export const config: Config = {
   ENV_MODE: currentEnvMode,
   IS_LOCAL: currentEnvMode === EnvMode.LOCAL,
+  IS_STAGING: currentEnvMode === EnvMode.STAGING,
   SUBSCRIPTION_TIERS:
     currentEnvMode === EnvMode.STAGING ? STAGING_TIERS : PROD_TIERS,
 };
@@ -228,6 +230,11 @@ export const config: Config = {
 export const isLocalMode = (): boolean => {
   return config.IS_LOCAL;
 };
+
+export const isStagingMode = (): boolean => {
+  return config.IS_STAGING;
+};
+
 
 const PROD_YEARLY_COMMITMENT_PLANS = {
   [PROD_TIERS.TIER_2_17_YEARLY_COMMITMENT.priceId]: { tier: 1, name: '2h/$17/month (yearly)' },
