@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 
 export type AgentCardMode = 'marketplace' | 'template' | 'agent';
 
@@ -342,7 +342,7 @@ const CardAvatar: React.FC<{ isSunaAgent?: boolean; profileImageUrl?: string; ag
   if (isSunaAgent) {
     return (
       <div className="h-14 w-14 bg-muted border flex items-center justify-center rounded-2xl">
-        <KortixLogo size={28} />
+        <OmniLogo size={28} />
       </div>
     )
   }

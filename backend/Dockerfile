@@ -10,6 +10,10 @@ COPY pyproject.toml uv.lock ./
 ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --quiet
 
+# Ensure the uv-managed virtualenv is used by default for all commands
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # Copy application code
 COPY . .
 

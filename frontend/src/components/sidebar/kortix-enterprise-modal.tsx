@@ -65,7 +65,7 @@ export function KortixEnterpriseModal({
               <div className="mb-6 flex-shrink-0">
                 <Image
                   src={isDarkMode ? '/kortix-logo-white.svg' : '/kortix-logo.svg'}
-                  alt="Kortix Logo"
+                  alt="Omni Logo"
                   width={80}
                   height={28}
                   className="h-7 w-auto"

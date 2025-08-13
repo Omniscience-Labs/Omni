@@ -20,7 +20,7 @@ import { NewAgentDialog } from '@/components/agents/new-agent-dialog';
 
 import { useRouter } from 'next/navigation';
 import { cn, truncateString } from '@/lib/utils';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AgentSelectorProps {
@@ -96,7 +96,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       const isSelectedAgentSuna = selectedAgent.metadata?.is_suna_default || false;
       return {
         name: selectedAgent.name,
-        icon: isSelectedAgentSuna ? <KortixLogo size={16} /> : selectedAgent.icon
+        icon: isSelectedAgentSuna ? <OmniLogo size={16} /> : selectedAgent.icon
       };
     }
     
@@ -107,7 +107,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     const isDefaultAgentSuna = defaultAgent?.metadata?.is_suna_default || false;
     return {
       name: defaultAgent?.name || 'Suna',
-      icon: isDefaultAgentSuna ? <KortixLogo size={16} /> : (defaultAgent?.icon || <KortixLogo size={16} />)
+      icon: isDefaultAgentSuna ? <OmniLogo size={16} /> : (defaultAgent?.icon || <OmniLogo size={16} />)
     };
   };
 
@@ -173,7 +173,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             >
               <div className="flex-shrink-0">
                 {isThisAgentSuna ? (
-                  <KortixLogo size={16} />
+                  <OmniLogo size={16} />
                 ) : (
                   agent.icon
                 )}

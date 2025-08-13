@@ -11,7 +11,7 @@ import {
     getUserFriendlyToolName,
     safeJsonParse,
 } from '@/components/thread/utils';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { OmniLogo } from '@/components/sidebar/omni-logo';
 import { AgentLoader } from './loader';
 import { AgentAvatar, AgentName } from './agent-avatar';
 import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-views/xml-parser';
@@ -304,7 +304,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     debugMode = false,
     isPreviewMode = false,
     agentName = 'Suna',
-    agentAvatar = <KortixLogo size={16} />,
+    agentAvatar = <OmniLogo size={16} />,
     emptyStateComponent,
     threadMetadata,
     scrollContainerRef,
@@ -370,7 +370,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 </div>
             ) : (
                 <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                    <KortixLogo size={16} />
+                    <OmniLogo size={16} />
                 </div>
             );
             return {
@@ -389,7 +389,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                            <KortixLogo size={16} />
+                            <OmniLogo size={16} />
                         </div>
                     ) : (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -399,7 +399,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 </>
             ) : (
                 <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                    <KortixLogo size={16} />
+                    <OmniLogo size={16} />
                 </div>
             );
             return {
@@ -408,13 +408,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             };
         }
 
-        // Fallback: if this is a Suna default agent, always show KortixLogo
+        // Fallback: if this is a Suna default agent, always show OmniLogo
         if (isSunaDefaultAgent) {
             return {
                 name: agentName || 'Suna',
                 avatar: (
                     <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                        <KortixLogo size={16} />
+                        <OmniLogo size={16} />
                     </div>
                 )
             };

@@ -1,11 +1,11 @@
 export const siteConfig = {
-  name: 'Kortix Suna',
-  url: 'https://suna.so/',
-  description: 'Kortix AI',
+  name: 'Omni',
+  url: 'https://omnisciencelabs.com/',
+  description: 'Omni by Omniscience Labs',
   links: {
-    twitter: 'https://x.com/kortixai',
-    github: 'https://github.com/kortix-ai/',
-    linkedin: 'https://www.linkedin.com/company/kortix/',
+    twitter: 'https://x.com/omnisciencelabs',
+    github: 'https://github.com/omniscience-labs/',
+    linkedin: 'https://www.linkedin.com/company/omnisciencelabs/',
   },
 };
 
