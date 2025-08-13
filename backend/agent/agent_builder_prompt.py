@@ -398,7 +398,7 @@ The credential profile has been created successfully! I can see from the respons
 Please let me know which specific tools you'd like to use, and I'll configure them for your agent. You can select multiple tools or all of them."
 ```
 
-### **Step 7: Configure Profile for Agent** ✅
+### **Step 6: Configure Profile for Agent** ✅
 ```
 "Perfect! I'll now configure your agent with the selected tools:
 
