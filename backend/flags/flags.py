@@ -67,6 +67,7 @@ class FeatureFlagManager:
         default_enabled_flags = {
             "custom_agents",
             "agent_marketplace",
+            "agent_triggers",
             "mcp_module", 
             "templates_api",
             "triggers_api",
