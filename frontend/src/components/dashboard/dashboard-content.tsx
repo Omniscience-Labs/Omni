@@ -84,17 +84,10 @@ export function DashboardContent() {
   const enabledEnvironment = isStagingMode() || isLocalMode();
 
   useEffect(() => {
-    console.log('🚀 Dashboard effect:', { 
-      agentsLength: agents.length, 
-      selectedAgentId, 
-      agents: agents.map(a => ({ id: a.agent_id, name: a.name, isDefault: a.metadata?.is_suna_default })) 
-    });
-    
-    if (agents.length > 0) {
-      console.log('📞 Calling initializeFromAgents');
+    if (agents.length > 0 && !selectedAgentId) {
       initializeFromAgents(agents, undefined, setSelectedAgent);
     }
-  }, [agents, initializeFromAgents, setSelectedAgent]);
+  }, [agents.length, selectedAgentId]);
 
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');

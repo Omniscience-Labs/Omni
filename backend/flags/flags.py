@@ -42,18 +42,50 @@ class FeatureFlagManager:
         try:
             flag_key = f"{self.flag_prefix}{key}"
             redis_client = await redis.get_client()
+            if redis_client is None:
+                # Default to enabled if Redis is not available
+                logger.info(f"Redis client not available for feature flag {key}, using default state")
+                return self._get_default_flag_state(key)
+            
+            # Test Redis connection before trying to get flag
+            await redis_client.ping()
             enabled = await redis_client.hget(flag_key, 'enabled')
-            return enabled == 'true' if enabled else False
+            if enabled is None:
+                # Flag not set in Redis, use default
+                logger.info(f"Feature flag {key} not set in Redis, using default state")
+                return self._get_default_flag_state(key)
+            
+            return enabled == 'true'
         except Exception as e:
-            logger.error(f"Failed to check feature flag {key}: {e}")
-            # Return False by default if Redis is unavailable
-            return False
+            logger.warning(f"Failed to check feature flag {key}: {e}, using default state")
+            # Return default enabled state if Redis operation fails
+            return self._get_default_flag_state(key)
+    
+    def _get_default_flag_state(self, key: str) -> bool:
+        """Get default state for feature flags when Redis is unavailable"""
+        # All core platform features should be enabled by default
+        default_enabled_flags = {
+            "custom_agents",
+            "agent_marketplace",
+            "mcp_module", 
+            "templates_api",
+            "triggers_api",
+            "workflows_api",
+            "knowledge_base",
+            "pipedream",
+            "credentials_api",
+            "suna_default_agent"
+        }
+        return key in default_enabled_flags
     
     async def get_flag(self, key: str) -> Optional[Dict[str, str]]:
         """Get feature flag details"""
         try:
             flag_key = f"{self.flag_prefix}{key}"
             redis_client = await redis.get_client()
+            if redis_client is None:
+                logger.info(f"Redis client not available for feature flag {key}")
+                return None
             flag_data = await redis_client.hgetall(flag_key)
             return flag_data if flag_data else None
         except Exception as e:
@@ -79,6 +111,10 @@ class FeatureFlagManager:
         """List all feature flags with their status"""
         try:
             redis_client = await redis.get_client()
+            if redis_client is None:
+                logger.info("Redis client not available for feature flags")
+                return {}
+                
             flag_keys = await redis_client.smembers(self.flag_list_key)
             flags = {}
             
