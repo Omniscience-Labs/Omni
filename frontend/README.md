@@ -55,3 +55,4 @@ npm run start
 - Supabase is used for authentication and database operations
 - The app runs on `http://localhost:3000` by default
 - Environment variables are automatically configured by the setup wizard
+# Force deployment with correct settings
