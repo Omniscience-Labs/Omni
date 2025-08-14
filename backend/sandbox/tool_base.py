@@ -1,5 +1,6 @@
 from typing import Optional
 import uuid
+import asyncio
 
 from agentpress.thread_manager import ThreadManager
 from agentpress.tool import Tool
@@ -48,6 +49,10 @@ class SandboxToolsBase(Tool):
                     sandbox_pass = str(uuid.uuid4())
                     sandbox_obj = await create_sandbox(sandbox_pass, self.project_id)
                     sandbox_id = sandbox_obj.id
+                    
+                    # Wait for sandbox services to start up
+                    logger.info(f"Waiting 5 seconds for sandbox {sandbox_id} services to initialize...")
+                    await asyncio.sleep(5)
 
                     # Gather preview links and token (best-effort parsing)
                     try:

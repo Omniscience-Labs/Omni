@@ -6,13 +6,15 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { ToolView } from './tool-views/wrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { HealthCheckedVncIframe } from './HealthCheckedVncIframe';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Drawer,
   DrawerContent,
@@ -82,6 +84,8 @@ interface PanelHeaderProps {
   showMinimize?: boolean;
   hasToolResult?: boolean;
   layoutId?: string;
+  currentView?: 'tools' | 'browser';
+  onViewChange?: (view: 'tools' | 'browser') => void;
 }
 
 const PanelHeader: React.FC<PanelHeaderProps> = ({
@@ -92,6 +96,8 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
   showMinimize = false,
   hasToolResult = false,
   layoutId,
+  currentView = 'tools',
+  onViewChange,
 }) => {
   const title = getComputerTitle(agentName);
   
@@ -112,6 +118,24 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             <Minimize2 className="h-4 w-4" />
           </Button>
         </div>
+        
+        {/* Tabs for Tools/Browser toggle */}
+        <div className="mt-2">
+            <Tabs value={currentView} onValueChange={(value) => {
+             onViewChange?.(value as 'tools' | 'browser');
+            }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="tools" className="flex items-center gap-2">
+                <Computer className="h-4 w-4" />
+                Tools
+              </TabsTrigger>
+              <TabsTrigger value="browser" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Browser
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </DrawerHeader>
     );
   }
@@ -122,7 +146,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
         layoutId={layoutId}
         className="p-3"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <motion.div layoutId="tool-icon" className="ml-2 flex items-center gap-2">
             <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
               {title}
@@ -173,13 +197,31 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             </Button>
           )}
         </div>
+
+        {/* Tabs for Tools/Browser toggle */}
+        <div className="mx-2">
+            <Tabs value={currentView} onValueChange={(value) => {
+              onViewChange?.(value as 'tools' | 'browser');
+            }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="tools" className="flex items-center gap-2">
+                <Computer className="h-4 w-4" />
+                Tools
+              </TabsTrigger>
+              <TabsTrigger value="browser" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Browser
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </motion.div>
     );
   }
 
   return (
     <div className="pt-4 pl-4 pr-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div className="ml-2 flex items-center gap-2">
           <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
             {title}
@@ -202,6 +244,24 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             {showMinimize ? <Minimize2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
           </Button>
         </div>
+      </div>
+
+      {/* Tabs for Tools/Browser toggle */}
+      <div className="mx-2">
+            <Tabs value={currentView} onValueChange={(value) => {
+              onViewChange?.(value as 'tools' | 'browser');
+            }}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="tools" className="flex items-center gap-2">
+              <Computer className="h-4 w-4" />
+              Tools
+            </TabsTrigger>
+            <TabsTrigger value="browser" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Browser
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
     </div>
   );
@@ -230,8 +290,70 @@ export function ToolCallSidePanel({
 
   // Add copy functionality state
   const [isCopyingContent, setIsCopyingContent] = React.useState(false);
+  // Add view toggle state  
+  const [currentView, setCurrentView] = React.useState<'tools' | 'browser'>('tools');
+  const currentViewRef = React.useRef(currentView);
+  
+  // Update ref when state changes
+  React.useEffect(() => {
+    currentViewRef.current = currentView;
+  }, [currentView]);
 
   const isMobile = useIsMobile();
+
+  const sandbox = project?.sandbox;
+  
+  const persistentVncIframe = React.useMemo(() => {
+    if (!sandbox || !sandbox.vnc_preview || !sandbox.pass || !sandbox.id) return null;
+    
+    return (
+      <HealthCheckedVncIframe 
+        sandbox={{
+          id: sandbox.id,
+          vnc_preview: sandbox.vnc_preview,
+          pass: sandbox.pass
+        }}
+      />
+    );
+  }, [sandbox]);
+
+  // Helper function to check if a tool is browser-related
+  const isBrowserTool = React.useCallback((toolName: string | undefined): boolean => {
+    if (!toolName) return false;
+    const lowerName = toolName.toLowerCase();
+    return [
+      'browser-navigate-to',
+      'browser-act', 
+      'browser-extract-content',
+      'browser-screenshot'
+    ].includes(lowerName);
+  }, []);
+
+  // Auto-switch to browser view when browser tools are detected
+  React.useEffect(() => {
+    const safeIndex = Math.min(internalIndex, Math.max(0, toolCallSnapshots.length - 1));
+    const currentSnapshot = toolCallSnapshots[safeIndex];
+    const currentToolCall = currentSnapshot?.toolCall;
+    
+    if (!currentToolCall) return;
+    
+    const toolName = currentToolCall.assistantCall?.name;
+    const isCurrentBrowserTool = isBrowserTool(toolName);
+    const isToolStreaming = currentToolCall.toolResult?.content === 'STREAMING';
+    
+            // Simple auto-switch logic: only switch when tool is actively streaming
+      if (isToolStreaming) {
+        // Switch to browser view when a browser tool is streaming
+        if (isCurrentBrowserTool && currentViewRef.current === 'tools') {
+          setCurrentView('browser');
+        }
+        
+        // Switch to tools view when a non-browser tool is streaming
+        if (!isCurrentBrowserTool && currentViewRef.current === 'browser') {
+          setCurrentView('tools');
+        }
+      }
+   }, [toolCallSnapshots, internalIndex, isBrowserTool]);
 
   const handleClose = React.useCallback(() => {
     onClose();
@@ -426,7 +548,7 @@ export function ToolCallSidePanel({
     if (source === 'user_explicit') {
       onNavigate(newIndex);
     }
-  }, [internalIndex, totalCalls, onNavigate]);
+  }, [totalCalls, onNavigate]);
 
   const isLiveMode = navigationMode === 'live';
   const showJumpToLive = navigationMode === 'manual' && agentStatus === 'running';
@@ -602,6 +724,8 @@ export function ToolCallSidePanel({
               agentName={agentName}
               onClose={handleClose}
               variant="drawer"
+              currentView={currentView}
+              onViewChange={setCurrentView}
             />
             
             <div className="flex-1 p-4 overflow-auto">
@@ -627,6 +751,8 @@ export function ToolCallSidePanel({
                   agentName={agentName}
                   onClose={handleClose}
                   showMinimize={true}
+                  currentView={currentView}
+                  onViewChange={setCurrentView}
                 />
                 <div className="flex-1 p-4 overflow-auto">
                   <div className="space-y-4">
@@ -652,9 +778,28 @@ export function ToolCallSidePanel({
             <PanelHeader 
               agentName={agentName}
               onClose={handleClose}
+              currentView={currentView}
+              onViewChange={setCurrentView}
             />
           )}
           <div className="flex flex-col items-center justify-center flex-1 p-8">
+            {/* Render content based on current view */}
+            {/* {currentView === 'browser' && (
+              <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
+                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+                  <Globe className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    Browser not available
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    No active browser session available. The browser will appear here when a sandbox is running.
+                  </p>
+                </div>
+              </div>
+            )} */}
+            
             <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
               <div className="relative">
                 <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
@@ -688,6 +833,8 @@ export function ToolCallSidePanel({
                 agentName={agentName}
                 onClose={handleClose}
                 isStreaming={true}
+                currentView={currentView}
+                onViewChange={setCurrentView}
               />
             )}
             {isMobile && (
@@ -727,6 +874,8 @@ export function ToolCallSidePanel({
             <PanelHeader 
               agentName={agentName}
               onClose={handleClose}
+              currentView={currentView}
+              onViewChange={setCurrentView}
             />
           )}
           <div className="flex-1 p-4 overflow-auto">
@@ -767,11 +916,40 @@ export function ToolCallSidePanel({
             variant="motion"
             hasToolResult={!!displayToolCall.toolResult?.content}
             layoutId={CONTENT_LAYOUT_ID}
+            currentView={currentView}
+            onViewChange={setCurrentView}
           />
         )}
 
-        <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-          {toolView}
+        <div className={`flex-1 ${currentView === 'browser' ? 'overflow-hidden md:mt-8' : 'overflow-auto'} scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent`}>
+          {/* Always render VNC iframe to maintain connection when available */}
+          {persistentVncIframe && (
+            <div className={`h-full ${currentView === 'browser' ? 'block' : 'hidden'}`}>
+              {persistentVncIframe}
+            </div>
+          )}
+          
+          {/* Show browser not available message when no VNC and browser tab is selected */}
+          {!persistentVncIframe && currentView === 'browser' && (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
+                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+                  <Globe className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    Browser not available
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    No active browser session available. The browser will appear here when a sandbox is created and Browser tools are used.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Render tool view when tools tab is selected */}
+          {currentView === 'tools' && toolView}
         </div>
       </div>
     );
@@ -786,6 +964,8 @@ export function ToolCallSidePanel({
             agentName={agentName}
             onClose={handleClose}
             variant="drawer"
+            currentView={currentView}
+            onViewChange={setCurrentView}
           />
           
           <div className="flex-1 flex flex-col overflow-hidden">
