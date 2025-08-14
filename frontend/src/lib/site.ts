@@ -1,6 +1,6 @@
 export const siteConfig = {
   name: 'Omni',
-  url: 'https://omnisciencelabs.com/',
+  url: 'https://varnica.operator.becomeomni.net/',
   description: 'Omni by Omniscience Labs',
   links: {
     twitter: 'https://x.com/omnisciencelabs',
