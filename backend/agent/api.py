@@ -34,7 +34,7 @@ from .versioning.api import router as version_router, initialize as initialize_v
 async def _get_version_service():
     return await get_version_service()
 from utils.suna_default_agent_service import SunaDefaultAgentService
-from .tools.sb_presentation_tool import SandboxPresentationTool
+from .tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
 
 router = APIRouter()
 router.include_router(version_router)
@@ -3515,7 +3515,7 @@ async def export_presentation(
         
         thread_manager = ThreadManager()
         
-        presentation_tool = SandboxPresentationTool(
+        presentation_tool = SandboxPresentationToolV2(
             project_id=project_id,
             thread_manager=thread_manager
         )

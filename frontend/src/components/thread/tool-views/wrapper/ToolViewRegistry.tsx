@@ -29,6 +29,7 @@ import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-c
 import { TaskListToolView } from '../task-list/TaskListToolView';
 import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
 import { PresentationToolView } from '../PresentationToolView';
+import { PresentationToolV2View } from '../PresentationToolV2View';
 import { ListPresentationTemplatesToolView } from '../ListPresentationTemplatesToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
@@ -89,8 +90,8 @@ const defaultRegistry: ToolViewRegistryType = {
   'deploy': DeployToolView,
 
   'create-presentation-outline': PresentationOutlineToolView,
-  'create-presentation': PresentationToolView,
-  'export-presentation': PresentationToolView,
+  'create-presentation': PresentationToolV2View,
+  'export-presentation': PresentationToolV2View,
   'list-presentation-templates': ListPresentationTemplatesToolView,
   
   'create-sheet': SheetsToolView,

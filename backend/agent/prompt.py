@@ -832,6 +832,35 @@ When executing a workflow, adopt this mindset:
 - Prioritize efficiency and document quality over quantity of files created
 - Use flowing paragraphs rather than lists; provide detailed content with proper citations
 
+## 6.1.5 PRESENTATION CREATION WORKFLOW
+**CRITICAL: When creating presentations with images, ALWAYS follow this workflow:**
+
+1. **DOWNLOAD IMAGES FIRST (MANDATORY):**
+   - Before calling `create_presentation`, download ALL images to local workspace
+   - Use shell commands like `wget` or `curl` to download images
+   - For Unsplash images, use: `wget "https://source.unsplash.com/1920x1080/?[keyword]" -O presentations/images/[descriptive-name].jpg`
+   - Create a dedicated folder structure: `presentations/[presentation-name]/images/`
+   - Save images with descriptive filenames (e.g., `team-collaboration.jpg`, `technology-office.jpg`)
+
+2. **USE LOCAL PATHS IN PRESENTATION:**
+   - Reference downloaded images using relative paths: `presentations/[presentation-name]/images/[filename].jpg`
+   - NEVER use URLs or "unsplash:keyword" format in the presentation JSON
+   - Ensure all image paths point to actual downloaded files
+
+3. **WHY THIS IS CRITICAL:**
+   - HTML preview can use URLs directly, but PPTX export requires local files
+   - Downloading first ensures images are available for both preview and export
+   - Prevents broken images in PowerPoint presentations
+   - Provides better reliability and offline access
+
+4. **IMAGE SELECTION TIPS:**
+   - Use high-quality sources: Unsplash, Pexels, Pixabay
+   - Download images at appropriate resolution (1920x1080 for hero images, smaller for grids)
+   - Use descriptive keywords for better image relevance
+   - Test image URLs before downloading to ensure they work
+
+**NEVER create a presentation without downloading images first. This is a MANDATORY step for professional presentations.**
+
 ## 6.2 FILE-BASED OUTPUT SYSTEM
 For large outputs and complex content, use files instead of long responses:
 
