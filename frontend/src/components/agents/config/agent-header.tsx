@@ -242,7 +242,7 @@ export function AgentHeader({
                 className="flex items-center gap-1.5 text-xs px-3"
               >
                 <Settings className="h-3 w-3" />
-                <span className="hidden md:inline">Manual Config</span>
+                <span className="hidden md:inline">Manual config</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>

@@ -11,7 +11,6 @@ from agent.tools.sb_expose_tool import SandboxExposeTool
 from agent.tools.web_search_tool import SandboxWebSearchTool
 from dotenv import load_dotenv
 from utils.config import config
-from flags.flags import is_enabled
 from agent.agent_builder_prompt import get_agent_builder_prompt
 from agentpress.thread_manager import ThreadManager
 from agentpress.response_processor import ProcessorConfig
