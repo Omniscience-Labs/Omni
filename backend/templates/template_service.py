@@ -64,6 +64,10 @@ class AgentTemplate:
         return self.config.get('tools', {}).get('agentpress', {})
     
     @property
+    def workflows(self) -> List[Dict[str, Any]]:
+        return self.config.get('workflows', [])
+    
+    @property
     def mcp_requirements(self) -> List[MCPRequirementValue]:
         requirements = []
         
@@ -396,6 +400,20 @@ class TemplateService:
             else:
                 sanitized_agentpress[tool_name] = False
         
+        workflows = config.get('workflows', [])
+        sanitized_workflows = []
+        for workflow in workflows:
+            if isinstance(workflow, dict):
+                sanitized_workflow = {
+                    'name': workflow.get('name'),
+                    'description': workflow.get('description'),
+                    'status': workflow.get('status', 'draft'),
+                    'trigger_phrase': workflow.get('trigger_phrase'),
+                    'is_default': workflow.get('is_default', False),
+                    'steps': workflow.get('steps', [])
+                }
+                sanitized_workflows.append(sanitized_workflow)
+        
         sanitized = {
             'system_prompt': config.get('system_prompt', ''),
             'model': config.get('model'),
@@ -404,6 +422,7 @@ class TemplateService:
                 'mcp': config.get('tools', {}).get('mcp', []),
                 'custom_mcp': []
             },
+            'workflows': sanitized_workflows,  # Use sanitized workflows
             'metadata': {
                 'avatar': config.get('metadata', {}).get('avatar'),
                 'avatar_color': config.get('metadata', {}).get('avatar_color')
