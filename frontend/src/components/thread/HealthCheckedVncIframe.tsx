@@ -25,9 +25,7 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
     timeoutMs: 5000
   });
 
-  const handleRefresh = () => {
-    setIframeKey(prev => prev + 1); // Force iframe reload
-  };
+
 
   // No VNC URL yet - waiting for browser setup
   if (!sandbox.vnc_preview) {
@@ -107,23 +105,6 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
             onLoad={() => console.log('✅ VNC iframe displayed')}
             onError={() => console.log('❌ VNC iframe error')}
           />
-        </div>
-        
-        {/* Connection status indicator */}
-          <div className="absolute top-2 right-2 flex items-center gap-1">
-            <div className="text-xs text-green-600 bg-green-50 dark:bg-green-950/50 px-1 rounded" 
-               title="VNC connection pre-tested and ready">
-            ✓ Connected
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            className="h-6 w-6 p-0"
-            title="Refresh VNC display"
-          >
-            <RefreshCw className="h-3 w-3" />
-          </Button>
         </div>
       </div>
     );

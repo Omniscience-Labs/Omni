@@ -6,7 +6,7 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check, Globe } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check, Globe, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -303,11 +303,19 @@ export function ToolCallSidePanel({
 
   const sandbox = project?.sandbox;
   
+  // Add refresh key state for VNC iframe
+  const [vncRefreshKey, setVncRefreshKey] = React.useState(0);
+  
+  const handleVncRefresh = React.useCallback(() => {
+    setVncRefreshKey(prev => prev + 1);
+  }, []);
+
   const persistentVncIframe = React.useMemo(() => {
     if (!sandbox || !sandbox.vnc_preview || !sandbox.pass || !sandbox.id) return null;
     
     return (
       <HealthCheckedVncIframe 
+        key={vncRefreshKey}
         sandbox={{
           id: sandbox.id,
           vnc_preview: sandbox.vnc_preview,
@@ -315,7 +323,7 @@ export function ToolCallSidePanel({
         }}
       />
     );
-  }, [sandbox]);
+  }, [sandbox, vncRefreshKey]);
 
   // Helper function to check if a tool is browser-related
   const isBrowserTool = React.useCallback((toolName: string | undefined): boolean => {
@@ -921,28 +929,81 @@ export function ToolCallSidePanel({
           />
         )}
 
-        <div className={`flex-1 ${currentView === 'browser' ? 'overflow-hidden md:mt-8' : 'overflow-auto'} scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent`}>
+        <div className={`flex-1 ${currentView === 'browser' ? 'overflow-hidden' : 'overflow-auto'} scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent`}>
           {/* Always render VNC iframe to maintain connection when available */}
           {persistentVncIframe && (
-            <div className={`h-full ${currentView === 'browser' ? 'block' : 'hidden'}`}>
-              {persistentVncIframe}
+            <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
+              {/* Browser-like header */}
+              <div className="flex items-center justify-between px-3 md:px-4 py-2 bg-muted/50 border-b border-border">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+                  </div>
+                  <div className="h-4 w-px bg-border mx-1 md:mx-2"></div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="font-medium hidden sm:inline">Remote Browser</span>
+                    <span className="font-medium sm:hidden">Browser</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleVncRefresh}
+                    className="h-7 w-7 p-0 hover:bg-muted"
+                    title="Refresh browser view"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* VNC iframe container - unchanged */}
+              <div className="flex-1 overflow-hidden">
+                {persistentVncIframe}
+              </div>
             </div>
           )}
           
           {/* Show browser not available message when no VNC and browser tab is selected */}
           {!persistentVncIframe && currentView === 'browser' && (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
-                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                  <Globe className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+            <div className="h-full flex flex-col">
+              {/* Browser-like header for disconnected state */}
+              <div className="flex items-center justify-between px-3 md:px-4 py-2 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-600"></div>
+                  </div>
+                  <div className="h-4 w-px bg-border mx-1 md:mx-2"></div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="font-medium hidden sm:inline">Remote Browser</span>
+                    <span className="font-medium sm:hidden">Browser</span>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                    Browser not available
-                  </h3>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    No active browser session available. The browser will appear here when a sandbox is created and Browser tools are used.
-                  </p>
+                
+                <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                </div>
+              </div>
+              
+              {/* Message content */}
+              <div className="flex-1 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-900/50">
+                <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
+                  <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center border-2 border-zinc-200 dark:border-zinc-700">
+                    <Globe className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                      Browser not available
+                    </h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      No active browser session available. The browser will appear here when a sandbox is created and Browser tools are used.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
