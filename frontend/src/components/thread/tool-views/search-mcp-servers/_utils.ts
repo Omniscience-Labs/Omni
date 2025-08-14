@@ -56,13 +56,6 @@ const extractFromNewFormat = (content: any): SearchMcpServersData => {
       success: toolExecution.result?.success,
       timestamp: toolExecution.execution_details?.timestamp
     };
-
-    console.log('SearchMcpServersToolView: Extracted from new format:', {
-      query: extractedData.query,
-      resultsCount: extractedData.results.length,
-      success: extractedData.success
-    });
-    
     return extractedData;
   }
 
@@ -79,11 +72,6 @@ const extractFromLegacyFormat = (content: any): Omit<SearchMcpServersData, 'succ
   if (toolData.toolResult) {
     const args = toolData.arguments || {};
     
-    console.log('SearchMcpServersToolView: Extracted from legacy format (extractToolData):', {
-      query: args.query,
-      resultsCount: 0 
-    });
-    
     return {
       query: args.query || null,
       results: [],
@@ -91,8 +79,6 @@ const extractFromLegacyFormat = (content: any): Omit<SearchMcpServersData, 'succ
     };
   }
 
-  console.log('SearchMcpServersToolView: No data found in legacy format');
-  
   return {
     query: null,
     results: [],
@@ -121,7 +107,6 @@ export function extractSearchMcpServersData(
   if (toolContent) {
     data = extractFromNewFormat(toolContent);
     if (data.success !== undefined || data.results.length > 0) {
-      console.log('SearchMcpServersToolView: Using toolContent with new format');
       return {
         ...data,
         actualIsSuccess: data.success !== undefined ? data.success : isSuccess,
@@ -135,7 +120,6 @@ export function extractSearchMcpServersData(
   if (assistantContent) {
     data = extractFromNewFormat(assistantContent);
     if (data.success !== undefined || data.results.length > 0) {
-      console.log('SearchMcpServersToolView: Using assistantContent with new format');
       return {
         ...data,
         actualIsSuccess: data.success !== undefined ? data.success : isSuccess,
@@ -146,7 +130,6 @@ export function extractSearchMcpServersData(
   }
 
   // Fallback to legacy format
-  console.log('SearchMcpServersToolView: Falling back to legacy format extraction');
   
   const toolLegacy = extractFromLegacyFormat(toolContent);
   const assistantLegacy = extractFromLegacyFormat(assistantContent);
@@ -160,12 +143,6 @@ export function extractSearchMcpServersData(
     actualToolTimestamp: toolTimestamp,
     actualAssistantTimestamp: assistantTimestamp
   };
-
-  console.log('SearchMcpServersToolView: Final extracted data:', {
-    query: combinedData.query,
-    resultsCount: combinedData.results.length,
-    success: combinedData.actualIsSuccess
-  });
 
   return combinedData;
 } 

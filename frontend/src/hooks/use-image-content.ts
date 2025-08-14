@@ -18,11 +18,6 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
 
   useEffect(() => {
     if (!sandboxId || !filePath || !session?.access_token) {
-      console.log('[useImageContent] Missing required parameters:', {
-        hasSandboxId: !!sandboxId,
-        hasFilePath: !!filePath,
-        hasToken: !!session?.access_token
-      });
       setImageUrl(null);
       return;
     }
@@ -41,14 +36,12 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
     const cached = FileCache.get(cacheKey);
     if (cached) {
       if (typeof cached === 'string' && cached.startsWith('blob:')) {
-        console.log('[useImageContent] Using cached blob URL');
         setImageUrl(cached);
         return;
       } else if (cached instanceof Blob) {
         // If we have a raw blob object, create a URL from it
         try {
           const blobUrl = URL.createObjectURL(cached);
-          console.log('[useImageContent] Created new blob URL from cached blob');
           setImageUrl(blobUrl);
           // Store the URL back in the cache
           FileCache.set(cacheKey, blobUrl);
@@ -59,7 +52,6 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
           setIsLoading(false);
         }
       } else {
-        console.log('[useImageContent] Using cached value (not a blob URL)');
         setImageUrl(String(cached));
         return;
       }
@@ -67,7 +59,6 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
 
     // Check if this image is already being loaded by another component
     if (inProgressImageLoads.has(loadKey)) {
-      console.log('[useImageContent] Image load already in progress, waiting for result');
       setIsLoading(true);
       
       inProgressImageLoads.get(loadKey)!
@@ -83,9 +74,6 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
       
       return;
     }
-
-    // If not cached or in progress, fetch the image directly with proper authentication
-    console.log('[useImageContent] Fetching image:', normalizedPath);
     setIsLoading(true);
     
     // Create a URL for the fetch request
@@ -107,8 +95,6 @@ export function useImageContent(sandboxId?: string, filePath?: string) {
       .then(blob => {
         // Create a blob URL from the image data
         const blobUrl = URL.createObjectURL(blob);
-        console.log('[useImageContent] Successfully created blob URL from fetched image');
-        
         // Cache both the blob and the URL
         FileCache.set(cacheKey, blobUrl);
         

@@ -252,8 +252,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.1"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.1"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration
@@ -270,6 +270,31 @@ class Configuration:
     
     # Agent execution limits (can be overridden via environment variable)
     _MAX_PARALLEL_AGENT_RUNS_ENV: Optional[str] = None
+    
+    # Agent limits per billing tier
+    # Note: These limits are bypassed in local mode (ENV_MODE=local) where unlimited agents are allowed
+    AGENT_LIMITS = {
+        'free': 2,
+        'tier_2_20': 5,
+        'tier_6_50': 20,
+        'tier_12_100': 20,
+        'tier_25_200': 100,
+        'tier_50_400': 100,
+        'tier_125_800': 100,
+        'tier_200_1000': 100,
+        # Yearly plans have same limits as monthly
+        'tier_2_20_yearly': 5,
+        'tier_6_50_yearly': 20,
+        'tier_12_100_yearly': 20,
+        'tier_25_200_yearly': 100,
+        'tier_50_400_yearly': 100,
+        'tier_125_800_yearly': 100,
+        'tier_200_1000_yearly': 100,
+        # Yearly commitment plans
+        'tier_2_17_yearly_commitment': 5,
+        'tier_6_42_yearly_commitment': 20,
+        'tier_25_170_yearly_commitment': 100,
+    }
 
     @property
     def MAX_PARALLEL_AGENT_RUNS(self) -> int:

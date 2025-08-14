@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { handleApiError } from '@/lib/error-handler';
+import { isLocalMode } from '@/lib/config';
 
 export function ReactQueryProvider({
   children,
@@ -48,13 +49,15 @@ export function ReactQueryProvider({
       }),
   );
 
+  const isLocal = isLocalMode();
+
   return (
     <QueryClientProvider client={queryClient}>
       <HydrationBoundary state={dehydratedState}>
         {children}
-        {/* {process.env.NODE_ENV !== 'production' && (
+        {isLocal && (
           <ReactQueryDevtools initialIsOpen={false} />
-        )} */}
+        )}
       </HydrationBoundary>
     </QueryClientProvider>
   );

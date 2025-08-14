@@ -114,11 +114,19 @@ export function AttachmentGroup({
         return !sandboxId ? file.localUrl : undefined;
     };
 
-    // Check if a file is HTML, Markdown, or CSV
+    // Check if a file is HTML, Markdown, CSV, or PDF (previewable types in grid)
     const isPreviewableFile = (file: string | UploadedFile): boolean => {
         const path = getFilePath(file);
         const ext = path.split('.').pop()?.toLowerCase() || '';
-        return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv';
+        return (
+            ext === 'html' ||
+            ext === 'htm' ||
+            ext === 'md' ||
+            ext === 'markdown' ||
+            ext === 'csv' ||
+            ext === 'tsv' ||
+            ext === 'pdf'
+        );
     };
 
     // Pre-compute any conditional values used in rendering

@@ -53,7 +53,6 @@ function extractCheckCommandOutputData(
 
     // Try to extract from tool content first (most likely to have the result)
     const toolParsed = parseContent(toolContent);
-    console.log('[CHECK COMMAND OUTPUT TOOL VIEW] Tool parsed:', toolParsed);
 
     if (toolParsed && typeof toolParsed === 'object') {
         // Handle the case where content is a JSON string
@@ -191,33 +190,6 @@ function extractCheckCommandOutputData(
                         console.error('Failed to parse assistant content.content:', e);
                     }
                 }
-            }
-        }
-    }
-
-    // Debug logging
-    console.log('CheckCommandOutputToolView: Final extracted data:', {
-        sessionName,
-        hasOutput: !!output,
-        outputLength: output?.length,
-        status,
-        success: actualIsSuccess,
-        toolContent: typeof toolContent,
-        assistantContent: typeof assistantContent
-    });
-
-    // Additional debug logging for troubleshooting
-    if (!sessionName || !output) {
-        console.log('CheckCommandOutputToolView: Debug - Raw toolContent:', toolContent);
-        console.log('CheckCommandOutputToolView: Debug - Raw assistantContent:', assistantContent);
-
-        if (toolContent && typeof toolContent === 'object') {
-            console.log('CheckCommandOutputToolView: Debug - toolContent keys:', Object.keys(toolContent));
-            if (toolContent.frontend_content) {
-                console.log('CheckCommandOutputToolView: Debug - frontend_content:', toolContent.frontend_content);
-            }
-            if (toolContent.content) {
-                console.log('CheckCommandOutputToolView: Debug - content:', toolContent.content);
             }
         }
     }

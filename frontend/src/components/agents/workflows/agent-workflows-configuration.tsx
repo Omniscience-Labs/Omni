@@ -46,8 +46,8 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
   const handleCreateWorkflow = useCallback(async () => {
     try {
       const defaultWorkflow = {
-        name: 'Untitled Workflow',
-        description: 'A new workflow',
+        name: 'Untitled Playbook',
+        description: 'A new playbook',
         steps: []
       };
       const newWorkflow = await createWorkflowMutation.mutateAsync({ 
@@ -160,9 +160,9 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
                 <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
                   <Workflow className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-sm font-semibold mb-2">No Agent Workflows</h3>
+                <h3 className="text-sm font-semibold mb-2">No Agent Playbooks</h3>
                 <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                  Create workflows to automate tasks and streamline your agent's operations.
+                  Create playbook to automate tasks and streamline your agent's operations.
                 </p>
               </div>
             ) : (
@@ -232,9 +232,9 @@ export function AgentWorkflowsConfiguration({ agentId, agentName }: AgentWorkflo
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+            <AlertDialogTitle>Delete Playbook</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete workflow {workflowToDelete?.name}? This action cannot be undone.
+              Are you sure you want to delete playbook {workflowToDelete?.name}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

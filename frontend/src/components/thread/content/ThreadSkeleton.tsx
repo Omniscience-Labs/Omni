@@ -14,17 +14,6 @@ export function ThreadSkeleton({
     showHeader = true,
     messageCount = 3,
 }: ThreadSkeletonProps) {
-    // Mock handlers for the ChatInput component
-    const handleSubmit = (message: string) => {
-        // No-op for skeleton
-        console.log('Skeleton submit:', message);
-    };
-
-    const handleChange = (value: string) => {
-        // No-op for skeleton
-        console.log('Skeleton change:', value);
-    };
-
     return (
         <div className="flex h-screen">
             <div
@@ -127,8 +116,8 @@ export function ThreadSkeleton({
                         "max-w-3xl"
                     )}>
                         <ChatInput
-                            onSubmit={handleSubmit}
-                            onChange={handleChange}
+                            onSubmit={() => {}}
+                            onChange={() => {}}
                             placeholder="Describe what you need help with..."
                             loading={false}
                             disabled={true}

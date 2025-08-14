@@ -11,6 +11,13 @@ import { UseCasesSection } from '@/components/home/sections/use-cases-section';
 import { ModalProviders } from '@/providers/modal-providers';
 import { HeroVideoSection } from '@/components/home/sections/hero-video-section';
 import { BackgroundAALChecker } from '@/components/auth/background-aal-checker';
+import { BentoSection } from '@/components/home/sections/bento-section';
+import { CompanyShowcase } from '@/components/home/sections/company-showcase';
+import { FeatureSection } from '@/components/home/sections/feature-section';
+import { QuoteSection } from '@/components/home/sections/quote-section';
+import { TestimonialSection } from '@/components/home/sections/testimonial-section';
+import { FAQSection } from '@/components/home/sections/faq-section';
+import { AgentShowcaseSection } from '@/components/home/sections/agent-showcase-section';
 
 export default function Home() {
   return (
@@ -20,19 +27,10 @@ export default function Home() {
         <main className="flex flex-col items-center justify-center min-h-screen w-full">
           <div className="w-full divide-y divide-border">
             <HeroSection />
-            <UseCasesSection />
-            {/* <CompanyShowcase /> */}
-            {/* <BentoSection /> */}
-            {/* <QuoteSection /> */}
-            {/* <FeatureSection /> */}
-            {/* <GrowthSection /> */}
+            <BentoSection />
+            {/* <AgentShowcaseSection /> */}
             <OpenSourceSection />
-            <div className='flex flex-col items-center px-4'>
-              <PricingSection />
-            </div>
-            <div className="pb-10 mx-auto">
-              <HeroVideoSection />
-            </div>
+            <PricingSection />
             {/* <TestimonialSection /> */}
             {/* <FAQSection /> */}
             <CTASection />

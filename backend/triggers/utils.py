@@ -243,6 +243,11 @@ def format_workflow_for_llm(
     input_data: Dict[str, Any] = None,
     available_tools: List[str] = None
 ) -> str:
+    # If this is a playbook, format with the simplified playbook prompt
+    if is_playbook(steps):
+        return format_playbook_for_llm(workflow_config, steps, input_data, available_tools)
+
+    # Legacy/regular workflow formatting
     parser = WorkflowParser()
     parsed_steps = parser.parse_workflow_steps(steps)
     summary = parser.get_workflow_summary(parsed_steps)
@@ -294,6 +299,88 @@ WORKFLOW INPUT DATA:
 {input_json}
 
 Begin executing the workflow now, starting with the first step."""
+
+
+def is_playbook(steps: List[Dict[str, Any]]) -> bool:
+    try:
+        if not steps:
+            return False
+        start_node = next(
+            (s for s in steps if s.get('name') == 'Start' and s.get('description') == 'Click to add steps or use the Add Node button'),
+            None
+        )
+        candidate = None
+        if start_node and isinstance(start_node.get('children'), list) and start_node['children']:
+            candidate = start_node['children'][0]
+        else:
+            candidate = steps[0]
+        return bool(candidate and isinstance(candidate.get('config'), dict) and candidate['config'].get('playbook'))
+    except Exception:
+        return False
+
+
+def format_playbook_for_llm(
+    workflow_config: Dict[str, Any],
+    steps: List[Dict[str, Any]],
+    input_data: Optional[Dict[str, Any]] = None,
+    available_tools: Optional[List[str]] = None
+) -> str:
+    # Extract template and variables from the playbook structure
+    # Prefer template from playbook step; fall back to workflow description
+    template: str = ''
+    variables: List[str] = []
+
+    try:
+        start_node = next(
+            (s for s in steps if s.get('name') == 'Start' and s.get('description') == 'Click to add steps or use the Add Node button'),
+            None
+        )
+        candidate = None
+        if start_node and isinstance(start_node.get('children'), list) and start_node['children']:
+            candidate = start_node['children'][0]
+        else:
+            candidate = steps[0]
+
+        playbook_cfg = candidate.get('config', {}).get('playbook', {}) if candidate else {}
+        vars_list = playbook_cfg.get('variables') or []
+        if isinstance(playbook_cfg.get('template'), str):
+            template = playbook_cfg.get('template')
+        elif isinstance(workflow_config.get('description'), str):
+            template = workflow_config.get('description')
+        for v in vars_list:
+            key = v.get('key')
+            if isinstance(key, str) and key:
+                variables.append(key)
+    except Exception:
+        variables = []
+
+    tools_list = ', '.join(available_tools) if available_tools else 'Use any available tools from your system prompt'
+    input_json = json.dumps(input_data or {}, indent=2)
+    playbook_json = json.dumps({
+        "name": workflow_config.get('name', 'Untitled Playbook'),
+        "template": template,
+        "variables": variables,
+        "input_data": input_data or {}
+    }, indent=2)
+
+    return f"""You are executing a playbook. Treat the playbook template as authoritative high-level instructions.
+
+PLAYBOOK:
+{playbook_json}
+
+EXECUTION RULES:
+1) Substitute variables: wherever the template contains {{variable}}, use the matching value from input_data (keys: {', '.join(variables) if variables else 'none'}).
+2) Do not output the template; instead, act on it: plan minimally and execute using available tools.
+3) Use tools when needed. If a specific tool is required by the task (e.g., spreadsheets, web search), choose the best available tool.
+4) Provide concise progress updates. If a tool is not available, state what you'd do as a fallback.
+
+AVAILABLE TOOLS:
+{tools_list}
+
+WORKFLOW INPUT DATA:
+{input_json}
+
+Begin execution now, following the playbook template pragmatically."""
 
 
 

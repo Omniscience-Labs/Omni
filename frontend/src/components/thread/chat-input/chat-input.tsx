@@ -8,6 +8,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { handleFiles } from './file-upload-handler';
@@ -19,15 +20,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ToolCallInput } from './floating-tool-preview';
 import { ChatSnack } from './chat-snack';
 import { Brain, Zap, Workflow, Database, ArrowDown } from 'lucide-react';
-import { FaGoogle, FaDiscord } from 'react-icons/fa';
-import { SiNotion } from 'react-icons/si';
-import { AgentConfigModal } from '@/components/agents/agent-config-modal';
+import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
+import { Skeleton } from '@/components/ui/skeleton';
+
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 
 export interface ChatInputHandles {
   getPendingFiles: () => File[];
@@ -37,7 +39,11 @@ export interface ChatInputHandles {
 export interface ChatInputProps {
   onSubmit: (
     message: string,
-    options?: { model_name?: string; enable_thinking?: boolean },
+    options?: {
+      model_name?: string;
+      enable_thinking?: boolean;
+      agent_id?: string;
+    },
   ) => void;
   placeholder?: string;
   loading?: boolean;
@@ -131,8 +137,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const [configModalOpen, setConfigModalOpen] = useState(false);
-    const [configModalTab, setConfigModalTab] = useState('integrations');
+
     const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
     const [showSnackbar, setShowSnackbar] = useState(defaultShowSnackbar);
     const [userDismissedUsage, setUserDismissedUsage] = useState(false);
@@ -151,6 +156,12 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
+
+    // Fetch integration icons only when logged in and advanced config UI is in use
+    const shouldFetchIcons = isLoggedIn && !!enableAdvancedConfig;
+    const { data: googleDriveIcon } = useComposioToolkitIcon('googledrive', { enabled: shouldFetchIcons });
+    const { data: slackIcon } = useComposioToolkitIcon('slack', { enabled: shouldFetchIcons });
+    const { data: notionIcon } = useComposioToolkitIcon('notion', { enabled: shouldFetchIcons });
 
     // Show usage preview logic:
     // - Always show to free users when showToLowCreditUsers is true
@@ -181,70 +192,23 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const hasLoadedFromLocalStorage = useRef(false);
 
-    const { data: agentsResponse } = useAgents();
+    const { data: agentsResponse } = useAgents({}, { enabled: isLoggedIn });
     const agents = agentsResponse?.agents || [];
 
+    const { initializeFromAgents } = useAgentSelection();
     useImperativeHandle(ref, () => ({
       getPendingFiles: () => pendingFiles,
       clearPendingFiles: () => setPendingFiles([]),
     }));
 
     useEffect(() => {
-      if (typeof window !== 'undefined' && onAgentSelect && !hasLoadedFromLocalStorage.current && agents.length > 0) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasAgentIdInUrl = urlParams.has('agent_id');
-        if (!selectedAgentId && !hasAgentIdInUrl) {
-          const savedAgentId = localStorage.getItem('lastSelectedAgentId');
-          if (savedAgentId) {
-            if (savedAgentId === 'suna') {
-              const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
-              if (defaultSunaAgent) {
-                onAgentSelect(defaultSunaAgent.agent_id);
-              } else {
-                onAgentSelect(undefined);
-              }
-            } else {
-              onAgentSelect(savedAgentId);
-            }
-          } else {
-            const defaultSunaAgent = agents.find(agent => agent.metadata?.is_suna_default);
-            if (defaultSunaAgent) {
-              console.log('Auto-selecting default Suna agent:', defaultSunaAgent.agent_id);
-              onAgentSelect(defaultSunaAgent.agent_id);
-            } else if (agents.length > 0) {
-              console.log('No default Suna agent found, selecting first available agent:', agents[0].agent_id);
-              onAgentSelect(agents[0].agent_id);
-            } else {
-              console.log('No agents available, keeping undefined');
-              onAgentSelect(undefined);
-            }
-          }
-        } else {
-          console.log('Skipping localStorage load:', {
-            hasSelectedAgent: !!selectedAgentId,
-            hasAgentIdInUrl,
-            selectedAgentId
-          });
-        }
-        hasLoadedFromLocalStorage.current = true;
+      if (agents.length > 0 && !onAgentSelect) {
+        initializeFromAgents(agents);
       }
-    }, [onAgentSelect, selectedAgentId, agents]); // Add agents to dependencies
+    }, [agents, onAgentSelect, initializeFromAgents]);
 
-    // Save selected agent to localStorage whenever it changes
-    useEffect(() => {
-      if (typeof window !== 'undefined' && agents.length > 0) {
-        // Check if the selected agent is the Suna default agent
-        const selectedAgent = agents.find(agent => agent.agent_id === selectedAgentId);
-        const isSunaAgent = selectedAgent?.metadata?.is_suna_default || selectedAgentId === undefined;
 
-        // Use 'suna' as a special key for the Suna default agent
-        const keyToStore = isSunaAgent ? 'suna' : selectedAgentId;
-        console.log('Saving selected agent to localStorage:', keyToStore, 'for selectedAgentId:', selectedAgentId);
-        localStorage.setItem('lastSelectedAgentId', keyToStore);
-      }
-    }, [selectedAgentId, agents]);
 
     useEffect(() => {
       if (autoFocus && textareaRef.current) {
@@ -282,7 +246,10 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
         thinkingEnabled = true;
       }
 
+      posthog.capture("task_prompt_submitted", { message });
+
       onSubmit(message, {
+        agent_id: selectedAgentId,
         model_name: baseModelName,
         enable_thinking: thinkingEnabled,
       });
@@ -314,7 +281,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       }
     };
 
-    const removeUploadedFile = (index: number) => {
+    const removeUploadedFile = async (index: number) => {
       const fileToRemove = uploadedFiles[index];
 
       // Clean up local URL if it exists
@@ -344,8 +311,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             console.error('Failed to delete file from server:', error);
           }
         });
-      } else if (isFileUsedInChat) {
-        console.log(`Skipping server deletion for ${fileToRemove.path} - file is referenced in chat history`);
+      } else {
+        // File exists in chat history, don't delete from server
       }
     };
 
@@ -391,7 +358,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
             </button>
           )}
           <Card
-            className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-visible ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'} relative`}
+            className={`-mb-2 shadow-none w-full max-w-4xl mx-auto bg-transparent border-none overflow-visible ${enableAdvancedConfig && selectedAgentId ? '' : 'rounded-3xl'} relative z-10`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={(e) => {
@@ -412,10 +379,8 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               }
             }}
           >
-
-
             <div className="w-full text-sm flex flex-col justify-between items-start rounded-lg">
-              <CardContent className={`w-full p-1.5 ${enableAdvancedConfig && selectedAgentId ? 'pb-1' : 'pb-2'} ${bgColor} border ${enableAdvancedConfig && selectedAgentId ? 'rounded-t-3xl' : 'rounded-3xl'}`}>
+              <CardContent className={`w-full p-1.5 pb-2 ${bgColor} border rounded-3xl`}>
                 <AttachmentGroup
                   files={uploadedFiles || []}
                   sandboxId={sandboxId}
@@ -460,81 +425,82 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                   hideAgentSelection={hideAgentSelection}
                 />
               </CardContent>
-
-              {enableAdvancedConfig && selectedAgentId && (
-                <div className="w-full border-t border-border/30 bg-muted/20 px-4 py-1.5 rounded-b-3xl border-l border-r border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
-                      <button
-                        onClick={() => setRegistryDialogOpen(true)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <div className="flex items-center -space-x-0.5">
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaGoogle className="w-3 h-3" />
-                          </div>
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <FaDiscord className="w-3 h-3" />
-                          </div>
-                          <div className="w-5 h-5 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
-                            <SiNotion className="w-3 h-3" />
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium">Integrations</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Brain className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Instructions</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Database className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Knowledge</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Zap className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Triggers</span>
-                      </button>
-
-                      <div className="w-px h-4 bg-border/60" />
-
-                      <button
-                        onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
-                        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-md hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0"
-                      >
-                        <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Workflows</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
-          <AgentConfigModal
-            isOpen={configModalOpen}
-            onOpenChange={setConfigModalOpen}
-            selectedAgentId={selectedAgentId}
-            onAgentSelect={onAgentSelect}
-            initialTab={configModalTab}
-          />
+
+          {enableAdvancedConfig && selectedAgentId && (
+            <div className="w-full max-w-4xl mx-auto -mt-12 relative z-20">
+              <div className="bg-gradient-to-b from-transparent via-transparent to-muted/30 pt-8 pb-2 px-4 rounded-b-3xl border border-t-0 border-border/50 transition-all duration-300 ease-out">
+                <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-none relative">
+                  <button
+                    onClick={() => setRegistryDialogOpen(true)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <div className="flex items-center -space-x-0.5">
+                      {googleDriveIcon?.icon_url && slackIcon?.icon_url && notionIcon?.icon_url ? (
+                        <>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={googleDriveIcon.icon_url} className="w-2.5 h-2.5" alt="Google Drive" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={slackIcon.icon_url} className="w-2.5 h-2.5" alt="Slack" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={notionIcon.icon_url} className="w-2.5 h-2.5" alt="Notion" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                          <div className="w-4 h-4 bg-white dark:bg-muted border border-border rounded-full flex items-center justify-center shadow-sm">
+                            <Skeleton className="w-2.5 h-2.5 rounded" />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium">Integrations</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=instructions`)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Brain className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Instructions</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=knowledge`)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Database className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Knowledge</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=triggers`)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Zap className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Triggers</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/agents/config/${selectedAgentId}?tab=configuration&accordion=workflows`)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
+                  >
+                    <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">Playbooks</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Dialog open={registryDialogOpen} onOpenChange={setRegistryDialogOpen}>
             <DialogContent className="p-0 max-w-6xl h-[90vh] overflow-hidden">
               <DialogHeader className="sr-only">
@@ -545,7 +511,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                 selectedAgentId={selectedAgentId}
                 onAgentChange={onAgentSelect}
                 onToolsSelected={(profileId, selectedTools, appName, appSlug) => {
-                  console.log('Tools selected:', { profileId, selectedTools, appName, appSlug });
+                  // Save to workflow or perform other action here
                 }}
               />
             </DialogContent>

@@ -13,43 +13,12 @@ import {
 } from '@/components/thread/utils';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import { AgentLoader } from './loader';
+import { AgentAvatar, AgentName } from './agent-avatar';
 import { parseXmlToolCalls, isNewXmlFormat } from '@/components/thread/tool-views/xml-parser';
 import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
+import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
 
-const HIDE_STREAMING_XML_TAGS = new Set([
-    'execute-command',
-    'create-file',
-    'delete-file',
-    'full-file-rewrite',
-    'edit-file',
-    'str-replace',
-    'browser-click-element',
-    'browser-close-tab',
-    'browser-drag-drop',
-    'browser-get-dropdown-options',
-    'browser-go-back',
-    'browser-input-text',
-    'browser-navigate-to',
-    'browser-scroll-down',
-    'browser-scroll-to-text',
-    'browser-scroll-up',
-    'browser-select-dropdown-option',
-    'browser-send-keys',
-    'browser-switch-tab',
-    'browser-wait',
-    'deploy',
-    'ask',
-    'complete',
-    'crawl-webpage',
-    'web-search',
-    'see-image',
-    'execute_data_provider_call',
-    'execute_data_provider_endpoint',
-
-    'execute-data-provider-call',
-    'execute-data-provider-endpoint',
-]);
 
 // Helper function to render attachments (keeping original implementation for now)
 export function renderAttachments(attachments: string[], fileViewerHandler?: (filePath?: string, filePathList?: string[]) => void, sandboxId?: string, project?: Project) {
@@ -313,6 +282,8 @@ export interface ThreadContentProps {
     emptyStateComponent?: React.ReactNode; // Add custom empty state component prop
     threadMetadata?: any; // Add thread metadata prop
     scrollContainerRef?: React.RefObject<HTMLDivElement>; // Add scroll container ref prop
+    agentMetadata?: any; // Add agent metadata prop
+    agentData?: any; // Add full agent data prop
 }
 
 export const ThreadContent: React.FC<ThreadContentProps> = ({
@@ -337,6 +308,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     emptyStateComponent,
     threadMetadata,
     scrollContainerRef,
+    agentMetadata,
+    agentData,
 }) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -348,8 +321,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const { preloadFiles } = useFilePreloader();
 
     const containerClassName = isPreviewMode
-        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0"
-        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
+        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 py-4 pb-0"
+        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 py-4 pb-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
@@ -368,9 +341,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             };
         }
 
+        // Check if this is a Suna default agent from metadata
+        const isSunaDefaultAgent = agentMetadata?.is_suna_default || false;
+
         // Then check recent messages for agent info
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
-            msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color || msg.agents?.name)
+            msg.type === 'assistant' && msg.agents?.name
         );
 
         if (recentAssistantWithAgent?.agents?.name === 'Agent Builder') {
@@ -384,9 +360,32 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             };
         }
 
+        if (agentData && !isSunaDefaultAgent) {
+            const profileUrl = agentData.profile_image_url;
+            const avatar = profileUrl ? (
+                <img src={profileUrl} alt={agentData.name || agentName} className="h-5 w-5 rounded object-cover" />
+            ) : agentData.avatar ? (
+                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                    <span className="text-lg">{agentData.avatar}</span>
+                </div>
+            ) : (
+                <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                    <KortixLogo size={16} />
+                </div>
+            );
+            return {
+                name: agentData.name || agentName,
+                avatar
+            };
+        }
+
         if (recentAssistantWithAgent?.agents?.name) {
-            const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna';
-            const avatar = recentAssistantWithAgent.agents.avatar ? (
+            const isSunaAgent = recentAssistantWithAgent.agents.name === 'Suna' || isSunaDefaultAgent;
+            // Prefer profile image if available on the agent payload
+            const profileUrl = (recentAssistantWithAgent as any)?.agents?.profile_image_url;
+            const avatar = profileUrl && !isSunaDefaultAgent ? (
+                <img src={profileUrl} alt={recentAssistantWithAgent.agents.name} className="h-5 w-5 rounded object-cover" />
+            ) : !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -394,7 +393,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                         </div>
                     ) : (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                            <span className="text-lg">{recentAssistantWithAgent.agents.avatar}</span>
+                            <span className="text-lg">{recentAssistantWithAgent.agents.name.charAt(0).toUpperCase()}</span>
                         </div>
                     )}
                 </>
@@ -408,11 +407,24 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                 avatar
             };
         }
+
+        // Fallback: if this is a Suna default agent, always show KortixLogo
+        if (isSunaDefaultAgent) {
+            return {
+                name: agentName || 'Suna',
+                avatar: (
+                    <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
+                        <KortixLogo size={16} />
+                    </div>
+                )
+            };
+        }
+
         return {
             name: agentName || 'Suna',
             avatar: agentAvatar
         };
-    }, [threadMetadata, displayMessages, agentName, agentAvatar]);
+    }, [threadMetadata, displayMessages, agentName, agentAvatar, agentMetadata, agentData]);
 
     // Simplified scroll handler - flex-column-reverse handles positioning
     const handleScroll = useCallback(() => {
@@ -498,7 +510,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
                     onScroll={handleScroll}
                 >
-                    <div ref={contentRef} className="mx-auto max-w-3xl md:px-8 min-w-0 w-full">
+                    <div ref={contentRef} className="mx-auto min-w-0 w-full max-w-3xl px-4 md:px-6">
                         <div className="space-y-8 min-w-0">
                             {(() => {
 
@@ -608,8 +620,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                 // Use merged groups instead of original grouped messages
                                 const finalGroupedMessages = mergedGroups;
 
-                                // Handle streaming content - only add to existing group or create new one if needed
-                                if (streamingTextContent) {
+                                
+                                // Helper function to add streaming content to groups
+                                const appendStreamingContent = (content: string, isPlayback: boolean = false) => {
+                                    const messageId = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
+                                    const metadata = isPlayback ? 'playbackStreamingText' : 'streamingTextContent';
+                                    const keySuffix = isPlayback ? 'playback-streaming' : 'streaming';
+                                    
                                     const lastGroup = finalGroupedMessages.at(-1);
                                     if (!lastGroup || lastGroup.type === 'user') {
                                         // Create new assistant group for streaming content
@@ -617,35 +634,45 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         finalGroupedMessages.push({
                                             type: 'assistant_group',
                                             messages: [{
-                                                content: streamingTextContent,
+                                                content,
                                                 type: 'assistant',
-                                                message_id: 'streamingTextContent',
-                                                metadata: 'streamingTextContent',
+                                                message_id: messageId,
+                                                metadata,
                                                 created_at: new Date().toISOString(),
                                                 updated_at: new Date().toISOString(),
                                                 is_llm_message: true,
-                                                thread_id: 'streamingTextContent',
+                                                thread_id: messageId,
                                                 sequence: Infinity,
                                             }],
-                                            key: `assistant-group-${assistantGroupCounter}-streaming`
+                                            key: `assistant-group-${assistantGroupCounter}-${keySuffix}`
                                         });
                                     } else if (lastGroup.type === 'assistant_group') {
                                         // Only add streaming content if it's not already represented in the last message
                                         const lastMessage = lastGroup.messages[lastGroup.messages.length - 1];
-                                        if (lastMessage.message_id !== 'streamingTextContent') {
+                                        if (lastMessage.message_id !== messageId) {
                                             lastGroup.messages.push({
-                                                content: streamingTextContent,
+                                                content,
                                                 type: 'assistant',
-                                                message_id: 'streamingTextContent',
-                                                metadata: 'streamingTextContent',
+                                                message_id: messageId,
+                                                metadata,
                                                 created_at: new Date().toISOString(),
                                                 updated_at: new Date().toISOString(),
                                                 is_llm_message: true,
-                                                thread_id: 'streamingTextContent',
+                                                thread_id: messageId,
                                                 sequence: Infinity,
                                             });
                                         }
                                     }
+                                };
+
+                                // Handle streaming content - only add to existing group or create new one if needed
+                                if (streamingTextContent) {
+                                    appendStreamingContent(streamingTextContent, false);
+                                }
+
+                                // Handle playback mode streaming text
+                                if (readOnly && streamingText && isStreamingText) {
+                                    appendStreamingContent(streamingText, true);
                                 }
 
                                 return finalGroupedMessages.map((group, groupIndex) => {
@@ -700,15 +727,27 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                             </div>
                                         );
                                     } else if (group.type === 'assistant_group') {
+                                        // Get agent_id from the first assistant message in this group
+                                        const firstAssistantMsg = group.messages.find(m => m.type === 'assistant');
+                                        const groupAgentId = firstAssistantMsg?.agent_id;
+                                        
                                         return (
                                             <div key={group.key} ref={groupIndex === groupedMessages.length - 1 ? latestMessageRef : null}>
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center">
                                                         <div className="rounded-md flex items-center justify-center relative">
-                                                            {getAgentInfo().avatar}
+                                                            {groupAgentId ? (
+                                                                <AgentAvatar agentId={groupAgentId} size={20} className="h-5 w-5" />
+                                                            ) : (
+                                                                getAgentInfo().avatar
+                                                            )}
                                                         </div>
                                                         <p className='ml-2 text-sm text-muted-foreground'>
-                                                            {getAgentInfo().name}
+                                                            {groupAgentId ? (
+                                                                <AgentName agentId={groupAgentId} fallback={getAgentInfo().name} />
+                                                            ) : (
+                                                                getAgentInfo().name
+                                                            )}
                                                         </p>
                                                     </div>
 
@@ -827,7 +866,12 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                                                         const textToRender = streamingTextContent || '';
                                                                         const textBeforeTag = detectedTag ? textToRender.substring(0, tagStartIndex) : textToRender;
-                                                                        const showCursor = (streamHookStatus === 'streaming' || streamHookStatus === 'connecting') && !detectedTag;
+                                                                        const showCursor =
+                                                                          (streamHookStatus ===
+                                                                            'streaming' ||
+                                                                            streamHookStatus ===
+                                                                              'connecting') &&
+                                                                          !detectedTag;
 
                                                                         return (
                                                                             <>

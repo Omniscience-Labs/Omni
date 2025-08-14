@@ -144,8 +144,6 @@ export const deleteThread = async (threadId: string, sandboxId?: string): Promis
           }
         }
       }
-
-      console.log(`Deleting all agent runs for thread ${threadId}`);
       const { error: agentRunsError } = await supabase
         .from('agent_runs')
         .delete()
@@ -155,8 +153,6 @@ export const deleteThread = async (threadId: string, sandboxId?: string): Promis
         console.error('Error deleting agent runs:', agentRunsError);
         throw new Error(`Error deleting agent runs: ${agentRunsError.message}`);
       }
-
-      console.log(`Deleting all messages for thread ${threadId}`);
       const { error: messagesError } = await supabase
         .from('messages')
         .delete()
@@ -166,8 +162,6 @@ export const deleteThread = async (threadId: string, sandboxId?: string): Promis
         console.error('Error deleting messages:', messagesError);
         throw new Error(`Error deleting messages: ${messagesError.message}`);
       }
-
-      console.log(`Deleting thread ${threadId}`);
       const { error: threadError2 } = await supabase
         .from('threads')
         .delete()
@@ -177,10 +171,6 @@ export const deleteThread = async (threadId: string, sandboxId?: string): Promis
         console.error('Error deleting thread:', threadError2);
         throw new Error(`Error deleting thread: ${threadError2.message}`);
       }
-  
-      console.log(
-        `Thread ${threadId} successfully deleted with all related items`,
-      );
     } catch (error) {
       console.error('Error deleting thread and related items:', error);
       throw error;
@@ -229,12 +219,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         return [];
       }
   
-      console.log(
-        '[API] Raw public projects from DB:',
-        projects?.length,
-        projects,
-      );
-  
       // Map database fields to our Project type
       const mappedProjects: Project[] = (projects || []).map((project) => ({
         id: project.project_id,
@@ -251,11 +235,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         },
         is_public: true, // Mark these as public projects
       }));
-  
-      console.log(
-        '[API] Mapped public projects for frontend:',
-        mappedProjects.length,
-      );
   
       return mappedProjects;
     } catch (err) {
@@ -283,9 +262,7 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         }
         throw error;
       }
-  
-      console.log('Raw project data from database:', data);
-  
+
       // If project has a sandbox, ensure it's started
       if (data.sandbox?.id) {
         // Fire off sandbox activation without blocking
@@ -303,8 +280,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
             if (session?.access_token) {
               headers['Authorization'] = `Bearer ${session.access_token}`;
             }
-  
-            console.log(`Ensuring sandbox is active for project ${projectId}...`);
             const response = await fetch(
               `${API_URL}/project/${projectId}/sandbox/ensure-active`,
               {
@@ -317,12 +292,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
               const errorText = await response
                 .text()
                 .catch(() => 'No error details available');
-              console.warn(
-                `Failed to ensure sandbox is active: ${response.status} ${response.statusText}`,
-                errorText,
-              );
-            } else {
-              console.log('Sandbox activation successful');
             }
           } catch (sandboxError) {
             console.warn('Failed to ensure sandbox is active:', sandboxError);
@@ -349,8 +318,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
         },
       };
   
-      // console.log('Mapped project data for frontend:', mappedProject);
-  
       return mappedProject;
     } catch (error) {
       console.error(`Error fetching project ${projectId}:`, error);
@@ -364,10 +331,6 @@ export const getPublicProjects = async (): Promise<Project[]> => {
     data: Partial<Project>,
   ): Promise<Project> => {
     const supabase = createClient();
-  
-    console.log('Updating project with ID:', projectId);
-    console.log('Update data:', data);
-  
     // Sanity check to avoid update errors
     if (!projectId || projectId === '') {
       console.error('Attempted to update project with invalid ID:', projectId);

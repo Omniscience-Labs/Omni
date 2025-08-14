@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
@@ -49,20 +49,22 @@ class TemplateResponse(BaseModel):
     template_id: str
     creator_id: str
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     system_prompt: str
     mcp_requirements: List[Dict[str, Any]]
     agentpress_tools: Dict[str, Any]
     tags: List[str]
     is_public: bool
+    is_kortix_team: Optional[bool] = False
+    marketplace_published_at: Optional[str] = None
     download_count: int
-    marketplace_published_at: Optional[str]
     created_at: str
     updated_at: str
-    creator_name: Optional[str] = None
     avatar: Optional[str]
     avatar_color: Optional[str]
-    metadata: Dict[str, Any] = {}
+    profile_image_url: Optional[str] = None
+    metadata: Dict[str, Any]
+    creator_name: Optional[str] = None
 
 
 class InstallationResponse(BaseModel):
@@ -313,7 +315,6 @@ async def delete_template(
         return {"message": "Template deleted successfully"}
         
     except HTTPException:
-        # Re-raise HTTP exceptions from our validation functions
         raise
     except Exception as e:
         logger.error(f"Error deleting template {template_id}: {e}", exc_info=True)
@@ -325,15 +326,22 @@ async def install_template(
     request: InstallTemplateRequest,
     user_id: str = Depends(get_current_user_id_from_jwt)
 ):
-    """
-    Install a template as a new agent instance.
-    
-    Requires:
-    - User must have access to the template (own it or it's public)
-    """
     try:
-        # Validate template access first
-        template = await validate_template_access_and_get(request.template_id, user_id)
+        await validate_template_access_and_get(request.template_id, user_id)
+        client = await db.client
+        from agent.utils import check_agent_count_limit
+        limit_check = await check_agent_count_limit(client, user_id)
+        
+        if not limit_check['can_create']:
+            error_detail = {
+                "message": f"Maximum of {limit_check['limit']} agents allowed for your current plan. You have {limit_check['current_count']} agents.",
+                "current_count": limit_check['current_count'],
+                "limit": limit_check['limit'],
+                "tier_name": limit_check['tier_name'],
+                "error_code": "AGENT_LIMIT_EXCEEDED"
+            }
+            logger.warning(f"Agent limit exceeded for account {user_id}: {limit_check['current_count']}/{limit_check['limit']} agents")
+            raise HTTPException(status_code=402, detail=error_detail)
         
         logger.info(f"User {user_id} installing template {request.template_id}")
         
@@ -362,7 +370,6 @@ async def install_template(
         )
         
     except HTTPException:
-        # Re-raise HTTP exceptions from our validation functions
         raise
     except TemplateInstallationError as e:
         logger.warning(f"Template installation failed: {e}")
@@ -376,20 +383,35 @@ async def install_template(
 
 
 @router.get("/marketplace", response_model=List[TemplateResponse])
-async def get_marketplace_templates():
-    """
-    Get all public templates from the marketplace.
-    
-    This endpoint is public and doesn't require authentication.
-    """
+async def get_marketplace_templates(
+    limit: Optional[int] = Query(None, description="Maximum number of templates to return"),
+    offset: Optional[int] = Query(0, description="Number of templates to skip"),
+    search: Optional[str] = Query(None, description="Search term for name and description"),
+    tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by"),
+    is_kortix_team: Optional[bool] = Query(None, description="Filter for Kortix team templates")
+):
     try:
-        logger.info("Fetching marketplace templates")
+        logger.info(
+            f"Fetching marketplace templates with filters - "
+            f"limit: {limit}, offset: {offset}, search: {search}, "
+            f"tags: {tags}, is_kortix_team: {is_kortix_team}"
+        )
         
         template_service = get_template_service(db)
-        templates = await template_service.get_public_templates()
+
+        tag_list = None
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        
+        templates = await template_service.get_public_templates(
+            is_kortix_team=is_kortix_team,
+            limit=limit,
+            offset=offset,
+            search=search,
+            tags=tag_list
+        )
         
         logger.info(f"Retrieved {len(templates)} marketplace templates")
-        
         return [
             TemplateResponse(**format_template_for_response(template))
             for template in templates

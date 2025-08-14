@@ -277,8 +277,6 @@ export function useAgentProcessingJobs(agentId: string) {
   return useQuery({
     queryKey: knowledgeBaseKeys.processingJobs(agentId),
     queryFn: async (): Promise<ProcessingJobsResponse> => {
-      console.log('📊 Fetching processing jobs for agent:', agentId);
-      
       const headers = await getHeaders();
       const response = await fetch(`${API_URL}/knowledge-base/agents/${agentId}/processing-jobs`, { headers });
       
@@ -288,12 +286,6 @@ export function useAgentProcessingJobs(agentId: string) {
       }
       
       const data = await response.json();
-      console.log('📊 Processing jobs response:', { 
-        agentId, 
-        jobCount: data.jobs?.length || 0,
-        activeJobs: data.jobs?.filter(job => job.status === 'processing' || job.status === 'pending').length || 0
-      });
-      
       return data;
     },
     enabled: !!agentId,
@@ -303,7 +295,6 @@ export function useAgentProcessingJobs(agentId: string) {
       
       // If no data yet, check once after 2 seconds
       if (!data) {
-        console.log('⏱️ No data yet, polling in 2 seconds');
         return 2000;
       }
       
@@ -313,12 +304,6 @@ export function useAgentProcessingJobs(agentId: string) {
       );
       
       const nextInterval = hasActiveJobs ? 3000 : 30000;
-      console.log('⏱️ Polling decision:', { 
-        hasActiveJobs, 
-        nextInterval: `${nextInterval/1000}s`,
-        jobStatuses: data.jobs?.map(job => job.status) || []
-      });
-      
       // If there are active jobs, poll every 3 seconds
       // If no active jobs, poll every 30 seconds (much less frequent)
       return nextInterval;

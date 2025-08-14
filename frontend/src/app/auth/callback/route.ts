@@ -9,13 +9,6 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
 
-  console.log('🔵 Auth callback triggered:', { 
-    hasCode: !!code, 
-    next, 
-    error, 
-    errorDescription 
-  })
-
   if (error) {
     console.error('❌ Auth callback error:', error, errorDescription)
     return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(error)}`)
@@ -32,11 +25,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(error.message)}`)
       }
 
-      console.log('✅ Successfully exchanged code for session:', { 
-        userId: data.user?.id,
-        email: data.user?.email 
-      })
-
       // URL to redirect to after sign in process completes
       return NextResponse.redirect(`${origin}${next}`)
     } catch (error) {
@@ -44,8 +32,5 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/auth?error=unexpected_error`)
     }
   }
-
-  // No code present, redirect to auth page
-  console.log('⚠️ No code present in auth callback, redirecting to auth')
   return NextResponse.redirect(`${origin}/auth`)
 }

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from uuid import uuid4
 from utils.auth_utils import get_current_user_id_from_jwt
@@ -9,10 +9,8 @@ from datetime import datetime
 
 from .composio_service import (
     get_integration_service,
-    ComposioIntegrationService,
-    ComposioIntegrationResult
 )
-from .toolkit_service import ToolkitInfo, ToolkitService, CategoryInfo
+from .toolkit_service import ToolkitService, ToolsListResponse
 from .composio_profile_service import ComposioProfileService, ComposioProfile
 
 router = APIRouter(prefix="/composio", tags=["composio"])
@@ -23,14 +21,12 @@ def initialize(database: DBConnection):
     global db
     db = database
 
-
 class IntegrateToolkitRequest(BaseModel):
     toolkit_slug: str
     profile_name: Optional[str] = None
     display_name: Optional[str] = None
     mcp_server_name: Optional[str] = None
     save_as_profile: bool = True
-
 
 class IntegrationStatusResponse(BaseModel):
     status: str
@@ -42,14 +38,18 @@ class IntegrationStatusResponse(BaseModel):
     profile_id: Optional[str] = None
     redirect_url: Optional[str] = None
 
-
 class CreateProfileRequest(BaseModel):
     toolkit_slug: str
     profile_name: str
     display_name: Optional[str] = None
     mcp_server_name: Optional[str] = None
     is_default: bool = False
+    initiation_fields: Optional[Dict[str, str]] = None
 
+class ToolsListRequest(BaseModel):
+    toolkit_slug: str
+    limit: int = 50
+    cursor: Optional[str] = None
 
 class ProfileResponse(BaseModel):
     profile_id: str
@@ -57,7 +57,7 @@ class ProfileResponse(BaseModel):
     display_name: str
     toolkit_slug: str
     toolkit_name: str
-    mcp_url: str  # The complete MCP URL
+    mcp_url: str
     redirect_url: Optional[str] = None
     is_connected: bool
     is_default: bool
@@ -71,7 +71,7 @@ class ProfileResponse(BaseModel):
             display_name=profile.display_name,
             toolkit_slug=profile.toolkit_slug,
             toolkit_name=profile.toolkit_name,
-            mcp_url=profile.mcp_url,  # Include the complete MCP URL
+            mcp_url=profile.mcp_url,
             redirect_url=profile.redirect_url,
             is_connected=profile.is_connected,
             is_default=profile.is_default,
@@ -103,29 +103,60 @@ async def list_categories(
 @router.get("/toolkits")
 async def list_toolkits(
     limit: int = Query(100, le=500),
+    cursor: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
-        logger.info(f"Fetching Composio toolkits with limit: {limit}, search: {search}, category: {category}")
+        logger.info(f"Fetching Composio toolkits with limit: {limit}, cursor: {cursor}, search: {search}, category: {category}")
         
         service = get_integration_service()
         
         if search:
-            toolkits = await service.search_toolkits(search, category=category)
+            result = await service.search_toolkits(search, category=category, limit=limit, cursor=cursor)
         else:
-            toolkits = await service.list_available_toolkits(limit, category=category)
+            result = await service.list_available_toolkits(limit, cursor=cursor, category=category)
         
         return {
             "success": True,
-            "toolkits": [toolkit.dict() for toolkit in toolkits],
-            "total": len(toolkits)
+            "toolkits": [toolkit.dict() for toolkit in result.get('items', [])],
+            "total_items": result.get('total_items', 0),
+            "total_pages": result.get('total_pages', 0),
+            "current_page": result.get('current_page', 1),
+            "next_cursor": result.get('next_cursor'),
+            "has_more": result.get('next_cursor') is not None
         }
         
     except Exception as e:
         logger.error(f"Failed to fetch toolkits: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch toolkits: {str(e)}")
+
+
+@router.get("/toolkits/{toolkit_slug}/details")
+async def get_toolkit_details(
+    toolkit_slug: str,
+    user_id: str = Depends(get_current_user_id_from_jwt)
+) -> Dict[str, Any]:
+    try:
+        logger.info(f"Fetching detailed toolkit info for: {toolkit_slug}")
+        
+        toolkit_service = ToolkitService()
+        detailed_toolkit = await toolkit_service.get_detailed_toolkit_info(toolkit_slug)
+        
+        if not detailed_toolkit:
+            raise HTTPException(status_code=404, detail=f"Toolkit {toolkit_slug} not found")
+        
+        return {
+            "success": True,
+            "toolkit": detailed_toolkit.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch toolkit details for {toolkit_slug}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch toolkit details: {str(e)}")
 
 
 @router.post("/integrate", response_model=IntegrationStatusResponse)
@@ -182,7 +213,8 @@ async def create_profile(
             profile_name=request.profile_name,
             display_name=request.display_name,
             mcp_server_name=request.mcp_server_name,
-            save_as_profile=True
+            save_as_profile=True,
+            initiation_fields=request.initiation_fields
         )
         
         logger.info(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
@@ -373,6 +405,35 @@ async def get_toolkit_icon(
     except Exception as e:
         logger.error(f"Error getting toolkit icon: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/tools/list")
+async def list_toolkit_tools(
+    request: ToolsListRequest,
+    current_user_id: str = Depends(get_current_user_id_from_jwt)
+):
+    try:
+        logger.info(f"User {current_user_id} requesting tools for toolkit: {request.toolkit_slug}")
+        
+        toolkit_service = ToolkitService()
+        tools_response = await toolkit_service.get_toolkit_tools(
+            toolkit_slug=request.toolkit_slug,
+            limit=request.limit,
+            cursor=request.cursor
+        )
+        
+        return {
+            "success": True,
+            "tools": [tool.dict() for tool in tools_response.items],
+            "total_items": tools_response.total_items,
+            "current_page": tools_response.current_page,
+            "total_pages": tools_response.total_pages,
+            "next_cursor": tools_response.next_cursor
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list toolkit tools for {request.toolkit_slug}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get toolkit tools: {str(e)}")
 
 
 @router.get("/health")

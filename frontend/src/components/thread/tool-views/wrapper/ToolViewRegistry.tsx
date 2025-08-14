@@ -31,6 +31,7 @@ import { PresentationOutlineToolView } from '../PresentationOutlineToolView';
 import { PresentationToolView } from '../PresentationToolView';
 import { ListPresentationTemplatesToolView } from '../ListPresentationTemplatesToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
+import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -39,20 +40,9 @@ type ToolViewRegistryType = Record<string, ToolViewComponent>;
 
 const defaultRegistry: ToolViewRegistryType = {
   'browser-navigate-to': BrowserToolView,
-  'browser-go-back': BrowserToolView,
-  'browser-wait': BrowserToolView,
-  'browser-click-element': BrowserToolView,
-  'browser-input-text': BrowserToolView,
-  'browser-send-keys': BrowserToolView,
-  'browser-switch-tab': BrowserToolView,
-  'browser-close-tab': BrowserToolView,
-  'browser-scroll-down': BrowserToolView,
-  'browser-scroll-up': BrowserToolView,
-  'browser-scroll-to-text': BrowserToolView,
-  'browser-get-dropdown-options': BrowserToolView,
-  'browser-select-dropdown-option': BrowserToolView,
-  'browser-drag-drop': BrowserToolView,
-  'browser-click-coordinates': BrowserToolView,
+  'browser-act': BrowserToolView,
+  'browser-extract-content': BrowserToolView,
+  'browser-screenshot': BrowserToolView,
 
   'execute-command': CommandToolView,
   'check-command-output': CheckCommandOutputToolView,
@@ -110,6 +100,9 @@ const defaultRegistry: ToolViewRegistryType = {
   'visualize-sheet': SheetsToolView,
   'format-sheet': SheetsToolView,
 
+  'get-project-structure': GetProjectStructureView,
+  'list-web-projects': GenericToolView,
+
   'default': GenericToolView,
 };
 
@@ -119,7 +112,6 @@ class ToolViewRegistry {
   constructor(initialRegistry: Partial<ToolViewRegistryType> = {}) {
     this.registry = { ...defaultRegistry };
 
-    // Only add non-undefined values from initialRegistry
     Object.entries(initialRegistry).forEach(([key, value]) => {
       if (value !== undefined) {
         this.registry[key] = value;

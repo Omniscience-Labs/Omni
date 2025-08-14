@@ -45,6 +45,7 @@ export interface AgentTemplate {
   creator_name?: string;
   avatar?: string;
   avatar_color?: string;
+  profile_image_url?: string;
   is_kortix_team?: boolean;
   metadata?: {
     source_agent_id?: string;
@@ -200,6 +201,7 @@ export function useMarketplaceTemplates(params?: {
   offset?: number;
   search?: string;
   tags?: string;
+  is_kortix_team?: boolean;
 }) {
   return useQuery({
     queryKey: ['secure-mcp', 'marketplace-templates', params],
@@ -216,6 +218,7 @@ export function useMarketplaceTemplates(params?: {
       if (params?.offset) searchParams.set('offset', params.offset.toString());
       if (params?.search) searchParams.set('search', params.search);
       if (params?.tags) searchParams.set('tags', params.tags);
+      if (params?.is_kortix_team !== undefined) searchParams.set('is_kortix_team', params.is_kortix_team.toString());
 
       const response = await fetch(`${API_URL}/templates/marketplace?${searchParams}`, {
         headers: {
@@ -227,7 +230,6 @@ export function useMarketplaceTemplates(params?: {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-
       return response.json();
     },
   });
@@ -426,6 +428,13 @@ export function useDeleteTemplate() {
   });
 }
 
+export function useKortixTeamTemplates() {
+  return useMarketplaceTemplates({
+    is_kortix_team: true,
+    limit: 10
+  });
+}
+
 export function useInstallTemplate() {
   const queryClient = useQueryClient();
 
@@ -447,6 +456,18 @@ export function useInstallTemplate() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        const isAgentLimitError = (response.status === 402) && (
+          errorData.error_code === 'AGENT_LIMIT_EXCEEDED' || 
+          errorData.detail?.error_code === 'AGENT_LIMIT_EXCEEDED'
+        );
+        
+        if (isAgentLimitError) {
+          const { AgentCountLimitError } = await import('@/lib/api');
+          // Use the nested detail if it exists, otherwise use the errorData directly
+          const errorDetail = errorData.detail || errorData;
+          throw new AgentCountLimitError(response.status, errorDetail);
+        }
+        
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 

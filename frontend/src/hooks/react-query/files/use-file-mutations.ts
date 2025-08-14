@@ -178,7 +178,6 @@ export function useFileDelete() {
         if (cachedEntry) {
           // If it's a blob URL, revoke it before deleting
           if (cachedEntry.type === 'url' && typeof cachedEntry.content === 'string' && cachedEntry.content.startsWith('blob:')) {
-            console.log(`[FILE DELETE] Revoking blob URL for deleted file: ${cachedEntry.content}`);
             URL.revokeObjectURL(cachedEntry.content);
           }
           FileCache.delete(key);

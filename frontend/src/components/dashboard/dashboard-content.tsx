@@ -3,7 +3,6 @@
 import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Menu } from 'lucide-react';
 import {
   ChatInput,
   ChatInputHandles,
@@ -13,27 +12,25 @@ import {
   AgentRunLimitError,
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useSidebar } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useBillingError } from '@/hooks/useBillingError';
 import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
-import { config } from '@/lib/config';
+import { config, isLocalMode, isStagingMode } from '@/lib/config';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
 import { ModalProviders } from '@/providers/modal-providers';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
 import { useModal } from '@/hooks/use-modal-store';
+import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
 import { normalizeFilenameToNFC } from '@/lib/utils/unicode';
 import { KortixLogo } from '../sidebar/kortix-logo';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
+import { useFeatureFlag } from '@/lib/feature-flags';
+import { CustomAgentsSection } from './custom-agents-section';
+import { toast } from 'sonner';
+import { ReleaseBadge } from '../auth/release-badge';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -41,7 +38,12 @@ export function DashboardContent() {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>();
+  const { 
+    selectedAgentId, 
+    setSelectedAgent, 
+    initializeFromAgents,
+    getCurrentAgent
+  } = useAgentSelection();
   const [initiatedThreadId, setInitiatedThreadId] = useState<string | null>(null);
   const { billingError, handleBillingError, clearBillingError } =
     useBillingError();
@@ -53,12 +55,14 @@ export function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
-  const { setOpenMobile } = useSidebar();
   const { data: accounts } = useAccounts();
   const personalAccount = accounts?.find((account) => account.personal_account);
   const chatInputRef = useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const { onOpen } = useModal();
+
+  // Feature flag for custom agents section
+  const { enabled: customAgentsEnabled } = useFeatureFlag('custom_agents');
 
   // Fetch agents to get the selected agent's name
   const { data: agentsResponse } = useAgents({
@@ -72,25 +76,39 @@ export function DashboardContent() {
     ? agents.find(agent => agent.agent_id === selectedAgentId)
     : null;
   const displayName = selectedAgent?.name || 'Suna';
-  const agentAvatar = selectedAgent?.avatar;
+  const agentAvatar = undefined;
   const isSunaAgent = selectedAgent?.metadata?.is_suna_default || false;
 
   const threadQuery = useThreadQuery(initiatedThreadId || '');
 
+  const enabledEnvironment = isStagingMode() || isLocalMode();
+
+  useEffect(() => {
+    console.log('🚀 Dashboard effect:', { 
+      agentsLength: agents.length, 
+      selectedAgentId, 
+      agents: agents.map(a => ({ id: a.agent_id, name: a.name, isDefault: a.metadata?.is_suna_default })) 
+    });
+    
+    if (agents.length > 0) {
+      console.log('📞 Calling initializeFromAgents');
+      initializeFromAgents(agents, undefined, setSelectedAgent);
+    }
+  }, [agents, initializeFromAgents, setSelectedAgent]);
+
   useEffect(() => {
     const agentIdFromUrl = searchParams.get('agent_id');
     if (agentIdFromUrl && agentIdFromUrl !== selectedAgentId) {
-      setSelectedAgentId(agentIdFromUrl);
+      setSelectedAgent(agentIdFromUrl);
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('agent_id');
       router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
-  }, [searchParams, selectedAgentId, router]);
+  }, [searchParams, selectedAgentId, router, setSelectedAgent]);
 
   useEffect(() => {
     if (threadQuery.data && initiatedThreadId) {
       const thread = threadQuery.data;
-      console.log('Thread data received:', thread);
       if (thread.project_id) {
         router.push(`/projects/${thread.project_id}/thread/${initiatedThreadId}`);
       } else {
@@ -99,9 +117,6 @@ export function DashboardContent() {
       setInitiatedThreadId(null);
     }
   }, [threadQuery.data, initiatedThreadId, router]);
-
-  const secondaryGradient =
-    'bg-gradient-to-r from-blue-500 to-blue-500 bg-clip-text text-transparent';
 
   const handleSubmit = async (
     message: string,
@@ -144,10 +159,7 @@ export function DashboardContent() {
       formData.append('stream', String(options?.stream ?? true));
       formData.append('enable_context_manager', String(options?.enable_context_manager ?? false));
 
-      console.log('FormData content:', Array.from(formData.entries()));
-
       const result = await initiateAgentMutation.mutateAsync(formData);
-      console.log('Agent initiated:', result);
 
       if (result.thread_id) {
         setInitiatedThreadId(result.thread_id);
@@ -158,19 +170,19 @@ export function DashboardContent() {
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        console.log('Handling BillingError:', error.detail);
         onOpen("paymentRequiredDialog");
       } else if (error instanceof AgentRunLimitError) {
-        console.log('Handling AgentRunLimitError:', error.detail);
         const { running_thread_ids, running_count } = error.detail;
-        
-        // Show the dialog with limit information
         setAgentLimitData({
           runningCount: running_count,
           runningThreadIds: running_thread_ids,
         });
         setShowAgentLimitDialog(true);
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+        toast.error(errorMessage);
       }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -202,69 +214,53 @@ export function DashboardContent() {
   return (
     <>
       <ModalProviders />
-      <div className="flex flex-col h-screen w-full">
-        {isMobile && (
-          <div className="absolute top-4 left-4 z-10">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setOpenMobile(true)}
-                >
-                  <Menu className="h-4 w-4" />
-                  <span className="sr-only">Open menu</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Open menu</TooltipContent>
-            </Tooltip>
+      <div className="flex flex-col h-screen w-full overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full flex flex-col">
+            {customAgentsEnabled && (
+              <div className="flex justify-center px-4 pt-4 md:pt-8">
+                <ReleaseBadge text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" />
+              </div>
+            )}
+            <div className="flex-1 flex items-center justify-center px-4 py-8">
+              <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
+                <div className="flex flex-col items-center text-center w-full">
+                  <p className="tracking-tight text-2xl md:text-3xl font-normal text-muted-foreground/80">
+                    What would you like to do today?
+                  </p>
+                </div>
+                <div className="w-full">
+                  <ChatInput
+                    ref={chatInputRef}
+                    onSubmit={handleSubmit}
+                    loading={isSubmitting}
+                    placeholder="Describe what you need help with..."
+                    value={inputValue}
+                    onChange={setInputValue}
+                    hideAttachments={false}
+                    selectedAgentId={selectedAgentId}
+                    onAgentSelect={setSelectedAgent}
+                    enableAdvancedConfig={true}
+                    onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
+                  />
+                </div>
+                <div className="w-full">
+                  <Examples onSelectPrompt={setInputValue} count={isMobile ? 3 : 4} />
+                </div>
+              </div>
+            </div>
+            {enabledEnvironment && customAgentsEnabled && (
+              <div className="w-full px-4 pb-8">
+                <div className="max-w-7xl mx-auto">
+                  <CustomAgentsSection 
+                    onAgentSelect={setSelectedAgent}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[650px] max-w-[90%]">
-          <div className="flex flex-col items-center text-center w-full">
-            {/* <div className="flex items-center gap-1">
-              <h1 className="tracking-tight text-4xl text-muted-foreground leading-tight">
-                Hey, I am
-              </h1>
-              <h1 className="ml-1 tracking-tight text-4xl font-semibold leading-tight text-primary flex items-center gap-3">
-                {displayName}
-                {isSunaAgent ? (
-                  <span className="ml-2 flex items-center">
-                    <KortixLogo size={24} />
-                  </span>
-                ) : agentAvatar && (
-                  <span className="text-muted-foreground ml-2">
-                    {agentAvatar}
-                  </span>
-                )}
-              </h1>
-            </div> */}
-            <p className="tracking-tight text-3xl font-normal text-muted-foreground/80 mt-2">
-              What would you like to do today?
-            </p>
-          </div>
-          <div className={cn(
-            "w-full mb-2",
-            "max-w-full",
-            "sm:max-w-3xl"
-          )}>
-            <ChatInput
-              ref={chatInputRef}
-              onSubmit={handleSubmit}
-              loading={isSubmitting}
-              placeholder="Describe what you need help with..."
-              value={inputValue}
-              onChange={setInputValue}
-              hideAttachments={false}
-              selectedAgentId={selectedAgentId}
-              onAgentSelect={setSelectedAgentId}
-              enableAdvancedConfig={true}
-              onConfigureAgent={(agentId) => router.push(`/agents/config/${agentId}`)}
-            />
-          </div>
-          <Examples onSelectPrompt={setInputValue} />
         </div>
+        
         <BillingErrorAlert
           message={billingError?.message}
           currentUsage={billingError?.currentUsage}
@@ -281,7 +277,7 @@ export function DashboardContent() {
           onOpenChange={setShowAgentLimitDialog}
           runningCount={agentLimitData.runningCount}
           runningThreadIds={agentLimitData.runningThreadIds}
-          projectId={undefined} // Dashboard doesn't have a specific project context
+          projectId={undefined}
         />
       )}
     </>

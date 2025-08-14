@@ -106,9 +106,6 @@ export const processThreadsWithProjects = (
 
     const project = projectsById.get(projectId);
     if (!project) {
-      console.log(
-        `❌ Thread ${thread.thread_id} has project_id=${projectId} but no matching project found`,
-      );
       continue;
     }
     let displayName = project.name || 'Unnamed Project';
