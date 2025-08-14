@@ -1365,18 +1365,36 @@ async def get_agents(
         # Get agents owned by user
         owned_result = await client.table('agents').select('*').eq("account_id", user_id).execute()
         
-        # Get agent IDs from user's library
-        library_ids_result = await client.table('user_agent_library').select('agent_id')\
-            .eq('user_account_id', user_id).execute()
-        
-        # Extract just the agent IDs
-        library_agent_ids = [row['agent_id'] for row in library_ids_result.data]
-        
-        # Get library agents if there are any
+        # Get marketplace agents installed by user (using metadata)
         library_result = None
-        if library_agent_ids:
-            library_result = await client.table('agents').select('*')\
-                .in_('agent_id', library_agent_ids).execute()
+        try:
+            # Get agents where user is in installed_by_users (managed agents)
+            managed_result = await client.table('agents').select('*')\
+                .contains('metadata', {'installed_by_users': [user_id]}).execute()
+            
+            # Get agents with marketplace_install metadata (unmanaged copies)
+            unmanaged_result = await client.table('agents').select('*')\
+                .eq('account_id', user_id)\
+                .not_.is_('metadata->marketplace_install', 'null').execute()
+            
+            # Combine managed and unmanaged marketplace agents
+            library_agents = []
+            if managed_result.data:
+                for agent in managed_result.data:
+                    agent['source'] = 'managed_marketplace'
+                    library_agents.append(agent)
+                    
+            if unmanaged_result.data:
+                for agent in unmanaged_result.data:
+                    agent['source'] = 'unmanaged_marketplace'
+                    library_agents.append(agent)
+            
+            library_result = type('Result', (), {'data': library_agents})()
+            
+        except Exception as library_error:
+            # Error getting marketplace agents - just skip them
+            logger.info(f"Skipping marketplace agents lookup for user {user_id}: {str(library_error)}")
+            library_result = None
         
         # Combine and deduplicate agents
         all_agents = {}

@@ -332,8 +332,14 @@ class InstallationService:
             'profile_image_url': template.profile_image_url,
             'metadata': {
                 **template.metadata,
-                'created_from_template': template.template_id,
-                'template_name': template.name
+                'marketplace_install': {
+                    'template_id': template.template_id,
+                    'template_name': template.name,
+                    'original_agent_id': template.metadata.get('original_agent_id'),
+                    'is_managed': False,
+                    'installed_at': datetime.now(timezone.utc).isoformat(),
+                    'is_favorite': False
+                }
             },
             'created_at': datetime.now(timezone.utc).isoformat(),
             'updated_at': datetime.now(timezone.utc).isoformat()
@@ -370,25 +376,30 @@ class InstallationService:
         if not original_agent['is_public']:
             raise TemplateInstallationError("Original agent is no longer public")
         
-        # Check if user already has this agent in their library
-        existing_result = await client.table('user_agent_library').select('id')\
-            .eq('user_account_id', request.account_id)\
-            .eq('original_agent_id', original_agent_id)\
+        # Check if user already has this agent by looking for metadata
+        existing_result = await client.table('agents').select('agent_id')\
+            .eq('account_id', request.account_id)\
+            .contains('metadata', {'marketplace_install': {'original_agent_id': original_agent_id}})\
             .maybe_single()\
             .execute()
         
         if existing_result.data:
             raise TemplateInstallationError("Agent already in your library")
         
-        # Create reference in user_agent_library (managed: both IDs are the same)
-        library_data = {
-            'user_account_id': request.account_id,
-            'original_agent_id': original_agent_id,
-            'agent_id': original_agent_id,  # Same ID for managed agents
-            'added_at': datetime.now(timezone.utc).isoformat()
-        }
+        # For managed templates, we don't create a copy - user gets direct access
+        # But we need to track this install in the original agent's metadata
+        current_metadata = original_agent.get('metadata', {})
+        if 'installed_by_users' not in current_metadata:
+            current_metadata['installed_by_users'] = []
         
-        await client.table('user_agent_library').insert(library_data).execute()
+        # Add this user to the installed_by_users list if not already there
+        if request.account_id not in current_metadata['installed_by_users']:
+            current_metadata['installed_by_users'].append(request.account_id)
+            
+            # Update the original agent's metadata
+            await client.table('agents').update({
+                'metadata': current_metadata
+            }).eq('agent_id', original_agent_id).execute()
         
         logger.info(f"Created managed agent reference to {original_agent_id} for user {request.account_id}")
         return original_agent_id
