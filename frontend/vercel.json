@@ -2,7 +2,7 @@
   "version": 2,
   "regions": ["pdx1"],
   "functions": {
-    "src/app/**": {
+    "src/app/api/**": {
       "maxDuration": 30
     }
   },
