@@ -8,13 +8,22 @@ import base64
 from datetime import datetime
 import requests
 import tempfile
-import aspose.slides as slides
-import aspose.pydrawing as draw
 import re
 from html import unescape
 import io
 
-from .presentation_templates import get_template_css, list_templates, get_template
+# New imports for python-pptx and HTML parsing
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.dml import MSO_THEME_COLOR
+from bs4 import BeautifulSoup
+import cssutils
+import logging
+
+# Suppress cssutils warnings
+cssutils.log.setLevel(logging.ERROR)
 
 try:
     from PIL import Image
@@ -36,235 +45,270 @@ class SandboxPresentationTool(SandboxToolsBase):
         except:
             pass
 
-    def _generate_slide_html(self, slide: Dict, slide_number: int, total_slides: int, presentation_title: str, template_css: str = None) -> str:
-        title = slide.get("title", f"Slide {slide_number}")
-        content = slide.get("content", "")
-        layout = slide.get("layout", "default")
-        background_color = slide.get("background_color", "#1D1D1F")
-        text_color = slide.get("text_color", "#FFFFFF")
+    def _generate_slide_html(self, slide: Dict, slide_number: int, total_slides: int, presentation_title: str, custom_css: Optional[str] = None) -> str:
+        """Generate HTML for a single slide - ALWAYS maintains 1920x1080 dimensions"""
         
-        if isinstance(content, dict):
-            content_html = self._render_structured_content(content, layout)
-        elif isinstance(content, list):
-            content_html = self._render_list_content(content)
+        if custom_css:
+            # Ensure custom CSS includes proper slide dimensions
+            if ".slide" in custom_css and "1920px" not in custom_css:
+                # Prepend dimension enforcement to custom CSS
+                css = """
+                /* ENFORCED: Presentation slide dimensions */
+                .slide {
+                    width: 1920px !important;
+                    height: 1080px !important;
+                    max-width: 100vw;
+                    max-height: 100vh;
+                    aspect-ratio: 16/9;
+                    transform-origin: center center;
+                }
+                @media screen and (max-width: 1920px), screen and (max-height: 1080px) {
+                    .slide {
+                        transform: scale(min(100vw / 1920, 100vh / 1080));
+                    }
+                }
+                """ + custom_css
+            else:
+                css = custom_css
         else:
-            content_html = f'<div class="content">{content}</div>'
+            css = """
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                background: #ffffff;
+                color: #000000;
+            }
+            
+            .slide {
+                /* CRITICAL: Fixed presentation dimensions 1920x1080 (16:9) */
+                width: 1920px !important;
+                height: 1080px !important;
+                max-width: 100vw;
+                max-height: 100vh;
+                aspect-ratio: 16/9;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 80px;
+                position: relative;
+                background: #ffffff;
+                /* Scale to fit viewport if needed */
+                transform-origin: center center;
+            }
+            
+            /* Auto-scale slide to fit viewport while maintaining aspect ratio */
+            @media screen and (max-width: 1920px), screen and (max-height: 1080px) {
+                .slide {
+                    transform: scale(min(100vw / 1920, 100vh / 1080));
+                }
+            }
+            
+            h1 {
+                font-size: 72px;
+                font-weight: 700;
+                line-height: 1.1;
+                margin-bottom: 40px;
+                color: #000000;
+            }
+            
+            h2 {
+                font-size: 48px;
+                font-weight: 600;
+                line-height: 1.2;
+                margin-bottom: 30px;
+                color: #333333;
+            }
+            
+            p {
+                font-size: 24px;
+                line-height: 1.6;
+                margin-bottom: 20px;
+                color: #333333;
+            }
+            
+            ul {
+                list-style: none;
+                margin: 30px 0;
+                padding-left: 0;
+            }
+            
+            li {
+                font-size: 24px;
+                line-height: 1.8;
+                margin: 15px 0;
+                padding-left: 30px;
+                position: relative;
+                color: #333333;
+            }
+            
+            li::before {
+                content: "•";
+                position: absolute;
+                left: 0;
+                color: #000000;
+            }
+            
+            .slide-number {
+                position: absolute;
+                bottom: 40px;
+                right: 40px;
+                font-size: 18px;
+                color: #666666;
+            }
+            
+            /* Flat design - no shadows, gradients, or animations */
+            img {
+                max-width: 100%;
+                height: auto;
+                border: 2px solid #e0e0e0;
+            }
+            
+            .content-section {
+                max-width: 100%;
+            }
+            """
         
-        css_content = template_css if template_css else self._get_minimal_css(background_color, text_color)
+        slide_html = slide.get('html', '')
+        
+        if not slide_html:
+            title = slide.get('title', '')
+            content = slide.get('content', '')
+            
+            slide_html = f"""
+            <div class="slide">
+                <div class="content-section">
+                    {f'<h1>{title}</h1>' if title else ''}
+                    {content if isinstance(content, str) else ''}
+                </div>
+                <div class="slide-number">{slide_number} / {total_slides}</div>
+            </div>
+            """
         
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title} - {presentation_title}</title>
+    <title>{presentation_title} - Slide {slide_number}</title>
     <style>
-{css_content}
+    {css}
     </style>
 </head>
 <body>
-    <div class="slide {layout}">
-        {self._get_layout_structure(content_html, title, layout)}
-        <div class="slide-number">{slide_number} / {total_slides}</div>
-    </div>
+    {slide_html}
 </body>
 </html>"""
+        
         return html
 
-    def _get_minimal_css(self, background_color: str, text_color: str) -> str:
-        return f"""
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: {background_color};
-            color: {text_color};
+    def _generate_presentation_index(self, title: str, slides: List[str]) -> str:
+        slide_links = '\n'.join([
+            f'<li><a href="{slide}" target="slide-frame">Slide {i+1}</a></li>'
+            for i, slide in enumerate(slides)
+        ])
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - Presentation</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
             height: 100vh;
+            background: #f5f5f5;
+        }}
+        .sidebar {{
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }}
+        .sidebar h2 {{
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333333;
+        }}
+        .sidebar ul {{
+            list-style: none;
+        }}
+        .sidebar li {{
+            margin: 10px 0;
+        }}
+        .sidebar a {{
+            color: #0066cc;
+            text-decoration: none;
+            display: block;
+            padding: 8px 12px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }}
+        .sidebar a:hover {{
+            background: #f0f0f0;
+            border-color: #e0e0e0;
+        }}
+        .content {{
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #ffffff;
         }}
-        .slide {{ 
-            width: 100%;
-            height: 100%;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }}
-        .slide-number {{ 
-            position: absolute; 
-            bottom: 1rem; 
-            right: 1rem; 
-            opacity: 0.6; 
-        }}
-        """
-
-    def _get_layout_structure(self, content_html: str, title: str, layout: str) -> str:
-        if layout == "image-hero":
-            return content_html
-        elif layout == "minimal":
-            return f"""
-                <div class="centered">
-                    <h1>{title}</h1>
-                    {content_html}
-                </div>
-            """
-        elif layout in ["image-right", "image-left", "two-column"]:
-            return f"""
-                <div class="content-section">
-                    <h1>{title}</h1>
-                </div>
-                {content_html}
-            """
-        else:
-            return f"""
-                <h1>{title}</h1>
-                {content_html}
-            """
-
-    def _render_structured_content(self, content: Dict, layout: str = "default") -> str:
-        html_parts = []
-        
-        if layout == "image-hero" and content.get("hero_image"):
-            return f"""
-                <div class="image-container">
-                    <img src="{content['hero_image']}" alt="Hero image" class="hero-image">
-                    <div class="gradient-overlay"></div>
-                    <div class="text-overlay">
-                        <h1>{content.get('title', '')}</h1>
-                        {f'<div class="subtitle">{content["subtitle"]}</div>' if content.get("subtitle") else ''}
-                    </div>
-                </div>
-            """
-        
-        if content.get("subtitle"):
-            html_parts.append(f'<div class="subtitle">{content["subtitle"]}</div>')
-        
-        if layout in ["image-right", "image-left", "two-column"] and content.get("image"):
-            content_section = []
-            
-            if content.get("main_points"):
-                content_section.append('<ul>')
-                for point in content["main_points"]:
-                    emoji = point.get("emoji", "") if isinstance(point, dict) else ""
-                    text = point.get("text", point) if isinstance(point, dict) else point
-                    content_section.append(f'<li><span class="emoji">{emoji}</span>{text}</li>')
-                content_section.append('</ul>')
-            
-            if content.get("additional_text"):
-                content_section.append(f'<div class="content">{content["additional_text"]}</div>')
-            
-            image_html = f'<div class="image-container"><img src="{content["image"]}" alt="Slide image" class="side-image"></div>'
-            content_text = '\n'.join(content_section)
-            
-            if layout == "image-right":
-                html_parts.append(f'<div class="content-grid"><div>{content_text}</div>{image_html}</div>')
-            elif layout == "image-left":
-                html_parts.append(f'<div class="content-grid reverse">{image_html}<div>{content_text}</div></div>')
-            else:
-                html_parts.append(f'<div class="two-column"><div>{content_text}</div>{image_html}</div>')
-        
-        else:
-            if content.get("main_points"):
-                html_parts.append('<ul>')
-                for point in content["main_points"]:
-                    emoji = point.get("emoji", "") if isinstance(point, dict) else ""
-                    text = point.get("text", point) if isinstance(point, dict) else point
-                    html_parts.append(f'<li><span class="emoji">{emoji}</span>{text}</li>')
-                html_parts.append('</ul>')
-            
-            if content.get("image") and layout not in ["image-right", "image-left", "two-column"]:
-                html_parts.append(f'<div class="image-container"><img src="{content["image"]}" alt="Slide image" class="content-image"></div>')
-            
-            if content.get("quote"):
-                html_parts.append(f'<div class="quote">{content["quote"]}</div>')
-            
-            if content.get("additional_text"):
-                html_parts.append(f'<div class="content">{content["additional_text"]}</div>')
-        
-        return '\n'.join(html_parts)
-
-    def _render_list_content(self, items: List) -> str:
-        html_parts = ['<ul>']
-        for item in items:
-            if isinstance(item, dict):
-                emoji = item.get("emoji", "")
-                text = item.get("text", "")
-                html_parts.append(f'<li><span class="emoji">{emoji}</span>{text}</li>')
-            else:
-                html_parts.append(f'<li>{item}</li>')
-        html_parts.append('</ul>')
-        return '\n'.join(html_parts)
-
-    def _adjust_color(self, color: str, factor: float) -> str:
-        if not color.startswith('#'):
-            return color
-        
-        try:
-            hex_color = color[1:]
-            r = int(hex_color[0:2], 16)
-            g = int(hex_color[2:4], 16)
-            b = int(hex_color[4:6], 16)
-            
-            r = int(min(255, max(0, r * factor)))
-            g = int(min(255, max(0, g * factor)))
-            b = int(min(255, max(0, b * factor)))
-            
-            return f"#{r:02x}{g:02x}{b:02x}"
-        except:
-            return color
-
-    def _generate_presentation_index(self, title: str, slides: List[str]) -> str:
-        slide_links = []
-        for i, slide_file in enumerate(slides, 1):
-            slide_links.append(f'<li><a href="{slide_file}">Slide {i}</a></li>')
-        
-        html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title} - Presentation Index</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }}
-        h1 {{
-            color: #333;
-        }}
-        ul {{
-            list-style: none;
-            padding: 0;
-        }}
-        li {{
-            margin: 10px 0;
-        }}
-        a {{
-            display: block;
-            padding: 15px;
+        iframe {{
+            width: 95%;
+            height: 95%;
+            border: 1px solid #e0e0e0;
             background: white;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #5865F2;
-            transition: all 0.3s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
-        a:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        .fullscreen-btn {{
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 1000;
+        }}
+        .fullscreen-btn:hover {{
+            background: #0052a3;
         }}
     </style>
 </head>
 <body>
-    <h1>{title}</h1>
-    <h2>Slides</h2>
-    <ul>
-        {''.join(slide_links)}
-    </ul>
+    <div class="sidebar">
+        <h2>{title}</h2>
+        <ul>
+            {slide_links}
+        </ul>
+    </div>
+    <div class="content">
+        <iframe name="slide-frame" src="{slides[0] if slides else ''}" frameborder="0"></iframe>
+    </div>
+    <button class="fullscreen-btn" onclick="document.querySelector('iframe').requestFullscreen()">
+        Fullscreen
+    </button>
 </body>
 </html>"""
         return html
@@ -273,7 +317,7 @@ class SandboxPresentationTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_presentation",
-            "description": "Create a professional presentation using premium hardcoded templates. Choose from 'minimal' (Apple Keynote style), 'corporate' (business/data), or 'creative' (artistic/visual). Templates ensure uniformity and professional design with 16:9 dimensions.",
+            "description": "Create a professional presentation by generating raw HTML and CSS for each slide. CRITICAL: Every slide MUST be exactly 1920x1080 pixels (16:9 aspect ratio) - these are standard PowerPoint/presentation dimensions. The agent should create FLAT DESIGN slides with NO gradients, NO shadows, NO animations - just clean, simple, flat colors and typography. Each slide should be self-contained HTML with embedded CSS styling. The .slide class MUST have width: 1920px and height: 1080px.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -285,88 +329,48 @@ class SandboxPresentationTool(SandboxToolsBase):
                         "type": "string",
                         "description": "The main title of the presentation"
                     },
-                    "template": {
-                        "type": "string",
-                        "enum": ["minimal", "corporate", "creative"],
-                        "description": "Template to use: 'minimal' (clean Apple style), 'corporate' (professional business), 'creative' (artistic storytelling)",
-                        "default": "minimal"
-                    },
-                    "color_scheme": {
-                        "type": "string",
-                        "description": "Color scheme name (e.g., 'Dark', 'Light', 'Blue' for minimal template). If not specified, uses template's default."
-                    },
                     "slides": {
                         "type": "array",
-                        "description": "Array of slides to create",
+                        "description": "Array of slides with raw HTML and CSS",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "title": {
                                     "type": "string",
-                                    "description": "The title of the slide"
+                                    "description": "The title of the slide (for reference)"
                                 },
-                                "content": {
-                                    "type": ["string", "object", "array"],
-                                    "description": "The content of the slide. Can be plain text, HTML, or structured content object with hero_image, subtitle, main_points, image, quote, additional_text"
-                                },
-                                "layout": {
+                                "html": {
                                     "type": "string",
-                                    "description": "Layout style from template. Minimal: hero, content, image-split, quote, minimal. Corporate: title, agenda, content, data. Creative: image-hero, gallery, story, quote"
+                                    "description": "Complete HTML content for the slide. MUST contain a div with class='slide' that will be styled to exactly 1920x1080 pixels. All content should be inside this div. The slide div is your canvas with fixed dimensions of 1920x1080 (16:9 aspect ratio)."
+                                },
+                                "css": {
+                                    "type": "string",
+                                    "description": "Custom CSS for this slide. CRITICAL REQUIREMENTS: 1) The .slide class MUST have width: 1920px and height: 1080px. 2) FLAT DESIGN only: Use solid colors, NO gradients, NO box-shadows, NO text-shadows, NO animations. 3) Keep typography clean and spacing consistent. The slide dimensions (1920x1080) are mandatory for proper presentation format."
                                 }
                             },
-                            "required": ["title", "content", "layout"]
+                            "required": ["title", "html", "css"]
                         }
                     }
                 },
-                "required": ["presentation_name", "title", "template", "slides"]
+                "required": ["presentation_name", "title", "slides"]
             }
         }
     })
     @usage_example('''
         <function_calls>
         <invoke name="create_presentation">
-        <parameter name="presentation_name">ai_future_presentation</parameter>
-        <parameter name="title">The Future of AI</parameter>
-        <parameter name="template">minimal</parameter>
-        <parameter name="color_scheme">Dark</parameter>
+        <parameter name="presentation_name">company_overview</parameter>
+        <parameter name="title">Company Overview 2024</parameter>
         <parameter name="slides">[
             {
-                "title": "The Future of AI",
-                "content": {
-                    "subtitle": "Transforming how we work, create, and connect"
-                },
-                "layout": "hero"
+                "title": "Title Slide",
+                "html": "<div class='slide title-slide'><h1>Company Overview</h1><p class='subtitle'>Building the Future Together</p><p class='date'>2024</p></div>",
+                "css": "* {margin: 0; padding: 0; box-sizing: border-box;} body {font-family: 'Helvetica Neue', Arial, sans-serif; background: #1a1a1a; color: #ffffff; display: flex; align-items: center; justify-content: center; height: 100vh;} .slide {width: 1920px !important; height: 1080px !important; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px;} h1 {font-size: 96px; font-weight: 300; margin-bottom: 30px; letter-spacing: -2px;} .subtitle {font-size: 36px; color: #cccccc; margin-bottom: 60px;} .date {font-size: 24px; color: #999999;}"
             },
             {
-                "title": "Revolutionary Technology",
-                "content": {
-                    "subtitle": "AI is reshaping every industry",
-                    "main_points": [
-                        {"emoji": "🧠", "text": "Advanced neural networks that learn and adapt"},
-                        {"emoji": "🎯", "text": "Precision automation for complex tasks"},
-                        {"emoji": "🎨", "text": "Creative tools for art and content generation"},
-                        {"emoji": "🔬", "text": "Scientific breakthroughs in research"}
-                    ]
-                },
-                "layout": "content"
-            },
-            {
-                "title": "The Question",
-                "content": "What if we could augment human intelligence instead of replacing it?",
-                "layout": "minimal"
-            },
-            {
-                "title": "Human-AI Partnership",
-                "content": {
-                    "subtitle": "The future is collaborative",
-                    "main_points": [
-                        {"emoji": "👥", "text": "AI amplifies human creativity"},
-                        {"emoji": "⚡", "text": "Faster decision-making"},
-                        {"emoji": "🌍", "text": "Global problem-solving at scale"}
-                    ],
-                    "image": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e"
-                },
-                "layout": "image-split"
+                "title": "Our Mission",
+                "html": "<div class='slide'><h2>Our Mission</h2><div class='content'><p class='statement'>To empower businesses with innovative solutions that drive growth and success</p><ul><li>Customer-focused approach</li><li>Continuous innovation</li><li>Sustainable practices</li></ul></div></div>",
+                "css": "* {margin: 0; padding: 0; box-sizing: border-box;} body {font-family: 'Helvetica Neue', Arial, sans-serif; background: #ffffff; color: #333333; display: flex; align-items: center; justify-content: center; height: 100vh;} .slide {width: 1920px !important; height: 1080px !important; padding: 120px;} h2 {font-size: 72px; font-weight: 600; margin-bottom: 80px; color: #000000;} .statement {font-size: 36px; line-height: 1.5; margin-bottom: 60px; color: #555555;} ul {list-style: none; padding: 0;} li {font-size: 28px; margin: 20px 0; padding-left: 40px; position: relative;} li:before {content: '→'; position: absolute; left: 0; color: #0066cc;}"
             }
         ]</parameter>
         </invoke>
@@ -376,9 +380,7 @@ class SandboxPresentationTool(SandboxToolsBase):
         self,
         presentation_name: str,
         title: str,
-        template: str,
-        slides: List[Dict],
-        color_scheme: Optional[str] = None
+        slides: List[Dict]
     ) -> ToolResult:
         try:
             await self._ensure_sandbox()
@@ -402,13 +404,12 @@ class SandboxPresentationTool(SandboxToolsBase):
             except:
                 pass
             
-            template_css = get_template_css(template, color_scheme)
-            
             slide_files = []
             slide_info = []
             
             for i, slide in enumerate(slides, 1):
-                slide_html = self._generate_slide_html(slide, i, len(slides), title, template_css)
+                custom_css = slide.get('css', '')
+                slide_html = self._generate_slide_html(slide, i, len(slides), title, custom_css)
                 
                 slide_filename = f"slide_{i:02d}.html"
                 slide_path = f"{presentation_dir}/{slide_filename}"
@@ -429,17 +430,15 @@ class SandboxPresentationTool(SandboxToolsBase):
             full_index_path = f"{self.workspace_path}/{index_path}"
             await self.sandbox.fs.upload_file(index_html.encode(), full_index_path)
             
+            # Save metadata
             metadata = {
                 "presentation_name": presentation_name,
                 "title": title,
-                "template": template,
-                "color_scheme": color_scheme,
                 "total_slides": len(slides),
                 "created_at": datetime.now().isoformat(),
                 "slides": slide_info,
                 "index_file": index_path,
-                "original_slides_data": slides,
-                "template_css": template_css
+                "original_slides_data": slides
             }
             
             metadata_path = f"{presentation_dir}/metadata.json"
@@ -447,13 +446,14 @@ class SandboxPresentationTool(SandboxToolsBase):
             await self.sandbox.fs.upload_file(json.dumps(metadata, indent=2).encode(), full_metadata_path)
             
             return self.success_response({
-                "message": f"Presentation '{title}' created successfully with {len(slides)} slides",
+                "message": f"Presentation '{title}' created successfully with {len(slides)} slides using custom HTML/CSS",
                 "presentation_path": presentation_dir,
                 "index_file": index_path,
                 "slides": slide_info,
                 "presentation_name": presentation_name,
                 "title": title,
-                "total_slides": len(slides)
+                "total_slides": len(slides),
+                "note": "Slides created with flat design principles - no gradients, shadows, or animations"
             })
             
         except Exception as e:
@@ -482,8 +482,6 @@ class SandboxPresentationTool(SandboxToolsBase):
         }
     })
     def _clean_html_text(self, html_text: str) -> str:
-        """Clean HTML text and extract plain text"""
-        # Remove HTML tags
         clean = re.compile('<.*?>')
         text = re.sub(clean, '', html_text)
         text = unescape(text)
@@ -547,241 +545,320 @@ class SandboxPresentationTool(SandboxToolsBase):
             return None
 
     async def _create_pptx_presentation(self, metadata: Dict, slides_data: List[Dict], color_scheme = None) -> bytes:
-        prs = slides.Presentation()
-        prs.slide_size.set_size(slides.SlideSizeType.ON_SCREEN_16X9, slides.SlideSizeScaleType.MAXIMIZE)
+        """Create a PPTX presentation from HTML slides using python-pptx"""
+        prs = Presentation()
         
-        prs.slides.remove_at(0)
+        # Set slide size to 16:9 (default is already 16:9 in python-pptx)
+        prs.slide_width = Inches(13.333)  # 1920 pixels at 144 DPI
+        prs.slide_height = Inches(7.5)    # 1080 pixels at 144 DPI
         
+        # Process each slide from the metadata
         for i, slide_data in enumerate(slides_data):
-            slide = prs.slides.add_empty_slide(prs.layout_slides[6])
-            
+            # Get HTML and CSS content from original slides data
+            html_content = slide_data.get('html', '')
+            css_content = slide_data.get('css', '')
             title = slide_data.get('title', f'Slide {i+1}')
-            content = slide_data.get('content', {})
-            layout = slide_data.get('layout', 'default')
-            bg_color = slide_data.get('background_color', '#1D1D1F')
-            text_color = slide_data.get('text_color', '#FFFFFF')
             
-            background = slide.background
-            fill = background.fill_format
-            fill.fill_type = slides.FillType.SOLID
-            rgb = self._hex_to_rgb(bg_color)
-            fill.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-            
-            try:
-                if layout == 'image-hero' and isinstance(content, dict) and content.get('hero_image'):
-                    await self._add_hero_slide_aspose(slide, title, content, text_color, prs, color_scheme)
-                elif layout == 'minimal':
-                    self._add_minimal_slide_aspose(slide, title, content, text_color, color_scheme)
-                else:
-                    await self._add_standard_slide_aspose(slide, title, content, layout, text_color, color_scheme)
-            except Exception as e:
-                raise Exception(f"Error adding slide {i+1} with layout '{layout}': {str(e)}")
+            # If we have HTML content, parse it and convert to PPTX
+            if html_content or css_content:
+                await self._add_html_slide_to_pptx(prs, html_content, css_content, title)
+            else:
+                # Fallback for old format slides
+                await self._add_legacy_slide_to_pptx(prs, slide_data)
         
-        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp_file:
-            prs.save(tmp_file.name, slides.export.SaveFormat.PPTX)
-            tmp_file.close()
-            
-            with open(tmp_file.name, 'rb') as f:
-                data = f.read()
-            os.unlink(tmp_file.name)
-            return data
+        # Save presentation to bytes
+        output = io.BytesIO()
+        prs.save(output)
+        output.seek(0)
+        return output.read()
 
-    async def _add_hero_slide_aspose(self, slide, title: str, content: Dict, text_color: str, prs, color_scheme=None):
-        hero_image_url = content.get('hero_image')
-        if hero_image_url:
-            image_data = await self._download_image_for_pptx(hero_image_url)
+    async def _add_html_slide_to_pptx(self, prs, html_content: str, css_content: str, slide_title: str):
+        """Convert HTML/CSS slide to PPTX format using BeautifulSoup and python-pptx"""
+        
+        # Parse CSS to extract styles
+        styles = self._parse_css_styles(css_content) if css_content else {}
+        
+        # Parse HTML content
+        soup = BeautifulSoup(html_content, 'html.parser') if html_content else None
+        
+        # Add a blank slide with blank layout
+        blank_slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(blank_slide_layout)
+        
+        # Extract background color from styles
+        slide_styles = styles.get('.slide', {})
+        bg_color = slide_styles.get('background', '#ffffff')
+        if bg_color and bg_color != 'transparent':
+            self._set_slide_background(slide, bg_color)
+        
+        # Find the main slide div
+        slide_div = soup.find('div', class_='slide') if soup else None
+        
+        if slide_div:
+            # Process slide content
+            await self._process_slide_content(slide, slide_div, styles)
+        else:
+            # Fallback: just add the title
+            self._add_title_to_slide(slide, slide_title)
+    
+    def _parse_css_styles(self, css_content: str) -> Dict:
+        """Parse CSS content and extract styles for each selector"""
+        styles = {}
+        try:
+            sheet = cssutils.parseString(css_content)
+            for rule in sheet:
+                if hasattr(rule, 'selectorText') and hasattr(rule, 'style'):
+                    selector = rule.selectorText
+                    rule_styles = {}
+                    for prop in rule.style:
+                        rule_styles[prop.name] = prop.value
+                    styles[selector] = rule_styles
+        except Exception as e:
+            print(f"Error parsing CSS: {e}")
+        return styles
+    
+    def _set_slide_background(self, slide, color: str):
+        """Set slide background color"""
+        try:
+            rgb = self._hex_to_rgb(color)
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(rgb[0], rgb[1], rgb[2])
+        except Exception as e:
+            print(f"Error setting background: {e}")
+    
+    async def _process_slide_content(self, slide, slide_div, styles: Dict):
+        """Process HTML content and add to PPTX slide"""
+        
+        # Track vertical position for elements
+        top_position = Inches(0.5)
+        
+        # Process each element in the slide
+        for element in slide_div.children:
+            if not hasattr(element, 'name'):
+                continue
+                
+            if element.name == 'h1':
+                top_position = self._add_heading(slide, element, styles, 1, top_position)
+            elif element.name == 'h2':
+                top_position = self._add_heading(slide, element, styles, 2, top_position)
+            elif element.name == 'h3':
+                top_position = self._add_heading(slide, element, styles, 3, top_position)
+            elif element.name == 'p':
+                top_position = self._add_paragraph(slide, element, styles, top_position)
+            elif element.name == 'ul':
+                top_position = self._add_bullet_list(slide, element, styles, top_position)
+            elif element.name == 'ol':
+                top_position = self._add_numbered_list(slide, element, styles, top_position)
+            elif element.name == 'div':
+                # Recursively process div contents
+                for child in element.children:
+                    if hasattr(child, 'name'):
+                        if child.name == 'h1':
+                            top_position = self._add_heading(slide, child, styles, 1, top_position)
+                        elif child.name == 'h2':
+                            top_position = self._add_heading(slide, child, styles, 2, top_position)
+                        elif child.name == 'p':
+                            top_position = self._add_paragraph(slide, child, styles, top_position)
+                        elif child.name == 'ul':
+                            top_position = self._add_bullet_list(slide, child, styles, top_position)
+            elif element.name == 'img':
+                top_position = await self._add_image(slide, element, top_position)
+    
+    def _add_heading(self, slide, element, styles: Dict, level: int, top_position):
+        """Add a heading to the slide"""
+        text = element.get_text(strip=True)
+        if not text:
+            return top_position
+            
+        # Determine font size based on heading level
+        font_sizes = {1: 48, 2: 36, 3: 28}
+        font_size = font_sizes.get(level, 24)
+        
+        # Get styles for this heading level
+        selector = f'h{level}'
+        element_styles = styles.get(selector, {})
+        
+        # Extract styling
+        color = element_styles.get('color', '#000000')
+        
+        # Add text box
+        left = Inches(1)
+        width = Inches(11.333)  # Leave margins
+        height = Inches(1)
+        
+        text_box = slide.shapes.add_textbox(left, top_position, width, height)
+        text_frame = text_box.text_frame
+        text_frame.clear()
+        
+        p = text_frame.add_paragraph()
+        p.text = text
+        p.font.size = Pt(font_size)
+        p.font.bold = True
+        
+        # Set color
+        rgb = self._hex_to_rgb(color)
+        p.font.color.rgb = RGBColor(rgb[0], rgb[1], rgb[2])
+        
+        # Center align for h1
+        if level == 1:
+            p.alignment = PP_ALIGN.CENTER
+        
+        return top_position + height + Inches(0.2)
+    
+    def _add_paragraph(self, slide, element, styles: Dict, top_position):
+        """Add a paragraph to the slide"""
+        text = element.get_text(strip=True)
+        if not text:
+            return top_position
+            
+        # Get paragraph styles
+        element_styles = styles.get('p', {})
+        color = element_styles.get('color', '#333333')
+        
+        # Check for special classes
+        if 'class' in element.attrs:
+            for cls in element['class']:
+                class_styles = styles.get(f'.{cls}', {})
+                if 'color' in class_styles:
+                    color = class_styles['color']
+        
+        # Add text box
+        left = Inches(1)
+        width = Inches(11.333)
+        height = Inches(0.8)
+        
+        text_box = slide.shapes.add_textbox(left, top_position, width, height)
+        text_frame = text_box.text_frame
+        text_frame.clear()
+        
+        p = text_frame.add_paragraph()
+        p.text = text
+        p.font.size = Pt(18)
+        
+        rgb = self._hex_to_rgb(color)
+        p.font.color.rgb = RGBColor(rgb[0], rgb[1], rgb[2])
+        
+        # Check for center alignment
+        if 'subtitle' in element.get('class', []) or 'date' in element.get('class', []):
+            p.alignment = PP_ALIGN.CENTER
+        
+        return top_position + height + Inches(0.1)
+    
+    def _add_bullet_list(self, slide, element, styles: Dict, top_position):
+        """Add a bullet list to the slide"""
+        items = element.find_all('li')
+        if not items:
+            return top_position
+            
+        # Get list styles
+        element_styles = styles.get('li', {})
+        color = element_styles.get('color', '#333333')
+        
+        # Calculate height needed
+        height = Inches(0.5 * len(items))
+        
+        # Add text box
+        left = Inches(1.5)
+        width = Inches(10.833)
+        
+        text_box = slide.shapes.add_textbox(left, top_position, width, height)
+        text_frame = text_box.text_frame
+        text_frame.clear()
+        
+        for i, item in enumerate(items):
+            p = text_frame.add_paragraph() if i > 0 else text_frame.paragraphs[0]
+            p.text = item.get_text(strip=True)
+            p.font.size = Pt(16)
+            p.level = 0
+            
+            rgb = self._hex_to_rgb(color)
+            p.font.color.rgb = RGBColor(rgb[0], rgb[1], rgb[2])
+        
+        return top_position + height + Inches(0.2)
+    
+    def _add_numbered_list(self, slide, element, styles: Dict, top_position):
+        """Add a numbered list to the slide"""
+        items = element.find_all('li')
+        if not items:
+            return top_position
+            
+        # Similar to bullet list but with numbers
+        height = Inches(0.5 * len(items))
+        
+        left = Inches(1.5)
+        width = Inches(10.833)
+        
+        text_box = slide.shapes.add_textbox(left, top_position, width, height)
+        text_frame = text_box.text_frame
+        text_frame.clear()
+        
+        for i, item in enumerate(items, 1):
+            p = text_frame.add_paragraph() if i > 1 else text_frame.paragraphs[0]
+            p.text = f"{i}. {item.get_text(strip=True)}"
+            p.font.size = Pt(16)
+            
+        return top_position + height + Inches(0.2)
+    
+    async def _add_image(self, slide, element, top_position):
+        """Add an image to the slide"""
+        src = element.get('src', '')
+        if not src:
+            return top_position
+            
+        try:
+            # Download image
+            image_data = await self._download_image_for_pptx(src)
             if image_data:
+                # Save to temp file
                 with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_img:
                     tmp_img.write(image_data)
                     tmp_img.flush()
                     
-                    with open(tmp_img.name, 'rb') as img_file:
-                        pptx_image = prs.images.add_image(img_file)
+                    # Add picture to slide
+                    left = Inches(2)
+                    height = Inches(3)
+                    pic = slide.shapes.add_picture(tmp_img.name, left, top_position, height=height)
                     
-                    slide.shapes.add_picture_frame(slides.ShapeType.RECTANGLE, 0, 0, 
-                                                 prs.slide_size.size.width, 
-                                                 prs.slide_size.size.height, 
-                                                 pptx_image)
                     os.unlink(tmp_img.name)
-        
-        title_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 50, 200, 600, 150)
-        title_box.fill_format.fill_type = slides.FillType.NO_FILL
-        title_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
-        
-        title_frame = title_box.text_frame
-        title_frame.text = self._clean_html_text(content.get('title', title))
-        
-        title_para = title_frame.paragraphs[0]
-        title_portion = title_para.portions[0]
-        title_portion.portion_format.font_height = 48
-        title_portion.portion_format.font_bold = slides.NullableBool.TRUE
-        rgb = self._hex_to_rgb(text_color)
-        title_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-        title_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-        
-        if content.get('subtitle'):
-            subtitle_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 50, 350, 600, 100)
-            subtitle_box.fill_format.fill_type = slides.FillType.NO_FILL
-            subtitle_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
+                    return top_position + height + Inches(0.2)
+        except Exception as e:
+            print(f"Error adding image: {e}")
             
-            subtitle_frame = subtitle_box.text_frame
-            subtitle_frame.text = self._clean_html_text(content['subtitle'])
-            
-            subtitle_para = subtitle_frame.paragraphs[0]
-            subtitle_portion = subtitle_para.portions[0]
-            subtitle_portion.portion_format.font_height = 24
-            if color_scheme and hasattr(color_scheme, 'accent'):
-                accent_rgb = self._hex_to_rgb(color_scheme.accent)
-                subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, accent_rgb[0], accent_rgb[1], accent_rgb[2])
-            else:
-                subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-
-    def _add_minimal_slide_aspose(self, slide, title: str, content, text_color: str, color_scheme=None):
-        title_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 50, 200, 850, 200)
-        title_box.fill_format.fill_type = slides.FillType.NO_FILL
-        title_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
+        return top_position
+    
+    def _add_title_to_slide(self, slide, title: str):
+        """Add a simple title to slide as fallback"""
+        left = Inches(1)
+        top = Inches(3)
+        width = Inches(11.333)
+        height = Inches(1.5)
         
-        title_frame = title_box.text_frame
-        title_frame.text = self._clean_html_text(title)
+        text_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = text_box.text_frame
+        text_frame.clear()
         
-        title_para = title_frame.paragraphs[0]
-        title_para.paragraph_format.alignment = slides.TextAlignment.CENTER
-        title_portion = title_para.portions[0]
-        title_portion.portion_format.font_height = 54
-        title_portion.portion_format.font_bold = slides.NullableBool.TRUE
-        rgb = self._hex_to_rgb(text_color)
-        title_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-        title_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
+        p = text_frame.add_paragraph()
+        p.text = title
+        p.font.size = Pt(44)
+        p.font.bold = True
+        p.alignment = PP_ALIGN.CENTER
+    
+    async def _add_legacy_slide_to_pptx(self, prs, slide_data: Dict):
+        """Handle legacy slide format (fallback)"""
+        blank_slide_layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(blank_slide_layout)
         
-        if isinstance(content, dict) and content.get('subtitle'):
-            subtitle_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 50, 400, 850, 120)
-            subtitle_box.fill_format.fill_type = slides.FillType.NO_FILL
-            subtitle_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
-            
-            subtitle_frame = subtitle_box.text_frame
-            subtitle_frame.text = self._clean_html_text(content['subtitle'])
-            
-            subtitle_para = subtitle_frame.paragraphs[0]
-            subtitle_para.paragraph_format.alignment = slides.TextAlignment.CENTER
-            subtitle_portion = subtitle_para.portions[0]
-            subtitle_portion.portion_format.font_height = 28
-            if color_scheme and hasattr(color_scheme, 'accent'):
-                accent_rgb = self._hex_to_rgb(color_scheme.accent)
-                subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, accent_rgb[0], accent_rgb[1], accent_rgb[2])
-            else:
-                subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-
-    async def _add_standard_slide_aspose(self, slide, title: str, content, layout: str, text_color: str, color_scheme=None):
-        rgb = self._hex_to_rgb(text_color)
+        title = slide_data.get('title', '')
+        content = slide_data.get('content', {})
         
-        title_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 40, 40, 880, 90)
-        title_box.fill_format.fill_type = slides.FillType.NO_FILL
-        title_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
+        # Set background
+        bg_color = slide_data.get('background_color', '#ffffff')
+        self._set_slide_background(slide, bg_color)
         
-        title_frame = title_box.text_frame
-        title_frame.text = self._clean_html_text(title)
-        
-        title_para = title_frame.paragraphs[0]
-        title_portion = title_para.portions[0]
-        title_portion.portion_format.font_height = 36
-        title_portion.portion_format.font_bold = slides.NullableBool.TRUE
-        title_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-        title_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-        
-        content_top = 150
-        
-        if isinstance(content, dict):
-            if content.get('subtitle'):
-                subtitle_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 40, content_top, 880, 60)
-                subtitle_box.fill_format.fill_type = slides.FillType.NO_FILL
-                subtitle_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
-                
-                subtitle_frame = subtitle_box.text_frame
-                subtitle_frame.text = self._clean_html_text(content['subtitle'])
-                
-                subtitle_para = subtitle_frame.paragraphs[0]
-                subtitle_portion = subtitle_para.portions[0]
-                subtitle_portion.portion_format.font_height = 24
-                if color_scheme and hasattr(color_scheme, 'accent'):
-                    accent_rgb = self._hex_to_rgb(color_scheme.accent)
-                    subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                    subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, accent_rgb[0], accent_rgb[1], accent_rgb[2])
-                else:
-                    subtitle_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                    subtitle_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-                content_top += 70
-            
-            if content.get('main_points'):
-                text_box = slide.shapes.add_auto_shape(slides.ShapeType.RECTANGLE, 40, content_top, 500, 300)
-                text_box.fill_format.fill_type = slides.FillType.NO_FILL
-                text_box.line_format.fill_format.fill_type = slides.FillType.NO_FILL
-                
-                text_frame = text_box.text_frame
-                text_frame.paragraphs.clear()
-                
-                for i, point in enumerate(content['main_points']):
-                    if isinstance(point, dict):
-                        emoji = point.get('emoji', '•')
-                        text = point.get('text', '')
-                    else:
-                        emoji = '•'
-                        text = str(point)
-                    
-                    para = slides.Paragraph()
-                    para.text = f"{emoji} {self._clean_html_text(text)}"
-                    
-                    # Format the portion
-                    portion = para.portions[0]
-                    portion.portion_format.font_height = 20
-                    portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                    portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-                    para.paragraph_format.space_after = 12
-                    
-                    if color_scheme and hasattr(color_scheme, 'accent') and emoji:
-                        try:
-                            para.portions.clear()
-                            
-                            emoji_portion = slides.Portion()
-                            emoji_portion.text = emoji + " "
-                            emoji_portion.portion_format.font_height = 20
-                            accent_rgb = self._hex_to_rgb(color_scheme.accent)
-                            emoji_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                            emoji_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, accent_rgb[0], accent_rgb[1], accent_rgb[2])
-                            para.portions.add(emoji_portion)
-                            
-                            text_portion = slides.Portion()
-                            text_portion.text = self._clean_html_text(text)
-                            text_portion.portion_format.font_height = 20
-                            text_portion.portion_format.fill_format.fill_type = slides.FillType.SOLID
-                            text_portion.portion_format.fill_format.solid_fill_color.color = draw.Color.from_argb(255, rgb[0], rgb[1], rgb[2])
-                            para.portions.add(text_portion)
-                        except:
-                            pass
-                    
-                    text_frame.paragraphs.add(para)
-            
-            if content.get('image') and layout in ['image-right', 'image-left', 'default']:
-                image_data = await self._download_image_for_pptx(content['image'])
-                if image_data:
-                    with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_img:
-                        tmp_img.write(image_data)
-                        tmp_img.flush()
-                        
-                        with open(tmp_img.name, 'rb') as img_file:
-                            pptx_image = slide.presentation.images.add_image(img_file)
-                        
-                        if layout == 'image-right':
-                            slide.shapes.add_picture_frame(slides.ShapeType.RECTANGLE, 560, content_top, 320, 220, pptx_image)
-                        elif layout == 'image-left':
-                            slide.shapes.add_picture_frame(slides.ShapeType.RECTANGLE, 40, content_top, 320, 220, pptx_image)
-                        else:
-                            slide.shapes.add_picture_frame(slides.ShapeType.RECTANGLE, 40, content_top + 140, 430, 220, pptx_image)
-                        
-                        os.unlink(tmp_img.name)
+        # Add title
+        if title:
+            self._add_title_to_slide(slide, title)
 
     async def export_presentation(
         self,
@@ -803,17 +880,8 @@ class SandboxPresentationTool(SandboxToolsBase):
             if format.lower() == "pptx":
                 slides_data = metadata.get('original_slides_data', [])
                 
-                template_name = metadata.get('template', 'minimal')
-                color_scheme_name = metadata.get('color_scheme')
-                
-                template = get_template(template_name)
-                if color_scheme_name:
-                    color_scheme = next(
-                        (cs for cs in template.color_schemes if cs.name.lower() == color_scheme_name.lower()),
-                        template.color_schemes[0]
-                    )
-                else:
-                    color_scheme = template.color_schemes[0]
+                default_bg_color = '#ffffff'
+                default_text_color = '#000000'
                 
                 if not slides_data:
                     slides_data = []
@@ -822,18 +890,18 @@ class SandboxPresentationTool(SandboxToolsBase):
                             'title': slide_info.get('title', f"Slide {slide_info.get('slide_number', 1)}"),
                             'content': {'subtitle': 'Content from HTML slide'},
                             'layout': 'default',
-                            'background_color': color_scheme.background,
-                            'text_color': color_scheme.text
+                            'background_color': default_bg_color,
+                            'text_color': default_text_color
                         })
                 else:
                     for slide in slides_data:
                         if 'background_color' not in slide:
-                            slide['background_color'] = color_scheme.background
+                            slide['background_color'] = default_bg_color
                         if 'text_color' not in slide:
-                            slide['text_color'] = color_scheme.text
+                            slide['text_color'] = default_text_color
                 
                 try:
-                    pptx_data = await self._create_pptx_presentation(metadata, slides_data, color_scheme)
+                    pptx_data = await self._create_pptx_presentation(metadata, slides_data, None)
                 except Exception as e:
                     return self.fail_response(f"PPTX generation failed: {str(e)}")
                 
@@ -871,31 +939,3 @@ class SandboxPresentationTool(SandboxToolsBase):
             return self.fail_response("PPTX export requires 'aspose-slides' library. Please install it: pip install aspose-slides")
         except Exception as e:
             return self.fail_response(f"Failed to export presentation: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "list_presentation_templates",
-            "description": "List all available presentation templates with their layouts and color schemes",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_presentation_templates">
-        </invoke>
-        </function_calls>
-    ''')
-    async def list_presentation_templates(self) -> ToolResult:
-        try:
-            templates_info = list_templates()
-            return self.success_response({
-                "message": "Available presentation templates",
-                "templates": templates_info
-            })
-        except Exception as e:
-            return self.fail_response(f"Failed to list templates: {str(e)}") 

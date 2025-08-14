@@ -13,7 +13,7 @@ class SandboxPresentationOutlineTool(SandboxToolsBase):
         "type": "function",
         "function": {
             "name": "create_presentation_outline",
-            "description": "Create a structured outline for a presentation with slide titles and descriptions. This tool helps plan the overall structure and flow of a presentation before creating the actual slides with standard PowerPoint dimensions (1920x1080, 16:9 aspect ratio).",
+            "description": "Create a structured outline for a presentation with slide titles and descriptions. This tool helps plan the overall structure and flow of a presentation before creating the actual slides. The final presentation will use FLAT DESIGN principles with clean typography, solid colors, and no gradients/shadows/animations. Standard PowerPoint dimensions (1920x1080, 16:9 aspect ratio) will be maintained.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -60,33 +60,33 @@ class SandboxPresentationOutlineTool(SandboxToolsBase):
         <parameter name="slides">[
             {
                 "title": "The Future of AI",
-                "description": "Hero slide with striking AI imagery and title overlay, setting the tone for an Apple-style keynote presentation.",
-                "notes": "Open with confidence. Use full-screen image of neural networks or futuristic AI visualization. Keep title bold and impactful."
+                "description": "Title slide with bold typography and clean flat design, setting a professional tone for the presentation.",
+                "notes": "Open with confidence. Use a solid color background with high contrast text. Keep the design minimal and impactful."
             },
             {
                 "title": "Revolutionary Technology",
-                "description": "Content slide showcasing key AI capabilities with supporting visuals, using image-right layout for balanced information delivery.",
-                "notes": "Highlight the four key areas: neural networks, automation, creativity, and connectivity. Use brain/tech imagery."
+                "description": "Content slide showcasing key AI capabilities with clean typography and simple bullet points.",
+                "notes": "Highlight the four key areas: neural networks, automation, creativity, and connectivity. Use flat icons or simple graphics."
             },
             {
-                "title": "Breakthrough",
-                "description": "Minimal slide with large, bold text asking a thought-provoking question about what makes this AI moment unique.",
-                "notes": "Pause for emphasis. Use Apple's signature blue background. Let the question sink in before continuing."
+                "title": "The Question",
+                "description": "Minimal slide with large, bold text asking a thought-provoking question.",
+                "notes": "Pause for emphasis. Use a contrasting flat color background. Let the question sink in before continuing."
             },
             {
                 "title": "Real-World Impact",
-                "description": "Showcase concrete AI applications across industries with image-left layout, featuring healthcare, transportation, climate, and education.",
-                "notes": "Use compelling imagery of doctors with AI, autonomous vehicles, renewable energy, and personalized learning."
+                "description": "Showcase concrete AI applications across industries with clean layout and organized content sections.",
+                "notes": "Present examples from healthcare, transportation, climate, and education using flat design principles."
             },
             {
                 "title": "The Road Ahead",
-                "description": "Inspirational slide with an elegant quote and forward-looking message about human potential, using centered layout.",
-                "notes": "Quote: 'The best way to predict the future is to invent it.' Connect technology to human aspirations."
+                "description": "Inspirational slide with a powerful quote and forward-looking message about human potential.",
+                "notes": "Quote: 'The best way to predict the future is to invent it.' Use clean typography and solid colors."
             },
             {
                 "title": "Thank You",
-                "description": "Clean, minimal closing slide inviting questions, maintaining the sophisticated Apple aesthetic.",
-                "notes": "Keep it simple. Dark background, white text. Create space for audience engagement."
+                "description": "Clean, minimal closing slide inviting questions, using flat design with good typography.",
+                "notes": "Keep it simple. Use a solid background color with contrasting text. Create space for audience engagement."
             }
         ]</parameter>
         </invoke>
