@@ -11,6 +11,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from 'next/script';
 import { PostHogIdentify } from '@/components/posthog-identify';
 import '@/lib/polyfills'; // Load polyfills early
+import { useEffect, useRef } from 'react';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -125,9 +126,7 @@ export default function RootLayout({
           'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','GTM-PCHSN4M2');`}
         </Script>
-        {process.env.NEXT_PUBLIC_TOLT_REFERRAL_ID && (
-          <Script async src="https://cdn.tolt.io/tolt.js" data-tolt={process.env.NEXT_PUBLIC_TOLT_REFERRAL_ID}></Script>
-        )}
+        <Script async src="https://cdn.tolt.io/tolt.js" data-tolt={process.env.NEXT_PUBLIC_TOLT_REFERRAL_ID}></Script>
       </head>
 
       <body
@@ -153,7 +152,7 @@ export default function RootLayout({
             {children}
             <Toaster />
           </Providers>
-          {process.env.NODE_ENV === 'production' && <Analytics />}
+          {process.env.NODE_ENV === 'production' && process.env.VERCEL_ANALYTICS_ID && <Analytics />}
           <GoogleAnalytics gaId="G-6ETJFB3PT3" />
           <SpeedInsights />
           <PostHogIdentify />
