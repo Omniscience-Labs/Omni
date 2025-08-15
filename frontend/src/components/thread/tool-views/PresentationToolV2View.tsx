@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
-import { formatTimestamp, extractToolData } from './utils';
+import { formatTimestamp, extractToolData, getToolTitle } from './utils';
 import { cn } from '@/lib/utils';
 import { LoadingState } from './shared/LoadingState';
 import { useMutation } from '@tanstack/react-query';
@@ -74,7 +74,7 @@ export function PresentationToolV2View({
   toolTimestamp,
   isSuccess = true,
   isStreaming = false,
-  name,
+  name = 'create-presentation',
   project,
 }: ToolViewProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -83,6 +83,7 @@ export function PresentationToolV2View({
   const params = useParams();
   const projectId = params.projectId as string;
 
+  const toolTitle = getToolTitle(name);
   const { toolResult } = extractToolData(toolContent);
 
   // Parse the presentation result
@@ -378,21 +379,31 @@ export function PresentationToolV2View({
   };
 
   return (
-    <Card className={cn('overflow-hidden', isFullscreen && 'fixed inset-0 z-50 rounded-none')}>
-      <CardHeader className="pb-3">
+    <Card className={cn(
+      "flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card",
+      isFullscreen && 'fixed inset-0 z-50 rounded-none'
+    )}>
+      <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Presentation className="h-4 w-4" />
-            <CardTitle className="text-base">{presentationData?.metadata.title || presentationResult.presentation_name}</CardTitle>
-            <Badge variant="secondary">{presentationData?.metadata.theme || presentationResult.theme}</Badge>
+            <div className="relative p-2 rounded-lg border bg-gradient-to-br from-violet-500/20 to-violet-600/10 border-violet-500/20">
+              <Presentation className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                {toolTitle}
+              </CardTitle>
+            </div>
+            <Badge variant="secondary" className="ml-2">{presentationData?.metadata.theme || presentationResult.theme}</Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setIsFullscreen(!isFullscreen)}
+              className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none"
             >
-              <Maximize2 className="h-3 w-3 mr-1" />
+              <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
               {isFullscreen ? 'Exit' : 'Fullscreen'}
             </Button>
             <Button
@@ -406,19 +417,21 @@ export function PresentationToolV2View({
                   );
                 }
               }}
+              className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none"
             >
-              <FileText className="h-3 w-3 mr-1" />
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
               Preview
             </Button>
             <Button
               size="sm"
               onClick={() => exportMutation.mutate()}
               disabled={exportMutation.isPending}
+              className="h-8 text-xs bg-white dark:bg-muted/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none"
             >
               {exportMutation.isPending ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
-                <Download className="h-3 w-3 mr-1" />
+                <Download className="h-3.5 w-3.5 mr-1.5" />
               )}
               Export PPTX
             </Button>
@@ -426,7 +439,7 @@ export function PresentationToolV2View({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 flex-1">
         <div className={cn('relative', isFullscreen ? 'h-screen' : 'h-[500px]')}>
           {/* Slide viewer */}
           <div className="absolute inset-0 bg-gray-100 dark:bg-gray-900">
