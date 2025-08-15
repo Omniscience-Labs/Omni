@@ -111,12 +111,15 @@ RUN npx playwright install chromium
 # Verify installation
 RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"
 
-
-WORKDIR /opt/templates/next-app
-
-RUN npx --yes create-next-app@15.3.3 . --yes --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm
-RUN npx --yes shadcn@2.6.3 init --yes -d --force
-RUN npx --yes shadcn@2.6.3 add --all --yes
+# Prewarm a Next 14 + shadcn template for fast scaffolding
+WORKDIR /opt/templates
+RUN mkdir -p /opt/templates && \
+    pnpm dlx create-next-app@14 next14-shadcn --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-npm && \
+    cd /opt/templates/next14-shadcn && \
+    pnpm install --prefer-offline && \
+    npx shadcn@latest init -y || (printf '\n' | npx shadcn@latest init) && \
+    npx shadcn@latest add button card form input dropdown-menu dialog tabs sheet badge alert && \
+    pnpm install --prefer-offline
 
 # Copy server script
 COPY . /app
