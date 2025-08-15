@@ -21,6 +21,7 @@ class SunaConfig:
         "data_providers_tool": True,
         "sb_sheets_tool": True,
         "sb_files_tool": True,
+        "podcast_tool": True,
     }
     
     DEFAULT_MCPS = []
