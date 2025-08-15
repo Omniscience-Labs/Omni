@@ -24,6 +24,7 @@ class ComposioProfile:
     toolkit_name: str
     mcp_url: str
     redirect_url: Optional[str] = None
+    connected_account_id: Optional[str] = None
     is_active: bool = True
     is_default: bool = False
     is_connected: bool = False
@@ -59,7 +60,8 @@ class ComposioProfileService:
         toolkit_name: str,
         mcp_url: str,
         redirect_url: Optional[str] = None,
-        user_id: str = "default"
+        user_id: str = "default",
+        connected_account_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         return {
             "type": "composio",
@@ -68,6 +70,7 @@ class ComposioProfileService:
             "mcp_url": mcp_url,
             "redirect_url": redirect_url,
             "user_id": user_id,
+            "connected_account_id": connected_account_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
@@ -96,14 +99,15 @@ class ComposioProfileService:
         mcp_url: str,
         redirect_url: Optional[str] = None,
         user_id: str = "default",
-        is_default: bool = False
+        is_default: bool = False,
+        connected_account_id: Optional[str] = None,
     ) -> ComposioProfile:
         try:
             logger.info(f"Creating Composio profile for user: {account_id}, toolkit: {toolkit_slug}")
             logger.info(f"MCP URL to store: {mcp_url}")
             
             config = self._build_config(
-                toolkit_slug, toolkit_name, mcp_url, redirect_url, user_id
+                toolkit_slug, toolkit_name, mcp_url, redirect_url, user_id, connected_account_id
             )
             config_json = json.dumps(config, sort_keys=True)
             encrypted_config = self._encrypt_config(config_json)
@@ -158,6 +162,7 @@ class ComposioProfileService:
                 toolkit_name=toolkit_name,
                 mcp_url=mcp_url,
                 redirect_url=redirect_url,
+                connected_account_id=connected_account_id,
                 is_active=True,
                 is_default=is_default,
                 is_connected=bool(redirect_url),
@@ -276,6 +281,7 @@ class ComposioProfileService:
                     toolkit_name=config.get('toolkit_name', ''),
                     mcp_url=config.get('mcp_url', ''),
                     redirect_url=config.get('redirect_url'),
+                    connected_account_id=config.get('connected_account_id'),
                     is_active=row.get('is_active', True),
                     is_default=row.get('is_default', False),
                     is_connected=bool(config.get('redirect_url')),

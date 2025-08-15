@@ -21,6 +21,7 @@ class TriggerEvent:
     trigger_type: TriggerType
     raw_data: Dict[str, Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    context: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -119,6 +120,9 @@ class TriggerService:
         if not trigger:
             raise ValueError(f"Trigger not found: {trigger_id}")
         
+        # Track previous activation state to optimize provider reconciliation
+        previous_is_active = trigger.is_active
+
         if config is not None:
             from .provider_service import get_provider_service
             provider_service = get_provider_service(self._db)
@@ -135,16 +139,29 @@ class TriggerService:
         
         trigger.updated_at = datetime.now(timezone.utc)
         
-        # Reconcile provider scheduling when config changes or activation state toggles
-        if (config is not None) or (is_active is not None):
+        # Reconcile provider when config changes or activation state toggles
+        config_changed = config is not None
+        activation_toggled = (is_active is not None) and (previous_is_active != trigger.is_active)
+
+        if config_changed or activation_toggled:
             from .provider_service import get_provider_service
             provider_service = get_provider_service(self._db)
-            
-            await provider_service.teardown_trigger(trigger)
-            if trigger.is_active:
-                setup_success = await provider_service.setup_trigger(trigger)
-                if not setup_success:
-                    raise ValueError(f"Failed to update trigger setup: {trigger_id}")
+
+            if config_changed:
+                # For config changes, fully teardown and (re)setup if active
+                await provider_service.teardown_trigger(trigger)
+                if trigger.is_active:
+                    setup_success = await provider_service.setup_trigger(trigger)
+                    if not setup_success:
+                        raise ValueError(f"Failed to update trigger setup: {trigger_id}")
+            else:
+                # Only activation toggled; call the minimal required action
+                if trigger.is_active:
+                    setup_success = await provider_service.setup_trigger(trigger)
+                    if not setup_success:
+                        raise ValueError(f"Failed to enable trigger: {trigger_id}")
+                else:
+                    await provider_service.teardown_trigger(trigger)
         
         await self._update_trigger(trigger)
         
@@ -158,7 +175,16 @@ class TriggerService:
         
         from .provider_service import get_provider_service
         provider_service = get_provider_service(self._db)
-        await provider_service.teardown_trigger(trigger)
+        # First disable remotely so webhooks stop quickly
+        try:
+            await provider_service.teardown_trigger(trigger)
+        except Exception:
+            pass
+        # Then request remote delete if provider supports it
+        try:
+            await provider_service.delete_remote_trigger(trigger)
+        except Exception:
+            pass
         
         client = await self._db.client
         result = await client.table('agent_triggers').delete().eq('trigger_id', trigger_id).execute()
@@ -228,7 +254,16 @@ class TriggerService:
     
     def _map_to_trigger(self, data: Dict[str, Any]) -> Trigger:
         config_data = data.get('config', {})
-        provider_id = config_data.get('provider_id', data['trigger_type'])
+        # Prefer explicit provider_id saved in config; otherwise infer for backwards compatibility
+        provider_id = config_data.get('provider_id')
+        if not provider_id:
+            # Older event-based Composio triggers didn't persist provider_id. Infer from config.
+            if isinstance(config_data, dict) and (
+                'composio_trigger_id' in config_data or 'trigger_slug' in config_data
+            ):
+                provider_id = 'composio'
+            else:
+                provider_id = data['trigger_type']
         
         clean_config = {k: v for k, v in config_data.items() if k != 'provider_id'}
         

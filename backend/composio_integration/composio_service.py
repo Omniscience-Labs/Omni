@@ -95,7 +95,8 @@ class ComposioIntegrationService:
                     mcp_url=final_mcp_url,  # Pass the complete MCP URL
                     redirect_url=connected_account.redirect_url,
                     user_id=user_id,
-                    is_default=False
+                    is_default=False,
+                    connected_account_id=connected_account.id
                 )
                 profile_id = composio_profile.profile_id
                 logger.info(f"Step 6 complete: Saved Composio credential profile {profile_id}")
