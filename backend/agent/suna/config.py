@@ -12,6 +12,8 @@ class SunaConfig:
 
     DEFAULT_TOOLS = {
         "sb_shell_tool": True,
+        "sb_files_tool": True,
+        "sb_web_dev_tool": True,
         "browser_tool": True,
         "sb_deploy_tool": True,
         "sb_expose_tool": True,
