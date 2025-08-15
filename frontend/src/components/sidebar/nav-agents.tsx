@@ -454,7 +454,7 @@ export function NavAgents() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
-                                className="flex-shrink-0 w-4 h-4 flex items-center justify-center hover:bg-muted/50 rounded transition-all duration-150 text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100"
+                                className="cursor-pointer flex-shrink-0 w-4 h-4 flex items-center justify-center hover:bg-muted/50 rounded transition-all duration-150 text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
