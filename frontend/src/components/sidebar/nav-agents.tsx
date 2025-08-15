@@ -145,15 +145,12 @@ export function NavAgents() {
       return;
     }
 
-    e.preventDefault()
     setLoadingThreadId(threadId)
     
     // Close mobile menu on navigation
     if (isMobile) {
       setOpenMobile(false);
     }
-    
-    router.push(url)
   }
 
   // Toggle thread selection for multi-select
