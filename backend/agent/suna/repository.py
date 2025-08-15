@@ -246,6 +246,31 @@ class SunaAgentRepository:
         """Delete an agent"""
         try:
             client = await self.db.client
+            
+            # Clean up triggers before deleting agent to ensure proper remote cleanup
+            try:
+                from triggers.trigger_service import get_trigger_service
+                trigger_service = get_trigger_service(self.db)
+                
+                # Get all triggers for this agent
+                triggers_result = await client.table('agent_triggers').select('trigger_id').eq('agent_id', agent_id).execute()
+                
+                if triggers_result.data:
+                    logger.info(f"Cleaning up {len(triggers_result.data)} triggers for agent {agent_id}")
+                    
+                    # Delete each trigger properly (this handles remote cleanup)
+                    for trigger_record in triggers_result.data:
+                        trigger_id = trigger_record['trigger_id']
+                        try:
+                            await trigger_service.delete_trigger(trigger_id)
+                            logger.info(f"Successfully cleaned up trigger {trigger_id}")
+                        except Exception as e:
+                            logger.warning(f"Failed to clean up trigger {trigger_id}: {str(e)}")
+                            # Continue with other triggers even if one fails
+            except Exception as e:
+                logger.warning(f"Failed to clean up triggers for agent {agent_id}: {str(e)}")
+                # Continue with agent deletion even if trigger cleanup fails
+            
             result = await client.table('agents').delete().eq('agent_id', agent_id).execute()
             return bool(result.data)
             
