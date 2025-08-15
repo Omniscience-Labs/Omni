@@ -13,33 +13,11 @@ from utils.logger import logger
 
 class SandboxWebDevTool(SandboxToolsBase):
     WORKSPACE_PATH = "/workspace"
-    TEMPLATE_DIR = "/opt/templates/next14-shadcn"
+    TEMPLATE_DIR = "/opt/templates/next-app"
     DEFAULT_TIMEOUT = 60
     BUILD_TIMEOUT = 1800
     INSTALL_TIMEOUT = 900
     DEFAULT_PORT = 3000
-    
-    SHADCN_CONFIG_TEMPLATE = {
-        "$schema": "https://ui.shadcn.com/schema.json",
-        "style": "new-york",
-        "rsc": True,
-        "tsx": True,
-        "tailwind": {
-            "config": "",
-            "css": "src/app/globals.css",
-            "baseColor": "neutral",
-            "cssVariables": True,
-            "prefix": ""
-        },
-        "aliases": {
-            "components": "@/components",
-            "utils": "@/lib/utils",
-            "ui": "@/components/ui",
-            "lib": "@/lib",
-            "hooks": "@/hooks"
-        },
-        "iconLibrary": "lucide"
-    }
 
     def __init__(self, project_id: str, thread_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
@@ -128,6 +106,82 @@ class SandboxWebDevTool(SandboxToolsBase):
         }
         return commands.get(package_manager, commands["npm"]).get(command_type, "")
 
+    async def _has_optimized_template(self) -> bool:
+        dir_check = await self._exec_sh(f"test -d {self.TEMPLATE_DIR} && echo EXISTS || echo MISSING")
+        if "MISSING" in dir_check.get("output", ""):
+            logger.info(f"Template directory {self.TEMPLATE_DIR} does not exist")
+            return False
+        
+        checks = [
+            (f"test -f {self.TEMPLATE_DIR}/package.json", "package.json"),
+            (f"test -f {self.TEMPLATE_DIR}/components.json", "components.json"), 
+            (f"test -f {self.TEMPLATE_DIR}/tailwind.config.ts", "tailwind.config.ts"),
+            (f"test -d {self.TEMPLATE_DIR}/src/components/ui", "src/components/ui directory")
+        ]
+        
+        missing_files = []
+        for check_cmd, file_desc in checks:
+            result = await self._exec_sh(check_cmd)
+            if result.get("exit_code") != 0:
+                missing_files.append(file_desc)
+        
+        if missing_files:
+            logger.info(f"Template missing files: {', '.join(missing_files)}")
+            # Let's also check what files ARE available for debugging
+            ls_result = await self._exec_sh(f"ls -la {self.TEMPLATE_DIR}")
+            logger.info(f"Template directory contents: {ls_result.get('output', 'Could not list')}")
+            return False
+        
+        logger.info("Optimized template found and validated")
+        return True
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "debug_template_status",
+            "description": "Debug helper to check the current state of the optimized template",
+            "parameters": {"type": "object", "properties": {}, "required": []}
+        }
+    })
+    async def debug_template_status(self) -> ToolResult:
+        try:
+            await self._ensure_sandbox()
+            
+            debug_info = []
+            
+            dir_check = await self._exec_sh(f"test -d {self.TEMPLATE_DIR} && echo EXISTS || echo MISSING")
+            debug_info.append(f"Template directory ({self.TEMPLATE_DIR}): {dir_check.get('output', 'Unknown')}")
+            
+            if "EXISTS" in dir_check.get("output", ""):
+                ls_result = await self._exec_sh(f"ls -la {self.TEMPLATE_DIR}")
+                debug_info.append(f"Directory contents:\n{ls_result.get('output', 'Could not list')}")
+                
+                files_to_check = [
+                    "package.json",
+                    "components.json", 
+                    "tailwind.config.ts",
+                    "src/components/ui"
+                ]
+                
+                for file_path in files_to_check:
+                    full_path = f"{self.TEMPLATE_DIR}/{file_path}"
+                    if file_path.endswith("/ui"):
+                        check_cmd = f"test -d {full_path} && echo DIR_EXISTS || echo DIR_MISSING"
+                    else:
+                        check_cmd = f"test -f {full_path} && echo FILE_EXISTS || echo FILE_MISSING"
+                    
+                    result = await self._exec_sh(check_cmd)
+                    debug_info.append(f"{file_path}: {result.get('output', 'Unknown')}")
+            
+            has_template = await self._has_optimized_template()
+            debug_info.append(f"Template detection result: {'✅ PASS' if has_template else '❌ FAIL'}")
+            
+            return self.success_response("\n".join(debug_info))
+            
+        except Exception as e:
+            logger.error(f"Error debugging template: {e}", exc_info=True)
+            return self.fail_response(f"Error debugging template: {e}")
+
     @openapi_schema({
         "type": "function",
         "function": {
@@ -163,8 +217,8 @@ class SandboxWebDevTool(SandboxToolsBase):
                 return self.success_response("""
 📁 No projects found in workspace.
 
-To create a new project, use create_web_project or execute_command:
-- Next.js: npx create-next-app@latest my-next-app --ts --eslint --tailwind --app --src-dir --import-alias "@/*" --use-npm
+To create a new project, use create_web_project:
+- Next.js with shadcn/ui: All components pre-installed and ready to use!
 - React: npx create-react-app my-app --template typescript
 - Vite: npm create vite@latest my-app -- --template react-ts
 """)
@@ -182,7 +236,7 @@ To create a new project, use create_web_project or execute_command:
                     project_type = "Node.js project"
                     output_lower = cat_result.get("output", "").lower()
                     if "next" in output_lower:
-                        project_type = "Next.js project"
+                        project_type = "Next.js project (with shadcn/ui)"
                     elif "react" in output_lower:
                         project_type = "React project"
                     elif "vite" in output_lower:
@@ -279,263 +333,7 @@ To run this project:
         "type": "function",
         "function": {
             "name": "create_web_project",
-            "description": "Scaffold a new web project with optional shadcn/ui auto-initialization. Supports Next.js (default). Uses cached templates when available for speed.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "project_name": {"type": "string", "description": "Project directory name to create"},
-                    "template": {"type": "string", "description": "Template key (e.g., 'next14-shadcn' or 'next')", "default": "next14-shadcn"},
-                    "package_manager": {"type": "string", "description": "Package manager: pnpm|npm", "default": "pnpm"},
-                    "init_shadcn": {"type": "boolean", "description": "Automatically initialize shadcn/ui (default: true for Next.js projects)", "default": True}
-                },
-                "required": ["project_name"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Create a new Next.js project with automatic shadcn/ui initialization -->
-        <function_calls>
-        <invoke name="create_web_project">
-        <parameter name="project_name">my-portfolio</parameter>
-        <parameter name="template">next14-shadcn</parameter>
-        <parameter name="package_manager">pnpm</parameter>
-        <parameter name="init_shadcn">true</parameter>
-        </invoke>
-        </function_calls>
-        
-        <!-- Create a plain Next.js project without shadcn/ui -->
-        <function_calls>
-        <invoke name="create_web_project">
-        <parameter name="project_name">simple-app</parameter>
-        <parameter name="template">next</parameter>
-        <parameter name="init_shadcn">false</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def create_web_project(self, project_name: str, template: str = "next14-shadcn", package_manager: str = "pnpm", init_shadcn: bool = True) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            
-            use_template = template.lower() in ["next14-shadcn", "next"]
-            exists_check = await self._exec_sh(f"test -d {self.TEMPLATE_DIR} && echo __TEMPLATE__ || echo __NO_TEMPLATE__")
-            has_template = "__TEMPLATE__" in exists_check.get("output", "")
-
-            proj_dir = self._get_project_path(project_name)
-            already = await self._exec_sh(f"test -e {proj_dir} && echo __EXISTS__ || echo __NEW__")
-            if "__EXISTS__" in already.get("output", ""):
-                return self.fail_response(f"Path '{project_name}' already exists")
-
-            if use_template and has_template:
-                copy = await self._exec_sh(f"cp -R {self.TEMPLATE_DIR} {proj_dir}")
-                if copy["exit_code"] != 0:
-                    return self.fail_response(f"Failed to copy template: {copy['output']}")
-            else:
-                if package_manager == "pnpm":
-                    scaffold_cmd = (
-                        f"cd {self.workspace_path} && "
-                        f"pnpm dlx create-next-app@14 {project_name} --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-pnpm"
-                    )
-                else:
-                    scaffold_cmd = (
-                        f"cd {self.workspace_path} && "
-                        f"npx create-next-app@14 {project_name} --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-npm"
-                    )
-                
-                res = await self._exec_sh(scaffold_cmd, timeout=self.INSTALL_TIMEOUT)
-                if res["exit_code"] != 0:
-                    return self.fail_response(f"Scaffold failed: {res['output']}")
-
-            install_cmd = self._get_package_manager_command(package_manager, "install")
-            install = await self._exec_sh(f"cd {proj_dir} && {install_cmd}", timeout=self.INSTALL_TIMEOUT)
-            
-            if install["exit_code"] != 0:
-                return self.fail_response(f"Dependency install failed: {install['output']}")
-
-            # Auto-initialize shadcn/ui for Next.js projects
-            success_message = f"Project '{project_name}' created successfully."
-            if init_shadcn and template.lower() in ["next14-shadcn", "next"]:
-                try:
-                    # Check if components.json already exists (from template)
-                    components_check = await self._exec_sh(f"test -f {proj_dir}/components.json && echo EXISTS || echo MISSING")
-                    
-                    if "MISSING" in components_check.get("output", ""):
-                        # Initialize shadcn/ui
-                        has_src = await self._has_src_directory(proj_dir)
-                        css_path = "src/app/globals.css" if has_src else "app/globals.css"
-                        
-                        config = self.SHADCN_CONFIG_TEMPLATE.copy()
-                        config["tailwind"]["css"] = css_path
-                        
-                        config_json = json.dumps(config, indent=2)
-                        write_cmd = f"cd {proj_dir} && cat > components.json << 'EOF'\n{config_json}\nEOF"
-                        write_result = await self._exec_sh(write_cmd)
-                        
-                        if write_result.get("exit_code", 1) == 0:
-                            success_message += " shadcn/ui initialized automatically."
-                        else:
-                            logger.warning(f"Failed to auto-initialize shadcn: {write_result.get('output','')}")
-                    else:
-                        success_message += " shadcn/ui already configured."
-                        
-                except Exception as e:
-                    logger.warning(f"Failed to auto-initialize shadcn: {e}")
-                    # Don't fail the entire project creation for shadcn issues
-
-            return self.success_response({
-                "message": success_message,
-                "project": project_name
-            })
-
-        except Exception as e:
-            logger.error(f"Error creating web project: {e}", exc_info=True)
-            return self.fail_response(f"Error creating web project: {e}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "init_shadcn",
-            "description": "Initialize shadcn/ui in a Next.js project (non-interactive).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "project_name": {"type": "string", "description": "Project directory name"}
-                },
-                "required": ["project_name"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Initialize shadcn/ui in an existing Next.js project -->
-        <function_calls>
-        <invoke name="init_shadcn">
-        <parameter name="project_name">my-existing-app</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def init_shadcn(self, project_name: str) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            
-            if not await self._project_exists(project_name):
-                return self.fail_response(f"Project '{project_name}' not found")
-
-            proj_dir = self._get_project_path(project_name)
-            
-            has_src = await self._has_src_directory(proj_dir)
-            css_path = "src/app/globals.css" if has_src else "app/globals.css"
-            
-            config = self.SHADCN_CONFIG_TEMPLATE.copy()
-            config["tailwind"]["css"] = css_path
-            
-            config_json = json.dumps(config, indent=2)
-            write_cmd = f"cd {proj_dir} && cat > components.json << 'EOF'\n{config_json}\nEOF"
-            write_result = await self._exec_sh(write_cmd)
-            
-            if write_result.get("exit_code", 1) != 0:
-                return self.fail_response(f"Failed to write components.json: {write_result.get('output','')}")
-
-            verify = await self._exec_sh(f"test -f {proj_dir}/components.json && echo OK || echo MISS")
-            if "OK" in verify.get("output", ""):
-                return self.success_response(f"shadcn/ui configured successfully in '{project_name}'.")
-            
-            return self.fail_response("components.json was not created as expected")
-
-        except Exception as e:
-            logger.error(f"Error initializing shadcn: {e}", exc_info=True)
-            return self.fail_response(f"Error initializing shadcn: {e}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_shadcn_components",
-            "description": "Add shadcn/ui components to a Next.js project.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "project_name": {"type": "string"},
-                    "components": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Component names, e.g., button, card, form, input, dialog, dropdown-menu"
-                    }
-                },
-                "required": ["project_name", "components"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Add common shadcn/ui components to a project -->
-        <function_calls>
-        <invoke name="add_shadcn_components">
-        <parameter name="project_name">my-app</parameter>
-        <parameter name="components">["button", "card", "input", "form", "dialog"]</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def add_shadcn_components(self, project_name: str, components: List[str]) -> ToolResult:
-        try:
-            await self._ensure_sandbox()
-            
-            if not await self._project_exists(project_name):
-                return self.fail_response(f"Project '{project_name}' not found")
-
-            proj_dir = self._get_project_path(project_name)
-            
-            verify = await self._exec_sh(f"test -f {proj_dir}/components.json && echo OK || echo MISS")
-            if "MISS" in verify.get("output", ""):
-                init_res = await self.init_shadcn(project_name)
-                if not init_res.success:
-                    return init_res
-
-            comps = " ".join(components)
-            attempts = [
-                f"cd {proj_dir} && pnpm dlx shadcn@latest add {comps}",
-                f"cd {proj_dir} && npx shadcn@latest add {comps}"
-            ]
-            
-            for cmd in attempts:
-                res = await self._exec_sh(cmd, timeout=self.INSTALL_TIMEOUT)
-                if res["exit_code"] == 0:
-                    return self.success_response(f"Added shadcn components to '{project_name}': {', '.join(components)}")
-
-            return self.fail_response(f"Failed to add components: {res.get('output','') if 'res' in locals() else 'Unknown error'}")
-
-        except Exception as e:
-            logger.error(f"Error adding shadcn components: {e}", exc_info=True)
-            return self.fail_response(f"Error adding shadcn components: {e}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "add_common_shadcn_components",
-            "description": "Add commonly used shadcn/ui components to a Next.js project in one go.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "project_name": {"type": "string", "description": "Project directory name"}
-                },
-                "required": ["project_name"]
-            }
-        }
-    })
-    @usage_example('''
-        <!-- Add all commonly used shadcn/ui components at once -->
-        <function_calls>
-        <invoke name="add_common_shadcn_components">
-        <parameter name="project_name">my-app</parameter>
-        </invoke>
-        </function_calls>
-        ''')
-    async def add_common_shadcn_components(self, project_name: str) -> ToolResult:
-        """Add commonly used shadcn/ui components: button, card, input, form, dialog, dropdown-menu, badge, avatar."""
-        common_components = ["button", "card", "input", "form", "dialog", "dropdown-menu", "badge", "avatar"]
-        return await self.add_shadcn_components(project_name, common_components)
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "create_full_stack_project",
-            "description": "Create a complete Next.js project with shadcn/ui initialized and common components already added. One-stop setup for rapid development.",
+            "description": "Create a new Next.js project with shadcn/ui and ALL components pre-installed from optimized template. Fast scaffolding with everything ready to use!",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -547,48 +345,72 @@ To run this project:
         }
     })
     @usage_example('''
-        <!-- Create a complete Next.js project with shadcn/ui and common components -->
+        <!-- Create a new Next.js project with shadcn/ui pre-configured -->
         <function_calls>
-        <invoke name="create_full_stack_project">
-        <parameter name="project_name">my-complete-app</parameter>
+        <invoke name="create_web_project">
+        <parameter name="project_name">my-portfolio</parameter>
         <parameter name="package_manager">pnpm</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def create_full_stack_project(self, project_name: str, package_manager: str = "pnpm") -> ToolResult:
-        """Create a Next.js project with shadcn/ui and common components pre-installed."""
+    async def create_web_project(self, project_name: str, package_manager: str = "pnpm") -> ToolResult:
         try:
-            # First create the project with shadcn initialized
-            create_result = await self.create_web_project(
-                project_name=project_name, 
-                template="next14-shadcn", 
-                package_manager=package_manager, 
-                init_shadcn=True
-            )
+            await self._ensure_sandbox()
             
-            if not create_result.success:
-                return create_result
+            proj_dir = self._get_project_path(project_name)
+            already = await self._exec_sh(f"test -e {proj_dir} && echo __EXISTS__ || echo __NEW__")
+            if "__EXISTS__" in already.get("output", ""):
+                return self.fail_response(f"Path '{project_name}' already exists")
+
+            has_template = await self._has_optimized_template()
             
-            # Add common components
-            components_result = await self.add_common_shadcn_components(project_name)
-            
-            if components_result.success:
+            if has_template:
+                copy = await self._exec_sh(f"cp -R {self.TEMPLATE_DIR} {proj_dir}")
+                if copy["exit_code"] != 0:
+                    return self.fail_response(f"Failed to copy template: {copy['output']}")
+                
+                install_cmd = self._get_package_manager_command(package_manager, "install")
+                install = await self._exec_sh(f"cd {proj_dir} && {install_cmd}", timeout=self.INSTALL_TIMEOUT)
+                
+                if install["exit_code"] != 0:
+                    return self.fail_response(f"Dependency install failed: {install['output']}")
+
                 return self.success_response({
-                    "message": f"Complete project '{project_name}' created with shadcn/ui and common components ready to use!",
+                    "message": f"Project '{project_name}' created successfully with Next.js 15 + shadcn/ui pre-configured and ALL components ready to use!",
                     "project": project_name,
-                    "components_added": ["button", "card", "input", "form", "dialog", "dropdown-menu", "badge", "avatar"]
+                    "features": [
+                        "✅ Next.js 15 with TypeScript",
+                        "✅ Tailwind CSS configured", 
+                        "✅ shadcn/ui initialized",
+                        "✅ ALL shadcn components pre-installed",
+                        "✅ App Router with src/ directory",
+                        "✅ ESLint configured"
+                    ]
                 })
             else:
-                # Project created successfully, but components failed
-                return self.success_response({
-                    "message": f"Project '{project_name}' created successfully, but failed to add components. You can add them manually with add_common_shadcn_components.",
-                    "project": project_name,
-                    "warning": components_result.result
-                })
+                if package_manager == "pnpm":
+                    scaffold_cmd = (
+                        f"cd {self.workspace_path} && "
+                        f"pnpm dlx create-next-app@15 {project_name} --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-pnpm"
+                    )
+                else:
+                    scaffold_cmd = (
+                        f"cd {self.workspace_path} && "
+                        f"npx create-next-app@15 {project_name} --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-npm"
+                    )
                 
+                res = await self._exec_sh(scaffold_cmd, timeout=self.INSTALL_TIMEOUT)
+                if res["exit_code"] != 0:
+                    return self.fail_response(f"Scaffold failed: {res['output']}")
+
+                return self.success_response({
+                    "message": f"Project '{project_name}' created successfully. Note: Optimized template not available - used manual creation.",
+                    "project": project_name
+                })
+
         except Exception as e:
-            logger.error(f"Error creating full-stack project: {e}", exc_info=True)
-            return self.fail_response(f"Error creating full-stack project: {e}")
+            logger.error(f"Error creating web project: {e}", exc_info=True)
+            return self.fail_response(f"Error creating web project: {e}")
 
     @openapi_schema({
         "type": "function",
