@@ -215,7 +215,14 @@ class VersionService:
             raise Exception("Agent not found")
         
         previous_version_id = current_result.data.get('current_version_id')
-        version_number = (current_result.data.get('version_count') or 0) + 1
+        
+        # Get the next version number by querying the max version number directly from DB
+        # This avoids race conditions with the cached version_count
+        max_version_result = await client.table('agent_versions').select('version_number').eq('agent_id', agent_id).order('version_number', desc=True).limit(1).execute()
+        max_version_number = 0
+        if max_version_result.data and max_version_result.data[0].get('version_number'):
+            max_version_number = max_version_result.data[0]['version_number']
+        version_number = max_version_number + 1
         
         if not version_name:
             version_name = f"v{version_number}"
