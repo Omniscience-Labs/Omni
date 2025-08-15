@@ -840,10 +840,23 @@ async def stream_agent_run(
 
             listener_task = asyncio.create_task(listen_messages())
 
-            # 4. Main loop to process messages from the queue
+            # 4. Main loop to process messages from the queue with heartbeat support
+            heartbeat_interval = 30  # Send heartbeat every 30 seconds to prevent network timeouts
+            last_heartbeat = asyncio.get_event_loop().time()
+            
             while not terminate_stream:
                 try:
-                    queue_item = await message_queue.get()
+                    # Wait for message with timeout to enable heartbeat
+                    try:
+                        queue_item = await asyncio.wait_for(message_queue.get(), timeout=heartbeat_interval)
+                    except asyncio.TimeoutError:
+                        # Send heartbeat to keep connection alive and prevent QUIC timeout
+                        current_time = asyncio.get_event_loop().time()
+                        if current_time - last_heartbeat >= heartbeat_interval:
+                            logger.debug(f"Sending heartbeat for agent run: {agent_run_id}")
+                            yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': current_time})}\n\n"
+                            last_heartbeat = current_time
+                        continue
 
                     if queue_item["type"] == "new_response":
                         # Fetch new responses from Redis list starting after the last processed index
@@ -911,11 +924,23 @@ async def stream_agent_run(
             await asyncio.sleep(0.1)
             logger.debug(f"Streaming cleanup complete for agent run: {agent_run_id}")
 
-    return StreamingResponse(stream_generator(agent_run_data), media_type="text/event-stream", headers={
-        "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive",
-        "X-Accel-Buffering": "no", "Content-Type": "text/event-stream",
-        "Access-Control-Allow-Origin": "*"
-    })
+    return StreamingResponse(
+        stream_generator(agent_run_data), 
+        media_type="text/event-stream", 
+        headers={
+            "Cache-Control": "no-cache, no-transform", 
+            "Connection": "keep-alive",
+            "Keep-Alive": "timeout=1800, max=1000",  # Keep connection alive for 30 minutes
+            "X-Accel-Buffering": "no", 
+            "Content-Type": "text/event-stream",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
+            "X-Content-Type-Options": "nosniff",
+            # Add headers to help with Vercel/Render connection stability
+            "Transfer-Encoding": "chunked",
+            "X-Streaming": "true"
+        }
+    )
 
 async def generate_and_update_project_name(project_id: str, prompt: str):
     """Generates a project name using an LLM and updates the database."""
