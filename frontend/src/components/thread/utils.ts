@@ -345,6 +345,8 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['get-popular-mcp-servers', 'Getting Popular MCP Servers'],
   ['test-mcp-server-connection', 'Testing MCP Server Connection'],
 
+  ['get-project-structure', 'Getting Project Structure'],
+  ['build-project', 'Building Project'],
 
   //V2
 

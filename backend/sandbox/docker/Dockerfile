@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -78,8 +78,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
     && corepack enable \
-    && corepack prepare pnpm@9.1.0 --activate \
-    && npm i -g wrangler create-next-app@14 shadcn@latest serve degit turbo
+    && corepack prepare pnpm@9.1.0 --activate
 
 # pnpm config and store dir for faster installs
 ENV PNPM_HOME=/root/.local/share/pnpm
@@ -111,15 +110,11 @@ RUN npx playwright install chromium
 # Verify installation
 RUN node -e "import('playwright').then(() => console.log('Playwright installation verified')).catch(e => { console.error('Playwright verification failed:', e); process.exit(1); })"
 
-# Prewarm a Next 14 + shadcn template for fast scaffolding
-WORKDIR /opt/templates
-RUN mkdir -p /opt/templates && \
-    pnpm dlx create-next-app@14 next14-shadcn --ts --eslint --tailwind --app --src-dir --import-alias '@/*' --use-npm && \
-    cd /opt/templates/next14-shadcn && \
-    pnpm install --prefer-offline && \
-    npx shadcn@latest init -y || (printf '\n' | npx shadcn@latest init) && \
-    npx shadcn@latest add button card form input dropdown-menu dialog tabs sheet badge alert && \
-    pnpm install --prefer-offline
+WORKDIR /opt/templates/next-app
+
+RUN npx --yes create-next-app@latest . --yes
+RUN npx --yes shadcn@latest init --yes -b neutral --force
+RUN npx --yes shadcn@latest add --all --yes
 
 # Copy server script
 COPY . /app
