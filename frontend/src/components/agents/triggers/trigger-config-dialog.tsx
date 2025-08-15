@@ -19,8 +19,9 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react';
-import { TriggerProvider, TriggerConfiguration, ScheduleTriggerConfig } from './types';
+import { TriggerProvider, TriggerConfiguration, ScheduleTriggerConfig, EventTriggerConfig } from './types';
 import { ScheduleTriggerConfigForm } from './providers/schedule-config';
+import { EventTriggerConfigForm } from './providers/event-config';
 import { getDialogIcon } from './utils';
 
 
@@ -79,6 +80,17 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
           newErrors.agent_prompt = 'Agent prompt is required';
         }
       }
+    } else if (provider.trigger_type === 'webhook' || provider.provider_id === 'composio') {
+      // Validate event-based triggers
+      if (config.execution_type === 'workflow') {
+        if (!config.workflow_id) {
+          newErrors.workflow_id = 'Workflow selection is required';
+        }
+      } else {
+        if (!config.agent_prompt) {
+          newErrors.agent_prompt = 'Agent prompt is required';
+        }
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -113,7 +125,41 @@ export const TriggerConfigDialog: React.FC<TriggerConfigDialogProps> = ({
             onActiveChange={setIsActive}
           />
         );
+      case 'composio':
+        return (
+          <EventTriggerConfigForm
+            provider={provider}
+            config={config as EventTriggerConfig}
+            onChange={setConfig}
+            errors={errors}
+            agentId={agentId}
+            name={name}
+            description={description}
+            onNameChange={setName}
+            onDescriptionChange={setDescription}
+            isActive={isActive}
+            onActiveChange={setIsActive}
+          />
+        );
       default:
+        // Check if it's an event-based trigger (webhook type)
+        if (provider.trigger_type === 'webhook') {
+          return (
+            <EventTriggerConfigForm
+              provider={provider}
+              config={config as EventTriggerConfig}
+              onChange={setConfig}
+              errors={errors}
+              agentId={agentId}
+              name={name}
+              description={description}
+              onNameChange={setName}
+              onDescriptionChange={setDescription}
+              isActive={isActive}
+              onActiveChange={setIsActive}
+            />
+          );
+        }
         return (
           <div className="text-center py-8 text-muted-foreground">
             <Activity className="h-12 w-12 mx-auto mb-4" />
