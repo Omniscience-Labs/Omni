@@ -145,8 +145,11 @@ export function NavAgents() {
       return;
     }
 
-    setLoadingThreadId(threadId)
-    
+    // Set loading state for normal clicks (not meta key)
+    if (!e.metaKey) {
+      setLoadingThreadId(threadId);
+    }
+
     // Close mobile menu on navigation
     if (isMobile) {
       setOpenMobile(false);
