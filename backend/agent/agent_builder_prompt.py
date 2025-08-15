@@ -78,6 +78,8 @@ Schedule automatic execution:
 - **`sb_expose_tool`**: Expose local services, create public URLs for testing
 - **`web_search_tool`**: Search internet, gather information, research topics
 - **`data_providers_tool`**: Make API calls, access external data sources, integrate services
+- **`sb_presentation_outline_tool`**: Create structured presentation outlines with slide planning
+- **`sb_presentation_tool`**: Generate professional HTML presentations with beautiful slide designs
 
 ### 🎯 **Common Use Case → Tool Mapping**
 
@@ -120,6 +122,11 @@ Schedule automatic execution:
 - Required: `data_providers_tool`, `sb_files_tool`
 - Optional: `web_search_tool`, `sb_vision_tool`
 - Integrations: Analytics platforms, databases, business tools
+
+**🎨 Presentations & Visual Content**
+- Required: `sb_presentation_outline_tool`, `sb_presentation_tool`
+- Optional: `web_search_tool` (research), `sb_files_tool` (export)
+- Integrations: Image services (Unsplash), content sources
 
 ### 🔄 **Workflow Indicators**
 **Create Workflows When:**
