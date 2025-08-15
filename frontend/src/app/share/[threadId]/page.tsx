@@ -105,10 +105,6 @@ export default function ThreadPage({
   const [fileToView, setFileToView] = useState<string | null>(null);
 
   const initialLoadCompleted = useRef<boolean>(false);
-  const messagesLoadedRef = useRef(false);
-  const agentRunsCheckedRef = useRef(false);
-
-  const [streamingTextContent, setStreamingTextContent] = useState('');
 
   const userClosedPanelRef = useRef(false);
 
@@ -624,14 +620,6 @@ export default function ThreadPage({
     }
   }, [agentStatus, streamHookStatus, agentRunId, currentHookRunId]);
 
-  const autoScrollToBottom = useCallback(
-    (behavior: ScrollBehavior = 'smooth') => {
-      if (!userHasScrolled && messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior });
-      }
-    },
-    [userHasScrolled],
-  );
 
   useEffect(() => {
     if (!isPlaying || currentMessageIndex <= 0 || !messages.length) return;

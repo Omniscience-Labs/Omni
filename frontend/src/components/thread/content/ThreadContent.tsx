@@ -321,8 +321,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
     const { preloadFiles } = useFilePreloader();
 
     const containerClassName = isPreviewMode
-        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0"
-        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 px-6 py-4 pb-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
+        ? "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 py-4 pb-0"
+        : "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-secondary/0 scrollbar-thumb-primary/10 scrollbar-thumb-rounded-full hover:scrollbar-thumb-primary/10 py-4 pb-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60";
 
     // In playback mode, we use visibleMessages instead of messages
     const displayMessages = readOnly && visibleMessages ? visibleMessages : messages;
@@ -346,7 +346,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
         // Then check recent messages for agent info
         const recentAssistantWithAgent = [...displayMessages].reverse().find(msg =>
-            msg.type === 'assistant' && (msg.agents?.avatar || msg.agents?.avatar_color || msg.agents?.name)
+            msg.type === 'assistant' && msg.agents?.name
         );
 
         if (recentAssistantWithAgent?.agents?.name === 'Agent Builder') {
@@ -385,7 +385,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
             const profileUrl = (recentAssistantWithAgent as any)?.agents?.profile_image_url;
             const avatar = profileUrl && !isSunaDefaultAgent ? (
                 <img src={profileUrl} alt={recentAssistantWithAgent.agents.name} className="h-5 w-5 rounded object-cover" />
-            ) : recentAssistantWithAgent.agents.avatar && !isSunaDefaultAgent ? (
+            ) : !isSunaDefaultAgent ? (
                 <>
                     {isSunaAgent ? (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
@@ -393,7 +393,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                         </div>
                     ) : (
                         <div className="h-5 w-5 flex items-center justify-center rounded text-xs">
-                            <span className="text-lg">{recentAssistantWithAgent.agents.avatar}</span>
+                            <span className="text-lg">{recentAssistantWithAgent.agents.name.charAt(0).toUpperCase()}</span>
                         </div>
                     )}
                 </>
@@ -510,7 +510,7 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                     className={`${containerClassName} flex flex-col-reverse ${shouldJustifyToTop ? 'justify-end min-h-full' : ''}`}
                     onScroll={handleScroll}
                 >
-                    <div ref={contentRef} className="mx-auto max-w-3xl md:px-8 min-w-0 w-full">
+                    <div ref={contentRef} className="mx-auto min-w-0 w-full max-w-3xl px-4 md:px-6">
                         <div className="space-y-8 min-w-0">
                             {(() => {
 

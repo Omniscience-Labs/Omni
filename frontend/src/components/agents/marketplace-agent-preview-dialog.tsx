@@ -5,10 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share, Cpu } from 'lucide-react';
+import { Bot, Download, Wrench, Plug, Tag, User, Calendar, Loader2, Share, Cpu, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 import { useComposioToolkitIcon } from '@/hooks/react-query/composio/use-composio';
+import { useRouter } from 'next/navigation';
 
 interface MarketplaceAgentPreviewDialogProps {
   agent: MarketplaceTemplate | null;
@@ -78,9 +79,12 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
   onInstall,
   isInstalling = false
 }) => {
+  const router = useRouter();
+  
   if (!agent) return null;
 
-  const { avatar, avatar_color } = agent;
+  const avatar = '🤖';
+  const avatar_color = '#6366f1';
   const isSunaAgent = agent.is_kortix_team || false;
   
   const tools = agent.mcp_requirements || [];
@@ -94,6 +98,11 @@ export const MarketplaceAgentPreviewDialog: React.FC<MarketplaceAgentPreviewDial
   const handleInstall = () => {
     onInstall(agent);
   };
+
+  // const handlePreview = () => {
+  //   router.push(`/agents/preview/${agent.id}`);
+  //   onClose();
+  // };
 
   const handleShare = () => {
     const currentUrl = new URL(window.location.href);

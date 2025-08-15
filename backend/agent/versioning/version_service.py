@@ -197,39 +197,31 @@ class VersionService:
         configured_mcps: List[Dict[str, Any]],
         custom_mcps: List[Dict[str, Any]],
         agentpress_tools: Dict[str, Any],
-        model: Optional[str] = None,  # Move model parameter after required params
+        model: Optional[str] = None,
         version_name: Optional[str] = None,
         change_description: Optional[str] = None
     ) -> AgentVersion:
+        
         logger.info(f"Creating version for agent {agent_id}")
+        client = await self.db.client
         
         is_owner, _ = await self._verify_agent_access(agent_id, user_id)
         if not is_owner:
-            raise UnauthorizedError("You don't have permission to create versions for this agent")
+            raise UnauthorizedError("Unauthorized to create version for this agent")
         
-        client = await self._get_client()
+        current_result = await client.table('agents').select('current_version_id, version_count').eq('agent_id', agent_id).single().execute()
         
-        agent_result = await client.table('agents').select('*').eq(
-            'agent_id', agent_id
-        ).execute()
+        if not current_result.data:
+            raise Exception("Agent not found")
         
-        if not agent_result.data:
-            raise AgentNotFoundError(f"Agent {agent_id} not found")
+        previous_version_id = current_result.data.get('current_version_id')
+        version_number = (current_result.data.get('version_count') or 0) + 1
         
-        version_number = await self._get_next_version_number(agent_id)
-        version_name = version_name or f"v{version_number}"
+        if not version_name:
+            version_name = f"v{version_number}"
         
-        current_active_result = await client.table('agent_versions').select('*').eq(
-            'agent_id', agent_id
-        ).eq('is_active', True).execute()
-        
-        previous_version_id = None
-        if current_active_result.data:
-            previous_version_id = current_active_result.data[0]['version_id']
-            await client.table('agent_versions').update({
-                'is_active': False,
-                'updated_at': datetime.now(timezone.utc).isoformat()
-            }).eq('version_id', previous_version_id).execute()
+        workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).execute()
+        workflows = workflows_result.data if workflows_result.data else []
         
         normalized_custom_mcps = self._normalize_custom_mcps(custom_mcps)
         
@@ -239,7 +231,7 @@ class VersionService:
             version_number=version_number,
             version_name=version_name,
             system_prompt=system_prompt,
-            model=model, # Store the model field
+            model=model,
             configured_mcps=configured_mcps,
             custom_mcps=normalized_custom_mcps,
             agentpress_tools=agentpress_tools,
@@ -264,12 +256,13 @@ class VersionService:
             'previous_version_id': version.previous_version_id,
             'config': {
                 'system_prompt': version.system_prompt,
-                'model': version.model, # Include model in config
+                'model': version.model,
                 'tools': {
                     'agentpress': version.agentpress_tools,
                     'mcp': version.configured_mcps,
                     'custom_mcp': normalized_custom_mcps
-                }
+                },
+                'workflows': workflows
             }
         }
         

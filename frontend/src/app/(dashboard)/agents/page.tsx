@@ -12,7 +12,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { StreamlinedInstallDialog } from '@/components/agents/installation/streamlined-install-dialog';
 import type { MarketplaceTemplate } from '@/components/agents/installation/types';
 
-import { getAgentAvatar } from '../../../lib/utils/get-agent-style';
 import { AgentsParams } from '@/hooks/react-query/agents/utils';
 
 import { AgentsPageHeader } from '@/components/agents/custom-agents-page/header';
@@ -130,6 +129,8 @@ export default function AgentsPage() {
   const { data: agentsResponse, isLoading: agentsLoading, error: agentsError, refetch: loadAgents } = useAgents(agentsQueryParams);
   const { data: marketplaceTemplates, isLoading: marketplaceLoading } = useMarketplaceTemplates(marketplaceQueryParams);
   const { data: myTemplates, isLoading: templatesLoading, error: templatesError } = useMyTemplates();
+
+  console.log(marketplaceTemplates);
   
   const updateAgentMutation = useUpdateAgent();
   const { optimisticallyUpdateAgent, revertOptimisticUpdate } = useOptimisticAgentUpdate();
@@ -160,8 +161,6 @@ export default function AgentsPage() {
           creator_name: template.creator_name || 'Anonymous',
           created_at: template.created_at,
           marketplace_published_at: template.marketplace_published_at,
-          avatar: template.avatar,
-          avatar_color: template.avatar_color,
           profile_image_url: template.profile_image_url,
           template_id: template.template_id,
           is_kortix_team: template.is_kortix_team,
@@ -183,7 +182,7 @@ export default function AgentsPage() {
           mineItems.push(item);
         }
         
-        if (template.is_kortix_team) {
+        if (template.is_kortix_team === true) {
           kortixItems.push(item);
         } else {
           communityItems.push(item);
@@ -191,8 +190,8 @@ export default function AgentsPage() {
       });
     }
 
-    const sortItems = (items: MarketplaceTemplate[]) => {
-      return items.sort((a, b) => {
+    const sortItems = (items: MarketplaceTemplate[]) =>
+      items.sort((a, b) => {
         switch (marketplaceSortBy) {
           case 'newest':
             return new Date(b.marketplace_published_at || b.created_at).getTime() - 
@@ -206,7 +205,6 @@ export default function AgentsPage() {
             return 0;
         }
       });
-    };
 
     return {
       kortixTeamItems: sortItems(kortixItems),
@@ -422,13 +420,10 @@ export default function AgentsPage() {
   };
 
   const getItemStyling = (item: MarketplaceTemplate) => {
-    if (item.avatar && item.avatar_color) {
-      return {
-        avatar: item.avatar,
-        color: item.avatar_color,
-      };
-    }
-    return getAgentAvatar(item.id);
+    return {
+      avatar: '🤖',
+      color: '#6366f1',
+    };
   };
 
   const handleUnpublish = async (templateId: string, templateName: string) => {
@@ -509,13 +504,10 @@ export default function AgentsPage() {
   };
 
   const getTemplateStyling = (template: any) => {
-    if (template.avatar && template.avatar_color) {
-      return {
-        avatar: template.avatar,
-        color: template.avatar_color,
-      };
-    }
-    return getAgentAvatar(template.template_id);
+    return {
+      avatar: '🤖',
+      color: '#6366f1',
+    };
   };
 
   if (flagLoading) {

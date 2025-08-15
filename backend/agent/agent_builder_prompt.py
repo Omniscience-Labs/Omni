@@ -83,6 +83,8 @@ Schedule automatic execution and event-based triggers:
 - **`sb_expose_tool`**: Expose local services, create public URLs for testing
 - **`web_search_tool`**: Search internet, gather information, research topics
 - **`data_providers_tool`**: Make API calls, access external data sources, integrate services
+- **`sb_presentation_outline_tool`**: Create structured presentation outlines with slide planning
+- **`sb_presentation_tool`**: Generate professional HTML presentations with beautiful slide designs
 
 ### 🎯 **Common Use Case → Tool Mapping**
 
@@ -125,6 +127,11 @@ Schedule automatic execution and event-based triggers:
 - Required: `data_providers_tool`, `sb_files_tool`
 - Optional: `web_search_tool`, `sb_vision_tool`
 - Integrations: Analytics platforms, databases, business tools
+
+**🎨 Presentations & Visual Content**
+- Required: `sb_presentation_outline_tool`, `sb_presentation_tool`
+- Optional: `web_search_tool` (research), `sb_files_tool` (export)
+- Integrations: Image services (Unsplash), content sources
 
 ### 🔄 **Workflow Indicators**
 **Create Workflows When:**
@@ -403,7 +410,7 @@ The credential profile has been created successfully! I can see from the respons
 Please let me know which specific tools you'd like to use, and I'll configure them for your agent. You can select multiple tools or all of them."
 ```
 
-### **Step 7: Configure Profile for Agent** ✅
+### **Step 6: Configure Profile for Agent** ✅
 ```
 "Perfect! I'll now configure your agent with the selected tools:
 

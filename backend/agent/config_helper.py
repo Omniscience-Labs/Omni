@@ -14,6 +14,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         logger.info(f"Using active version data for agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
         
         model = None
+        workflows = []
         if version_data.get('config'):
             config = version_data['config'].copy()
             system_prompt = config.get('system_prompt', '')
@@ -22,12 +23,14 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             configured_mcps = tools.get('mcp', [])
             custom_mcps = tools.get('custom_mcp', [])
             agentpress_tools = tools.get('agentpress', {})
+            workflows = config.get('workflows', [])
         else:
             system_prompt = version_data.get('system_prompt', '')
             model = version_data.get('model')
             configured_mcps = version_data.get('configured_mcps', [])
             custom_mcps = version_data.get('custom_mcps', [])
             agentpress_tools = version_data.get('agentpress_tools', {})
+            workflows = []
         
         if is_suna_default:
             from agent.suna.config import SunaConfig
@@ -47,10 +50,9 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
             'configured_mcps': configured_mcps,
             'custom_mcps': custom_mcps,
             'agentpress_tools': _extract_agentpress_tools_for_run(agentpress_tools),
-            # Deprecated fields retained for compatibility
+            'workflows': workflows,
             'avatar': agent_data.get('avatar'),
             'avatar_color': agent_data.get('avatar_color'),
-            # New field
             'profile_image_url': agent_data.get('profile_image_url'),
             'is_suna_default': is_suna_default,
             'centrally_managed': centrally_managed,
@@ -85,6 +87,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         config['configured_mcps'] = tools.get('mcp', [])
         config['custom_mcps'] = tools.get('custom_mcp', [])
         config['agentpress_tools'] = _extract_agentpress_tools_for_run(tools.get('agentpress', {}))
+        config['workflows'] = config.get('workflows', [])
         
         # Legacy and new fields
         config['avatar'] = agent_data.get('avatar')
@@ -110,6 +113,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
         'configured_mcps': [],
         'custom_mcps': [],
         'agentpress_tools': {},
+        'workflows': [],
         'avatar': agent_data.get('avatar'),
         'avatar_color': agent_data.get('avatar_color'),
         'profile_image_url': agent_data.get('profile_image_url'),
@@ -128,7 +132,8 @@ def build_unified_config(
     custom_mcps: Optional[List[Dict[str, Any]]] = None,
     avatar: Optional[str] = None,
     avatar_color: Optional[str] = None,
-    suna_metadata: Optional[Dict[str, Any]] = None
+    suna_metadata: Optional[Dict[str, Any]] = None,
+    workflows: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     simplified_tools = {}
     for tool_name, tool_config in agentpress_tools.items():
@@ -144,6 +149,7 @@ def build_unified_config(
             'mcp': configured_mcps or [],
             'custom_mcp': custom_mcps or []
         },
+        'workflows': workflows or [],
         'metadata': {
             'avatar': avatar,
             'avatar_color': avatar_color

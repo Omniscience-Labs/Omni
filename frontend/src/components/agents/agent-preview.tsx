@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getAgentAvatar } from '../../lib/utils/get-agent-style';
 import {
   ChatInput,
   ChatInputHandles
@@ -52,14 +51,10 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
   const chatInputRef = useRef<ChatInputHandles>(null);
 
   const getAgentStyling = () => {
-    const agentData = agent as any;
-    if (agentData.avatar && agentData.avatar_color) {
-      return {
-        avatar: agentData.avatar,
-        color: agentData.avatar_color,
-      };
-    }
-    return getAgentAvatar(agent.agent_id);
+    return {
+      avatar: '🤖',
+      color: '#6366f1',
+    };
   };
 
   const { avatar, color } = getAgentStyling();
@@ -331,7 +326,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
 
   return (
     <div className="h-full flex flex-col bg-muted dark:bg-muted/30">
-      <div className="flex-shrink-0 flex items-center gap-3 p-8">
+      <div className="flex-shrink-0 flex items-center gap-3 px-8 py-8">
         <div className="flex-1">
         </div>
         <Badge variant="highlight" className="text-sm">Preview Mode</Badge>
@@ -375,7 +370,7 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
         </div>
       </div>
       <div className="flex-shrink-0">
-        <div className="p-0 md:p-4 md:px-10">
+        <div className="px-8 md:pb-4">
           <ChatInput
             ref={chatInputRef}
             onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}

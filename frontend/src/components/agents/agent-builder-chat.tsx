@@ -20,16 +20,12 @@ interface AgentBuilderChatProps {
   agentId: string;
   formData: any;
   handleFieldChange: (field: string, value: any) => void;
-  handleStyleChange: (emoji: string, color: string) => void;
-  currentStyle: { avatar: string; color: string };
 }
 
 export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   agentId,
   formData,
   handleFieldChange,
-  handleStyleChange,
-  currentStyle
 }: AgentBuilderChatProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
@@ -371,7 +367,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto scrollbar-hide">
+        <div className="h-full overflow-y-auto scrollbar-hide px-8">
           <ThreadContent
             messages={messages || []}
             streamingTextContent={streamingTextContent}
@@ -381,7 +377,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
             handleOpenFileViewer={handleOpenFileViewer}
             streamHookStatus={streamHookStatus}
             agentName="Agent Builder"
-            agentAvatar={'🤖'}
+            agentAvatar={undefined}
             emptyStateComponent={
               <div className="mt-6 flex flex-col items-center text-center text-muted-foreground/80">
                 <div className="flex w-20 aspect-square items-center justify-center rounded-2xl bg-muted-foreground/10 p-4 mb-4">
@@ -394,7 +390,7 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
           <div ref={messagesEndRef} />
         </div>
       </div>
-      <div className="flex-shrink-0 md:pb-4 md:px-6 px-4">
+      <div className="flex-shrink-0 md:pb-4 px-8">
         <ChatInput
           ref={chatInputRef}
           onSubmit={threadId ? handleSubmitMessage : handleSubmitFirstMessage}
@@ -418,9 +414,6 @@ export const AgentBuilderChat = React.memo(function AgentBuilderChat({
   return (
     prevProps.agentId === nextProps.agentId &&
     JSON.stringify(prevProps.formData) === JSON.stringify(nextProps.formData) &&
-    prevProps.currentStyle.avatar === nextProps.currentStyle.avatar &&
-    prevProps.currentStyle.color === nextProps.currentStyle.color &&
-    prevProps.handleFieldChange === nextProps.handleFieldChange &&
-    prevProps.handleStyleChange === nextProps.handleStyleChange
+    prevProps.handleFieldChange === nextProps.handleFieldChange
   );
 }); 

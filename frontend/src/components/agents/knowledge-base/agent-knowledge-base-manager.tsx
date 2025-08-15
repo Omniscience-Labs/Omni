@@ -628,22 +628,20 @@ export const AgentKnowledgeBaseManager = ({ agentId, agentName }: AgentKnowledge
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 w-full"
-            />
-          </div>
-          <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2 flex-shrink-0">
-            <Plus className="h-4 w-4" />
-            Add Knowledge
-          </Button>
+      <div className="flex items-center gap-3 w-full">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 w-full"
+          />
         </div>
+        <Button onClick={() => handleOpenAddDialog()} size="sm" className="gap-2 flex-shrink-0">
+          <Plus className="h-4 w-4" />
+          Add Knowledge
+        </Button>
       </div>
       {entries.length === 0 ? (
         <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">

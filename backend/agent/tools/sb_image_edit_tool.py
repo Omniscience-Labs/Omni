@@ -37,7 +37,7 @@ class SandboxImageEditTool(SandboxToolsBase):
                         },
                         "image_path": {
                             "type": "string",
-                            "description": "(edit mode only) Path to the image file to edit, relative to /workspace. Required for 'edit'.",
+                            "description": "(edit mode only) Path to the image file to edit. Can be: 1) Relative path to /workspace (e.g., 'generated_image_abc123.png'), or 2) Full URL (e.g., 'https://example.com/image.png'). Required when mode='edit'.",
                         },
                     },
                     "required": ["mode", "prompt"],
@@ -46,12 +46,27 @@ class SandboxImageEditTool(SandboxToolsBase):
         }
     )
     @usage_example("""
+        Generate mode example (new image):
         <function_calls>
         <invoke name="image_edit_or_generate">
         <parameter name="mode">generate</parameter>
         <parameter name="prompt">A futuristic cityscape at sunset</parameter>
         </invoke>
         </function_calls>
+        
+        Edit mode example (modifying existing):
+        <function_calls>
+        <invoke name="image_edit_or_generate">
+        <parameter name="mode">edit</parameter>
+        <parameter name="prompt">Add a red hat to the person in the image</parameter>
+        <parameter name="image_path">generated_image_abc123.png</parameter>
+        </invoke>
+        </function_calls>
+        
+        Multi-turn workflow (follow-up edits):
+        1. User: "Create a logo" → generate mode
+        2. User: "Make it more colorful" → edit mode (automatic)
+        3. User: "Add text to it" → edit mode (automatic)
         """)
     async def image_edit_or_generate(
         self,

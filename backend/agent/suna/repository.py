@@ -130,8 +130,7 @@ class SunaAgentRepository:
         except Exception as e:
             logger.error(f"Failed to surgically update agent {agent_id}: {e}")
             raise
-    
-    
+      
     async def update_agent_version_pointer(self, agent_id: str, version_id: str) -> bool:
         try:
             client = await self.db.client

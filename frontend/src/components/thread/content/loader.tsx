@@ -36,19 +36,19 @@ export const AgentLoader = () => {
   return (
     <div className="flex py-2 items-center w-full">
       <div>✨</div>
-            <AnimatePresence>
-            <motion.div
-                key={items[index].id}
-                initial={{ y: 20, opacity: 0, filter: "blur(8px)" }}
-                animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                exit={{ y: -20, opacity: 0, filter: "blur(8px)" }}
-                transition={{ ease: "easeInOut" }}
-                style={{ position: "absolute" }}
-                className='ml-7'
-            >
-                <AnimatedShinyText>{items[index].content}</AnimatedShinyText>
-            </motion.div>
-            </AnimatePresence>
-        </div>
+      <AnimatePresence>
+      <motion.div
+          key={items[index].id}
+          initial={{ y: 20, opacity: 0, filter: "blur(8px)" }}
+          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+          exit={{ y: -20, opacity: 0, filter: "blur(8px)" }}
+          transition={{ ease: "easeInOut" }}
+          style={{ position: "absolute" }}
+          className='ml-7'
+      >
+          <AnimatedShinyText className='text-xs'>{items[index].content}</AnimatedShinyText>
+      </motion.div>
+      </AnimatePresence>
+    </div>
   );
 };

@@ -23,4 +23,5 @@ export interface MCPConfigurationProps {
   };
   saveMode?: 'direct' | 'callback';
   versionId?: string;
+  isLoading?: boolean;
 }

@@ -12,6 +12,8 @@ class SunaConfig:
 
     DEFAULT_TOOLS = {
         "sb_shell_tool": True,
+        "sb_files_tool": True,
+        "sb_web_dev_tool": True,
         "browser_tool": True,
         "sb_deploy_tool": True,
         "sb_expose_tool": True,
@@ -19,8 +21,10 @@ class SunaConfig:
         "sb_vision_tool": True,
         "sb_image_edit_tool": True,
         "data_providers_tool": True,
+        "sb_presentation_outline_tool": True,
+        "sb_presentation_tool": True,
         "sb_sheets_tool": True,
-        "sb_files_tool": True,
+        "sb_slides_tool": True
     }
     
     DEFAULT_MCPS = []

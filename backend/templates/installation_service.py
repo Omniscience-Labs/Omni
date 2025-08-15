@@ -105,10 +105,8 @@ class InstallationService:
             request.custom_system_prompt or template.system_prompt
         )
         
+        await self._restore_workflows(agent_id, template.config) 
         await self._increment_download_count(template.template_id)
-        
-        from utils.cache import Cache
-        await Cache.invalidate(f"agent_count_limit:{request.account_id}")
         
         agent_name = request.instance_name or f"{template.name} (from marketplace)"
         logger.info(f"Successfully installed template {template.template_id} as agent {agent_id}")
@@ -370,6 +368,86 @@ class InstallationService:
             
         except Exception as e:
             logger.warning(f"Failed to create initial version for agent {agent_id}: {e}")
+    
+    async def _restore_workflows(self, agent_id: str, template_config: Dict[str, Any]) -> None:
+        workflows = template_config.get('workflows', [])
+        if not workflows:
+            logger.info(f"No workflows to restore for agent {agent_id}")
+            return
+            
+        client = await self._db.client
+        restored_count = 0
+        
+        for workflow in workflows:
+            try:
+                steps = workflow.get('steps', [])
+                if steps:
+                    steps = self._regenerate_step_ids(steps)
+
+                workflow_data = {
+                    'id': str(uuid4()),
+                    'agent_id': agent_id,
+                    'name': workflow.get('name', 'Untitled Workflow'),
+                    'description': workflow.get('description'),
+                    'status': workflow.get('status', 'draft'),
+                    'trigger_phrase': workflow.get('trigger_phrase'),
+                    'is_default': workflow.get('is_default', False),
+                    'steps': steps,
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'updated_at': datetime.now(timezone.utc).isoformat()
+                }
+                
+                result = await client.table('agent_workflows').insert(workflow_data).execute()
+                if result.data:
+                    restored_count += 1
+                    logger.info(f"Restored workflow '{workflow_data['name']}' for agent {agent_id}")
+                else:
+                    logger.warning(f"Failed to insert workflow '{workflow_data['name']}' for agent {agent_id}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to restore workflow '{workflow.get('name', 'Unknown')}' for agent {agent_id}: {e}")
+        
+        logger.info(f"Successfully restored {restored_count}/{len(workflows)} workflows for agent {agent_id}")
+    
+    def _regenerate_step_ids(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not steps:
+            return []
+        
+        new_steps = []
+        id_mapping = {}
+        
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+                
+            old_id = step.get('id')
+            if old_id:
+                if old_id not in id_mapping:
+                    id_mapping[old_id] = f"step-{str(uuid4())[:8]}"
+                new_id = id_mapping[old_id]
+            else:
+                new_id = f"step-{str(uuid4())[:8]}"
+            
+            new_step = {
+                'id': new_id,
+                'name': step.get('name', ''),
+                'description': step.get('description', ''),
+                'type': step.get('type', 'instruction'),
+                'config': step.get('config', {}),
+                'order': step.get('order', 0)
+            }
+            
+            if 'conditions' in step:
+                new_step['conditions'] = step['conditions']
+            
+            if 'children' in step and isinstance(step['children'], list):
+                new_step['children'] = self._regenerate_step_ids(step['children'])
+            else:
+                new_step['children'] = []
+            
+            new_steps.append(new_step)
+        
+        return new_steps
     
     async def _increment_download_count(self, template_id: str) -> None:
         client = await self._db.client

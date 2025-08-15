@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { AGENTPRESS_TOOL_DEFINITIONS, getToolDisplayName } from './tools';
 import { toast } from 'sonner';
@@ -9,9 +10,10 @@ interface AgentToolsConfigurationProps {
   onToolsChange: (tools: Record<string, boolean | { enabled: boolean; description: string }>) => void;
   disabled?: boolean;
   isSunaAgent?: boolean;
+  isLoading?: boolean;
 }
 
-export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false }: AgentToolsConfigurationProps) => {
+export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false, isSunaAgent = false, isLoading = false }: AgentToolsConfigurationProps) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const isToolEnabled = (tool: boolean | { enabled: boolean; description: string } | undefined): boolean => {
@@ -32,6 +34,10 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
       toast.error("Tools cannot be modified", {
         description: "Suna's default tools are managed centrally and cannot be changed.",
       });
+      return;
+    }
+    
+    if (isLoading) {
       return;
     }
     
@@ -61,51 +67,62 @@ export const AgentToolsConfiguration = ({ tools, onToolsChange, disabled = false
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search tools..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Tools List with Scrolling */}
+      <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
           {getFilteredTools().map(([toolName, toolInfo]) => (
             <div 
               key={toolName} 
-              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+              className="group border bg-card rounded-2xl p-4 transition-all duration-200 hover:bg-muted/50"
             >
-              <div className="flex items-center space-x-4 flex-1">
-                <div className={`w-10 h-10 rounded-lg ${toolInfo.color} border flex items-center justify-center flex-shrink-0`}>
+              <div className="flex items-start gap-3 mb-3">
+                <div className={`w-10 h-10 rounded-xl ${toolInfo.color} border flex items-center justify-center flex-shrink-0`}>
                   <span className="text-lg">{toolInfo.icon}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h4 className="text-sm font-medium truncate">
-                      {getToolDisplayName(toolName)}
-                    </h4>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <h3 className="font-medium text-sm leading-tight truncate mb-1">
+                    {getToolDisplayName(toolName)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {toolInfo.description}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center flex-shrink-0">
+              
+              <div className="flex justify-end items-center">
                 <Switch
                   checked={isToolEnabled(tools[toolName])}
                   onCheckedChange={(checked) => handleToolToggle(toolName, checked)}
-                  disabled={disabled}
+                  disabled={disabled || isLoading}
                 />
               </div>
             </div>
           ))}
+          
+          {getFilteredTools().length === 0 && (
+            <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
+              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h4 className="text-sm font-semibold text-foreground mb-2">
+                No tools found
+              </h4>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                Try adjusting your search criteria
+              </p>
+            </div>
+          )}
       </div>
-
-      {getFilteredTools().length === 0 && (
-        <div className="text-center py-12 px-6 bg-muted/30 rounded-xl border-2 border-dashed border-border">
-          <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 border">
-            <Search className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <h4 className="text-sm font-semibold text-foreground mb-2">
-            No tools found
-          </h4>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-            Try adjusting your search criteria
-          </p>
-        </div>
-      )}
     </div>
   );
 }; 

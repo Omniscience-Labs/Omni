@@ -5,6 +5,7 @@ import { UnifiedMessage, ParsedMetadata, StreamingToolCall, AgentStatus } from '
 import { safeJsonParse } from '@/components/thread/utils';
 import { ParsedContent } from '@/components/thread/types';
 import { extractToolName } from '@/components/thread/tool-views/xml-parser';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface UseToolCallsReturn {
   toolCalls: ToolCallInput[];
@@ -76,6 +77,7 @@ export function useToolCalls(
   const [externalNavIndex, setExternalNavIndex] = useState<number | undefined>(undefined);
   const userClosedPanelRef = useRef(false);
   const userNavigatedRef = useRef(false); // Track if user manually navigated
+  const isMobile = useIsMobile();
 
   const toggleSidePanel = useCallback(() => {
     setIsSidePanelOpen((prevIsOpen) => {
@@ -213,13 +215,13 @@ export function useToolCalls(
         setCurrentToolIndex(historicalToolPairs.length - 1);
       } else if (isSidePanelOpen && !userClosedPanelRef.current && !userNavigatedRef.current) {
         setCurrentToolIndex(historicalToolPairs.length - 1);
-      } else if (!isSidePanelOpen && !autoOpenedPanel && !userClosedPanelRef.current) {
+      } else if (!isSidePanelOpen && !autoOpenedPanel && !userClosedPanelRef.current && !isMobile) {
         setCurrentToolIndex(historicalToolPairs.length - 1);
         setIsSidePanelOpen(true);
         setAutoOpenedPanel(true);
       }
     }
-  }, [messages, isSidePanelOpen, autoOpenedPanel, agentStatus]);
+  }, [messages, isSidePanelOpen, autoOpenedPanel, agentStatus, isMobile]);
 
   // Reset user navigation flag when agent stops
   useEffect(() => {

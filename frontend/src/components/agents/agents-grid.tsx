@@ -5,7 +5,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { getAgentAvatar } from '../../lib/utils/get-agent-style';
 import { useCreateTemplate, useUnpublishTemplate } from '@/hooks/react-query/secure-mcp/use-secure-mcp';
 import { toast } from 'sonner';
 import { AgentCard } from './custom-agents-page/agent-card';
@@ -24,8 +23,6 @@ interface Agent {
   updated_at?: string;
   configured_mcps?: Array<{ name: string }>;
   agentpress_tools?: Record<string, any>;
-  avatar?: string;
-  avatar_color?: string;
   template_id?: string;
   current_version_id?: string;
   version_count?: number;
@@ -84,17 +81,6 @@ const AgentModal: React.FC<AgentModalProps> = ({
 }) => {
   if (!agent) return null;
 
-  const getAgentStyling = (agent: Agent) => {
-    if (agent.avatar && agent.avatar_color) {
-      return {
-        avatar: agent.avatar,
-        color: agent.avatar_color,
-      };
-    }
-    return getAgentAvatar(agent.agent_id);
-  };
-
-  const { avatar, color } = getAgentStyling(agent);
   const isSunaAgent = agent.metadata?.is_suna_default || false;
   
   const truncateDescription = (text?: string, maxLength = 120) => {
@@ -112,11 +98,11 @@ const AgentModal: React.FC<AgentModalProps> = ({
               <div className="p-6">
                 <KortixLogo size={48} />
               </div>
-            ) : agent.profile_image_url ? (
+) : agent.profile_image_url ? (
               <img src={agent.profile_image_url} alt={agent.name} className="h-16 w-16 rounded-xl object-cover" />
             ) : (
-              <div className="text-6xl">
-                {avatar}
+              <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center">
+                <span className="text-lg font-semibold">{agent.name.charAt(0).toUpperCase()}</span>
               </div>
             )}
           </div>
@@ -272,15 +258,6 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
     }
   };
 
-  const getAgentStyling = (agent: Agent) => {
-    if (agent.avatar && agent.avatar_color) {
-      return {
-        avatar: agent.avatar,
-        color: agent.avatar_color,
-      };
-    }
-    return getAgentAvatar(agent.agent_id);
-  };
 
   return (
     <>
@@ -310,7 +287,7 @@ export const AgentsGrid: React.FC<AgentsGridProps> = ({
                 <AgentCard
                   mode="agent"
                   data={agentData}
-                  styling={getAgentStyling(agent)}
+                  styling={undefined}
                   onClick={() => !isDeleting && handleAgentClick(agent)}
                 />
               </div>

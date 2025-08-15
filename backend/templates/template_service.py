@@ -37,13 +37,13 @@ class AgentTemplate:
     description: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     is_public: bool = False
+    is_kortix_team: bool = False
     marketplace_published_at: Optional[datetime] = None
     download_count: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     avatar: Optional[str] = None
     avatar_color: Optional[str] = None
-    # New field for profile image url
     profile_image_url: Optional[str] = None
     metadata: ConfigType = field(default_factory=dict)
     creator_name: Optional[str] = None
@@ -62,6 +62,10 @@ class AgentTemplate:
     @property
     def agentpress_tools(self) -> Dict[str, Any]:
         return self.config.get('tools', {}).get('agentpress', {})
+    
+    @property
+    def workflows(self) -> List[Dict[str, Any]]:
+        return self.config.get('workflows', [])
     
     @property
     def mcp_requirements(self) -> List[MCPRequirementValue]:
@@ -228,13 +232,37 @@ class TemplateService:
         
         return templates
     
-    async def get_public_templates(self) -> List[AgentTemplate]:
+    async def get_public_templates(
+        self,
+        is_kortix_team: Optional[bool] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        search: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> List[AgentTemplate]:
         client = await self._db.client
-        result = await client.table('agent_templates').select('*')\
-            .eq('is_public', True)\
-            .order('download_count', desc=True)\
-            .order('marketplace_published_at', desc=True)\
-            .execute()
+        
+        query = client.table('agent_templates').select('*').eq('is_public', True)
+        
+        if is_kortix_team is not None:
+            query = query.eq('is_kortix_team', is_kortix_team)
+        
+        if search:
+            query = query.or_(f"name.ilike.%{search}%,description.ilike.%{search}%")
+        
+        if tags:
+            for tag in tags:
+                query = query.contains('tags', [tag])
+        
+        query = query.order('download_count', desc=True)\
+                    .order('marketplace_published_at', desc=True)
+        
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
+        
+        result = await query.execute()
         
         if not result.data:
             return []
@@ -372,6 +400,20 @@ class TemplateService:
             else:
                 sanitized_agentpress[tool_name] = False
         
+        workflows = config.get('workflows', [])
+        sanitized_workflows = []
+        for workflow in workflows:
+            if isinstance(workflow, dict):
+                sanitized_workflow = {
+                    'name': workflow.get('name'),
+                    'description': workflow.get('description'),
+                    'status': workflow.get('status', 'draft'),
+                    'trigger_phrase': workflow.get('trigger_phrase'),
+                    'is_default': workflow.get('is_default', False),
+                    'steps': workflow.get('steps', [])
+                }
+                sanitized_workflows.append(sanitized_workflow)
+        
         sanitized = {
             'system_prompt': config.get('system_prompt', ''),
             'model': config.get('model'),
@@ -380,6 +422,7 @@ class TemplateService:
                 'mcp': config.get('tools', {}).get('mcp', []),
                 'custom_mcp': []
             },
+            'workflows': sanitized_workflows,  # Use sanitized workflows
             'metadata': {
                 'avatar': config.get('metadata', {}).get('avatar'),
                 'avatar_color': config.get('metadata', {}).get('avatar_color')
@@ -504,6 +547,7 @@ class TemplateService:
             config=data.get('config', {}),
             tags=data.get('tags', []),
             is_public=data.get('is_public', False),
+            is_kortix_team=data.get('is_kortix_team', False),
             marketplace_published_at=datetime.fromisoformat(data['marketplace_published_at'].replace('Z', '+00:00')) if data.get('marketplace_published_at') else None,
             download_count=data.get('download_count', 0),
             created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00')),
