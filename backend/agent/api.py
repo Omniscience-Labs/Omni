@@ -2149,6 +2149,9 @@ async def update_agent(
         if current_version_data is None:
             logger.info(f"Agent {agent_id} has no version data, creating initial version")
             try:
+                workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).execute()
+                workflows = workflows_result.data if workflows_result.data else []
+                
                 initial_version_data = {
                     "agent_id": agent_id,
                     "version_number": 1,
@@ -2167,7 +2170,8 @@ async def update_agent(
                     configured_mcps=initial_version_data["configured_mcps"],
                     custom_mcps=initial_version_data["custom_mcps"],
                     avatar=None,
-                    avatar_color=None
+                    avatar_color=None,
+                    workflows=workflows
                 )
                 initial_version_data["config"] = initial_config
                 

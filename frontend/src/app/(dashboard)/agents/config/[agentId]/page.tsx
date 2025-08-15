@@ -67,8 +67,12 @@ export default function AgentConfigurationPage() {
 
   const [originalData, setOriginalData] = useState<FormData>(formData);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const initialTab = tabParam === 'agent-builder' ? 'agent-builder' : 'configuration';
+  // Default to 'agent-builder' (Prompt to build) tab unless explicitly set to 'configuration'
+  const initialTab = tabParam === 'configuration' ? 'configuration' : 'agent-builder';
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Log the default tab selection for debugging
+  console.log('🔄 Default tab selected:', initialTab, 'from URL param:', tabParam);
 
   useEffect(() => {
     if (!agent) return;
