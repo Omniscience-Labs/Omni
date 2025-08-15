@@ -205,9 +205,9 @@ class VersionService:
         logger.info(f"Creating version for agent {agent_id}")
         client = await self.db.client
         
-        has_access = await has_edit_access_to_agent(agent_id, user_id)
-        if not has_access:
-            raise Exception("Unauthorized to create version for this agent")
+        is_owner, _ = await self._verify_agent_access(agent_id, user_id)
+        if not is_owner:
+            raise UnauthorizedError("Unauthorized to create version for this agent")
         
         current_result = await client.table('agents').select('current_version_id, version_count').eq('agent_id', agent_id).single().execute()
         

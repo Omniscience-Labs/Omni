@@ -126,6 +126,8 @@ class ToolManager:
             self.thread_manager.add_tool(SandboxWebSearchTool, project_id=self.project_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_vision_tool'):
             self.thread_manager.add_tool(SandboxVisionTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
+        if safe_tool_check('sb_image_edit_tool'):
+            self.thread_manager.add_tool(SandboxImageEditTool, project_id=self.project_id, thread_id=self.thread_id, thread_manager=self.thread_manager)
         if safe_tool_check('sb_sheets_tool'):
             self.thread_manager.add_tool(SandboxSheetsTool, project_id=self.project_id, thread_manager=self.thread_manager)
         # if safe_tool_check('sb_web_dev_tool'):
@@ -317,44 +319,44 @@ class MessageManager:
     async def build_temporary_message(self) -> Optional[dict]:
         temp_message_content_list = []
 
-        latest_browser_state_msg = await self.client.table('messages').select('*').eq('thread_id', self.thread_id).eq('type', 'browser_state').order('created_at', desc=True).limit(1).execute()
-        if latest_browser_state_msg.data and len(latest_browser_state_msg.data) > 0:
-            try:
-                browser_content = latest_browser_state_msg.data[0]["content"]
-                if isinstance(browser_content, str):
-                    browser_content = json.loads(browser_content)
-                screenshot_base64 = browser_content.get("screenshot_base64")
-                screenshot_url = browser_content.get("image_url")
+        # latest_browser_state_msg = await self.client.table('messages').select('*').eq('thread_id', self.thread_id).eq('type', 'browser_state').order('created_at', desc=True).limit(1).execute()
+        # if latest_browser_state_msg.data and len(latest_browser_state_msg.data) > 0:
+        #     try:
+        #         browser_content = latest_browser_state_msg.data[0]["content"]
+        #         if isinstance(browser_content, str):
+        #             browser_content = json.loads(browser_content)
+        #         screenshot_base64 = browser_content.get("screenshot_base64")
+        #         screenshot_url = browser_content.get("image_url")
                 
-                browser_state_text = browser_content.copy()
-                browser_state_text.pop('screenshot_base64', None)
-                browser_state_text.pop('image_url', None)
+        #         browser_state_text = browser_content.copy()
+        #         browser_state_text.pop('screenshot_base64', None)
+        #         browser_state_text.pop('image_url', None)
 
-                if browser_state_text:
-                    temp_message_content_list.append({
-                        "type": "text",
-                        "text": f"The following is the current state of the browser:\n{json.dumps(browser_state_text, indent=2)}"
-                    })
+        #         if browser_state_text:
+        #             temp_message_content_list.append({
+        #                 "type": "text",
+        #                 "text": f"The following is the current state of the browser:\n{json.dumps(browser_state_text, indent=2)}"
+        #             })
                 
-                if 'gemini' in self.model_name.lower() or 'anthropic' in self.model_name.lower() or 'openai' in self.model_name.lower():
-                    if screenshot_url:
-                        temp_message_content_list.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": screenshot_url,
-                                "format": "image/jpeg"
-                            }
-                        })
-                    elif screenshot_base64:
-                        temp_message_content_list.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{screenshot_base64}",
-                            }
-                        })
+        #         if 'gemini' in self.model_name.lower() or 'anthropic' in self.model_name.lower() or 'openai' in self.model_name.lower():
+        #             if screenshot_url:
+        #                 temp_message_content_list.append({
+        #                     "type": "image_url",
+        #                     "image_url": {
+        #                         "url": screenshot_url,
+        #                         "format": "image/jpeg"
+        #                     }
+        #                 })
+        #             elif screenshot_base64:
+        #                 temp_message_content_list.append({
+        #                     "type": "image_url",
+        #                     "image_url": {
+        #                         "url": f"data:image/jpeg;base64,{screenshot_base64}",
+        #                     }
+        #                 })
 
-            except Exception as e:
-                logger.error(f"Error parsing browser state: {e}")
+        #     except Exception as e:
+        #         logger.error(f"Error parsing browser state: {e}")
 
         latest_image_context_msg = await self.client.table('messages').select('*').eq('thread_id', self.thread_id).eq('type', 'image_context').order('created_at', desc=True).limit(1).execute()
         if latest_image_context_msg.data and len(latest_image_context_msg.data) > 0:

@@ -79,6 +79,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'expose-port': ExposePortToolView,
 
   'see-image': SeeImageToolView,
+  'image_edit_or_generate': GenericToolView,
 
   'ask': AskToolView,
   'complete': CompleteToolView,
