@@ -29,6 +29,7 @@ import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-c
 import { TaskListToolView } from '../task-list/TaskListToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
+import { ImageEditGenerateToolView } from '../image-edit-generate-tool/ImageEditGenerateToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -79,7 +80,7 @@ const defaultRegistry: ToolViewRegistryType = {
   'expose-port': ExposePortToolView,
 
   'see-image': SeeImageToolView,
-  'image_edit_or_generate': GenericToolView,
+  'image-edit-or-generate': ImageEditGenerateToolView,
 
   'ask': AskToolView,
   'complete': CompleteToolView,
