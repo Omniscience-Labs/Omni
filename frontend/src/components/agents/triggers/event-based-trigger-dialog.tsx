@@ -232,7 +232,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                 connected_account_id: selectedProfile?.connected_account_id,
             };
             const payload = executionType === 'agent'
-                ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read aloud this:\n\n{{payload}}') }
+                ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read this') }
                 : { ...base, route: 'workflow' as const, workflow_id: selectedWorkflowId, workflow_input: workflowInput };
             await createTrigger.mutateAsync(payload);
             toast.success('Event trigger created');
@@ -254,8 +254,8 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-6xl h-[90vh] p-0" style={{ overflow: 'hidden' }}>
-                <div className="h-full flex flex-col">
-                    <DialogHeader className="flex-shrink-0 border-b p-6">
+                <div className="h-full grid grid-rows-[1fr_auto]">
+                    <DialogHeader className="h-fit border-b p-6">
                         <div className="flex items-center gap-3">
                             {step !== 'apps' && (
                                 <Button
@@ -430,9 +430,9 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                             )}
 
                             {step === 'config' && selectedTrigger && (
-                                <div className="flex-1 flex flex-col">
-                                    <div className="flex-1" style={{ overflow: 'auto', maxHeight: 'calc(90vh - 120px)' }}>
-                                        <div className="p-6 pb-12">
+                                <div className="flex-1 grid grid-rows-[1fr_auto]" style={{ maxHeight: 'calc(90vh - 88px)' }}>
+                                    <div className="overflow-auto">
+                                        <div className="p-6 pb-4">
                                             <div className="max-w-3xl mx-auto space-y-8">
                                                 {selectedTrigger.instructions && (
                                                     <div className="text-sm text-muted-foreground flex items-start gap-3 p-4 rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50">
@@ -498,7 +498,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                                                             rows={4}
                                                                             value={prompt}
                                                                             onChange={(e) => setPrompt(e.target.value)}
-                                                                            placeholder="Read aloud this:\n\n<code>payload</code>"
+                                                                            placeholder="Read this"
                                                                         />
                                                                         <p className="text-xs text-muted-foreground">Use <code className="text-xs text-muted-foreground">payload</code> to include the trigger data</p>
                                                                     </div>
@@ -564,37 +564,34 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                                                 )}
                                                             </div>
                                                         </div>
-
-                                                        <div className="flex justify-center">
-                                                            <Button
-                                                                onClick={handleCreate}
-                                                                disabled={createTrigger.isPending || !name.trim() || !profileId || (executionType === 'agent' ? !prompt.trim() : !selectedWorkflowId)}
-                                                                className="px-8"
-                                                                size="lg"
-                                                            >
-                                                                {createTrigger.isPending ? (
-                                                                    <>
-                                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                                        Creating Trigger...
-                                                                    </>
-                                                                ) : (
-                                                                    'Create Trigger'
-                                                                )}
-                                                            </Button>
-                                                        </div>
-
-                                                        {/* Debug info - remove later */}
-                                                        <div className="text-xs text-muted-foreground text-center space-y-1">
-                                                            <div>ProfileId: {profileId || 'none'}</div>
-                                                            <div>Connected profiles: {(profiles || []).filter(p => p.is_connected).length}</div>
-                                                            <div>Name: {name.trim() ? '✓' : '✗'}</div>
-                                                            <div>Execution: {executionType}</div>
-                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Sticky Footer */}
+                                    {(!loadingProfiles && (profiles || []).filter(p => p.is_connected).length > 0) && (
+                                        <div className="border-t bg-background/95 backdrop-blur-sm py-3 px-4">
+                                            <div className="max-w-3xl mx-auto flex justify-end">
+                                                <Button
+                                                    onClick={handleCreate}
+                                                    disabled={createTrigger.isPending || !name.trim() || !profileId || (executionType === 'agent' ? !prompt.trim() : !selectedWorkflowId)}
+                                                    className="px-4"
+                                                    size="sm"
+                                                >
+                                                    {createTrigger.isPending ? (
+                                                        <>
+                                                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                                            Creating...
+                                                        </>
+                                                    ) : (
+                                                        'Create Trigger'
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

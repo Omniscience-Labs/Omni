@@ -25,7 +25,7 @@ interface OneClickIntegrationsProps {
 
 const OAUTH_PROVIDERS = {
   schedule: {
-    name: 'Schedule',
+    name: 'Create Schedule Trigger',
     icon: <Clock className="h-4 w-4" color="#10b981" />,
     isOAuth: false
   }
@@ -133,14 +133,7 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
-        <Button
-          variant="default"
-          size='sm'
-          onClick={() => setShowEventDialog(true)}
-          className="flex items-center gap-2"
-        >
-          <PlugZap className="h-4 w-4" /> New Event-based Trigger
-        </Button>
+
         {Object.entries(OAUTH_PROVIDERS).map(([providerId, config]) => {
           const provider = providerId as ProviderKey;
           const isInstalled = isProviderInstalled(provider);
@@ -177,6 +170,14 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
             </Button>
           );
         })}
+        <Button
+          variant="default"
+          size='sm'
+          onClick={() => setShowEventDialog(true)}
+          className="flex items-center gap-2"
+        >
+          <PlugZap className="h-4 w-4" /> Create Event-based Trigger
+        </Button>
       </div>
       <EventBasedTriggerDialog open={showEventDialog} onOpenChange={setShowEventDialog} agentId={agentId} />
       {configuringSchedule && (

@@ -120,6 +120,9 @@ class TriggerService:
         if not trigger:
             raise ValueError(f"Trigger not found: {trigger_id}")
         
+        # Track previous activation state to optimize provider reconciliation
+        previous_is_active = trigger.is_active
+
         if config is not None:
             from .provider_service import get_provider_service
             provider_service = get_provider_service(self._db)
@@ -136,16 +139,29 @@ class TriggerService:
         
         trigger.updated_at = datetime.now(timezone.utc)
         
-        # Reconcile provider scheduling when config changes or activation state toggles
-        if (config is not None) or (is_active is not None):
+        # Reconcile provider when config changes or activation state toggles
+        config_changed = config is not None
+        activation_toggled = (is_active is not None) and (previous_is_active != trigger.is_active)
+
+        if config_changed or activation_toggled:
             from .provider_service import get_provider_service
             provider_service = get_provider_service(self._db)
-            
-            await provider_service.teardown_trigger(trigger)
-            if trigger.is_active:
-                setup_success = await provider_service.setup_trigger(trigger)
-                if not setup_success:
-                    raise ValueError(f"Failed to update trigger setup: {trigger_id}")
+
+            if config_changed:
+                # For config changes, fully teardown and (re)setup if active
+                await provider_service.teardown_trigger(trigger)
+                if trigger.is_active:
+                    setup_success = await provider_service.setup_trigger(trigger)
+                    if not setup_success:
+                        raise ValueError(f"Failed to update trigger setup: {trigger_id}")
+            else:
+                # Only activation toggled; call the minimal required action
+                if trigger.is_active:
+                    setup_success = await provider_service.setup_trigger(trigger)
+                    if not setup_success:
+                        raise ValueError(f"Failed to enable trigger: {trigger_id}")
+                else:
+                    await provider_service.teardown_trigger(trigger)
         
         await self._update_trigger(trigger)
         

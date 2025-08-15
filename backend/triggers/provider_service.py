@@ -444,11 +444,28 @@ class ComposioEventProvider(TriggerProvider):
     def __init__(self):
         # Use WEBHOOK to match existing DB enum (no migration needed)
         super().__init__("composio", TriggerType.WEBHOOK)
-        self._api_base = os.getenv("COMPOSIO_API_BASE", "https://api.composio.dev")
+        self._api_base = os.getenv("COMPOSIO_API_BASE", "https://backend.composio.dev")
         self._api_key = os.getenv("COMPOSIO_API_KEY", "")
 
     def _headers(self) -> Dict[str, str]:
         return {"x-api-key": self._api_key, "Content-Type": "application/json"}
+
+    def _api_bases(self) -> List[str]:
+        # Try env-configured base first, then known public bases
+        candidates: List[str] = [
+            self._api_base,
+            "https://backend.composio.dev",
+        ]
+        seen: set[str] = set()
+        unique: List[str] = []
+        for base in candidates:
+            if not isinstance(base, str) or not base:
+                continue
+            if base in seen:
+                continue
+            seen.add(base)
+            unique.append(base.rstrip("/"))
+        return unique
 
     async def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         composio_trigger_id = config.get("composio_trigger_id")
@@ -472,19 +489,22 @@ class ComposioEventProvider(TriggerProvider):
                 return True
             if not self._api_key:
                 return True
-            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+            # Use canonical payload first per Composio API; include tolerant fallbacks
             payload_candidates: List[Dict[str, Any]] = [
+                {"status": "enable"},
                 {"status": "enabled"},
                 {"enabled": True},
             ]
             async with httpx.AsyncClient(timeout=10) as client:
-                for body in payload_candidates:
-                    try:
-                        resp = await client.patch(url, headers=self._headers(), json=body)
-                        if resp.status_code in (200, 204):
-                            return True
-                    except Exception:
-                        continue
+                for api_base in self._api_bases():
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    for body in payload_candidates:
+                        try:
+                            resp = await client.patch(url, headers=self._headers(), json=body)
+                            if resp.status_code in (200, 204):
+                                return True
+                        except Exception:
+                            continue
             return True
         except Exception:
             return True
@@ -497,19 +517,22 @@ class ComposioEventProvider(TriggerProvider):
                 return True
             if not self._api_key:
                 return True
-            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+            # Use canonical payload first per Composio API; include tolerant fallbacks
             payload_candidates: List[Dict[str, Any]] = [
+                {"status": "disable"},
                 {"status": "disabled"},
                 {"enabled": False},
             ]
             async with httpx.AsyncClient(timeout=10) as client:
-                for body in payload_candidates:
-                    try:
-                        resp = await client.patch(url, headers=self._headers(), json=body)
-                        if resp.status_code in (200, 204):
-                            return True
-                    except Exception:
-                        continue
+                for api_base in self._api_bases():
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    for body in payload_candidates:
+                        try:
+                            resp = await client.patch(url, headers=self._headers(), json=body)
+                            if resp.status_code in (200, 204):
+                                return True
+                        except Exception:
+                            continue
             return True
         except Exception:
             return True
@@ -522,14 +545,15 @@ class ComposioEventProvider(TriggerProvider):
                 return True
             if not self._api_key:
                 return True
-            url = f"{self._api_base}/api/v3/trigger_instances/manage/{trigger_id}"
             async with httpx.AsyncClient(timeout=10) as client:
-                try:
-                    resp = await client.delete(url, headers=self._headers())
-                    if resp.status_code in (200, 204):
-                        return True
-                except Exception:
-                    return False
+                for api_base in self._api_bases():
+                    url = f"{api_base}/api/v3/trigger_instances/manage/{trigger_id}"
+                    try:
+                        resp = await client.delete(url, headers=self._headers())
+                        if resp.status_code in (200, 204):
+                            return True
+                    except Exception:
+                        continue
             return False
         except Exception:
             return False

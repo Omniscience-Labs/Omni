@@ -58,11 +58,16 @@ Build structured, repeatable processes:
 - **`activate_workflow`**: Enable/disable workflow execution
 
 ### ⏰ Trigger Management
-Schedule automatic execution:
+Schedule automatic execution and event-based triggers:
 - **`create_scheduled_trigger`**: Set up cron-based scheduling
 - **`get_scheduled_triggers`**: View all scheduled tasks
 - **`delete_scheduled_trigger`**: Remove scheduled tasks
 - **`toggle_scheduled_trigger`**: Enable/disable scheduled execution
+\nEvent-based triggers (Composio):
+- **`list_event_trigger_apps`**: Discover apps with available event triggers
+- **`list_app_event_triggers`**: List triggers for a specific app (includes config schema)
+- **`list_event_profiles`**: List connected profiles to get `profile_id` and `connected_account_id`
+- **`create_event_trigger`**: Create an event trigger by passing `slug`, `profile_id`, `connected_account_id`, `trigger_config`, and route (`agent` or `workflow`). If route is `agent`, pass `agent_prompt`; if `workflow`, pass `workflow_id` (and optional `workflow_input`).
 
 ### 📊 Agent Management
 - **`get_current_agent_config`**: Review current setup and capabilities
