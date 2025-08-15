@@ -343,6 +343,9 @@ export function useAgentStream(
           // Handle other message types if necessary, e.g., if backend sends historical context
           if (message.message_id) callbacks.onMessage(message);
           break;
+        case 'heartbeat':
+          // Silently ignore heartbeat messages - they're just to keep connection alive
+          break;
         default:
           console.warn(
             '[useAgentStream] Unhandled message type:',
