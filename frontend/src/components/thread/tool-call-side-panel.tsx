@@ -6,7 +6,7 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiMessageType } from '@/components/thread/types';
-import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check, Globe, RefreshCw } from 'lucide-react';
+import { CircleDashed, X, ChevronLeft, ChevronRight, Computer, Radio, Maximize2, Minimize2, Copy, Check, Globe, RefreshCw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { ToolView } from './tool-views/wrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { HealthCheckedVncIframe } from './HealthCheckedVncIframe';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+
 import {
   Drawer,
   DrawerContent,
@@ -70,6 +70,58 @@ interface ToolCallSnapshot {
 const FLOATING_LAYOUT_ID = 'tool-panel-float';
 const CONTENT_LAYOUT_ID = 'tool-panel-content';
 
+interface ViewToggleProps {
+  currentView: 'tools' | 'browser';
+  onViewChange: (view: 'tools' | 'browser') => void;
+}
+
+const ViewToggle: React.FC<ViewToggleProps> = ({ currentView, onViewChange }) => {
+  return (
+    <div className="relative flex items-center gap-1 bg-muted rounded-3xl px-1 py-1">
+      {/* Sliding background */}
+      <motion.div
+        className="absolute h-7 w-7 bg-white rounded-xl shadow-sm"
+        initial={false}
+        animate={{
+          x: currentView === 'tools' ? 0 : 32, // 28px button width + 4px gap
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 300,
+          damping: 30
+        }}
+      />
+      
+      {/* Buttons */}
+      <Button
+        size="sm"
+        onClick={() => onViewChange('tools')}
+        className={`relative z-10 h-7 w-7 p-0 rounded-xl bg-transparent hover:bg-transparent ${
+          currentView === 'tools'
+            ? 'text-black'
+            : 'text-gray-500 dark:text-gray-400'
+        }`}
+        title="Tools"
+      >
+        <Wrench className="h-3.5 w-3.5" />
+      </Button>
+
+      <Button
+        size="sm"
+        onClick={() => onViewChange('browser')}
+        className={`relative z-10 h-7 w-7 p-0 rounded-xl bg-transparent hover:bg-transparent ${
+          currentView === 'browser'
+            ? 'text-black'
+            : 'text-gray-500 dark:text-gray-400'
+        }`}
+        title="Browser"
+      >
+        <Globe className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+};
+
 // Helper function to generate the computer title
 const getComputerTitle = (agentName?: string): string => {
   return agentName ? `${agentName}'s Computer` : "Suna's Computer";
@@ -108,33 +160,21 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           <DrawerTitle className="text-lg font-medium">
             {title}
           </DrawerTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-8 w-8"
-            title="Minimize to floating preview"
-          >
-            <Minimize2 className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        {/* Tabs for Tools/Browser toggle */}
-        <div className="mt-2">
-            <Tabs value={currentView} onValueChange={(value) => {
-             onViewChange?.(value as 'tools' | 'browser');
-            }}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="tools" className="flex items-center gap-2">
-                <Computer className="h-4 w-4" />
-                Tools
-              </TabsTrigger>
-              <TabsTrigger value="browser" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Browser
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-3">
+            <ViewToggle 
+              currentView={currentView} 
+              onViewChange={onViewChange}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8"
+              title="Minimize to floating preview"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </DrawerHeader>
     );
@@ -146,46 +186,26 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
         layoutId={layoutId}
         className="p-3"
       >
-        <div className="flex items-center justify-between mb-3">
-          <motion.div layoutId="tool-icon" className="ml-2 flex items-center gap-2">
-            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-              {title}
-            </h2>
-          </motion.div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <motion.div layoutId="tool-icon" className="ml-2">
+              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                {title}
+              </h2>
+            </motion.div>
+          </div>
 
-          {hasToolResult && !isStreaming && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8 ml-1"
-                title="Minimize to floating preview"
-              >
-                <Minimize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          {isStreaming && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <ViewToggle 
+              currentView={currentView} 
+              onViewChange={onViewChange || (() => {})} 
+            />
+            {isStreaming && (
               <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 flex items-center gap-1.5">
                 <CircleDashed className="h-3 w-3 animate-spin" />
                 <span>Running</span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8 ml-1"
-                title="Minimize to floating preview"
-              >
-                <Minimize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          {!hasToolResult && !isStreaming && (
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -195,25 +215,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             >
               <Minimize2 className="h-4 w-4" />
             </Button>
-          )}
-        </div>
-
-        {/* Tabs for Tools/Browser toggle */}
-        <div className="mx-2">
-            <Tabs value={currentView} onValueChange={(value) => {
-              onViewChange?.(value as 'tools' | 'browser');
-            }}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="tools" className="flex items-center gap-2">
-                <Computer className="h-4 w-4" />
-                Tools
-              </TabsTrigger>
-              <TabsTrigger value="browser" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Browser
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          </div>
         </div>
       </motion.div>
     );
@@ -221,11 +223,17 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
 
   return (
     <div className="pt-4 pl-4 pr-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="ml-2 flex items-center gap-2">
-          <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-            {title}
-          </h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="ml-2">
+            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              {title}
+            </h2>
+          </div>
+          <ViewToggle 
+            currentView={currentView} 
+            onViewChange={onViewChange || (() => {})} 
+          />
         </div>
         <div className="flex items-center gap-2">
           {isStreaming && (
@@ -244,24 +252,6 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             {showMinimize ? <Minimize2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
           </Button>
         </div>
-      </div>
-
-      {/* Tabs for Tools/Browser toggle */}
-      <div className="mx-2">
-            <Tabs value={currentView} onValueChange={(value) => {
-              onViewChange?.(value as 'tools' | 'browser');
-            }}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tools" className="flex items-center gap-2">
-              <Computer className="h-4 w-4" />
-              Tools
-            </TabsTrigger>
-            <TabsTrigger value="browser" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
-              Browser
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
     </div>
   );
