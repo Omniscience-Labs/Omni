@@ -9,6 +9,7 @@ export interface ImageEditGenerateData {
   success?: boolean;
   timestamp?: string;
   error?: string | null;
+  
 }
 
 const parseContent = (content: any): any => {
@@ -90,7 +91,7 @@ const extractFromLegacyFormat = (content: any): ImageEditGenerateData => {
     // Extract generated image path from the result
     let generatedImagePath: string | null = null;
     if (toolData.toolResult && typeof toolData.toolResult === 'string') {
-      const imagePathMatch = toolData.toolResult.match(/Image saved as:\s*([^\s.]+\.(png|jpg|jpeg|webp|gif))/i);
+      const imagePathMatch = (toolData.toolResult as string).match(/Image saved as:\s*([^\s.]+\.(png|jpg|jpeg|webp|gif))/i);
       if (imagePathMatch) {
         generatedImagePath = imagePathMatch[1];
       }
@@ -101,10 +102,10 @@ const extractFromLegacyFormat = (content: any): ImageEditGenerateData => {
       prompt: toolData.arguments.prompt || null,
       imagePath: toolData.arguments.image_path || null,
       generatedImagePath,
-      status: toolData.toolResult,
-      success: toolData.success,
+      status: toolData.toolResult?.toolOutput || null,
+      success: toolData.toolResult?.isSuccess,
       timestamp: undefined,
-      error: toolData.error || null
+      error: null
     };
   }
 

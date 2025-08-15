@@ -1,7 +1,7 @@
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 from services.supabase import DBConnection
 from services import redis
@@ -192,8 +192,13 @@ class AgentExecutor:
                 agent_id, agent_config, trigger_event
             )
             
+            # Merge context into execution variables for agent visibility
+            merged_variables = dict(trigger_result.execution_variables or {})
+            if hasattr(trigger_event, "context") and isinstance(trigger_event.context, dict):
+                merged_variables["context"] = trigger_event.context
+
             await self._create_initial_message(
-                thread_id, trigger_result.agent_prompt, trigger_result.execution_variables
+                thread_id, trigger_result.agent_prompt, merged_variables
             )
             
             agent_run_id = await self._start_agent_execution(
@@ -265,8 +270,39 @@ class AgentExecutor:
         trigger_data: Dict[str, Any]
     ) -> None:
         client = await self._db.client
-        
-        message_payload = {"role": "user", "content": prompt}
+
+        # Minimal template interpolation for common placeholders
+        rendered_content = prompt
+        try:
+            if isinstance(trigger_data, dict) and "context" in trigger_data:
+                ctx = trigger_data.get("context") or {}
+                payload_obj = ctx.get("payload") if isinstance(ctx, dict) else None
+                trigger_slug = ctx.get("trigger_slug") if isinstance(ctx, dict) else None
+                webhook_id = ctx.get("webhook_id") if isinstance(ctx, dict) else None
+
+                def _to_json(o: Any) -> str:
+                    try:
+                        return json.dumps(o, ensure_ascii=False, indent=2)
+                    except Exception:
+                        return str(o)
+
+                if "{{payload}}" in rendered_content:
+                    rendered_content = rendered_content.replace("{{payload}}", _to_json(payload_obj))
+                if "{{trigger_slug}}" in rendered_content:
+                    rendered_content = rendered_content.replace("{{trigger_slug}}", str(trigger_slug or ""))
+                if "{{webhook_id}}" in rendered_content:
+                    rendered_content = rendered_content.replace("{{webhook_id}}", str(webhook_id or ""))
+                # Append full context block
+                try:
+                    context_json = json.dumps(ctx, ensure_ascii=False, indent=2)
+                except Exception:
+                    context_json = str(ctx)
+                rendered_content = f"{rendered_content}\n\n---\nContext\n{context_json}"
+        except Exception:
+            # Fall back silently to original prompt
+            rendered_content = prompt
+
+        message_payload = {"role": "user", "content": rendered_content}
         
         await client.table('messages').insert({
             "message_id": str(uuid.uuid4()),
@@ -374,7 +410,12 @@ class WorkflowExecutor:
             )
             
             await self._validate_workflow_execution(account_id)
-            await self._create_workflow_message(thread_id, workflow_config, workflow_input)
+            await self._create_workflow_message(
+                thread_id,
+                workflow_config,
+                workflow_input,
+                trigger_event.context if hasattr(trigger_event, "context") else None,
+            )
             
             agent_run_id = await self._start_workflow_agent_execution(
                 thread_id, project_id, enhanced_agent_config
@@ -525,7 +566,8 @@ class WorkflowExecutor:
         self,
         thread_id: str,
         workflow_config: Dict[str, Any],
-        workflow_input: Dict[str, Any]
+        workflow_input: Dict[str, Any],
+        event_context: Optional[Dict[str, Any]] = None
     ) -> None:
         client = await self._db.client
         
@@ -534,6 +576,12 @@ class WorkflowExecutor:
             f"**Inputs:**\n"
             + ("\n".join(f"- **{k.replace('_',' ').title()}:** {v}" for k, v in workflow_input.items()) if workflow_input else "- None")
         )
+        if event_context is not None:
+            try:
+                ctx_json = json.dumps(event_context, ensure_ascii=False, indent=2)
+            except Exception:
+                ctx_json = str(event_context)
+            message_content = f"{message_content}\n\n---\nContext\n{ctx_json}"
         
         await client.table('messages').insert({
             "message_id": str(uuid.uuid4()),
