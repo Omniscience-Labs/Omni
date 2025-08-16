@@ -2152,6 +2152,22 @@ async def update_agent(
                 workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).execute()
                 workflows = workflows_result.data if workflows_result.data else []
                 
+                # Fetch triggers for the agent
+                triggers_result = await client.table('agent_triggers').select('*').eq('agent_id', agent_id).execute()
+                triggers = []
+                if triggers_result.data:
+                    import json
+                    for trigger in triggers_result.data:
+                        # Parse the config string if it's a string
+                        trigger_copy = trigger.copy()
+                        if 'config' in trigger_copy and isinstance(trigger_copy['config'], str):
+                            try:
+                                trigger_copy['config'] = json.loads(trigger_copy['config'])
+                            except json.JSONDecodeError:
+                                logger.warning(f"Failed to parse trigger config for {trigger_copy.get('trigger_id')}")
+                                trigger_copy['config'] = {}
+                        triggers.append(trigger_copy)
+                
                 initial_version_data = {
                     "agent_id": agent_id,
                     "version_number": 1,
@@ -2171,7 +2187,8 @@ async def update_agent(
                     custom_mcps=initial_version_data["custom_mcps"],
                     avatar=None,
                     avatar_color=None,
-                    workflows=workflows
+                    workflows=workflows,
+                    triggers=triggers
                 )
                 initial_version_data["config"] = initial_config
                 

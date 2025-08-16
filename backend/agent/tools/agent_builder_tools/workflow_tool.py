@@ -25,6 +25,20 @@ class WorkflowTool(AgentBuilderBaseTool):
             workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', self.agent_id).execute()
             workflows = workflows_result.data if workflows_result.data else []
             
+            triggers_result = await client.table('agent_triggers').select('*').eq('agent_id', self.agent_id).execute()
+            triggers = []
+            if triggers_result.data:
+                import json
+                for trigger in triggers_result.data:
+                    trigger_copy = trigger.copy()
+                    if 'config' in trigger_copy and isinstance(trigger_copy['config'], str):
+                        try:
+                            trigger_copy['config'] = json.loads(trigger_copy['config'])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse trigger config for {trigger_copy.get('trigger_id')}")
+                            trigger_copy['config'] = {}
+                    triggers.append(trigger_copy)
+            
             version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
             if not version_result.data:
                 logger.warning(f"Version {current_version_id} not found")
@@ -33,10 +47,11 @@ class WorkflowTool(AgentBuilderBaseTool):
             config = version_result.data.get('config', {})
             
             config['workflows'] = workflows
+            config['triggers'] = triggers
             
             await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
             
-            logger.info(f"Synced {len(workflows)} workflows to version config for agent {self.agent_id}")
+            logger.info(f"Synced {len(workflows)} workflows and {len(triggers)} triggers to version config for agent {self.agent_id}")
             
         except Exception as e:
             logger.error(f"Failed to sync workflows to version config: {e}")

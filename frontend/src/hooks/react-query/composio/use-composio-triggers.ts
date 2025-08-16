@@ -80,6 +80,7 @@ export interface CreateComposioEventTriggerRequest {
   workflow_id?: string;
   workflow_input?: Record<string, any>;
   connected_account_id?: string;
+  toolkit_slug?: string;
 }
 
 export const useCreateComposioEventTrigger = () => {
