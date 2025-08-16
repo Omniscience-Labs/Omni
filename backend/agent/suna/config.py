@@ -11,20 +11,32 @@ class SunaConfig:
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
     DEFAULT_TOOLS = {
+        # Core sandbox tools
         "sb_shell_tool": True,
         "sb_files_tool": True,
-        "sb_web_dev_tool": True,
-        "browser_tool": True,
         "sb_deploy_tool": True,
         "sb_expose_tool": True,
         "web_search_tool": True,
         "sb_vision_tool": True,
         "sb_image_edit_tool": True,
-        "data_providers_tool": True,
         "sb_presentation_outline_tool": True,
         "sb_presentation_tool": True,
+        "sb_presentation_tool_v2": True,
         "sb_sheets_tool": True,
-        "sb_slides_tool": True
+        "sb_web_dev_tool": True,
+        
+        # Browser and interaction tools
+        "browser_tool": True,
+        
+        # Data provider tools
+        "data_providers_tool": True,
+        
+        # Agent builder tools (for configuration and management)
+        "agent_config_tool": True,
+        "mcp_search_tool": True,
+        "credential_profile_tool": True,
+        "workflow_tool": True,
+        "trigger_tool": True
     }
     
     DEFAULT_MCPS = []
