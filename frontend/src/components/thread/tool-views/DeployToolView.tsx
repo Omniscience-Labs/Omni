@@ -75,17 +75,68 @@ function extractDeployData(assistantContent: any, toolContent: any): {
             }
 
             if (resultData) {
+                // The backend returns result.output as a string; try to parse as JSON first
+                let parsedOutput: any = null;
+                if (typeof resultData.output === 'string') {
+                    try {
+                        parsedOutput = JSON.parse(resultData.output);
+                    } catch (_) {
+                        parsedOutput = null;
+                    }
+                } else if (resultData.output && typeof resultData.output === 'object') {
+                    parsedOutput = resultData.output;
+                }
+
+                const explicitUrl = parsedOutput?.url || resultData.url;
+                const explicitMessage = parsedOutput?.message || resultData.message;
+                const explicitRaw = parsedOutput?.output ?? resultData.output;
+
                 deployResult = {
-                    message: resultData.output?.message || null,
-                    output: resultData.output?.output || null,
+                    message: explicitMessage || null,
+                    output: typeof explicitRaw === 'string' ? explicitRaw : (explicitRaw ? JSON.stringify(explicitRaw) : null),
                     success: resultData.success !== undefined ? resultData.success : true,
+                    url: typeof explicitUrl === 'string' ? explicitUrl : undefined,
                 };
 
-                // Try to extract deployment URL from output
-                if (deployResult.output) {
-                    const urlMatch = deployResult.output.match(/https:\/\/[^\s]+\.pages\.dev[^\s]*/);
-                    if (urlMatch) {
-                        deployResult.url = urlMatch[0];
+                // Fallback to extracting from raw output if URL not explicitly provided
+                if (!deployResult.url && deployResult.output) {
+                    const matches = Array.from(
+                        deployResult.output.matchAll(/https:\/\/[^\s"']*\.pages\.dev[^\s"']*/g)
+                    ).map(m => m[0]);
+
+                    if (matches.length > 0) {
+                        // Prefer canonical production domain (project.pages.dev => hostname has 3 parts)
+                        let chosen: string | undefined = undefined;
+                        for (const u of matches) {
+                            try {
+                                const hostParts = new URL(u).hostname.split('.');
+                                if (hostParts.length === 3 && hostParts[1] === 'pages' && hostParts[2] === 'dev') {
+                                    chosen = u;
+                                    break;
+                                }
+                            } catch (_) {
+                                // ignore parse errors
+                            }
+                        }
+
+                        // If only a preview URL exists (hash.project.pages.dev), derive production by stripping the first label
+                        if (!chosen) {
+                            const first = matches[0];
+                            try {
+                                const urlObj = new URL(first);
+                                const hostParts = urlObj.hostname.split('.');
+                                if (hostParts.length > 3 && hostParts.slice(-2).join('.') === 'pages.dev') {
+                                    const prodHost = hostParts.slice(1).join('.'); // drop preview hash
+                                    chosen = `${urlObj.protocol}//${prodHost}${urlObj.pathname}`;
+                                } else {
+                                    chosen = first;
+                                }
+                            } catch (_) {
+                                chosen = first;
+                            }
+                        }
+
+                        deployResult.url = chosen;
                     }
                 }
             }
