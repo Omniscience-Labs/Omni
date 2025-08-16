@@ -41,12 +41,16 @@ interface AgentModelSelectorProps {
   value?: string;
   onChange: (model: string) => void;
   disabled?: boolean;
+  variant?: 'default' | 'menu-item';
+  className?: string;
 }
 
 export function AgentModelSelector({
   value,
   onChange,
   disabled = false,
+  variant = 'default',
+  className,
 }: AgentModelSelectorProps) {
   const { allModels, canAccessModel, subscriptionStatus } = useModelSelection();
   const { data: modelsData } = useAvailableModels();
@@ -405,33 +409,62 @@ export function AgentModelSelector({
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild disabled={disabled}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-8 px-4 py-2",
-                    disabled && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <div className="relative flex items-center justify-center">
-                    <Cpu className="h-4 w-4" />
-                    {MODELS[selectedModel]?.lowQuality && (
-                      <AlertTriangle className="h-2.5 w-2.5 text-amber-500 absolute -top-1 -right-1" />
+                {variant === 'menu-item' ? (
+                  <div
+                    className={cn(
+                      "flex items-center justify-between cursor-pointer rounded-lg px-3 py-2 mx-0 my-0.5 text-sm hover:bg-accent",
+                      disabled && "opacity-50 cursor-not-allowed",
+                      className
                     )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="relative flex items-center justify-center">
+                        <Cpu className="h-4 w-4" />
+                        {MODELS[selectedModel]?.lowQuality && (
+                          <AlertTriangle className="h-2.5 w-2.5 text-amber-500 absolute -top-1 -right-1" />
+                        )}
+                      </div>
+                      <span className="truncate">{selectedModelDisplay}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {MODELS[selectedModel]?.recommended && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
+                          Recommended
+                        </span>
+                      )}
+                      <Check className="h-4 w-4 text-blue-500" />
+                    </div>
                   </div>
-                  <span className="text-sm">{selectedModelDisplay}</span>
-                </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-4 py-2",
+                      disabled && "opacity-50 cursor-not-allowed",
+                      className
+                    )}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <Cpu className="h-4 w-4" />
+                      {MODELS[selectedModel]?.lowQuality && (
+                        <AlertTriangle className="h-2.5 w-2.5 text-amber-500 absolute -top-1 -right-1" />
+                      )}
+                    </div>
+                    <span className="text-sm">{selectedModelDisplay}</span>
+                  </Button>
+                )}
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
+            <TooltipContent side={variant === 'menu-item' ? 'left' : 'top'} className="text-xs">
               <p>Choose a model for this agent</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <DropdownMenuContent
-          align="start"
+          align={variant === 'menu-item' ? 'end' : 'start'}
           className="w-72 p-0 overflow-hidden"
-          sideOffset={4}
+          sideOffset={variant === 'menu-item' ? 8 : 4}
         >
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent w-full">
             <div>
