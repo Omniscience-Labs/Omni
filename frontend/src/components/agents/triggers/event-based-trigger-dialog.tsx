@@ -230,6 +230,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                 trigger_config: config,
                 name: name || `${selectedTrigger.toolkit.name} → ${executionType === 'agent' ? 'Agent' : 'Workflow'}`,
                 connected_account_id: selectedProfile?.connected_account_id,
+                toolkit_slug: selectedApp?.slug,
             };
             const payload = executionType === 'agent'
                 ? { ...base, route: 'agent' as const, agent_prompt: (prompt || 'Read this') }

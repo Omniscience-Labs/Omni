@@ -20,6 +20,8 @@ class MCPRequirementValue:
     custom_type: Optional[str] = None
     toolkit_slug: Optional[str] = None
     app_slug: Optional[str] = None
+    source: Optional[str] = None
+    trigger_index: Optional[int] = None
     
     def is_custom(self) -> bool:
         if self.qualified_name.startswith('pipedream:'):
@@ -80,7 +82,8 @@ class AgentTemplate:
                     qualified_name=qualified_name,
                     display_name=mcp.get('display_name') or mcp['name'],
                     enabled_tools=mcp.get('enabledTools', []),
-                    required_config=mcp.get('requiredConfig', [])
+                    required_config=mcp.get('requiredConfig', []),
+                    source='tool'
                 ))
         
         custom_mcps = self.config.get('tools', {}).get('custom_mcp', [])
@@ -117,8 +120,47 @@ class AgentTemplate:
                     required_config=required_config,
                     custom_type=mcp_type,
                     toolkit_slug=mcp.get('toolkit_slug') if mcp_type == 'composio' else None,
-                    app_slug=mcp.get('app_slug') if mcp_type == 'pipedream' else None
+                    app_slug=mcp.get('app_slug') if mcp_type == 'pipedream' else None,
+                    source='tool'
                 ))
+        
+        triggers = self.config.get('triggers', [])
+        
+        for i, trigger in enumerate(triggers):
+            config = trigger.get('config', {})
+            provider_id = config.get('provider_id', '')
+            
+            if provider_id == 'composio':
+                qualified_name = config.get('qualified_name')
+                
+                if not qualified_name:
+                    trigger_slug = config.get('trigger_slug', '')
+                    if trigger_slug:
+                        app_name = trigger_slug.split('_')[0].lower() if '_' in trigger_slug else 'composio'
+                        qualified_name = f'composio.{app_name}'
+                    else:
+                        qualified_name = 'composio'
+                
+                if qualified_name:
+                    if qualified_name.startswith('composio.'):
+                        app_name = qualified_name.split('.', 1)[1]
+                    else:
+                        app_name = 'composio'
+                    
+                    trigger_name = trigger.get('name', f'Trigger {i+1}')
+                    
+                    composio_req = MCPRequirementValue(
+                        qualified_name=qualified_name,
+                        display_name=f"{app_name.title()} ({trigger_name})",
+                        enabled_tools=[],
+                        required_config=[],
+                        custom_type=None,
+                        toolkit_slug=app_name,
+                        app_slug=app_name,
+                        source='trigger',
+                        trigger_index=i
+                    )
+                    requirements.append(composio_req)
         
         return requirements
 
@@ -414,6 +456,50 @@ class TemplateService:
                 }
                 sanitized_workflows.append(sanitized_workflow)
         
+        triggers = config.get('triggers', [])
+        sanitized_triggers = []
+        for trigger in triggers:
+            if isinstance(trigger, dict):
+                trigger_config = trigger.get('config', {})
+                provider_id = trigger_config.get('provider_id', '')
+                
+                sanitized_config = {
+                    'provider_id': provider_id,
+                    'agent_prompt': trigger_config.get('agent_prompt', ''),
+                    'execution_type': trigger_config.get('execution_type', 'agent')
+                }
+                
+                if sanitized_config['execution_type'] == 'workflow':
+                    workflow_id = trigger_config.get('workflow_id')
+                    if workflow_id:
+                        workflow_name = None
+                        for workflow in workflows:
+                            if workflow.get('id') == workflow_id:
+                                workflow_name = workflow.get('name')
+                                break
+                        if workflow_name:
+                            sanitized_config['workflow_name'] = workflow_name
+                    
+                    if 'workflow_input' in trigger_config:
+                        sanitized_config['workflow_input'] = trigger_config['workflow_input']
+                
+                if provider_id == 'schedule':
+                    sanitized_config['cron_expression'] = trigger_config.get('cron_expression', '')
+                    sanitized_config['timezone'] = trigger_config.get('timezone', 'UTC')
+                elif provider_id == 'composio':
+                    sanitized_config['trigger_slug'] = trigger_config.get('trigger_slug', '')
+                    if 'qualified_name' in trigger_config:
+                        sanitized_config['qualified_name'] = trigger_config['qualified_name']
+
+                sanitized_trigger = {
+                    'name': trigger.get('name'),
+                    'description': trigger.get('description'),
+                    'trigger_type': trigger.get('trigger_type'),
+                    'is_active': trigger.get('is_active', True),
+                    'config': sanitized_config
+                }
+                sanitized_triggers.append(sanitized_trigger)
+        
         sanitized = {
             'system_prompt': config.get('system_prompt', ''),
             'model': config.get('model'),
@@ -422,7 +508,8 @@ class TemplateService:
                 'mcp': config.get('tools', {}).get('mcp', []),
                 'custom_mcp': []
             },
-            'workflows': sanitized_workflows,  # Use sanitized workflows
+            'workflows': sanitized_workflows,
+            'triggers': sanitized_triggers,
             'metadata': {
                 'avatar': config.get('metadata', {}).get('avatar'),
                 'avatar_color': config.get('metadata', {}).get('avatar_color')
@@ -465,7 +552,7 @@ class TemplateService:
                     sanitized_mcp['config'] = {
                         'url': original_config.get('url'),
                         'headers': {k: v for k, v in original_config.get('headers', {}).items() 
-                                  if k not in ['profile_id', 'x-pd-app-slug']}  # Remove profile-specific data
+                                  if k not in ['profile_id', 'x-pd-app-slug']}
                     }
                     
                 elif mcp_type == 'composio':
@@ -473,7 +560,7 @@ class TemplateService:
                     qualified_name = (
                         mcp.get('mcp_qualified_name') or 
                         original_config.get('mcp_qualified_name') or
-                        mcp.get('qualifiedName') or  # fallback for old format
+                        mcp.get('qualifiedName') or
                         original_config.get('qualifiedName')
                     )
                     toolkit_slug = (
@@ -495,7 +582,7 @@ class TemplateService:
                     sanitized_mcp['mcp_qualified_name'] = qualified_name
                     sanitized_mcp['toolkit_slug'] = toolkit_slug
                     sanitized_mcp['config'] = {}
-                    
+                
                 else:
                     qualified_name = mcp.get('qualifiedName')
                     if not qualified_name:

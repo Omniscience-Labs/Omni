@@ -26,6 +26,7 @@ from .composio_trigger_service import ComposioTriggerService
 from triggers.trigger_service import get_trigger_service, TriggerEvent, TriggerType
 from triggers.execution_service import get_execution_service
 from .client import ComposioClient
+from triggers.api import sync_triggers_to_version_config
 
 router = APIRouter(prefix="/composio", tags=["composio"])
 
@@ -569,17 +570,10 @@ async def list_toolkit_tools(
         raise HTTPException(status_code=500, detail=f"Failed to get toolkit tools: {str(e)}")
 
 
-## REMOVED: /triggers/types
-
-
-## REMOVED: /triggers/types/enum
-
-
 @router.get("/triggers/apps")
 async def list_apps_with_triggers(
     user_id: str = Depends(get_current_user_id_from_jwt),
 ) -> Dict[str, Any]:
-    """Return toolkits that have at least one available trigger, with logo, slug, name."""
     try:
         trigger_service = ComposioTriggerService()
         return await trigger_service.list_apps_with_triggers()
@@ -596,7 +590,6 @@ async def list_triggers_for_app(
     toolkit_slug: str,
     user_id: str = Depends(get_current_user_id_from_jwt),
 ) -> Dict[str, Any]:
-    """Return full trigger definitions for a given toolkit (slug), including config/payload and toolkit logo (HTTP-only)."""
     try:
         trigger_service = ComposioTriggerService()
         return await trigger_service.list_triggers_for_app(toolkit_slug)
@@ -606,6 +599,8 @@ async def list_triggers_for_app(
     except Exception as e:
         logger.error(f"Error listing triggers for app {toolkit_slug}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
 class CreateComposioTriggerRequest(BaseModel):
     agent_id: str
     profile_id: str
@@ -618,44 +613,45 @@ class CreateComposioTriggerRequest(BaseModel):
     workflow_input: Optional[Dict[str, Any]] = None
     connected_account_id: Optional[str] = None
     webhook_url: Optional[str] = None
-
-
-## REMOVED: /triggers/type/{slug}
+    toolkit_slug: Optional[str] = None
 
 
 @router.post("/triggers/create")
 async def create_composio_trigger(req: CreateComposioTriggerRequest, current_user_id: str = Depends(get_current_user_id_from_jwt)) -> Dict[str, Any]:
     try:
-        # Verify agent belongs to current user
         client_db = await db.client
         agent_check = await client_db.table('agents').select('agent_id').eq('agent_id', req.agent_id).eq('account_id', current_user_id).execute()
         if not agent_check.data:
             raise HTTPException(status_code=404, detail="Agent not found or access denied")
 
-        # Fetch composio user_id from profile config
         profile_service = ComposioProfileService(db)
         profile_config = await profile_service.get_profile_config(req.profile_id)
         composio_user_id = profile_config.get("user_id")
         if not composio_user_id:
             raise HTTPException(status_code=400, detail="Composio profile is missing user_id")
+        
+        toolkit_slug = req.toolkit_slug
+        if not toolkit_slug:
+            toolkit_slug = profile_config.get("toolkit_slug")
 
-        # Create Composio trigger via HTTP v3 API (robust against SDK changes)
+        if not toolkit_slug and req.slug:
+            toolkit_slug = req.slug.split('_')[0].lower() if '_' in req.slug else 'composio'
+
+        qualified_name = f'composio.{toolkit_slug}' if toolkit_slug and toolkit_slug != 'composio' else 'composio'
+
         api_key = os.getenv("COMPOSIO_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="COMPOSIO_API_KEY not configured")
 
         url = f"{COMPOSIO_API_BASE}/api/v3/trigger_instances/{req.slug}/upsert"
         headers = {"x-api-key": api_key, "Content-Type": "application/json"}
-        # Provide webhook details so Composio can deliver events
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         secret = os.getenv("COMPOSIO_WEBHOOK_SECRET", "")
         webhook_headers = {"X-Composio-Secret": secret} if secret else {}
-        # Include vercel bypass header if present (staging)
         vercel_bypass = os.getenv("VERCEL_PROTECTION_BYPASS_KEY", "")
         if vercel_bypass:
             webhook_headers["X-Vercel-Protection-Bypass"] = vercel_bypass
 
-        # Fetch trigger type schema to coerce config types minimally
         coerced_config = dict(req.trigger_config or {})
         try:
             type_url = f"{COMPOSIO_API_BASE}/api/v3/triggers_types/{req.slug}"
@@ -695,12 +691,10 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             pass
 
         body = {
-            # tolerant casing
             "user_id": composio_user_id,
             "userId": composio_user_id,
             "trigger_config": coerced_config,
             "triggerConfig": coerced_config,
-            # webhook config
             "webhook": {
                 "url": req.webhook_url or f"{base_url}/api/composio/webhook",
                 "headers": webhook_headers,
@@ -708,7 +702,6 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             },
         }
         if req.connected_account_id:
-            # Tolerate multiple API shapes
             body["connectedAccountId"] = req.connected_account_id
             body["connected_account_id"] = req.connected_account_id
             body["connectedAccountIds"] = [req.connected_account_id]
@@ -719,7 +712,6 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             try:
                 resp.raise_for_status()
             except httpx.HTTPStatusError:
-                # Bubble up API error body for quick debugging
                 ct = resp.headers.get("content-type", "")
                 if "application/json" in ct:
                     detail = resp.json()
@@ -728,7 +720,6 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
                 logger.error(f"Composio upsert error: {detail}")
                 raise HTTPException(status_code=400, detail=detail)
             created = resp.json()
-            # Minimal debug log of response shape (no secrets)
             try:
                 top_keys = list(created.keys()) if isinstance(created, dict) else None
                 logger.info(
@@ -740,7 +731,6 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             except Exception:
                 pass
 
-        # Extract composio trigger id from various possible shapes
         composio_trigger_id = None
         def _extract_id(obj: Dict[str, Any]) -> Optional[str]:
             if not isinstance(obj, dict):
@@ -814,8 +804,10 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
 
         # Build Suna trigger config
         suna_config: Dict[str, Any] = {
+            "provider_id": "composio",
             "composio_trigger_id": composio_trigger_id,
             "trigger_slug": req.slug,
+            "qualified_name": qualified_name,  # Store the qualified_name for template export
             "execution_type": req.route if req.route in ("agent", "workflow") else "agent",
             "profile_id": req.profile_id,
         }
@@ -838,6 +830,9 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             config=suna_config,
             description=f"Composio event: {req.slug}"
         )
+
+        # Immediately sync triggers to the current version config
+        await sync_triggers_to_version_config(req.agent_id)
 
         base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
         webhook_url = f"{base_url}/api/composio/webhook"
@@ -964,7 +959,7 @@ async def composio_webhook(request: Request):
             cfg = row.get("config") or {}
             if not isinstance(cfg, dict):
                 continue
-            prov = cfg.get("provider_id")
+            prov = cfg.get("provider_id") or row.get("provider_id")
             if prov != "composio":
                 try:
                     logger.info("Composio skip non-provider", trigger_id=row.get("trigger_id"), provider_id=prov)

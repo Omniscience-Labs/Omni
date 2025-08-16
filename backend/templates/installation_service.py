@@ -2,10 +2,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from uuid import uuid4
+import os
+import httpx
 
 from services.supabase import DBConnection
 from utils.logger import logger
 from .template_service import AgentTemplate, MCPRequirementValue, ConfigType, ProfileId, QualifiedName
+from triggers.api import sync_triggers_to_version_config
 
 @dataclass(frozen=True)
 class AgentInstance:
@@ -53,6 +56,8 @@ class InstallationService:
     
     async def install_template(self, request: TemplateInstallationRequest) -> TemplateInstallationResult:
         logger.info(f"Installing template {request.template_id} for user {request.account_id}")
+        logger.info(f"Initial profile_mappings from request: {request.profile_mappings}")
+        logger.info(f"Initial custom_mcp_configs from request: {request.custom_mcp_configs}")
         
         template = await self._get_template(request.template_id)
         if not template:
@@ -60,19 +65,26 @@ class InstallationService:
         
         await self._validate_access(template, request.account_id)
         
-        mcp_requirements = template.mcp_requirements
+        all_requirements = list(template.mcp_requirements or [])
+        
+        logger.info(f"Total requirements from template: {[r.qualified_name for r in all_requirements]}")
+        logger.info(f"Request profile_mappings: {request.profile_mappings}")
         
         if not request.profile_mappings:
             request.profile_mappings = await self._auto_map_profiles(
-                mcp_requirements,
+                all_requirements,
                 request.account_id
             )
+            logger.info(f"Auto-mapped profiles: {request.profile_mappings}")
         
         missing_profiles, missing_configs = await self._validate_installation_requirements(
-            mcp_requirements,
+            all_requirements,
             request.profile_mappings,
             request.custom_mcp_configs
         )
+        
+        logger.info(f"Missing profiles: {[p['qualified_name'] for p in missing_profiles]}")
+        logger.info(f"Missing configs: {[c['qualified_name'] for c in missing_configs]}")
         
         if missing_profiles or missing_configs:
             return TemplateInstallationResult(
@@ -89,7 +101,7 @@ class InstallationService:
         agent_config = await self._build_agent_config(
             template,
             request,
-            mcp_requirements
+            all_requirements
         )
         
         agent_id = await self._create_agent(
@@ -106,6 +118,8 @@ class InstallationService:
         )
         
         await self._restore_workflows(agent_id, template.config) 
+        await self._restore_triggers(agent_id, request.account_id, template.config, request.profile_mappings)
+        
         await self._increment_download_count(template.template_id)
         
         agent_name = request.instance_name or f"{template.name} (from marketplace)"
@@ -134,6 +148,9 @@ class InstallationService:
         profile_mappings = {}
         
         for req in requirements:
+            if req.qualified_name.startswith('composio.'):
+                continue
+                
             if not req.is_custom():
                 from credentials import get_profile_service
                 profile_service = get_profile_service(self._db)
@@ -142,8 +159,15 @@ class InstallationService:
                 )
                 
                 if default_profile:
-                    profile_mappings[req.qualified_name] = default_profile.profile_id
-                    logger.info(f"Auto-mapped {req.qualified_name} to profile {default_profile.profile_id}")
+                    if req.source == 'trigger' and req.trigger_index is not None:
+                        trigger_key = f"{req.qualified_name}_trigger_{req.trigger_index}"
+                        profile_mappings[trigger_key] = default_profile.profile_id
+                        logger.info(f"Auto-mapped {trigger_key} to profile {default_profile.profile_id} (trigger)")
+                    else:
+                        profile_mappings[req.qualified_name] = default_profile.profile_id
+                        logger.info(f"Auto-mapped {req.qualified_name} to profile {default_profile.profile_id}")
+            else:
+                logger.info(f"Skipping custom requirement: {req.qualified_name}")
         
         return profile_mappings
     
@@ -184,10 +208,17 @@ class InstallationService:
                         'custom_type': req.custom_type,
                         'field_descriptions': field_descriptions,
                         'toolkit_slug': req.toolkit_slug,
-                        'app_slug': req.app_slug
+                        'app_slug': req.app_slug,
+                        'source': req.source,
+                        'trigger_index': req.trigger_index
                     })
             else:
-                if req.qualified_name not in profile_mappings:
+                if req.source == 'trigger' and req.trigger_index is not None:
+                    profile_key = f"{req.qualified_name}_trigger_{req.trigger_index}"
+                else:
+                    profile_key = req.qualified_name
+                
+                if profile_key not in profile_mappings:
                     missing_profiles.append({
                         'qualified_name': req.qualified_name,
                         'display_name': req.display_name,
@@ -195,7 +226,9 @@ class InstallationService:
                         'required_config': req.required_config,
                         'custom_type': req.custom_type,
                         'toolkit_slug': req.toolkit_slug,
-                        'app_slug': req.app_slug
+                        'app_slug': req.app_slug,
+                        'source': req.source,
+                        'trigger_index': req.trigger_index
                     })
         
         return missing_profiles, missing_configs
@@ -228,7 +261,9 @@ class InstallationService:
         from credentials import get_profile_service
         profile_service = get_profile_service(self._db)
         
-        for req in requirements:
+        tool_requirements = [req for req in requirements if req.source != 'trigger']
+        
+        for req in tool_requirements:
             if req.is_custom():
                 config = request.custom_mcp_configs.get(req.qualified_name, {})
                 
@@ -246,7 +281,9 @@ class InstallationService:
                 }
                 agent_config['tools']['custom_mcp'].append(custom_mcp)
             else:
-                profile_id = request.profile_mappings.get(req.qualified_name)
+                profile_key = req.qualified_name
+                profile_id = request.profile_mappings.get(profile_key)
+                
                 if profile_id:
                     profile = await profile_service.get_profile(request.account_id, profile_id)
                     if profile:
@@ -408,6 +445,38 @@ class InstallationService:
                 logger.error(f"Failed to restore workflow '{workflow.get('name', 'Unknown')}' for agent {agent_id}: {e}")
         
         logger.info(f"Successfully restored {restored_count}/{len(workflows)} workflows for agent {agent_id}")
+
+        if restored_count > 0:
+            await self._sync_workflows_to_version_config(agent_id)
+    
+    async def _sync_workflows_to_version_config(self, agent_id: str) -> None:
+        try:
+            client = await self._db.client
+            
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).single().execute()
+            if not agent_result.data or not agent_result.data.get('current_version_id'):
+                logger.warning(f"No current version found for agent {agent_id}")
+                return
+            
+            current_version_id = agent_result.data['current_version_id']
+            
+            workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', agent_id).execute()
+            workflows = workflows_result.data if workflows_result.data else []
+            
+            version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
+            if not version_result.data:
+                logger.warning(f"Version {current_version_id} not found")
+                return
+            
+            config = version_result.data.get('config', {})
+            
+            config['workflows'] = workflows
+            
+            await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
+            logger.info(f"Synced {len(workflows)} workflows to version config for agent {agent_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to sync workflows to version config for agent {agent_id}: {e}")
     
     def _regenerate_step_ids(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not steps:
@@ -448,6 +517,303 @@ class InstallationService:
             new_steps.append(new_step)
         
         return new_steps
+    
+    async def _restore_triggers(
+        self,
+        agent_id: str,
+        account_id: str,
+        config: Dict[str, Any],
+        profile_mappings: Optional[Dict[str, str]] = None
+    ) -> None:
+        triggers = config.get('triggers', [])
+        if not triggers:
+            logger.info(f"No triggers to restore for agent {agent_id}")
+            return
+        
+        client = await self._db.client
+        workflow_name_to_id = {}
+        workflows_result = await client.table('agent_workflows').select('id, name').eq('agent_id', agent_id).execute()
+        if workflows_result.data:
+            for workflow in workflows_result.data:
+                workflow_name_to_id[workflow['name']] = workflow['id']
+        
+        created_count = 0
+        failed_count = 0
+        
+        for i, trigger in enumerate(triggers):
+            trigger_config = trigger.get('config', {})
+            provider_id = trigger_config.get('provider_id', '')
+            
+            workflow_id = None
+            if trigger_config.get('execution_type') == 'workflow':
+                workflow_name = trigger_config.get('workflow_name')
+                if workflow_name and workflow_name in workflow_name_to_id:
+                    workflow_id = workflow_name_to_id[workflow_name]
+                else:
+                    logger.warning(f"Workflow '{workflow_name}' not found for trigger '{trigger.get('name')}'")
+            
+            if provider_id == 'composio':
+                qualified_name = trigger_config.get('qualified_name')
+                
+                trigger_profile_key = f"{qualified_name}_trigger_{i}"
+                
+                success = await self._create_composio_trigger(
+                    agent_id=agent_id,
+                    account_id=account_id,
+                    trigger_name=trigger.get('name', 'Unnamed Trigger'),
+                    trigger_description=trigger.get('description'),
+                    is_active=trigger.get('is_active', True),
+                    trigger_slug=trigger_config.get('trigger_slug', ''),
+                    qualified_name=qualified_name,
+                    execution_type=trigger_config.get('execution_type', 'agent'),
+                    agent_prompt=trigger_config.get('agent_prompt'),
+                    workflow_id=workflow_id,
+                    workflow_input=trigger_config.get('workflow_input'),
+                    profile_mappings=profile_mappings,
+                    trigger_profile_key=trigger_profile_key
+                )
+                
+                if success:
+                    created_count += 1
+                else:
+                    failed_count += 1
+            else:
+                trigger_data = {
+                    'trigger_id': str(uuid4()),
+                    'agent_id': agent_id,
+                    'trigger_type': trigger.get('trigger_type', 'webhook'),
+                    'name': trigger.get('name', 'Unnamed Trigger'),
+                    'description': trigger.get('description'),
+                    'is_active': trigger.get('is_active', True),
+                    'config': trigger_config,
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'updated_at': datetime.now(timezone.utc).isoformat()
+                }
+                result = await client.table('agent_triggers').insert(trigger_data).execute()
+                if result.data:
+                    created_count += 1
+                    logger.info(f"Restored trigger '{trigger_data['name']}' for agent {agent_id}")
+                else:
+                    failed_count += 1
+                    logger.warning(f"Failed to insert trigger '{trigger.get('name')}' for agent {agent_id}")
+        
+        logger.info(f"Successfully restored {created_count}/{len(triggers)} triggers for agent {agent_id}")
+        
+        if created_count > 0:
+            await self._sync_triggers_to_version_config(agent_id)
+    
+    async def _sync_triggers_to_version_config(self, agent_id: str) -> None:
+        try:
+            client = await self._db.client
+            
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', agent_id).single().execute()
+            if not agent_result.data or not agent_result.data.get('current_version_id'):
+                logger.warning(f"No current version found for agent {agent_id}")
+                return
+            
+            current_version_id = agent_result.data['current_version_id']
+            
+            triggers_result = await client.table('agent_triggers').select('*').eq('agent_id', agent_id).execute()
+            triggers = []
+            if triggers_result.data:
+                import json
+                for trigger in triggers_result.data:
+                    trigger_copy = trigger.copy()
+                    if 'config' in trigger_copy and isinstance(trigger_copy['config'], str):
+                        try:
+                            trigger_copy['config'] = json.loads(trigger_copy['config'])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse trigger config for {trigger_copy.get('trigger_id')}")
+                            trigger_copy['config'] = {}
+                    triggers.append(trigger_copy)
+            
+            version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
+            if not version_result.data:
+                logger.warning(f"Version {current_version_id} not found")
+                return
+            
+            config = version_result.data.get('config', {})
+            
+            config['triggers'] = triggers
+            
+            await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
+            
+            logger.info(f"Synced {len(triggers)} triggers to version config for agent {agent_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to sync triggers to version config for agent {agent_id}: {e}")
+
+    async def _create_composio_trigger(
+        self,
+        agent_id: str,
+        account_id: str,
+        trigger_name: str,
+        trigger_description: Optional[str],
+        is_active: bool,
+        trigger_slug: str,
+        qualified_name: Optional[str],
+        execution_type: str,
+        agent_prompt: Optional[str],
+        workflow_id: Optional[str],
+        workflow_input: Optional[Dict[str, Any]],
+        profile_mappings: Dict[str, str],
+        trigger_profile_key: Optional[str] = None
+    ) -> bool:
+        try:
+            if not trigger_slug:
+                return False
+            
+            if not qualified_name:
+                app_name = trigger_slug.split('_')[0].lower() if '_' in trigger_slug else 'composio'
+                qualified_name = f'composio.{app_name}'
+            else:
+                if qualified_name.startswith('composio.'):
+                    app_name = qualified_name.split('.', 1)[1]
+                else:
+                    app_name = 'composio'
+            
+            profile_id = None
+            keys_to_check = []
+            
+            if trigger_profile_key:
+                keys_to_check.append(trigger_profile_key)
+            
+            keys_to_check.extend([
+                qualified_name,
+                f'composio.{app_name}',
+                'composio'
+            ])
+            
+            for key in keys_to_check:
+                if key in profile_mappings:
+                    profile_id = profile_mappings[key]
+                    break
+                
+            if not profile_id:
+                from credentials import get_profile_service
+                profile_service = get_profile_service(self._db)
+                default_profile = await profile_service.get_default_profile(account_id, qualified_name)
+                if not default_profile:
+                    default_profile = await profile_service.get_default_profile(account_id, 'composio')
+                if default_profile:
+                    profile_id = default_profile.profile_id
+                else:
+                    logger.warning(f"No default profile found for {qualified_name} or composio")
+            
+            if not profile_id:
+                return False
+
+            from composio_integration.composio_profile_service import ComposioProfileService
+            profile_service = ComposioProfileService(self._db)
+            profile_config = await profile_service.get_profile_config(profile_id)
+            composio_user_id = profile_config.get('user_id')
+            if not composio_user_id:
+                return False
+            
+            connected_account_id = profile_config.get('connected_account_id')
+
+            api_key = os.getenv("COMPOSIO_API_KEY")
+            if not api_key:
+                logger.warning("COMPOSIO_API_KEY not configured; skipping Composio trigger upsert")
+                return False
+
+            api_base = os.getenv("COMPOSIO_API_BASE", "https://backend.composio.dev").rstrip("/")
+            url = f"{api_base}/api/v3/trigger_instances/{trigger_slug}/upsert"
+            headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+
+            base_url = os.getenv("WEBHOOK_BASE_URL", "http://localhost:8000")
+            secret = os.getenv("COMPOSIO_WEBHOOK_SECRET", "")
+            webhook_headers: Dict[str, Any] = {"X-Composio-Secret": secret} if secret else {}
+            vercel_bypass = os.getenv("VERCEL_PROTECTION_BYPASS_KEY", "")
+            if vercel_bypass:
+                webhook_headers["X-Vercel-Protection-Bypass"] = vercel_bypass
+
+            body = {
+                "user_id": composio_user_id,
+                "userId": composio_user_id,
+                "trigger_config": {},
+                "triggerConfig": {},
+                "webhook": {
+                    "url": f"{base_url}/api/composio/webhook",
+                    "headers": webhook_headers,
+                    "method": "POST",
+                },
+            }
+
+            if connected_account_id:
+                body["connectedAccountId"] = connected_account_id
+                body["connected_account_id"] = connected_account_id
+                body["connectedAccountIds"] = [connected_account_id]
+                body["connected_account_ids"] = [connected_account_id]
+                logger.info(f"Adding connected_account_id to Composio trigger request: {connected_account_id}")
+            else:
+                logger.warning("No connected_account_id found - trigger creation may fail for OAuth apps")
+            
+            logger.info(f"Creating Composio trigger with URL: {url}")
+            async with httpx.AsyncClient(timeout=20) as http_client:
+                resp = await http_client.post(url, headers=headers, json=body)
+                resp.raise_for_status()
+                created = resp.json()
+            def _extract_id(obj: Dict[str, Any]) -> Optional[str]:
+                if not isinstance(obj, dict):
+                    return None
+                cand = (
+                    obj.get("id")
+                    or obj.get("trigger_id")
+                    or obj.get("triggerId")
+                    or obj.get("nano_id")
+                    or obj.get("nanoId")
+                    or obj.get("triggerNanoId")
+                )
+                if cand:
+                    return cand
+                for k in ("trigger", "trigger_instance", "triggerInstance", "data", "result"):
+                    nested = obj.get(k)
+                    if isinstance(nested, dict):
+                        nid = _extract_id(nested)
+                        if nid:
+                            return nid
+                    if isinstance(nested, list) and nested:
+                        nid = _extract_id(nested[0])
+                        if nid:
+                            return nid
+                return None
+            composio_trigger_id = _extract_id(created) if isinstance(created, dict) else None
+            if not composio_trigger_id:
+                logger.warning("Failed to extract Composio trigger id; skipping")
+                return False
+
+            from triggers.trigger_service import get_trigger_service
+            trigger_service = get_trigger_service(self._db)
+            config: Dict[str, Any] = {
+                "composio_trigger_id": composio_trigger_id,
+                "trigger_slug": trigger_slug,
+                "execution_type": execution_type,
+                "qualified_name": qualified_name,
+                "profile_id": profile_id,
+                "provider_id": "composio"
+            }
+            if execution_type == "agent" and agent_prompt:
+                config["agent_prompt"] = agent_prompt
+            if execution_type == "workflow" and workflow_id:
+                config["workflow_id"] = workflow_id
+                if workflow_input:
+                    config["workflow_input"] = workflow_input
+
+            await trigger_service.create_trigger(
+                agent_id=agent_id,
+                provider_id="composio",
+                name=trigger_name,
+                config=config,
+                description=trigger_description,
+            )
+            return True
+        except httpx.HTTPError as e:
+            logger.error(f"Composio trigger upsert failed during installation: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to create Composio trigger during installation: {e}")
+            return False
     
     async def _increment_download_count(self, template_id: str) -> None:
         client = await self._db.client
