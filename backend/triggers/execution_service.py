@@ -192,7 +192,6 @@ class AgentExecutor:
                 agent_id, agent_config, trigger_event
             )
             
-            # Merge context into execution variables for agent visibility
             merged_variables = dict(trigger_result.execution_variables or {})
             if hasattr(trigger_event, "context") and isinstance(trigger_event.context, dict):
                 merged_variables["context"] = trigger_event.context
@@ -221,21 +220,23 @@ class AgentExecutor:
             }
     
     async def _get_agent_config(self, agent_id: str) -> Dict[str, Any]:
-
-        
         try:
+            logger.info(f"Getting agent config for agent_id: {agent_id}")
+            
             client = await self._db.client
-            agent_result = await client.table('agents').select('account_id, name').eq('agent_id', agent_id).execute()
+            agent_result = await client.table('agents').select('account_id, name, current_version_id').eq('agent_id', agent_id).execute()
+            
             if not agent_result.data:
+                logger.error(f"Agent not found in database: {agent_id}")
                 return None
             
             agent_data = agent_result.data[0]
+            account_id = agent_data.get('account_id')
+            current_version_id = agent_data.get('current_version_id')
+            logger.info(f"Found agent in database: {agent_data.get('name')}, account_id: {account_id}, current_version_id: {current_version_id}")
             
-            from agent.versioning.version_service import get_version_service
-            version_service = await get_version_service()
-            
-            active_version = await version_service.get_active_version(agent_id, "system")
-            if not active_version:
+            if not current_version_id:
+                logger.error(f"Agent {agent_id} has no current_version_id set. This is likely the cause of the fallback to default prompt.")
                 return {
                     'agent_id': agent_id,
                     'account_id': agent_data.get('account_id'),
@@ -246,21 +247,62 @@ class AgentExecutor:
                     'agentpress_tools': {},
                 }
             
-            return {
-                'agent_id': agent_id,
-                'account_id': agent_data.get('account_id'),
-                'name': agent_data.get('name', 'Unknown Agent'),
-                'system_prompt': active_version.system_prompt,
-                'model': active_version.model,
-                'configured_mcps': active_version.configured_mcps,
-                'custom_mcps': active_version.custom_mcps,
-                'agentpress_tools': active_version.agentpress_tools if isinstance(active_version.agentpress_tools, dict) else {},
-                'current_version_id': active_version.version_id,
-                'version_name': active_version.version_name
-            }
+            from agent.versioning.version_service import get_version_service
+            version_service = await get_version_service()
+            
+            user_id_for_version = account_id if account_id else "system"
+            
+            try:
+                version = await version_service.get_version(agent_id, current_version_id, user_id_for_version)
+                logger.info(f"Successfully retrieved version {current_version_id} for agent {agent_id}: {version.version_name}")
+                
+                return {
+                    'agent_id': agent_id,
+                    'account_id': agent_data.get('account_id'),
+                    'name': agent_data.get('name', 'Unknown Agent'),
+                    'system_prompt': version.system_prompt,
+                    'model': version.model,
+                    'configured_mcps': version.configured_mcps,
+                    'custom_mcps': version.custom_mcps,
+                    'agentpress_tools': version.agentpress_tools if isinstance(version.agentpress_tools, dict) else {},
+                    'current_version_id': version.version_id,
+                    'version_name': version.version_name
+                }
+                
+            except Exception as version_error:
+                logger.error(f"Failed to get version {current_version_id} for agent {agent_id}: {type(version_error).__name__}: {version_error}")
+                if user_id_for_version != "system":
+                    try:
+                        version = await version_service.get_version(agent_id, current_version_id, "system")
+                        return {
+                            'agent_id': agent_id,
+                            'account_id': agent_data.get('account_id'),
+                            'name': agent_data.get('name', 'Unknown Agent'),
+                            'system_prompt': version.system_prompt,
+                            'model': version.model,
+                            'configured_mcps': version.configured_mcps,
+                            'custom_mcps': version.custom_mcps,
+                            'agentpress_tools': version.agentpress_tools if isinstance(version.agentpress_tools, dict) else {},
+                            'current_version_id': version.version_id,
+                            'version_name': version.version_name
+                        }
+                        
+                    except Exception as system_version_error:
+                        logger.error(f"Failed to get version {current_version_id} with system user for agent {agent_id}: {type(system_version_error).__name__}: {system_version_error}")
+                
+                logger.error(f"Unable to retrieve version {current_version_id} for agent {agent_id}. Using fallback configuration.")
+                return {
+                    'agent_id': agent_id,
+                    'account_id': agent_data.get('account_id'),
+                    'name': agent_data.get('name', 'Unknown Agent'),
+                    'system_prompt': 'You are a helpful AI assistant.',
+                    'configured_mcps': [],
+                    'custom_mcps': [],
+                    'agentpress_tools': {},
+                }
             
         except Exception as e:
-            logger.warning(f"Failed to get agent config using versioning system: {e}")
+            logger.error(f"Failed to get agent config using versioning system for agent {agent_id}: {e}", exc_info=True)
             return None
     
     async def _create_initial_message(
@@ -271,7 +313,6 @@ class AgentExecutor:
     ) -> None:
         client = await self._db.client
 
-        # Minimal template interpolation for common placeholders
         rendered_content = prompt
         try:
             if isinstance(trigger_data, dict) and "context" in trigger_data:
@@ -292,14 +333,12 @@ class AgentExecutor:
                     rendered_content = rendered_content.replace("{{trigger_slug}}", str(trigger_slug or ""))
                 if "{{webhook_id}}" in rendered_content:
                     rendered_content = rendered_content.replace("{{webhook_id}}", str(webhook_id or ""))
-                # Append full context block
                 try:
                     context_json = json.dumps(ctx, ensure_ascii=False, indent=2)
                 except Exception:
                     context_json = str(ctx)
                 rendered_content = f"{rendered_content}\n\n---\nContext\n{context_json}"
         except Exception:
-            # Fall back silently to original prompt
             rendered_content = prompt
 
         message_payload = {"role": "user", "content": rendered_content}
