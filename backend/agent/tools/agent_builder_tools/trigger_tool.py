@@ -4,6 +4,7 @@ from agentpress.tool import ToolResult, openapi_schema, usage_example
 from agentpress.thread_manager import ThreadManager
 from .base_tool import AgentBuilderBaseTool
 from utils.logger import logger
+from utils.config import config, EnvMode
 from datetime import datetime
 from services.supabase import DBConnection
 from triggers import get_trigger_service
@@ -17,130 +18,7 @@ class TriggerTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
 
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "list_event_trigger_apps",
-            "description": "List apps (toolkits) that have available event-based triggers via Composio. Returns slug, name, and logo.",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_event_trigger_apps"></invoke>
-        </function_calls>
-    ''')
-    async def list_event_trigger_apps(self) -> ToolResult:
-        try:
-            trigger_service = ComposioTriggerService()
-            response = await trigger_service.list_apps_with_triggers()
-            
-            # Return exact same format as API
-            return self.success_response({
-                "message": f"Found {response['total']} apps with triggers",
-                "items": response["items"],
-                "total": response["total"]
-            })
-        except Exception as e:
-            logger.error(f"Error listing event trigger apps: {e}")
-            return self.fail_response(f"Error listing apps: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "list_app_event_triggers",
-            "description": "List available triggers for a given app/toolkit slug. Includes slug, name, description, type, instructions, config, and payload schema.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "toolkit_slug": {
-                        "type": "string",
-                        "description": "Toolkit slug, e.g. 'gmail'"
-                    }
-                },
-                "required": ["toolkit_slug"]
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_app_event_triggers">
-        <parameter name="toolkit_slug">gmail</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def list_app_event_triggers(self, toolkit_slug: str) -> ToolResult:
-        try:
-            trigger_service = ComposioTriggerService()
-            response = await trigger_service.list_triggers_for_app(toolkit_slug)
-            
-            # Return exact same format as API
-            return self.success_response({
-                "message": f"Found {response['total']} triggers for {toolkit_slug}",
-                "items": response["items"],
-                "toolkit": response["toolkit"],
-                "total": response["total"]
-            })
-        except Exception as e:
-            logger.error(f"Error listing triggers for app {toolkit_slug}: {e}")
-            return self.fail_response(f"Error listing triggers: {str(e)}")
-
-    @openapi_schema({
-        "type": "function",
-        "function": {
-            "name": "list_event_profiles",
-            "description": "List connected Composio profiles for a toolkit. Use this to get profile_id and connected_account_id before creating a trigger.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "toolkit_slug": {
-                        "type": "string",
-                        "description": "Toolkit slug, e.g. 'gmail'"
-                    }
-                },
-                "required": ["toolkit_slug"]
-            }
-        }
-    })
-    @usage_example('''
-        <function_calls>
-        <invoke name="list_event_profiles">
-        <parameter name="toolkit_slug">gmail</parameter>
-        </invoke>
-        </function_calls>
-    ''')
-    async def list_event_profiles(self, toolkit_slug: str) -> ToolResult:
-        try:
-            client = await self.db.client
-            agent_rows = await client.table('agents').select('account_id').eq('agent_id', self.agent_id).execute()
-            if not agent_rows.data:
-                return self.fail_response("Agent not found")
-            account_id = agent_rows.data[0]['account_id']
-
-            profile_service = ComposioProfileService(self.db)
-            profiles = await profile_service.get_profiles(account_id, toolkit_slug)
-
-            items = []
-            for p in profiles:
-                items.append({
-                    "profile_id": p.profile_id,
-                    "display_name": p.display_name,
-                    "is_connected": p.is_connected,
-                    "connected_account_id": getattr(p, 'connected_account_id', None)
-                })
-
-            return self.success_response({
-                "message": f"Found {len(items)} profile(s) for {toolkit_slug}",
-                "items": items,
-                "total": len(items)
-            })
-        except Exception as e:
-            logger.error(f"Error listing event profiles: {e}")
-            return self.fail_response(f"Error listing profiles: {str(e)}")
+    # ===== SCHEDULED TRIGGERS =====
 
     @openapi_schema({
         "type": "function",
@@ -474,6 +352,142 @@ class TriggerTool(AgentBuilderBaseTool):
             logger.error(f"Error toggling scheduled trigger: {str(e)}")
             return self.fail_response(f"Error toggling scheduled trigger: {str(e)}")
 
+    # ===== EVENT-BASED TRIGGERS (Non-Production Only) =====
+
+# Event trigger methods - only available in non-production environments  
+if config.ENV_MODE != EnvMode.PRODUCTION:
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_event_trigger_apps",
+            "description": "List apps (toolkits) that have available event-based triggers via Composio. Returns slug, name, and logo.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="list_event_trigger_apps"></invoke>
+        </function_calls>
+    ''')
+    async def list_event_trigger_apps(self) -> ToolResult:
+        try:
+            trigger_service = ComposioTriggerService()
+            response = await trigger_service.list_apps_with_triggers()
+            
+            # Return exact same format as API
+            return self.success_response({
+                "message": f"Found {response['total']} apps with triggers",
+                "items": response["items"],
+                "total": response["total"]
+            })
+        except Exception as e:
+            logger.error(f"Error listing event trigger apps: {e}")
+            return self.fail_response(f"Error listing apps: {str(e)}")
+    
+    TriggerTool.list_event_trigger_apps = list_event_trigger_apps
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_app_event_triggers",
+            "description": "List available triggers for a given app/toolkit slug. Includes slug, name, description, type, instructions, config, and payload schema.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "toolkit_slug": {
+                        "type": "string",
+                        "description": "Toolkit slug, e.g. 'gmail'"
+                    }
+                },
+                "required": ["toolkit_slug"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="list_app_event_triggers">
+        <parameter name="toolkit_slug">gmail</parameter>
+        </invoke>
+        </function_calls>
+    ''')
+    async def list_app_event_triggers(self, toolkit_slug: str) -> ToolResult:
+        try:
+            trigger_service = ComposioTriggerService()
+            response = await trigger_service.list_triggers_for_app(toolkit_slug)
+            
+            # Return exact same format as API
+            return self.success_response({
+                "message": f"Found {response['total']} triggers for {toolkit_slug}",
+                "items": response["items"],
+                "toolkit": response["toolkit"],
+                "total": response["total"]
+            })
+        except Exception as e:
+            logger.error(f"Error listing triggers for app {toolkit_slug}: {e}")
+            return self.fail_response(f"Error listing triggers: {str(e)}")
+    
+    TriggerTool.list_app_event_triggers = list_app_event_triggers
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "list_event_profiles",
+            "description": "List connected Composio profiles for a toolkit. Use this to get profile_id and connected_account_id before creating a trigger.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "toolkit_slug": {
+                        "type": "string",
+                        "description": "Toolkit slug, e.g. 'gmail'"
+                    }
+                },
+                "required": ["toolkit_slug"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="list_event_profiles">
+        <parameter name="toolkit_slug">gmail</parameter>
+        </invoke>
+        </function_calls>
+    ''')
+    async def list_event_profiles(self, toolkit_slug: str) -> ToolResult:
+        try:
+            client = await self.db.client
+            agent_rows = await client.table('agents').select('account_id').eq('agent_id', self.agent_id).execute()
+            if not agent_rows.data:
+                return self.fail_response("Agent not found")
+            account_id = agent_rows.data[0]['account_id']
+
+            profile_service = ComposioProfileService(self.db)
+            profiles = await profile_service.get_profiles(account_id, toolkit_slug)
+
+            items = []
+            for p in profiles:
+                items.append({
+                    "profile_id": p.profile_id,
+                    "display_name": p.display_name,
+                    "is_connected": p.is_connected,
+                    "connected_account_id": getattr(p, 'connected_account_id', None)
+                })
+
+            return self.success_response({
+                "message": f"Found {len(items)} profile(s) for {toolkit_slug}",
+                "items": items,
+                "total": len(items)
+            })
+        except Exception as e:
+            logger.error(f"Error listing event profiles: {e}")
+            return self.fail_response(f"Error listing profiles: {str(e)}")
+    
+    TriggerTool.list_event_profiles = list_event_profiles
+
     @openapi_schema({
         "type": "function",
         "function": {
@@ -712,3 +726,5 @@ class TriggerTool(AgentBuilderBaseTool):
         except Exception as e:
             logger.error(f"Error creating event trigger: {e}", exc_info=True)
             return self.fail_response(f"Error creating event trigger: {str(e)}")
+    
+    TriggerTool.create_event_trigger = create_event_trigger

@@ -18,6 +18,7 @@ import {
 } from '@/hooks/react-query/triggers';
 import { toast } from 'sonner';
 import { EventBasedTriggerDialog } from './event-based-trigger-dialog';
+import { config, EnvMode } from '@/lib/config';
 
 interface OneClickIntegrationsProps {
   agentId: string;
@@ -170,14 +171,14 @@ export const OneClickIntegrations: React.FC<OneClickIntegrationsProps> = ({
             </Button>
           );
         })}
-        <Button
+        {config.ENV_MODE !== EnvMode.PRODUCTION && <Button
           variant="default"
           size='sm'
           onClick={() => setShowEventDialog(true)}
           className="flex items-center gap-2"
         >
           <PlugZap className="h-4 w-4" /> Create app-based Trigger
-        </Button>
+        </Button>}
       </div>
       <EventBasedTriggerDialog open={showEventDialog} onOpenChange={setShowEventDialog} agentId={agentId} />
       {configuringSchedule && (
