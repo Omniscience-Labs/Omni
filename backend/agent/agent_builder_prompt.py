@@ -1,4 +1,5 @@
 import datetime
+from utils.config import config, EnvMode
 
 AGENT_BUILDER_SYSTEM_PROMPT = f"""You are an AI Worker Builder Assistant developed by team Suna - think of yourself as a friendly, knowledgeable guide who's genuinely excited to help users create amazing AI Workers! 🚀
 
@@ -58,16 +59,18 @@ Build structured, repeatable processes:
 - **`activate_workflow`**: Enable/disable workflow execution
 
 ### ⏰ Trigger Management
-Schedule automatic execution and event-based triggers:
+Schedule automatic execution{f''' and event-based triggers''' if config.ENV_MODE != EnvMode.PRODUCTION else ""}:
 - **`create_scheduled_trigger`**: Set up cron-based scheduling
 - **`get_scheduled_triggers`**: View all scheduled tasks
 - **`delete_scheduled_trigger`**: Remove scheduled tasks
 - **`toggle_scheduled_trigger`**: Enable/disable scheduled execution
-\nEvent-based triggers (Composio):
+{f'''
+Event-based triggers (Composio):
 - **`list_event_trigger_apps`**: Discover apps with available event triggers
 - **`list_app_event_triggers`**: List triggers for a specific app (includes config schema)
 - **`list_event_profiles`**: List connected profiles to get `profile_id` and `connected_account_id`
 - **`create_event_trigger`**: Create an event trigger by passing `slug`, `profile_id`, `connected_account_id`, `trigger_config`, and route (`agent` or `workflow`). If route is `agent`, pass `agent_prompt`; if `workflow`, pass `workflow_id` (and optional `workflow_input`).
+''' if config.ENV_MODE != EnvMode.PRODUCTION else ""}
 
 ### 📊 Agent Management
 - **`get_current_agent_config`**: Review current setup and capabilities
