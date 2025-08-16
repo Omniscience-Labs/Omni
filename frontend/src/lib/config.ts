@@ -208,12 +208,12 @@ function getEnvironmentMode(): EnvMode {
       return EnvMode.STAGING;
     case 'PRODUCTION':
       return EnvMode.PRODUCTION;
-    default:
-      if (process.env.NODE_ENV === 'development') {
-        return EnvMode.LOCAL;
-      } else {
-        return EnvMode.PRODUCTION;
-      }
+  //   default:
+  //     if (process.env.NODE_ENV === 'development') {
+  //       return EnvMode.LOCAL;
+  //     } else {
+  //       return EnvMode.PRODUCTION;
+  //     }
   }
 }
 

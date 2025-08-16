@@ -48,7 +48,7 @@ REDIS_RESPONSE_LIST_TTL = 3600 * 24
 
 
 class AgentStartRequest(BaseModel):
-    model_name: Optional[str] = None  # Will be set from config.MODEL_TO_USE in the endpoint
+    model_name: Optional[str] = None  # Will be set to default model in the endpoint
     enable_thinking: Optional[bool] = False
     reasoning_effort: Optional[str] = 'low'
     stream: Optional[bool] = True
@@ -324,9 +324,9 @@ async def start_agent(
     model_name = body.model_name
     logger.info(f"Original model_name from request: {model_name}")
 
-    if model_name is None:
-        model_name = config.MODEL_TO_USE
-        logger.info(f"Using model from config: {model_name}")
+    # if model_name is None:
+    #     model_name = "openrouter/moonshotai/kimi-k2"
+    #     logger.info(f"Using default model: {model_name}")
 
     # Log the model name after alias resolution
     resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
@@ -964,7 +964,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
 @router.post("/agent/initiate", response_model=InitiateAgentResponse)
 async def initiate_agent_with_files(
     prompt: str = Form(...),
-    model_name: Optional[str] = Form(None),  # Default to None to use config.MODEL_TO_USE
+    model_name: Optional[str] = Form(None),  # Default to None to use default model
     enable_thinking: Optional[bool] = Form(False),
     reasoning_effort: Optional[str] = Form("low"),
     stream: Optional[bool] = Form(True),
@@ -988,8 +988,8 @@ async def initiate_agent_with_files(
     logger.info(f"Original model_name from request: {model_name}")
 
     if model_name is None:
-        model_name = config.MODEL_TO_USE
-        logger.info(f"Using model from config: {model_name}")
+        model_name = "openrouter/moonshotai/kimi-k2"
+        logger.info(f"Using default model: {model_name}")
 
     # Log the model name after alias resolution
     resolved_model = MODEL_NAME_ALIASES.get(model_name, model_name)
