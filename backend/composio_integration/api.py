@@ -902,7 +902,10 @@ async def composio_webhook(request: Request):
             payload = {}
 
         wid = request.headers.get("webhook-id", "")
-        composio_trigger_id = payload.get("id")  # often absent
+        # Look for trigger_nano_id in data.trigger_nano_id (the actual Composio trigger instance ID)
+        composio_trigger_id = (
+            (payload.get("data", {}) or {}).get("trigger_nano_id")
+        )
         provider_event_id = (
             payload.get("eventId")
             or payload.get("payload", {}).get("id")
@@ -946,15 +949,15 @@ async def composio_webhook(request: Request):
             rows = []
 
         matched = []
-        norm_slug = (str(trigger_slug).strip().lower() if trigger_slug else None)
         try:
             logger.info(
                 "Composio matching begin",
-                norm_slug=norm_slug,
                 have_id=bool(composio_trigger_id),
+                payload_id=composio_trigger_id,
             )
         except Exception:
             pass
+        
         for row in rows:
             cfg = row.get("config") or {}
             if not isinstance(cfg, dict):
@@ -966,50 +969,45 @@ async def composio_webhook(request: Request):
                 except Exception:
                     pass
                 continue
-            # Prefer instance-id match when available, else fall back to slug match
+            
+            # ONLY match by exact composio_trigger_id - no slug fallback
             cfg_tid = cfg.get("composio_trigger_id")
             if composio_trigger_id and cfg_tid == composio_trigger_id:
-                try:
-                    logger.info("Composio matched by id", trigger_id=row.get("trigger_id"), cfg_id=cfg_tid)
-                except Exception:
-                    pass
+                logger.info(
+                    "Composio EXACT ID MATCH", 
+                    trigger_id=row.get("trigger_id"), 
+                    cfg_id=cfg_tid,
+                    payload_id=composio_trigger_id
+                )
                 matched.append(row)
                 continue
-            cfg_slug_raw = cfg.get("trigger_slug")
-            cfg_slug_norm = str(cfg_slug_raw).strip().lower() if isinstance(cfg_slug_raw, str) else None
-            if norm_slug and cfg_slug_norm and cfg_slug_norm == norm_slug:
-                try:
-                    logger.info("Composio matched by slug", trigger_id=row.get("trigger_id"), cfg_slug=cfg_slug_raw, norm_cfg_slug=cfg_slug_norm)
-                except Exception:
-                    pass
-                matched.append(row)
             else:
-                try:
-                    logger.info(
-                        "Composio no match row",
-                        trigger_id=row.get("trigger_id"),
-                        cfg_id=cfg_tid,
-                        cfg_slug=cfg_slug_raw,
-                        cfg_slug_norm=cfg_slug_norm,
-                        want_id=composio_trigger_id,
-                        want_slug=trigger_slug,
-                        want_slug_norm=norm_slug,
-                    )
-                except Exception:
-                    pass
+                logger.info(
+                    "Composio ID mismatch",
+                    trigger_id=row.get("trigger_id"),
+                    cfg_id=cfg_tid,
+                    payload_id=composio_trigger_id,
+                    match_found=False
+                )
 
         try:
             logger.info(
                 "Composio matching result",
                 total=len(rows),
                 matched=len(matched),
-                match_basis=("id" if composio_trigger_id else ("slug" if trigger_slug else "none")),
+                have_id=bool(composio_trigger_id),
+                payload_id=composio_trigger_id,
             )
         except Exception:
             pass
 
         if not matched:
-            logger.warning(f"No active triggers found for Composio trigger {composio_trigger_id}")
+            logger.error(
+                f"No exact ID match found for Composio trigger {composio_trigger_id}",
+                payload_id=composio_trigger_id,
+                total_triggers=len(rows),
+                matched_count=len(matched)
+            )
             return JSONResponse(content={"success": True, "matched_triggers": 0})
 
         trigger_service = get_trigger_service(db)
