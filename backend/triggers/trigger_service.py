@@ -90,7 +90,7 @@ class TriggerService:
         
         await self._save_trigger(trigger)
         
-        logger.info(f"Created trigger {trigger_id} for agent {agent_id}")
+        logger.debug(f"Created trigger {trigger_id} for agent {agent_id}")
         return trigger
     
     async def get_trigger(self, trigger_id: str) -> Optional[Trigger]:
@@ -165,7 +165,7 @@ class TriggerService:
         
         await self._update_trigger(trigger)
         
-        logger.info(f"Updated trigger {trigger_id}")
+        logger.debug(f"Updated trigger {trigger_id}")
         return trigger
     
     async def delete_trigger(self, trigger_id: str) -> bool:
@@ -191,7 +191,7 @@ class TriggerService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Deleted trigger {trigger_id}")
+            logger.debug(f"Deleted trigger {trigger_id}")
         
         return success
     

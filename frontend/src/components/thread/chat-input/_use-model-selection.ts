@@ -338,6 +338,9 @@ export const useModelSelection = () => {
 
   // Handle model selection change
   const handleModelChange = (modelId: string) => {
+    console.log('🔧 useModelSelection: handleModelChange called with:', modelId);
+    console.log('🔧 useModelSelection: Available MODEL_OPTIONS:', MODEL_OPTIONS.map(m => m.id));
+    
     // Refresh custom models from localStorage to ensure we have the latest
     if (isLocalMode()) {
       refreshCustomModels();
@@ -349,12 +352,16 @@ export const useModelSelection = () => {
     // Then check if it's in standard MODEL_OPTIONS
     const modelOption = MODEL_OPTIONS.find(option => option.id === modelId);
     
+    console.log('🔧 useModelSelection: modelOption found:', modelOption);
+    console.log('🔧 useModelSelection: isCustomModel:', isCustomModel);
+    
     // Check if model exists in either custom models or standard options
     if (!modelOption && !isCustomModel) {
-      console.warn('Model not found in options:', modelId, MODEL_OPTIONS, isCustomModel, customModels);
+      console.warn('🔧 useModelSelection: Model not found in options:', modelId, MODEL_OPTIONS, isCustomModel, customModels);
       
       // Reset to default model when the selected model is not found
       const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      console.log('🔧 useModelSelection: Resetting to default model:', defaultModel);
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       return;
@@ -363,10 +370,11 @@ export const useModelSelection = () => {
     // Check access permissions (except for custom models in local mode)
     if (!isCustomModel && !isLocalMode() && 
         !canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false)) {
-      console.warn('Model not accessible:', modelId);
+      console.warn('🔧 useModelSelection: Model not accessible:', modelId);
       return;
     }
     
+    console.log('🔧 useModelSelection: Setting model to:', modelId);
     setSelectedModel(modelId);
     saveModelPreference(modelId);
   };

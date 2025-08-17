@@ -27,7 +27,7 @@ class ExecutionService:
         trigger_event: TriggerEvent
     ) -> Dict[str, Any]:
         try:
-            logger.info(f"Executing trigger for agent {agent_id}: workflow={trigger_result.should_execute_workflow}, agent={trigger_result.should_execute_agent}")
+            logger.debug(f"Executing trigger for agent {agent_id}: workflow={trigger_result.should_execute_workflow}, agent={trigger_result.should_execute_agent}")
             
             if trigger_result.should_execute_workflow:
                 return await self._workflow_executor.execute_workflow(
@@ -87,7 +87,7 @@ class SessionManager:
             "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         
-        logger.info(f"Created agent session: project={project_id}, thread={thread_id}")
+        logger.debug(f"Created agent session: project={project_id}, thread={thread_id}")
         return thread_id, project_id
     
     async def create_workflow_session(
@@ -122,7 +122,7 @@ class SessionManager:
             }
         }).execute()
         
-        logger.info(f"Created workflow session: project={project_id}, thread={thread_id}")
+        logger.debug(f"Created workflow session: project={project_id}, thread={thread_id}")
         return thread_id, project_id
     
     async def _create_sandbox_for_project(self, project_id: str) -> None:
@@ -221,7 +221,7 @@ class AgentExecutor:
     
     async def _get_agent_config(self, agent_id: str) -> Dict[str, Any]:
         try:
-            logger.info(f"Getting agent config for agent_id: {agent_id}")
+            logger.debug(f"Getting agent config for agent_id: {agent_id}")
             
             client = await self._db.client
             agent_result = await client.table('agents').select('account_id, name, current_version_id').eq('agent_id', agent_id).execute()
@@ -233,7 +233,7 @@ class AgentExecutor:
             agent_data = agent_result.data[0]
             account_id = agent_data.get('account_id')
             current_version_id = agent_data.get('current_version_id')
-            logger.info(f"Found agent in database: {agent_data.get('name')}, account_id: {account_id}, current_version_id: {current_version_id}")
+            logger.debug(f"Found agent in database: {agent_data.get('name')}, account_id: {account_id}, current_version_id: {current_version_id}")
             
             if not current_version_id:
                 logger.error(f"Agent {agent_id} has no current_version_id set. This is likely the cause of the fallback to default prompt.")
@@ -254,7 +254,7 @@ class AgentExecutor:
             
             try:
                 version = await version_service.get_version(agent_id, current_version_id, user_id_for_version)
-                logger.info(f"Successfully retrieved version {current_version_id} for agent {agent_id}: {version.version_name}")
+                logger.debug(f"Successfully retrieved version {current_version_id} for agent {agent_id}: {version.version_name}")
                 
                 return {
                     'agent_id': agent_id,
@@ -412,7 +412,7 @@ class AgentExecutor:
             request_id=structlog.contextvars.get_contextvars().get('request_id'),
         )
         
-        logger.info(f"Started agent execution: {agent_run_id}")
+        logger.debug(f"Started agent execution: {agent_run_id}")
         return agent_run_id
     
     async def _register_agent_run(self, agent_run_id: str) -> None:
@@ -693,7 +693,7 @@ class WorkflowExecutor:
             request_id=None,
         )
         
-        logger.info(f"Started workflow agent execution: {agent_run_id}")
+        logger.debug(f"Started workflow agent execution: {agent_run_id}")
         return agent_run_id
     
     async def _register_workflow_run(self, agent_run_id: str) -> None:

@@ -55,9 +55,9 @@ class InstallationService:
         self._db = db_connection
     
     async def install_template(self, request: TemplateInstallationRequest) -> TemplateInstallationResult:
-        logger.info(f"Installing template {request.template_id} for user {request.account_id}")
-        logger.info(f"Initial profile_mappings from request: {request.profile_mappings}")
-        logger.info(f"Initial custom_mcp_configs from request: {request.custom_mcp_configs}")
+        logger.debug(f"Installing template {request.template_id} for user {request.account_id}")
+        logger.debug(f"Initial profile_mappings from request: {request.profile_mappings}")
+        logger.debug(f"Initial custom_mcp_configs from request: {request.custom_mcp_configs}")
         
         template = await self._get_template(request.template_id)
         if not template:
@@ -67,15 +67,15 @@ class InstallationService:
         
         all_requirements = list(template.mcp_requirements or [])
         
-        logger.info(f"Total requirements from template: {[r.qualified_name for r in all_requirements]}")
-        logger.info(f"Request profile_mappings: {request.profile_mappings}")
+        logger.debug(f"Total requirements from template: {[r.qualified_name for r in all_requirements]}")
+        logger.debug(f"Request profile_mappings: {request.profile_mappings}")
         
         if not request.profile_mappings:
             request.profile_mappings = await self._auto_map_profiles(
                 all_requirements,
                 request.account_id
             )
-            logger.info(f"Auto-mapped profiles: {request.profile_mappings}")
+            logger.debug(f"Auto-mapped profiles: {request.profile_mappings}")
         
         missing_profiles, missing_configs = await self._validate_installation_requirements(
             all_requirements,
@@ -83,8 +83,8 @@ class InstallationService:
             request.custom_mcp_configs
         )
         
-        logger.info(f"Missing profiles: {[p['qualified_name'] for p in missing_profiles]}")
-        logger.info(f"Missing configs: {[c['qualified_name'] for c in missing_configs]}")
+        logger.debug(f"Missing profiles: {[p['qualified_name'] for p in missing_profiles]}")
+        logger.debug(f"Missing configs: {[c['qualified_name'] for c in missing_configs]}")
         
         if missing_profiles or missing_configs:
             return TemplateInstallationResult(
@@ -123,7 +123,7 @@ class InstallationService:
         await self._increment_download_count(template.template_id)
         
         agent_name = request.instance_name or f"{template.name} (from marketplace)"
-        logger.info(f"Successfully installed template {template.template_id} as agent {agent_id}")
+        logger.debug(f"Successfully installed template {template.template_id} as agent {agent_id}")
         
         return TemplateInstallationResult(
             status='installed',
@@ -162,12 +162,12 @@ class InstallationService:
                     if req.source == 'trigger' and req.trigger_index is not None:
                         trigger_key = f"{req.qualified_name}_trigger_{req.trigger_index}"
                         profile_mappings[trigger_key] = default_profile.profile_id
-                        logger.info(f"Auto-mapped {trigger_key} to profile {default_profile.profile_id} (trigger)")
+                        logger.debug(f"Auto-mapped {trigger_key} to profile {default_profile.profile_id} (trigger)")
                     else:
                         profile_mappings[req.qualified_name] = default_profile.profile_id
-                        logger.info(f"Auto-mapped {req.qualified_name} to profile {default_profile.profile_id}")
+                        logger.debug(f"Auto-mapped {req.qualified_name} to profile {default_profile.profile_id}")
             else:
-                logger.info(f"Skipping custom requirement: {req.qualified_name}")
+                logger.debug(f"Skipping custom requirement: {req.qualified_name}")
         
         return profile_mappings
     
@@ -370,7 +370,7 @@ class InstallationService:
         
         await client.table('agents').insert(agent_data).execute()
         
-        logger.info(f"Created agent {agent_id} from template {template.template_id}")
+        logger.debug(f"Created agent {agent_id} from template {template.template_id}")
         return agent_id
     
     async def _create_initial_version(
@@ -401,7 +401,7 @@ class InstallationService:
                 change_description="Initial version from template"
             )
             
-            logger.info(f"Created initial version for agent {agent_id}")
+            logger.debug(f"Created initial version for agent {agent_id}")
             
         except Exception as e:
             logger.warning(f"Failed to create initial version for agent {agent_id}: {e}")
@@ -409,7 +409,7 @@ class InstallationService:
     async def _restore_workflows(self, agent_id: str, template_config: Dict[str, Any]) -> None:
         workflows = template_config.get('workflows', [])
         if not workflows:
-            logger.info(f"No workflows to restore for agent {agent_id}")
+            logger.debug(f"No workflows to restore for agent {agent_id}")
             return
             
         client = await self._db.client
@@ -437,14 +437,14 @@ class InstallationService:
                 result = await client.table('agent_workflows').insert(workflow_data).execute()
                 if result.data:
                     restored_count += 1
-                    logger.info(f"Restored workflow '{workflow_data['name']}' for agent {agent_id}")
+                    logger.debug(f"Restored workflow '{workflow_data['name']}' for agent {agent_id}")
                 else:
                     logger.warning(f"Failed to insert workflow '{workflow_data['name']}' for agent {agent_id}")
                     
             except Exception as e:
                 logger.error(f"Failed to restore workflow '{workflow.get('name', 'Unknown')}' for agent {agent_id}: {e}")
         
-        logger.info(f"Successfully restored {restored_count}/{len(workflows)} workflows for agent {agent_id}")
+        logger.debug(f"Successfully restored {restored_count}/{len(workflows)} workflows for agent {agent_id}")
 
         if restored_count > 0:
             await self._sync_workflows_to_version_config(agent_id)
@@ -473,7 +473,7 @@ class InstallationService:
             config['workflows'] = workflows
             
             await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
-            logger.info(f"Synced {len(workflows)} workflows to version config for agent {agent_id}")
+            logger.debug(f"Synced {len(workflows)} workflows to version config for agent {agent_id}")
             
         except Exception as e:
             logger.error(f"Failed to sync workflows to version config for agent {agent_id}: {e}")
@@ -527,7 +527,7 @@ class InstallationService:
     ) -> None:
         triggers = config.get('triggers', [])
         if not triggers:
-            logger.info(f"No triggers to restore for agent {agent_id}")
+            logger.debug(f"No triggers to restore for agent {agent_id}")
             return
         
         client = await self._db.client
@@ -592,12 +592,12 @@ class InstallationService:
                 result = await client.table('agent_triggers').insert(trigger_data).execute()
                 if result.data:
                     created_count += 1
-                    logger.info(f"Restored trigger '{trigger_data['name']}' for agent {agent_id}")
+                    logger.debug(f"Restored trigger '{trigger_data['name']}' for agent {agent_id}")
                 else:
                     failed_count += 1
                     logger.warning(f"Failed to insert trigger '{trigger.get('name')}' for agent {agent_id}")
         
-        logger.info(f"Successfully restored {created_count}/{len(triggers)} triggers for agent {agent_id}")
+        logger.debug(f"Successfully restored {created_count}/{len(triggers)} triggers for agent {agent_id}")
         
         if created_count > 0:
             await self._sync_triggers_to_version_config(agent_id)
@@ -638,7 +638,7 @@ class InstallationService:
             
             await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
             
-            logger.info(f"Synced {len(triggers)} triggers to version config for agent {agent_id}")
+            logger.debug(f"Synced {len(triggers)} triggers to version config for agent {agent_id}")
             
         except Exception as e:
             logger.error(f"Failed to sync triggers to version config for agent {agent_id}: {e}")
@@ -745,11 +745,11 @@ class InstallationService:
                 body["connected_account_id"] = connected_account_id
                 body["connectedAccountIds"] = [connected_account_id]
                 body["connected_account_ids"] = [connected_account_id]
-                logger.info(f"Adding connected_account_id to Composio trigger request: {connected_account_id}")
+                logger.debug(f"Adding connected_account_id to Composio trigger request: {connected_account_id}")
             else:
                 logger.warning("No connected_account_id found - trigger creation may fail for OAuth apps")
             
-            logger.info(f"Creating Composio trigger with URL: {url}")
+            logger.debug(f"Creating Composio trigger with URL: {url}")
             async with httpx.AsyncClient(timeout=20) as http_client:
                 resp = await http_client.post(url, headers=headers, json=body)
                 resp.raise_for_status()

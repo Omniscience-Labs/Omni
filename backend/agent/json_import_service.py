@@ -40,7 +40,7 @@ class JsonImportService:
         self._db = db_connection
     
     async def analyze_json(self, json_data: Dict[str, Any], account_id: str) -> JsonImportAnalysis:
-        logger.info(f"Analyzing imported JSON for user {account_id}")
+        logger.debug(f"Analyzing imported JSON for user {account_id}")
         
         mcp_requirements = self._extract_mcp_requirements_from_json(json_data)
         
@@ -69,7 +69,7 @@ class JsonImportService:
         )
     
     async def import_json(self, request: JsonImportRequest) -> JsonImportResult:
-        logger.info(f"Importing agent from JSON for user {request.account_id}")
+        logger.debug(f"Importing agent from JSON for user {request.account_id}")
         
         json_data = request.json_data
         
@@ -123,7 +123,7 @@ class JsonImportService:
         from utils.cache import Cache
         await Cache.invalidate(f"agent_count_limit:{request.account_id}")
         
-        logger.info(f"Successfully imported agent {agent_id} from JSON")
+        logger.debug(f"Successfully imported agent {agent_id} from JSON")
         
         return JsonImportResult(
             status='success',

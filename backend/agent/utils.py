@@ -29,7 +29,7 @@ async def check_for_active_project_agent_run(client, project_id: str):
 
 
 async def stop_agent_run(db, agent_run_id: str, error_message: Optional[str] = None):
-    logger.info(f"Stopping agent run: {agent_run_id}")
+    logger.debug(f"Stopping agent run: {agent_run_id}")
     client = await db.client
     final_status = "failed" if error_message else "stopped"
 
@@ -38,7 +38,7 @@ async def stop_agent_run(db, agent_run_id: str, error_message: Optional[str] = N
     try:
         all_responses_json = await redis.lrange(response_list_key, 0, -1)
         all_responses = [json.loads(r) for r in all_responses_json]
-        logger.info(f"Fetched {len(all_responses)} responses from Redis for DB update on stop/fail: {agent_run_id}")
+        logger.debug(f"Fetched {len(all_responses)} responses from Redis for DB update on stop/fail: {agent_run_id}")
     except Exception as e:
         logger.error(f"Failed to fetch responses from Redis for {agent_run_id} during stop/fail: {e}")
 
@@ -78,7 +78,7 @@ async def stop_agent_run(db, agent_run_id: str, error_message: Optional[str] = N
     except Exception as e:
         logger.error(f"Failed to find or signal active instances for {agent_run_id}: {str(e)}")
 
-    logger.info(f"Successfully initiated stop process for agent run: {agent_run_id}")
+    logger.debug(f"Successfully initiated stop process for agent run: {agent_run_id}")
 
 
 async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
@@ -120,7 +120,7 @@ async def check_agent_run_limit(client, account_id: str) -> Dict[str, Any]:
         running_count = len(running_runs)
         running_thread_ids = [run['thread_id'] for run in running_runs]
         
-        logger.info(f"Account {account_id} has {running_count} running agent runs in the past 24 hours")
+        logger.debug(f"Account {account_id} has {running_count} running agent runs in the past 24 hours")
         
         result = {
             'can_start': running_count < config.MAX_PARALLEL_AGENT_RUNS,
@@ -195,7 +195,7 @@ async def check_agent_count_limit(client, account_id: str) -> Dict[str, Any]:
         except Exception as cache_error:
             logger.warning(f"Cache write failed for agent count limit {account_id}: {str(cache_error)}")
         
-        logger.info(f"Account {account_id} has {current_count}/{agent_limit} agents (tier: {tier_name}) - can_create: {can_create}")
+        logger.debug(f"Account {account_id} has {current_count}/{agent_limit} agents (tier: {tier_name}) - can_create: {can_create}")
         
         return result
         

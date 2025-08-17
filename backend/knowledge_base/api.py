@@ -288,7 +288,7 @@ async def update_knowledge_base_entry(
         
         updated_entry = result.data[0]
         
-        logger.info(f"Updated agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Updated agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=updated_entry['entry_id'],
@@ -341,7 +341,7 @@ async def delete_knowledge_base_entry(
         
         result = await client.table('agent_knowledge_base_entries').delete().eq('entry_id', entry_id).execute()
         
-        logger.info(f"Deleted agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Deleted agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return {"message": "Knowledge base entry deleted successfully"}
         
@@ -378,7 +378,7 @@ async def get_knowledge_base_entry(
         # Verify agent access
         await verify_agent_access(client, agent_id, user_id)
         
-        logger.info(f"Retrieved agent knowledge base entry {entry_id} for agent {agent_id}")
+        logger.debug(f"Retrieved agent knowledge base entry {entry_id} for agent {agent_id}")
         
         return KnowledgeBaseEntryResponse(
             entry_id=entry['entry_id'],

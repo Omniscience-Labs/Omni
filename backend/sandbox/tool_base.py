@@ -44,7 +44,7 @@ class SandboxToolsBase(Tool):
 
                 # If there is no sandbox recorded for this project, create one lazily
                 if not sandbox_info.get('id'):
-                    logger.info(f"No sandbox recorded for project {self.project_id}; creating lazily")
+                    logger.debug(f"No sandbox recorded for project {self.project_id}; creating lazily")
                     sandbox_pass = str(uuid.uuid4())
                     sandbox_obj = await create_sandbox(sandbox_pass, self.project_id)
                     sandbox_id = sandbox_obj.id

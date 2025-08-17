@@ -182,7 +182,7 @@ async def create_template_from_agent(
         # Validate agent ownership first
         await validate_agent_ownership(request.agent_id, user_id)
         
-        logger.info(f"User {user_id} creating template from agent {request.agent_id}")
+        logger.debug(f"User {user_id} creating template from agent {request.agent_id}")
         
         template_service = get_template_service(db)
         
@@ -193,7 +193,7 @@ async def create_template_from_agent(
             tags=request.tags
         )
         
-        logger.info(f"Successfully created template {template_id} from agent {request.agent_id}")
+        logger.debug(f"Successfully created template {template_id} from agent {request.agent_id}")
         return {"template_id": template_id}
         
     except HTTPException:
@@ -229,7 +229,7 @@ async def publish_template(
         # Validate template ownership first
         template = await validate_template_ownership_and_get(template_id, user_id)
         
-        logger.info(f"User {user_id} publishing template {template_id}")
+        logger.debug(f"User {user_id} publishing template {template_id}")
         
         template_service = get_template_service(db)
         
@@ -239,7 +239,7 @@ async def publish_template(
             logger.warning(f"Failed to publish template {template_id} for user {user_id}")
             raise HTTPException(status_code=500, detail="Failed to publish template")
         
-        logger.info(f"Successfully published template {template_id}")
+        logger.debug(f"Successfully published template {template_id}")
         return {"message": "Template published successfully"}
         
     except HTTPException:
@@ -265,7 +265,7 @@ async def unpublish_template(
         # Validate template ownership first
         template = await validate_template_ownership_and_get(template_id, user_id)
         
-        logger.info(f"User {user_id} unpublishing template {template_id}")
+        logger.debug(f"User {user_id} unpublishing template {template_id}")
         
         template_service = get_template_service(db)
         
@@ -275,7 +275,7 @@ async def unpublish_template(
             logger.warning(f"Failed to unpublish template {template_id} for user {user_id}")
             raise HTTPException(status_code=500, detail="Failed to unpublish template")
         
-        logger.info(f"Successfully unpublished template {template_id}")
+        logger.debug(f"Successfully unpublished template {template_id}")
         return {"message": "Template unpublished successfully"}
         
     except HTTPException:
@@ -301,7 +301,7 @@ async def delete_template(
         # Validate template ownership first
         template = await validate_template_ownership_and_get(template_id, user_id)
         
-        logger.info(f"User {user_id} deleting template {template_id}")
+        logger.debug(f"User {user_id} deleting template {template_id}")
         
         template_service = get_template_service(db)
         
@@ -311,7 +311,7 @@ async def delete_template(
             logger.warning(f"Failed to delete template {template_id} for user {user_id}")
             raise HTTPException(status_code=500, detail="Failed to delete template")
         
-        logger.info(f"Successfully deleted template {template_id}")
+        logger.debug(f"Successfully deleted template {template_id}")
         return {"message": "Template deleted successfully"}
         
     except HTTPException:
@@ -343,7 +343,7 @@ async def install_template(
             logger.warning(f"Agent limit exceeded for account {user_id}: {limit_check['current_count']}/{limit_check['limit']} agents")
             raise HTTPException(status_code=402, detail=error_detail)
         
-        logger.info(f"User {user_id} installing template {request.template_id}")
+        logger.debug(f"User {user_id} installing template {request.template_id}")
         
         installation_service = get_installation_service(db)
         
@@ -358,7 +358,7 @@ async def install_template(
         
         result = await installation_service.install_template(install_request)
         
-        logger.info(f"Successfully installed template {request.template_id} as instance {result.instance_id}")
+        logger.debug(f"Successfully installed template {request.template_id} as instance {result.instance_id}")
         
         return InstallationResponse(
             status=result.status,
@@ -391,7 +391,7 @@ async def get_marketplace_templates(
     is_kortix_team: Optional[bool] = Query(None, description="Filter for Kortix team templates")
 ):
     try:
-        logger.info(
+        logger.debug(
             f"Fetching marketplace templates with filters - "
             f"limit: {limit}, offset: {offset}, search: {search}, "
             f"tags: {tags}, is_kortix_team: {is_kortix_team}"
@@ -411,7 +411,7 @@ async def get_marketplace_templates(
             tags=tag_list
         )
         
-        logger.info(f"Retrieved {len(templates)} marketplace templates")
+        logger.debug(f"Retrieved {len(templates)} marketplace templates")
         return [
             TemplateResponse(**format_template_for_response(template))
             for template in templates
@@ -433,12 +433,12 @@ async def get_my_templates(
     - Valid authentication
     """
     try:
-        logger.info(f"User {user_id} fetching their templates")
+        logger.debug(f"User {user_id} fetching their templates")
         
         template_service = get_template_service(db)
         templates = await template_service.get_user_templates(user_id)
         
-        logger.info(f"Retrieved {len(templates)} templates for user {user_id}")
+        logger.debug(f"Retrieved {len(templates)} templates for user {user_id}")
         
         return [
             TemplateResponse(**format_template_for_response(template))
@@ -465,7 +465,7 @@ async def get_template(
         # Validate template access first
         template = await validate_template_access_and_get(template_id, user_id)
         
-        logger.info(f"User {user_id} accessing template {template_id}")
+        logger.debug(f"User {user_id} accessing template {template_id}")
         
         return TemplateResponse(**format_template_for_response(template))
         

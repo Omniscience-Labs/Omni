@@ -14,7 +14,7 @@ async def admin_install_suna_for_user(
     replace_existing: bool = False,
     _: bool = Depends(verify_admin_api_key)
 ):
-    logger.info(f"Admin installing Suna agent for user: {account_id}")
+    logger.debug(f"Admin installing Suna agent for user: {account_id}")
     
     service = SunaDefaultAgentService()
     agent_id = await service.install_suna_agent_for_user(account_id, replace_existing)
@@ -63,7 +63,7 @@ def save_env_vars(request: Dict[str, str]) -> Dict[str, str]:
             set_key(env_path, key, value)
         
         load_dotenv(override=True)
-        logger.info(f"Env variables saved successfully: {request}")
+        logger.debug(f"Env variables saved successfully: {request}")
         return {"message": "Env variables saved successfully"}
     except Exception as e:
         logger.error(f"Failed to save env variables: {e}")

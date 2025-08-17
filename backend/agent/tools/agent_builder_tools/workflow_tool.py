@@ -51,7 +51,7 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
             
-            logger.info(f"Synced {len(workflows)} workflows and {len(triggers)} triggers to version config for agent {self.agent_id}")
+            logger.debug(f"Synced {len(workflows)} workflows and {len(triggers)} triggers to version config for agent {self.agent_id}")
             
         except Exception as e:
             logger.error(f"Failed to sync workflows to version config: {e}")

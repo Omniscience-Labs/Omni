@@ -103,8 +103,8 @@ class ComposioProfileService:
         connected_account_id: Optional[str] = None,
     ) -> ComposioProfile:
         try:
-            logger.info(f"Creating Composio profile for user: {account_id}, toolkit: {toolkit_slug}")
-            logger.info(f"MCP URL to store: {mcp_url}")
+            logger.debug(f"Creating Composio profile for user: {account_id}, toolkit: {toolkit_slug}")
+            logger.debug(f"MCP URL to store: {mcp_url}")
             
             config = self._build_config(
                 toolkit_slug, toolkit_name, mcp_url, redirect_url, user_id, connected_account_id
@@ -124,7 +124,7 @@ class ComposioProfileService:
             )
             
             if unique_profile_name != profile_name:
-                logger.info(f"Generated unique profile name: {unique_profile_name} (original: {profile_name})")
+                logger.debug(f"Generated unique profile name: {unique_profile_name} (original: {profile_name})")
             
             if is_default:
                 await client.table('user_mcp_credential_profiles').update({
@@ -148,7 +148,7 @@ class ComposioProfileService:
             if not result.data:
                 raise Exception("Failed to create profile in database")
             
-            logger.info(f"Successfully created Composio profile: {profile_id}")
+            logger.debug(f"Successfully created Composio profile: {profile_id}")
             
             return ComposioProfile(
                 profile_id=profile_id,
@@ -228,7 +228,7 @@ class ComposioProfileService:
             if not mcp_url:
                 raise ValueError(f"Profile {profile_id} has no MCP URL")
             
-            logger.info(f"Retrieved MCP URL for profile {profile_id}")
+            logger.debug(f"Retrieved MCP URL for profile {profile_id}")
             return mcp_url
             
         except Exception as e:

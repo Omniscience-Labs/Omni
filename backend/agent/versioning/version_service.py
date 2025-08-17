@@ -202,7 +202,7 @@ class VersionService:
         change_description: Optional[str] = None
     ) -> AgentVersion:
         
-        logger.info(f"Creating version for agent {agent_id}")
+        logger.debug(f"Creating version for agent {agent_id}")
         client = await self.db.client
         
         is_owner, _ = await self._verify_agent_access(agent_id, user_id)
@@ -294,7 +294,7 @@ class VersionService:
         version_count = await self._count_versions(agent_id)
         await self._update_agent_current_version(agent_id, version.version_id, version_count)
         
-        logger.info(f"Created version {version.version_name} for agent {agent_id}")
+        logger.debug(f"Created version {version.version_name} for agent {agent_id}")
         return version
     
     async def get_version(self, agent_id: str, version_id: str, user_id: str) -> AgentVersion:
@@ -372,7 +372,7 @@ class VersionService:
         version_count = await self._count_versions(agent_id)
         await self._update_agent_current_version(agent_id, version_id, version_count)
         
-        logger.info(f"Activated version {version['version_name']} for agent {agent_id}")
+        logger.debug(f"Activated version {version['version_name']} for agent {agent_id}")
     
     async def compare_versions(
         self,

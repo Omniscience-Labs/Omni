@@ -176,6 +176,10 @@ export function AgentModelSelector({
   }, [isOpen]);
 
   const handleSelect = (modelId: string) => {
+    console.log('🔧 AgentModelSelector: Selecting model:', modelId);
+    console.log('🔧 AgentModelSelector: Current selectedModel (normalized):', selectedModel);
+    console.log('🔧 AgentModelSelector: Current value prop:', value);
+    
     const isCustomModel = customModels.some(model => model.id === modelId);
     
     if (isCustomModel && isLocalMode()) {
@@ -185,14 +189,8 @@ export function AgentModelSelector({
     }
     
     if (isLocalMode() || canAccessModel(modelId)) {
-      let fullModelId = modelId;
-      if (modelsData?.models) {
-        const modelMatch = modelsData.models.find(m => m.short_name === modelId);
-        if (modelMatch) {
-          fullModelId = modelMatch.id;
-        }
-      }
-      onChange(fullModelId);
+      // Don't transform the modelId - pass it as-is to match what useModelSelection expects
+      onChange(modelId);
       setIsOpen(false);
     } else {
       setLockedModel(modelId);

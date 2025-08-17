@@ -218,7 +218,7 @@ async def list_categories(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
-        logger.info("Fetching Composio categories")
+        logger.debug("Fetching Composio categories")
         
         toolkit_service = ToolkitService()
         categories = await toolkit_service.list_categories()
@@ -243,7 +243,7 @@ async def list_toolkits(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
-        logger.info(f"Fetching Composio toolkits with limit: {limit}, cursor: {cursor}, search: {search}, category: {category}")
+        logger.debug(f"Fetching Composio toolkits with limit: {limit}, cursor: {cursor}, search: {search}, category: {category}")
         
         service = get_integration_service()
         
@@ -273,7 +273,7 @@ async def get_toolkit_details(
     user_id: str = Depends(get_current_user_id_from_jwt)
 ) -> Dict[str, Any]:
     try:
-        logger.info(f"Fetching detailed toolkit info for: {toolkit_slug}")
+        logger.debug(f"Fetching detailed toolkit info for: {toolkit_slug}")
         
         toolkit_service = ToolkitService()
         detailed_toolkit = await toolkit_service.get_detailed_toolkit_info(toolkit_slug)
@@ -300,7 +300,7 @@ async def integrate_toolkit(
 ) -> IntegrationStatusResponse:
     try:
         integration_user_id = str(uuid4())
-        logger.info(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
+        logger.debug(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
         
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
@@ -337,7 +337,7 @@ async def create_profile(
 ) -> ProfileResponse:
     try:
         integration_user_id = str(uuid4())
-        logger.info(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
+        logger.debug(f"Generated integration user_id: {integration_user_id} for account: {current_user_id}")
         
         service = get_integration_service(db_connection=db)
         result = await service.integrate_toolkit(
@@ -351,7 +351,7 @@ async def create_profile(
             initiation_fields=request.initiation_fields
         )
         
-        logger.info(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
+        logger.debug(f"Integration result for {request.toolkit_slug}: redirect_url = {result.connected_account.redirect_url}")
         profile_service = ComposioProfileService(db)
         profiles = await profile_service.get_profiles(current_user_id, request.toolkit_slug)
 
@@ -364,7 +364,7 @@ async def create_profile(
         if not created_profile:
             raise HTTPException(status_code=500, detail="Profile created but not found")
         
-        logger.info(f"Returning profile response with redirect_url: {created_profile.redirect_url}")
+        logger.debug(f"Returning profile response with redirect_url: {created_profile.redirect_url}")
         
         return ProfileResponse.from_composio_profile(created_profile)
         
@@ -489,7 +489,7 @@ async def discover_composio_tools(
         if not result.success:
             raise HTTPException(status_code=500, detail=f"Failed to discover tools: {result.message}")
         
-        logger.info(f"Discovered {len(result.tools)} tools from Composio profile {profile_id}")
+        logger.debug(f"Discovered {len(result.tools)} tools from Composio profile {profile_id}")
         
         return {
             "success": True,
@@ -547,7 +547,7 @@ async def list_toolkit_tools(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
 ):
     try:
-        logger.info(f"User {current_user_id} requesting tools for toolkit: {request.toolkit_slug}")
+        logger.debug(f"User {current_user_id} requesting tools for toolkit: {request.toolkit_slug}")
         
         toolkit_service = ToolkitService()
         tools_response = await toolkit_service.get_toolkit_tools(
@@ -722,7 +722,7 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
             created = resp.json()
             try:
                 top_keys = list(created.keys()) if isinstance(created, dict) else None
-                logger.info(
+                logger.debug(
                     "Composio upsert ok",
                     slug=req.slug,
                     status_code=resp.status_code,
@@ -761,7 +761,7 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
         if isinstance(created, dict):
             composio_trigger_id = _extract_id(created)
             try:
-                logger.info(
+                logger.debug(
                     "Composio extracted trigger id",
                     slug=req.slug,
                     extracted_id=composio_trigger_id,
@@ -788,7 +788,7 @@ async def create_composio_trigger(req: CreateComposioTriggerRequest, current_use
                         if items:
                             composio_trigger_id = _extract_id(items[0] if isinstance(items[0], dict) else getattr(items[0], "__dict__", {}))
                         try:
-                            logger.info(
+                            logger.debug(
                                 "Composio list_active fallback",
                                 slug=req.slug,
                                 matched=len(items) if isinstance(items, list) else 0,
@@ -876,7 +876,7 @@ async def composio_webhook(request: Request):
                 }
             except Exception:
                 payload_preview = {"keys": []}
-            logger.info(
+            logger.debug(
                 "Composio webhook incoming",
                 client_ip=client_ip,
                 header_names=header_names,
@@ -922,7 +922,7 @@ async def composio_webhook(request: Request):
 
         # Basic parsed-field logging (no secrets)
         try:
-            logger.info(
+            logger.debug(
                 "Composio parsed fields",
                 webhook_id=wid,
                 trigger_slug=trigger_slug,
@@ -950,7 +950,7 @@ async def composio_webhook(request: Request):
 
         matched = []
         try:
-            logger.info(
+            logger.debug(
                 "Composio matching begin",
                 have_id=bool(composio_trigger_id),
                 payload_id=composio_trigger_id,
@@ -965,7 +965,7 @@ async def composio_webhook(request: Request):
             prov = cfg.get("provider_id") or row.get("provider_id")
             if prov != "composio":
                 try:
-                    logger.info("Composio skip non-provider", trigger_id=row.get("trigger_id"), provider_id=prov)
+                    logger.debug("Composio skip non-provider", trigger_id=row.get("trigger_id"), provider_id=prov)
                 except Exception:
                     pass
                 continue
@@ -973,7 +973,7 @@ async def composio_webhook(request: Request):
             # ONLY match by exact composio_trigger_id - no slug fallback
             cfg_tid = cfg.get("composio_trigger_id")
             if composio_trigger_id and cfg_tid == composio_trigger_id:
-                logger.info(
+                logger.debug(
                     "Composio EXACT ID MATCH", 
                     trigger_id=row.get("trigger_id"), 
                     cfg_id=cfg_tid,
@@ -982,7 +982,7 @@ async def composio_webhook(request: Request):
                 matched.append(row)
                 continue
             else:
-                logger.info(
+                logger.debug(
                     "Composio ID mismatch",
                     trigger_id=row.get("trigger_id"),
                     cfg_id=cfg_tid,
@@ -991,7 +991,7 @@ async def composio_webhook(request: Request):
                 )
 
         try:
-            logger.info(
+            logger.debug(
                 "Composio matching result",
                 total=len(rows),
                 matched=len(matched),
