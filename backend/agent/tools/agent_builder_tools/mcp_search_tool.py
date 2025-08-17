@@ -53,9 +53,11 @@ class MCPSearchTool(AgentBuilderBaseTool):
             integration_service = get_integration_service()
             
             if query:
-                toolkits = await integration_service.search_toolkits(query, category=category)
+                toolkits_response = await integration_service.search_toolkits(query, category=category)
+                toolkits = toolkits_response.get("items", [])
             else:
-                toolkits = await toolkit_service.list_toolkits(limit=limit, category=category)
+                toolkits_response = await toolkit_service.list_toolkits(limit=limit, category=category)
+                toolkits = toolkits_response.get("items", [])
             
             if len(toolkits) > limit:
                 toolkits = toolkits[:limit]
