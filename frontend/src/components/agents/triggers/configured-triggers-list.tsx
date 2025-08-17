@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { getTriggerIcon } from './utils';
-import { truncateString } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 
 interface ConfiguredTriggersListProps {
   triggers: TriggerConfiguration[];
@@ -121,16 +121,14 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   }`}>
                     {trigger.name}
                   </h4>
-                  <Badge 
-                    variant={trigger.is_active ? "default" : "secondary"}
-                    className={`text-xs transition-colors ${
-                      trigger.is_active 
-                        ? "" 
-                        : "bg-muted text-muted-foreground border-muted-foreground/20"
-                    }`}
-                  >
-                    {trigger.is_active ? "Active" : "Inactive"}
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className={cn('h-2 w-2 rounded-full', trigger.is_active ? 'bg-green-500' : 'bg-red-500')}/>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{trigger.is_active ? 'Active' : 'Inactive'}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 
                 {trigger.description && (
@@ -152,58 +150,9 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                     )}
                   </div>
                 )}
-                {trigger.webhook_url && (
-                  <div className="flex items-center space-x-2 mt-2 min-w-0">
-                    <code className={`text-xs px-2 py-1 rounded font-mono truncate flex-1 min-w-0 transition-colors ${
-                      trigger.is_active 
-                        ? "bg-muted text-foreground" 
-                        : "bg-muted/50 text-muted-foreground/80"
-                    }`}>
-                      {trigger.webhook_url}
-                    </code>
-                    <div className="flex items-center space-x-1 flex-shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className={`h-6 w-6 p-0 transition-opacity ${
-                              trigger.is_active ? "" : "opacity-70"
-                            }`}
-                            onClick={() => copyToClipboard(trigger.webhook_url!)}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Copy webhook URL</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      {trigger.webhook_url.startsWith('http') && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className={`h-6 w-6 p-0 transition-opacity ${
-                                trigger.is_active ? "" : "opacity-70"
-                              }`}
-                              onClick={() => window.open(trigger.webhook_url, '_blank')}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Open webhook URL</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
-            <div className="flex items-start space-x-2 flex-shrink-0 pt-1">
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center">
@@ -218,7 +167,6 @@ export const ConfiguredTriggersList: React.FC<ConfiguredTriggersListProps> = ({
                   <p>{trigger.is_active ? 'Disable' : 'Enable'} trigger</p>
                 </TooltipContent>
               </Tooltip>
-              
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
