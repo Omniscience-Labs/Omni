@@ -225,7 +225,7 @@ export function DashboardContent() {
             <div className="flex-1 flex items-center justify-center px-4 py-8">
               <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
                 <div className="flex flex-col items-center text-center w-full">
-                  <p className="tracking-tight text-2xl md:text-3xl font-normal text-muted-foreground/80">
+                  <p className="tracking-tight text-2xl md:text-3xl font-normal text-foreground/90">
                     What would you like to do today?
                   </p>
                 </div>
