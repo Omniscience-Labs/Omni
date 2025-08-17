@@ -25,7 +25,7 @@ from run_agent_background import run_agent_background, _cleanup_redis_response_l
 from utils.constants import MODEL_NAME_ALIASES
 from flags.flags import is_enabled
 
-from .config_helper import extract_agent_config, build_unified_config, extract_tools_for_agent_run, get_mcp_configs
+from .config_helper import extract_agent_config, build_unified_config, get_mcp_configs
 from .utils import check_agent_run_limit
 from .versioning.version_service import get_version_service
 from .versioning.api import router as version_router, initialize as initialize_versioning
@@ -33,7 +33,6 @@ from .versioning.api import router as version_router, initialize as initialize_v
 # Helper for version service
 async def _get_version_service():
     return await get_version_service()
-from utils.suna_default_agent_service import SunaDefaultAgentService
 from .tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
 
 router = APIRouter()
@@ -1967,8 +1966,8 @@ async def create_agent(
         
         try:
             version_service = await _get_version_service()
-            from agent.config_helper import get_default_system_prompt_for_suna_agent
-            system_prompt = get_default_system_prompt_for_suna_agent()
+            from agent.suna.config import SUNA_CONFIG
+            system_prompt = SUNA_CONFIG["system_prompt"]
             
             version = await version_service.create_version(
                 agent_id=agent['agent_id'],
@@ -3620,6 +3619,8 @@ async def export_presentation(
     except Exception as e:
         logger.error(f"Export presentation error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to export presentation: {str(e)}")
+
+        
 @router.post("/agents/profile-image/upload")
 async def upload_agent_profile_image(
     file: UploadFile = File(...),

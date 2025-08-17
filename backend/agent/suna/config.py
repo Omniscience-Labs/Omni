@@ -1,17 +1,16 @@
-import datetime
-from typing import Dict, Any, List
 from agent.prompt import SYSTEM_PROMPT
 
-class SunaConfig:
-    NAME = "Suna"
-    DESCRIPTION = "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains."
-    AVATAR = "🌞"
-    AVATAR_COLOR = "#F59E0B"
-    DEFAULT_MODEL = "openrouter/moonshotai/kimi-k2"
-    SYSTEM_PROMPT = SYSTEM_PROMPT
-
-    DEFAULT_TOOLS = {
-        # Core sandbox tools
+# Suna default configuration - simplified and centralized
+SUNA_CONFIG = {
+    "name": "Suna",
+    "description": "Suna is your AI assistant with access to various tools and integrations to help you with tasks across domains.",
+    "avatar": "🌞",
+    "avatar_color": "#F59E0B",
+    "model": "openrouter/moonshotai/kimi-k2",
+    "system_prompt": SYSTEM_PROMPT,
+    "configured_mcps": [],
+    "custom_mcps": [],
+    "agentpress_tools": {
         "sb_shell_tool": True,
         "sb_files_tool": True,
         "sb_deploy_tool": True,
@@ -24,73 +23,28 @@ class SunaConfig:
         "sb_presentation_tool_v2": True,
         "sb_sheets_tool": True,
         "sb_web_dev_tool": True,
-        
-        # Browser and interaction tools
         "browser_tool": True,
-        
-        # Data provider tools
         "data_providers_tool": True,
-        
-        # Agent builder tools (for configuration and management)
         "agent_config_tool": True,
         "mcp_search_tool": True,
         "credential_profile_tool": True,
         "workflow_tool": True,
         "trigger_tool": True
-    }
+    },
+    "is_default": True
+}
+
+
+def get_suna_config():
+    """Get current Suna configuration."""
+    return SUNA_CONFIG.copy()
+
+
+def validate_config(config: dict) -> tuple[bool, list[str]]:
+    """Validate configuration data"""
+    errors = []
     
-    DEFAULT_MCPS = []
-    DEFAULT_CUSTOM_MCPS = []
-    
-    USER_RESTRICTIONS = {
-        "system_prompt_editable": False,
-        "tools_editable": False, 
-        "name_editable": False,
-        "description_editable": True,
-        "mcps_editable": True
-    }
-    
-    @classmethod
-    def get_system_prompt(cls) -> str:
-        return cls.SYSTEM_PROMPT
-    
-    @classmethod
-    def get_full_config(cls) -> Dict[str, Any]:
-        return {
-            "name": cls.NAME,
-            "description": cls.DESCRIPTION,
-            "system_prompt": cls.get_system_prompt(),
-            "model": cls.DEFAULT_MODEL,
-            "configured_mcps": cls.DEFAULT_MCPS,
-            "custom_mcps": cls.DEFAULT_CUSTOM_MCPS,
-            "agentpress_tools": cls.DEFAULT_TOOLS,
-            "is_default": True,
-            "avatar": cls.AVATAR,
-            "avatar_color": cls.AVATAR_COLOR,
-            "metadata": {
-                "is_suna_default": True,
-                "centrally_managed": True,
-                "restrictions": cls.USER_RESTRICTIONS,
-                "installation_date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "last_central_update": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            }
-        }
-
-
-def add_tool(tool_name: str, description: str, enabled: bool = True):
-    SunaConfig.DEFAULT_TOOLS[tool_name] = {
-        "enabled": enabled,
-        "description": description
-    }
-
-def remove_tool(tool_name: str):
-    if tool_name in SunaConfig.DEFAULT_TOOLS:
-        del SunaConfig.DEFAULT_TOOLS[tool_name]
-
-def enable_tool(tool_name: str):
-    if tool_name in SunaConfig.DEFAULT_TOOLS:
-        SunaConfig.DEFAULT_TOOLS[tool_name]["enabled"] = True
-
-def disable_tool(tool_name: str):  
-    if tool_name in SunaConfig.DEFAULT_TOOLS:
-        SunaConfig.DEFAULT_TOOLS[tool_name]["enabled"] = False 
+    if not config.get("name", "").strip():
+        errors.append("Name cannot be empty")
+        
+    return len(errors) == 0, errors

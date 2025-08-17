@@ -9,7 +9,7 @@ async function installSunaForNewUser(userId: string) {
       console.error('KORTIX_ADMIN_API_KEY not configured - cannot install Suna agent');
       return;
     }
-    
+  
     const response = await fetch(`${backendUrl}/admin/suna-agents/install-user/${userId}`, {
       method: 'POST',
       headers: {
@@ -17,6 +17,8 @@ async function installSunaForNewUser(userId: string) {
         'X-Admin-Api-Key': adminApiKey,
       },
     });
+
+    console.log('response', response);
 
     if (response.ok) {
       const result = await response.json();
