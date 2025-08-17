@@ -19,6 +19,17 @@ interface CustomAgentsSectionProps {
   onAgentSelect?: (templateId: string) => void;
 }
 
+const TitleSection = () => (
+  <div className="mb-6 text-center">
+    <h3 className="text-lg font-medium text-foreground/90 mb-1">
+      Choose specialised agent
+    </h3>
+    <p className="text-sm text-muted-foreground/70">
+      Ready-to-use AI agents for specific tasks
+    </p>
+  </div>
+);
+
 export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps) {
   const router = useRouter();
   const { data: templates, isLoading, error } = useKortixTeamTemplates();
@@ -128,27 +139,15 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-6xl mx-auto px-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="relative col-span-1 sm:col-span-2 lg:col-span-2 overflow-hidden rounded-3xl flex items-center justify-center border bg-background">
-            <div className="relative px-8 py-16 text-start">
-              <div className="mx-auto max-w-3xl space-y-6">
-                <h2 className="text-4xl font-semibold text-foreground mb-2">
-                  Custom Agents
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                  Specialized AI agents built by the Kortix team for specific tasks
-                </p>
-              </div>
-            </div>
-            <Ripple/>
-          </div>
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-muted/30 rounded-3xl p-6 min-h-[280px]">
-              <Skeleton className="h-14 w-14 rounded-2xl mb-4" />
-              <Skeleton className="h-6 w-3/4 mb-2" />
-              <Skeleton className="h-12 w-full mb-4" />
-              <Skeleton className="h-9 w-full mt-auto" />
+      <div className="w-full">
+        <TitleSection />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-muted/30 rounded-3xl p-4 h-[180px] w-full lg:w-[240px] lg:flex-shrink-0">
+              <Skeleton className="h-12 w-12 rounded-2xl mb-3" />
+              <Skeleton className="h-5 w-3/4 mb-2" />
+              <Skeleton className="h-10 w-full mb-3" />
+              <Skeleton className="h-8 w-full mt-auto" />
             </div>
           ))}
         </div>
@@ -159,7 +158,8 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   // Error state
   if (error) {
     return (
-      <div className="w-full max-w-6xl mx-auto px-4">
+      <div className="w-full">
+        <TitleSection />
         <div className="text-center py-8">
           <p className="text-muted-foreground">Failed to load custom agents</p>
         </div>
@@ -170,7 +170,8 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   // No agents found
   if (!templates || templates.length === 0) {
     return (
-      <div className="w-full max-w-6xl mx-auto px-4">
+      <div className="w-full">
+        <TitleSection />
         <div className="text-center py-8">
           <p className="text-muted-foreground">No custom agents available yet</p>
         </div>
@@ -180,65 +181,51 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
 
   return (
     <>
-      <div className="w-full max-w-4xl mx-auto px-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="max-h-[180px] relative col-span-1 overflow-hidden rounded-3xl flex items-center justify-center border bg-background">
-            <div className="relative px-8 py-16 text-start">
-              <div className="mx-auto max-w-3xl space-y-6">
-                <h2 className="text-3xl font-semibold text-foreground mb-2">
-                  Featured Agents
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                  Specialized AI agents built by the Kortix team for specific tasks
-                </p>
-              </div>
-            </div>
-            <Ripple/>
-          </div>
-          {templates.slice(0, 6).map((template) => (
+      <div className="w-full">
+        <TitleSection />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
+          {templates.slice(0, 8).map((template) => (
             <div
               key={template.template_id}
               className={cn(
-                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col max-h-[180px] border-border/50',
+                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col h-[180px] w-full lg:w-[240px] lg:flex-shrink-0 border-border/50',
                 'hover:border-primary/20'
               )}
               onClick={() => handleCardClick(template)}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               
-              <div className="h-full relative flex overflow-hidden w-full">
-                <div className="flex items-center justify-center p-4">
+              <div className="h-full relative flex flex-col overflow-hidden w-full p-4">
+                <div className="flex items-center gap-3 mb-3">
                   {template.profile_image_url ? (
                     <img 
                       src={template.profile_image_url}
                       alt={template.name}
-                      className="h-full w-auto object-cover rounded-2xl"
+                      className="h-10 w-10 object-cover rounded-xl flex-shrink-0"
                     />
                   ) : (
                     <div 
-                      className="relative h-14 w-14 flex items-center justify-center rounded-2xl text-2xl shadow-md flex-shrink-0"
+                      className="relative h-10 w-10 flex items-center justify-center rounded-xl text-lg shadow-md flex-shrink-0"
                       style={{ 
                         backgroundColor: template.avatar_color || '#3b82f6',
                       }}
                     >
                       <span>{template.avatar || '🤖'}</span>
                       <div
-                        className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
+                        className="absolute inset-0 rounded-xl pointer-events-none opacity-0 dark:opacity-100 transition-opacity"
                         style={{
-                          boxShadow: `0 16px 48px -8px ${template.avatar_color || '#3b82f6'}70, 0 8px 24px -4px ${template.avatar_color || '#3b82f6'}50`
+                          boxShadow: `0 12px 36px -6px ${template.avatar_color || '#3b82f6'}70, 0 6px 18px -3px ${template.avatar_color || '#3b82f6'}50`
                         }}
                       />
                     </div>
                   )}
-                </div>
-                <div className='flex-1 flex flex-col justify-center p-4 pr-6'>
-                  <h3 className="text-lg font-semibold text-foreground line-clamp-1">
+                  <h3 className="text-base font-semibold text-foreground line-clamp-1 flex-1">
                     {template.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem] leading-relaxed">
-                    {template.description || 'No description available'}
-                  </p>
                 </div>
+                <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed flex-1">
+                  {template.description || 'No description available'}
+                </p>
               </div>
             </div>
           ))}
