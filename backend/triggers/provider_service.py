@@ -137,7 +137,7 @@ class ScheduleProvider(TriggerProvider):
                 trigger.config['cron_job_id'] = result.data
             except Exception:
                 trigger.config['cron_job_id'] = None
-            logger.info(f"Created Supabase Cron job '{job_name}' for trigger {trigger.trigger_id}")
+            logger.debug(f"Created Supabase Cron job '{job_name}' for trigger {trigger.trigger_id}")
             return True
             
         except Exception as e:
@@ -154,7 +154,7 @@ class ScheduleProvider(TriggerProvider):
                     "unschedule_job_by_name",
                     {"job_name": job_name},
                 ).execute()
-                logger.info(f"Unschedule requested for Supabase Cron job '{job_name}' (trigger {trigger.trigger_id})")
+                logger.debug(f"Unschedule requested for Supabase Cron job '{job_name}' (trigger {trigger.trigger_id})")
                 return True
             except Exception as rpc_err:
                 logger.warning(f"Failed to unschedule job '{job_name}' via RPC: {rpc_err}")

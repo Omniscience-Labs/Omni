@@ -193,7 +193,7 @@ class MCPService:
             "x-pd-app-slug": server.app_slug,
         }
         
-        logger.info(f"Testing MCP connection for {server.app_name} at {server.server_url}")
+        logger.debug(f"Testing MCP connection for {server.app_name} at {server.server_url}")
         
         try:
             async with asyncio.timeout(15):
@@ -212,7 +212,7 @@ class MCPService:
                             server.add_tool(mcp_tool)
                         
                         server.status = ConnectionStatus.CONNECTED
-                        logger.info(f"Successfully tested MCP server for {server.app_name} with {server.get_tool_count()} tools")
+                        logger.debug(f"Successfully tested MCP server for {server.app_name} with {server.get_tool_count()} tools")
                         return server
                         
         except asyncio.TimeoutError:
@@ -238,7 +238,7 @@ class MCPService:
             logger.error("Missing PIPEDREAM_PROJECT_ID environment variable")
             return []
 
-        logger.info(f"Discovering MCP servers for user: {external_user_id.value}, app_slug: {app_slug.value if app_slug else 'all'}")
+        logger.debug(f"Discovering MCP servers for user: {external_user_id.value}, app_slug: {app_slug.value if app_slug else 'all'}")
 
         url = f"{self.base_url}/connect/{project_id}/accounts"
         params = {"external_id": external_user_id.value}
@@ -249,14 +249,14 @@ class MCPService:
 
             accounts = data.get("data", [])
             if not accounts:
-                logger.info(f"No connected apps found for user: {external_user_id.value}")
+                logger.debug(f"No connected apps found for user: {external_user_id.value}")
                 return []
 
             user_apps = [account.get("app") for account in accounts if account.get("app")]
 
             if app_slug:
                 user_apps = [app for app in user_apps if app.get("name_slug") == app_slug.value]
-                logger.info(f"Filtered to {len(user_apps)} apps for app_slug: {app_slug.value}")
+                logger.debug(f"Filtered to {len(user_apps)} apps for app_slug: {app_slug.value}")
 
             mcp_servers = []
             for app in user_apps:
@@ -267,7 +267,7 @@ class MCPService:
                     logger.warning(f"App missing name_slug: {app}")
                     continue
                 
-                logger.info(f"Creating MCP server for app: {app_name} ({app_slug_current})")
+                logger.debug(f"Creating MCP server for app: {app_name} ({app_slug_current})")
                 
                 server = MCPServer(
                     app_slug=app_slug_current,
@@ -282,14 +282,14 @@ class MCPService:
                 try:
                     tested_server = await self.test_connection(server)
                     mcp_servers.append(tested_server)
-                    logger.info(f"Successfully tested MCP server for {app_name}: {tested_server.status.value}")
+                    logger.debug(f"Successfully tested MCP server for {app_name}: {tested_server.status.value}")
                 except Exception as e:
                     logger.warning(f"Failed to test MCP server for {app_name}: {str(e)}")
                     server.status = ConnectionStatus.ERROR
                     server.error_message = str(e)
                     mcp_servers.append(server)
 
-            logger.info(f"Discovered {len(mcp_servers)} MCP servers for user: {external_user_id.value}")
+            logger.debug(f"Discovered {len(mcp_servers)} MCP servers for user: {external_user_id.value}")
             return mcp_servers
 
         except Exception as e:
@@ -306,7 +306,7 @@ class MCPService:
         if not project_id:
             raise MCPConnectionError("Missing PIPEDREAM_PROJECT_ID")
 
-        logger.info(f"Creating MCP connection for user: {external_user_id.value}, app: {app_slug.value}")
+        logger.debug(f"Creating MCP connection for user: {external_user_id.value}, app: {app_slug.value}")
 
         url = f"{self.base_url}/connect/{project_id}/accounts"
         params = {"external_id": external_user_id.value}
@@ -339,7 +339,7 @@ class MCPService:
             )
 
             tested_server = await self.test_connection(server)
-            logger.info(f"Successfully created MCP connection for {app_slug.value}")
+            logger.debug(f"Successfully created MCP connection for {app_slug.value}")
             return tested_server
 
         except Exception as e:

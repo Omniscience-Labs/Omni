@@ -185,7 +185,7 @@ class AppService:
             page_info = data.get("page_info", {})
             page_info["has_more"] = bool(page_info.get("end_cursor"))
             
-            logger.info(f"Found {len(apps)} apps from search")
+            logger.debug(f"Found {len(apps)} apps from search")
             
             return {
                 "success": True,
@@ -373,31 +373,31 @@ class AppService:
         category_vo = Category(category) if category else None
         cursor_vo = PaginationCursor(cursor) if cursor else None
         
-        logger.info(f"Searching apps: query='{query}', category='{category}', page={page}")
+        logger.debug(f"Searching apps: query='{query}', category='{category}', page={page}")
         
         result = await self._search(search_query, category_vo, page, limit, cursor_vo)
         
-        logger.info(f"Found {len(result.get('apps', []))} apps")
+        logger.debug(f"Found {len(result.get('apps', []))} apps")
         return result
 
     async def get_app_by_slug(self, app_slug: str) -> Optional[App]:
-        logger.info(f"Getting app by slug: {app_slug}")
+        logger.debug(f"Getting app by slug: {app_slug}")
         
         app = await self._get_by_slug(app_slug)
         
         if app:
-            logger.info(f"Found app: {app.name}")
+            logger.debug(f"Found app: {app.name}")
         else:
-            logger.info(f"App not found: {app_slug}")
+            logger.debug(f"App not found: {app_slug}")
         
         return app
 
     async def get_popular_apps(self, category: Optional[str] = None, limit: int = 10) -> List[App]:
-        logger.info(f"Getting popular apps: category='{category}', limit={limit}")
+        logger.debug(f"Getting popular apps: category='{category}', limit={limit}")
         
         apps = await self._get_popular(category, limit)
         
-        logger.info(f"Found {len(apps)} popular apps")
+        logger.debug(f"Found {len(apps)} popular apps")
         return apps
 
     async def close(self):

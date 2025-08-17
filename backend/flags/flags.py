@@ -31,7 +31,7 @@ class FeatureFlagManager:
             await redis_client.hset(flag_key, mapping=flag_data)
             await redis_client.sadd(self.flag_list_key, key)
             
-            logger.info(f"Set feature flag {key} to {enabled}")
+            logger.debug(f"Set feature flag {key} to {enabled}")
             return True
         except Exception as e:
             logger.error(f"Failed to set feature flag {key}: {e}")
@@ -68,7 +68,7 @@ class FeatureFlagManager:
             deleted = await redis_client.delete(flag_key)
             if deleted:
                 await redis_client.srem(self.flag_list_key, key)
-                logger.info(f"Deleted feature flag: {key}")
+                logger.debug(f"Deleted feature flag: {key}")
                 return True
             return False
         except Exception as e:

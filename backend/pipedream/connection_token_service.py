@@ -132,7 +132,7 @@ class ConnectionTokenService:
             "X-PD-Environment": environment
         }
 
-        logger.info(f"Creating connection token for user: {external_user_id.value}")
+        logger.debug(f"Creating connection token for user: {external_user_id.value}")
 
         try:
             data = await self._make_request(url, headers=headers, json=payload)
@@ -143,7 +143,7 @@ class ConnectionTokenService:
                     separator = "&" if "?" in link else "?"
                     data["connect_link_url"] = f"{link}{separator}app={app.value}"
 
-            logger.info(f"Successfully created connection token for user: {external_user_id.value}")
+            logger.debug(f"Successfully created connection token for user: {external_user_id.value}")
             return data
 
         except Exception as e:

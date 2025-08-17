@@ -44,41 +44,41 @@ class ComposioIntegrationService:
         initiation_fields: Optional[Dict[str, str]] = None
     ) -> ComposioIntegrationResult:
         try:
-            logger.info(f"Starting Composio integration for toolkit: {toolkit_slug}")
-            logger.info(f"Initiation fields: {initiation_fields}")
+            logger.debug(f"Starting Composio integration for toolkit: {toolkit_slug}")
+            logger.debug(f"Initiation fields: {initiation_fields}")
             
             toolkit = await self.toolkit_service.get_toolkit_by_slug(toolkit_slug)
             if not toolkit:
                 raise ValueError(f"Toolkit '{toolkit_slug}' not found")
             
-            logger.info(f"Step 1 complete: Verified toolkit {toolkit_slug}")
+            logger.debug(f"Step 1 complete: Verified toolkit {toolkit_slug}")
             
             auth_config = await self.auth_config_service.create_auth_config(
                 toolkit_slug, 
                 initiation_fields=initiation_fields
             )
-            logger.info(f"Step 2 complete: Created auth config {auth_config.id}")
+            logger.debug(f"Step 2 complete: Created auth config {auth_config.id}")
             
             connected_account = await self.connected_account_service.create_connected_account(
                 auth_config_id=auth_config.id,
                 user_id=user_id,
                 initiation_fields=initiation_fields
             )
-            logger.info(f"Step 3 complete: Connected account {connected_account.id}")
+            logger.debug(f"Step 3 complete: Connected account {connected_account.id}")
             
             mcp_server = await self.mcp_server_service.create_mcp_server(
                 auth_config_ids=[auth_config.id],
                 name=mcp_server_name,
                 toolkit_name=toolkit.name
             )
-            logger.info(f"Step 4 complete: Created MCP server {mcp_server.id}")
+            logger.debug(f"Step 4 complete: Created MCP server {mcp_server.id}")
             
             mcp_url_response = await self.mcp_server_service.generate_mcp_url(
                 mcp_server_id=mcp_server.id,
                 connected_account_ids=[connected_account.id],
                 user_ids=[user_id]
             )
-            logger.info(f"Step 5 complete: Generated MCP URLs")
+            logger.debug(f"Step 5 complete: Generated MCP URLs")
             
             final_mcp_url = mcp_url_response.user_ids_url[0] if mcp_url_response.user_ids_url else mcp_url_response.mcp_url
             
@@ -99,7 +99,7 @@ class ComposioIntegrationService:
                     connected_account_id=connected_account.id
                 )
                 profile_id = composio_profile.profile_id
-                logger.info(f"Step 6 complete: Saved Composio credential profile {profile_id}")
+                logger.debug(f"Step 6 complete: Saved Composio credential profile {profile_id}")
             
             result = ComposioIntegrationResult(
                 toolkit=toolkit,
@@ -111,8 +111,8 @@ class ComposioIntegrationService:
                 profile_id=profile_id
             )
             
-            logger.info(f"Successfully completed Composio integration for {toolkit_slug}")
-            logger.info(f"Final MCP URL: {final_mcp_url}")
+            logger.debug(f"Successfully completed Composio integration for {toolkit_slug}")
+            logger.debug(f"Final MCP URL: {final_mcp_url}")
             
             return result
             

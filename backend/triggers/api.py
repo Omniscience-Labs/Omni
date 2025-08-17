@@ -164,7 +164,7 @@ async def sync_workflows_to_version_config(agent_id: str):
         
         await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
         
-        logger.info(f"Synced {len(workflows)} workflows to version config for agent {agent_id}")
+        logger.debug(f"Synced {len(workflows)} workflows to version config for agent {agent_id}")
         
     except Exception as e:
         logger.error(f"Failed to sync workflows to version config: {e}")
@@ -206,7 +206,7 @@ async def sync_triggers_to_version_config(agent_id: str):
         
         await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
         
-        logger.info(f"Synced {len(triggers)} triggers to version config for agent {agent_id}")
+        logger.debug(f"Synced {len(triggers)} triggers to version config for agent {agent_id}")
         
     except Exception as e:
         logger.error(f"Failed to sync triggers to version config: {e}")
@@ -563,7 +563,7 @@ async def trigger_webhook(
         if result.should_execute_agent or result.should_execute_workflow:
             trigger = await trigger_service.get_trigger(trigger_id)
             if trigger:
-                logger.info(f"Executing agent {trigger.agent_id} for trigger {trigger_id}")
+                logger.debug(f"Executing agent {trigger.agent_id} for trigger {trigger_id}")
                 
                 from .trigger_service import TriggerEvent
                 event = TriggerEvent(
@@ -580,7 +580,7 @@ async def trigger_webhook(
                     trigger_event=event
                 )
                 
-                logger.info(f"Agent execution result: {execution_result}")
+                logger.debug(f"Agent execution result: {execution_result}")
                 
                 return JSONResponse(content={
                     "success": True,
@@ -595,7 +595,7 @@ async def trigger_webhook(
             else:
                 logger.warning(f"Trigger {trigger_id} not found for execution")
         
-        logger.info(f"Webhook processed but no execution needed")
+        logger.debug(f"Webhook processed but no execution needed")
         return JSONResponse(content={
             "success": True,
             "message": "Trigger processed successfully (no execution needed)",
@@ -826,7 +826,7 @@ async def execute_agent_workflow(
     )
     
     if execution_result["success"]:
-        logger.info(f"Manual workflow execution started: {execution_result}")
+        logger.debug(f"Manual workflow execution started: {execution_result}")
         return {
             "thread_id": execution_result.get("thread_id"),
             "agent_run_id": execution_result.get("agent_run_id"),

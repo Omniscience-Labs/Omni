@@ -22,7 +22,7 @@ class CustomMCPHandler:
             initialization_tasks.append(task)
         
         if initialization_tasks:
-            logger.info(f"Initializing {len(initialization_tasks)} custom MCPs in parallel...")
+            logger.debug(f"Initializing {len(initialization_tasks)} custom MCPs in parallel...")
             results = await asyncio.gather(*initialization_tasks, return_exceptions=True)
             
             for i, result in enumerate(results):
@@ -45,7 +45,7 @@ class CustomMCPHandler:
         enabled_tools = config.get('enabledTools', config.get('enabled_tools', []))
         server_name = config.get('name', 'Unknown')
         
-        logger.info(f"Initializing custom MCP: {server_name} (type: {custom_type})")
+        logger.debug(f"Initializing custom MCP: {server_name} (type: {custom_type})")
         
         if custom_type == 'composio':
             await self._initialize_composio_mcp(server_name, server_config, enabled_tools)
@@ -74,7 +74,7 @@ class CustomMCPHandler:
             profile_service = ComposioProfileService(db)
             mcp_url = await profile_service.get_mcp_url_for_runtime(profile_id)
             
-            logger.info(f"Resolved Composio profile {profile_id} to MCP URL")
+            logger.debug(f"Resolved Composio profile {profile_id} to MCP URL")
 
             async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
                 async with ClientSession(read_stream, write_stream) as session:
@@ -83,7 +83,7 @@ class CustomMCPHandler:
                     tools = tools_result.tools if hasattr(tools_result, 'tools') else tools_result
                     
                     self._register_custom_tools(tools, server_name, enabled_tools, 'composio', server_config)
-                    logger.info(f"Registered {len(tools)} tools from Composio MCP {server_name}")
+                    logger.debug(f"Registered {len(tools)} tools from Composio MCP {server_name}")
             
         except Exception as e:
             logger.error(f"Failed to initialize Composio MCP {server_name}: {str(e)}")
@@ -102,7 +102,7 @@ class CustomMCPHandler:
         server_config['external_user_id'] = external_user_id
         oauth_app_id = server_config.get('oauth_app_id')
         
-        logger.info(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id}, oauth_app_id: {oauth_app_id})")
+        logger.debug(f"Initializing Pipedream MCP for {app_slug} (user: {external_user_id}, oauth_app_id: {oauth_app_id})")
         
         try:
             import os
@@ -237,7 +237,7 @@ class CustomMCPHandler:
                 tools_registered += 1
                 logger.debug(f"Registered custom tool: {tool_name}")
         
-        logger.info(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
+        logger.debug(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
     
     def _register_custom_tools_from_info(self, tools_info: List[Dict[str, Any]], server_name: str, enabled_tools: List[str], custom_type: str, server_config: Dict[str, Any]):
         tools_registered = 0
@@ -259,7 +259,7 @@ class CustomMCPHandler:
                 tools_registered += 1
                 logger.debug(f"Registered custom tool: {tool_name}")
         
-        logger.info(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
+        logger.debug(f"Successfully initialized custom MCP {server_name} with {tools_registered} tools")
     
     def get_custom_tools(self) -> Dict[str, Dict[str, Any]]:
         return self.custom_tools.copy() 

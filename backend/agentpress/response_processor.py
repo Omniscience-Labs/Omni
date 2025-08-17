@@ -197,7 +197,7 @@ class ResponseProcessor:
             "last_chunk_time": None
         }
 
-        logger.info(f"Streaming Config: XML={config.xml_tool_calling}, Native={config.native_tool_calling}, "
+        logger.debug(f"Streaming Config: XML={config.xml_tool_calling}, Native={config.native_tool_calling}, "
                    f"Execute on stream={config.execute_on_stream}, Strategy={config.tool_execution_strategy}")
 
         # Reuse thread_run_id for auto-continue or create new one
@@ -281,7 +281,7 @@ class ResponseProcessor:
                             }
                             __sequence += 1
                         else:
-                            logger.info("XML tool call limit reached - not yielding more content chunks")
+                            logger.debug("XML tool call limit reached - not yielding more content chunks")
                             self.trace.event(name="xml_tool_call_limit_reached", level="DEFAULT", status_message=(f"XML tool call limit reached - not yielding more content chunks"))
 
                         # --- Process XML Tool Calls (if enabled and limit not reached) ---
@@ -383,7 +383,7 @@ class ResponseProcessor:
                                 tool_index += 1
 
                 if finish_reason == "xml_tool_limit_reached":
-                    logger.info("Stopping stream processing after loop due to XML tool call limit")
+                    logger.debug("Stopping stream processing after loop due to XML tool call limit")
                     self.trace.event(name="stopping_stream_processing_after_loop_due_to_xml_tool_call_limit", level="DEFAULT", status_message=(f"Stopping stream processing after loop due to XML tool call limit"))
                     break
 
@@ -394,7 +394,7 @@ class ResponseProcessor:
             if (
                 streaming_metadata["usage"]["total_tokens"] == 0
             ):
-                logger.info("🔥 No usage data from provider, counting with litellm.token_counter")
+                logger.debug("🔥 No usage data from provider, counting with litellm.token_counter")
                 
                 try:
                     # prompt side
@@ -413,7 +413,7 @@ class ResponseProcessor:
                     streaming_metadata["usage"]["completion_tokens"]  = completion_tokens
                     streaming_metadata["usage"]["total_tokens"]       = prompt_tokens + completion_tokens
 
-                    logger.info(
+                    logger.debug(
                         f"🔥 Estimated tokens – prompt: {prompt_tokens}, "
                         f"completion: {completion_tokens}, total: {prompt_tokens + completion_tokens}"
                     )
@@ -426,7 +426,7 @@ class ResponseProcessor:
             # Wait for pending tool executions from streaming phase
             tool_results_buffer = [] # Stores (tool_call, result, tool_index, context)
             if pending_tool_executions:
-                logger.info(f"Waiting for {len(pending_tool_executions)} pending streamed tool executions")
+                logger.debug(f"Waiting for {len(pending_tool_executions)} pending streamed tool executions")
                 self.trace.event(name="waiting_for_pending_streamed_tool_executions", level="DEFAULT", status_message=(f"Waiting for {len(pending_tool_executions)} pending streamed tool executions"))
                 # ... (asyncio.wait logic) ...
                 pending_tasks = [execution["task"] for execution in pending_tool_executions]
@@ -448,7 +448,7 @@ class ResponseProcessor:
                                  tool_results_buffer.append((execution["tool_call"], result, tool_idx, context))
                                  
                                  if tool_name in ['ask', 'complete']:
-                                     logger.info(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
+                                     logger.debug(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
                                      self.trace.event(name="terminating_tool_completed_during_streaming", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag."))
                                      agent_should_terminate = True
                                      
@@ -473,7 +473,7 @@ class ResponseProcessor:
                             
                             # Check if this is a terminating tool
                             if tool_name in ['ask', 'complete']:
-                                logger.info(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
+                                logger.debug(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag.")
                                 self.trace.event(name="terminating_tool_completed_during_streaming", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' completed during streaming. Setting termination flag."))
                                 agent_should_terminate = True
                                 
@@ -501,7 +501,7 @@ class ResponseProcessor:
                     is_llm_message=False, metadata={"thread_run_id": thread_run_id}
                 )
                 if finish_msg_obj: yield format_for_yield(finish_msg_obj)
-                logger.info(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
+                logger.debug(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls")
                 self.trace.event(name="stream_finished_with_reason_xml_tool_limit_reached_after_xml_tool_calls", level="DEFAULT", status_message=(f"Stream finished with reason: xml_tool_limit_reached after {xml_tool_call_count} XML tool calls"))
 
             # Calculate if auto-continue is needed if the finish reason is length
@@ -616,7 +616,7 @@ class ResponseProcessor:
 
                 # Populate from buffer if executed on stream
                 if config.execute_on_stream and tool_results_buffer:
-                    logger.info(f"Processing {len(tool_results_buffer)} buffered tool results")
+                    logger.debug(f"Processing {len(tool_results_buffer)} buffered tool results")
                     self.trace.event(name="processing_buffered_tool_results", level="DEFAULT", status_message=(f"Processing {len(tool_results_buffer)} buffered tool results"))
                     for tool_call, result, tool_idx, context in tool_results_buffer:
                         if last_assistant_message_object: context.assistant_message_id = last_assistant_message_object['message_id']
@@ -624,7 +624,7 @@ class ResponseProcessor:
 
                 # Or execute now if not streamed
                 elif final_tool_calls_to_process and not config.execute_on_stream:
-                    logger.info(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream")
+                    logger.debug(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream")
                     self.trace.event(name="executing_tools_after_stream", level="DEFAULT", status_message=(f"Executing {len(final_tool_calls_to_process)} tools ({config.tool_execution_strategy}) after stream"))
                     results_list = await self._execute_tools(final_tool_calls_to_process, config.tool_execution_strategy)
                     current_tool_idx = 0
@@ -646,7 +646,7 @@ class ResponseProcessor:
 
                 # Save and Yield each result message
                 if tool_results_map:
-                    logger.info(f"Saving and yielding {len(tool_results_map)} final tool result messages")
+                    logger.debug(f"Saving and yielding {len(tool_results_map)} final tool result messages")
                     self.trace.event(name="saving_and_yielding_final_tool_result_messages", level="DEFAULT", status_message=(f"Saving and yielding {len(tool_results_map)} final tool result messages"))
                     for tool_idx in sorted(tool_results_map.keys()):
                         tool_call, result, context = tool_results_map[tool_idx]
@@ -695,7 +695,7 @@ class ResponseProcessor:
 
             # Check if agent should terminate after processing pending tools
             if agent_should_terminate:
-                logger.info("Agent termination requested after executing ask/complete tool. Stopping further processing.")
+                logger.debug("Agent termination requested after executing ask/complete tool. Stopping further processing.")
                 self.trace.event(name="agent_termination_requested", level="DEFAULT", status_message="Agent termination requested after executing ask/complete tool. Stopping further processing.")
                 
                 # Set finish reason to indicate termination
@@ -753,7 +753,7 @@ class ResponseProcessor:
                             is_llm_message=False,
                             metadata={"thread_run_id": thread_run_id}
                         )
-                        logger.info("Assistant response end saved for stream (before termination)")
+                        logger.debug("Assistant response end saved for stream (before termination)")
                     except Exception as e:
                         logger.error(f"Error saving assistant response end for stream (before termination): {str(e)}")
                         self.trace.event(name="error_saving_assistant_response_end_for_stream_before_termination", level="ERROR", status_message=(f"Error saving assistant response end for stream (before termination): {str(e)}"))
@@ -807,7 +807,7 @@ class ResponseProcessor:
                             is_llm_message=False,
                             metadata={"thread_run_id": thread_run_id}
                         )
-                        logger.info("Assistant response end saved for stream")
+                        logger.debug("Assistant response end saved for stream")
                     except Exception as e:
                         logger.error(f"Error saving assistant response end for stream: {str(e)}")
                         self.trace.event(name="error_saving_assistant_response_end_for_stream", level="ERROR", status_message=(f"Error saving assistant response end for stream: {str(e)}"))
@@ -838,7 +838,7 @@ class ResponseProcessor:
                 continuous_state['accumulated_content'] = accumulated_content
                 continuous_state['sequence'] = __sequence
                 
-                logger.info(f"Updated continuous state for auto-continue with {len(accumulated_content)} chars")
+                logger.debug(f"Updated continuous state for auto-continue with {len(accumulated_content)} chars")
             else:
                 # Save and Yield the final thread_run_end status (only if not auto-continuing and finish_reason is not 'length')
                 try:
@@ -894,7 +894,7 @@ class ResponseProcessor:
             if hasattr(llm_response, 'choices') and llm_response.choices:
                  if hasattr(llm_response.choices[0], 'finish_reason'):
                      finish_reason = llm_response.choices[0].finish_reason
-                     logger.info(f"Non-streaming finish_reason: {finish_reason}")
+                     logger.debug(f"Non-streaming finish_reason: {finish_reason}")
                      self.trace.event(name="non_streaming_finish_reason", level="DEFAULT", status_message=(f"Non-streaming finish_reason: {finish_reason}"))
                  response_message = llm_response.choices[0].message if hasattr(llm_response.choices[0], 'message') else None
                  if response_message:
@@ -954,7 +954,7 @@ class ResponseProcessor:
        # --- Execute Tools and Yield Results ---
             tool_calls_to_execute = [item['tool_call'] for item in all_tool_data]
             if config.execute_tools and tool_calls_to_execute:
-                logger.info(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}")
+                logger.debug(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}")
                 self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls_to_execute)} tools with strategy: {config.tool_execution_strategy}"))
                 tool_results = await self._execute_tools(tool_calls_to_execute, config.tool_execution_strategy)
 
@@ -1017,7 +1017,7 @@ class ResponseProcessor:
                         is_llm_message=False,
                         metadata={"thread_run_id": thread_run_id}
                     )
-                    logger.info("Assistant response end saved for non-stream")
+                    logger.debug("Assistant response end saved for non-stream")
                 except Exception as e:
                     logger.error(f"Error saving assistant response end for non-stream: {str(e)}")
                     self.trace.event(name="error_saving_assistant_response_end_for_non_stream", level="ERROR", status_message=(f"Error saving assistant response end for non-stream: {str(e)}"))
@@ -1223,7 +1223,7 @@ class ResponseProcessor:
             function_name = tool_call["function_name"]
             arguments = tool_call["arguments"]
 
-            logger.info(f"Executing tool: {function_name} with arguments: {arguments}")
+            logger.debug(f"Executing tool: {function_name} with arguments: {arguments}")
             self.trace.event(name="executing_tool", level="DEFAULT", status_message=(f"Executing tool: {function_name} with arguments: {arguments}"))
             
             if isinstance(arguments, str):
@@ -1244,7 +1244,7 @@ class ResponseProcessor:
             
             logger.debug(f"Found tool function for '{function_name}', executing...")
             result = await tool_fn(**arguments)
-            logger.info(f"Tool execution complete: {function_name} -> {result}")
+            logger.debug(f"Tool execution complete: {function_name} -> {result}")
             span.end(status_message="tool_executed", output=result)
             return result
         except Exception as e:
@@ -1271,7 +1271,7 @@ class ResponseProcessor:
         Returns:
             List of tuples containing the original tool call and its result
         """
-        logger.info(f"Executing {len(tool_calls)} tools with strategy: {execution_strategy}")
+        logger.debug(f"Executing {len(tool_calls)} tools with strategy: {execution_strategy}")
         self.trace.event(name="executing_tools_with_strategy", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools with strategy: {execution_strategy}"))
             
         if execution_strategy == "sequential":
@@ -1299,7 +1299,7 @@ class ResponseProcessor:
             
         try:
             tool_names = [t.get('function_name', 'unknown') for t in tool_calls]
-            logger.info(f"Executing {len(tool_calls)} tools sequentially: {tool_names}")
+            logger.debug(f"Executing {len(tool_calls)} tools sequentially: {tool_names}")
             self.trace.event(name="executing_tools_sequentially", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools sequentially: {tool_names}"))
             
             results = []
@@ -1314,7 +1314,7 @@ class ResponseProcessor:
                     
                     # Check if this is a terminating tool (ask or complete)
                     if tool_name in ['ask', 'complete']:
-                        logger.info(f"Terminating tool '{tool_name}' executed. Stopping further tool execution.")
+                        logger.debug(f"Terminating tool '{tool_name}' executed. Stopping further tool execution.")
                         self.trace.event(name="terminating_tool_executed", level="DEFAULT", status_message=(f"Terminating tool '{tool_name}' executed. Stopping further tool execution."))
                         break  # Stop executing remaining tools
                         
@@ -1324,7 +1324,7 @@ class ResponseProcessor:
                     error_result = ToolResult(success=False, output=f"Error executing tool: {str(e)}")
                     results.append((tool_call, error_result))
             
-            logger.info(f"Sequential execution completed for {len(results)} tools (out of {len(tool_calls)} total)")
+            logger.debug(f"Sequential execution completed for {len(results)} tools (out of {len(tool_calls)} total)")
             self.trace.event(name="sequential_execution_completed", level="DEFAULT", status_message=(f"Sequential execution completed for {len(results)} tools (out of {len(tool_calls)} total)"))
             return results
             
@@ -1358,7 +1358,7 @@ class ResponseProcessor:
             
         try:
             tool_names = [t.get('function_name', 'unknown') for t in tool_calls]
-            logger.info(f"Executing {len(tool_calls)} tools in parallel: {tool_names}")
+            logger.debug(f"Executing {len(tool_calls)} tools in parallel: {tool_names}")
             self.trace.event(name="executing_tools_in_parallel", level="DEFAULT", status_message=(f"Executing {len(tool_calls)} tools in parallel: {tool_names}"))
             
             # Create tasks for all tool calls
@@ -1379,7 +1379,7 @@ class ResponseProcessor:
                 else:
                     processed_results.append((tool_call, result))
             
-            logger.info(f"Parallel execution completed for {len(tool_calls)} tools")
+            logger.debug(f"Parallel execution completed for {len(tool_calls)} tools")
             self.trace.event(name="parallel_execution_completed", level="DEFAULT", status_message=(f"Parallel execution completed for {len(tool_calls)} tools"))
             return processed_results
         
@@ -1422,13 +1422,13 @@ class ResponseProcessor:
             metadata = {}
             if assistant_message_id:
                 metadata["assistant_message_id"] = assistant_message_id
-                logger.info(f"Linking tool result to assistant message: {assistant_message_id}")
+                logger.debug(f"Linking tool result to assistant message: {assistant_message_id}")
                 self.trace.event(name="linking_tool_result_to_assistant_message", level="DEFAULT", status_message=(f"Linking tool result to assistant message: {assistant_message_id}"))
             
             # --- Add parsing details to metadata if available ---
             if parsing_details:
                 metadata["parsing_details"] = parsing_details
-                logger.info("Adding parsing_details to tool result metadata")
+                logger.debug("Adding parsing_details to tool result metadata")
                 self.trace.event(name="adding_parsing_details_to_tool_result_metadata", level="DEFAULT", status_message=(f"Adding parsing_details to tool result metadata"), metadata={"parsing_details": parsing_details})
             # ---
             
@@ -1452,7 +1452,7 @@ class ResponseProcessor:
                     # Fallback to string representation of the whole result
                     content = str(result)
                 
-                logger.info(f"Formatted tool result content: {content[:100]}...")
+                logger.debug(f"Formatted tool result content: {content[:100]}...")
                 self.trace.event(name="formatted_tool_result_content", level="DEFAULT", status_message=(f"Formatted tool result content: {content[:100]}..."))
                 
                 # Create the tool response message with proper format
@@ -1463,7 +1463,7 @@ class ResponseProcessor:
                     "content": content
                 }
                 
-                logger.info(f"Adding native tool result for tool_call_id={tool_call['id']} with role=tool")
+                logger.debug(f"Adding native tool result for tool_call_id={tool_call['id']} with role=tool")
                 self.trace.event(name="adding_native_tool_result_for_tool_call_id", level="DEFAULT", status_message=(f"Adding native tool result for tool_call_id={tool_call['id']} with role=tool"))
                 
                 # Add as a tool message to the conversation history
@@ -1655,7 +1655,7 @@ class ResponseProcessor:
         # <<< ADDED: Signal if this is a terminating tool >>>
         if context.function_name in ['ask', 'complete']:
             metadata["agent_should_terminate"] = "true"
-            logger.info(f"Marking tool status for '{context.function_name}' with termination signal.")
+            logger.debug(f"Marking tool status for '{context.function_name}' with termination signal.")
             self.trace.event(name="marking_tool_status_for_termination", level="DEFAULT", status_message=(f"Marking tool status for '{context.function_name}' with termination signal."))
         # <<< END ADDED >>>
 

@@ -153,7 +153,7 @@ class ComposioTriggerService:
                 items = data if isinstance(data, list) else []
             # Fallback to fetch all pages then filter client-side
             if not items:
-                logger.info("[Composio HTTP] toolkit filter returned 0, fetching all and filtering", toolkit=toolkit_slug)
+                logger.debug("[Composio HTTP] toolkit filter returned 0, fetching all and filtering", toolkit=toolkit_slug)
                 params_all = {"limit": 1000}
                 items = []
                 while True:

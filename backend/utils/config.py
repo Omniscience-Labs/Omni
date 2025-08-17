@@ -338,7 +338,7 @@ class Configuration:
             logger.warning(f"Invalid ENV_MODE: {env_mode_str}, defaulting to LOCAL")
             self.ENV_MODE = EnvMode.LOCAL
             
-        logger.info(f"Environment mode: {self.ENV_MODE.value}")
+        logger.debug(f"Environment mode: {self.ENV_MODE.value}")
         
         # Load configuration from environment variables
         self._load_from_env()

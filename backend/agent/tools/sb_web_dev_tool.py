@@ -109,7 +109,7 @@ class SandboxWebDevTool(SandboxToolsBase):
     async def _has_optimized_template(self) -> bool:
         dir_check = await self._exec_sh(f"test -d {self.TEMPLATE_DIR} && echo EXISTS || echo MISSING")
         if "MISSING" in dir_check.get("output", ""):
-            logger.info(f"Template directory {self.TEMPLATE_DIR} does not exist")
+            logger.debug(f"Template directory {self.TEMPLATE_DIR} does not exist")
             return False
         
         checks = [
@@ -125,12 +125,12 @@ class SandboxWebDevTool(SandboxToolsBase):
                 missing_files.append(file_desc)
         
         if missing_files:
-            logger.info(f"Template missing files: {', '.join(missing_files)}")
+            logger.debug(f"Template missing files: {', '.join(missing_files)}")
             ls_result = await self._exec_sh(f"ls -la {self.TEMPLATE_DIR}")
-            logger.info(f"Template directory contents: {ls_result.get('output', 'Could not list')}")
+            logger.debug(f"Template directory contents: {ls_result.get('output', 'Could not list')}")
             return False
         
-        logger.info("Optimized template found and validated")
+        logger.debug("Optimized template found and validated")
         return True
 
     @openapi_schema({

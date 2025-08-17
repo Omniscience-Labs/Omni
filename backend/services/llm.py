@@ -261,13 +261,13 @@ def prepare_params(
         effort_level = reasoning_effort if reasoning_effort else 'low'
         params["reasoning_effort"] = effort_level
         params["temperature"] = 1.0 # Required by Anthropic when reasoning_effort is used
-        logger.info(f"Anthropic thinking enabled with reasoning_effort='{effort_level}'")
+        logger.debug(f"Anthropic thinking enabled with reasoning_effort='{effort_level}'")
 
     # Add reasoning_effort for xAI models if enabled
     if is_xai and use_thinking:
         effort_level = reasoning_effort if reasoning_effort else 'low'
         params["reasoning_effort"] = effort_level
-        logger.info(f"xAI thinking enabled with reasoning_effort='{effort_level}'")
+        logger.debug(f"xAI thinking enabled with reasoning_effort='{effort_level}'")
 
     # Add xAI-specific parameters
     if model_name.startswith("xai/"):
@@ -319,8 +319,8 @@ async def make_llm_api_call(
         LLMError: For other API-related errors
     """
     # debug <timestamp>.json messages
-    logger.info(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
-    logger.info(f"📡 API Call: Using model {model_name}")
+    logger.debug(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
+    logger.debug(f"📡 API Call: Using model {model_name}")
     params = prepare_params(
         messages=messages,
         model_name=model_name,

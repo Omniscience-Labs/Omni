@@ -213,7 +213,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                                     existing_identifiers.add(identifier)
                         
                         current_configured_mcps = merged_mcps
-                        logger.info(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
+                        logger.debug(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
@@ -232,7 +232,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     )
                     
                     version_created = True
-                    logger.info(f"Created new version {new_version.version_id} for agent {self.agent_id}")
+                    logger.debug(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to create new version: {e}")

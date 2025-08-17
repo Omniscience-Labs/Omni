@@ -195,7 +195,7 @@ async def get_stripe_customer_id(client: SupabaseClient, user_id: str) -> Option
                     customer['id'],
                     metadata={**customer.get('metadata', {}), 'user_id': user_id}
                 )
-                logger.info(f"Added missing user_id metadata to Stripe customer {customer['id']}")
+                logger.debug(f"Added missing user_id metadata to Stripe customer {customer['id']}")
             except Exception as e:
                 logger.error(f"Failed to add user_id metadata to Stripe customer {customer['id']}: {str(e)}")
 
@@ -213,7 +213,7 @@ async def get_stripe_customer_id(client: SupabaseClient, user_id: str) -> Option
             'provider': 'stripe',
             'active': has_active
         }).execute()
-        logger.info(f"Updated billing_customers record for customer {customer['id']} and user {user_id}")
+        logger.debug(f"Updated billing_customers record for customer {customer['id']} and user {user_id}")
 
         return customer['id']
 
@@ -307,7 +307,7 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
                             sub['id'],
                             cancel_at_period_end=True
                         )
-                        logger.info(f"Cancelled subscription {sub['id']} for user {user_id}")
+                        logger.debug(f"Cancelled subscription {sub['id']} for user {user_id}")
                     except Exception as e:
                         logger.error(f"Error cancelling subscription {sub['id']}: {str(e)}")
             
@@ -353,7 +353,7 @@ async def calculate_monthly_usage(client, user_id: str) -> float:
     
     end_time = time.time()
     execution_time = end_time - start_time
-    logger.info(f"Calculate monthly usage took {execution_time:.3f} seconds, total cost: {total_cost}")
+    logger.debug(f"Calculate monthly usage took {execution_time:.3f} seconds, total cost: {total_cost}")
     
     await Cache.set(f"monthly_usage:{user_id}", total_cost, ttl=2 * 60)
     return total_cost
@@ -415,7 +415,7 @@ async def get_usage_logs(client, user_id: str, page: int = 0, items_per_page: in
     
     end_time = time.time()
     execution_time = end_time - start_time
-    logger.info(f"Database query for usage logs took {execution_time:.3f} seconds")
+    logger.debug(f"Database query for usage logs took {execution_time:.3f} seconds")
 
     if not messages_result.data:
         return {"logs": [], "has_more": False}
@@ -578,7 +578,7 @@ async def get_allowed_models_for_user(client, user_id: str):
 
 async def can_use_model(client, user_id: str, model_name: str):
     if config.ENV_MODE == EnvMode.LOCAL:
-        logger.info("Running in local development mode - billing checks are disabled")
+        logger.debug("Running in local development mode - billing checks are disabled")
         return True, "Local development mode - billing disabled", {
             "price_id": "local_dev",
             "plan_name": "Local Development",
@@ -624,7 +624,7 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
         Tuple[bool, str, Optional[Dict]]: (can_run, message, subscription_info)
     """
     if config.ENV_MODE == EnvMode.LOCAL:
-        logger.info("Running in local development mode - billing checks are disabled")
+        logger.debug("Running in local development mode - billing checks are disabled")
         return True, "Local development mode - billing disabled", {
             "price_id": "local_dev",
             "plan_name": "Local Development",
@@ -707,7 +707,7 @@ async def check_subscription_commitment(subscription_id: str) -> dict:
                     months_remaining -= 1
                 months_remaining = max(0, months_remaining)
                 
-                logger.info(f"Subscription {subscription_id} has active yearly commitment: {months_remaining} months remaining")
+                logger.debug(f"Subscription {subscription_id} has active yearly commitment: {months_remaining} months remaining")
                 
                 return {
                     'has_commitment': True,
@@ -720,7 +720,7 @@ async def check_subscription_commitment(subscription_id: str) -> dict:
                 }
             else:
                 # Commitment period has ended
-                logger.info(f"Subscription {subscription_id} yearly commitment period has ended")
+                logger.debug(f"Subscription {subscription_id} yearly commitment period has ended")
                 return {
                     'has_commitment': False,
                     'commitment_type': 'yearly_commitment',
@@ -826,14 +826,14 @@ async def create_checkout_session(
                     (current_interval == 'month' and new_interval == 'year')    # Monthly to yearly upgrade
                 )
                 
-                logger.info(f"Price comparison: current={current_price['unit_amount']}, new={new_price['unit_amount']}, "
+                logger.debug(f"Price comparison: current={current_price['unit_amount']}, new={new_price['unit_amount']}, "
                            f"intervals: {current_interval}->{new_interval}, is_upgrade={is_upgrade}")
 
                 # For commitment subscriptions, handle differently
                 if commitment_info.get('has_commitment'):
                     if is_upgrade:
                         # Allow upgrades for commitment subscriptions immediately
-                        logger.info(f"Upgrading commitment subscription {subscription_id}")
+                        logger.debug(f"Upgrading commitment subscription {subscription_id}")
                         
                         # Regular subscription modification for upgrades
                         updated_subscription = await stripe.Subscription.modify_async(
@@ -854,7 +854,7 @@ async def create_checkout_session(
                         await client.schema('basejump').from_('billing_customers').update(
                             {'active': True}
                         ).eq('id', customer_id).execute()
-                        logger.info(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
+                        logger.debug(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
                         
                         # Force immediate payment for upgrades
                         latest_invoice = None
@@ -863,26 +863,26 @@ async def create_checkout_session(
                             latest_invoice = await stripe.Invoice.retrieve_async(latest_invoice_id)
                             
                             try:
-                                logger.info(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
+                                logger.debug(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
                                 
                                 # If invoice is in draft status, finalize it to trigger immediate payment
                                 if latest_invoice.status == 'draft':
                                     finalized_invoice = stripe.Invoice.finalize_invoice(latest_invoice_id)
-                                    logger.info(f"Finalized invoice {latest_invoice_id} for immediate payment")
+                                    logger.debug(f"Finalized invoice {latest_invoice_id} for immediate payment")
                                     latest_invoice = finalized_invoice
                                     
                                     # Pay the invoice immediately if it's still open
                                     if finalized_invoice.status == 'open':
                                         paid_invoice = stripe.Invoice.pay(latest_invoice_id)
-                                        logger.info(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
+                                        logger.debug(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
                                         latest_invoice = paid_invoice
                                 elif latest_invoice.status == 'open':
                                     # Invoice is already finalized but not paid, pay it
                                     paid_invoice = stripe.Invoice.pay(latest_invoice_id)
-                                    logger.info(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
+                                    logger.debug(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
                                     latest_invoice = paid_invoice
                                 else:
-                                    logger.info(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
+                                    logger.debug(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
                                     
                             except Exception as invoice_error:
                                 logger.error(f"Error processing invoice for immediate payment: {str(invoice_error)}")
@@ -942,7 +942,7 @@ async def create_checkout_session(
                     await client.schema('basejump').from_('billing_customers').update(
                         {'active': True}
                     ).eq('id', customer_id).execute()
-                    logger.info(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
+                    logger.debug(f"Updated customer {customer_id} active status to TRUE after subscription upgrade")
                     
                     latest_invoice = None
                     if updated_subscription.latest_invoice:
@@ -951,26 +951,26 @@ async def create_checkout_session(
                         
                         # Force immediate payment for upgrades
                         try:
-                            logger.info(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
+                            logger.debug(f"Latest invoice {latest_invoice_id} status: {latest_invoice.status}")
                             
                             # If invoice is in draft status, finalize it to trigger immediate payment
                             if latest_invoice.status == 'draft':
                                 finalized_invoice = stripe.Invoice.finalize_invoice(latest_invoice_id)
-                                logger.info(f"Finalized invoice {latest_invoice_id} for immediate payment")
+                                logger.debug(f"Finalized invoice {latest_invoice_id} for immediate payment")
                                 latest_invoice = finalized_invoice  # Update reference
                                 
                                 # Pay the invoice immediately if it's still open
                                 if finalized_invoice.status == 'open':
                                     paid_invoice = stripe.Invoice.pay(latest_invoice_id)
-                                    logger.info(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
+                                    logger.debug(f"Paid invoice {latest_invoice_id} immediately, status: {paid_invoice.status}")
                                     latest_invoice = paid_invoice  # Update reference
                             elif latest_invoice.status == 'open':
                                 # Invoice is already finalized but not paid, pay it
                                 paid_invoice = stripe.Invoice.pay(latest_invoice_id)
-                                logger.info(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
+                                logger.debug(f"Paid existing open invoice {latest_invoice_id}, status: {paid_invoice.status}")
                                 latest_invoice = paid_invoice  # Update reference
                             else:
-                                logger.info(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
+                                logger.debug(f"Invoice {latest_invoice_id} is in status {latest_invoice.status}, no action needed")
                                 
                         except Exception as invoice_error:
                             logger.error(f"Error processing invoice for immediate payment: {str(invoice_error)}")
@@ -1009,7 +1009,7 @@ async def create_checkout_session(
                     await client.schema('basejump').from_('billing_customers').update(
                         {'active': True}
                     ).eq('id', customer_id).execute()
-                    logger.info(f"Updated customer {customer_id} active status to TRUE after subscription downgrade")
+                    logger.debug(f"Updated customer {customer_id} active status to TRUE after subscription downgrade")
                     
                     return {
                         "subscription_id": updated_subscription.id,
@@ -1053,7 +1053,7 @@ async def create_checkout_session(
             await client.schema('basejump').from_('billing_customers').update(
                 {'active': True}
             ).eq('id', customer_id).execute()
-            logger.info(f"Updated customer {customer_id} active status to TRUE after creating checkout session")
+            logger.debug(f"Updated customer {customer_id} active status to TRUE after creating checkout session")
             
             return {"session_id": session['id'], "url": session['url'], "status": "new"}
         
@@ -1094,7 +1094,7 @@ async def create_portal_session(
                 subscription_update = features.get('subscription_update', {})
                 if subscription_update.get('enabled', False):
                     active_config = config
-                    logger.info(f"Found existing portal configuration with subscription_update enabled: {config['id']}")
+                    logger.debug(f"Found existing portal configuration with subscription_update enabled: {config['id']}")
                     break
             
             # If no config with subscription_update found, create one or update the active one
@@ -1102,7 +1102,7 @@ async def create_portal_session(
                 # Find the active configuration or create a new one
                 if configurations.get('data', []):
                     default_config = configurations['data'][0]
-                    logger.info(f"Updating default portal configuration: {default_config['id']} to enable subscription_update")
+                    logger.debug(f"Updating default portal configuration: {default_config['id']} to enable subscription_update")
                     
                     active_config = await stripe.billing_portal.Configuration.update_async(
                         default_config['id'],
@@ -1120,7 +1120,7 @@ async def create_portal_session(
                     )
                 else:
                     # Create a new configuration with subscription_update enabled
-                    logger.info("Creating new portal configuration with subscription_update enabled")
+                    logger.debug("Creating new portal configuration with subscription_update enabled")
                     active_config = await stripe.billing_portal.Configuration.create_async(
                         business_profile={
                             'headline': 'Subscription Management',
@@ -1143,7 +1143,7 @@ async def create_portal_session(
                     )
             
             # Log the active configuration for debugging
-            logger.info(f"Using portal configuration: {active_config['id']} with subscription_update: {active_config.get('features', {}).get('subscription_update', {}).get('enabled', False)}")
+            logger.debug(f"Using portal configuration: {active_config['id']} with subscription_update: {active_config.get('features', {}).get('subscription_update', {}).get('enabled', False)}")
         
         except Exception as config_error:
             logger.warning(f"Error configuring portal: {config_error}. Continuing with default configuration.")
@@ -1299,7 +1299,7 @@ async def stripe_webhook(request: Request):
             event = stripe.Webhook.construct_event(
                 payload, sig_header, webhook_secret
             )
-            logger.info(f"Received Stripe webhook: {event.type} - Event ID: {event.id}")
+            logger.debug(f"Received Stripe webhook: {event.type} - Event ID: {event.id}")
         except ValueError as e:
             logger.error(f"Invalid webhook payload: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload")
@@ -1327,7 +1327,7 @@ async def stripe_webhook(request: Request):
                     await client.schema('basejump').from_('billing_customers').update(
                         {'active': True}
                     ).eq('id', customer_id).execute()
-                    logger.info(f"Webhook: Updated customer {customer_id} active status to TRUE based on {event.type}")
+                    logger.debug(f"Webhook: Updated customer {customer_id} active status to TRUE based on {event.type}")
                     
             elif event.type == 'customer.subscription.updated':
                 # Check if subscription is active
@@ -1336,7 +1336,7 @@ async def stripe_webhook(request: Request):
                     await client.schema('basejump').from_('billing_customers').update(
                         {'active': True}
                     ).eq('id', customer_id).execute()
-                    logger.info(f"Webhook: Updated customer {customer_id} active status to TRUE based on {event.type}")
+                    logger.debug(f"Webhook: Updated customer {customer_id} active status to TRUE based on {event.type}")
                 else:
                     # Subscription is not active (e.g., past_due, canceled, etc.)
                     # Check if customer has any other active subscriptions before updating status
@@ -1350,7 +1350,7 @@ async def stripe_webhook(request: Request):
                         await client.schema('basejump').from_('billing_customers').update(
                             {'active': False}
                         ).eq('id', customer_id).execute()
-                        logger.info(f"Webhook: Updated customer {customer_id} active status to FALSE based on {event.type}")
+                        logger.debug(f"Webhook: Updated customer {customer_id} active status to FALSE based on {event.type}")
             
             elif event.type == 'customer.subscription.deleted':
                 # Check if customer has any other active subscriptions
@@ -1365,9 +1365,9 @@ async def stripe_webhook(request: Request):
                     await client.schema('basejump').from_('billing_customers').update(
                         {'active': False}
                     ).eq('id', customer_id).execute()
-                    logger.info(f"Webhook: Updated customer {customer_id} active status to FALSE after subscription deletion")
+                    logger.debug(f"Webhook: Updated customer {customer_id} active status to FALSE after subscription deletion")
             
-            logger.info(f"Processed {event.type} event for customer {customer_id}")
+            logger.debug(f"Processed {event.type} event for customer {customer_id}")
         
         return {"status": "success"}
         
@@ -1387,7 +1387,7 @@ async def get_available_models(
         
         # Check if we're in local development mode
         if config.ENV_MODE == EnvMode.LOCAL:
-            logger.info("Running in local development mode - billing checks are disabled")
+            logger.debug("Running in local development mode - billing checks are disabled")
             
             # In local mode, return all models from MODEL_NAME_ALIASES
             model_info = []
@@ -1572,7 +1572,7 @@ async def get_usage_logs_endpoint(
         
         # Check if we're in local development mode
         if config.ENV_MODE == EnvMode.LOCAL:
-            logger.info("Running in local development mode - usage logs are not available")
+            logger.debug("Running in local development mode - usage logs are not available")
             return {
                 "logs": [], 
                 "has_more": False,
@@ -1691,7 +1691,7 @@ async def cancel_subscription(
                 }
             )
             
-            logger.info(f"Subscription {subscription_id} scheduled for cancellation at commitment end: {commitment_end_date}")
+            logger.debug(f"Subscription {subscription_id} scheduled for cancellation at commitment end: {commitment_end_date}")
             
             return {
                 "success": True,
@@ -1717,7 +1717,7 @@ async def cancel_subscription(
             }
         )
 
-        logger.info(f"Subscription {subscription_id} marked for cancellation at period end")
+        logger.debug(f"Subscription {subscription_id} marked for cancellation at period end")
         
         # Calculate when the subscription will actually end
         current_period_end = updated_subscription.current_period_end or subscription.get('current_period_end')
@@ -1797,7 +1797,7 @@ async def reactivate_subscription(
             **modify_params
         )
         
-        logger.info(f"Subscription {subscription_id} reactivated by user")
+        logger.debug(f"Subscription {subscription_id} reactivated by user")
         
         # Get the current period end safely
         current_period_end = updated_subscription.current_period_end or subscription.get('current_period_end')

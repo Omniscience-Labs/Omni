@@ -191,7 +191,7 @@ class TemplateService:
         make_public: bool = False,
         tags: Optional[List[str]] = None
     ) -> str:
-        logger.info(f"Creating template from agent {agent_id} for user {creator_id}")
+        logger.debug(f"Creating template from agent {agent_id} for user {creator_id}")
         
         agent = await self._get_agent_by_id(agent_id)
         if not agent:
@@ -226,7 +226,7 @@ class TemplateService:
         
         await self._save_template(template)
         
-        logger.info(f"Created template {template.template_id} from agent {agent_id}")
+        logger.debug(f"Created template {template.template_id} from agent {agent_id}")
         return template.template_id
     
     async def get_template(self, template_id: str) -> Optional[AgentTemplate]:
@@ -326,7 +326,7 @@ class TemplateService:
         return templates
     
     async def publish_template(self, template_id: str, creator_id: str) -> bool:
-        logger.info(f"Publishing template {template_id}")
+        logger.debug(f"Publishing template {template_id}")
         
         client = await self._db.client
         result = await client.table('agent_templates').update({
@@ -339,12 +339,12 @@ class TemplateService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Published template {template_id}")
+            logger.debug(f"Published template {template_id}")
         
         return success
     
     async def unpublish_template(self, template_id: str, creator_id: str) -> bool:
-        logger.info(f"Unpublishing template {template_id}")
+        logger.debug(f"Unpublishing template {template_id}")
         
         client = await self._db.client
         result = await client.table('agent_templates').update({
@@ -357,13 +357,13 @@ class TemplateService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Unpublished template {template_id}")
+            logger.debug(f"Unpublished template {template_id}")
         
         return success
     
     async def delete_template(self, template_id: str, creator_id: str) -> bool:
         """Delete a template. Only the creator can delete their templates."""
-        logger.info(f"Deleting template {template_id} for user {creator_id}")
+        logger.debug(f"Deleting template {template_id} for user {creator_id}")
         
         client = await self._db.client
         
@@ -390,7 +390,7 @@ class TemplateService:
         
         success = len(result.data) > 0
         if success:
-            logger.info(f"Successfully deleted template {template_id}")
+            logger.debug(f"Successfully deleted template {template_id}")
         
         return success
     

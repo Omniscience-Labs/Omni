@@ -44,7 +44,7 @@ MAX_CONCURRENT_IPS = 25
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
+    logger.debug(f"Starting up FastAPI application with instance ID: {instance_id} in {config.ENV_MODE.value} mode")
     try:
         await db.initialize()
         
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
         from services import redis
         try:
             await redis.initialize_async()
-            logger.info("Redis connection initialized successfully")
+            logger.debug("Redis connection initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Redis connection: {e}")
             # Continue without Redis - the application will handle Redis failures gracefully
@@ -77,19 +77,19 @@ async def lifespan(app: FastAPI):
         yield
         
         # Clean up agent resources
-        logger.info("Cleaning up agent resources")
+        logger.debug("Cleaning up agent resources")
         await agent_api.cleanup()
         
         # Clean up Redis connection
         try:
-            logger.info("Closing Redis connection")
+            logger.debug("Closing Redis connection")
             await redis.close()
-            logger.info("Redis connection closed successfully")
+            logger.debug("Redis connection closed successfully")
         except Exception as e:
             logger.error(f"Error closing Redis connection: {e}")
         
         # Clean up database connection
-        logger.info("Disconnecting from database")
+        logger.debug("Disconnecting from database")
         await db.disconnect()
     except Exception as e:
         logger.error(f"Error during application startup: {e}")
@@ -117,7 +117,7 @@ async def log_requests_middleware(request: Request, call_next):
     )
 
     # Log the incoming request
-    logger.info(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
+    logger.debug(f"Request started: {method} {path} from {client_ip} | Query: {query_params}")
     
     try:
         response = await call_next(request)
@@ -193,7 +193,7 @@ api_router.include_router(composio_api.router)
 
 @api_router.get("/health")
 async def health_check():
-    logger.info("Health check endpoint called")
+    logger.debug("Health check endpoint called")
     return {
         "status": "ok", 
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -202,7 +202,7 @@ async def health_check():
 
 @api_router.get("/health-docker")
 async def health_check():
-    logger.info("Health docker check endpoint called")
+    logger.debug("Health docker check endpoint called")
     try:
         client = await redis.get_client()
         await client.ping()
@@ -210,7 +210,7 @@ async def health_check():
         await db.initialize()
         db_client = await db.client
         await db_client.table("threads").select("thread_id").limit(1).execute()
-        logger.info("Health docker check complete")
+        logger.debug("Health docker check complete")
         return {
             "status": "ok", 
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     
     workers = 4
     
-    logger.info(f"Starting server on 0.0.0.0:8000 with {workers} workers")
+    logger.debug(f"Starting server on 0.0.0.0:8000 with {workers} workers")
     uvicorn.run(
         "api:app", 
         host="0.0.0.0", 

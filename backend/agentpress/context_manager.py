@@ -240,7 +240,7 @@ class ContextManager:
 
         compressed_token_count = token_counter(model=llm_model, messages=result)
 
-        logger.info(f"compress_messages: {uncompressed_total_token_count} -> {compressed_token_count}")  # Log the token compression for debugging later
+        logger.debug(f"compress_messages: {uncompressed_total_token_count} -> {compressed_token_count}")  # Log the token compression for debugging later
 
         if max_iterations <= 0:
             logger.warning(f"compress_messages: Max iterations reached, omitting messages")
@@ -320,7 +320,7 @@ class ContextManager:
         final_messages = ([system_message] + conversation_messages) if system_message else conversation_messages
         final_token_count = token_counter(model=llm_model, messages=final_messages)
         
-        logger.info(f"compress_messages_by_omitting_messages: {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
+        logger.debug(f"compress_messages_by_omitting_messages: {initial_token_count} -> {final_token_count} tokens ({len(messages)} -> {len(final_messages)} messages)")
             
         return final_messages
     

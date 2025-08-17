@@ -136,7 +136,7 @@ class BrowserTool(SandboxToolsBase):
             await self._ensure_sandbox()
 
             if not self.__class__._sandbox_created:
-                logger.info("Sandbox just created, waiting for server to start")
+                logger.debug("Sandbox just created, waiting for server to start")
                 await asyncio.sleep(5)
                 self.__class__._sandbox_created = True
             
@@ -150,7 +150,7 @@ class BrowserTool(SandboxToolsBase):
                 try:
                     result = json.loads(response.result)
                     if result.get("status") == "healthy":
-                        logger.info("✅ Stagehand API server is running and healthy")
+                        logger.debug("✅ Stagehand API server is running and healthy")
                         return True
                     else:
                         # If the browser api is not healthy, we need to restart the browser api
@@ -158,7 +158,7 @@ class BrowserTool(SandboxToolsBase):
 
                         response = await self.sandbox.process.exec(f"curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{{\"api_key\": \"{model_api_key}\"}}'", timeout=90)
                         if response.exit_code == 0:
-                            logger.info("Stagehand API server restarted successfully")
+                            logger.debug("Stagehand API server restarted successfully")
                             return True
                         else:
                             logger.warning(f"Stagehand API server restart failed: {response.result}")
@@ -214,9 +214,9 @@ class BrowserTool(SandboxToolsBase):
             if response.exit_code == 0:
                 try:
                     result = json.loads(response.result)
-                    logger.info(f"Stagehand API result: {result}")
+                    logger.debug(f"Stagehand API result: {result}")
 
-                    logger.info("Stagehand API request completed successfully")
+                    logger.debug("Stagehand API request completed successfully")
 
                     if "screenshot_base64" in result:
                         try:
@@ -324,7 +324,7 @@ class BrowserTool(SandboxToolsBase):
         ''')
     async def browser_navigate_to(self, url: str) -> ToolResult:
         """Navigate to a URL using Stagehand."""
-        logger.info(f"Browser navigating to: {url}")
+        logger.debug(f"Browser navigating to: {url}")
         return await self._execute_stagehand_api("navigate", {"url": url})
     
     @openapi_schema({
@@ -366,7 +366,7 @@ class BrowserTool(SandboxToolsBase):
         ''')
     async def browser_act(self, action: str, variables: dict = None, iframes: bool = False) -> ToolResult:
         """Perform any browser action using Stagehand."""
-        logger.info(f"Browser acting: {action} (variables={'***' if variables else None}, iframes={iframes})")
+        logger.debug(f"Browser acting: {action} (variables={'***' if variables else None}, iframes={iframes})")
         params = {"action": action, "iframes": iframes, "variables": variables}
         return await self._execute_stagehand_api("act", params)
     
@@ -408,7 +408,7 @@ class BrowserTool(SandboxToolsBase):
         ''')
     async def browser_extract_content(self, instruction: str, selector: str = None, iframes: bool = False) -> ToolResult:
         """Extract structured content from the current page using Stagehand."""
-        logger.info(f"Browser extracting: {instruction} (selector={selector}, iframes={iframes})")
+        logger.debug(f"Browser extracting: {instruction} (selector={selector}, iframes={iframes})")
         params = {"instruction": instruction, "iframes": iframes, "selector": selector}
         return await self._execute_stagehand_api("extract", params)
     
@@ -438,5 +438,5 @@ class BrowserTool(SandboxToolsBase):
         ''')
     async def browser_screenshot(self, name: str = "screenshot") -> ToolResult:
         """Take a screenshot using Stagehand."""
-        logger.info(f"Browser taking screenshot: {name}")
+        logger.debug(f"Browser taking screenshot: {name}")
         return await self._execute_stagehand_api("screenshot", {"name": name})

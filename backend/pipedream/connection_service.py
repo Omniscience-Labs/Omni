@@ -174,7 +174,7 @@ class ConnectionService:
                 raise ConnectionServiceError(f"HTTP request failed: {e}")
 
     async def get_connections_for_user(self, external_user_id: ExternalUserId) -> List[Connection]:
-        logger.info(f"Getting connections for user: {external_user_id.value}")
+        logger.debug(f"Getting connections for user: {external_user_id.value}")
 
         project_id = os.getenv("PIPEDREAM_PROJECT_ID")
         environment = os.getenv("PIPEDREAM_X_PD_ENVIRONMENT", "development")
@@ -225,7 +225,7 @@ class ConnectionService:
                     )
                     connections.append(connection)
 
-            logger.info(f"Retrieved {len(connections)} connections for user: {external_user_id.value}")
+            logger.debug(f"Retrieved {len(connections)} connections for user: {external_user_id.value}")
             return connections
 
         except Exception as e:

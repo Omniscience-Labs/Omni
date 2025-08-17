@@ -71,7 +71,7 @@ class ToolManager:
         """
         disabled_tools = disabled_tools or []
         
-        logger.info(f"Registering tools with disabled list: {disabled_tools}")
+        logger.debug(f"Registering tools with disabled list: {disabled_tools}")
         
         # Core tools - always enabled
         self._register_core_tools()
@@ -89,7 +89,7 @@ class ToolManager:
         # Browser tool
         self._register_browser_tool(disabled_tools)
         
-        logger.info(f"Tool registration complete. Registered tools: {list(self.thread_manager.tool_registry.tools.keys())}")
+        logger.debug(f"Tool registration complete. Registered tools: {list(self.thread_manager.tool_registry.tools.keys())}")
     
     def _register_core_tools(self):
         """Register core tools that are always available."""
@@ -234,7 +234,7 @@ class MCPManager:
                         "schema": schema
                     }
             
-            logger.info(f"⚡ Registered {len(updated_schemas)} MCP tools (Redis cache enabled)")
+            logger.debug(f"⚡ Registered {len(updated_schemas)} MCP tools (Redis cache enabled)")
             return mcp_wrapper_instance
         except Exception as e:
             logger.error(f"Failed to initialize MCP tools: {e}")
@@ -432,7 +432,7 @@ class AgentRunner:
             # Sandbox is created lazily by tools when required. Do not fail setup
             # if no sandbox is present — tools will call `_ensure_sandbox()`
             # which will create and persist the sandbox metadata when needed.
-            logger.info(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
+            logger.debug(f"No sandbox found for project {self.config.project_id}; will create lazily when needed")
     
     async def setup_tools(self):
         tool_manager = ToolManager(self.thread_manager, self.config.project_id, self.config.thread_id)
@@ -499,7 +499,7 @@ class AgentRunner:
         if 'sb_presentation_tool' in disabled_tools:
             disabled_tools.extend(['sb_presentation_outline_tool', 'sb_presentation_tool_v2'])
         
-        logger.info(f"Disabled tools from config: {disabled_tools}")
+        logger.debug(f"Disabled tools from config: {disabled_tools}")
         return disabled_tools
     
     async def setup_mcp_tools(self) -> Optional[MCPToolWrapper]:
@@ -718,11 +718,11 @@ async def run_agent(
     effective_model = model_name
     if model_name == "openrouter/moonshotai/kimi-k2" and agent_config and agent_config.get('model'):
         effective_model = agent_config['model']
-        logger.info(f"Using model from agent config: {effective_model} (no user selection)")
+        logger.debug(f"Using model from agent config: {effective_model} (no user selection)")
     elif model_name != "openrouter/moonshotai/kimi-k2":
-        logger.info(f"Using user-selected model: {effective_model}")
+        logger.debug(f"Using user-selected model: {effective_model}")
     else:
-        logger.info(f"Using default model: {effective_model}")
+        logger.debug(f"Using default model: {effective_model}")
     
     config = AgentConfig(
         thread_id=thread_id,

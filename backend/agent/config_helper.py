@@ -21,7 +21,7 @@ def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optiona
     from agent.suna.config import SUNA_CONFIG
     
     agent_id = agent_data.get('agent_id', 'Unknown')
-    logger.info(f"Using Suna central config for agent {agent_id}")
+    logger.debug(f"Using Suna central config for agent {agent_id}")
     
     # Start with central Suna config
     config = {
@@ -80,7 +80,7 @@ def _extract_custom_agent_config(agent_data: Dict[str, Any], version_data: Optio
     agent_id = agent_data.get('agent_id', 'Unknown')
     
     if version_data:
-        logger.info(f"Using version data for custom agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
+        logger.debug(f"Using version data for custom agent {agent_id} (version: {version_data.get('version_name', 'unknown')})")
         
         # Extract from version data
         if version_data.get('config'):
@@ -240,44 +240,3 @@ def _extract_agentpress_tools_for_run(agentpress_config: Dict[str, Any]) -> Dict
     return run_tools
 
 
-# Simplified utility functions
-def get_mcp_configs(config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Get all MCP configurations from agent config."""
-    all_mcps = []
-    
-    # Add configured MCPs
-    for mcp in config.get('configured_mcps', []):
-        if mcp not in all_mcps:
-            all_mcps.append(mcp)
-    
-    # Add custom MCPs
-    for mcp in config.get('custom_mcps', []):
-        if mcp not in all_mcps:
-            all_mcps.append(mcp)
-    
-    return all_mcps
-
-
-def is_suna_default_agent(config: Dict[str, Any]) -> bool:
-    """Check if agent is a Suna default agent."""
-    return config.get('is_suna_default', False)
-
-
-def can_edit_field(config: Dict[str, Any], field_name: str) -> bool:
-    """Check if a field can be edited based on agent restrictions."""
-    if not is_suna_default_agent(config):
-        return True
-    
-    # Suna agents have fixed restrictions
-    suna_restrictions = {
-        'system_prompt_editable': False,
-        'tools_editable': False,
-        'name_editable': False,
-        'description_editable': False,
-        'mcps_editable': True
-    }
-    
-    return suna_restrictions.get(f"{field_name}_editable", True)
-
-
-# All legacy functions have been removed - use the simplified functions above

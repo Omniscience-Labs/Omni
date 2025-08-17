@@ -78,7 +78,7 @@ async def create_api_key(
     try:
         account_id = await get_account_id_from_user_id(user_id)
 
-        logger.info(
+        logger.debug(
             "Creating API key",
             user_id=user_id,
             account_id=str(account_id),
@@ -87,7 +87,7 @@ async def create_api_key(
 
         api_key = await api_key_service.create_api_key(account_id, request)
 
-        logger.info(
+        logger.debug(
             "API key created successfully",
             user_id=user_id,
             key_id=str(api_key.key_id),
@@ -158,7 +158,7 @@ async def revoke_api_key(
     try:
         account_id = await get_account_id_from_user_id(user_id)
 
-        logger.info(
+        logger.debug(
             "Revoking API key",
             user_id=user_id,
             account_id=str(account_id),
@@ -168,7 +168,7 @@ async def revoke_api_key(
         success = await api_key_service.revoke_api_key(account_id, key_id)
 
         if success:
-            logger.info(
+            logger.debug(
                 "API key revoked successfully", user_id=user_id, key_id=str(key_id)
             )
             return {"message": "API key revoked successfully"}
@@ -202,7 +202,7 @@ async def delete_api_key(
     try:
         account_id = await get_account_id_from_user_id(user_id)
 
-        logger.info(
+        logger.debug(
             "Deleting API key",
             user_id=user_id,
             account_id=str(account_id),
@@ -212,7 +212,7 @@ async def delete_api_key(
         success = await api_key_service.delete_api_key(account_id, key_id)
 
         if success:
-            logger.info(
+            logger.debug(
                 "API key deleted successfully", user_id=user_id, key_id=str(key_id)
             )
             return {"message": "API key deleted successfully"}

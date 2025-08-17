@@ -111,7 +111,7 @@ class ThreadManager:
             
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'thread_id' in result.data[0]:
                 thread_id = result.data[0]['thread_id']
-                logger.info(f"Successfully created thread: {thread_id}")
+                logger.debug(f"Successfully created thread: {thread_id}")
                 return thread_id
             else:
                 logger.error(f"Thread creation failed or did not return expected data structure. Result data: {result.data}")
@@ -166,7 +166,7 @@ class ThreadManager:
         try:
             # Insert the message and get the inserted row data including the id
             result = await client.table('messages').insert(data_to_insert).execute()
-            logger.info(f"Successfully added message to thread {thread_id}")
+            logger.debug(f"Successfully added message to thread {thread_id}")
 
             if result.data and len(result.data) > 0 and isinstance(result.data[0], dict) and 'message_id' in result.data[0]:
                 return result.data[0]
@@ -286,13 +286,13 @@ class ThreadManager:
             An async generator yielding response chunks or error dict
         """
 
-        logger.info(f"Starting thread execution for thread {thread_id}")
-        logger.info(f"Using model: {llm_model}")
-        logger.info(f"Parameters: model={llm_model}, temperature={llm_temperature}, max_tokens={llm_max_tokens}")
-        logger.info(f"Auto-continue: max={native_max_auto_continues}, XML tool limit={max_xml_tool_calls}")
+        logger.debug(f"Starting thread execution for thread {thread_id}")
+        logger.debug(f"Using model: {llm_model}")
+        logger.debug(f"Parameters: model={llm_model}, temperature={llm_temperature}, max_tokens={llm_max_tokens}")
+        logger.debug(f"Auto-continue: max={native_max_auto_continues}, XML tool limit={max_xml_tool_calls}")
 
         # Log model info
-        logger.info(f"🤖 Thread {thread_id}: Using model {llm_model}")
+        logger.debug(f"🤖 Thread {thread_id}: Using model {llm_model}")
 
         # Ensure processor_config is not None
         config = processor_config or ProcessorConfig()
@@ -399,7 +399,7 @@ When using the tools:
                     # Use the potentially modified working_system_prompt for token counting
                     token_count = token_counter(model=llm_model, messages=[working_system_prompt] + messages)
                     token_threshold = self.context_manager.token_threshold
-                    logger.info(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
+                    logger.debug(f"Thread {thread_id} token count: {token_count}/{token_threshold} ({(token_count/token_threshold)*100:.1f}%)")
 
                 except Exception as e:
                     logger.error(f"Error counting tokens or summarizing: {str(e)}")
@@ -437,7 +437,7 @@ When using the tools:
                         "content": partial_content
                     }
                     prepared_messages.append(temporary_assistant_message)
-                    logger.info(f"Added temporary assistant message with {len(partial_content)} chars for auto-continue context")
+                    logger.debug(f"Added temporary assistant message with {len(partial_content)} chars for auto-continue context")
 
                 # 4. Prepare tools for LLM call
                 openapi_tool_schemas = None
@@ -559,14 +559,14 @@ When using the tools:
                                     if chunk.get('finish_reason') == 'tool_calls':
                                         # Only auto-continue if enabled (max > 0)
                                         if native_max_auto_continues > 0:
-                                            logger.info(f"Detected finish_reason='tool_calls', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
+                                            logger.debug(f"Detected finish_reason='tool_calls', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
                                             auto_continue = True
                                             auto_continue_count += 1
                                             # Don't yield the finish chunk to avoid confusing the client
                                             continue
                                     elif chunk.get('finish_reason') == 'xml_tool_limit_reached':
                                         # Don't auto-continue if XML tool limit was reached
-                                        logger.info(f"Detected finish_reason='xml_tool_limit_reached', stopping auto-continue")
+                                        logger.debug(f"Detected finish_reason='xml_tool_limit_reached', stopping auto-continue")
                                         auto_continue = False
                                         # Still yield the chunk to inform the client
 
@@ -574,7 +574,7 @@ When using the tools:
                                     # if the finish reason is length, auto-continue
                                     content = json.loads(chunk.get('content'))
                                     if content.get('finish_reason') == 'length':
-                                        logger.info(f"Detected finish_reason='length', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
+                                        logger.debug(f"Detected finish_reason='length', auto-continuing ({auto_continue_count + 1}/{native_max_auto_continues})")
                                         auto_continue = True
                                         auto_continue_count += 1
                                         continue
@@ -625,7 +625,7 @@ When using the tools:
 
         # If auto-continue is disabled (max=0), just run once
         if native_max_auto_continues == 0:
-            logger.info("Auto-continue is disabled (native_max_auto_continues=0)")
+            logger.debug("Auto-continue is disabled (native_max_auto_continues=0)")
             # Pass the potentially modified system prompt and temp message
             return await _run_once(temporary_message)
 
