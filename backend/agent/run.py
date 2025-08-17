@@ -19,7 +19,7 @@ from agent.tools.sb_files_tool import SandboxFilesTool
 from agent.tools.data_providers_tool import DataProvidersTool
 from agent.tools.expand_msg_tool import ExpandMessageTool
 from agent.prompt import get_system_prompt
-from agent.custom_prompt import render_prompt_template
+
 from utils.logger import logger
 from utils.auth_utils import get_account_id_from_thread
 from services.billing import check_billing_status
@@ -29,7 +29,7 @@ from agent.tools.sb_presentation_outline_tool import SandboxPresentationOutlineT
 from agent.tools.sb_presentation_tool_v2 import SandboxPresentationToolV2
 from services.langfuse import langfuse
 from langfuse.client import StatefulTraceClient
-from agent.gemini_prompt import get_gemini_system_prompt
+
 from agent.tools.mcp_tool_wrapper import MCPToolWrapper
 from agent.tools.task_list_tool import TaskListTool
 from agentpress.tool import SchemaType
@@ -247,10 +247,7 @@ class PromptManager:
                                   is_agent_builder: bool, thread_id: str, 
                                   mcp_wrapper_instance: Optional[MCPToolWrapper]) -> dict:
         
-        if "gemini-2.5-flash" in model_name.lower() and "gemini-2.5-pro" not in model_name.lower():
-            default_system_content = get_gemini_system_prompt()
-        else:
-            default_system_content = get_system_prompt()
+        default_system_content = get_system_prompt()
         
         if "anthropic" not in model_name.lower():
             sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
@@ -261,7 +258,7 @@ class PromptManager:
         if is_agent_builder:
             system_content = get_agent_builder_prompt()
         elif agent_config and agent_config.get('system_prompt'):
-            system_content = render_prompt_template(agent_config['system_prompt'].strip())
+            system_content = agent_config['system_prompt'].strip()
         else:
             system_content = default_system_content
         
