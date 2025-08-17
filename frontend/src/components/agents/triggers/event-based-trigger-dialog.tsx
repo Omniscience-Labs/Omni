@@ -16,7 +16,7 @@ import { useComposioAppsWithTriggers, useComposioAppTriggers, useCreateComposioE
 import { useComposioProfiles } from '@/hooks/react-query/composio/use-composio-profiles';
 import { useComposioToolkitDetails } from '@/hooks/react-query/composio/use-composio';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, truncateString } from '@/lib/utils';
 import { useAgentWorkflows } from '@/hooks/react-query/agents/use-agent-workflows';
 import { ComposioConnector } from '@/components/agents/composio/composio-connector';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
@@ -80,7 +80,7 @@ const ProgressStepper = ({ currentStep }: { currentStep: 'apps' | 'triggers' | '
     );
 };
 
-const AppCard = ({ app, onClick }: { app: any; onClick: () => void }) => (
+const AppCard = ({ app, onClick, connectionStatus }: { app: any; onClick: () => void; connectionStatus: { isConnected: boolean; hasProfiles: boolean } }) => (
     <button
         onClick={onClick}
         className="group relative bg-card border border-border rounded-lg p-4 hover:bg-accent text-left w-full"
@@ -100,7 +100,12 @@ const AppCard = ({ app, onClick }: { app: any; onClick: () => void }) => (
                     {app.name}
                 </h3>
                 <p className="text-xs text-muted-foreground line-clamp-2">
-                    Create automated triggers from {app.name} events
+                    {connectionStatus.isConnected 
+                        ? `Create automated triggers from ${app.name} events`
+                        : connectionStatus.hasProfiles
+                        ? `Connect your ${app.name} account to create triggers`
+                        : `Set up ${app.name} connection to get started`
+                    }
                 </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -109,26 +114,50 @@ const AppCard = ({ app, onClick }: { app: any; onClick: () => void }) => (
         <div className="mt-3 pt-3 border-t border-border">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-xs text-green-600 dark:text-green-400">
-                        Available
-                    </span>
+                    {connectionStatus.isConnected ? (
+                        <>
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                                Connected
+                            </span>
+                        </>
+                    ) : connectionStatus.hasProfiles ? (
+                        <>
+                            <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                            <span className="text-xs text-yellow-600 dark:text-yellow-400">
+                                Not Connected
+                            </span>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                                Setup Required
+                            </span>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
     </button>
 );
 
-const TriggerCard = ({ trigger, onClick }: { trigger: any; onClick: () => void }) => (
+const TriggerCard = ({ app, trigger, onClick }: { app: any; trigger: any; onClick: () => void }) => (
     <button
         onClick={onClick}
         className="group relative bg-card border border-border rounded-lg p-4 hover:bg-accent text-left w-full"
     >
         <div className="space-y-3">
             <div className="flex items-start justify-between">
-                <div className="border w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                </div>
+                {app.logo ? (
+                    <div className="border flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                        <img src={app.logo} alt={app.name} className="w-6 h-6 object-contain" />
+                    </div>
+                ) : (
+                    <div className="flex-shrink-0 w-10 h-10 rounded-md bg-muted flex items-center justify-center">
+                        <Zap className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                )}
                 <Badge variant="secondary" className="text-xs text-white">
                     {trigger.type}
                 </Badge>
@@ -146,7 +175,7 @@ const TriggerCard = ({ trigger, onClick }: { trigger: any; onClick: () => void }
             <div className="pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
                     <code className="text-xs bg-muted px-2 py-1 rounded font-mono text-muted-foreground">
-                        {trigger.slug}
+                        {truncateString(trigger.slug, 25)}
                     </code>
                     <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
@@ -283,10 +312,24 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
     const { data: appsData, isLoading: loadingApps } = useComposioAppsWithTriggers();
     const { data: triggersData, isLoading: loadingTriggers } = useComposioAppTriggers(selectedApp?.slug, !!selectedApp);
     const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useComposioProfiles(selectedApp?.slug ? { toolkit_slug: selectedApp.slug } : undefined);
+    const { data: allProfiles } = useComposioProfiles(); // Get all profiles for connection status
     const { data: toolkitDetails } = useComposioToolkitDetails(selectedApp?.slug || '', { enabled: !!selectedApp });
     const { data: workflows = [], isLoading: isLoadingWorkflows } = useAgentWorkflows(agentId);
 
     const apps = useMemo(() => (appsData?.items || []).filter((a) => a.name.toLowerCase().includes(search.toLowerCase()) || a.slug.toLowerCase().includes(search.toLowerCase())), [appsData, search]);
+
+    // Helper function to check if an app has connected profiles
+    const getAppConnectionStatus = useMemo(() => {
+        return (appSlug: string) => {
+            if (!allProfiles) return { isConnected: false, hasProfiles: false };
+            const appProfiles = allProfiles.filter(p => p.toolkit_slug === appSlug);
+            const connectedProfiles = appProfiles.filter(p => p.is_connected);
+            return {
+                isConnected: connectedProfiles.length > 0,
+                hasProfiles: appProfiles.length > 0
+            };
+        };
+    }, [allProfiles]);
 
     const createTrigger = useCreateComposioEventTrigger();
 
@@ -449,16 +492,25 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                {apps.map((app) => (
-                                                    <AppCard
-                                                        key={app.slug}
-                                                        app={app}
-                                                        onClick={() => {
-                                                            setSelectedApp(app);
-                                                            setStep('triggers');
-                                                        }}
-                                                    />
-                                                ))}
+                                                {apps.map((app) => {
+                                                    const connectionStatus = getAppConnectionStatus(app.slug);
+                                                    return (
+                                                        <AppCard
+                                                            key={app.slug}
+                                                            app={app}
+                                                            connectionStatus={connectionStatus}
+                                                            onClick={() => {
+                                                                setSelectedApp(app);
+                                                                if (connectionStatus.isConnected) {
+                                                                    setStep('triggers');
+                                                                } else {
+                                                                    // Open profile creation dialog
+                                                                    setShowComposioConnector(true);
+                                                                }
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -511,6 +563,7 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                                                             setConfig({});
                                                             setStep('config');
                                                         }}
+                                                        app={selectedApp}
                                                     />
                                                 ))}
                                             </div>
@@ -755,6 +808,8 @@ export const EventBasedTriggerDialog: React.FC<EventBasedTriggerDialogProps> = (
                         setShowComposioConnector(false);
                         refetchProfiles();
                         toast.success(`${selectedApp.name} profile created successfully`);
+                        // Navigate to triggers step after successful profile creation
+                        setStep('triggers');
                     }}
                 />
             )}
