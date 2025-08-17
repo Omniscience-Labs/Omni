@@ -34,17 +34,3 @@ SUNA_CONFIG = {
     "is_default": True
 }
 
-
-def get_suna_config():
-    """Get current Suna configuration."""
-    return SUNA_CONFIG.copy()
-
-
-def validate_config(config: dict) -> tuple[bool, list[str]]:
-    """Validate configuration data"""
-    errors = []
-    
-    if not config.get("name", "").strip():
-        errors.append("Name cannot be empty")
-        
-    return len(errors) == 0, errors

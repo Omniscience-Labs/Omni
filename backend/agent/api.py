@@ -1966,7 +1966,7 @@ async def create_agent(
         
         try:
             version_service = await _get_version_service()
-            from agent.suna.config import SUNA_CONFIG
+            from agent.suna_config import SUNA_CONFIG
             system_prompt = SUNA_CONFIG["system_prompt"]
             
             version = await version_service.create_version(

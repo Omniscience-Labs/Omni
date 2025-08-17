@@ -13,7 +13,7 @@ class SunaDefaultAgentService:
     
     async def get_suna_default_config(self) -> Dict[str, Any]:
         """Get the current Suna configuration."""
-        from agent.suna.config import SUNA_CONFIG
+        from agent.suna_config import SUNA_CONFIG
         return SUNA_CONFIG.copy()
     
     async def install_for_all_users(self) -> Dict[str, Any]:
@@ -130,7 +130,7 @@ class SunaDefaultAgentService:
     
     async def _create_suna_agent_for_user(self, account_id: str) -> str:
         """Create a Suna agent for a user."""
-        from agent.suna.config import SUNA_CONFIG
+        from agent.suna_config import SUNA_CONFIG
         
         client = await self._db.client
         
@@ -166,7 +166,7 @@ class SunaDefaultAgentService:
         """Create initial version for Suna agent."""
         try:
             from agent.versioning.version_service import get_version_service
-            from agent.suna.config import SUNA_CONFIG
+            from agent.suna_config import SUNA_CONFIG
             
             version_service = await get_version_service()
             await version_service.create_version(

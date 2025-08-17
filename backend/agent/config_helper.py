@@ -18,7 +18,7 @@ def extract_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict
 
 def _extract_suna_agent_config(agent_data: Dict[str, Any], version_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Extract config for Suna agents - always use central config with user customizations."""
-    from agent.suna.config import SUNA_CONFIG
+    from agent.suna_config import SUNA_CONFIG
     
     agent_id = agent_data.get('agent_id', 'Unknown')
     logger.debug(f"Using Suna central config for agent {agent_id}")
