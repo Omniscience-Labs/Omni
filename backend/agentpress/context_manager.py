@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional, Union
 from litellm.utils import token_counter
 from services.supabase import DBConnection
 from utils.logger import logger
+from utils.constants import get_model_context_window
 
 DEFAULT_TOKEN_THRESHOLD = 120000
 
@@ -217,17 +218,22 @@ class ContextManager:
             token_threshold: Token threshold for individual message compression (must be a power of 2)
             max_iterations: Maximum number of compression iterations
         """
-        # Set model-specific token limits
-        if 'sonnet' in llm_model.lower():
-            max_tokens = 200 * 1000 - 64000 - 28000
-        elif 'gpt' in llm_model.lower():
-            max_tokens = 128 * 1000 - 28000
-        elif 'gemini' in llm_model.lower():
-            max_tokens = 1000 * 1000 - 300000
-        elif 'deepseek' in llm_model.lower():
-            max_tokens = 128 * 1000 - 28000
-        else:
-            max_tokens = 41 * 1000 - 10000
+        # Get model-specific token limits from constants
+        context_window = get_model_context_window(llm_model)
+        
+        # Reserve tokens for output generation and safety margin
+        if context_window >= 1_000_000:  # Very large context models (Gemini)
+            max_tokens = context_window - 300_000  # Large safety margin for huge contexts
+        elif context_window >= 400_000:  # Large context models (GPT-5)
+            max_tokens = context_window - 64_000  # Reserve for output + margin
+        elif context_window >= 200_000:  # Medium context models (Claude Sonnet)
+            max_tokens = context_window - 32_000  # Reserve for output + margin
+        elif context_window >= 100_000:  # Standard large context models
+            max_tokens = context_window - 16_000  # Reserve for output + margin
+        else:  # Smaller context models
+            max_tokens = context_window - 8_000   # Reserve for output + margin
+        
+        logger.debug(f"Model {llm_model}: context_window={context_window}, effective_limit={max_tokens}")
 
         result = messages
         result = self.remove_meta_messages(result)
