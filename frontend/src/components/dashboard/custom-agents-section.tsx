@@ -19,6 +19,17 @@ interface CustomAgentsSectionProps {
   onAgentSelect?: (templateId: string) => void;
 }
 
+const TitleSection = () => (
+  <div className="mb-6 text-center">
+    <h3 className="text-lg font-medium text-foreground/90 mb-1">
+      Choose specialised agent
+    </h3>
+    <p className="text-sm text-muted-foreground/70">
+      Ready-to-use AI agents for specific tasks
+    </p>
+  </div>
+);
+
 export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps) {
   const router = useRouter();
   const { data: templates, isLoading, error } = useKortixTeamTemplates();
@@ -129,17 +140,10 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   if (isLoading) {
     return (
       <div className="w-full">
-        <div className="mb-6 text-center">
-          <h3 className="text-lg font-medium text-foreground/90 mb-1">
-            Choose specialised agent
-          </h3>
-          <p className="text-sm text-muted-foreground/70">
-            Ready-to-use AI agents for specific tasks
-          </p>
-        </div>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <TitleSection />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-muted/30 rounded-3xl p-4 h-[180px] w-[240px] flex-shrink-0">
+            <div key={i} className="bg-muted/30 rounded-3xl p-4 h-[180px] w-full lg:w-[240px] lg:flex-shrink-0">
               <Skeleton className="h-12 w-12 rounded-2xl mb-3" />
               <Skeleton className="h-5 w-3/4 mb-2" />
               <Skeleton className="h-10 w-full mb-3" />
@@ -155,14 +159,7 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   if (error) {
     return (
       <div className="w-full">
-        <div className="mb-6 text-center">
-          <h3 className="text-lg font-medium text-foreground/90 mb-1">
-            Choose specialised agent
-          </h3>
-          <p className="text-sm text-muted-foreground/70">
-            Ready-to-use AI agents for specific tasks
-          </p>
-        </div>
+        <TitleSection />
         <div className="text-center py-8">
           <p className="text-muted-foreground">Failed to load custom agents</p>
         </div>
@@ -174,14 +171,7 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   if (!templates || templates.length === 0) {
     return (
       <div className="w-full">
-        <div className="mb-6 text-center">
-          <h3 className="text-lg font-medium text-foreground/90 mb-1">
-            Choose specialised agent
-          </h3>
-          <p className="text-sm text-muted-foreground/70">
-            Ready-to-use AI agents for specific tasks
-          </p>
-        </div>
+        <TitleSection />
         <div className="text-center py-8">
           <p className="text-muted-foreground">No custom agents available yet</p>
         </div>
@@ -192,20 +182,13 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
   return (
     <>
       <div className="w-full">
-        <div className="mb-6 text-center">
-          <h3 className="text-lg font-medium text-foreground/90 mb-1">
-            Choose specialised agent
-          </h3>
-          <p className="text-sm text-muted-foreground/70">
-            Ready-to-use AI agents for specific tasks
-          </p>
-        </div>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <TitleSection />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
           {templates.slice(0, 8).map((template) => (
             <div
               key={template.template_id}
               className={cn(
-                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col h-[180px] w-[240px] flex-shrink-0 border-border/50',
+                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col h-[180px] w-full lg:w-[240px] lg:flex-shrink-0 border-border/50',
                 'hover:border-primary/20'
               )}
               onClick={() => handleCardClick(template)}
