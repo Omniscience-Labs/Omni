@@ -13,9 +13,10 @@ interface HealthCheckedVncIframeProps {
     pass: string;
   };
   className?: string;
+  viewToggle?: React.ReactNode;
 }
 
-export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncIframeProps) {
+export function HealthCheckedVncIframe({ sandbox, className, viewToggle }: HealthCheckedVncIframeProps) {
   const [iframeKey, setIframeKey] = useState(0);
   
   // Use the enhanced VNC preloader hook
@@ -79,6 +80,8 @@ export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncI
     return (
       <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
+          <div className='absolute top-2 right-2 z-10'>{viewToggle}</div>
+          
           <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-gray-100 dark:bg-gray-800'>
             <iframe
               key={iframeKey}

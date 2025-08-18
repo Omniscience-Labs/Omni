@@ -138,9 +138,6 @@ interface PanelHeaderProps {
   showMinimize?: boolean;
   hasToolResult?: boolean;
   layoutId?: string;
-  currentView?: 'tools' | 'browser';
-  onViewChange?: (view: 'tools' | 'browser') => void;
-  showViewToggle?: boolean;
 }
 
 const PanelHeader: React.FC<PanelHeaderProps> = ({
@@ -151,9 +148,6 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
   showMinimize = false,
   hasToolResult = false,
   layoutId,
-  currentView = 'tools',
-  onViewChange,
-  showViewToggle = false,
 }) => {
   const title = getComputerTitle(agentName);
   
@@ -164,23 +158,15 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           <DrawerTitle className="text-lg font-medium">
             {title}
           </DrawerTitle>
-          <div className="flex items-center gap-3">
-            {showViewToggle && (
-              <ViewToggle 
-                currentView={currentView} 
-                onViewChange={onViewChange}
-              />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-8 w-8"
-              title="Minimize to floating preview"
-            >
-              <Minimize2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8"
+            title="Minimize to floating preview"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </Button>
         </div>
       </DrawerHeader>
     );
@@ -202,12 +188,6 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {showViewToggle && (
-              <ViewToggle 
-                currentView={currentView} 
-                onViewChange={onViewChange} 
-              />
-            )}
             {isStreaming && (
               <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 flex items-center gap-1.5">
                 <CircleDashed className="h-3 w-3 animate-spin" />
@@ -240,12 +220,6 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {showViewToggle && (
-            <ViewToggle 
-              currentView={currentView} 
-              onViewChange={onViewChange} 
-            />
-          )}
           {isStreaming && (
             <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl">
               <CircleDashed className="h-3 w-3 animate-spin" />
@@ -315,16 +289,19 @@ export function ToolCallSidePanel({
     if (!sandbox || !sandbox.vnc_preview || !sandbox.pass || !sandbox.id) return null;
     
     return (
-      <HealthCheckedVncIframe 
-        key={vncRefreshKey}
-        sandbox={{
-          id: sandbox.id,
-          vnc_preview: sandbox.vnc_preview,
-          pass: sandbox.pass
-        }}
-      />
+      <div>
+        <HealthCheckedVncIframe 
+          key={vncRefreshKey}
+          sandbox={{
+            id: sandbox.id,
+            vnc_preview: sandbox.vnc_preview,
+            pass: sandbox.pass
+          }}
+          viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />}
+        />
+      </div>
     );
-  }, [sandbox, vncRefreshKey]);
+  }, [sandbox, vncRefreshKey, currentView]);
 
   // Helper function to check if a tool is browser-related
   const isBrowserTool = React.useCallback((toolName: string | undefined): boolean => {
@@ -350,6 +327,10 @@ export function ToolCallSidePanel({
       // Switch to tools view when navigating to a non-browser tool
       if (!isCurrentSnapshotBrowserTool && currentViewRef.current === 'browser') {
         setCurrentView('tools');
+      }
+      // Switch to browser view when navigating to the latest browser tool
+      if (isCurrentSnapshotBrowserTool && currentViewRef.current === 'tools' && safeIndex === toolCallSnapshots.length - 1) {
+        setCurrentView('browser');
       }
     } else if (agentStatus === 'running') {
       // Auto-switch for streaming tools when agent is actively running
@@ -744,8 +725,6 @@ export function ToolCallSidePanel({
               agentName={agentName}
               onClose={handleClose}
               variant="drawer"
-              currentView={currentView}
-              onViewChange={setCurrentView}
             />
             
             <div className="flex-1 p-4 overflow-auto">
@@ -771,9 +750,6 @@ export function ToolCallSidePanel({
                   agentName={agentName}
                   onClose={handleClose}
                   showMinimize={true}
-                  currentView={currentView}
-                  onViewChange={setCurrentView}
-                  showViewToggle={showViewToggle}
                 />
                 <div className="flex-1 p-4 overflow-auto">
                   <div className="space-y-4">
@@ -799,9 +775,6 @@ export function ToolCallSidePanel({
             <PanelHeader 
               agentName={agentName}
               onClose={handleClose}
-              currentView={currentView}
-              onViewChange={setCurrentView}
-              showViewToggle={showViewToggle}
             />
           )}
           <div className="flex flex-col items-center justify-center flex-1 p-8">
@@ -838,8 +811,6 @@ export function ToolCallSidePanel({
                 agentName={agentName}
                 onClose={handleClose}
                 isStreaming={true}
-                currentView={currentView}
-                onViewChange={setCurrentView}
               />
             )}
             {isMobile && (
@@ -879,8 +850,6 @@ export function ToolCallSidePanel({
             <PanelHeader 
               agentName={agentName}
               onClose={handleClose}
-              currentView={currentView}
-              onViewChange={setCurrentView}
             />
           )}
           <div className="flex-1 p-4 overflow-auto">
@@ -908,6 +877,7 @@ export function ToolCallSidePanel({
         currentIndex={displayIndex}
         totalCalls={displayTotalCalls}
         onFileClick={onFileClick}
+        viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />}  
       />
     );
 
@@ -921,9 +891,6 @@ export function ToolCallSidePanel({
             variant="motion"
             hasToolResult={!!displayToolCall.toolResult?.content}
             layoutId={CONTENT_LAYOUT_ID}
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            showViewToggle={showViewToggle}
           />
         )}
 
@@ -932,7 +899,6 @@ export function ToolCallSidePanel({
           {persistentVncIframe && (
             <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
               <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} />
-              
               {/* VNC iframe container - unchanged */}
               <div className="flex-1 overflow-hidden">
                 {persistentVncIframe}
@@ -980,9 +946,6 @@ export function ToolCallSidePanel({
             agentName={agentName}
             onClose={handleClose}
             variant="drawer"
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            showViewToggle={showViewToggle}
           />
           
           <div className="flex-1 flex flex-col overflow-hidden">

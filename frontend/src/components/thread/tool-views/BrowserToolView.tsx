@@ -77,6 +77,7 @@ export function BrowserToolView({
   messages = [],
   currentIndex = 0,
   totalCalls = 1,
+  viewToggle,
 }: ToolViewProps) {
   // Try to extract data using the new parser first
   const assistantToolData = extractToolData(assistantContent);
@@ -242,7 +243,8 @@ export function BrowserToolView({
           {imageLoading && (
             <ImageLoader />
           )}
-          <Card className={`p-0 overflow-hidden border ${imageLoading ? 'hidden' : 'block'}`}>
+          <Card className={`p-0 overflow-hidden relative border ${imageLoading ? 'hidden' : 'block'}`}>
+          <div className='absolute top-2 right-2 z-10'>{viewToggle}</div>
             <img
               src={screenshotUrl}
               alt="Browser Screenshot"
