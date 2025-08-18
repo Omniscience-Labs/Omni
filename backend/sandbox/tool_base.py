@@ -1,5 +1,6 @@
 from typing import Optional
 import uuid
+import asyncio
 
 from agentpress.thread_manager import ThreadManager
 from agentpress.tool import Tool
@@ -7,6 +8,7 @@ from daytona_sdk import AsyncSandbox
 from sandbox.sandbox import get_or_start_sandbox, create_sandbox, delete_sandbox
 from utils.logger import logger
 from utils.files_utils import clean_path
+from utils.config import config
 
 class SandboxToolsBase(Tool):
     """Base class for all sandbox tools that provides project-based sandbox access."""
@@ -48,7 +50,11 @@ class SandboxToolsBase(Tool):
                     sandbox_pass = str(uuid.uuid4())
                     sandbox_obj = await create_sandbox(sandbox_pass, self.project_id)
                     sandbox_id = sandbox_obj.id
-
+                    
+                    # Wait 5 seconds for services to start up
+                    logger.info(f"Waiting 5 seconds for sandbox {sandbox_id} services to initialize...")
+                    await asyncio.sleep(5)
+                    
                     # Gather preview links and token (best-effort parsing)
                     try:
                         vnc_link = await sandbox_obj.get_preview_link(6080)
