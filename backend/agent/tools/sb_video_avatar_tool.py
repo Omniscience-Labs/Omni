@@ -73,6 +73,8 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         
         if not self.heygen_api_key:
             logger.warning("HeyGen API key not configured. Video avatar functionality will be limited.")
+        else:
+            logger.info("HeyGen API key configured successfully")
     
     def _get_heygen_headers(self) -> Dict[str, str]:
         """Get standard headers for HeyGen API requests."""
