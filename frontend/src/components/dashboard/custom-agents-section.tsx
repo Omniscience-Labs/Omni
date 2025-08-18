@@ -141,9 +141,9 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
     return (
       <div className="w-full">
         <TitleSection />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
+        <div className="grid auto-fit-grid gap-4 pb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-muted/30 rounded-3xl p-4 h-[180px] w-full lg:w-[240px] lg:flex-shrink-0">
+            <div key={i} className="bg-muted/30 rounded-3xl p-4 h-[180px] w-full">
               <Skeleton className="h-12 w-12 rounded-2xl mb-3" />
               <Skeleton className="h-5 w-3/4 mb-2" />
               <Skeleton className="h-10 w-full mb-3" />
@@ -183,12 +183,12 @@ export function CustomAgentsSection({ onAgentSelect }: CustomAgentsSectionProps)
     <>
       <div className="w-full">
         <TitleSection />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-4 lg:overflow-x-auto gap-4 pb-4">
+        <div className="grid auto-fit-grid gap-4 pb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
           {templates.slice(0, 8).map((template) => (
             <div
               key={template.template_id}
               className={cn(
-                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col h-[180px] w-full lg:w-[240px] lg:flex-shrink-0 border-border/50',
+                'group relative bg-muted/30 rounded-3xl overflow-hidden transition-all duration-300 border cursor-pointer flex flex-col h-[180px] w-full border-border/50',
                 'hover:border-primary/20'
               )}
               onClick={() => handleCardClick(template)}
