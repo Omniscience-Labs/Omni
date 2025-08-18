@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useSharedSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscriptionData } from '@/contexts/SubscriptionContext';
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
@@ -153,7 +153,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       refreshCustomModels,
     } = useModelSelection();
 
-    const { data: subscriptionData } = useSharedSubscription();
+    const { data: subscriptionData } = useSubscriptionData();
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 

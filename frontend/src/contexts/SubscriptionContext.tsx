@@ -49,23 +49,28 @@ export function useSubscriptionContext() {
   return context;
 }
 
-// Convenience hook that provides the same interface as the original useSubscription
-// but uses the shared context data with fallback for components outside dashboard
+// Hook that uses shared context data - only use within SubscriptionProvider
 export function useSharedSubscription() {
-  const context = useContext(SubscriptionContext);
-  
-  if (!context) {
-    // Fallback to the original hook if context is not available
-    // This allows components outside the dashboard to still work
-    return useSubscriptionQuery();
-  }
-  
-  const { subscriptionData, isLoading, error, refetch } = context;
+  const context = useSubscriptionContext();
   
   return {
-    data: subscriptionData,
-    isLoading,
-    error,
-    refetch,
+    data: context.subscriptionData,
+    isLoading: context.isLoading,
+    error: context.error,
+    refetch: context.refetch,
   };
+}
+
+// Hook that works both inside and outside the provider - always calls both hooks
+export function useSubscriptionData() {
+  const context = useContext(SubscriptionContext);
+  const directQuery = useSubscriptionQuery();
+  
+  // If context is available, use it; otherwise use direct query
+  return context ? {
+    data: context.subscriptionData,
+    isLoading: context.isLoading,
+    error: context.error,
+    refetch: context.refetch,
+  } : directQuery;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useSharedSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscriptionData } from '@/contexts/SubscriptionContext';
 import { useState, useEffect, useMemo } from 'react';
 import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
@@ -170,7 +170,7 @@ export const useModelSelection = () => {
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  const { data: subscriptionData } = useSharedSubscription();
+  const { data: subscriptionData } = useSubscriptionData();
   const { data: modelsData, isLoading: isLoadingModels } = useAvailableModels({
     refetchOnMount: false,
   });
