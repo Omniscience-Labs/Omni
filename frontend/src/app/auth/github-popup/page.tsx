@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
+// Disable static generation for this page since it requires client-side auth
+export const dynamic = 'force-dynamic';
+
 interface AuthMessage {
   type: 'github-auth-success' | 'github-auth-error';
   message?: string;
