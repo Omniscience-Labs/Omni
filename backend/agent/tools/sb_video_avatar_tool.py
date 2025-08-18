@@ -28,39 +28,39 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
     
     # Avatar configuration options
     AVATAR_OPTIONS = {
-        "wayne_professional": {
-            "avatar_id": "Wayne_20240711",
-            "name": "Wayne (Professional Male)",
-            "description": "Professional businessman in suit",
-            "category": "professional",
-            "gender": "male"
-        },
-        "susan_professional": {
-            "avatar_id": "Susan_20240711", 
-            "name": "Susan (Professional Female)",
+        "kristin_professional": {
+            "avatar_id": "Kristin_public_3_20240108",
+            "name": "Kristin (Professional Female)",
             "description": "Professional businesswoman",
-            "category": "professional", 
+            "category": "professional",
             "gender": "female"
         },
         "josh_casual": {
-            "avatar_id": "Josh_20240429",
+            "avatar_id": "josh_lite3_20230714",
             "name": "Josh (Casual Male)",
             "description": "Casual young professional",
             "category": "casual",
             "gender": "male"
         },
-        "anna_casual": {
-            "avatar_id": "Anna_20240429",
-            "name": "Anna (Casual Female)", 
-            "description": "Casual young woman",
+        "anna_professional": {
+            "avatar_id": "anna_costume1_cameraA_20220818",
+            "name": "Anna (Professional Female)", 
+            "description": "Professional businesswoman",
+            "category": "professional",
+            "gender": "female"
+        },
+        "monica_casual": {
+            "avatar_id": "Monica_public_20230807",
+            "name": "Monica (Casual Female)",
+            "description": "Casual friendly woman",
             "category": "casual",
             "gender": "female"
         },
-        "tyler_news": {
-            "avatar_id": "Tyler_20240429",
-            "name": "Tyler (News Anchor)",
-            "description": "Professional news anchor style",
-            "category": "news",
+        "wayne_business": {
+            "avatar_id": "Wayne_public_20230807",
+            "name": "Wayne (Business Male)",
+            "description": "Professional businessman",
+            "category": "professional",
             "gender": "male"
         }
     }
@@ -133,7 +133,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         <function_calls>
         <invoke name="generate_avatar_video">
         <parameter name="text">Hello! Welcome to our new AI-powered customer service. How can I help you today?</parameter>
-        <parameter name="avatar_id">Susan_20240711</parameter>
+        <parameter name="avatar_id">Kristin_public_3_20240108</parameter>
         <parameter name="voice_id">professional_female_1</parameter>
         <parameter name="video_title">Customer Service Introduction</parameter>
         <parameter name="background_color">#f0f8ff</parameter>
@@ -163,7 +163,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 "video_inputs": [{
                     "character": {
                         "type": "avatar",
-                        "avatar_id": avatar_id if avatar_id != "default" else "Wayne_20240711",
+                        "avatar_id": avatar_id if avatar_id != "default" else "Kristin_public_3_20240108",
                         "avatar_style": "normal"
                     },
                     "voice": {
@@ -262,7 +262,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                     "selected_avatar": {
                         "type": "string",
                         "description": "Avatar option key from available avatars (e.g., 'wayne_professional', 'susan_professional') or 'custom' to use custom_avatar_id",
-                        "enum": ["wayne_professional", "susan_professional", "josh_casual", "anna_casual", "tyler_news", "custom"]
+                        "enum": ["kristin_professional", "josh_casual", "anna_professional", "monica_casual", "wayne_business", "custom"]
                     },
                     "custom_avatar_id": {
                         "type": "string",
@@ -310,7 +310,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
         <function_calls>
         <invoke name="create_avatar_session">
         <parameter name="session_name">sales_demo_avatar</parameter>
-        <parameter name="selected_avatar">wayne_professional</parameter>
+        <parameter name="selected_avatar">kristin_professional</parameter>
         <parameter name="selected_voice">professional_male_1</parameter>
         <parameter name="voice_emotion">FRIENDLY</parameter>
         <parameter name="quality">high</parameter>
