@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -537,6 +537,32 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/33/9f/329d26121fe165be44b1dfff21aa0dc348f04633931f1d20ed6cf448a236/cssutils-2.11.1.tar.gz", hash = "sha256:0563a76513b6af6eebbe788c3bf3d01c920e46b3f90c8416738c5cfc773ff8e2", size = 711657, upload-time = "2024-06-04T15:51:39.373Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/ec/bb273b7208c606890dc36540fe667d06ce840a6f62f9fae7e658fcdc90fb/cssutils-2.11.1-py3-none-any.whl", hash = "sha256:a67bfdfdff4f3867fab43698ec4897c1a828eca5973f4073321b3bccaf1199b1", size = 385747, upload-time = "2024-06-04T15:51:37.499Z" },
+]
+
+[[package]]
+name = "daytona"
+version = "0.21.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aioboto3" },
+    { name = "aiofiles" },
+    { name = "aiohttp" },
+    { name = "aiohttp-retry" },
+    { name = "boto3" },
+    { name = "daytona-api-client" },
+    { name = "daytona-api-client-async" },
+    { name = "deprecated" },
+    { name = "environs" },
+    { name = "httpx" },
+    { name = "marshmallow" },
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "toml" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/61/045b9a3f28490a69941a3c680d1042a93f3fd52a2a7f8aa4ba1d310829bd/daytona-0.21.6.tar.gz", hash = "sha256:0551db851d4992d08d92f2c3bc1dab5834f8df12b7a21f95a897643410aa04da", size = 87564, upload-time = "2025-07-02T20:34:14.176Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/f5/a4d773564ffb2f1af19e8c606d6d80454b298edd8f5b44322db37e5c1b85/daytona-0.21.6-py3-none-any.whl", hash = "sha256:6427e5aa08482c92e1d4e889109b266246806d662e1085da709962bef241ed40", size = 105876, upload-time = "2025-07-02T20:34:11.367Z" },
 ]
 
 [[package]]
@@ -2586,6 +2612,7 @@ dependencies = [
     { name = "croniter" },
     { name = "cryptography" },
     { name = "cssutils" },
+    { name = "daytona" },
     { name = "daytona-api-client" },
     { name = "daytona-api-client-async" },
     { name = "daytona-sdk" },
@@ -2653,6 +2680,7 @@ requires-dist = [
     { name = "croniter", specifier = ">=1.4.0" },
     { name = "cryptography", specifier = ">=41.0.0" },
     { name = "cssutils", specifier = ">=2.9.0" },
+    { name = "daytona", specifier = ">=0.21.6" },
     { name = "daytona-api-client", specifier = "==0.21.0" },
     { name = "daytona-api-client-async", specifier = "==0.21.0" },
     { name = "daytona-sdk", specifier = "==0.21.0" },
