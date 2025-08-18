@@ -1265,6 +1265,15 @@ export function getToolComponent(toolName: string): string {
     case 'check_podcast_status':
       return 'PodcastToolView';
 
+    // Video avatar generation
+    case 'generate_avatar_video':
+    case 'create_avatar_session':
+    case 'make_avatar_speak':
+    case 'check_video_status':
+    case 'list_avatar_options':
+    case 'close_avatar_session':
+      return 'VideoAvatarToolView';
+
     // MCP operations
     case 'search-mcp-servers':
       return 'SearchMcpServersToolView';
