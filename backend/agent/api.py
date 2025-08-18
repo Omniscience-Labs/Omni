@@ -1121,7 +1121,7 @@ async def initiate_agent_with_files(
             "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         project_id = project.data[0]['project_id']
-        logger.debug(f"Created new project: {project_id}")
+        logger.info(f"Created new project: {project_id}")
 
         # 2. Create Sandbox (lazy): only create now if files were uploaded and need the
         # sandbox immediately. Otherwise leave sandbox creation to `_ensure_sandbox()`
@@ -1139,7 +1139,7 @@ async def initiate_agent_with_files(
                 sandbox_pass = str(uuid.uuid4())
                 sandbox = await create_sandbox(sandbox_pass, project_id)
                 sandbox_id = sandbox.id
-                logger.debug(f"Created new sandbox {sandbox_id} for project {project_id}")
+                logger.info(f"Created new sandbox {sandbox_id} for project {project_id}")
 
                 # Get preview links
                 vnc_link = await sandbox.get_preview_link(6080)
