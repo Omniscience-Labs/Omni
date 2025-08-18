@@ -1286,6 +1286,10 @@ export function getToolComponent(toolName: string): string {
     case 'deploy':
       return 'DeployToolView';
 
+    // Port operations
+    case 'expose-port':
+      return 'ExposePortToolView';
+
     // Default
     default:
       return 'GenericToolView';
