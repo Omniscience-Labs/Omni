@@ -229,7 +229,8 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                                 f"Video ID: {video_id}\n"
                                 f"Title: {video_title}\n"
                                 f"Avatar: {avatar_id}\n"
-                                f"Text: {text[:100]}{'...' if len(text) > 100 else ''}"
+                                f"Text: {text[:100]}{'...' if len(text) > 100 else ''}",
+                                attachments=[download_path]
                             )
                         else:
                             return self.fail_response("Video generation completed but download failed")
@@ -561,11 +562,12 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 if status == "completed" and video_url and download_if_ready:
                     download_path = await self._download_video(video_url, f"video_{video_id}", video_id)
                     if download_path:
-                        return self.success_response(
-                            f"Video generation completed! Video downloaded to: {download_path}\n"
-                            f"Video ID: {video_id}\n"
-                            f"Status: {status}"
-                        )
+                                            return self.success_response(
+                        f"Video generation completed! Video downloaded to: {download_path}\n"
+                        f"Video ID: {video_id}\n"
+                        f"Status: {status}",
+                        attachments=[download_path]
+                    )
                 
                 return self.success_response(
                     f"Video Status: {status}\n"

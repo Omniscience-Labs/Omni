@@ -30,6 +30,7 @@ import { TaskListToolView } from '../task-list/TaskListToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
 import { PodcastToolView } from '../podcast-tool/PodcastToolView';
+import { VideoAvatarToolView } from '../video-avatar-tool/VideoAvatarToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -101,6 +102,14 @@ const defaultRegistry: ToolViewRegistryType = {
   'generate_podcast_from_url': PodcastToolView,
   'generate_bite_sized_podcast': PodcastToolView,
   'check_podcast_status': PodcastToolView,
+
+  // Video avatar generation
+  'generate_avatar_video': VideoAvatarToolView,
+  'create_avatar_session': VideoAvatarToolView,
+  'make_avatar_speak': VideoAvatarToolView,
+  'check_video_status': VideoAvatarToolView,
+  'list_avatar_options': VideoAvatarToolView,
+  'close_avatar_session': VideoAvatarToolView,
 
   'default': GenericToolView,
 };
