@@ -54,17 +54,7 @@ class SandboxToolsBase(Tool):
                     # Wait 5 seconds for services to start up
                     logger.info(f"Waiting 5 seconds for sandbox {sandbox_id} services to initialize...")
                     await asyncio.sleep(5)
-                    # Initialize the browser in background after services start up
-                    try:
-                        model_api_key = config.ANTHROPIC_API_KEY
-                        logger.info(f"Initializing browser for sandbox {sandbox_id}")
-                        asyncio.create_task(
-                            sandbox_obj.process.exec(f"curl -X POST 'http://localhost:8004/api/init' -H 'Content-Type: application/json' -d '{{\"api_key\": \"{model_api_key}\"}}'", timeout=90)
-                        )
-                    except Exception:
-                        logger.warning(f"Failed to initialize browser for sandbox {sandbox_id}", exc_info=True)
                     
-
                     # Gather preview links and token (best-effort parsing)
                     try:
                         vnc_link = await sandbox_obj.get_preview_link(6080)

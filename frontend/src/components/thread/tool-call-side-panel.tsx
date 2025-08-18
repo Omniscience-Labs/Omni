@@ -140,6 +140,7 @@ interface PanelHeaderProps {
   layoutId?: string;
   currentView?: 'tools' | 'browser';
   onViewChange?: (view: 'tools' | 'browser') => void;
+  showViewToggle?: boolean;
 }
 
 const PanelHeader: React.FC<PanelHeaderProps> = ({
@@ -152,6 +153,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
   layoutId,
   currentView = 'tools',
   onViewChange,
+  showViewToggle = false,
 }) => {
   const title = getComputerTitle(agentName);
   
@@ -163,10 +165,12 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
             {title}
           </DrawerTitle>
           <div className="flex items-center gap-3">
-            <ViewToggle 
-              currentView={currentView} 
-              onViewChange={onViewChange}
-            />
+            {showViewToggle && (
+              <ViewToggle 
+                currentView={currentView} 
+                onViewChange={onViewChange}
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -198,10 +202,12 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <ViewToggle 
-              currentView={currentView} 
-              onViewChange={onViewChange} 
-            />
+            {showViewToggle && (
+              <ViewToggle 
+                currentView={currentView} 
+                onViewChange={onViewChange} 
+              />
+            )}
             {isStreaming && (
               <div className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 flex items-center gap-1.5">
                 <CircleDashed className="h-3 w-3 animate-spin" />
@@ -234,10 +240,12 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ViewToggle 
-            currentView={currentView} 
-            onViewChange={onViewChange} 
-          />
+          {showViewToggle && (
+            <ViewToggle 
+              currentView={currentView} 
+              onViewChange={onViewChange} 
+            />
+          )}
           {isStreaming && (
             <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl">
               <CircleDashed className="h-3 w-3 animate-spin" />
@@ -279,6 +287,7 @@ export function ToolCallSidePanel({
   const [navigationMode, setNavigationMode] = React.useState<'live' | 'manual'>('live');
   const [toolCallSnapshots, setToolCallSnapshots] = React.useState<ToolCallSnapshot[]>([]);
   const [isInitialized, setIsInitialized] = React.useState(false);
+  const [showViewToggle, setShowViewToggle] = React.useState(false);
 
   // Add copy functionality state
   const [isCopyingContent, setIsCopyingContent] = React.useState(false);
@@ -329,34 +338,42 @@ export function ToolCallSidePanel({
     ].includes(lowerName);
   }, []);
 
-  // Auto-switch to browser view when browser tools are detected
+  // Handle view toggle visibility and auto-switching logic
   React.useEffect(() => {
-    // Only auto-switch when agent is actively running to avoid flickering on tool completion
-    if (agentStatus !== 'running') return;
-    
     const safeIndex = Math.min(internalIndex, Math.max(0, toolCallSnapshots.length - 1));
     const currentSnapshot = toolCallSnapshots[safeIndex];
-    const currentToolCall = currentSnapshot?.toolCall;
+    const isCurrentSnapshotBrowserTool = isBrowserTool(currentSnapshot?.toolCall.assistantCall?.name);
+    setShowViewToggle(isCurrentSnapshotBrowserTool);
     
-    if (!currentToolCall) return;
-    
-    const toolName = currentToolCall.assistantCall?.name;
-    const isCurrentBrowserTool = isBrowserTool(toolName);
-    const isCurrentToolStreaming = currentToolCall.toolResult?.content === 'STREAMING';
-    
-    // Only switch views for actively streaming tools to avoid switching on completed tools
-    if (!isCurrentToolStreaming) return;
-    
-    // Switch to browser view when a browser tool is actively running
-    if (isCurrentBrowserTool && currentViewRef.current === 'tools') {
-      setCurrentView('browser');
+    // Handle view switching based on agent status
+    if (agentStatus === 'idle') {
+      // Switch to tools view when navigating to a non-browser tool
+      if (!isCurrentSnapshotBrowserTool && currentViewRef.current === 'browser') {
+        setCurrentView('tools');
+      }
+    } else if (agentStatus === 'running') {
+      // Auto-switch for streaming tools when agent is actively running
+      const streamingSnapshot = toolCallSnapshots.find(snapshot => 
+        snapshot.toolCall.toolResult?.content === 'STREAMING'
+      );
+      
+      if (streamingSnapshot) {
+        const streamingToolCall = streamingSnapshot.toolCall;
+        const toolName = streamingToolCall.assistantCall?.name;
+        const isStreamingBrowserTool = isBrowserTool(toolName);
+        
+        // Switch to browser view when a browser tool starts streaming and we're in tools view
+        if (isStreamingBrowserTool && currentViewRef.current === 'tools') {
+          setCurrentView('browser');
+        }
+        
+        // Switch to tools view when a non-browser tool starts streaming and we're in browser view
+        if (!isStreamingBrowserTool && currentViewRef.current === 'browser') {
+          setCurrentView('tools');
+        }
+      }
     }
-    
-    // Switch to tools view when a non-browser tool is actively running
-    if (!isCurrentBrowserTool && currentViewRef.current === 'browser') {
-      setCurrentView('tools');
-    }
-   }, [toolCallSnapshots, internalIndex, isBrowserTool, agentStatus]);
+  }, [toolCallSnapshots, internalIndex, isBrowserTool, agentStatus]);
 
   const handleClose = React.useCallback(() => {
     onClose();
@@ -756,6 +773,7 @@ export function ToolCallSidePanel({
                   showMinimize={true}
                   currentView={currentView}
                   onViewChange={setCurrentView}
+                  showViewToggle={showViewToggle}
                 />
                 <div className="flex-1 p-4 overflow-auto">
                   <div className="space-y-4">
@@ -783,26 +801,10 @@ export function ToolCallSidePanel({
               onClose={handleClose}
               currentView={currentView}
               onViewChange={setCurrentView}
+              showViewToggle={showViewToggle}
             />
           )}
           <div className="flex flex-col items-center justify-center flex-1 p-8">
-            {/* Render content based on current view */}
-            {/* {currentView === 'browser' && (
-              <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
-                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                  <Globe className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                    Browser not available
-                  </h3>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    No active browser session available. The browser will appear here when a sandbox is running.
-                  </p>
-                </div>
-              </div>
-            )} */}
-            
             <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
               <div className="relative">
                 <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
@@ -921,6 +923,7 @@ export function ToolCallSidePanel({
             layoutId={CONTENT_LAYOUT_ID}
             currentView={currentView}
             onViewChange={setCurrentView}
+            showViewToggle={showViewToggle}
           />
         )}
 
@@ -979,6 +982,7 @@ export function ToolCallSidePanel({
             variant="drawer"
             currentView={currentView}
             onViewChange={setCurrentView}
+            showViewToggle={showViewToggle}
           />
           
           <div className="flex-1 flex flex-col overflow-hidden">
