@@ -125,7 +125,7 @@ export function VideoAvatarToolView({
   const videoData = useMemo(() => {
     if (!parsedResult || !isSuccess) return null;
 
-    const content = parsedResult.content || '';
+    const content = parsedResult.toolOutput || '';
     
     // Look for video file information in the content
     const videoFileMatch = content.match(/Video saved as:?\s*([^\s\n]+\.mp4)/i);
@@ -357,19 +357,19 @@ export function VideoAvatarToolView({
                     <span className="font-medium text-sm">Tool Output</span>
                   </div>
                   <div className="text-sm font-mono whitespace-pre-wrap break-words leading-relaxed text-gray-700 dark:text-gray-300">
-                    {parsedResult?.content || 'No output available'}
+                    {parsedResult?.toolOutput || 'No output available'}
                   </div>
                 </div>
 
                 {/* Session Information for session-related calls */}
-                {(isAvatarSession || isAvatarSpeak) && parsedResult?.content && (
+                {(isAvatarSession || isAvatarSpeak) && parsedResult?.toolOutput && (
                   <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center gap-2 mb-3">
                       <User className="h-4 w-4 text-blue-600" />
                       <span className="font-medium text-sm">Avatar Session</span>
                     </div>
                     <div className="text-sm text-blue-700 dark:text-blue-300">
-                      {parsedResult.content}
+                      {parsedResult.toolOutput}
                     </div>
                   </div>
                 )}
@@ -382,5 +382,5 @@ export function VideoAvatarToolView({
   );
 }
 
-// Export both the view component and the video player for reuse
-export { VideoAvatarToolView, VideoPlayer };
+// Export the video player for reuse
+export { VideoPlayer };

@@ -1,5 +1,8 @@
 'use client';
 
+// Disable static generation for this page to avoid Supabase client issues during build
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
