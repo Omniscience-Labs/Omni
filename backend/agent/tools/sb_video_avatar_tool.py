@@ -224,6 +224,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                             # Save metadata
                             await self._save_video_metadata(video_id, video_title, text, avatar_id, voice_id, download_path)
                             
+                            logger.info(f"Successfully generated and downloaded video: {download_path}")
                             return self.success_response(
                                 f"Avatar video generated successfully! Video saved as: {download_path}\n"
                                 f"Video ID: {video_id}\n"
@@ -233,6 +234,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                                 attachments=[download_path]
                             )
                         else:
+                            logger.error(f"Video {video_id} generation completed but download failed")
                             return self.fail_response("Video generation completed but download failed")
                     else:
                         return self.fail_response("Video generation timed out or failed")
@@ -562,12 +564,16 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 if status == "completed" and video_url and download_if_ready:
                     download_path = await self._download_video(video_url, f"video_{video_id}", video_id)
                     if download_path:
-                                            return self.success_response(
-                        f"Video generation completed! Video downloaded to: {download_path}\n"
-                        f"Video ID: {video_id}\n"
-                        f"Status: {status}",
-                        attachments=[download_path]
-                    )
+                        logger.info(f"Video {video_id} completed and downloaded: {download_path}")
+                        return self.success_response(
+                            f"Video generation completed! Video downloaded to: {download_path}\n"
+                            f"Video ID: {video_id}\n"
+                            f"Status: {status}",
+                            attachments=[download_path]
+                        )
+                    else:
+                        logger.error(f"Video {video_id} completed but download failed")
+                        return self.fail_response("Video completed but download failed")
                 
                 return self.success_response(
                     f"Video Status: {status}\n"
@@ -706,7 +712,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
                 await self.sandbox.files.write(file_path, response.content)
                 
                 logger.info(f"Video downloaded successfully: {file_path}")
-                return filename
+                return filename  # Return relative path for attachment
                 
         except Exception as e:
             logger.error(f"Failed to download video: {e}")
