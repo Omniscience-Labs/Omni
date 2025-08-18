@@ -17,8 +17,6 @@ export function useProjectRealtime(projectId?: string) {
     if (!projectId) return;
 
     const supabase = createClient();
-    
-    console.log('🔄 Setting up real-time subscription for project:', projectId);
 
     // Subscribe to project changes
     const channel = supabase
@@ -32,7 +30,6 @@ export function useProjectRealtime(projectId?: string) {
           filter: `project_id=eq.${projectId}`,
         },
         (payload) => {
-          console.log('📡 Real-time project update received:', payload);
           
           // Check if sandbox data was updated
           const newData = payload.new as Project;
@@ -48,13 +45,10 @@ export function useProjectRealtime(projectId?: string) {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Real-time subscription status:', status);
-      });
+      .subscribe();
 
     // Cleanup subscription
     return () => {
-      console.log('🧹 Cleaning up real-time subscription for project:', projectId);
       supabase.removeChannel(channel);
     };
   }, [projectId, queryClient]);
