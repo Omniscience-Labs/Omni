@@ -7,7 +7,8 @@ import { isLocalMode } from '@/lib/config';
 import { createPortalSession } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSubscription, useSubscriptionCommitment } from '@/hooks/react-query';
+import { useSharedSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscriptionCommitment } from '@/hooks/react-query';
 import Link from 'next/link';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
 import SubscriptionManagementModal from './subscription-management-modal';
@@ -26,7 +27,7 @@ export default function AccountBillingStatus({ accountId, returnUrl }: Props) {
     data: subscriptionData,
     isLoading,
     error: subscriptionQueryError,
-  } = useSubscription();
+  } = useSharedSubscription();
 
   const {
     data: commitmentInfo,

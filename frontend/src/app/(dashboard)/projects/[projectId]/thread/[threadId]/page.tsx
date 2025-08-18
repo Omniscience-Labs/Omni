@@ -20,7 +20,7 @@ import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
 import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messages';
 import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
-import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { useSharedSubscription } from '@/contexts/SubscriptionContext';
 import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
 
 import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_types';
@@ -164,7 +164,7 @@ export default function ThreadPage({
     }
   }, [threadAgentData, agents, initializeFromAgents]);
 
-  const { data: subscriptionData } = useSubscription();
+  const { data: subscriptionData } = useSharedSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
     ? 'active'
     : 'no_subscription';
