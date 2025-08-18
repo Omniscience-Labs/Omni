@@ -14,7 +14,7 @@ import { isLocalMode } from '@/lib/config';
 import { createPortalSession } from '@/lib/api';
 import { useAuth } from '@/components/AuthProvider';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSubscription } from '@/hooks/react-query';
+import { useSharedSubscription } from '@/contexts/SubscriptionContext';
 import Link from 'next/link';
 import { CreditCard, Settings, HelpCircle } from 'lucide-react';
 import { OpenInNewWindowIcon } from '@radix-ui/react-icons';
@@ -44,7 +44,7 @@ export default function SubscriptionManagementModal({
     data: subscriptionData,
     isLoading,
     error: subscriptionQueryError,
-  } = useSubscription();
+  } = useSharedSubscription();
 
 
 

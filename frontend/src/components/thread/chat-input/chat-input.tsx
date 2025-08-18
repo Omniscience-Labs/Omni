@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { IntegrationsRegistry } from '@/components/agents/integrations-registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useSubscriptionWithStreaming } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { useSharedSubscription } from '@/contexts/SubscriptionContext';
 import { isLocalMode } from '@/lib/config';
 import { BillingModal } from '@/components/billing/billing-modal';
 import { useRouter } from 'next/navigation';
@@ -153,7 +153,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
       refreshCustomModels,
     } = useModelSelection();
 
-    const { data: subscriptionData } = useSubscriptionWithStreaming(isAgentRunning);
+    const { data: subscriptionData } = useSharedSubscription();
     const deleteFileMutation = useFileDelete();
     const queryClient = useQueryClient();
 

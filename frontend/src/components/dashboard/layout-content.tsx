@@ -20,6 +20,7 @@ import { useMaintenanceNoticeQuery } from '@/hooks/react-query/edge-flags';
 import { useProjects, useThreads } from '@/hooks/react-query/sidebar/use-sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 
 interface DashboardLayoutContentProps {
   children: React.ReactNode;
@@ -126,32 +127,34 @@ export default function DashboardLayoutContent({
 
   return (
     <DeleteOperationProvider>
-      <SidebarProvider>
-        <SidebarLeft />
-        <SidebarInset>
-          {mantenanceBanner}
-          <div className="bg-background">{children}</div>
-        </SidebarInset>
+      <SubscriptionProvider>
+        <SidebarProvider>
+          <SidebarLeft />
+          <SidebarInset>
+            {mantenanceBanner}
+            <div className="bg-background">{children}</div>
+          </SidebarInset>
 
-        {/* <PricingAlert 
-        open={showPricingAlert} 
-        onOpenChange={setShowPricingAlert}
-        closeable={false}
-        accountId={personalAccount?.account_id}
-        /> */}
+          {/* <PricingAlert 
+          open={showPricingAlert} 
+          onOpenChange={setShowPricingAlert}
+          closeable={false}
+          accountId={personalAccount?.account_id}
+          /> */}
 
-        <MaintenanceAlert
-          open={showMaintenanceAlert}
-          onOpenChange={setShowMaintenanceAlert}
-          closeable={true}
-        />
+          <MaintenanceAlert
+            open={showMaintenanceAlert}
+            onOpenChange={setShowMaintenanceAlert}
+            closeable={true}
+          />
 
-        {/* Status overlay for deletion operations */}
-        <StatusOverlay />
-        
-        {/* Floating mobile menu button */}
-        <FloatingMobileMenuButton />
-      </SidebarProvider>
+          {/* Status overlay for deletion operations */}
+          <StatusOverlay />
+          
+          {/* Floating mobile menu button */}
+          <FloatingMobileMenuButton />
+        </SidebarProvider>
+      </SubscriptionProvider>
     </DeleteOperationProvider>
   );
 }
