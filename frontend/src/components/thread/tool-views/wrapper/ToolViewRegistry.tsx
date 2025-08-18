@@ -29,6 +29,7 @@ import { GetCurrentAgentConfigToolView } from '../get-current-agent-config/get-c
 import { TaskListToolView } from '../task-list/TaskListToolView';
 import { SheetsToolView } from '../sheets-tools/sheets-tool-view';
 import { GetProjectStructureView } from '../web-dev/GetProjectStructureView';
+import { PodcastToolView } from '../podcast-tool/PodcastToolView';
 
 
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
@@ -94,6 +95,11 @@ const defaultRegistry: ToolViewRegistryType = {
 
   'get-project-structure': GetProjectStructureView,
   'list-web-projects': GenericToolView,
+
+  // Podcast generation
+  'generate_podcast': PodcastToolView,
+  'generate_podcast_from_url': PodcastToolView,
+  'check_podcast_status': PodcastToolView,
 
   'default': GenericToolView,
 };

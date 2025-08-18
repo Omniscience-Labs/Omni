@@ -14,7 +14,7 @@ class SandboxPodcastTool(SandboxToolsBase):
     
     def __init__(self, project_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
-        self.podcastfy_url = "https://podcastfy-omni.onrender.com"
+        self.podcastfy_url = "https://varnica-dev-podcastfy.onrender.com"
         self.db = DBConnection()
         
     @openapi_schema({
@@ -38,6 +38,12 @@ class SandboxPodcastTool(SandboxToolsBase):
                         "type": "boolean",
                         "description": "Whether to include the agent's thinking/reasoning process in the podcast (if available). This can provide insights into the agent's decision-making process.",
                         "default": False
+                    },
+                    "tts_model": {
+                        "type": "string",
+                        "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
+                        "enum": ["openai", "elevenlabs"],
+                        "default": "openai"
                     }
                 },
                 "required": ["agent_run_id"]
@@ -57,7 +63,8 @@ class SandboxPodcastTool(SandboxToolsBase):
         self, 
         agent_run_id: str,
         podcast_title: str = "",
-        include_thinking: bool = False
+        include_thinking: bool = False,
+        tts_model: str = "openai"
     ) -> ToolResult:
         """
         Generate a podcast from an agent run conversation.
@@ -102,7 +109,7 @@ class SandboxPodcastTool(SandboxToolsBase):
                 
             # Step 5: Call Podcastfy service
             podcast_result = await self._call_podcastfy_service(
-                formatted_content, podcast_title, agent_run_id
+                formatted_content, podcast_title, agent_run_id, tts_model
             )
             
             if podcast_result.get('success'):
@@ -158,39 +165,35 @@ class SandboxPodcastTool(SandboxToolsBase):
         agent_run_data: Dict[str, Any],
         include_thinking: bool = False
     ) -> str:
-        """Format the conversation messages for podcast generation."""
+        """Format the conversation messages for podcast generation with proper speaker roles."""
         
         formatted_lines = []
         
-        # Add podcast introduction
+        # Add podcast introduction with clear speaker roles
         agent_model = agent_run_data.get('metadata', {}).get('model_name', 'AI Assistant')
         start_time = agent_run_data.get('started_at', 'Unknown time')
         
-        formatted_lines.append("# AI Agent Conversation Podcast")
-        formatted_lines.append(f"**Date:** {start_time}")
-        formatted_lines.append(f"**Agent Model:** {agent_model}")
-        formatted_lines.append(f"**Total Messages:** {len(messages)}")
-        formatted_lines.append("")
-        formatted_lines.append("---")
+        formatted_lines.append("Host: Welcome to this AI Agent conversation podcast!")
+        formatted_lines.append(f"Co-host: Today we're reviewing a conversation with {agent_model} from {start_time}")
+        formatted_lines.append(f"Host: This conversation had {len(messages)} messages. Let's explore what happened!")
+        formatted_lines.append("Co-host: This should be fascinating! Let's dive in.")
         formatted_lines.append("")
         
-        # Process each message
+        # Process each message with natural podcast flow
         for i, message in enumerate(messages, 1):
             role = message.get('role', 'unknown')
             content = message.get('content', '')
             
             if role == 'user':
-                formatted_lines.append(f"**User Question {i}:**")
-                formatted_lines.append(content)
+                formatted_lines.append(f"Host: The user asked: {content}")
+                formatted_lines.append("Co-host: That's an interesting question! What did the AI respond?")
                 formatted_lines.append("")
                 
             elif role == 'assistant':
-                formatted_lines.append(f"**AI Assistant Response {i}:**")
-                
                 # Handle thinking content if requested
                 if include_thinking and isinstance(content, dict) and 'thinking' in content:
-                    formatted_lines.append("*Agent's internal reasoning:*")
-                    formatted_lines.append(content.get('thinking', ''))
+                    formatted_lines.append(f"Host: First, the AI thought about this problem: {content.get('thinking', '')}")
+                    formatted_lines.append("Co-host: Interesting reasoning process!")
                     formatted_lines.append("")
                 
                 # Add main response content
@@ -198,10 +201,17 @@ class SandboxPodcastTool(SandboxToolsBase):
                 if isinstance(content, dict):
                     main_content = content.get('content', content.get('text', str(content)))
                 
-                formatted_lines.append(main_content)
+                formatted_lines.append(f"Co-host: The AI assistant responded: {main_content}")
+                formatted_lines.append("Host: That's a comprehensive and helpful response!")
                 formatted_lines.append("")
-                formatted_lines.append("---")
+                
+            elif role == 'system':
+                formatted_lines.append(f"Host: The system provided this guidance: {content}")
                 formatted_lines.append("")
+        
+        formatted_lines.append("Host: That concludes this AI conversation review!")
+        formatted_lines.append("Co-host: Thanks for listening to this AI interaction podcast. The conversation shows how AI can provide detailed, helpful responses to user questions.")
+        formatted_lines.append("Host: Until next time!")
         
         return "\n".join(formatted_lines)
     
@@ -231,35 +241,43 @@ class SandboxPodcastTool(SandboxToolsBase):
         self, 
         content: str, 
         title: str, 
-        agent_run_id: str
+        agent_run_id: str,
+        tts_model: str = "openai"
     ) -> Dict[str, Any]:
         """Call the Podcastfy service to generate the podcast."""
         try:
             logger.info(f"Calling Podcastfy service for agent run: {agent_run_id}")
             
+            # Configure TTS model and voice
+            voice_config = self._get_tts_config(tts_model)
+            
             # Prepare payload for Podcastfy service
             payload = {
                 "text": content,
                 "title": title,
+                "tts_model": tts_model,
+                "voice_id": voice_config["voice_id"],
                 "metadata": {
                     "agent_run_id": agent_run_id,
                     "source": "omni_agent_conversation",
-                    "generated_at": datetime.now().isoformat()
+                    "generated_at": datetime.now().isoformat(),
+                    "tts_model": tts_model,
+                    "quality": voice_config["quality"]
                 }
             }
             
             # First, let's check if the service is available
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=180.0) as client:  # Increased for OpenAI TTS
                 # Check health/status endpoint first
                 try:
-                    health_response = await client.get(f"{self.podcastfy_url}/health")
+                    health_response = await client.get(f"{self.podcastfy_url}/api/health")
                     logger.info(f"Podcastfy health check status: {health_response.status_code}")
                 except Exception as e:
                     logger.warning(f"Health check failed: {str(e)}")
                 
                 # Make the main podcast generation request
                 response = await client.post(
-                    f"{self.podcastfy_url}/generate", 
+                    f"{self.podcastfy_url}/api/generate", 
                     json=payload,
                     headers={"Content-Type": "application/json"}
                 )
@@ -278,9 +296,22 @@ class SandboxPodcastTool(SandboxToolsBase):
                 else:
                     error_text = response.text
                     logger.error(f"Podcastfy service error: {response.status_code} - {error_text}")
+                    
+                    # Provide user-friendly error messages
+                    if response.status_code == 502:
+                        user_error = "Podcast service is temporarily unavailable (Bad Gateway). Please try again later."
+                    elif response.status_code == 503:
+                        user_error = "Podcast service is temporarily unavailable. Please try again later."
+                    elif response.status_code == 500:
+                        user_error = "Internal server error in podcast service. Please try again later."
+                    else:
+                        user_error = f"Podcast service returned HTTP {response.status_code}"
+                    
                     return {
                         "success": False,
-                        "error": f"Service returned {response.status_code}: {error_text}"
+                        "error": user_error,
+                        "status_code": response.status_code,
+                        "raw_error": error_text[:200] if error_text else None
                     }
                     
         except httpx.TimeoutException:
@@ -318,7 +349,7 @@ class SandboxPodcastTool(SandboxToolsBase):
         """Check if the Podcastfy service is available and ready."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.podcastfy_url}/health")
+                response = await client.get(f"{self.podcastfy_url}/api/health")
                 
                 if response.status_code == 200:
                     service_info = response.json()
@@ -335,6 +366,210 @@ class SandboxPodcastTool(SandboxToolsBase):
             return self.fail_response("Podcastfy service is not responding (timeout)")
         except Exception as e:
             return self.fail_response(f"Failed to check Podcastfy service: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_podcast_from_url",
+            "description": "Generate a podcast from web content by providing a URL. This tool will scrape the content from the URL and convert it into an engaging audio podcast using AI hosts. Works with most public websites including news articles, blog posts, and other web content.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL of the web content to convert into a podcast. Should be a public website URL (e.g., news article, blog post, documentation)."
+                    },
+                    "podcast_title": {
+                        "type": "string",
+                        "description": "Optional title for the podcast. If not provided, a title will be generated based on the web content.",
+                        "default": ""
+                    },
+                    "tts_model": {
+                        "type": "string",
+                        "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
+                        "enum": ["openai", "elevenlabs"],
+                        "default": "openai"
+                    }
+                },
+                "required": ["url"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="generate_podcast_from_url">
+        <parameter name="url">https://www.example.com/article</parameter>
+        <parameter name="podcast_title">Breaking News Analysis</parameter>
+        <parameter name="tts_model">openai</parameter>
+        </invoke>
+        </function_calls>
+    ''')
+    async def generate_podcast_from_url(
+        self,
+        url: str,
+        podcast_title: str = "",
+        tts_model: str = "openai"
+    ) -> ToolResult:
+        """
+        Generate a podcast from web content at the provided URL.
+        
+        Args:
+            url: The URL of the web content to convert
+            podcast_title: Optional title for the podcast
+            tts_model: TTS model to use for generation
+            
+        Returns:
+            ToolResult with podcast URL or generation status
+        """
+        try:
+            logger.info(f"Starting podcast generation from URL: {url}")
+            
+            # Step 1: Validate URL
+            if not url or not url.startswith(('http://', 'https://')):
+                return self.fail_response("Please provide a valid HTTP/HTTPS URL.")
+            
+            # Step 2: Generate title if not provided
+            if not podcast_title:
+                try:
+                    domain = url.split('//')[1].split('/')[0].replace('www.', '')
+                    podcast_title = f"Content from {domain}"
+                except:
+                    podcast_title = "Web Content Podcast"
+            
+            logger.info(f"Generated podcast title: {podcast_title}")
+            
+            # Step 3: Call Podcastfy service with URL
+            podcast_result = await self._call_podcastfy_service_url(
+                url, podcast_title, tts_model
+            )
+            
+            if podcast_result.get('success'):
+                return self.success_response({
+                    "status": "Podcast generated successfully from URL",
+                    "podcast_url": podcast_result.get('podcast_url'),
+                    "audio_url": podcast_result.get('audio_url'),
+                    "podcast_id": podcast_result.get('podcast_id'),
+                    "title": podcast_title,
+                    "source_url": url,
+                    "tts_model": tts_model,
+                    "service_response": podcast_result
+                })
+            else:
+                error_msg = podcast_result.get('error', 'Unknown error')
+                return self.fail_response(f"Podcast generation failed: {error_msg}")
+                
+        except Exception as e:
+            logger.error(f"Error generating podcast from URL {url}: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to generate podcast from URL: {str(e)}")
+
+    async def _call_podcastfy_service_url(
+        self, 
+        url: str, 
+        title: str, 
+        tts_model: str = "openai"
+    ) -> Dict[str, Any]:
+        """Call the Podcastfy service to generate podcast from URL."""
+        try:
+            logger.info(f"Calling Podcastfy service for URL: {url}")
+            
+            # Configure TTS model and voice
+            voice_config = self._get_tts_config(tts_model)
+            
+            # Prepare payload for Podcastfy service - URL-based generation
+            payload = {
+                "urls": [url],  # Podcastfy expects URLs in a list
+                "title": title,
+                "tts_model": tts_model,
+                "voice_id": voice_config["voice_id"],
+                "metadata": {
+                    "source_url": url,
+                    "source": "omni_url_podcast",
+                    "generated_at": datetime.now().isoformat(),
+                    "tts_model": tts_model,
+                    "quality": voice_config["quality"]
+                }
+            }
+            
+            async with httpx.AsyncClient(timeout=180.0) as client:  # URL processing can take longer
+                # Check health/status endpoint first
+                try:
+                    health_response = await client.get(f"{self.podcastfy_url}/api/health")
+                    logger.info(f"Podcastfy health check status: {health_response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Health check failed: {str(e)}")
+                
+                # Make the main podcast generation request
+                response = await client.post(
+                    f"{self.podcastfy_url}/api/generate", 
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                logger.info(f"Podcastfy response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return {
+                        "success": True,
+                        "podcast_url": result.get("podcast_url"),
+                        "audio_url": result.get("audio_url"),
+                        "podcast_id": result.get("podcast_id"),
+                        "status": result.get("status"),
+                        "full_response": result
+                    }
+                else:
+                    error_text = response.text
+                    logger.error(f"Podcastfy service error: {response.status_code} - {error_text}")
+                    
+                    # Handle specific error cases for URL processing
+                    if response.status_code == 502:
+                        user_error = "Podcast service is temporarily unavailable (Bad Gateway). Please try again later."
+                    elif response.status_code == 503:
+                        user_error = "Podcast service is temporarily unavailable. Please try again later."
+                    elif response.status_code == 500:
+                        user_error = "Internal server error in podcast service. Please try again later."
+                    elif response.status_code == 403:
+                        user_error = f"Access denied to the URL '{url}'. The website may block automated access. Try a different source or manual content extraction."
+                    elif response.status_code == 404:
+                        user_error = f"The URL '{url}' could not be found or is not accessible."
+                    else:
+                        user_error = f"Podcast service returned HTTP {response.status_code}"
+                    
+                    return {
+                        "success": False,
+                        "error": user_error,
+                        "status_code": response.status_code,
+                        "raw_error": error_text[:200] if error_text else None
+                    }
+                    
+        except httpx.TimeoutException:
+            logger.error("Podcastfy service timeout for URL processing")
+            return {
+                "success": False,
+                "error": "Request to Podcastfy service timed out. URL processing can take longer - please try again."
+            }
+        except Exception as e:
+            logger.error(f"Error calling Podcastfy service for URL: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Failed to call Podcastfy service: {str(e)}"
+            }
+
+    def _get_tts_config(self, tts_model: str) -> Dict[str, str]:
+        """Get TTS configuration for different models"""
+        configs = {
+            "openai": {
+                "voice_id": "alloy",
+                "quality": "cost-effective",
+                "description": "~307KB files, fast generation"
+            },
+            "elevenlabs": {
+                "voice_id": "ErXwobaYiN019PkySvjV", 
+                "quality": "premium",
+                "description": "~1.6MB files, high quality"
+            }
+        }
+        return configs.get(tts_model, configs["openai"])
 
 
 if __name__ == "__main__":
