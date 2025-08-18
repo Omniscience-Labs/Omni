@@ -26,6 +26,7 @@ from utils.json_helpers import (
     to_json_string, format_for_yield
 )
 from litellm.utils import token_counter
+import struct
 
 # Type alias for XML result adding strategy
 XmlAddingStrategy = Literal["user_message", "assistant_message", "inline_edit"]

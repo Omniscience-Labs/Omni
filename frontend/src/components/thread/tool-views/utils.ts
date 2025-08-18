@@ -1260,6 +1260,11 @@ export function getToolComponent(toolName: string): string {
     case 'get-data-provider-endpoints':
       return 'DataProviderToolView';
 
+    // Podcast generation
+    case 'generate_podcast':
+    case 'check_podcast_status':
+      return 'PodcastToolView';
+
     // MCP operations
     case 'search-mcp-servers':
       return 'SearchMcpServersToolView';
