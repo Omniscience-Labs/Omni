@@ -99,6 +99,7 @@ const defaultRegistry: ToolViewRegistryType = {
   // Podcast generation
   'generate_podcast': PodcastToolView,
   'generate_podcast_from_url': PodcastToolView,
+  'generate_bite_sized_podcast': PodcastToolView,
   'check_podcast_status': PodcastToolView,
 
   'default': GenericToolView,

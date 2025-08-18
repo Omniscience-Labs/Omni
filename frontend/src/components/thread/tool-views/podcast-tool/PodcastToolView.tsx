@@ -23,6 +23,7 @@ import { LoadingState } from '../shared/LoadingState';
 interface PodcastData {
   agent_run_id?: string;
   podcast_title?: string;
+  title?: string;
   tts_model?: string;
   status?: string;
   podcast_url?: string;
@@ -32,6 +33,10 @@ interface PodcastData {
   message_count?: number;
   service_response?: any;
   error?: string;
+  is_bite_sized?: boolean;
+  hosts?: string;
+  source_url?: string;
+  transcript_content?: string;
 }
 
 export function PodcastToolView({
@@ -46,6 +51,8 @@ export function PodcastToolView({
   const [podcastData, setPodcastData] = useState<PodcastData>({});
   const [progress, setProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [transcriptContent, setTranscriptContent] = useState<string>('');
 
   // Parse tool content
   useEffect(() => {
@@ -119,7 +126,12 @@ export function PodcastToolView({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${podcastData.podcast_title || 'podcast'}.mp3`;
+      
+      // Use specific podcast title for download filename
+      const title = podcastData.title || podcastData.podcast_title || 'podcast';
+      const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      link.download = `${sanitizedTitle}.mp3`;
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -132,12 +144,28 @@ export function PodcastToolView({
     }
   };
 
-  const handlePlayInBrowser = () => {
-    const audioUrl = podcastData.audio_url || podcastData.podcast_url;
-    if (audioUrl) {
-      const httpsUrl = audioUrl.replace('http://', 'https://');
-      window.open(httpsUrl, '_blank');
+  // Fetch transcript content for inline display
+  const fetchTranscriptContent = async () => {
+    if (!podcastData.transcript_url || transcriptContent) return;
+    
+    try {
+      const httpsUrl = podcastData.transcript_url.replace('http://', 'https://');
+      const response = await fetch(httpsUrl);
+      if (response.ok) {
+        const content = await response.text();
+        setTranscriptContent(content);
+      }
+    } catch (error) {
+      console.error('Failed to fetch transcript:', error);
+      setTranscriptContent('Failed to load transcript content.');
     }
+  };
+
+  const handleViewTranscript = async () => {
+    if (!showTranscript) {
+      await fetchTranscriptContent();
+    }
+    setShowTranscript(!showTranscript);
   };
 
   const getTTSDisplayName = (model: string) => {
@@ -213,10 +241,10 @@ export function PodcastToolView({
             </div>
             <div>
               <CardTitle className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Podcast Generator
+                {podcastData.is_bite_sized ? 'Bite-sized Podcast Generator' : 'Podcast Generator'}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {podcastData.podcast_title || 'Agent Conversation Podcast'}
+                {podcastData.title || podcastData.podcast_title || 'Agent Conversation Podcast'}
               </p>
             </div>
           </div>
@@ -251,7 +279,12 @@ export function PodcastToolView({
             <div className="bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-950/50 dark:to-orange-950/50 rounded-lg p-4 border">
               <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                 <Headphones className="h-5 w-5 text-rose-600" />
-                {podcastData.podcast_title || 'Agent Conversation Podcast'}
+                {podcastData.title || podcastData.podcast_title || 'Agent Conversation Podcast'}
+                {podcastData.is_bite_sized && (
+                  <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-800/30 dark:text-orange-300 text-xs">
+                    Bite-sized
+                  </Badge>
+                )}
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -262,10 +295,22 @@ export function PodcastToolView({
                   <span className="text-muted-foreground">Format:</span>
                   <span className="ml-2 font-medium">MP3 Audio</span>
                 </div>
+                {podcastData.hosts && (
+                  <div>
+                    <span className="text-muted-foreground">Hosts:</span>
+                    <span className="ml-2 font-medium">{podcastData.hosts}</span>
+                  </div>
+                )}
                 {podcastData.message_count && (
                   <div>
                     <span className="text-muted-foreground">Messages:</span>
                     <span className="ml-2 font-medium">{podcastData.message_count}</span>
+                  </div>
+                )}
+                {podcastData.source_url && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Source:</span>
+                    <span className="ml-2 font-medium text-xs">{podcastData.source_url}</span>
                   </div>
                 )}
                 <div>
@@ -290,18 +335,9 @@ export function PodcastToolView({
                 ) : (
                   <>
                     <Download className="h-4 w-4 mr-2" />
-                    Download Podcast
+                    Download "{podcastData.title || podcastData.podcast_title || 'Podcast'}"
                   </>
                 )}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={handlePlayInBrowser}
-                className="flex-1"
-              >
-                <PlayCircle className="h-4 w-4 mr-2" />
-                Play in Browser
               </Button>
             </div>
 
@@ -323,10 +359,10 @@ export function PodcastToolView({
               </div>
             )}
 
-            {/* Transcript Link */}
+            {/* Inline Transcript */}
             {podcastData.transcript_url && (
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center justify-between">
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-blue-600" />
                     <span className="font-medium text-sm">Transcript Available</span>
@@ -334,11 +370,20 @@ export function PodcastToolView({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => window.open(podcastData.transcript_url!.replace('http://', 'https://'), '_blank')}
+                    onClick={handleViewTranscript}
                   >
-                    View Transcript
+                    {showTranscript ? 'Hide Transcript' : 'View Transcript'}
                   </Button>
                 </div>
+                {showTranscript && (
+                  <div className="border-t border-blue-200 dark:border-blue-800 p-4">
+                    <ScrollArea className="h-64 w-full">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        {transcriptContent || 'Loading transcript...'}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
               </div>
             )}
 

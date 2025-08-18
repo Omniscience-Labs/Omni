@@ -100,7 +100,7 @@ class SandboxPodcastTool(SandboxToolsBase):
             
             # Step 3: Format conversation for podcast
             formatted_content = self._format_conversation_for_podcast(
-                messages, agent_run_data, include_thinking
+                messages, agent_run_data, include_thinking, is_bite_sized=False
             )
             
             # Step 4: Generate title if not provided
@@ -163,20 +163,26 @@ class SandboxPodcastTool(SandboxToolsBase):
         self, 
         messages: List[Dict[str, Any]], 
         agent_run_data: Dict[str, Any],
-        include_thinking: bool = False
+        include_thinking: bool = False,
+        is_bite_sized: bool = False
     ) -> str:
         """Format the conversation messages for podcast generation with proper speaker roles."""
         
         formatted_lines = []
         
-        # Add podcast introduction with clear speaker roles
+        # Add podcast introduction with clear speaker roles - using Mike and Laurel
         agent_model = agent_run_data.get('metadata', {}).get('model_name', 'AI Assistant')
         start_time = agent_run_data.get('started_at', 'Unknown time')
         
-        formatted_lines.append("Host: Welcome to this AI Agent conversation podcast!")
-        formatted_lines.append(f"Co-host: Today we're reviewing a conversation with {agent_model} from {start_time}")
-        formatted_lines.append(f"Host: This conversation had {len(messages)} messages. Let's explore what happened!")
-        formatted_lines.append("Co-host: This should be fascinating! Let's dive in.")
+        if is_bite_sized:
+            formatted_lines.append("Mike: Welcome to this bite-sized AI conversation!")
+            formatted_lines.append(f"Laurel: We're quickly reviewing a conversation with {agent_model}.")
+            formatted_lines.append(f"Mike: Let's dive right into the key highlights from this {len(messages)}-message exchange!")
+        else:
+            formatted_lines.append("Mike: Welcome to this AI Agent conversation podcast!")
+            formatted_lines.append(f"Laurel: Today we're reviewing a conversation with {agent_model} from {start_time}")
+            formatted_lines.append(f"Mike: This conversation had {len(messages)} messages. Let's explore what happened!")
+            formatted_lines.append("Laurel: This should be fascinating! Let's dive in.")
         formatted_lines.append("")
         
         # Process each message with natural podcast flow
@@ -185,15 +191,22 @@ class SandboxPodcastTool(SandboxToolsBase):
             content = message.get('content', '')
             
             if role == 'user':
-                formatted_lines.append(f"Host: The user asked: {content}")
-                formatted_lines.append("Co-host: That's an interesting question! What did the AI respond?")
+                if is_bite_sized:
+                    formatted_lines.append(f"Mike: The user asked: {content}")
+                    formatted_lines.append("Laurel: Let's see how the AI handled this!")
+                else:
+                    formatted_lines.append(f"Mike: The user asked: {content}")
+                    formatted_lines.append("Laurel: That's an interesting question! What did the AI respond?")
                 formatted_lines.append("")
                 
             elif role == 'assistant':
                 # Handle thinking content if requested
                 if include_thinking and isinstance(content, dict) and 'thinking' in content:
-                    formatted_lines.append(f"Host: First, the AI thought about this problem: {content.get('thinking', '')}")
-                    formatted_lines.append("Co-host: Interesting reasoning process!")
+                    if is_bite_sized:
+                        formatted_lines.append(f"Mike: The AI quickly processed: {content.get('thinking', '')[:100]}...")
+                    else:
+                        formatted_lines.append(f"Mike: First, the AI thought about this problem: {content.get('thinking', '')}")
+                        formatted_lines.append("Laurel: Interesting reasoning process!")
                     formatted_lines.append("")
                 
                 # Add main response content
@@ -201,17 +214,29 @@ class SandboxPodcastTool(SandboxToolsBase):
                 if isinstance(content, dict):
                     main_content = content.get('content', content.get('text', str(content)))
                 
-                formatted_lines.append(f"Co-host: The AI assistant responded: {main_content}")
-                formatted_lines.append("Host: That's a comprehensive and helpful response!")
+                if is_bite_sized:
+                    # Truncate content for bite-sized version
+                    truncated_content = main_content[:200] + "..." if len(main_content) > 200 else main_content
+                    formatted_lines.append(f"Laurel: The AI responded: {truncated_content}")
+                    formatted_lines.append("Mike: Great response!")
+                else:
+                    formatted_lines.append(f"Laurel: The AI assistant responded: {main_content}")
+                    formatted_lines.append("Mike: That's a comprehensive and helpful response!")
                 formatted_lines.append("")
                 
             elif role == 'system':
-                formatted_lines.append(f"Host: The system provided this guidance: {content}")
-                formatted_lines.append("")
+                if not is_bite_sized:  # Skip system messages in bite-sized version
+                    formatted_lines.append(f"Mike: The system provided this guidance: {content}")
+                    formatted_lines.append("")
         
-        formatted_lines.append("Host: That concludes this AI conversation review!")
-        formatted_lines.append("Co-host: Thanks for listening to this AI interaction podcast. The conversation shows how AI can provide detailed, helpful responses to user questions.")
-        formatted_lines.append("Host: Until next time!")
+        if is_bite_sized:
+            formatted_lines.append("Mike: That's a quick look at this AI conversation!")
+            formatted_lines.append("Laurel: Perfect bite-sized summary of the key interaction points.")
+            formatted_lines.append("Mike: Thanks for listening to this quick AI chat review!")
+        else:
+            formatted_lines.append("Mike: That concludes this AI conversation review!")
+            formatted_lines.append("Laurel: Thanks for listening to this AI interaction podcast. The conversation shows how AI can provide detailed, helpful responses to user questions.")
+            formatted_lines.append("Mike: Until next time!")
         
         return "\n".join(formatted_lines)
     
@@ -461,6 +486,118 @@ class SandboxPodcastTool(SandboxToolsBase):
         except Exception as e:
             logger.error(f"Error generating podcast from URL {url}: {str(e)}", exc_info=True)
             return self.fail_response(f"Failed to generate podcast from URL: {str(e)}")
+
+    @openapi_schema({
+        "type": "function",
+        "function": {
+            "name": "generate_bite_sized_podcast",
+            "description": "Generate a bite-sized (shorter) podcast from an agent run conversation. This creates a condensed version with key highlights, hosted by Mike and Laurel, perfect for quick listening. Content is truncated and focused on main points only.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent_run_id": {
+                        "type": "string",
+                        "description": "The UUID of the agent run to generate a bite-sized podcast from. Should be a valid agent run ID from a completed conversation."
+                    },
+                    "podcast_title": {
+                        "type": "string",
+                        "description": "Optional title for the podcast. If not provided, a title will be generated. Will be prefixed with 'Bite-sized: '",
+                        "default": ""
+                    },
+                    "tts_model": {
+                        "type": "string",
+                        "description": "TTS model to use: 'openai' (cost-effective, ~307KB files) or 'elevenlabs' (premium quality, ~1.6MB files)",
+                        "enum": ["openai", "elevenlabs"],
+                        "default": "openai"
+                    }
+                },
+                "required": ["agent_run_id"]
+            }
+        }
+    })
+    @usage_example('''
+        <function_calls>
+        <invoke name="generate_bite_sized_podcast">
+        <parameter name="agent_run_id">5d8a2b42-d550-4da7-a9bc-cc86e063ded0</parameter>
+        <parameter name="podcast_title">Quick AI Chat Summary</parameter>
+        <parameter name="tts_model">openai</parameter>
+        </invoke>
+        </function_calls>
+    ''')
+    async def generate_bite_sized_podcast(
+        self,
+        agent_run_id: str,
+        podcast_title: str = "",
+        tts_model: str = "openai"
+    ) -> ToolResult:
+        """
+        Generate a bite-sized podcast from an agent run conversation.
+        
+        Args:
+            agent_run_id: The UUID of the agent run to create a podcast from
+            podcast_title: Optional title for the podcast (will be prefixed with 'Bite-sized: ')
+            tts_model: TTS model to use for generation
+            
+        Returns:
+            ToolResult with podcast URL or generation status
+        """
+        try:
+            logger.info(f"Starting bite-sized podcast generation for agent run: {agent_run_id}")
+            
+            # Step 1: Fetch agent run data
+            agent_run_data = await self._fetch_agent_run_data(agent_run_id)
+            if not agent_run_data:
+                return self.fail_response(f"Agent run {agent_run_id} not found or access denied.")
+                
+            thread_id = agent_run_data.get('thread_id')
+            if not thread_id:
+                return self.fail_response("No thread ID found for this agent run.")
+                
+            logger.info(f"Found thread ID: {thread_id} for agent run: {agent_run_id}")
+            
+            # Step 2: Fetch thread messages
+            messages = await self._fetch_thread_messages(thread_id)
+            if not messages:
+                return self.fail_response("No messages found for this conversation.")
+                
+            logger.info(f"Retrieved {len(messages)} messages from thread: {thread_id}")
+            
+            # Step 3: Format conversation for bite-sized podcast
+            formatted_content = self._format_conversation_for_podcast(
+                messages, agent_run_data, include_thinking=False, is_bite_sized=True
+            )
+            
+            # Step 4: Generate title if not provided
+            if not podcast_title:
+                base_title = self._generate_podcast_title(messages, agent_run_data)
+                podcast_title = f"Bite-sized: {base_title}"
+            else:
+                podcast_title = f"Bite-sized: {podcast_title}"
+                
+            # Step 5: Call Podcastfy service
+            podcast_result = await self._call_podcastfy_service(
+                formatted_content, podcast_title, agent_run_id, tts_model
+            )
+            
+            if podcast_result.get('success'):
+                return self.success_response({
+                    "status": "Bite-sized podcast generated successfully",
+                    "podcast_url": podcast_result.get('podcast_url'),
+                    "audio_url": podcast_result.get('audio_url'),
+                    "podcast_id": podcast_result.get('podcast_id'),
+                    "title": podcast_title,
+                    "agent_run_id": agent_run_id,
+                    "message_count": len(messages),
+                    "is_bite_sized": True,
+                    "hosts": "Mike and Laurel",
+                    "service_response": podcast_result
+                })
+            else:
+                return self.fail_response(f"Bite-sized podcast generation failed: {podcast_result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            logger.error(f"Error generating bite-sized podcast for agent run {agent_run_id}: {str(e)}", exc_info=True)
+            return self.fail_response(f"Failed to generate bite-sized podcast: {str(e)}")
 
     async def _call_podcastfy_service_url(
         self, 
