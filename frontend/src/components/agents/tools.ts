@@ -7,11 +7,11 @@ export const AGENTPRESS_TOOL_DEFINITIONS: Record<string, { enabled: boolean; des
     'web_search_tool': { enabled: true, description: 'Search the web using Tavily API and scrape webpages with Firecrawl for research', icon: '🔍', color: 'bg-yellow-100 dark:bg-yellow-800/50' },
     'sb_vision_tool': { enabled: true, description: 'Vision and image processing capabilities for visual content analysis', icon: '👁️', color: 'bg-pink-100 dark:bg-pink-800/50' },
     'sb_image_edit_tool': { enabled: true, description: 'Generate new images or edit existing images using OpenAI GPT Image 1', icon: '🎨', color: 'bg-purple-100 dark:bg-purple-800/50' },
-    'sb_presentation_outline_tool': { enabled: true, description: 'Create structured presentation outlines with slide descriptions and speaker notes', icon: '📋', color: 'bg-purple-100 dark:bg-purple-800/50' },
-    'sb_presentation_tool': { enabled: true, description: 'Create professional presentations with HTML slides, preview, and export capabilities', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
-    'sb_presentation_tool_v2': { enabled: true, description: 'Enhanced presentation tool with advanced formatting and export options', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
+    'sb_presentation_outline_tool': { enabled: false, description: 'Create structured presentation outlines with slide descriptions and speaker notes', icon: '📋', color: 'bg-purple-100 dark:bg-purple-800/50' },
+    'sb_presentation_tool': { enabled: false, description: 'Create professional presentations with HTML slides, preview, and export capabilities', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
+    'sb_presentation_tool_v2': { enabled: false, description: 'Enhanced presentation tool with advanced formatting and export options', icon: '📊', color: 'bg-violet-100 dark:bg-violet-800/50' },
     'sb_sheets_tool': { enabled: true, description: 'Create, view, update, analyze, visualize, and format spreadsheets (XLSX/CSV) with Luckysheet viewer', icon: '📊', color: 'bg-purple-100 dark:bg-purple-800/50' },
-    'sb_web_dev_tool': { enabled: true, description: 'Create Next.js projects with shadcn/ui pre-installed, manage dependencies, build and deploy modern web applications', icon: '⚛️', color: 'bg-cyan-100 dark:bg-cyan-800/50' },
+    'sb_web_dev_tool': { enabled: false, description: 'Create Next.js projects with shadcn/ui pre-installed, manage dependencies, build and deploy modern web applications', icon: '⚛️', color: 'bg-cyan-100 dark:bg-cyan-800/50' },
     
     // Browser and interaction tools
     'browser_tool': { enabled: true, description: 'Browser automation for web navigation, clicking, form filling, and page interaction', icon: '🌐', color: 'bg-indigo-100 dark:bg-indigo-800/50' },
