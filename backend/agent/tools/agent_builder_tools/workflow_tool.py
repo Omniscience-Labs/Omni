@@ -48,7 +48,8 @@ class WorkflowTool(AgentBuilderBaseTool):
                 'sb_expose_tool': ['expose_port'],
                 'web_search_tool': ['web_search'],
                 'data_providers_tool': ['get_data_provider_endpoints', 'execute_data_provider_call'],
-                'podcast_tool': ['generate_podcast', 'check_podcast_status']
+                'podcast_tool': ['generate_podcast', 'check_podcast_status'],
+                'sb_video_avatar_tool': ['generate_avatar_video', 'create_avatar_session', 'make_avatar_speak', 'check_video_status', 'list_avatar_options', 'close_avatar_session']
             }
             
             agentpress_tools = agent_config.get('agentpress_tools', {})
