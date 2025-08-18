@@ -1,5 +1,8 @@
 'use client';
 
+// Disable static generation for this page since it requires client-side auth
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';

@@ -1,5 +1,8 @@
 'use client';
 
+// Disable static generation for this page since it requires client-side auth
+export const dynamic = 'force-dynamic';
+
 import React from 'react';
 import AcceptTeamInvitation from '@/components/basejump/accept-team-invitation';
 import { redirect } from 'next/navigation';
