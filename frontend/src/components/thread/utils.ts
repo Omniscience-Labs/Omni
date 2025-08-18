@@ -23,6 +23,7 @@ import {
   Table2,
   ListTodo,
   List,
+  Computer,
 } from 'lucide-react';
 
 // Flag to control whether tool result messages are rendered
@@ -113,6 +114,10 @@ export const getToolIcon = (toolName: string): ElementType => {
       return Terminal;
     case 'terminate-command':
       return Terminal;
+
+    // Port operations
+    case 'expose-port':
+      return Computer;
 
     // Web operations
     case 'web-search':
@@ -318,12 +323,16 @@ const TOOL_DISPLAY_NAMES = new Map([
   
   ['deploy', 'Deploying'],
   ['ask', 'Ask'],
+  ['create-tasks', 'Creating Tasks'],
+  ['update-tasks', 'Updating Tasks'],
   ['complete', 'Completing Task'],
   ['crawl-webpage', 'Crawling Website'],
   ['expose-port', 'Exposing Port'],
   ['scrape-webpage', 'Scraping Website'],
   ['web-search', 'Searching Web'],
   ['see-image', 'Viewing Image'],
+  ['create-presentation-outline', 'Creating Presentation Outline'],
+  ['create-presentation', 'Creating Presentation'],
 
   ['create-sheet', 'Creating Sheet'],
   ['update-sheet', 'Updating Sheet'],
@@ -341,6 +350,8 @@ const TOOL_DISPLAY_NAMES = new Map([
   ['get-popular-mcp-servers', 'Getting Popular MCP Servers'],
   ['test-mcp-server-connection', 'Testing MCP Server Connection'],
 
+  ['get-project-structure', 'Getting Project Structure'],
+  ['build-project', 'Building Project'],
 
   //V2
 

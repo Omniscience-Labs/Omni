@@ -63,7 +63,7 @@ def save_env_vars(request: Dict[str, str]) -> Dict[str, str]:
             set_key(env_path, key, value)
         
         load_dotenv(override=True)
-        logger.info(f"Env variables saved successfully: {request}")
+        logger.debug(f"Env variables saved successfully: {request}")
         return {"message": "Env variables saved successfully"}
     except Exception as e:
         logger.error(f"Failed to save env variables: {e}")

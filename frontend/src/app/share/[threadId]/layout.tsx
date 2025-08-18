@@ -25,7 +25,7 @@ export async function generateMetadata({ params }): Promise<Metadata> {
     }
 
     const isDevelopment =
-      process.env.NODE_ENV === 'development' ||
+      // process.env.NODE_ENV === 'development' ||
       process.env.NEXT_PUBLIC_ENV_MODE === 'LOCAL' ||
       process.env.NEXT_PUBLIC_ENV_MODE === 'local';
 

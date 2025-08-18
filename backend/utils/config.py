@@ -215,8 +215,7 @@ class Configuration:
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION_NAME: Optional[str] = None
     
-    # Model configuration
-    MODEL_TO_USE: Optional[str] = "anthropic/claude-sonnet-4-20250514"
+
     
     # Supabase configuration
     SUPABASE_URL: str
@@ -255,8 +254,8 @@ class Configuration:
     STRIPE_PRODUCT_ID_STAGING: str = 'prod_SCgIj3G7yPOAWY'
     
     # Sandbox configuration
-    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.1"
-    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.1"
+    SANDBOX_IMAGE_NAME = "kortix/suna:0.1.3.4"
+    SANDBOX_SNAPSHOT_NAME = "kortix/suna:0.1.3.4"
     SANDBOX_ENTRYPOINT = "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf"
 
     # LangFuse configuration
@@ -342,7 +341,7 @@ class Configuration:
             logger.warning(f"Invalid ENV_MODE: {env_mode_str}, defaulting to LOCAL")
             self.ENV_MODE = EnvMode.LOCAL
             
-        logger.info(f"Environment mode: {self.ENV_MODE.value}")
+        logger.debug(f"Environment mode: {self.ENV_MODE.value}")
         
         # Load configuration from environment variables
         self._load_from_env()

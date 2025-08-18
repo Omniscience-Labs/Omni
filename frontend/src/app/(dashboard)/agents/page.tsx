@@ -250,7 +250,6 @@ export default function AgentsPage() {
     setMarketplacePage(1);
   }, [marketplaceSearchQuery, marketplaceSelectedTags, marketplaceSortBy]);
 
-  // Handle shared agent URL parameter
   useEffect(() => {
     const agentId = searchParams.get('agent');
     if (agentId && allMarketplaceItems.length > 0) {
@@ -304,7 +303,6 @@ export default function AgentsPage() {
     setShowPreviewDialog(false);
     setSelectedItem(null);
     
-    // Remove agent parameter from URL
     const currentUrl = new URL(window.location.href);
     if (currentUrl.searchParams.has('agent')) {
       currentUrl.searchParams.delete('agent');
@@ -346,9 +344,12 @@ export default function AgentsPage() {
       const regularRequirements = item.mcp_requirements?.filter(req => 
         !req.custom_type
       ) || [];
-      const missingProfiles = regularRequirements.filter(req => 
-        !profileMappings || !profileMappings[req.qualified_name] || profileMappings[req.qualified_name].trim() === ''
-      );
+      const missingProfiles = regularRequirements.filter(req => {
+        const profileKey = req.source === 'trigger' && req.trigger_index !== undefined
+          ? `${req.qualified_name}_trigger_${req.trigger_index}`
+          : req.qualified_name;
+        return !profileMappings || !profileMappings[profileKey] || profileMappings[profileKey].trim() === '';
+      });
       
       if (missingProfiles.length > 0) {
         const missingNames = missingProfiles.map(req => req.display_name).join(', ');
@@ -382,8 +383,33 @@ export default function AgentsPage() {
         setShowInstallDialog(false);
         handleTabChange('my-agents');
       } else if (result.status === 'configs_required') {
-        toast.error('Please provide all required configurations');
-        return;
+        if (result.missing_regular_credentials && result.missing_regular_credentials.length > 0) {
+          const updatedRequirements = [
+            ...(item.mcp_requirements || []),
+            ...result.missing_regular_credentials.map((cred: any) => ({
+              qualified_name: cred.qualified_name,
+              display_name: cred.display_name,
+              enabled_tools: cred.enabled_tools || [],
+              required_config: cred.required_config || [],
+              custom_type: cred.custom_type,
+              toolkit_slug: cred.toolkit_slug,
+              app_slug: cred.app_slug,
+              source: cred.source,
+              trigger_index: cred.trigger_index
+            }))
+          ];
+          
+          setSelectedItem({
+            ...item,
+            mcp_requirements: updatedRequirements
+          });
+          
+          toast.warning('Additional configurations required. Please complete the setup.');
+          return;
+        } else {
+          toast.error('Please provide all required configurations');
+          return;
+        }
       } else {
         toast.error('Unexpected response from server. Please try again.');
         return;
@@ -484,7 +510,6 @@ export default function AgentsPage() {
         
         toast.success(`${publishDialog.templateName} has been published to the marketplace`);
       } else {
-        // Publishing an existing template
         setTemplatesActioningId(publishDialog.templateId);
         
         await publishMutation.mutateAsync({

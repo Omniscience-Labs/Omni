@@ -64,7 +64,7 @@ class MCPServerService:
         toolkit_name: str = "composio"
     ) -> MCPServer:
         try:
-            logger.info(f"Creating MCP server with auth_configs: {auth_config_ids}")
+            logger.debug(f"Creating MCP server with auth_configs: {auth_config_ids}")
             
             if not name:
                 name = self._generate_server_name(toolkit_name)
@@ -72,7 +72,7 @@ class MCPServerService:
             if not allowed_tools:
                 allowed_tools = []
             
-            logger.info(f"Using MCP server name: {name}")
+            logger.debug(f"Using MCP server name: {name}")
             
             try:
                 response = self.client.mcp.create(
@@ -108,7 +108,7 @@ class MCPServerService:
                 managed_auth_via_composio=getattr(response, 'managed_auth_via_composio', True)
             )
             
-            logger.info(f"Successfully created MCP server: {mcp_server.id}")
+            logger.debug(f"Successfully created MCP server: {mcp_server.id}")
             return mcp_server
             
         except Exception as e:
@@ -122,7 +122,7 @@ class MCPServerService:
         user_ids: Optional[List[str]] = None
     ) -> MCPUrlResponse:
         try:
-            logger.info(f"Generating MCP URL for server: {mcp_server_id}")
+            logger.debug(f"Generating MCP URL for server: {mcp_server_id}")
             
             request_data = {"mcp_server_id": mcp_server_id}
             
@@ -146,7 +146,7 @@ class MCPServerService:
                 user_ids_url=getattr(response, 'user_ids_url', [])
             )
             
-            logger.info(f"Successfully generated MCP URL: {mcp_url_response.mcp_url}")
+            logger.debug(f"Successfully generated MCP URL: {mcp_url_response.mcp_url}")
             return mcp_url_response
             
         except Exception as e:
@@ -155,7 +155,7 @@ class MCPServerService:
     
     async def get_mcp_server(self, mcp_server_id: str) -> Optional[MCPServer]:
         try:
-            logger.info(f"Fetching MCP server: {mcp_server_id}")
+            logger.debug(f"Fetching MCP server: {mcp_server_id}")
             
             try:
                 response = self.client.mcp.get(mcp_server_id)
@@ -192,7 +192,7 @@ class MCPServerService:
     
     async def list_mcp_servers(self) -> List[MCPServer]:
         try:
-            logger.info("Listing MCP servers")
+            logger.debug("Listing MCP servers")
             
             try:
                 response = self.client.mcp.list()
@@ -225,7 +225,7 @@ class MCPServerService:
                 )
                 mcp_servers.append(mcp_server)
             
-            logger.info(f"Successfully listed {len(mcp_servers)} MCP servers")  
+            logger.debug(f"Successfully listed {len(mcp_servers)} MCP servers")  
             return mcp_servers
             
         except Exception as e:
@@ -234,7 +234,7 @@ class MCPServerService:
     
     async def delete_mcp_server(self, server_id: str) -> bool:
         try:
-            logger.info(f"Deleting MCP server: {server_id}")
+            logger.debug(f"Deleting MCP server: {server_id}")
             
             logger.warning(f"Delete MCP server not implemented in SDK for ID: {server_id}")
             return False

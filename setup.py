@@ -131,7 +131,7 @@ def load_existing_env_vars():
             "OPENROUTER_API_KEY": backend_env.get("OPENROUTER_API_KEY", ""),
             "MORPH_API_KEY": backend_env.get("MORPH_API_KEY", ""),
             "GEMINI_API_KEY": backend_env.get("GEMINI_API_KEY", ""),
-            "MODEL_TO_USE": backend_env.get("MODEL_TO_USE", ""),
+
         },
         "search": {
             "TAVILY_API_KEY": backend_env.get("TAVILY_API_KEY", ""),
@@ -308,7 +308,7 @@ class SetupWizard:
         llm_keys = [
             k
             for k in self.env_vars["llm"]
-            if k != "MODEL_TO_USE" and self.env_vars["llm"][k] and k != "MORPH_API_KEY"
+            if self.env_vars["llm"][k] and k != "MORPH_API_KEY"
         ]
         if llm_keys:
             providers = [k.split("_")[0].capitalize() for k in llm_keys]
@@ -669,8 +669,8 @@ class SetupWizard:
             f"Visit {Colors.GREEN}https://app.daytona.io/dashboard/snapshots{Colors.ENDC}{Colors.CYAN} to create a snapshot."
         )
         print_info("Create a snapshot with these exact settings:")
-        print_info(f"   - Name:\t\t{Colors.GREEN}kortix/suna:0.1.3.1{Colors.ENDC}")
-        print_info(f"   - Snapshot name:\t{Colors.GREEN}kortix/suna:0.1.3.1{Colors.ENDC}")
+        print_info(f"   - Name:\t\t{Colors.GREEN}kortix/suna:0.1.3.4{Colors.ENDC}")
+        print_info(f"   - Snapshot name:\t{Colors.GREEN}kortix/suna:0.1.3.4{Colors.ENDC}")
         print_info(
             f"   - Entrypoint:\t{Colors.GREEN}/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf{Colors.ENDC}"
         )
@@ -682,7 +682,7 @@ class SetupWizard:
 
         # Check if we already have any LLM keys configured
         existing_keys = {
-            k: v for k, v in self.env_vars["llm"].items() if v and k != "MODEL_TO_USE"
+            k: v for k, v in self.env_vars["llm"].items() if v
         }
         has_existing = bool(existing_keys)
 
@@ -706,7 +706,7 @@ class SetupWizard:
         while not any(
             k
             for k in self.env_vars["llm"]
-            if k != "MODEL_TO_USE" and self.env_vars["llm"][k]
+            if self.env_vars["llm"][k]
         ):
             providers = {
                 "1": ("OpenAI", "OPENAI_API_KEY"),
@@ -752,26 +752,7 @@ class SetupWizard:
                 )
                 self.env_vars["llm"][key] = api_key
 
-        # Set a default model if not already set
-        if not self.env_vars["llm"].get("MODEL_TO_USE"):
-            if self.env_vars["llm"].get("OPENAI_API_KEY"):
-                self.env_vars["llm"]["MODEL_TO_USE"] = "openai/gpt-5"
-            elif self.env_vars["llm"].get("ANTHROPIC_API_KEY"):
-                self.env_vars["llm"][
-                    "MODEL_TO_USE"
-                ] = "anthropic/claude-sonnet-4-20250514"
-            elif self.env_vars["llm"].get("GEMINI_API_KEY"):
-                self.env_vars["llm"][
-                    "MODEL_TO_USE"
-                ] = "gemini/gemini-2.5-pro"
-            elif self.env_vars["llm"].get("OPENROUTER_API_KEY"):
-                self.env_vars["llm"][
-                    "MODEL_TO_USE"
-                ] = "openrouter/google/gemini-2.5-pro"
-
-        print_success(
-            f"LLM keys saved. Default model: {self.env_vars['llm'].get('MODEL_TO_USE', 'Not set')}"
-        )
+        print_success("LLM keys saved.")
 
     def collect_morph_api_key(self):
         """Collects the optional MorphLLM API key for code editing."""
@@ -1326,9 +1307,8 @@ class SetupWizard:
         """Shows final instructions to the user."""
         print(f"\n{Colors.GREEN}{Colors.BOLD}✨ Suna Setup Complete! ✨{Colors.ENDC}\n")
 
-        default_model = self.env_vars.get("llm", {}).get("MODEL_TO_USE", "N/A")
         print_info(
-            f"Suna is configured to use {Colors.GREEN}{default_model}{Colors.ENDC} as the default LLM."
+            f"Suna is configured with your LLM API keys and ready to use."
         )
         print_info(
             f"Delete the {Colors.RED}.setup_progress{Colors.ENDC} file to reset the setup."

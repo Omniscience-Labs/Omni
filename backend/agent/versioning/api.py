@@ -225,5 +225,5 @@ async def update_version_details(
 
 
 def initialize(db_connection=None):
-    logger.info("Versioning API initialized")
+    logger.debug("Versioning API initialized")
     return router 

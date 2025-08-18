@@ -213,7 +213,7 @@ class APIKeyService:
 
             key_data = result.data[0]
 
-            logger.info(
+            logger.debug(
                 "API key created successfully",
                 account_id=str(account_id),
                 key_id=key_data["key_id"],
@@ -315,7 +315,7 @@ class APIKeyService:
             if not result.data:
                 raise HTTPException(status_code=404, detail="API key not found")
 
-            logger.info(
+            logger.debug(
                 "API key revoked successfully",
                 account_id=str(account_id),
                 key_id=str(key_id),
@@ -564,7 +564,7 @@ class APIKeyService:
             if not result.data:
                 raise HTTPException(status_code=404, detail="API key not found")
 
-            logger.info(
+            logger.debug(
                 "API key deleted successfully",
                 account_id=str(account_id),
                 key_id=str(key_id),

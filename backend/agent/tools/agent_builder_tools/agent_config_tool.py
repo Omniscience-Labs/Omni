@@ -103,22 +103,20 @@ class AgentConfigTool(AgentBuilderBaseTool):
             metadata = current_agent.get('metadata', {})
             is_suna_default = metadata.get('is_suna_default', False)
             
+            # Enforce Suna restrictions (simplified)
             if is_suna_default:
                 restricted_fields = []
                 if name is not None:
                     restricted_fields.append("name")
-                if description is not None:
-                    restricted_fields.append("description") 
                 if system_prompt is not None:
                     restricted_fields.append("system prompt")
                 if agentpress_tools is not None:
-                    restricted_fields.append("default tools")
+                    restricted_fields.append("core tools")
                 
                 if restricted_fields:
                     return self.fail_response(
-                        f"Cannot modify {', '.join(restricted_fields)} for the default Suna agent. "
-                        f"Suna's core identity is managed centrally. However, you can still add MCP integrations, "
-                        f"create workflows, set up triggers, and customize other aspects of Suna."
+                        f"Cannot modify {', '.join(restricted_fields)} for Suna. "
+                        f"Suna's core identity is centrally managed. You can still add MCPs, workflows, and triggers."
                     )
 
             agent_update_fields = {}
@@ -215,7 +213,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                                     existing_identifiers.add(identifier)
                         
                         current_configured_mcps = merged_mcps
-                        logger.info(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
+                        logger.debug(f"MCP merge result: {len(current_configured_mcps)} total MCPs (was {len(current_version.get('configured_mcps', []))}, adding {len(configured_mcps)})")
                     
                     current_custom_mcps = current_version.get('custom_mcps', [])
                     
@@ -234,7 +232,7 @@ class AgentConfigTool(AgentBuilderBaseTool):
                     )
                     
                     version_created = True
-                    logger.info(f"Created new version {new_version.version_id} for agent {self.agent_id}")
+                    logger.debug(f"Created new version {new_version.version_id} for agent {self.agent_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to create new version: {e}")

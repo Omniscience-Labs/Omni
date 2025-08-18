@@ -62,8 +62,8 @@ class ConnectedAccountService:
         initiation_fields: Optional[Dict[str, str]] = None
     ) -> ConnectedAccount:
         try:
-            logger.info(f"Creating connected account for auth_config: {auth_config_id}, user: {user_id}")
-            logger.info(f"Initiation fields for connected account: {initiation_fields}")
+            logger.debug(f"Creating connected account for auth_config: {auth_config_id}, user: {user_id}")
+            logger.debug(f"Initiation fields for connected account: {initiation_fields}")
             
             state_val = {"status": "INITIALIZING"}
             
@@ -75,7 +75,7 @@ class ConnectedAccountService:
                         else:
                             state_val[field_name] = str(field_value)
             
-            logger.info(f"Using state.val: {state_val}")
+            logger.debug(f"Using state.val: {state_val}")
             
             response = self.client.connected_accounts.create(
                 auth_config={
@@ -121,7 +121,7 @@ class ConnectedAccountService:
                 deprecated=deprecated_value
             )
             
-            logger.info(f"Successfully created connected account: {connected_account.id}")
+            logger.debug(f"Successfully created connected account: {connected_account.id}")
             return connected_account
             
         except Exception as e:
@@ -130,7 +130,7 @@ class ConnectedAccountService:
     
     async def get_connected_account(self, connected_account_id: str) -> Optional[ConnectedAccount]:
         try:
-            logger.info(f"Fetching connected account: {connected_account_id}")
+            logger.debug(f"Fetching connected account: {connected_account_id}")
             
             response = self.client.connected_accounts.get(connected_account_id)
             
@@ -174,7 +174,7 @@ class ConnectedAccountService:
     
     async def get_auth_status(self, connected_account_id: str) -> Dict[str, Any]:
         try:
-            logger.info(f"Getting auth status for connected account: {connected_account_id}")
+            logger.debug(f"Getting auth status for connected account: {connected_account_id}")
             
             connected_account = await self.get_connected_account(connected_account_id)
             
@@ -193,7 +193,7 @@ class ConnectedAccountService:
     
     async def list_connected_accounts(self, auth_config_id: Optional[str] = None) -> List[ConnectedAccount]:
         try:
-            logger.info(f"Listing connected accounts for auth_config: {auth_config_id}")
+            logger.debug(f"Listing connected accounts for auth_config: {auth_config_id}")
             
             if auth_config_id:
                 response = self.client.connected_accounts.list(auth_config_id=auth_config_id)
@@ -236,7 +236,7 @@ class ConnectedAccountService:
                 )
                 connected_accounts.append(connected_account)
             
-            logger.info(f"Successfully listed {len(connected_accounts)} connected accounts")
+            logger.debug(f"Successfully listed {len(connected_accounts)} connected accounts")
             return connected_accounts
             
         except Exception as e:

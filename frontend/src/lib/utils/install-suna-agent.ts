@@ -18,6 +18,8 @@ async function installOmniForNewUser(userId: string) {
       },
     });
 
+    console.log('response', response);
+
     if (response.ok) {
       const result = await response.json();
       return true;

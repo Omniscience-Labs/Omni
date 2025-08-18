@@ -11,6 +11,51 @@ class WorkflowTool(AgentBuilderBaseTool):
     def __init__(self, thread_manager: ThreadManager, db_connection, agent_id: str):
         super().__init__(thread_manager, db_connection, agent_id)
 
+    async def _sync_workflows_to_version_config(self) -> None:
+        try:
+            client = await self.db.client
+            
+            agent_result = await client.table('agents').select('current_version_id').eq('agent_id', self.agent_id).single().execute()
+            if not agent_result.data or not agent_result.data.get('current_version_id'):
+                logger.warning(f"No current version found for agent {self.agent_id}")
+                return
+            
+            current_version_id = agent_result.data['current_version_id']
+            
+            workflows_result = await client.table('agent_workflows').select('*').eq('agent_id', self.agent_id).execute()
+            workflows = workflows_result.data if workflows_result.data else []
+            
+            triggers_result = await client.table('agent_triggers').select('*').eq('agent_id', self.agent_id).execute()
+            triggers = []
+            if triggers_result.data:
+                import json
+                for trigger in triggers_result.data:
+                    trigger_copy = trigger.copy()
+                    if 'config' in trigger_copy and isinstance(trigger_copy['config'], str):
+                        try:
+                            trigger_copy['config'] = json.loads(trigger_copy['config'])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse trigger config for {trigger_copy.get('trigger_id')}")
+                            trigger_copy['config'] = {}
+                    triggers.append(trigger_copy)
+            
+            version_result = await client.table('agent_versions').select('config').eq('version_id', current_version_id).single().execute()
+            if not version_result.data:
+                logger.warning(f"Version {current_version_id} not found")
+                return
+            
+            config = version_result.data.get('config', {})
+            
+            config['workflows'] = workflows
+            config['triggers'] = triggers
+            
+            await client.table('agent_versions').update({'config': config}).eq('version_id', current_version_id).execute()
+            
+            logger.debug(f"Synced {len(workflows)} workflows and {len(triggers)} triggers to version config for agent {self.agent_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to sync workflows to version config: {e}")
+
     async def _get_available_tools_for_agent(self) -> List[str]:
         try:
             client = await self.db.client
@@ -214,6 +259,8 @@ class WorkflowTool(AgentBuilderBaseTool):
             if not result.data:
                 return self.fail_response("Failed to create workflow")
 
+            await self._sync_workflows_to_version_config()
+
             workflow = result.data[0]
             return self.success_response({
                 "message": f"Workflow '{name}' created successfully",
@@ -415,6 +462,8 @@ class WorkflowTool(AgentBuilderBaseTool):
             if not result.data:
                 return self.fail_response("Failed to update workflow")
             
+            await self._sync_workflows_to_version_config()
+            
             workflow = result.data[0]
             
             return self.success_response({
@@ -471,6 +520,8 @@ class WorkflowTool(AgentBuilderBaseTool):
             
             result = await client.table('agent_workflows').delete().eq('id', workflow_id).execute()
             
+            await self._sync_workflows_to_version_config()
+            
             return self.success_response({
                 "message": f"Workflow '{workflow_name}' deleted successfully",
                 "workflow_id": workflow_id
@@ -523,6 +574,8 @@ class WorkflowTool(AgentBuilderBaseTool):
             if not result.data:
                 return self.fail_response("Failed to update workflow status")
             
+            await self._sync_workflows_to_version_config()
+            
             action = "activated" if active else "deactivated"
             return self.success_response({
                 "message": f"Workflow '{workflow_name}' {action} successfully",
@@ -548,7 +601,6 @@ class WorkflowTool(AgentBuilderBaseTool):
                 'order': step.get('order', 0)
             }
 
-            # Preserve identifiers to avoid breaking frontends/editors
             if 'id' in step and step.get('id'):
                 step_dict['id'] = step['id']
             if 'parentConditionalId' in step and step.get('parentConditionalId'):
@@ -560,5 +612,3 @@ class WorkflowTool(AgentBuilderBaseTool):
             result.append(step_dict)
 
         return result
-
-    # Removed separate create_playbook in favor of playbook-style create_workflow

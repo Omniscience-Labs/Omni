@@ -1,6 +1,6 @@
 'use client';
 
-import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { useSubscriptionData } from '@/contexts/SubscriptionContext';
 import { useState, useEffect, useMemo } from 'react';
 import { isLocalMode } from '@/lib/config';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model';
@@ -8,8 +8,7 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-model'
 export const STORAGE_KEY_MODEL = 'omni-preferred-model-v3';
 export const STORAGE_KEY_CUSTOM_MODELS = 'customModels';
 export const DEFAULT_PREMIUM_MODEL_ID = 'claude-sonnet-4';
-// export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
-export const DEFAULT_FREE_MODEL_ID = 'claude-sonnet-4';
+export const DEFAULT_FREE_MODEL_ID = 'moonshotai/kimi-k2';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
 
@@ -30,9 +29,9 @@ export interface CustomModel {
 
 // SINGLE SOURCE OF TRUTH for all model data - aligned with backend constants
 export const MODELS = {
-  // Free tier models (available to all users)
+  // Premium tier models (require subscription)
   'claude-sonnet-4': { 
-    tier: 'free',
+    tier: 'premium',
     priority: 100, 
     recommended: true,
     lowQuality: false
@@ -51,11 +50,11 @@ export const MODELS = {
   //   lowQuality: false
   // },
 
-  // Premium/Paid tier models (require subscription) - except specific free models
+  // Free tier models (available to all users)
   'moonshotai/kimi-k2': { 
     tier: 'free', 
-    priority: 96,
-    recommended: false,
+    priority: 100,
+    recommended: true,
     lowQuality: false
   },
   'grok-4': { 
@@ -171,7 +170,7 @@ export const useModelSelection = () => {
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  const { data: subscriptionData } = useSubscription();
+  const { data: subscriptionData } = useSubscriptionData();
   const { data: modelsData, isLoading: isLoadingModels } = useAvailableModels({
     refetchOnMount: false,
   });
@@ -339,6 +338,9 @@ export const useModelSelection = () => {
 
   // Handle model selection change
   const handleModelChange = (modelId: string) => {
+    console.log('🔧 useModelSelection: handleModelChange called with:', modelId);
+    console.log('🔧 useModelSelection: Available MODEL_OPTIONS:', MODEL_OPTIONS.map(m => m.id));
+    
     // Refresh custom models from localStorage to ensure we have the latest
     if (isLocalMode()) {
       refreshCustomModels();
@@ -350,12 +352,16 @@ export const useModelSelection = () => {
     // Then check if it's in standard MODEL_OPTIONS
     const modelOption = MODEL_OPTIONS.find(option => option.id === modelId);
     
+    console.log('🔧 useModelSelection: modelOption found:', modelOption);
+    console.log('🔧 useModelSelection: isCustomModel:', isCustomModel);
+    
     // Check if model exists in either custom models or standard options
     if (!modelOption && !isCustomModel) {
-      console.warn('Model not found in options:', modelId, MODEL_OPTIONS, isCustomModel, customModels);
+      console.warn('🔧 useModelSelection: Model not found in options:', modelId, MODEL_OPTIONS, isCustomModel, customModels);
       
       // Reset to default model when the selected model is not found
       const defaultModel = isLocalMode() ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
+      console.log('🔧 useModelSelection: Resetting to default model:', defaultModel);
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       return;
@@ -364,10 +370,11 @@ export const useModelSelection = () => {
     // Check access permissions (except for custom models in local mode)
     if (!isCustomModel && !isLocalMode() && 
         !canAccessModel(subscriptionStatus, modelOption?.requiresSubscription ?? false)) {
-      console.warn('Model not accessible:', modelId);
+      console.warn('🔧 useModelSelection: Model not accessible:', modelId);
       return;
     }
     
+    console.log('🔧 useModelSelection: Setting model to:', modelId);
     setSelectedModel(modelId);
     saveModelPreference(modelId);
   };

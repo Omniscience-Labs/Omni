@@ -200,7 +200,7 @@ const STAGING_TIERS: SubscriptionTiers = {
 } as const;
 
 function getEnvironmentMode(): EnvMode {
-  const envMode = process.env.NEXT_PUBLIC_ENV_MODE;
+  const envMode = process.env.NEXT_PUBLIC_ENV_MODE.toUpperCase();
   switch (envMode) {
     case 'LOCAL':
       return EnvMode.LOCAL;
@@ -208,12 +208,12 @@ function getEnvironmentMode(): EnvMode {
       return EnvMode.STAGING;
     case 'PRODUCTION':
       return EnvMode.PRODUCTION;
-    default:
-      if (process.env.NODE_ENV === 'development') {
-        return EnvMode.LOCAL;
-      } else {
-        return EnvMode.PRODUCTION;
-      }
+  //   default:
+  //     if (process.env.NODE_ENV === 'development') {
+  //       return EnvMode.LOCAL;
+  //     } else {
+  //       return EnvMode.PRODUCTION;
+  //     }
   }
 }
 

@@ -146,7 +146,7 @@ class SandboxBrowserTool(SandboxToolsBase):
                     if not "role" in result:
                         result["role"] = "assistant"
 
-                    logger.info("Browser automation request completed successfully")
+                    logger.debug("Browser automation request completed successfully")
 
                     if "screenshot_base64" in result:
                         try:

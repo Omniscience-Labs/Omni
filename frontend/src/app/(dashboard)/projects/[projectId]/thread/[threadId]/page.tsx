@@ -20,18 +20,19 @@ import { ThreadContent } from '@/components/thread/content/ThreadContent';
 import { ThreadSkeleton } from '@/components/thread/content/ThreadSkeleton';
 import { useAddUserMessageMutation } from '@/hooks/react-query/threads/use-messages';
 import { useStartAgentMutation, useStopAgentMutation } from '@/hooks/react-query/threads/use-agent-run';
-import { useSubscription } from '@/hooks/react-query/subscriptions/use-subscriptions';
+import { useSharedSubscription } from '@/contexts/SubscriptionContext';
 import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
 
 import { UnifiedMessage, ApiMessageType, ToolCallInput, Project } from '../_types';
 import { useThreadData, useToolCalls, useBilling, useKeyboardShortcuts } from '../_hooks';
 import { ThreadError, UpgradeDialog, ThreadLayout } from '../_components';
-import { useVncPreloader } from '@/hooks/useVncPreloader';
+
 import { useThreadAgent, useAgents } from '@/hooks/react-query/agents/use-agents';
 import { AgentRunLimitDialog } from '@/components/thread/agent-run-limit-dialog';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { threadKeys } from '@/hooks/react-query/threads/keys';
+import { useProjectRealtime } from '@/hooks/useProjectRealtime';
 
 export default function ThreadPage({
   params,
@@ -132,6 +133,9 @@ export default function ThreadPage({
     billingStatusQuery,
   } = useBilling(project?.account_id, agentStatus, initialLoadCompleted);
 
+  // Real-time project updates (for sandbox creation)
+  useProjectRealtime(projectId);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     isSidePanelOpen,
@@ -160,15 +164,10 @@ export default function ThreadPage({
     }
   }, [threadAgentData, agents, initializeFromAgents]);
 
-  const { data: subscriptionData } = useSubscription();
+  const { data: subscriptionData } = useSharedSubscription();
   const subscriptionStatus: SubscriptionStatus = subscriptionData?.status === 'active'
     ? 'active'
     : 'no_subscription';
-
-  const memoizedProject = useMemo(() => project, [project?.id, project?.sandbox?.vnc_preview, project?.sandbox?.pass]);
-
-  useVncPreloader(memoizedProject);
-
 
   const handleProjectRenamed = useCallback((newName: string) => {
   }, []);
