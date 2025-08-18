@@ -53,7 +53,7 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRef
           variant="ghost"
           size="sm"
           onClick={onRefresh}
-          className="h-7 w-7 p-0 hover:bg-muted"
+          className="h-7 w-7 p-0 hover:bg-muted rounded-xl"
           title="Refresh browser view"
           >
             <RefreshCw className="h-3.5 w-3.5" />

@@ -265,13 +265,13 @@ class BrowserAutomation {
     async extract(req: express.Request, res: express.Response): Promise<void> {
         try {
             if (this.page && this.browserInitialized) {
-                const { instruction, iframes, selector } = req.body;
-                const result = await this.page.extract({ instruction, iframes, selector });
+                const { instruction, iframes } = req.body;
+                const result = await this.page.extract({ instruction, iframes });
                 const page_info = await this.get_stagehand_state();
                 const response: BrowserActionResult = {
                     success: result.success,
-                    message: result.message,
-                    action: result.action,
+                    message: `Extracted result for: ${instruction}`,
+                    action: result.extraction,
                     url: page_info.url,
                     title: page_info.title,
                     screenshot_base64: page_info.screenshot_base64,

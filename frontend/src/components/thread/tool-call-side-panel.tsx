@@ -103,7 +103,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ currentView, onViewChange }) =>
             ? 'text-black'
             : 'text-gray-500 dark:text-gray-400'
         }`}
-        title="Tools"
+        title="Switch to Tool View"
       >
         <Wrench className="h-3.5 w-3.5" />
       </Button>
@@ -116,7 +116,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ currentView, onViewChange }) =>
             ? 'text-black'
             : 'text-gray-500 dark:text-gray-400'
         }`}
-        title="Browser"
+        title="Switch to Browser View"
       >
         <Globe className="h-3.5 w-3.5" />
       </Button>
@@ -899,7 +899,7 @@ export function ToolCallSidePanel({
             <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
               <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />} />
               {/* VNC iframe container - unchanged */}
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden grid items-center">
                 {persistentVncIframe}
               </div>
             </div>

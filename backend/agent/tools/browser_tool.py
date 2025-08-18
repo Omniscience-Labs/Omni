@@ -378,11 +378,6 @@ class BrowserTool(SandboxToolsBase):
                         "type": "string",
                         "description": "What content to extract (e.g., 'extract all product prices', 'get the main heading', 'extract apartment listings with address and price')"
                     },
-                    "selector": {
-                        "type": "string",
-                        "description": "Optional XPath selector to reduce extraction scope to a specific element. Useful for reducing input tokens and increasing accuracy.",
-                        "default": None
-                    },
                     "iframes": {
                         "type": "boolean",
                         "description": "Whether to include iframe content in the extraction. Set to true if the target content is inside an iframe.",
@@ -397,15 +392,14 @@ class BrowserTool(SandboxToolsBase):
         <function_calls>
         <invoke name="browser_extract_content">
         <parameter name="instruction">extract all product names and prices from the main product list</parameter>
-        <parameter name="selector">//div[@class='product-list']</parameter>
         <parameter name="iframes">true</parameter>
         </invoke>
         </function_calls>
         ''')
-    async def browser_extract_content(self, instruction: str, selector: str = None, iframes: bool = False) -> ToolResult:
+    async def browser_extract_content(self, instruction: str, iframes: bool = False) -> ToolResult:
         """Extract structured content from the current page using Stagehand."""
-        logger.debug(f"Browser extracting: {instruction} (selector={selector}, iframes={iframes})")
-        params = {"instruction": instruction, "iframes": iframes, "selector": selector}
+        logger.debug(f"Browser extracting: {instruction} (iframes={iframes})")
+        params = {"instruction": instruction, "iframes": iframes}
         return await self._execute_stagehand_api("extract", params)
     
     @openapi_schema({
