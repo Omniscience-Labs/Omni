@@ -577,11 +577,11 @@ async def get_allowed_models_for_user(client, user_id: str):
 
 
 async def can_use_model(client, user_id: str, model_name: str):
-    if config.ENV_MODE == EnvMode.LOCAL:
-        logger.info("Running in local development mode - billing checks are disabled")
-        return True, "Local development mode - billing disabled", {
-            "price_id": "local_dev",
-            "plan_name": "Local Development",
+    if config.ENV_MODE in [EnvMode.LOCAL, EnvMode.STAGING]:
+        logger.info(f"Running in {config.ENV_MODE.value} mode - billing checks are disabled")
+        return True, f"{config.ENV_MODE.value.title()} mode - billing disabled", {
+            "price_id": f"{config.ENV_MODE.value}_dev",
+            "plan_name": f"{config.ENV_MODE.value.title()} Development",
             "minutes_limit": "no limit"
         }
 
@@ -623,11 +623,11 @@ async def check_billing_status(client, user_id: str) -> Tuple[bool, str, Optiona
     Returns:
         Tuple[bool, str, Optional[Dict]]: (can_run, message, subscription_info)
     """
-    if config.ENV_MODE == EnvMode.LOCAL:
-        logger.info("Running in local development mode - billing checks are disabled")
-        return True, "Local development mode - billing disabled", {
-            "price_id": "local_dev",
-            "plan_name": "Local Development",
+    if config.ENV_MODE in [EnvMode.LOCAL, EnvMode.STAGING]:
+        logger.info(f"Running in {config.ENV_MODE.value} mode - billing checks are disabled")
+        return True, f"{config.ENV_MODE.value.title()} mode - billing disabled", {
+            "price_id": f"{config.ENV_MODE.value}_dev",
+            "plan_name": f"{config.ENV_MODE.value.title()} Development",
             "minutes_limit": "no limit"
         }
 
@@ -1385,11 +1385,11 @@ async def get_available_models(
         db = DBConnection()
         client = await db.client
         
-        # Check if we're in local development mode
-        if config.ENV_MODE == EnvMode.LOCAL:
-            logger.info("Running in local development mode - billing checks are disabled")
+        # Check if we're in local or staging development mode
+        if config.ENV_MODE in [EnvMode.LOCAL, EnvMode.STAGING]:
+            logger.info(f"Running in {config.ENV_MODE.value} mode - billing checks are disabled")
             
-            # In local mode, return all models from MODEL_NAME_ALIASES
+            # In development mode, return all models from MODEL_NAME_ALIASES
             model_info = []
             for short_name, full_name in MODEL_NAME_ALIASES.items():
                 # Skip entries where the key is a full name to avoid duplicates
@@ -1405,7 +1405,7 @@ async def get_available_models(
             
             return {
                 "models": model_info,
-                "subscription_tier": "Local Development",
+                "subscription_tier": f"{config.ENV_MODE.value.title()} Development",
                 "total_models": len(model_info)
             }
         
@@ -1570,13 +1570,13 @@ async def get_usage_logs_endpoint(
         db = DBConnection()
         client = await db.client
         
-        # Check if we're in local development mode
-        if config.ENV_MODE == EnvMode.LOCAL:
-            logger.info("Running in local development mode - usage logs are not available")
+        # Check if we're in local or staging development mode
+        if config.ENV_MODE in [EnvMode.LOCAL, EnvMode.STAGING]:
+            logger.info(f"Running in {config.ENV_MODE.value} mode - usage logs are not available")
             return {
                 "logs": [], 
                 "has_more": False,
-                "message": "Usage logs are not available in local development mode"
+                "message": f"Usage logs are not available in {config.ENV_MODE.value} development mode"
             }
         
         # Validate pagination parameters
