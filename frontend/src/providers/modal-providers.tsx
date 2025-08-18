@@ -1,9 +1,7 @@
-import { PaymentRequiredDialog } from "@/components/billing/payment-required-dialog"
-
 export const ModalProviders = () => {
   return (
     <>
-      <PaymentRequiredDialog />
+      {/* Modal providers - currently empty as modals are handled directly by components */}
     </>
   )
 }

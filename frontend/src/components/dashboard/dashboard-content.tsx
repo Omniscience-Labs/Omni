@@ -17,10 +17,10 @@ import { BillingErrorAlert } from '@/components/billing/usage-limit-alert';
 import { useAccounts } from '@/hooks/use-accounts';
 import { config, isLocalMode, isStagingMode } from '@/lib/config';
 import { useInitiateAgentWithInvalidation } from '@/hooks/react-query/dashboard/use-initiate-agent';
-import { ModalProviders } from '@/providers/modal-providers';
+
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
 import { cn } from '@/lib/utils';
-import { useModal } from '@/hooks/use-modal-store';
+import { BillingModal } from '@/components/billing/billing-modal';
 import { useAgentSelection } from '@/lib/stores/agent-selection-store';
 import { Examples } from './examples';
 import { useThreadQuery } from '@/hooks/react-query/threads/use-threads';
@@ -59,7 +59,7 @@ export function DashboardContent() {
   const personalAccount = accounts?.find((account) => account.personal_account);
   const chatInputRef = useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
-  const { onOpen } = useModal();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Feature flag for custom agents section
   const { enabled: customAgentsEnabled } = useFeatureFlag('custom_agents');
@@ -170,7 +170,7 @@ export function DashboardContent() {
     } catch (error: any) {
       console.error('Error during submission process:', error);
       if (error instanceof BillingError) {
-        onOpen("paymentRequiredDialog");
+        setShowPaymentModal(true);
       } else if (error instanceof AgentRunLimitError) {
         const { running_thread_ids, running_count } = error.detail;
         setAgentLimitData({
@@ -213,7 +213,11 @@ export function DashboardContent() {
 
   return (
     <>
-      <ModalProviders />
+      <BillingModal 
+        open={showPaymentModal} 
+        onOpenChange={setShowPaymentModal}
+        showUsageLimitAlert={true}
+      />
       <div className="flex flex-col h-screen w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full flex flex-col">
