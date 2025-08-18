@@ -297,11 +297,10 @@ export function ToolCallSidePanel({
             vnc_preview: sandbox.vnc_preview,
             pass: sandbox.pass
           }}
-          viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />}
         />
       </div>
     );
-  }, [sandbox, vncRefreshKey, currentView]);
+  }, [sandbox, vncRefreshKey]);
 
   // Helper function to check if a tool is browser-related
   const isBrowserTool = React.useCallback((toolName: string | undefined): boolean => {
@@ -898,7 +897,7 @@ export function ToolCallSidePanel({
           {/* Always render VNC iframe to maintain connection when available */}
           {persistentVncIframe && (
             <div className={`${currentView === 'browser' ? 'h-full flex flex-col' : 'hidden'}`}>
-              <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} />
+              <BrowserHeader isConnected={true} onRefresh={handleVncRefresh} viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />} />
               {/* VNC iframe container - unchanged */}
               <div className="flex-1 overflow-hidden">
                 {persistentVncIframe}
@@ -909,7 +908,7 @@ export function ToolCallSidePanel({
           {/* Show browser not available message when no VNC and browser tab is selected */}
           {!persistentVncIframe && currentView === 'browser' && (
             <div className="h-full flex flex-col">
-              <BrowserHeader isConnected={false} />
+              <BrowserHeader isConnected={false} viewToggle={<ViewToggle currentView={currentView} onViewChange={setCurrentView} />} />
               
               {/* Message content */}
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-900/50">

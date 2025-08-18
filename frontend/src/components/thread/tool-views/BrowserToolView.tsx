@@ -25,9 +25,10 @@ import { ImageLoader } from './shared/ImageLoader';
 interface BrowserHeaderProps {
   isConnected: boolean;
   onRefresh?: () => void;
+  viewToggle?: React.ReactNode;
 }
 
-export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRefresh }) => {
+export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRefresh, viewToggle }) => {
   return (
     <div className={`flex items-center justify-between px-3 md:px-4 py-2 border border-border ${!isConnected ? 'bg-muted/30 border-b' : ''}`}>
       <div className="flex items-center gap-2 justify-between min-w-0 flex-1">
@@ -41,24 +42,24 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRef
             </CardTitle>
           </div>
         </div>
-        <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl">
+        <div className='flex items-center gap-1'>
+        <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl mr-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500/80 animate-pulse' : 'bg-gray-400'}`}></div>
           <span className="sm:inline">Live Preview</span>
         </Badge>
-      </div>
-      
-      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+        {viewToggle}
         {isConnected && onRefresh && (
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            className="h-7 w-7 p-0 hover:bg-muted"
-            title="Refresh browser view"
+          variant="ghost"
+          size="sm"
+          onClick={onRefresh}
+          className="h-7 w-7 p-0 hover:bg-muted"
+          title="Refresh browser view"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         )}
+        </div>
       </div>
     </div>
   );
@@ -244,7 +245,6 @@ export function BrowserToolView({
             <ImageLoader />
           )}
           <Card className={`p-0 overflow-hidden relative border ${imageLoading ? 'hidden' : 'block'}`}>
-          <div className='absolute top-2 right-2 z-10'>{viewToggle}</div>
             <img
               src={screenshotUrl}
               alt="Browser Screenshot"
@@ -300,30 +300,35 @@ export function BrowserToolView({
             <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
               <MonitorPlay className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
-            <div>
+            <div className='flex items-center gap-2'>
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
                 {toolTitle}
               </CardTitle>
             </div>
           </div>
 
-          {!isRunning && (
-            <Badge
+          <div className='flex items-center gap-2'>
+            {!isRunning && (
+              <Badge
               variant="secondary"
               className={
                 isSuccess
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
-                  : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
+                ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
+                : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
-            >
-              {isSuccess ? (
-                <CheckCircle className="h-3.5 w-3.5 mr-1" />
-              ) : (
-                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-              )}
-              {isSuccess ? 'Browser action completed' : 'Browser action failed'}
-            </Badge>
-          )}
+              >
+                {isSuccess ? (
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                )}
+                {isSuccess ? 'Browser action completed' : 'Browser action failed'}
+              </Badge>
+            )}
+            {viewToggle}
+
+          </div>
+
 
         </div>
       </CardHeader>
