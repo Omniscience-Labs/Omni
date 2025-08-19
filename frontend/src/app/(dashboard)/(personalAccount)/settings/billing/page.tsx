@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { BillingModal } from '@/components/billing/billing-modal';
+import {
+  CreditBalanceDisplay,
+  CreditPurchaseModal
+} from '@/components/billing/credit-purchase';
 import { useAccounts } from '@/hooks/use-accounts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +19,7 @@ const returnUrl = process.env.NEXT_PUBLIC_URL as string;
 export default function PersonalAccountBillingPage() {
   const { data: accounts, isLoading, error } = useAccounts();
   const [showBillingModal, setShowBillingModal] = useState(false);
+  const [showCreditPurchaseModal, setShowCreditPurchaseModal] = useState(false);
 
   const {
     data: subscriptionData,
@@ -119,6 +124,17 @@ export default function PersonalAccountBillingPage() {
               </div>
             )}
 
+            {/* Credit Balance Display - Only show for users who can purchase credits */}
+            {subscriptionData?.can_purchase_credits && (
+              <div className="mb-6">
+                <CreditBalanceDisplay 
+                  balance={subscriptionData.credit_balance || 0}
+                  canPurchase={subscriptionData.can_purchase_credits}
+                  onPurchaseClick={() => setShowCreditPurchaseModal(true)}
+                />
+              </div>
+            )}
+
             <div className='flex justify-center items-center gap-4'>
               <Button
                 variant="outline"
@@ -139,6 +155,18 @@ export default function PersonalAccountBillingPage() {
           </>
         )}
       </div>
+      
+      {/* Credit Purchase Modal */}
+      <CreditPurchaseModal
+        open={showCreditPurchaseModal}
+        onOpenChange={setShowCreditPurchaseModal}
+        currentBalance={subscriptionData?.credit_balance || 0}
+        canPurchase={subscriptionData?.can_purchase_credits || false}
+        onPurchaseComplete={() => {
+          // Optionally refresh subscription data here
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

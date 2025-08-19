@@ -82,7 +82,6 @@ class ProfileService:
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }).eq('account_id', account_id)\
               .eq('mcp_qualified_name', mcp_qualified_name)\
-              .eq('is_active', True)\
               .execute()
         
         result = await client.table('user_mcp_credential_profiles').insert({
@@ -106,7 +105,6 @@ class ProfileService:
         client = await self._db.client
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('profile_id', profile_id)\
-            .eq('is_active', True)\
             .execute()
         
         if not result.data:
@@ -128,7 +126,6 @@ class ProfileService:
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('account_id', account_id)\
             .eq('mcp_qualified_name', mcp_qualified_name)\
-            .eq('is_active', True)\
             .order('is_default', desc=True)\
             .order('created_at', desc=True)\
             .execute()
@@ -139,7 +136,6 @@ class ProfileService:
         client = await self._db.client
         result = await client.table('user_mcp_credential_profiles').select('*')\
             .eq('account_id', account_id)\
-            .eq('is_active', True)\
             .order('created_at', desc=True)\
             .execute()
         
@@ -172,7 +168,6 @@ class ProfileService:
             'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('account_id', account_id)\
           .eq('mcp_qualified_name', profile.mcp_qualified_name)\
-          .eq('is_active', True)\
           .execute()
         
         result = await client.table('user_mcp_credential_profiles').update({
@@ -186,18 +181,15 @@ class ProfileService:
         if success:
             logger.debug(f"Set profile {profile_id} as default")
         
-        return success
+        return success 
     
     async def delete_profile(self, account_id: str, profile_id: str) -> bool:
         logger.debug(f"Deleting profile {profile_id}")
         
         client = await self._db.client
-        result = await client.table('user_mcp_credential_profiles').update({
-            'is_active': False,
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }).eq('profile_id', profile_id)\
+        result = await client.table('user_mcp_credential_profiles').delete()\
+          .eq('profile_id', profile_id)\
           .eq('account_id', account_id)\
-          .eq('is_active', True)\
           .execute()
         
         success = len(result.data) > 0

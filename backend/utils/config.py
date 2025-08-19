@@ -87,9 +87,17 @@ class Configuration:
     STRIPE_TIER_6_42_YEARLY_COMMITMENT_ID_STAGING: str = 'price_1RqYH1G6l1KZGqIrWDKh8xIU'  # $42.50/month
     STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_STAGING: str = 'price_1RqYHbG6l1KZGqIrAUVf8KpG'  # $170/month
     
+    # Credit package price IDs - Production
+    STRIPE_CREDITS_10_PRICE_ID_PROD: str = 'price_1RxXOvG6l1KZGqIrMqsiYQvk'
+    STRIPE_CREDITS_25_PRICE_ID_PROD: str = 'price_1RxXPNG6l1KZGqIrQprPgDme'
+    
+    # Credit package price IDs - Staging  
+    STRIPE_CREDITS_10_PRICE_ID_STAGING: str = 'price_1RxXOvG6l1KZGqIrMqsiYQvk'
+    STRIPE_CREDITS_25_PRICE_ID_STAGING: str = 'price_1RxXPNG6l1KZGqIrQprPgDme'
+    
     # Computed subscription tier IDs based on environment
     @property
-    def STRIPE_FREE_TIER_ID(self) -> str:
+    def STRIPE_FREE_TIER_ID(self) -> str:   
         if self.ENV_MODE == EnvMode.STAGING:
             return self.STRIPE_FREE_TIER_ID_STAGING
         return self.STRIPE_FREE_TIER_ID_PROD
@@ -197,6 +205,19 @@ class Configuration:
         if self.ENV_MODE == EnvMode.STAGING:
             return self.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_STAGING
         return self.STRIPE_TIER_25_170_YEARLY_COMMITMENT_ID_PROD
+    
+    # Credit package price ID properties
+    @property
+    def STRIPE_CREDITS_10_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_10_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_10_PRICE_ID_PROD
+    
+    @property
+    def STRIPE_CREDITS_25_PRICE_ID(self) -> str:
+        if self.ENV_MODE == EnvMode.STAGING:
+            return self.STRIPE_CREDITS_25_PRICE_ID_STAGING
+        return self.STRIPE_CREDITS_25_PRICE_ID_PROD
     
     # LLM API keys
     ANTHROPIC_API_KEY: Optional[str] = None
