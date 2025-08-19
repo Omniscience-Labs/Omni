@@ -1501,9 +1501,28 @@ async def get_agents(
                 if isinstance(tools, str):
                     tools_filter = [tool.strip() for tool in tools.split(',') if tool.strip()]
                 elif isinstance(tools, dict):
-                    # If tools is a dict, log the issue and skip filtering
-                    logger.warning(f"Received tools parameter as dict instead of string: {tools}")
+                    # If tools is a dict, extract tool names from the structure
+                    logger.info(f"Converting tools dict to filter list: {tools}")
                     tools_filter = []
+                    
+                    # Extract MCP tools
+                    if 'mcp' in tools and isinstance(tools['mcp'], list):
+                        tools_filter.extend(tools['mcp'])
+                    
+                    # Extract AgentPress tools (enabled ones)
+                    if 'agentpress' in tools and isinstance(tools['agentpress'], dict):
+                        agentpress_tools = tools['agentpress']
+                        for tool_name, enabled in agentpress_tools.items():
+                            if enabled:
+                                tools_filter.append(tool_name)
+                    
+                    # Extract custom MCP tools
+                    if 'custom_mcp' in tools and isinstance(tools['custom_mcp'], list):
+                        tools_filter.extend(tools['custom_mcp'])
+                    
+                    # Remove duplicates and clean up
+                    tools_filter = [str(tool).strip() for tool in tools_filter if str(tool).strip()]
+                    logger.info(f"Extracted tools filter: {tools_filter}")
                 elif isinstance(tools, list):
                     # If tools is a list, use it directly
                     tools_filter = [str(tool).strip() for tool in tools if str(tool).strip()]
