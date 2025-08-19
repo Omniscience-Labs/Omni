@@ -1008,7 +1008,7 @@ async def initiate_agent_with_files(
     # If using a different account_id (team context), verify access
     if account_id and account_id != user_id:
         # Check if user has access to this team account
-        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        access_check = await client.schema('basejump').from_('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
         if not access_check.data:
             raise HTTPException(status_code=403, detail="Access denied to create threads for this team")
     
@@ -1378,7 +1378,7 @@ async def get_agents(
     # If using a different account_id (team context), verify access
     if account_id and account_id != user_id:
         # Check if user has access to this team account
-        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        access_check = await client.schema('basejump').from_('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
         if not access_check.data:
             raise HTTPException(status_code=403, detail="Access denied to this team's agents")
     
@@ -3221,7 +3221,7 @@ async def create_thread(
     # If using a different account_id (team context), verify access
     if account_id and account_id != user_id:
         # Check if user has access to this team account
-        access_check = await client.table('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
+        access_check = await client.schema('basejump').from_('account_user').select('*').eq('account_id', account_id).eq('user_id', user_id).execute()
         if not access_check.data:
             raise HTTPException(status_code=403, detail="Access denied to create threads for this team")
     

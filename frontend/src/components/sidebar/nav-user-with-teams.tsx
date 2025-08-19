@@ -191,9 +191,17 @@ export function NavUserWithTeams({
   };
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/auth');
+    try {
+      const supabase = createClient();
+      if (supabase && supabase.auth) {
+        await supabase.auth.signOut();
+      }
+      router.push('/auth');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still navigate to auth page even if signOut fails
+      router.push('/auth');
+    }
   };
 
   const getInitials = (name: string) => {
