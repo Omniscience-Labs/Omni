@@ -84,27 +84,36 @@ export function NavUserWithTeams({
   );
 
   // Create a default list of teams with logos for the UI (will show until real data loads)
-  const defaultTeams = [
-    {
-      name: personalAccount?.name || 'Personal Account',
-      logo: Command,
-      plan: 'Personal',
-      account_id: personalAccount?.account_id,
-      slug: personalAccount?.slug,
-      personal_account: true,
-    },
-    ...(teamAccounts?.map((team) => ({
-      name: team.name,
-      logo: AudioWaveform,
-      plan: 'Team',
-      account_id: team.account_id,
-      slug: team.slug,
-      personal_account: false,
-    })) || []),
-  ];
+  const defaultTeams = React.useMemo(() => {
+    const teams = [];
+    
+    if (personalAccount) {
+      teams.push({
+        name: personalAccount.name || 'Personal Account',
+        logo: Command,
+        plan: 'Personal',
+        account_id: personalAccount.account_id,
+        slug: personalAccount.slug,
+        personal_account: true,
+      });
+    }
+    
+    if (teamAccounts?.length) {
+      teams.push(...teamAccounts.map((team) => ({
+        name: team?.name || 'Team',
+        logo: AudioWaveform,
+        plan: 'Team',
+        account_id: team?.account_id,
+        slug: team?.slug,
+        personal_account: false,
+      })));
+    }
+    
+    return teams;
+  }, [personalAccount, teamAccounts]);
 
   // Use the first team or first entry in defaultTeams as activeTeam
-  const [activeTeam, setActiveTeam] = React.useState(defaultTeams[0]);
+  const [activeTeam, setActiveTeam] = React.useState(() => defaultTeams[0] || {});
 
   // Update active team when accounts load
   React.useEffect(() => {
