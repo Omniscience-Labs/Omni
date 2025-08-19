@@ -23,25 +23,20 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Always call hooks first - before any conditional logic
+  // ALL HOOKS FIRST - must be called in same order every render
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const supabase = createClient();
-  
-  // Handle client creation errors after hooks
-  if (!supabase) {
-    console.error('❌ CRITICAL: Failed to create Supabase client');
-    return <div>Authentication system unavailable. Please check configuration.</div>;
-  }
-  
-  if (!supabase.auth) {
-    console.error('❌ CRITICAL: Supabase client missing auth module');
-    return <div>Authentication module unavailable.</div>;
-  }
 
   useEffect(() => {
+    // Handle supabase client availability inside useEffect
+    if (!supabase || !supabase.auth) {
+      console.error('❌ useEffect: Supabase client not available');
+      setIsLoading(false);
+      return;
+    }
     const getInitialSession = async () => {
       try {
         const {
@@ -84,6 +79,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       authListener?.subscription.unsubscribe();
     };
   }, [supabase]); // Removed isLoading from dependencies to prevent infinite loops
+
+  // Now handle client creation errors AFTER all hooks
+  if (!supabase) {
+    console.error('❌ CRITICAL: Failed to create Supabase client');
+    return <div>Authentication system unavailable. Please check configuration.</div>;
+  }
+  
+  if (!supabase.auth) {
+    console.error('❌ CRITICAL: Supabase client missing auth module');
+    return <div>Authentication module unavailable.</div>;
+  }
 
   const signOut = async () => {
     try {
