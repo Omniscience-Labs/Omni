@@ -13,10 +13,9 @@ interface HealthCheckedVncIframeProps {
     pass: string;
   };
   className?: string;
-  viewToggle?: React.ReactNode;
 }
 
-export function HealthCheckedVncIframe({ sandbox, className, viewToggle }: HealthCheckedVncIframeProps) {
+export function HealthCheckedVncIframe({ sandbox, className }: HealthCheckedVncIframeProps) {
   const [iframeKey, setIframeKey] = useState(0);
   
   // Use the enhanced VNC preloader hook
@@ -32,9 +31,9 @@ export function HealthCheckedVncIframe({ sandbox, className, viewToggle }: Healt
   // VNC URL received but preloading in progress
   if (status === 'loading') {
     return (
-      <div className={`overflow-hidden m-2 sm:m-4 ${className || ''}`}>
+      <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
-          <div className='flex flex-col items-center justify-center p-4 sm:p-8 bg-amber-50 dark:bg-amber-950/30'>
+          <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-amber-50 dark:bg-amber-950/30 flex flex-col items-center justify-center'>
             <Loader2 className="h-8 w-8 animate-spin text-amber-600 mb-3" />
             <p className="text-sm font-medium text-center mb-2">Connecting to browser...</p>
             <p className="text-xs text-muted-foreground mb-2 text-center">
@@ -54,9 +53,9 @@ export function HealthCheckedVncIframe({ sandbox, className, viewToggle }: Healt
   // VNC preload failed after retries
   if (status === 'error') {
     return (
-      <div className={`overflow-hidden m-2 sm:m-4 ${className || ''}`}>
+      <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
-          <div className='flex flex-col items-center justify-center p-4 sm:p-8 bg-destructive/10'>
+          <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-destructive/10 flex flex-col items-center justify-center'>
             <AlertCircle className="h-8 w-8 text-destructive mb-3" />
             <p className="text-sm font-medium text-center mb-2">Connection Failed</p>
             <p className="text-xs text-muted-foreground mb-4 text-center">
@@ -80,16 +79,12 @@ export function HealthCheckedVncIframe({ sandbox, className, viewToggle }: Healt
     return (
       <div className={`overflow-hidden m-2 sm:m-4 relative ${className || ''}`}>
         <Card className="p-0 overflow-hidden border">
-          <div className='absolute top-2 right-2 z-10'>{viewToggle}</div>
-          
           <div className='relative w-full aspect-[4/3] sm:aspect-[5/3] md:aspect-[16/11] overflow-hidden bg-gray-100 dark:bg-gray-800'>
             <iframe
               key={iframeKey}
               src={`${sandbox.vnc_preview}/vnc_lite.html?password=${sandbox.pass}&autoconnect=true&scale=local`}
               title="Browser preview"
               className="absolute inset-0 w-full h-full border-0 md:w-[102%] md:h-[130%] md:-translate-y-[4.4rem] lg:-translate-y-[4.7rem] xl:-translate-y-[5.4rem] md:left-0 md:-translate-x-2"
-              onLoad={() => console.log('✅ VNC iframe displayed')}
-              onError={() => console.log('❌ VNC iframe error')}
             />
           </div>
         </Card>

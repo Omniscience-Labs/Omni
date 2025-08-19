@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   CircleDashed,
   RefreshCw,
+  Code2,
+  ImageIcon,
 } from 'lucide-react';
 import { ToolViewProps } from './types';
 import {
@@ -21,13 +23,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ImageLoader } from './shared/ImageLoader';
+import { ParsedContent } from '../types';
+import { JsonViewer } from './shared/JsonViewer';
 
 interface BrowserHeaderProps {
   isConnected: boolean;
   onRefresh?: () => void;
+  viewToggle?: React.ReactNode;
 }
 
-export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRefresh }) => {
+export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRefresh, viewToggle }) => {
   return (
     <div className={`flex items-center justify-between px-3 md:px-4 py-2 border border-border ${!isConnected ? 'bg-muted/30 border-b' : ''}`}>
       <div className="flex items-center gap-2 justify-between min-w-0 flex-1">
@@ -41,24 +46,24 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({ isConnected, onRef
             </CardTitle>
           </div>
         </div>
-        <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl">
+        <div className='flex items-center gap-1'>
+        <Badge variant="outline" className="gap-1.5 p-2 rounded-3xl mr-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500/80 animate-pulse' : 'bg-gray-400'}`}></div>
           <span className="sm:inline">Live Preview</span>
         </Badge>
-      </div>
-      
-      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+        {viewToggle}
         {isConnected && onRefresh && (
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            className="h-7 w-7 p-0 hover:bg-muted"
-            title="Refresh browser view"
+          variant="ghost"
+          size="sm"
+          onClick={onRefresh}
+          className="h-7 w-7 p-0 hover:bg-muted rounded-xl"
+          title="Refresh browser view"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         )}
+        </div>
       </div>
     </div>
   );
@@ -103,7 +108,9 @@ export function BrowserToolView({
   let browserStateMessageId: string | undefined;
   let screenshotUrl: string | null = null;
   let screenshotBase64: string | null = null;
-
+  let result: Record<string, string> | null = null;
+  let parameters: Record<string, string> | null = null;
+  const [showContext, setShowContext] = React.useState(false);
   // Add loading states for images
   const [imageLoading, setImageLoading] = React.useState(true);
   const [imageError, setImageError] = React.useState(false);
@@ -195,6 +202,60 @@ export function BrowserToolView({
     }
   }
 
+  if ((!result || !parameters) && messages.length > 0 && browserStateMessageId) {
+
+    // Process browser state messages
+    const latestBrowserStateMessage = messages.filter(
+      (msg) => msg.type === 'browser_state' && msg.message_id === browserStateMessageId
+    );
+
+    for (const msg of latestBrowserStateMessage) {
+      const content = safeJsonParse<ParsedContent>(msg.content, {});
+      if (content) {
+        result = Object.fromEntries(Object.entries(content).filter(([k, v]) => k !== 'input'));
+      }
+      if (content.input) {
+        parameters = content.input;
+      }
+    }
+  }
+  if (!result || !parameters) {
+    const browserToolMessages = messages.filter(
+      m => m.type === 'tool' &&
+      safeJsonParse<ParsedContent>(m.content, {})?.tool_execution?.function_name?.startsWith('browser')
+    );
+
+    let matchingToolMessage = null;
+    const currentToolTimestamp = toolTimestamp;
+    
+    // First try to find exact match by timestamp correlation
+    if (currentToolTimestamp) {
+      matchingToolMessage = browserToolMessages.find((msg) => {
+        const msgTime = new Date(msg.created_at).getTime();
+        const toolTime = new Date(currentToolTimestamp).getTime();
+        return msgTime === toolTime;
+      });
+    }
+    
+    if (matchingToolMessage) {
+      const toolContent = safeJsonParse<ParsedContent>(matchingToolMessage.content, {});
+        if (toolContent?.tool_execution?.result?.output) {
+          // result = toolContent.tool_execution.result.output;
+          // Handle if output is a string or object
+          const output = toolContent.tool_execution.result.output;
+          if (typeof output === 'string') {
+            result = { message: output };
+          } else if (output && typeof output === 'object') {
+            result = Object.fromEntries(Object.entries(output).filter(([k, v]) => k !== 'message_id')) as Record<string, string>;
+          } else {
+            result = {};
+          }
+        }
+        if (toolContent?.tool_execution?.arguments) {
+          parameters = toolContent.tool_execution.arguments;
+        }
+    }
+  }
   const isRunning = isStreaming || agentStatus === 'running';
 
   const [progress, setProgress] = React.useState(100);
@@ -239,12 +300,11 @@ export function BrowserToolView({
 
     if (screenshotUrl) {
       return (
-        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4 -mt-14" style={{ minHeight: '600px' }}>
+        <div className="flex items-center justify-center w-full h-full min-h-[600px] relative p-4" style={{ minHeight: '600px' }}>
           {imageLoading && (
             <ImageLoader />
           )}
           <Card className={`p-0 overflow-hidden relative border ${imageLoading ? 'hidden' : 'block'}`}>
-          <div className='absolute top-2 right-2 z-10'>{viewToggle}</div>
             <img
               src={screenshotUrl}
               alt="Browser Screenshot"
@@ -293,47 +353,76 @@ export function BrowserToolView({
   };
 
   return (
-    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-hidden bg-card">
+    <Card className="gap-0 flex border shadow-none border-t border-b-0 border-x-0 p-0 rounded-none flex-col h-full overflow-scroll bg-card">
       <CardHeader className="h-14 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b p-2 px-4 space-y-2">
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20">
               <MonitorPlay className="w-5 h-5 text-purple-500 dark:text-purple-400" />
             </div>
-            <div>
+            <div className='flex items-center gap-2'>
               <CardTitle className="text-base font-medium text-zinc-900 dark:text-zinc-100">
                 {toolTitle}
               </CardTitle>
             </div>
           </div>
 
-          {!isRunning && (
-            <Badge
+          <div className='flex items-center gap-2'>
+            {!isRunning && (
+              <Badge
               variant="secondary"
               className={
                 isSuccess
-                  ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
-                  : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
+                ? "bg-gradient-to-b from-emerald-200 to-emerald-100 text-emerald-700 dark:from-emerald-800/50 dark:to-emerald-900/60 dark:text-emerald-300"
+                : "bg-gradient-to-b from-rose-200 to-rose-100 text-rose-700 dark:from-rose-800/50 dark:to-rose-900/60 dark:text-rose-300"
               }
+              >
+                {isSuccess ? (
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                )}
+                {isSuccess ? 'Browser action completed' : 'Browser action failed'}
+              </Badge>
+            )}
+            {viewToggle}
+            {(result || parameters) && <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowContext(!showContext)}
+              className="h-7 w-7 hover:bg-muted rounded-xl"
+              title={showContext ? "Show screenshot" : "Show INPUT/OUTPUT context"}
             >
-              {isSuccess ? (
-                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+              {showContext ? (
+                <ImageIcon className="h-3.5 w-3.5" />
               ) : (
-                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                <Code2 className="h-3.5 w-3.5" />
               )}
-              {isSuccess ? 'Browser action completed' : 'Browser action failed'}
-            </Badge>
-          )}
-
+            </Button>}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)', minHeight: '600px' }}>
-        <div className="flex-1 flex h-full items-stretch bg-white dark:bg-black">
-          {(screenshotUrl || screenshotBase64) ? (
+      <CardContent className="p-0 flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 150px)'}}>
+        <div className="flex-1 flex h-full items-center overflow-scroll bg-white dark:bg-black">
+          {showContext && (result || parameters) ? (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {parameters && <JsonViewer
+                data={parameters}
+                title="INPUT"
+                defaultExpanded={true}
+              />}
+              {result && <JsonViewer
+                data={result}
+                title="OUTPUT"
+                defaultExpanded={true}
+              />}
+            </div>
+          )
+          :(screenshotUrl || screenshotBase64) ? (
             renderScreenshot()
           ) : (
-            <div className="p-8 flex flex-col items-center justify-center w-full bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900 text-zinc-700 dark:text-zinc-400">
+            <div className="p-8 flex flex-col items-center justify-center w-full bg-gradient-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900 text-zinc-700 dark:text-zinc-400 min-h-600">
               <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-gradient-to-b from-purple-100 to-purple-50 shadow-inner dark:from-purple-800/40 dark:to-purple-900/60">
                 <MonitorPlay className="h-10 w-10 text-purple-400 dark:text-purple-600" />
               </div>
