@@ -22,7 +22,8 @@ export function useCurrentAccount(): CurrentAccount | null {
   const { data: accounts } = useAccounts();
 
   return useMemo(() => {
-    if (!accounts) return null;
+    try {
+      if (!accounts || !Array.isArray(accounts)) return null;
 
     // Extract team slug from URL path
     const teamMatch = pathname?.match(/^\/([^\/]+)(?:\/|$)/);
@@ -31,6 +32,8 @@ export function useCurrentAccount(): CurrentAccount | null {
     // For context-aware routes (agents, dashboard, etc.), check for stored team context
     if (contextAwareRoutes.includes(teamSlug)) {
       try {
+        // Ensure we're in the browser before accessing sessionStorage
+        if (typeof window === 'undefined') return null;
         const storedContext = sessionStorage.getItem(TEAM_CONTEXT_KEY);
         if (storedContext) {
           const context = JSON.parse(storedContext);
@@ -39,7 +42,7 @@ export function useCurrentAccount(): CurrentAccount | null {
           // If team context was stored recently (within 5 minutes), use it
           if (context.timestamp > fiveMinutesAgo) {
             const teamAccount = accounts.find(
-              (account) => !account.personal_account && account.account_id === context.account_id
+              (account) => account && !account.personal_account && account.account_id === context.account_id
             );
             
             if (teamAccount) {
@@ -67,7 +70,7 @@ export function useCurrentAccount(): CurrentAccount | null {
     // Check if we're on a team-specific route (e.g., /{team-slug}/dashboard)
     if (teamSlug && !contextAwareRoutes.includes(teamSlug)) {
       const teamAccount = accounts.find(
-        (account) => !account.personal_account && account.slug === teamSlug
+        (account) => account && !account.personal_account && account.slug === teamSlug
       );
       
       if (teamAccount) {
@@ -84,7 +87,7 @@ export function useCurrentAccount(): CurrentAccount | null {
 
     // Default to personal account if no team context
     console.log('👤 Using personal account context');
-    const personalAccount = accounts.find((account) => account.personal_account);
+    const personalAccount = accounts.find((account) => account?.personal_account);
     return personalAccount ? {
       account_id: personalAccount.account_id,
       name: personalAccount.name,
@@ -92,5 +95,9 @@ export function useCurrentAccount(): CurrentAccount | null {
       slug: personalAccount.slug,
       is_team_context: false,
     } : null;
+    } catch (error) {
+      console.error('Error in useCurrentAccount:', error);
+      return null;
+    }
   }, [pathname, accounts]);
 }
