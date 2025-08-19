@@ -30,6 +30,7 @@ class SandboxVideoAvatarTool(SandboxToolsBase):
     name: str = "sb_video_avatar_tool"
     
     # Keywords that should trigger this tool: video, avatar, generate, create, speech, presentation, content
+    # Force deployment update: 2025-08-19T05:15:00
     
     # Avatar configuration options
     AVATAR_OPTIONS = {
