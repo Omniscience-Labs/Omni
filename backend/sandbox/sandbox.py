@@ -9,8 +9,9 @@ load_dotenv()
 logger.debug("Initializing Daytona sandbox configuration")
 daytona_config = DaytonaConfig(
     api_key=config.DAYTONA_API_KEY,
-    api_url=config.DAYTONA_SERVER_URL,  # Use api_url instead of server_url (deprecated)
-    target=config.DAYTONA_TARGET,
+    api_url=config.DAYTONA_SERVER_URL if config.DAYTONA_SERVER_URL and config.DAYTONA_SERVER_URL.endswith('/api') 
+            else f"{(config.DAYTONA_SERVER_URL or 'https://app.daytona.io').rstrip('/')}/api",  # Ensure correct async API endpoint
+    target=config.DAYTONA_TARGET or "us",
 )
 
 if daytona_config.api_key:
